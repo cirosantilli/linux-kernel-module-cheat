@@ -9,7 +9,7 @@ Simple things that can be demonstrated by inserting a module into the currently 
 
 This method easier to setup, but it is not recommended for development, as:
 
-- it may break your system.
+- it may break your system
 - you can't control which kernel version to use
 
 Use VMs instead.
@@ -20,15 +20,21 @@ We only use it for super simple examples.
 
 Build, insert and remove a hello world module:
 
-    make ins
-    make rm
-    make log
+    make
 
-The last lines of the log should contain:
+    sudo insmod hello.ko
 
-    init_module
-    cleanup_module
+    # Our module should be there.
+    sudo lsmod | grep hello
 
-Insert and remove a module from a C program:
+    # Last message should be: init_module
+    dmest -T
 
-    make ins_rm_run
+    sudo rmmod hello
+
+    # Last message should be: cleanup_module
+    dmest -T
+
+Insert and remove the `hello.ko` module from a C program with system calls:
+
+	sudo ./ins_rm_mod.out
