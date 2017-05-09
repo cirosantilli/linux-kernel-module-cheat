@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+cd buildroot
+make BR2_EXTERNAL="$(pwd)/.." qemu_x86_64_defconfig
+echo '
+BR2_TOOLCHAIN_EXTERNAL=y
+BR2_PACKAGE_KERNEL_MODULE=y
+' >> .config
+make BR2_JLEVEL="$(($(nproc) - 2))"
+qemu-system-x86_64 -M pc -kernel output/images/bzImage -drive file=output/images/rootfs.ext2,if=virtio,format=raw -append root=/dev/vda -net nic,model=virtio -net user
