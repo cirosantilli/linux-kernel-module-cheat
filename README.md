@@ -30,3 +30,4 @@ The Linux kernel version can be found with:
     1.  Buildroot
         1. [hello](kernel_module/package/kernel_module/src/hello.c)
         1. [hello2](kernel_module/package/kernel_module/src/hello2.c)
+        1. [debugfs](kernel_module/package/kernel_module/src/debugfs.c)

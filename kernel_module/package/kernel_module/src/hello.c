@@ -1,5 +1,11 @@
 /*
 Hello world module.
+
+	dmesg -c
+	insmod hello.ko
+	dmesg -c | grep 'hello init'
+	rmmod hello.ko
+	dmesg -c | grep 'hello cleanup'
 */
 
 #include <linux/module.h>

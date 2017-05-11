@@ -2,7 +2,9 @@
 set -e
 cd buildroot
 make BR2_EXTERNAL="$(pwd)/../kernel_module" qemu_x86_64_defconfig
-echo 'BR2_PACKAGE_KERNEL_MODULE=y' >> .config
-# kernel_module-reconfigure rebuilds the modules if they were modified.
-env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(($(nproc) - 2))" kernel_module-reconfigure all
+echo '
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="../kernel-config-frag"
+BR2_PACKAGE_KERNEL_MODULE=y
+' >> .config
+env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(($(nproc) - 2))" kernel_module-rebuild all
 qemu-system-x86_64 -M pc -kernel output/images/bzImage -drive file=output/images/rootfs.ext2,if=virtio,format=raw -append root=/dev/vda -net nic,model=virtio -net user
