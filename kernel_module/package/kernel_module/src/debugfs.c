@@ -4,7 +4,7 @@ Adapted from: https://github.com/chadversary/debugfs-tutorial/blob/47b3cf7ca4720
 Requires CONFIG_DEBUG_FS.
 
 	mkdir /debugfs
-	mount -t debugfs none /sys/kernel/debug
+	mount -t debugfs none /debugfs
 	insmod /debugfs.ko
 	cd /debugfs/kernel_module_cheat
 	cat myfile
