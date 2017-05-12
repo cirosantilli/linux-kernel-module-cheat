@@ -16,7 +16,7 @@ QEMU opens up, and you can run:
     rmmod hello
     rmmod hello2
 
-Each module comes from a C file under `kernel_module/package/kernel_module/src/`.
+Each module comes from a C file under `kernel_module/`. `head *.c` for module usage.
 
 The Linux kernel version can be found with:
 
@@ -28,6 +28,6 @@ The Linux kernel version can be found with:
 1.  Examples
     1.  [Host](host/)
     1.  Buildroot
-        1. [hello](kernel_module/package/kernel_module/src/hello.c)
-        1. [hello2](kernel_module/package/kernel_module/src/hello2.c)
-        1. [debugfs](kernel_module/package/kernel_module/src/debugfs.c)
+        1. [hello](kernel_module/hello.c)
+        1. [hello2](kernel_module/hello2.c)
+        1. [debugfs](kernel_module/debugfs.c)
