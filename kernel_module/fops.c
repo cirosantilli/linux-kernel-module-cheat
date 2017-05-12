@@ -30,13 +30,18 @@ int fop_open(struct inode *inode, struct file *file)
 ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
 	printk(KERN_INFO "read\n");
+	printk(KERN_INFO "len = %zu\n", len);
+	/* TODO. */
+	/*copy_to_user(arg, &msg, size);*/
 	return 0;
 }
 
 ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
 {
 	printk(KERN_INFO "write\n");
-	return 0;
+	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
+	printk(KERN_INFO "len = %zu\n", len);
+	return len;
 }
 
 /*
