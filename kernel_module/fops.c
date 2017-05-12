@@ -1,6 +1,10 @@
 /*
 dmesg stuff when fops happen.
 
+Usage:
+
+	/fops.sh
+
 fops define what the kernel will do on filesystem system calls on all of
 /dev, /proc, /sys, and consistute the main method of userland communication
 in drivers (syscalls being the other one).
@@ -19,19 +23,19 @@ static struct dentry *dir = 0;
 
 int fop_open(struct inode *inode, struct file *file)
 {
-	printk(KERN_INFO "open");
+	printk(KERN_INFO "open\n");
 	return 0;
 }
 
 ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
-	printk(KERN_INFO "read");
+	printk(KERN_INFO "read\n");
 	return 0;
 }
 
 ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
 {
-	printk(KERN_INFO "write");
+	printk(KERN_INFO "write\n");
 	return 0;
 }
 
@@ -41,7 +45,7 @@ http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-
 */
 int fop_release (struct inode *inode, struct file *file)
 {
-	printk(KERN_INFO "release");
+	printk(KERN_INFO "release\n");
 	return 0;
 }
 

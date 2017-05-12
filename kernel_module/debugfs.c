@@ -1,17 +1,11 @@
 /*
 Adapted from: https://github.com/chadversary/debugfs-tutorial/blob/47b3cf7ca47208c61ccb51b27aac6f9f932bfe0b/example1/debugfs_example1.c
 
-Requires CONFIG_DEBUG_FS.
+Usage:
 
-	mkdir /debugfs
-	mount -t debugfs none /debugfs
-	insmod /debugfs.ko
-	cd /debugfs/kernel_module_cheat
-	cat myfile
+	/debugfs.sh
 
-Output:
-
-	42
+Requires `CONFIG_DEBUG_FS=y`.
 */
 
 #include <linux/debugfs.h>

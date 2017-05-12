@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel module examples. Tested in Ubuntu 14.04.
+Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel module example tutorials. Tested in Ubuntu 14.04.
 
 Usage:
 
@@ -30,3 +30,4 @@ The Linux kernel version can be found with:
         1. [hello](kernel_module/hello.c)
         1. [hello2](kernel_module/hello2.c)
         1. [debugfs](kernel_module/debugfs.c)
+        1. [fops](kernel_module/fops.c)
