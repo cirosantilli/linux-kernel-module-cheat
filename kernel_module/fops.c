@@ -1,5 +1,5 @@
 /*
-dmesg stuff when fops happen.
+Basic fops example, with a fixed size static data buffer.
 
 Usage:
 
@@ -27,54 +27,107 @@ MODULE_LICENSE("GPL");
 
 static struct dentry *dir = 0;
 
-int fop_open(struct inode *inode, struct file *file)
+static char data[] = {'a', 'b', 'c', 'd'};
+
+static int fop_open(struct inode *inode, struct file *file)
 {
 	printk(KERN_INFO "open\n");
 	return 0;
 }
 
-/**/
-ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t *off)
+/* @param[in,out] off: gives the initial position into the buffer.
+ *      We must increment this by the ammount of bytes read.
+ *      Then when userland reads the same file descriptor again,
+ *      we start from that point instead.
+ * */
+static ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
-	char s[] = "abcd";
 	printk(KERN_INFO "read\n");
 	printk(KERN_INFO "len = %zu\n", len);
 	printk(KERN_INFO "off = %lld\n", (long long)*off);
-	if (sizeof(s) <= *off) {
+	if (sizeof(data) <= *off) {
 		ret = 0;
 	} else {
-		ret = min(len, sizeof(s) - (size_t)*off);
-		if (copy_to_user(buf, s, ret)) {
+		ret = min(len, sizeof(data) - (size_t)*off);
+		if (copy_to_user(buf, data + *off, ret)) {
 			ret = -EFAULT;
 		} else {
 			*off += ret;
+		}
+	}
+	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
+	printk(KERN_INFO "ret = %lld\n", (long long)ret);
+	return ret;
+}
+
+/* Similar to read, but with one notable difference:
+ * we must return ENOSPC if the user tries to write more
+ * than the size of our buffer. Otherwise, Bash > just
+ * keeps trying to write to it infinitely. */
+static ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
+{
+	ssize_t ret;
+	printk(KERN_INFO "write\n");
+	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
+	printk(KERN_INFO "len = %zu\n", len);
+	printk(KERN_INFO "off = %lld\n", (long long)*off);
+	if (sizeof(data) <= *off) {
+		ret = 0;
+	} else {
+		if (sizeof(data) - (size_t)*off < len) {
+			ret = -ENOSPC;
+		} else {
+			if (copy_from_user(data + *off, buf, len)) {
+				ret = -EFAULT;
+			} else {
+				ret = len;
+				*off += ret;
+			}
 		}
 	}
 	printk(KERN_INFO "ret = %lld\n", (long long)ret);
 	return ret;
 }
 
-ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
-{
-	printk(KERN_INFO "write\n");
-	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
-	printk(KERN_INFO "len = %zu\n", len);
-	printk(KERN_INFO "off = %lld\n", (long long)*off);
-	return len;
-}
-
 /*
 Called on the last close:
 http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-release-in-struct-file-operations-in-the-l
 */
-int fop_release (struct inode *inode, struct file *file)
+static int fop_release (struct inode *inode, struct file *file)
 {
 	printk(KERN_INFO "release\n");
 	return 0;
 }
 
-const struct file_operations fops = {
+static loff_t fop_llseek(struct file *filp, loff_t off, int whence)
+{
+	loff_t newpos;
+	printk(KERN_INFO "llseek\n");
+	printk(KERN_INFO "off = %lld\n", (long long)off);
+	printk(KERN_INFO "whence = %lld\n", (long long)whence);
+
+	switch(whence) {
+		case SEEK_SET:
+			newpos = off;
+			break;
+		case SEEK_CUR:
+			newpos = filp->f_pos + off;
+			break;
+		case SEEK_END:
+			newpos = sizeof(data) + off;
+			break;
+		default:
+			return -EINVAL;
+	}
+	if (newpos < 0) return -EINVAL;
+	filp->f_pos = newpos;
+	printk(KERN_INFO "newpos = %lld\n", (long long)newpos);
+	return newpos;
+}
+
+static const struct file_operations fops = {
+	.llseek = fop_llseek,
 	.open = fop_open,
 	.read = fop_read,
 	.release = fop_release,

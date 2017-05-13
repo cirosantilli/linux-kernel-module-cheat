@@ -21,6 +21,12 @@ The Linux kernel version can be found with:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/.config
 
+We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
+
+    dmesg -n 1
+
+See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console>
+
 1.  [Introduction](introduction.md)
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
