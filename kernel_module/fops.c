@@ -5,6 +5,9 @@ Usage:
 
 	/fops.sh
 
+No, there ain't no official docs:
+http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
+
 fops define what the kernel will do on filesystem system calls on all of
 /dev, /proc, /sys, and consistute the main method of userland communication
 in drivers (syscalls being the other one).
@@ -13,9 +16,12 @@ Here we use debugfs.
 */
 
 #include <linux/debugfs.h>
+#include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h>
-#include <linux/kernel.h>
+#include <linux/kernel.h> /* min */
 #include <linux/module.h>
+#include <linux/printk.h> /* printk */
+#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 
 MODULE_LICENSE("GPL");
 
@@ -27,13 +33,26 @@ int fop_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/**/
 ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
+	ssize_t ret;
+	char s[] = "abcd";
 	printk(KERN_INFO "read\n");
 	printk(KERN_INFO "len = %zu\n", len);
-	/* TODO. */
-	/*copy_to_user(arg, &msg, size);*/
-	return 0;
+	printk(KERN_INFO "off = %lld\n", (long long)*off);
+	if (sizeof(s) <= *off) {
+		ret = 0;
+	} else {
+		ret = min(len, sizeof(s) - (size_t)*off);
+		if (copy_to_user(buf, s, ret)) {
+			ret = -EFAULT;
+		} else {
+			*off += ret;
+		}
+	}
+	printk(KERN_INFO "ret = %lld\n", (long long)ret);
+	return ret;
 }
 
 ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
@@ -41,6 +60,7 @@ ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t 
 	printk(KERN_INFO "write\n");
 	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
 	printk(KERN_INFO "len = %zu\n", len);
+	printk(KERN_INFO "off = %lld\n", (long long)*off);
 	return len;
 }
 

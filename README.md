@@ -24,6 +24,7 @@ The Linux kernel version can be found with:
 1.  [Introduction](introduction.md)
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
+1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)
     1.  Buildroot

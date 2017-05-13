@@ -6,14 +6,20 @@ mount -t debugfs none /fops
 cd /fops/kernel_module_cheat
 
 cat fops
-# => open
-# => read
-# => len = [0-9]+
-# => close
+# => abcd
+# dmesg => open
+# dmesg => read
+# dmesg => len = [0-9]+
+# dmesg => close
 
 printf a >fops
-# => open
-# => write
-# => len = a
-# => len = 1
-# => close
+# dmesg => open
+# dmesg => write
+# dmesg => len = 1
+# dmesg => buf = a
+# dmesg => close
+
+cd /
+umount /fops
+rmdir /fops
+rmmod fops
