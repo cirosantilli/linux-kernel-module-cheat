@@ -1,4 +1,4 @@
-obj-m += $(addsuffix .o, $(notdir $(basename $(wildcard $(BR2_EXTERNAL_KERNEL_MODULE_PATH)/*.c))))
+obj-m += workqueue.o
 ccflags-y := -Wno-declaration-after-statement -std=gnu99
 
 .PHONY: all clean
