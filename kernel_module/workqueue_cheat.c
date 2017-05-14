@@ -1,4 +1,3 @@
-
 /*
 Usage:
 
@@ -7,6 +6,9 @@ Usage:
 	rmmod workqueue
 
 Creates a separate thread. So init_module can return, but some work will still get done.
+
+TODO why can't call this workqueue.ko?
+https://unix.stackexchange.com/questions/364956/how-can-insmod-fail-with-kernel-module-is-already-loaded-even-is-lsmod-does-not
 */
 
 #include <linux/kernel.h>

@@ -39,3 +39,4 @@ See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-fr
         1. [debugfs](kernel_module/debugfs.c)
         1. [fops](kernel_module/fops.c)
         1. [workqueue](kernel_module/workqueue.c)
+        1. [panic](kernel_module/panic.c)

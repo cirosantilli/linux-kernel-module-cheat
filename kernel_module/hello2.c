@@ -7,6 +7,8 @@ Mostly to check that our build infrastructure can handle more than one module!
 #include <linux/module.h>
 #include <linux/kernel.h>
 
+MODULE_LICENSE("GPL");
+
 int init_module(void)
 {
 	printk(KERN_INFO "hello2 init\n");
