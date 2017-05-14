@@ -15,7 +15,9 @@ QEMU opens up, and you can run:
     rmmod hello
     rmmod hello2
 
-Each module comes from a C file under `kernel_module/`. `head *.c` for module usage.
+Each module comes from a C file under `kernel_module/`. For module usage do:
+
+    head *.c
 
 We use Buildroot's default kernel version, you can confirm it after build with:
 
