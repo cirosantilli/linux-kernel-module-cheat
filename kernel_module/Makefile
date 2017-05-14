@@ -1,4 +1,4 @@
-obj-m += debugfs.o fops.o hello.o hello2.o
+obj-m += $(addsuffix .o, $(notdir $(basename $(wildcard $(BR2_EXTERNAL_KERNEL_MODULE_PATH)/*.c))))
 ccflags-y := -Wno-declaration-after-statement -std=gnu99
 
 .PHONY: all clean
