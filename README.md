@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel module example tutorials. Tested in Ubuntu 14.04.
+Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials. Tested in Ubuntu 14.04.
 
 Usage:
 
@@ -17,7 +17,7 @@ QEMU opens up, and you can run:
 
 Each module comes from a C file under `kernel_module/`. `head *.c` for module usage.
 
-The Linux kernel version can be found with:
+We use Buildroot's default kernel version, you can confirm it after build with:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/.config
 
