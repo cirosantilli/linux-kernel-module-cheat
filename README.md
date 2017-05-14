@@ -17,9 +17,7 @@ QEMU opens up, and you can run:
 
 Each module comes from a C file under `kernel_module/`. For module usage do:
 
-    head *.c
-
-We use Buildroot's default kernel version, you can confirm it after build with:
+    head *. use Buildroot's default kernel version, you can confirm it after build with:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/.config
 
@@ -46,3 +44,4 @@ When your kernel starts crashing, get the full trace with:
         1. [fops](kernel_module/fops.c)
         1. [workqueue](kernel_module/workqueue.c)
         1. [panic](kernel_module/panic.c)
+        1. [delay](kernel_module/delay.c)
