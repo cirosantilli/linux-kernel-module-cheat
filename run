@@ -1,5 +1,24 @@
 #!/usr/bin/env bash
 set -e
+
+# CLI handling.
+nographic=false
+while getopts n OPT; do
+  case "$OPT" in
+    n)
+      nographic=true
+      ;;
+  esac
+done
+if $nographic; then
+  extra_append='console=ttyS0'
+  extra_flags='-nographic'
+else
+  extra_append=''
+  extra_flags=''
+fi
+
+# Work.
 cd buildroot
 make BR2_EXTERNAL="$(pwd)/../kernel_module" qemu_x86_64_defconfig
 echo '
@@ -11,9 +30,10 @@ BR2_ROOTFS_OVERLAY="../rootfs_overlay"
 env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(($(nproc) - 2))" kernel_module-rebuild all
 qemu-system-x86_64 \
   -M pc \
-  -append 'root=/dev/vda' \
+  -append "root=/dev/vda $extra_append" \
   -drive file=output/images/rootfs.ext2,if=virtio,format=raw \
   -kernel output/images/bzImage \
   -net nic,model=virtio \
   -net user \
+  $extra_flags \
 ;

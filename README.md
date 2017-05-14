@@ -27,6 +27,10 @@ We use `printk` a lot, and it shows on the QEMU terminal by default. If that ann
 
 See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console>
 
+When your kernel starts crashing, get the full trace with:
+
+    ./run -n
+
 1.  [Introduction](introduction.md)
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
