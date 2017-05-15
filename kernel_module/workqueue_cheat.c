@@ -39,9 +39,6 @@ int init_module(void)
 
 void cleanup_module(void)
 {
-	/* TODO why is this needed? Why flush_workqueue doesn't work? (re-insmod panics)
-	 * http://stackoverflow.com/questions/37216038/whats-the-difference-between-flush-delayed-work-and-cancel-delayed-work-sync */
-	/*flush_workqueue(queue);*/
-	cancel_work_sync(&work);
+	/* Waits for jobs to finish. */
 	destroy_workqueue(queue);
 }
