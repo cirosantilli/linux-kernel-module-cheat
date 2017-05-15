@@ -1,6 +1,6 @@
-# Test
+# User
 
-Userland C programs used to test our kernel module.
+Userland C programs used to test our kernel modules.
 
 `sh` programs are simpler, and installed copied directly with an overlay.
 
