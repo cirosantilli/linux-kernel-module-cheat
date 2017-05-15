@@ -9,6 +9,10 @@ Creates a separate thread. So init_module can return, but some work will still g
 
 Can't call this just workqueue.c because there is already a built-in with that name:
 https://unix.stackexchange.com/questions/364956/how-can-insmod-fail-with-kernel-module-is-already-loaded-even-is-lsmod-does-not
+
+Bibliography:
+
+- https://www.ibm.com/developerworks/library/l-tasklets/
 */
 
 #include <linux/kernel.h>

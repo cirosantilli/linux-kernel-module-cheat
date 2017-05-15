@@ -7,8 +7,6 @@ Usage:
 dmesg prints an integer every second until rmmod.
 
 Since insmod returns, this Illustrates how the work queues are asynchronous.
-
-TODO: insmod not returning...
 */
 
 #include <linux/delay.h>
@@ -43,6 +41,9 @@ int init_module(void)
 
 void cleanup_module(void)
 {
+	/* This waits for the work to finish. From docstring: */
+	/* > Cancel @work and wait for its execution to finish. */
 	cancel_work_sync(&work);
+
 	destroy_workqueue(queue);
 }
