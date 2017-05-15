@@ -43,7 +43,9 @@ void cleanup_module(void)
 {
 	/* This waits for the work to finish. From docstring: */
 	/* > Cancel @work and wait for its execution to finish. */
-	cancel_work_sync(&work);
+	cancel_work(&work);
+
+	/*cancel_work(&work);*/
 
 	destroy_workqueue(queue);
 }

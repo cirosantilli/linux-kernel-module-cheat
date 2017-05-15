@@ -3,7 +3,6 @@
 Simple things that can be demonstrated by inserting a module into the currently running host. Tested on Ubuntu 16.04.
 
 1. [hello](hello.c)
-1. [ins_rm_mod.c](ins_rm_mod.c)
 
 ## Rationale
 
@@ -34,7 +33,3 @@ Build, insert and remove a hello world module:
 
     # Last message should be: cleanup_module
     dmest -T
-
-Insert and remove the `hello.ko` module from a C program with system calls:
-
-	sudo ./ins_rm_mod.out
