@@ -42,10 +42,15 @@ Then if you want your terminal back, hit `Ctrl + C, A` and type `quit`. See also
 1.  Examples
     1.  [Host](host/)
     1.  Buildroot
-        1. [hello](kernel_module/hello.c)
-        1. [hello2](kernel_module/hello2.c)
-        1. [debugfs](kernel_module/debugfs.c)
-        1. [fops](kernel_module/fops.c)
-        1. [workqueue](kernel_module/workqueue.c)
-        1. [panic](kernel_module/panic.c)
-        1. [delay](kernel_module/delay.c)
+        1.  Debugging
+            1.  [hello](kernel_module/hello.c)
+            1.  [hello2](kernel_module/hello2.c)
+            1.  [debugfs](kernel_module/debugfs.c)
+            1.  [panic](kernel_module/panic.c)
+        1.  [fops](kernel_module/fops.c)
+        1.  Asynchronous
+            1. [workqueue](kernel_module/workqueue.c)
+            1. [sleep](kernel_module/sleep.c)
+            1. [kthread](kernel_module/kthread.c)
+            1. [timer](kernel_module/timer.c)
+            1. [work_from_work](kernel_module/work_from_work.c)

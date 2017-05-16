@@ -9,7 +9,7 @@ dmesg prints an integer every second until rmmod.
 Since insmod returns, this also illustrates how the work queues are asynchronous.
 */
 
-#include <linux/delay.h>
+#include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h> /* atomic_t */
@@ -32,10 +32,9 @@ static void work_func(struct work_struct *work)
 	}
 }
 
-DECLARE_WORK(work, work_func);
-
 int init_module(void)
 {
+	DECLARE_WORK(work, work_func);
 	queue = create_workqueue("myworkqueue");
 	queue_work(queue, &work);
 	return 0;
