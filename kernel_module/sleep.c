@@ -1,27 +1,29 @@
 /*
 Usage:
 
-	insmod /delay.ko
-	rmmod delay
+	insmod /sleep.ko
+	rmmod sleep
 
 dmesg prints an integer every second until rmmod.
 
-Since insmod returns, this Illustrates how the work queues are asynchronous.
+Since insmod returns, this also illustrates how the work queues are asynchronous.
 */
 
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/types.h> /* atomic_t */
 #include <linux/workqueue.h>
 
 MODULE_LICENSE("GPL");
 
 static struct workqueue_struct *queue;
+static atomic_t run = ATOMIC_INIT(1);
 
 static void work_func(struct work_struct *work)
 {
 	int i = 0;
-	while (1) {
+	while (atomic_read(&run)) {
 		printk(KERN_INFO "%d\n", i);
 		usleep_range(1000000, 1000001);
 		i++;
@@ -41,8 +43,6 @@ int init_module(void)
 
 void cleanup_module(void)
 {
-	/* This waits for the work to finish. From docstring: */
-	/* > Cancel @work and wait for its execution to finish. */
-	cancel_work_sync(&work);
+	atomic_set(&run, 0);
 	destroy_workqueue(queue);
 }
