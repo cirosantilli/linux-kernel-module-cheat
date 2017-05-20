@@ -10,6 +10,7 @@ First build will take a while (GCC, Linux kernel).
 
 QEMU opens up, and you can run:
 
+    root
     insmod /hello.ko
     insmod /hello2.ko
     rmmod hello

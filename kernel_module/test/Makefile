@@ -1,9 +1,16 @@
-CC = gcc
 
 .PHONY: clean
 
-ins_rm_mod: ins_rm_mod.c
+CC ?= gcc
+IN_EXT ?= .c
+OUT_EXT ?= .out
+
+OUTS := $(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT))))
+
+all: $(OUTS)
+
+%$(OUT_EXT): %$(IN_EXT)
 	$(CC) -o '$@' '$<'
 
 clean:
-	rm ins_rm_mod
+	rm -f *'$(OUT_EXT)'
