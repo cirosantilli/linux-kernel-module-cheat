@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -e
+
+# CLI handling.
+extra_append=''
+extra_flags=''
+while getopts dn OPT; do
+  case "$OPT" in
+    d)
+      extra_flags="$extra_flags -S -s"
+      ;;
+    n)
+      extra_append="$extra_append console=ttyS0"
+      extra_flags="$extra_flags -nographic"
+      ;;
+  esac
+done
+
+qemu-system-x86_64 \
+  -M pc \
+  -append "root=/dev/vda $extra_append" \
+  -drive file=buildroot/output/images/rootfs.ext2,if=virtio,format=raw \
+  -kernel buildroot/output/images/bzImage \
+  -m 128M \
+  -net nic,model=virtio \
+  -net user \
+  -smp 1 \
+  $extra_flags \
+;
