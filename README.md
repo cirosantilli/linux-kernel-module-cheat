@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials. Tested in Ubuntu 14.04 host.
+Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials. Tested in Ubuntu 14.04 - 16.10 hosts.
 
 Usage:
 
@@ -16,6 +16,15 @@ QEMU opens up, and you can run:
     insmod /hello2.ko
     rmmod hello
     rmmod hello2
+
+This should print to the screen:
+
+    hello init
+    hello2 init
+    hello cleanup
+    hello2 cleanup
+
+which are `printk` messages from `init` and `cleanup` methods of those modules.
 
 Each module comes from a C file under `kernel_module/`. For module usage do:
 
@@ -37,11 +46,11 @@ See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-fr
 
 ## Debugging
 
-GDB the linux kernel:
+To GDB the Linux kernel, first run:
 
     ./runqemu -d
 
-If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, open another terminal and run for example:
+If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, open another terminal and run:
 
     ./rungdb start_kernel
 
@@ -71,6 +80,8 @@ And now you can control the counting from GDB:
     continue
     continue
     continue
+
+See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu>
 
 ## Text mode
 
