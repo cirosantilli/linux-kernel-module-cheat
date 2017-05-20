@@ -1,5 +1,5 @@
 obj-m += $(addsuffix .o, $(notdir $(basename $(wildcard $(BR2_EXTERNAL_KERNEL_MODULE_PATH)/*.c))))
-ccflags-y := -Wno-declaration-after-statement -std=gnu99
+ccflags-y := -DDEBUG -g -std=gnu99 -Wno-declaration-after-statement
 
 .PHONY: all clean test
 
