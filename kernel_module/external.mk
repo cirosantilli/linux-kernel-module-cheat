@@ -14,7 +14,7 @@ endef
 
 define KERNEL_MODULE_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0655 $(@D)/*.ko '$(TARGET_DIR)'
-	$(INSTALL) -D -m 0755 $(@D)/test/ins_rm_mod '$(TARGET_DIR)'
+	$(INSTALL) -D -m 0755 $(@D)/test/*.out '$(TARGET_DIR)'
 endef
 
 $(eval $(kernel-module))

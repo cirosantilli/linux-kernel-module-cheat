@@ -1,4 +1,3 @@
-
 .PHONY: clean
 
 CC ?= gcc
