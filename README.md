@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials. Tested in Ubuntu 14.04 - 16.10 hosts.
+Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials with GDB debug support. Tested in Ubuntu 14.04 - 16.10 hosts.
 
 Usage:
 
@@ -26,11 +26,9 @@ This should print to the screen:
 
 which are `printk` messages from `init` and `cleanup` methods of those modules.
 
-Each module comes from a C file under `kernel_module/`. For module usage do:
+Each module comes from a C file under `kernel_module/`. For module usage see:
 
-    head *. use Buildroot's default kernel version, you can confirm it after build with:
-
-    grep BR2_LINUX_KERNEL_VERSION buildroot/.config
+    head kernel_module/*.c
 
 After the first build, you can also run just:
 
@@ -43,6 +41,10 @@ We use `printk` a lot, and it shows on the QEMU terminal by default. If that ann
     dmesg -n 1
 
 See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console>
+
+We use Buildroot's default kernel version, you can confirm it after build with:
+
+    grep BR2_LINUX_KERNEL_VERSION buildroot/.config
 
 ## Text mode
 
@@ -110,6 +112,57 @@ QEMU cannot be put on the background of the current shell, so you will need to o
     ./rungdb
 
 manually.
+
+### Kernel module debugging
+
+Loadable kernel modules are a bit trickier since the kernel can place them at different memory locations depending on load other.
+
+So we cannot set the breakpoints before `insmod`.
+
+However, the Linux kernel GDB scripts offer the `lx-symbols` command, which takes care of that beautifully for us:
+
+    ./runqemu -d
+    ./rungdb
+
+In QEMU:
+
+    insmod /fops.ko
+
+In GDB, hit `Ctrl + C`, and note how it says:
+
+    scanning for modules in ../kernel_module-1.0/
+    loading @0xffffffffa0000000: ../kernel_module-1.0//fops.ko
+
+That's `lx-symbols` working! Now simply:
+
+    b fop_write
+    c
+
+In QEMU:
+
+    printf a >/sys/kernel/debug/kernel_module_cheat/fops
+
+and GDB now breaks at our `fop_write` function!
+
+Just don't forget to remove your breakpoints after `rmmod`, or they will point to stale memory locations.
+
+TODO: why does `break work_func` for `insmod kthread.ko` not break the first time I `insmod`, but breaks the second time?
+
+#### Bypassing lx-symbols
+
+Useless, but a good way to show how hardcore you are. From inside QEMU:
+
+    insmod /fops.ko
+    cat /proc/modules
+
+This will give a line of form:
+
+    fops 2327 0 - Live 0xfffffffa00000000
+
+And then tell GDB where the module was loaded with:
+
+    Ctrl + C
+    add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
 
 ## Table of contents
 
