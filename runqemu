@@ -3,23 +3,27 @@
 set -e
 
 # CLI handling.
+debug=false
+nographic=false
 extra_append=''
 extra_flags=''
 while getopts dn OPT; do
   case "$OPT" in
     d)
+      debug=true
       extra_flags="$extra_flags -S -s"
       ;;
     n)
       extra_append="$extra_append console=ttyS0"
       extra_flags="$extra_flags -nographic"
+      nographic=true
       ;;
   esac
 done
 
-qemu-system-x86_64 \
+cmd="qemu-system-x86_64 \
   -M pc \
-  -append "root=/dev/vda $extra_append" \
+  -append 'root=/dev/vda $extra_append' \
   -drive file=buildroot/output/images/rootfs.ext2,if=virtio,format=raw \
   -kernel buildroot/output/images/bzImage \
   -m 128M \
@@ -28,3 +32,15 @@ qemu-system-x86_64 \
   -smp 1 \
   $extra_flags \
 ;
+"
+
+if $debug && ! $nographic; then
+  eval nohup "$cmd" &>/dev/null &
+  # TODO: Ctrl +C gets sent to QEMU? Why? Does not happen if I run
+  # ./rungdb manually from outside this script!!! But why?!?!
+  # eval has nothing to do with it, minimized example with explicit
+  # commands also fails in the same way...
+  #./rungdb
+else
+  eval "$cmd"
+fi

@@ -44,13 +44,31 @@ We use `printk` a lot, and it shows on the QEMU terminal by default. If that ann
 
 See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console>
 
+## Text mode
+
+Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
+
+    ./run -n
+
+To exit, just do a regular:
+
+    poweroff
+
+This is particularly useful to get full panic traces when you start making the kernel crashing :-)
+
+In case of a panic, you want your terminal back with `Ctrl + C, A` and type `quit`. See also: <http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses>
+
+See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
+
 ## Debugging
 
 To GDB the Linux kernel, first run:
 
     ./runqemu -d
 
-If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, open another terminal and run:
+This starts QEMU on the background of the shell, to prepare for running GDB.
+
+If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, run:
 
     ./rungdb start_kernel
 
@@ -83,21 +101,15 @@ And now you can control the counting from GDB:
 
 See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu>
 
-## Text mode
+If you are using text mode:
 
-Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
+    ./runqemu -d -n
 
-    ./run -n
+QEMU cannot be put on the background of the current shell, so you will need to open a separate terminal and run:
 
-To exit, just do a regular:
+    ./rungdb
 
-    poweroff
-
-This is particularly useful to get full panic traces when you start making the kernel crashing :-)
-
-In case of a panic, you want your terminal back with `Ctrl + C, A` and type `quit`. See also: <http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses>
-
-See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
+manually.
 
 ## Table of contents
 
