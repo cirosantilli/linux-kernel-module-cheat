@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials with GDB debug support. Tested in Ubuntu 14.04 - 16.10 hosts.
+Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials with GDB debug support. x86 and ARM guests supported. Tested in Ubuntu 14.04 - 16.10 hosts.
 
 Usage:
 
@@ -175,6 +175,37 @@ And then tell GDB where the module was loaded with:
 
     Ctrl + C
     add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
+
+## ARM
+
+The portability of the kernel and toolchains is amazing.
+
+If you already have an x86 build present, first:
+
+    cd buildroot
+    mv output output.x86~
+
+First ARM build:
+
+    ./run -a arm
+
+Run without build:
+
+    ./runqemu -a arm
+
+Debug:
+
+    ./runqemu -a arm -d
+    # On another terminal.
+    ./rungdb -a arm
+
+ARM TODOs:
+
+-   only managed to run in the terminal interface (but weirdly an blank QEMU window is still opened)
+-   Ctrl + C kills the emulator, not sent to guest. See:
+    - <https://github.com/cloudius-systems/osv/issues/49>
+    - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
+-   `fops.ko`, `printf a >fops` crashes with `BUG: recent printk recursion!`
 
 ## Table of contents
 
