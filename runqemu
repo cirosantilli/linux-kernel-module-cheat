@@ -3,12 +3,16 @@
 set -e
 
 # CLI handling.
+arch=x86_64
 debug=false
 nographic=false
 extra_append=''
 extra_flags=''
-while getopts dn OPT; do
+while getopts a:dn OPT; do
   case "$OPT" in
+    a)
+      arch=$OPTARG
+      ;;
     d)
       debug=true
       extra_flags="$extra_flags -S -s"
@@ -21,31 +25,41 @@ while getopts dn OPT; do
   esac
 done
 
-# If we turn on buildroot host QEMU some day.
-#cmd="./buildroot/output/host/usr/bin/qemu-system-x86_64 \
-#cmd="qemu-system-arm \
-#cmd="qemu-system-x86_64 \
-  #-M pc \
-  #-append 'root=/dev/vda $extra_append' \
-  #-drive file=buildroot/output/images/rootfs.ext2,if=virtio,format=raw \
-  #-kernel buildroot/output/images/zImage \
-  #-m 128M \
-  #-net user \
-  #-smp 1 \
-  #$extra_flags \
-  #-M pc \
-  #-net nic,model=virtio \
-  #-kernel buildroot/output/images/bzImage \
-#;
-#"
+images_dir='buildroot/output/images'
+case "$arch" in
+  x86_64)
+      # If we turn on buildroot host QEMU some day.
+      #cmd="./buildroot/output/host/usr/bin/qemu-system-x86_64 \
+      cmd="qemu-system-x86_64 \
+        -M pc \
+        -append 'root=/dev/vda $extra_append' \
+        -drive file=${images_dir}/rootfs.ext2,if=virtio,format=raw \
+        -kernel ${images_dir}/bzImage \
+        -m 128M \
+        -net nic,model=virtio \
+        -net user \
+        -smp 1 \
+        $extra_flags
+      "
+    ;;
+  arm)
+    cmd="qemu-system-arm \
+      -M versatilepb \
+      -append 'root=/dev/sda console=ttyAMA0,115200' \
+      -drive file=${images_dir}/rootfs.ext2,if=scsi,format=raw \
+      -dtb ${images_dir}/versatile-pb.dtb \
+      -kernel ${images_dir}/zImage \
+      -m 128M \
+      -net nic,model=rtl8139 \
+      -net user \
+      -serial stdio \
+      -smp 1 \
+      $extra_flags"
+    ;;
+esac
 
-
-cmd='qemu-system-arm -M versatilepb -kernel buildroot/output/images/zImage -dtb buildroot/output/images/versatile-pb.dtb -drive file=buildroot/output/images/rootfs.ext2,if=scsi,format=raw -append "root=/dev/sda console=ttyAMA0,115200" -serial stdio -net nic,model=rtl8139 -net user -nographic'
-#cmd='/data/git/buildroot/output/host/usr/bin/qemu-system-arm -M vexpress-a9 -smp 1 -m 256 -kernel buildroot/output/images/zImage -dtb buildroot/output/images/vexpress-v2p-ca9.dtb -drive file=buildroot/output/images/rootfs.ext2,if=sd,format=raw -append "console=ttyAMA0,115200 root=/dev/mmcblk0" -serial stdio -net nic,model=lan9118 -net user'
-#cmd='qemu-system-arm -M vexpress-a9 -smp 1 -m 256 -kernel buildroot/output/images/zImage -dtb buildroot/output/images/vexpress-v2p-ca9.dtb -drive file=buildroot/output/images/rootfs.ext2,if=sd,format=raw -append "console=ttyAMA0,115200 root=/dev/mmcblk0" -serial stdio -net nic,model=lan9118 -net user'
-
-if $debug && ! $nographic; then
-  eval nohup "$cmd" &>/dev/null &
+if "$debug" && ! "$nographic" && [ ! "$arch" = 'arm'  ]; then
+  eval "$cmd" &>/dev/null &
   # TODO: Ctrl +C gets sent to QEMU? Why? Does not happen if I run
   # ./rungdb manually from outside this script!!! But why?!?!
   # eval has nothing to do with it, minimized example with explicit

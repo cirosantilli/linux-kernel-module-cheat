@@ -1,17 +1,51 @@
 #!/usr/bin/env bash
+
+set -e
+
+arch=x86_64
+while getopts a: OPT; do
+  case "$OPT" in
+    a)
+      arch=$OPTARG
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
 if [ "$#" -gt 0 ]; then
   brk="-ex 'break $1'"
 else
   brk=""
 fi
-gdb="$(pwd)/buildroot/output/host/usr/bin/arm-linux-gdb"
+
+gdb="$(pwd)/buildroot/output/host/usr/bin/${arch}-linux-gdb"
 cd buildroot/output/build/linux-*.*.*/
-cmd="$gdb \
-  -q \
-  -ex 'add-auto-load-safe-path $(pwd)' \
-  -ex 'file vmlinux' \
-  -ex 'target remote localhost:1234' \
-  -ex 'lx-symbols ../kernel_module-1.0/'
-"
-#-ex 'set arch i386:x86-64:intel' \
+case "$arch" in
+  x86_64)
+    # http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu/33203642#33203642
+    # http://stackoverflow.com/questions/4943857/linux-kernel-live-debugging-how-its-done-and-what-tools-are-used/42316607#42316607
+    # http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-modules-with-qemu/44095831#44095831
+    cmd="$gdb \
+      -q \
+      -ex 'add-auto-load-safe-path $(pwd)' \
+      -ex 'file vmlinux' \
+      -ex 'set arch i386:x86-64:intel' \
+      -ex 'target remote localhost:1234' \
+      $brk \
+      -ex 'continue' \
+      -ex 'disconnect' \
+      -ex 'set arch i386:x86-64' \
+      -ex 'target remote localhost:1234' \
+      -ex 'lx-symbols ../kernel_module-1.0/'
+    "
+    ;;
+  arm)
+    cmd="$gdb \
+      -q \
+      -ex 'add-auto-load-safe-path $(pwd)' \
+      -ex 'file vmlinux' \
+      -ex 'target remote localhost:1234' \
+      -ex 'lx-symbols ../kernel_module-1.0/'
+    "
+    ;;
+esac
 eval "$cmd"

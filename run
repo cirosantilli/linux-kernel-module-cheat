@@ -1,9 +1,25 @@
 #!/usr/bin/env bash
 set -e
 cd buildroot
-#make BR2_EXTERNAL="$(pwd)/../kernel_module" qemu_x86_64_defconfig
-#make BR2_EXTERNAL="$(pwd)/../kernel_module" qemu_arm_vexpress_defconfig
-make BR2_EXTERNAL="$(pwd)/../kernel_module" qemu_arm_versatile_defconfig
+arch='x86_64'
+while getopts a: OPT; do
+  case "$OPT" in
+    a)
+      arch=$OPTARG
+      ;;
+  esac
+done
+case "$arch" in
+  x86_64)
+    defconfig=qemu_x86_64_defconfig
+    ;;
+  arm)
+    # qemu_arm_vexpress_defconfig required a newer QEMU than 2.0.0 on a Ubuntu host.
+    # so let's stick to versatile for now.
+    defconfig=qemu_arm_versatile_defconfig
+    ;;
+esac
+make BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
 # Can't get rid of this for now.
 # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
 cat ../buildroot_config_fragment >> .config
