@@ -56,11 +56,23 @@ To exit, just do a regular:
 
     poweroff
 
-This is particularly useful to get full panic traces when you start making the kernel crashing :-)
+This is particularly useful to get full panic traces when you start making the kernel crashing :-) See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
 
-In case of a panic, you want your terminal back with `Ctrl + C, A` and type `quit`. See also: <http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses>
+If the system crashes, you can't can quit QEMU with `poweroff`, but you can use either:
 
-See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
+    Ctrl-C X
+
+or:
+
+    Ctrl-C A
+    quit
+
+See also:
+
+- <http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses>
+- <https://superuser.com/questions/1087859/how-to-quit-qemu-monitor>
+- <https://superuser.com/questions/488263/problems-switching-to-qemu-control-panel-with-nographics>
+- <https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui/1211516#1211516>
 
 ## Debugging
 
