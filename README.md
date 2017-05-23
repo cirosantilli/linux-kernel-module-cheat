@@ -56,7 +56,7 @@ To exit, just do a regular:
 
     poweroff
 
-This is particularly useful to get full panic traces when you start making the kernel crashing :-) See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
+This is particularly useful to get full panic traces when you start making the kernel crash :-) See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
 
 If the system crashes, you can't can quit QEMU with `poweroff`, but you can use either:
 
@@ -205,7 +205,6 @@ ARM TODOs:
 -   Ctrl + C kills the emulator, not sent to guest. See:
     - <https://github.com/cloudius-systems/osv/issues/49>
     - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
--   `fops.ko`, `printf a >fops` crashes with `BUG: recent printk recursion!`
 
 ## Table of contents
 

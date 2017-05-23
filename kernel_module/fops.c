@@ -69,7 +69,6 @@ static ssize_t fop_write(struct file *file, const char __user *buf, size_t len, 
 {
 	ssize_t ret;
 	printk(KERN_INFO "write\n");
-	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
 	printk(KERN_INFO "len = %zu\n", len);
 	printk(KERN_INFO "off = %lld\n", (long long)*off);
 	if (sizeof(data) <= *off) {
@@ -86,6 +85,7 @@ static ssize_t fop_write(struct file *file, const char __user *buf, size_t len, 
 			}
 		}
 	}
+	printk(KERN_INFO "buf = %.*s\n", (int)len, data + *off);
 	printk(KERN_INFO "ret = %lld\n", (long long)ret);
 	return ret;
 }
