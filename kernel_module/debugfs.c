@@ -14,7 +14,7 @@ Requires `CONFIG_DEBUG_FS=y`.
 
 MODULE_LICENSE("GPL");
 
-static struct dentry *dir = 0;
+static struct dentry *dir;
 static u32 value = 42;
 
 int init_module(void)

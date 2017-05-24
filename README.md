@@ -30,6 +30,11 @@ Each module comes from a C file under `kernel_module/`. For module usage see:
 
     head kernel_module/*.c
 
+Good bets inside guest are:
+
+    /modulename.sh
+    /modulename.out
+
 After the first build, you can also run just:
 
     ./runqemu
@@ -221,6 +226,7 @@ ARM TODOs:
             1.  [debugfs](kernel_module/debugfs.c)
             1.  [panic](kernel_module/panic.c)
         1.  [fops](kernel_module/fops.c)
+            1. [poll](poll.c)
         1.  Asynchronous
             1. [workqueue](kernel_module/workqueue.c)
             1. [sleep](kernel_module/sleep.c)

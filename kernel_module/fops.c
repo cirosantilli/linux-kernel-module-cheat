@@ -5,6 +5,8 @@ Usage:
 
 	/fops.sh
 
+The buffer can be written and read from. If data overflows, data is thrown away.
+
 No, there ain't no official docs:
 http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
 
@@ -25,7 +27,7 @@ Here we use debugfs.
 
 MODULE_LICENSE("GPL");
 
-static struct dentry *dir = 0;
+static struct dentry *dir;
 
 static char data[] = {'a', 'b', 'c', 'd'};
 
