@@ -1,9 +1,9 @@
 /*
+TODO now yet waiting for anything!
+
 Basic poll file_operation example.
 
 Waits for a second, give jiffies to user, wait for a second...
-
-usleep_range
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
@@ -17,6 +17,7 @@ usleep_range
 #include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/printk.h> /* printk */
+#include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
 
 MODULE_LICENSE("GPL");
 

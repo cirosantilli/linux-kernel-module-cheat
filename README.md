@@ -231,5 +231,7 @@ ARM TODOs:
             1. [workqueue](kernel_module/workqueue.c)
             1. [sleep](kernel_module/sleep.c)
             1. [kthread](kernel_module/kthread.c)
+            1. [kthreads](kernel_module/kthreads.c)
+            1. [kthread_uninterruptible](kernel_module/kthread_uninterruptible.c)
             1. [timer](kernel_module/timer.c)
             1. [work_from_work](kernel_module/work_from_work.c)
