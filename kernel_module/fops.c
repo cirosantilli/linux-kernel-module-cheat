@@ -83,11 +83,11 @@ static ssize_t fop_write(struct file *file, const char __user *buf, size_t len, 
 				ret = -EFAULT;
 			} else {
 				ret = len;
+				printk(KERN_INFO "buf = %.*s\n", (int)len, data + *off);
 				*off += ret;
 			}
 		}
 	}
-	printk(KERN_INFO "buf = %.*s\n", (int)len, data + *off);
 	printk(KERN_INFO "ret = %lld\n", (long long)ret);
 	return ret;
 }
@@ -144,7 +144,7 @@ int init_module(void)
 		printk(KERN_ALERT "debugfs_create_dir failed");
 		return -1;
 	}
-    file = debugfs_create_file("fops", 0666, dir, NULL, &fops);
+    file = debugfs_create_file("f", 0666, dir, NULL, &fops);
 	if (!file) {
 		printk(KERN_ALERT "debugfs_create_file failed");
 		return -1;

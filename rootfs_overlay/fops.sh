@@ -5,7 +5,7 @@ insmod /fops.ko
 cd /sys/kernel/debug/lkmc_fops
 
 ## Basic read.
-cat fops
+cat f
 # => abcd
 # dmesg => open
 # dmesg => read
@@ -14,14 +14,14 @@ cat fops
 
 ## Basic write
 
-printf '01' >fops
+printf '01' >f
 # dmesg => open
 # dmesg => write
 # dmesg => len = 1
 # dmesg => buf = a
 # dmesg => close
 
-cat fops
+cat f
 # => 01cd
 # dmesg => open
 # dmesg => read
@@ -29,15 +29,15 @@ cat fops
 # dmesg => close
 
 ## ENOSPC
-printf '1234' >fops
-printf '12345' >fops
+printf '1234' >f
+printf '12345' >f
 echo "$?"
 # => 8
-cat fops
+cat f
 # => 1234
 
 ## seek
-printf '1234' >fops
-printf 'z' | dd bs=1 of=fops seek=2
-cat fops
+printf '1234' >f
+printf 'z' | dd bs=1 of=f seek=2
+cat f
 # => 12z4
