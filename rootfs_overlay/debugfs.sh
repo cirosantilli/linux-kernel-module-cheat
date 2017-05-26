@@ -5,6 +5,6 @@ mkdir -p /debugfs
 # That is the most common place to mount it.
 mount -t debugfs none /debugfs
 insmod /debugfs.ko
-cd /debugfs/kernel_module_cheat
+cd /debugfs/lkmc_debugfs
 cat myfile
 # => 42

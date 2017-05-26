@@ -2,9 +2,7 @@
 
 set -x
 insmod /fops.ko
-mkdir -p /fops
-mount -t debugfs none /fops
-cd /fops/kernel_module_cheat
+cd /sys/kernel/debug/lkmc_fops
 
 ## Basic read.
 cat fops

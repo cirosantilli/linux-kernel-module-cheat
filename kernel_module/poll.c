@@ -63,7 +63,7 @@ static const struct file_operations fops = {
 
 int init_module(void)
 {
-	dir = debugfs_create_dir("kernel_module_cheat_poll", 0);
+	dir = debugfs_create_dir("lkmc_poll", 0);
     debugfs_create_file("f", 0666, dir, NULL, &fops);
 	init_waitqueue_head(&waitqueue);
 	kthread = kthread_create(kthread_func, NULL, "mykthread");

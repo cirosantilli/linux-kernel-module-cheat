@@ -157,7 +157,7 @@ That's `lx-symbols` working! Now simply:
 
 In QEMU:
 
-    printf a >/sys/kernel/debug/kernel_module_cheat/fops
+    printf a >/sys/kernel/debug/lkmc_fops/f
 
 and GDB now breaks at our `fop_write` function!
 

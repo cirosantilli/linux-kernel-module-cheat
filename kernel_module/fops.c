@@ -139,7 +139,7 @@ static const struct file_operations fops = {
 int init_module(void)
 {
 	struct dentry *file;
-	dir = debugfs_create_dir("kernel_module_cheat", 0);
+	dir = debugfs_create_dir("lkmc_fops", 0);
 	if (!dir) {
 		printk(KERN_ALERT "debugfs_create_dir failed");
 		return -1;
