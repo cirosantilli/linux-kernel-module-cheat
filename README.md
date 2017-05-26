@@ -28,7 +28,7 @@ which are `printk` messages from `init` and `cleanup` methods of those modules.
 
 Each module comes from a C file under `kernel_module/`. For module usage see:
 
-    head kernel_module/*.c
+    head kernel_module/modulename.c
 
 Good bets inside guest are:
 
@@ -210,6 +210,62 @@ ARM TODOs:
 -   Ctrl + C kills the emulator, not sent to guest. See:
     - <https://github.com/cloudius-systems/osv/issues/49>
     - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
+
+## KGDB
+
+KGDB is kernel dark magic that allows you to GDB the kernel on real hardware without any extra hardware support.
+
+It is useless with QEMU since we already have full system visibility with `-gdb`, but this is a good way to learn it.
+
+Cheaper than JTAG (free) and easier to setup (no wires), but with less visibility as it depends on the kernel working, so e.g.: dies on panic, does not see boot sequence.
+
+Usage:
+
+    ./runqemu -k
+    ./rungdb -k
+
+In GDB:
+
+    c
+
+In QEMU:
+
+    /count.sh &
+    /kgdb.sh
+
+In GDB:
+
+    b sys_write
+    c
+    c
+    c
+    c
+
+And now you can count from GDB!
+
+If you do: `b sys_write` immediately after `./rungdb -k`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
+
+See also:
+
+- <https://github.com/torvalds/linux/blob/v4.9/Documentation/DocBook/kgdb.tmpl>
+
+### KGDB kernel modules
+
+In QEMU:
+
+    /kgdb-mod.sh
+
+In GDB:
+
+    lx-symbols ../kernel_module-1.0/
+    b fop_write
+    c
+    c
+    c
+
+and you now control the count.
+
+TODO: if I `-ex lx-symbols` to the `gdb` command, just like done for QEMU `-gdb`, the kernel oops. How to automate this step?
 
 ## Table of contents
 
