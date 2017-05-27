@@ -265,6 +265,34 @@ and you now control the count.
 
 TODO: if I `-ex lx-symbols` to the `gdb` command, just like done for QEMU `-gdb`, the kernel oops. How to automate this step?
 
+### KDB
+
+If you modify `runqemu` to use:
+
+    -append kgdboc=kbd
+
+instead of `kgdboc=ttyS0,115200`, you enter a different debugging mode called KDB.
+
+Usage: in QEMU:
+
+    [0]kdb> go
+
+Boot finishes, then:
+
+    /kgdb.sh
+
+And you are back in KDB. Now you can:
+
+    [0]kdb> help
+    [0]kdb> bp sys_write
+    [0]kdb> go
+
+And you will break whenever `sys_write` is hit.
+
+The other KDB commands allow you to instruction steps, view memory, registers and some higher level kernel runtime data.
+
+But TODO I don't think you can see where you are in the kernel source code and line step as from GDB, since the kernel source is not available on guest (ah, if only debugging information supported full source: ).
+
 ## Table of contents
 
 1.  [Introduction](introduction.md)
