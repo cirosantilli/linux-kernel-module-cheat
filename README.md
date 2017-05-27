@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials with GDB debug support. x86 and ARM guests supported. Tested in Ubuntu 14.04 - 16.10 hosts.
+Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials with GDB and KGDB debug. Tested in x86 and ARM guests, Ubuntu 14.04 - 16.10 hosts.
 
 Usage:
 
@@ -107,16 +107,15 @@ To have some fun, you can first run inside QEMU:
 
     /count.sh
 
-which counts to infinity to stdout, and then:
+which counts to infinity to stdout, and then in GDB:
 
     Ctrl + C
     break sys_write
+    continue
+    continue
+    continue
 
-And now you can control the counting from GDB:
-
-    continue
-    continue
-    continue
+And you now control the counting from GDB.
 
 See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu>
 
@@ -127,8 +126,6 @@ If you are using text mode:
 QEMU cannot be put on the background of the current shell, so you will need to open a separate terminal and run:
 
     ./rungdb
-
-manually.
 
 ### Kernel module debugging
 
@@ -217,7 +214,7 @@ KGDB is kernel dark magic that allows you to GDB the kernel on real hardware wit
 
 It is useless with QEMU since we already have full system visibility with `-gdb`, but this is a good way to learn it.
 
-Cheaper than JTAG (free) and easier to setup (no wires), but with less visibility as it depends on the kernel working, so e.g.: dies on panic, does not see boot sequence.
+Cheaper than JTAG (free) and easier to setup (all you need is serial), but with less visibility as it depends on the kernel working, so e.g.: dies on panic, does not see boot sequence.
 
 Usage:
 
@@ -248,6 +245,7 @@ If you do: `b sys_write` immediately after `./rungdb -k`, it fails with `KGDB: B
 See also:
 
 - <https://github.com/torvalds/linux/blob/v4.9/Documentation/DocBook/kgdb.tmpl>
+- <https://stackoverflow.com/questions/22004616/qemu-kernel-debugging-with-kgdb/44197715#44197715>
 
 ### KGDB kernel modules
 
