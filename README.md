@@ -207,6 +207,7 @@ ARM TODOs:
 -   Ctrl + C kills the emulator, not sent to guest. See:
     - <https://github.com/cloudius-systems/osv/issues/49>
     - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
+-   GDB not connecting to KGDB. Possibly linked to `-serial stdio`.
 
 ## KGDB
 

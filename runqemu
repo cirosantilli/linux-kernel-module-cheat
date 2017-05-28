@@ -5,6 +5,7 @@ set -e
 # CLI handling.
 arch=x86_64
 debug=false
+kgdb=false
 nographic=false
 extra_append=''
 extra_flags=''
@@ -19,10 +20,11 @@ while getopts a:dkn OPT; do
       ;;
     k)
       debug=true
-      extra_append="$extra_append kgdbwait kgdboc=ttyS0,115200"
+      extra_append="$extra_append kgdbwait"
       # For those who want to try KDB.
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
       extra_flags="$extra_flags -serial tcp::1234,server,nowait"
+      kgdb=true
       ;;
     n)
       extra_append="$extra_append console=ttyS0"
@@ -35,6 +37,9 @@ done
 images_dir='buildroot/output/images'
 case "$arch" in
   x86_64)
+      if $kgdb; then
+        extra_append="$extra_append kgdboc=ttyS0,115200"
+      fi
       # If we turn on buildroot host QEMU some day.
       #cmd="./buildroot/output/host/usr/bin/qemu-system-x86_64 \
       cmd="qemu-system-x86_64 \
@@ -50,9 +55,12 @@ case "$arch" in
       "
     ;;
   arm)
+    if $kgdb; then
+      extra_append="$extra_append kgdboc=ttyAMA0,115200"
+    fi
     cmd="qemu-system-arm \
       -M versatilepb \
-      -append 'root=/dev/sda console=ttyAMA0,115200' \
+      -append 'root=/dev/sda $extra_append' \
       -drive file=${images_dir}/rootfs.ext2,if=scsi,format=raw \
       -dtb ${images_dir}/versatile-pb.dtb \
       -kernel ${images_dir}/zImage \
@@ -64,7 +72,6 @@ case "$arch" in
       $extra_flags"
     ;;
 esac
-
 if "$debug" && ! "$nographic" && [ ! "$arch" = 'arm'  ]; then
   eval "$cmd" &>/dev/null &
   # TODO: Ctrl +C gets sent to QEMU? Why? Does not happen if I run
