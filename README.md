@@ -203,7 +203,7 @@ Debug:
 
 ARM TODOs:
 
--   only managed to run in the terminal interface (but weirdly an blank QEMU window is still opened)
+-   only managed to run in the terminal interface (but weirdly a blank QEMU window is still opened)
 -   Ctrl + C kills the emulator, not sent to guest. See:
     - <https://github.com/cloudius-systems/osv/issues/49>
     - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
@@ -292,7 +292,7 @@ And you will break whenever `sys_write` is hit.
 
 The other KDB commands allow you to instruction steps, view memory, registers and some higher level kernel runtime data.
 
-But TODO I don't think you can see where you are in the kernel source code and line step as from GDB, since the kernel source is not available on guest (ah, if only debugging information supported full source: ).
+But TODO I don't think you can see where you are in the kernel source code and line step as from GDB, since the kernel source is not available on guest (ah, if only debugging information supported full source).
 
 ## Table of contents
 
