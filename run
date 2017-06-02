@@ -19,10 +19,15 @@ case "$arch" in
     defconfig=qemu_arm_versatile_defconfig
     ;;
 esac
+for p in ../buildroot_patches/*.patch; do
+    patch -N -p1 <"../buildroot_patches/${p}" || :
+done
 make BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
-# Can't get rid of this for now.
+# TODO Can't get rid of this for now.
 # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
 cat ../buildroot_config_fragment >> .config
+# TODO there is no make host_qemu-rebuild ?
+rm -f output/build/host-qemu-2.7.0/.stamp_built
 env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(($(nproc) - 2))" kernel_module-rebuild all
 cd ..
 ./runqemu "$@"

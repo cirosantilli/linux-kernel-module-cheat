@@ -4,7 +4,7 @@ Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kern
 
 Usage:
 
-    sudo apt-get install qemu
+    sudo apt-get build-dep qemu
     ./run
 
 First build will take a while (GCC, Linux kernel).
