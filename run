@@ -26,14 +26,22 @@ make BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
 # TODO Can't get rid of this for now.
 # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
 cat ../buildroot_config_fragment >> .config
+
+# HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
+# It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
+# Even if were an autotools package, there is no general way currently to pass extra configs to it:
+# https://stackoverflow.com/questions/44341188/how-to-pass-extra-custom-configure-autotools-options-to-a-buildroot-package/44341225#44341225
+#
+# We might add this later on.
+# host-qemu-rebuild \
 env \
   -u LD_LIBRARY_PATH \
   make \
   BR2_JLEVEL="$(($(nproc) - 2))" \
   HOST_QEMU_OPTS="--enable-sdl --with-sdlabi=2.0" \
-  host-qemu-rebuild \
   kernel_module-rebuild \
   all \
 ;
+
 cd ..
 ./runqemu "$@"
