@@ -303,6 +303,7 @@ But TODO I don't think you can see where you are in the kernel source code and l
 1.  Examples
     1.  [Host](host/)
     1.  Buildroot
+        1.  [module_init](kernel_module/module_init.c)
         1.  Debugging
             1.  [hello](kernel_module/hello.c)
             1.  [hello2](kernel_module/hello2.c)
@@ -318,3 +319,4 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1. [kthread_uninterruptible](kernel_module/kthread_uninterruptible.c)
             1. [timer](kernel_module/timer.c)
             1. [work_from_work](kernel_module/work_from_work.c)
+        1.  [irq](irq.c)

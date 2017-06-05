@@ -13,6 +13,12 @@ define KERNEL_MODULE_BUILD_CMDS
 endef
 
 define KERNEL_MODULE_INSTALL_TARGET_CMDS
+	# The modules are already installed by the kernel-module package type
+	# under /lib/modules/**, but let's also copy the modules to the root
+	# for insmod convenience.
+	#
+	# Modules can be still be easily inserted with "modprobe module" however.
+	$(INSTALL) -D -m 0655 $(@D)/*.ko '$(TARGET_DIR)'
 	$(INSTALL) -D -m 0755 $(@D)/test/*.out '$(TARGET_DIR)'
 endef
 
