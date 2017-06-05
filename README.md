@@ -309,6 +309,7 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1.  [hello2](kernel_module/hello2.c)
             1.  [debugfs](kernel_module/debugfs.c)
             1.  [panic](kernel_module/panic.c)
+        1.  [params](kernel_module/params.c)
         1.  [fops](kernel_module/fops.c)
             1. [poll](poll.c)
         1.  Asynchronous
@@ -316,7 +317,7 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1. [sleep](kernel_module/sleep.c)
             1. [kthread](kernel_module/kthread.c)
             1. [kthreads](kernel_module/kthreads.c)
-            1. [kthread_uninterruptible](kernel_module/kthread_uninterruptible.c)
+            1. [schedule](kernel_module/schedule.c)
             1. [timer](kernel_module/timer.c)
             1. [work_from_work](kernel_module/work_from_work.c)
         1.  [irq](irq.c)

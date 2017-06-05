@@ -1,5 +1,8 @@
 /*
-TODO get working. Thread 2 only wakes up once! Wake thread 2 up every 2 seconds from thread 1.
+"wait_event" works a bit like:
+
+	if (!cond)
+		sleep_until_event
 */
 
 #include <linux/delay.h> /* usleep_range */
@@ -12,20 +15,17 @@ MODULE_LICENSE("GPL");
 
 static struct task_struct *kthread1, *kthread2;
 static wait_queue_head_t queue;
-static int awake = 0;
+static atomic_t awake = ATOMIC_INIT(0);
 
 static int kthread_func1(void *data)
 {
-	int i = 0;
+	unsigned int i = 0;
 	while (!kthread_should_stop()) {
-		awake = !awake;
-		pr_info("1 %d\n", i);
-		wake_up_interruptible(&queue);
-		schedule();
+		pr_info("1 %u\n", i);
 		usleep_range(1000000, 1000001);
+		atomic_set(&awake, 1);
+		wake_up(&queue);
 		i++;
-		if (i == 10)
-			i = 0;
 	}
 	i = !i;
 	wake_up_interruptible(&queue);
@@ -35,15 +35,13 @@ static int kthread_func1(void *data)
 static int kthread_func2(void *data)
 {
 	set_current_state(TASK_INTERRUPTIBLE);
-	int i = 0;
+	unsigned int i = 0;
 	while (!kthread_should_stop()) {
-		wait_event(queue, awake);
-		pr_info("2 %d\n", i);
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule();
+		pr_info("2 %u\n", i);
 		i++;
-		if (i == 10)
-			i = 0;
+		wait_event(queue, atomic_read(&awake));
+		atomic_set(&awake, 0);
+		schedule();
 	}
 	return 0;
 }
