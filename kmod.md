@@ -1,6 +1,10 @@
 # kmod
 
-Implements `lsmod`, `insmod`, `rmmod`, and other tools.
+Multi-call executable that implements: `lsmod`, `insmod`, `rmmod`, and other tools.
+
+BusyBox also implements its own version of those executables.
+
+Source: <https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git>
 
 The other tools are just symlinks to it.
 
@@ -77,7 +81,12 @@ Remove a module. Takes either the module name or the `.ko` file:
 
 ## modprobe
 
-List available modules relative path to `/lib/modules/VERSION/`:
+Vs `insmod`:
+
+- <https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe>
+- <https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe>
+
+List available modules relative path to `/lib/modules/$KERNEL_VERSION/`:
 
     sudo modprobe -l
 

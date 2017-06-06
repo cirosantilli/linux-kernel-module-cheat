@@ -9,13 +9,16 @@ Mostly to check that our build infrastructure can handle more than one module!
 
 MODULE_LICENSE("GPL");
 
-int init_module(void)
+static int myinit(void)
 {
 	printk(KERN_INFO "hello2 init\n");
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
-	printk(KERN_INFO "hello2 cleanup\n");
+	printk(KERN_INFO "hello2 exit\n");
 }
+
+module_init(myinit)
+module_exit(myexit)

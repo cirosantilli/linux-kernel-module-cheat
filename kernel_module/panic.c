@@ -13,14 +13,17 @@ The alternative is to get the serial data out streamed to console or to a file:
 #include <linux/module.h>
 #include <linux/kernel.h>
 
-int init_module(void)
+static int myinit(void)
 {
 	printk(KERN_INFO "panic init\n");
 	panic("hello panic");
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	printk(KERN_INFO "panic cleanup\n");
 }
+
+module_init(myinit)
+module_exit(myexit)

@@ -32,7 +32,7 @@ static void work_func(struct work_struct *work)
 	}
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	DECLARE_WORK(work, work_func);
 	queue = create_workqueue("myworkqueue");
@@ -40,8 +40,11 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	atomic_set(&run, 0);
 	destroy_workqueue(queue);
 }
+
+module_init(myinit)
+module_exit(myexit)

@@ -41,6 +41,14 @@ After the first build, you can also run just:
 
 to save a few seconds. `./run` wouldn't rebuild everything, but checking timestamps takes a few moments.
 
+If you are feeling fancy, you can also insert modules with:
+
+    modprobe hello
+
+and if you are feeling raw, you can use:
+
+    /myinsmod.out /hello.ko
+
 We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
 
     dmesg -n 1
@@ -299,6 +307,7 @@ But TODO I don't think you can see where you are in the kernel source code and l
 1.  [Introduction](introduction.md)
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
+1.  []
 1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)

@@ -32,15 +32,18 @@ static void work_func(struct work_struct *work)
 
 DECLARE_WORK(work, work_func);
 
-int init_module(void)
+static int myinit(void)
 {
 	queue = create_singlethread_workqueue("myworkqueue");
 	queue_work(queue, &work);
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	/* Waits for jobs to finish. */
 	destroy_workqueue(queue);
 }
+
+module_init(myinit)
+module_exit(myexit)

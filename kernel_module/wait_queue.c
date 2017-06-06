@@ -46,7 +46,7 @@ static int kthread_func2(void *data)
 	return 0;
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	init_waitqueue_head(&queue);
 	kthread1 = kthread_create(kthread_func1, NULL, "mykthread1");
@@ -56,8 +56,11 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	kthread_stop(kthread1);
 	kthread_stop(kthread2);
 }
+
+module_init(myinit)
+module_exit(myexit)

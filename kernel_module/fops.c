@@ -136,7 +136,7 @@ static const struct file_operations fops = {
 	.write = fop_write,
 };
 
-int init_module(void)
+static int myinit(void)
 {
 	struct dentry *file;
 	dir = debugfs_create_dir("lkmc_fops", 0);
@@ -152,7 +152,10 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	debugfs_remove_recursive(dir);
 }
+
+module_init(myinit)
+module_exit(myexit)

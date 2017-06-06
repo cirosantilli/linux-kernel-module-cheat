@@ -5,7 +5,7 @@ Hello world module.
 	insmod hello.ko
 	dmesg -c | grep 'hello init'
 	rmmod hello.ko
-	dmesg -c | grep 'hello cleanup'
+	dmesg -c | grep 'hello exit'
 */
 
 #include <linux/module.h>
@@ -13,13 +13,16 @@ Hello world module.
 
 MODULE_LICENSE("GPL");
 
-int init_module(void)
+static int myinit(void)
 {
 	printk(KERN_INFO "hello init\n");
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
-	printk(KERN_INFO "hello cleanup\n");
+	printk(KERN_INFO "hello exit\n");
 }
+
+module_init(myinit)
+module_exit(myexit)

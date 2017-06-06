@@ -1,9 +1,13 @@
 /*
-Hello world with module_init / exit macros.
+https://stackoverflow.com/questions/3218320/what-is-the-difference-between-module-init-and-init-module-in-a-linux-kernel-mod
 
-TODO: vs direct init_module and cleanup_module.
+Hello world with direct init_module and cleantup_module.
 
-- modprobe only works with the macros. Try "modprobe module_init".
+This appears to be an older method that still works but has some drawbacks.
+
+vs module_init and module_exit?
+
+- modprobe only works with the module_init / module_exit. Try "modprobe module_init".
 */
 
 #include <linux/module.h>
@@ -11,16 +15,13 @@ TODO: vs direct init_module and cleanup_module.
 
 MODULE_LICENSE("GPL");
 
-static int module_init_init(void)
+int init_module(void)
 {
-	pr_info("module_init init\n");
+	printk(KERN_INFO "init_module\n");
 	return 0;
 }
 
-static void module_init_exit(void)
+void cleanup_module(void)
 {
-	pr_info("module_exit cleanup\n");
+	printk(KERN_INFO "cleanup_module\n");
 }
-
-module_init(module_init_init)
-module_exit(module_init_exit)

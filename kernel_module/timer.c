@@ -28,14 +28,17 @@ static void callback(unsigned long data)
 	mod_timer(&mytimer, jiffies + onesec);
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	onesec = msecs_to_jiffies(1000);
 	mod_timer(&mytimer, jiffies + onesec);
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	del_timer(&mytimer);
 }
+
+module_init(myinit)
+module_exit(myexit)

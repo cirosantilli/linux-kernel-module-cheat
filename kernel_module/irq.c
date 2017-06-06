@@ -23,7 +23,7 @@ static irqreturn_t handler(int i, void *v)
 	return IRQ_HANDLED;
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	irqreturn_t r;
 	r = request_irq(
@@ -37,6 +37,9 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 }
+
+module_init(myinit)
+module_exit(myexit)

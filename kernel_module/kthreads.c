@@ -37,7 +37,7 @@ static int work_func2(void *data)
 	return 0;
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	kthread1 = kthread_create(work_func1, NULL, "mykthread1");
 	kthread2 = kthread_create(work_func2, NULL, "mykthread2");
@@ -46,8 +46,11 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	kthread_stop(kthread1);
 	kthread_stop(kthread2);
 }
+
+module_init(myinit)
+module_exit(myexit)

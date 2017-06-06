@@ -61,7 +61,7 @@ static const struct file_operations fops = {
 	.poll = poll
 };
 
-int init_module(void)
+static int myinit(void)
 {
 	dir = debugfs_create_dir("lkmc_poll", 0);
     debugfs_create_file("f", 0666, dir, NULL, &fops);
@@ -70,7 +70,10 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	debugfs_remove_recursive(dir);
 }
+
+module_init(myinit)
+module_exit(myexit)

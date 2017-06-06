@@ -17,7 +17,7 @@ MODULE_LICENSE("GPL");
 static struct dentry *dir;
 static u32 value = 42;
 
-int init_module(void)
+static int myinit(void)
 {
     struct dentry *file;
     dir = debugfs_create_dir("lkmc_debugfs", 0);
@@ -33,7 +33,10 @@ int init_module(void)
     return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
     debugfs_remove_recursive(dir);
 }
+
+module_init(myinit)
+module_exit(myexit)

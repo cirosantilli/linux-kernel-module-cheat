@@ -31,15 +31,18 @@ static int work_func(void *data)
 	return 0;
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	kthread = kthread_create(work_func, NULL, "mykthread");
 	wake_up_process(kthread);
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	/* Waits for thread to return. */
 	kthread_stop(kthread);
 }
+
+module_init(myinit)
+module_exit(myexit)

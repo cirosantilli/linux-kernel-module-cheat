@@ -5,6 +5,8 @@ kthreads only allow interrupting if you call schedule.
 
 If you don't, they just run forever, and you have to kill the VM.
 
+Sleep functions like usleep_range also end up calling schedule.
+
 Test with:
 
 	dmesg -n 1
@@ -19,7 +21,6 @@ Then:
 - 	yn=1: all good
 */
 
-#include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/module.h>
@@ -45,14 +46,17 @@ static int work_func(void *data)
 	return 0;
 }
 
-int init_module(void)
+static int myinit(void)
 {
 	kthread = kthread_create(work_func, NULL, "mykthread");
 	wake_up_process(kthread);
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
 	kthread_stop(kthread);
 }
+
+module_init(myinit)
+module_exit(myexit)
