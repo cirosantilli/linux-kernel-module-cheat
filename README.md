@@ -330,3 +330,6 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1. [timer](kernel_module/timer.c)
             1. [work_from_work](kernel_module/work_from_work.c)
         1.  [irq](irq.c)
+        1.  Module dependencies
+            1. [dep.c](kernel_module/dep.c)
+            1. [dep2.c](kernel_module/dep2.c)
