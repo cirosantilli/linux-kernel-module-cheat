@@ -28,8 +28,6 @@ static int kthread_wake_func(void *data)
 		wake_up(&queue);
 		i++;
 	}
-	i = !i;
-	wake_up_interruptible(&queue);
 	return 0;
 }
 
@@ -73,7 +71,7 @@ int init_module(void)
 
 void cleanup_module(void)
 {
-	kthread_stop(kthread_wake);
-	kthread_stop(kthread_sleep1);
 	kthread_stop(kthread_sleep2);
+	kthread_stop(kthread_sleep1);
+	kthread_stop(kthread_wake);
 }

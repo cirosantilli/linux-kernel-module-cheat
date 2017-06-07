@@ -39,8 +39,6 @@ static int kthread_func1(void *data)
 		wake_up(&queue);
 		i++;
 	}
-	i = !i;
-	wake_up_interruptible(&queue);
 	return 0;
 }
 
@@ -50,7 +48,7 @@ static int kthread_func2(void *data)
 	while (!kthread_should_stop()) {
 		pr_info("2 %u\n", i);
 		i++;
-		wait_event_interruptible(queue, atomic_read(&awake));
+		wait_event(queue, atomic_read(&awake));
 		atomic_set(&awake, 0);
 		schedule();
 	}
@@ -69,8 +67,9 @@ static int myinit(void)
 
 static void myexit(void)
 {
-	kthread_stop(kthread1);
+	/* 2 must be stopped before, or else we can deadlock. */
 	kthread_stop(kthread2);
+	kthread_stop(kthread1);
 }
 
 module_init(myinit)
