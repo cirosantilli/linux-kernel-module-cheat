@@ -3,6 +3,18 @@
 
 	if (!cond)
 		sleep_until_event
+
+Outcome:
+
+	1 0
+	2 0
+	# Wait one second.
+	1 1
+	2 1
+	# Wait one second.
+	1 2
+	2 2
+	# ...
 */
 
 #include <linux/delay.h> /* usleep_range */
@@ -34,12 +46,11 @@ static int kthread_func1(void *data)
 
 static int kthread_func2(void *data)
 {
-	set_current_state(TASK_INTERRUPTIBLE);
 	unsigned int i = 0;
 	while (!kthread_should_stop()) {
 		pr_info("2 %u\n", i);
 		i++;
-		wait_event(queue, atomic_read(&awake));
+		wait_event_interruptible(queue, atomic_read(&awake));
 		atomic_set(&awake, 0);
 		schedule();
 	}
