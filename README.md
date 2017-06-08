@@ -307,7 +307,6 @@ But TODO I don't think you can see where you are in the kernel source code and l
 1.  [Introduction](introduction.md)
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
-1.  []
 1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)
