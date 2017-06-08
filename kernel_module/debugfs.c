@@ -19,23 +19,23 @@ static u32 value = 42;
 
 static int myinit(void)
 {
-    struct dentry *file;
-    dir = debugfs_create_dir("lkmc_debugfs", 0);
-    if (!dir) {
-        printk(KERN_ALERT "debugfs_create_dir failed");
-        return -1;
-    }
-    file = debugfs_create_u32("myfile", 0666, dir, &value);
-    if (!file) {
-        printk(KERN_ALERT "debugfs_create_u32 failed");
-        return -1;
-    }
-    return 0;
+	struct dentry *file;
+	dir = debugfs_create_dir("lkmc_debugfs", 0);
+	if (!dir) {
+		printk(KERN_ALERT "debugfs_create_dir failed");
+		return -1;
+	}
+	file = debugfs_create_u32("myfile", 0666, dir, &value);
+	if (!file) {
+		printk(KERN_ALERT "debugfs_create_u32 failed");
+		return -1;
+	}
+	return 0;
 }
 
 static void myexit(void)
 {
-    debugfs_remove_recursive(dir);
+	debugfs_remove_recursive(dir);
 }
 
 module_init(myinit)

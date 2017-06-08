@@ -14,9 +14,9 @@ int main(int argc, char **argv) {
 		puts("Usage ./prog mymodule");
 		return EXIT_FAILURE;
 	}
-    if (delete_module(argv[1], O_NONBLOCK) != 0) {
-        perror("delete_module");
-        return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
+	if (delete_module(argv[1], O_NONBLOCK) != 0) {
+		perror("delete_module");
+		return EXIT_FAILURE;
+	}
+	return EXIT_SUCCESS;
 }

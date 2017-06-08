@@ -144,7 +144,7 @@ static int myinit(void)
 		printk(KERN_ALERT "debugfs_create_dir failed");
 		return -1;
 	}
-    file = debugfs_create_file("f", 0666, dir, NULL, &fops);
+	file = debugfs_create_file("f", 0666, dir, NULL, &fops);
 	if (!file) {
 		printk(KERN_ALERT "debugfs_create_file failed");
 		return -1;

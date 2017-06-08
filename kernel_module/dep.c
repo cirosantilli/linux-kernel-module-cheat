@@ -1,38 +1,38 @@
 /*
 Exports the lkmc_dep which dep2.ko uses.
 
-    insmod /dep.ko
-    # dmesg => 0
-    # dmesg => 0
-    # dmesg => ...
-    insmod /dep2.ko
-    # dmesg => 1
-    # dmesg => 2
-    # dmesg => ...
-    rmmod dep
-    # Fails because dep2 uses it.
-    rmmod dep2
-    # Dmesg stops incrementing.
-    rmmod dep
+	insmod /dep.ko
+	# dmesg => 0
+	# dmesg => 0
+	# dmesg => ...
+	insmod /dep2.ko
+	# dmesg => 1
+	# dmesg => 2
+	# dmesg => ...
+	rmmod dep
+	# Fails because dep2 uses it.
+	rmmod dep2
+	# Dmesg stops incrementing.
+	rmmod dep
 
 sys visibility:
 
-    dmesg -n 1
-    insmod /dep.ko
-    insmod /dep2.ko
-    ls -l /sys/module/dep/holders
-    # => ../../dep2
-    cat refcnt
-    # => 1
+	dmesg -n 1
+	insmod /dep.ko
+	insmod /dep2.ko
+	ls -l /sys/module/dep/holders
+	# => ../../dep2
+	cat refcnt
+	# => 1
 
 depmod:
 
-    grep dep "/lib/module/"*"/depmod"
-    # extra/dep2.ko: extra/dep.ko
-    # extra/dep.ko:
-    modprobe dep
-    # lsmod
-    # Both dep and dep2 were loaded.
+	grep dep "/lib/module/"*"/depmod"
+	# extra/dep2.ko: extra/dep.ko
+	# extra/dep.ko:
+	modprobe dep
+	# lsmod
+	# Both dep and dep2 were loaded.
 
 TODO: at what point does buildroot / busybox generate that file?
 */

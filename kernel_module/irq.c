@@ -13,8 +13,8 @@ MODULE_LICENSE("GPL");
  * Return value from kernel docs:*
  *
  * enum irqreturn
- * @IRQ_NON         interrupt was not from this device or was not handled
- * @IRQ_HANDLED     interrupt was handled by this device
+ * @IRQ_NON      interrupt was not from this device or was not handled
+ * @IRQ_HANDLED  interrupt was handled by this device
  * @IRQ_WAKE_THREAD handler requests to wake the handler thread
  */
 static irqreturn_t handler(int i, void *v)
