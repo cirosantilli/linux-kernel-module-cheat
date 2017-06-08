@@ -1,7 +1,7 @@
 /*
 "wait_event" works a bit like:
 
-	if (!cond)
+	while (!cond)
 		sleep_until_event
 
 Outcome:
