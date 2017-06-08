@@ -319,6 +319,7 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1.  [panic](kernel_module/panic.c)
         1.  [params](kernel_module/params.c)
         1.  [fops](kernel_module/fops.c)
+            1. [ioctl](ioctl.c)
             1. [poll](poll.c)
         1.  Asynchronous
             1. [workqueue](kernel_module/workqueue.c)

@@ -28,10 +28,9 @@ Here we use debugfs.
 MODULE_LICENSE("GPL");
 
 static struct dentry *dir;
-
 static char data[] = {'a', 'b', 'c', 'd'};
 
-static int fop_open(struct inode *inode, struct file *file)
+static int open(struct inode *inode, struct file *filp)
 {
 	printk(KERN_INFO "open\n");
 	return 0;
@@ -42,7 +41,7 @@ static int fop_open(struct inode *inode, struct file *file)
  *      Then when userland reads the same file descriptor again,
  *      we start from that point instead.
  * */
-static ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t *off)
+static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
 	printk(KERN_INFO "read\n");
@@ -67,7 +66,7 @@ static ssize_t fop_read(struct file *file, char __user *buf, size_t len, loff_t 
  * we must return ENOSPC if the user tries to write more
  * than the size of our buffer. Otherwise, Bash > just
  * keeps trying to write to it infinitely. */
-static ssize_t fop_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
+static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
 	printk(KERN_INFO "write\n");
@@ -96,13 +95,13 @@ static ssize_t fop_write(struct file *file, const char __user *buf, size_t len, 
 Called on the last close:
 http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-release-in-struct-file-operations-in-the-l
 */
-static int fop_release (struct inode *inode, struct file *file)
+static int release (struct inode *inode, struct file *filp)
 {
 	printk(KERN_INFO "release\n");
 	return 0;
 }
 
-static loff_t fop_llseek(struct file *filp, loff_t off, int whence)
+static loff_t llseek(struct file *filp, loff_t off, int whence)
 {
 	loff_t newpos;
 	printk(KERN_INFO "llseek\n");
@@ -129,26 +128,17 @@ static loff_t fop_llseek(struct file *filp, loff_t off, int whence)
 }
 
 static const struct file_operations fops = {
-	.llseek = fop_llseek,
-	.open = fop_open,
-	.read = fop_read,
-	.release = fop_release,
-	.write = fop_write,
+	.llseek = llseek,
+	.open = open,
+	.read = read,
+	.release = release,
+	.write = write,
 };
 
 static int myinit(void)
 {
-	struct dentry *file;
 	dir = debugfs_create_dir("lkmc_fops", 0);
-	if (!dir) {
-		printk(KERN_ALERT "debugfs_create_dir failed");
-		return -1;
-	}
-	file = debugfs_create_file("f", 0666, dir, NULL, &fops);
-	if (!file) {
-		printk(KERN_ALERT "debugfs_create_file failed");
-		return -1;
-	}
+	debugfs_create_file("f", 0666, dir, NULL, &fops);
 	return 0;
 }
 
