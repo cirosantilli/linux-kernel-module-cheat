@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +7,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
+
+#include "../ioctl.h"
 
 int main(int argc, char **argv)
 {
@@ -21,7 +23,7 @@ int main(int argc, char **argv)
 		perror("open");
 		return EXIT_FAILURE;
 	}
-	ret = ioctl(fd, strtoul(argv[2], NULL, 10), argv[3]);
+	ret = ioctl(fd, IOCTL0, argv[3]);
 	if (ret == -1) {
 		perror("ioctl");
 		return EXIT_FAILURE;
