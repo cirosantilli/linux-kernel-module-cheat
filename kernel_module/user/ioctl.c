@@ -12,7 +12,8 @@
 
 int main(int argc, char **argv)
 {
-	int fd, ret;
+	int fd, arg_int, ret;
+	lkmc_ioctl_struct arg_struct;
 
 	if (argc < 4) {
 		puts("Usage: ./prog <ioctl-file> <cmd> <arg>");
@@ -23,13 +24,32 @@ int main(int argc, char **argv)
 		perror("open");
 		return EXIT_FAILURE;
 	}
-	ret = ioctl(fd, IOCTL0, argv[3]);
-	if (ret == -1) {
-		perror("ioctl");
-		return EXIT_FAILURE;
+	/* 0 */
+	{
+		arg_int = 1;
+		ret = ioctl(fd, LKMC_IOCTL_INC, &arg_int);
+		if (ret == -1) {
+			perror("ioctl");
+			return EXIT_FAILURE;
+		}
+		printf("arg = %d\n", arg_int);
+		printf("ret = %d\n", ret);
+		printf("errno = %d\n", errno);
 	}
-	printf("ret = %d\n", ret);
-	printf("errno = %d\n", errno);
+	puts("");
+	/* 1 */
+	{
+		arg_struct.i = 1;
+		arg_struct.j = 1;
+		ret = ioctl(fd, LKMC_IOCTL_INC_DEC, &arg_struct);
+		if (ret == -1) {
+			perror("ioctl");
+			return EXIT_FAILURE;
+		}
+		printf("arg = %d %d\n", arg_struct.i, arg_struct.j);
+		printf("ret = %d\n", ret);
+		printf("errno = %d\n", errno);
+	}
 	close(fd);
 	return EXIT_SUCCESS;
 }

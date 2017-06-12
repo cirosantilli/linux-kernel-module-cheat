@@ -1,13 +1,12 @@
 /*
-Give integer and a pointer to the kernel, and get one positive integer out.
+Input: an integer (with some annoying restrictions) and a pointer
 
-Feels like an archaic API... so many weird restrictions for something that could be so simple!
+Output:
 
-TODO: must the ioctl numbers be globally unique? How to ensure that?
+- positive integer return value, which for sanity should only be used with negative values for success
+- the input pointer data may be overwritten to contain output
 
-Ioctl is super picky about the ioctl numbers, it is very annoying: https://stackoverflow.com/questions/10071296/ioctl-is-not-called-if-cmd-2
-
-See how do_vfs_ioctl highjacks several values. This "forces" use to use the _IOx macros...
+Feels like an archaic API... so many weird restrictions and types for something that could be so simple!
 
 Documentation/ioctl/ioctl-number.txt has some info:
 
@@ -17,18 +16,54 @@ Documentation/ioctl/ioctl-number.txt has some info:
     _IOWR  an ioctl with both write and read parameters.
 */
 
+#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
+
+#include "ioctl.h"
 
 MODULE_LICENSE("GPL");
 
 static struct dentry *dir;
 
-static long unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long argp)
 {
-	pr_info("cmd = %u\n", cmd);
-	return cmd + 1;
+	void __user *arg_user;
+	union {
+		int i;
+		lkmc_ioctl_struct s;
+	} arg_kernel;
+
+	arg_user = (void __user *)argp;
+	pr_info("cmd = %x\n", cmd);
+	switch (cmd) {
+		case LKMC_IOCTL_INC:
+			if (copy_from_user(&arg_kernel.i, arg_user, sizeof(arg_kernel.i))) {
+				return -EFAULT;
+			}
+			pr_info("0 arg = %d\n", arg_kernel.i);
+			arg_kernel.i += 1;
+			if (copy_to_user(arg_user, &arg_kernel.i, sizeof(arg_kernel.i))) {
+				return -EFAULT;
+			}
+		break;
+		case LKMC_IOCTL_INC_DEC:
+			if (copy_from_user(&arg_kernel.s, arg_user, sizeof(arg_kernel.s))) {
+				return -EFAULT;
+			}
+			pr_info("1 arg = %d %d\n", arg_kernel.s.i, arg_kernel.s.j);
+			arg_kernel.s.i += 1;
+			arg_kernel.s.j -= 1;
+			if (copy_to_user(arg_user, &arg_kernel.s, sizeof(arg_kernel.s))) {
+				return -EFAULT;
+			}
+		break;
+		default:
+			return -EINVAL;
+		break;
+	}
+	return 0;
 }
 
 static const struct file_operations fops = {
