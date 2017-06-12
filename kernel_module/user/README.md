@@ -1,4 +1,4 @@
-# Test
+# User
 
 Userland C programs used to test our kernel module.
 
