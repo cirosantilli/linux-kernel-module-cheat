@@ -11,6 +11,7 @@ Requires `CONFIG_DEBUG_FS=y`.
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <uapi/linux/stat.h> /* S_IRUSR */
 
 MODULE_LICENSE("GPL");
 
@@ -25,7 +26,7 @@ static int myinit(void)
 		printk(KERN_ALERT "debugfs_create_dir failed");
 		return -1;
 	}
-	file = debugfs_create_u32("myfile", 0666, dir, &value);
+	file = debugfs_create_u32("myfile", S_IRUSR, dir, &value);
 	if (!file) {
 		printk(KERN_ALERT "debugfs_create_u32 failed");
 		return -1;

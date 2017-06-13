@@ -4,7 +4,7 @@ https://stackoverflow.com/questions/4508998/what-is-anonymous-inode
 anon_inode_getfd example:
 
 - get an anonymous inode via ioctl from a debugfs entry
-- read from that inode
+- read jiffies from that inode
 
 This method allows getting multiple file descriptors from a single filesystem,
 which reduces namespace pollution.

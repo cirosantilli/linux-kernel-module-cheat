@@ -16,6 +16,7 @@ Outcome: user echoes jiffies every second.
 #include <linux/poll.h>
 #include <linux/printk.h> /* printk */
 #include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
+#include <uapi/linux/stat.h> /* S_IRUSR */
 
 MODULE_LICENSE("GPL");
 
@@ -71,7 +72,7 @@ static const struct file_operations fops = {
 static int myinit(void)
 {
 	dir = debugfs_create_dir("lkmc_poll", 0);
-	debugfs_create_file("f", 0666, dir, NULL, &fops);
+	debugfs_create_file("f", S_IRUSR | S_IWUSR, dir, NULL, &fops);
 	init_waitqueue_head(&waitqueue);
 	kthread = kthread_create(kthread_func, NULL, "mykthread");
 	wake_up_process(kthread);

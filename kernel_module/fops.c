@@ -24,6 +24,7 @@ Here we use debugfs.
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
+#include <uapi/linux/stat.h> /* S_IRUSR */
 
 MODULE_LICENSE("GPL");
 
@@ -138,7 +139,7 @@ static const struct file_operations fops = {
 static int myinit(void)
 {
 	dir = debugfs_create_dir("lkmc_fops", 0);
-	debugfs_create_file("f", 0666, dir, NULL, &fops);
+	debugfs_create_file("f", S_IRUSR | S_IWUSR, dir, NULL, &fops);
 	return 0;
 }
 

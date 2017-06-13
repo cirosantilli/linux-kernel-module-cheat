@@ -319,8 +319,9 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1.  [panic](kernel_module/panic.c)
         1.  [params](kernel_module/params.c)
         1.  [fops](kernel_module/fops.c)
-            1. [ioctl](ioctl.c)
-            1. [poll](poll.c)
+            1. [ioctl](kernel_module/ioctl.c)
+            1. [poll](kernel_module/poll.c)
+            1. [anonymous_inode](kernel_module/anonymous_inode.c)
         1.  Asynchronous
             1. [workqueue](kernel_module/workqueue.c)
             1. [sleep](kernel_module/sleep.c)
@@ -329,7 +330,7 @@ But TODO I don't think you can see where you are in the kernel source code and l
             1. [schedule](kernel_module/schedule.c)
             1. [timer](kernel_module/timer.c)
             1. [work_from_work](kernel_module/work_from_work.c)
-        1.  [irq](irq.c)
+        1.  [irq](kernel_module/irq.c)
         1.  Module dependencies
             1. [dep.c](kernel_module/dep.c)
             1. [dep2.c](kernel_module/dep2.c)
