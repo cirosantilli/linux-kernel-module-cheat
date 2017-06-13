@@ -17,13 +17,13 @@ in drivers (syscalls being the other one).
 Here we use debugfs.
 */
 
+#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h>
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 
 MODULE_LICENSE("GPL");
 
@@ -95,7 +95,7 @@ static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff
 Called on the last close:
 http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-release-in-struct-file-operations-in-the-l
 */
-static int release (struct inode *inode, struct file *filp)
+static int release(struct inode *inode, struct file *filp)
 {
 	printk(KERN_INFO "release\n");
 	return 0;

@@ -73,7 +73,10 @@ static const struct file_operations fops = {
 static int myinit(void)
 {
 	dir = debugfs_create_dir("lkmc_ioctl", 0);
-	debugfs_create_file("f", 0666, dir, NULL, &fops);
+	/* ioctl permissions are not automatically restricted by rwx as for read / write,
+	 * but we could of course implement that ourselves:
+	 * https://stackoverflow.com/questions/29891803/user-permission-check-on-ioctl-command */
+	debugfs_create_file("f", 0, dir, NULL, &fops);
 	return 0;
 }
 

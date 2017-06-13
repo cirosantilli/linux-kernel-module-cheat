@@ -15,8 +15,8 @@ int main(int argc, char **argv)
 	int fd, arg_int, ret;
 	lkmc_ioctl_struct arg_struct;
 
-	if (argc < 4) {
-		puts("Usage: ./prog <ioctl-file> <cmd> <arg>");
+	if (argc < 2) {
+		puts("Usage: ./prog <ioctl-file>");
 		return EXIT_FAILURE;
 	}
 	fd = open(argv[1], O_RDONLY);
