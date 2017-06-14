@@ -61,6 +61,10 @@ We use Buildroot's default kernel version, you can confirm it after build with:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/.config
 
+or in QEMU:
+
+    cat /proc/version
+
 ## Text mode
 
 Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
