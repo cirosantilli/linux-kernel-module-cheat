@@ -1,6 +1,8 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox with several minimal Linux kernel 4.9 module example tutorials with GDB and KGDB debug. Tested in x86 and ARM guests, Ubuntu 14.04 - 16.10 hosts.
+Run one command, get into QEMU Buildroot BusyBox virtual machine with several minimal Linux kernel 4.9 module example tutorials with GDB and KGDB debug. Tested in x86 and ARM guests, Ubuntu 14.04 - 16.10 hosts.
+
+![](screenshot.png)
 
 Usage:
 

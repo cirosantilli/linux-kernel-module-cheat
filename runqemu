@@ -5,6 +5,7 @@ set -e
 # CLI handling.
 arch=x86_64
 debug=false
+debug_qemu=''
 kgdb=false
 nographic=false
 extra_append=''
@@ -31,6 +32,9 @@ while getopts a:dkn OPT; do
       extra_flags="$extra_flags -nographic"
       nographic=true
       ;;
+    q)
+      debug_qemu='gdb -q -ex start --args'
+      ;;
   esac
 done
 shift "$(($OPTIND - 1))"
@@ -42,7 +46,7 @@ case "$arch" in
       if $kgdb; then
         extra_append="$extra_append kgdboc=ttyS0,115200"
       fi
-      cmd="gdb -q -ex start --args ./buildroot/output/host/usr/bin/qemu-system-x86_64 \
+      cmd="$debug_qemu ./buildroot/output/host/usr/bin/qemu-system-x86_64 \
         -M pc \
         -append 'root=/dev/vda $extra_append' \
         -drive file=${images_dir}/rootfs.ext2,if=virtio,format=raw \
