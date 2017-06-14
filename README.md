@@ -141,6 +141,8 @@ QEMU cannot be put on the background of the current shell, so you will need to o
 
     ./rungdb
 
+`O=0` is however an impossible dream, `O=2` being the default: <https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0> So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
+
 ### Kernel module debugging
 
 Loadable kernel modules are a bit trickier since the kernel can place them at different memory locations depending on load other.
