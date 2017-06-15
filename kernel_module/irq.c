@@ -1,5 +1,14 @@
 /*
 TODO: get handler running multiple times on some existing interrupt from /proc/interrupts.
+
+Inside QEMU, try:
+
+	watch -n 1 cat /proc/interrupts
+
+Then see how clicking the mouse and keyboard affect the interrupts. This will point you to:
+
+- 1: keyboard
+- 12: mouse click and drags
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
@@ -21,13 +30,13 @@ MODULE_PARM_DESC(i, "irq line number");
  * Return value from kernel docs:*
  *
  * enum irqreturn
- * @IRQ_NON      interrupt was not from this device or was not handled
- * @IRQ_HANDLED  interrupt was handled by this device
+ * @IRQ_NONE        interrupt was not from this device or was not handled
+ * @IRQ_HANDLED     interrupt was handled by this device
  * @IRQ_WAKE_THREAD handler requests to wake the handler thread
  */
-static irqreturn_t handler(int irq, void *v)
+static irqreturn_t handler(int irq, void *dev)
 {
-	pr_info("handler irq = %d\n", irq);
+	pr_info("handler irq = %d dev = %d\n", irq, *(int *)dev);
 	return IRQ_HANDLED;
 }
 
@@ -42,6 +51,7 @@ static int myinit(void)
 		ret = request_irq(
 			i,
 			handler,
+			/* Requires an associated device. */
 			IRQF_SHARED,
 			"myirqhandler0",
 			&major
