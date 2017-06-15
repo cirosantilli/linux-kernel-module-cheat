@@ -9,6 +9,10 @@ TODO: get handler running multiple times on some existing interrupt from /proc/i
 
 MODULE_LICENSE("GPL");
 
+static int irq = 0;
+module_param_named(i, irq, int, S_IRUSR);
+MODULE_PARM_DESC(i, "irq line number");
+
 /**
  * Return value from kernel docs:*
  *
@@ -17,28 +21,32 @@ MODULE_LICENSE("GPL");
  * @IRQ_HANDLED  interrupt was handled by this device
  * @IRQ_WAKE_THREAD handler requests to wake the handler thread
  */
-static irqreturn_t handler(int i, void *v)
+static irqreturn_t handler(int irq, void *v)
 {
-	pr_info("handler %llu\n", (unsigned long long)jiffies);
+	pr_info("handler irq = %d jiffies = %llx\n", irq, (unsigned long long)jiffies);
 	return IRQ_HANDLED;
 }
 
 static int myinit(void)
 {
-	irqreturn_t r;
-	r = request_irq(
-		1,
-		handler,
-		IRQF_SHARED,
-		"myirqhandler0",
-		0
-	);
-	pr_info("request_irq %llu\n", (unsigned long long)r);
+	int ret;
+
+	for (int i = 0; i < 128; ++i) {
+		ret = request_irq(
+			i,
+			handler,
+			IRQF_SHARED,
+			"myirqhandler0",
+			NULL
+		);
+		pr_info("request_irq irq = %d ret = %d\n", i, ret);
+	}
 	return 0;
 }
 
 static void myexit(void)
 {
+	free_irq(irq, NULL);
 }
 
 module_init(myinit)
