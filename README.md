@@ -342,3 +342,4 @@ But TODO I don't think you can see where you are in the kernel source code and l
         1.  Module dependencies
             1. [dep.c](kernel_module/dep.c)
             1. [dep2.c](kernel_module/dep2.c)
+        1.  [character_device](kernel_module/character_device.c)
