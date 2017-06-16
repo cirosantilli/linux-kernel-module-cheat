@@ -13,7 +13,7 @@ http://nairobi-embedded.org/linux_pci_device_driver.html
 
 #define MAX_DEVICE  1
 #define DEVICE_NAME "virtual_pci"
-#define BAR_IO      2
+#define BAR_IO      0
 #define BAR_MEM     3
 
 MODULE_LICENSE("GPL");
@@ -52,12 +52,13 @@ static struct pci_dev *pci_cdev_search_pci_dev(struct pci_cdev pci_cdev[], int s
 	int i;
 	struct pci_dev *pdev = NULL;
 
-	for (i=0; i<size; i++) {
+	for(i=0; i<size; i++) {
 		if (pci_cdev[i].minor == minor) {
 			pdev = pci_cdev[i].pci_dev;
 			break;
 		}
 	}
+
 	return pdev;
 }
 
@@ -152,7 +153,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
 	pr_info("pci_probe\n");
 
-	ret = -1;
+	minor = -1;
 	for (i=0; i<MAX_DEVICE; i++) {
 		if (pci_cdev[i].pci_dev == NULL) {
 			pci_cdev[i].pci_dev = dev;
@@ -160,7 +161,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 			break;
 		}
 	}
-	if (ret < 0) {
+	if (minor < 0) {
 		dev_info(&(dev->dev), "error pci_cdev_add");
 		goto error;
 	}
@@ -192,23 +193,24 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	pci_enable_device(dev);
 
 	/* 'alloc' IO to talk with the card */
-	if (pci_request_region(dev, BAR_IO, "IO-pci") == 0) {
-		dev_err(&(dev->dev), "Can't request BAR2\n");
+	if (pci_request_region(dev, BAR_IO, "IO-pci")) {
+		dev_err(&(dev->dev), "Can't request BAR0\n");
 		cdev_del(cdev);
 		goto error;
 	}
 
+	/* TODO */
 	/* check that BAR_IO is *really* IO region */
-	if ((pci_resource_flags(dev, BAR_IO) & IORESOURCE_IO) != IORESOURCE_IO) {
-		dev_err(&(dev->dev), "BAR2 isn't an IO region\n");
-		cdev_del(cdev);
-		goto error;
-	}
+	/*if ((pci_resource_flags(dev, BAR_IO) & IORESOURCE_IO) != IORESOURCE_IO) {*/
+		/*dev_err(&(dev->dev), "BAR2 isn't an IO region\n");*/
+		/*cdev_del(cdev);*/
+		/*goto error;*/
+	/*}*/
 
-	return 1;
+	return 0;
 
 error:
-	return 0;
+	return 1;
 }
 
 static void pci_remove(struct pci_dev *dev)
@@ -235,7 +237,7 @@ static int __init pci_init_module(void)
 {
 	int i, first_minor, ret;
 
-	ret = alloc_chrdev_region(&devno, 0, MAX_DEVICE, "buffer");
+	ret = alloc_chrdev_region(&devno, 0, MAX_DEVICE, "lkmc_pci");
 	major = MAJOR(devno);
 	first_minor = MINOR(devno);
 	for (i=0; i < MAX_DEVICE; i++) {
