@@ -4,3 +4,4 @@
 - <https://github.com/agelastic/eudyptula>
 - <https://lwn.net>
 - <http://www.makelinux.net>
+- <http://nairobi-embedded.org/> you will fall here a lot when the hard Google queries start popping

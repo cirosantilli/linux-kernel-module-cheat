@@ -66,6 +66,7 @@ static long unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 }
 
 static const struct file_operations fops_ioctl = {
+	.owner = THIS_MODULE,
 	.unlocked_ioctl = unlocked_ioctl
 };
 

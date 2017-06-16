@@ -49,6 +49,7 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 }
 
 static const struct file_operations fops = {
+	.owner = THIS_MODULE,
 	.read = read,
 };
 

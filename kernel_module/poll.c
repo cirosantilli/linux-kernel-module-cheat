@@ -65,6 +65,7 @@ static int kthread_func(void *data)
 }
 
 static const struct file_operations fops = {
+	.owner = THIS_MODULE,
 	.read = read,
 	.poll = poll
 };

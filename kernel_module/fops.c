@@ -129,6 +129,9 @@ static loff_t llseek(struct file *filp, loff_t off, int whence)
 }
 
 static const struct file_operations fops = {
+	/* Prevents rmmod while fops are running.
+	 * Try removing this for poll, which waits a lot. */
+	.owner = THIS_MODULE,
 	.llseek = llseek,
 	.open = open,
 	.read = read,
