@@ -22,6 +22,7 @@ Grep QEMU source for the device description, and keep it open at all times!
 #include <linux/cdev.h> /* cdev_ */
 #include <linux/fs.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
@@ -46,22 +47,23 @@ Grep QEMU source for the device description, and keep it open at all times!
  *     memory_region_init_io(&edu->mmio, OBJECT(edu), &edu_mmio_ops, edu,
  *                     "edu-mmio", 1 << 20);
  *     pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &edu->mmio);
- * */
+ **/
 #define BAR 0
 #define CDEV_NAME "lkmc_pci"
+#define EDU_DEVICE_ID 0x11e8
+#define IO_IRQ_ACK 0x64
+#define IO_IRQ_STATUS 0x24
+#define QEMU_VENDOR_ID 0x1234
 
 MODULE_LICENSE("GPL");
 
-/**
- * 0x1234: QEMU vendor ID
- * 0x11e8: edu device ID
- */
 static struct pci_device_id pci_ids[] = {
-	{ PCI_DEVICE(0x1234, 0x11e8), },
+	{ PCI_DEVICE(QEMU_VENDOR_ID, EDU_DEVICE_ID), },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, pci_ids);
 
+static int pci_irq;
 static int major;
 static struct pci_dev *pdev;
 static void __iomem *mmio;
@@ -119,6 +121,26 @@ static struct file_operations fops = {
 	.write   = write,
 };
 
+static irqreturn_t irq_handler(int irq, void *dev)
+{
+	int devi;
+	irqreturn_t ret;
+	u32 irq_status;
+
+	devi = *(int *)dev;
+	if (devi == major) {
+		irq_status = ioread32(mmio + IO_IRQ_STATUS);
+		pr_info("interrupt irq = %d dev = %d irq_status = %llx\n",
+				irq, devi, (unsigned long long)irq_status);
+		/* Must do this ACK, or else the interrupts just keeps firing. */
+		iowrite32(irq_status, mmio + IO_IRQ_ACK);
+		ret = IRQ_HANDLED;
+	} else {
+		ret = IRQ_NONE;
+	}
+	return ret;
+}
+
 /**
  * Called just after insmod if the hardware device is connected,
  * not called otherwise.
@@ -128,6 +150,8 @@ static struct file_operations fops = {
  */
 static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
+	u8 val;
+
 	pr_info("pci_probe\n");
 	major = register_chrdev(0, CDEV_NAME, &fops);
 	pdev = dev;
@@ -141,9 +165,16 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	}
 	mmio = pci_iomap(pdev, BAR, pci_resource_len(pdev, BAR));
 
+	/* IRQ setup. */
+	pci_read_config_byte(dev, PCI_INTERRUPT_LINE, &val);
+	pci_irq = val;
+	if (request_irq(pci_irq, irq_handler, IRQF_SHARED, "pci_irq_handler0", &major) < 0) {
+		dev_err(&(dev->dev), "request_irq\n");
+		goto error;
+	}
+
 	/* Optional sanity checks. The PCI is ready now, all of this could also be called from fops. */
 	{
-		u8 val;
 		unsigned i;
 
 		/* Check that we are using MEM instead of IO.
@@ -168,13 +199,13 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 			pci_read_config_byte(pdev, i, &val);
 			pr_info("config %x %x\n", i, val);
 		}
+		pr_info("irq %x\n", pci_irq);
 
 		/* Initial value of the IO memory. */
 		for (i = 0; i < 0x28; i += 4) {
 			pr_info("io %x %x\n", i, ioread32((void*)(mmio + i)));
 		}
 	}
-
 	return 0;
 error:
 	return 1;
