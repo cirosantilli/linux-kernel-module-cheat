@@ -310,6 +310,27 @@ The other KDB commands allow you to instruction steps, view memory, registers an
 
 But TODO I don't think you can see where you are in the kernel source code and line step as from GDB, since the kernel source is not available on guest (ah, if only debugging information supported full source).
 
+## Debug QEMU
+
+When you start interacting with QEMU hardware, it is useful to see what is going on inside of QEMU itself.
+
+This is of course trivial since QEMU is just an userland program on the host, but we make it a bit easier with:
+
+    ./runqemu -q
+
+Then you could:
+
+    b edu_mmio_read
+    c
+
+And in QEMU:
+
+    /pci.sh
+
+Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
+
+You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
+
 ## Table of contents
 
 1.  [Introduction](introduction.md)
