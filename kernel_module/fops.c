@@ -33,7 +33,7 @@ static char data[] = {'a', 'b', 'c', 'd'};
 
 static int open(struct inode *inode, struct file *filp)
 {
-	printk(KERN_INFO "open\n");
+	pr_info("open\n");
 	return 0;
 }
 
@@ -45,9 +45,10 @@ static int open(struct inode *inode, struct file *filp)
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
-	printk(KERN_INFO "read\n");
-	printk(KERN_INFO "len = %zu\n", len);
-	printk(KERN_INFO "off = %lld\n", (long long)*off);
+
+	pr_info("read\n");
+	pr_info("len = %zu\n", len);
+	pr_info("off = %lld\n", (long long)*off);
 	if (sizeof(data) <= *off) {
 		ret = 0;
 	} else {
@@ -58,8 +59,8 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 			*off += ret;
 		}
 	}
-	printk(KERN_INFO "buf = %.*s\n", (int)len, buf);
-	printk(KERN_INFO "ret = %lld\n", (long long)ret);
+	pr_info("buf = %.*s\n", (int)len, buf);
+	pr_info("ret = %lld\n", (long long)ret);
 	return ret;
 }
 
@@ -70,9 +71,10 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
-	printk(KERN_INFO "write\n");
-	printk(KERN_INFO "len = %zu\n", len);
-	printk(KERN_INFO "off = %lld\n", (long long)*off);
+
+	pr_info("write\n");
+	pr_info("len = %zu\n", len);
+	pr_info("off = %lld\n", (long long)*off);
 	if (sizeof(data) <= *off) {
 		ret = 0;
 	} else {
@@ -83,12 +85,12 @@ static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff
 				ret = -EFAULT;
 			} else {
 				ret = len;
-				printk(KERN_INFO "buf = %.*s\n", (int)len, data + *off);
+				pr_info("buf = %.*s\n", (int)len, data + *off);
 				*off += ret;
 			}
 		}
 	}
-	printk(KERN_INFO "ret = %lld\n", (long long)ret);
+	pr_info("ret = %lld\n", (long long)ret);
 	return ret;
 }
 
@@ -98,17 +100,17 @@ http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-
 */
 static int release(struct inode *inode, struct file *filp)
 {
-	printk(KERN_INFO "release\n");
+	pr_info("release\n");
 	return 0;
 }
 
 static loff_t llseek(struct file *filp, loff_t off, int whence)
 {
 	loff_t newpos;
-	printk(KERN_INFO "llseek\n");
-	printk(KERN_INFO "off = %lld\n", (long long)off);
-	printk(KERN_INFO "whence = %lld\n", (long long)whence);
 
+	pr_info("llseek\n");
+	pr_info("off = %lld\n", (long long)off);
+	pr_info("whence = %lld\n", (long long)whence);
 	switch(whence) {
 		case SEEK_SET:
 			newpos = off;
@@ -124,7 +126,7 @@ static loff_t llseek(struct file *filp, loff_t off, int whence)
 	}
 	if (newpos < 0) return -EINVAL;
 	filp->f_pos = newpos;
-	printk(KERN_INFO "newpos = %lld\n", (long long)newpos);
+	pr_info("newpos = %lld\n", (long long)newpos);
 	return newpos;
 }
 

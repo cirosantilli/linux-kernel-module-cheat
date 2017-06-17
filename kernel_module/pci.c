@@ -1,266 +1,211 @@
 /*
-http://www.zarb.org/~trem/kernel/pci/pci-driver.c
-http://nairobi-embedded.org/linux_pci_device_driver.html
+Like every other hardware, we could interact with PCI on x86
+using only IO instructions and memory operations.
+
+But PCI is a complex communication protocol that the Linux kernel
+implements beautifully for us, so let's use the kernel API.
+
+This example relies on the QEMU "edu" educational device.
+Grep QEMU source for the device description, and keep it open at all times!
+
+-   http://www.zarb.org/~trem/kernel/pci/pci-driver.c inb outb runnable example (no device)
+- 	LDD3 PCI chapter
+-   another QEMU device + module, but using a custom QEMU device:
+	- https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/module/levpci.c
+	- https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/qemu/hw/char/lev-pci.c
+-   https://is.muni.cz/el/1433/podzim2016/PB173/um/65218991/ course given by the creator of the edu device.
+	In Czech, and only describes API
+-   http://nairobi-embedded.org/linux_pci_device_driver.html
 */
 
-#include <linux/kernel.h>
+#include <asm/uaccess.h> /* put_user */
+#include <linux/cdev.h> /* cdev_ */
+#include <linux/fs.h>
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-#include <linux/fs.h>
-#include <linux/cdev.h> /* cdev_ */
-#include <asm/uaccess.h> /* put_user */
 
-#define MAX_DEVICE  1
-#define DEVICE_NAME "virtual_pci"
-#define BAR_IO      0
-#define BAR_MEM     3
+/* Each PCI device has 6 BAR IOs (base address register) as per the PCI spec.
+ *
+ * Each BAR corresponds to an address range that can be used to communicate with the PCI.
+ *
+ * Eech BAR is of one of the two types:
+ *
+ * - IORESOURCE_IO: must be accessed with inX and outX
+ * - IORESOURCE_MEM: must be accessed with ioreadX and iowriteX
+ *   	This is the saner method apparently, and what the edu device uses.
+ *
+ * The length of each region is defined BY THE HARDWARE, and communicated to software
+ * via the configuration registers.
+ *
+ * The Linux kernel automatically parses the 64 bytes of standardized configuration registers for us.
+ *
+ * QEMU devices register those regions with:
+ *
+ *     memory_region_init_io(&edu->mmio, OBJECT(edu), &edu_mmio_ops, edu,
+ *                     "edu-mmio", 1 << 20);
+ *     pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &edu->mmio);
+ * */
+#define BAR 0
+#define CDEV_NAME "lkmc_pci"
 
 MODULE_LICENSE("GPL");
 
+/**
+ * 0x1234: QEMU vendor ID
+ * 0x11e8: edu device ID
+ */
 static struct pci_device_id pci_ids[] = {
 	{ PCI_DEVICE(0x1234, 0x11e8), },
 	{ 0, }
 };
-
 MODULE_DEVICE_TABLE(pci, pci_ids);
 
-static dev_t devno;
 static int major;
+static struct pci_dev *pdev;
+static void __iomem *mmio;
 
-struct pci_cdev {
-	int minor;
-	struct pci_dev *pci_dev;
-	struct cdev *cdev;
-};
-
-static struct pci_cdev pci_cdev[MAX_DEVICE];
-
-static void pci_cdev_del(struct pci_cdev pci_cdev[], int size, struct pci_dev *pdev)
+static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
-	int i;
+	ssize_t ret;
+	u32 kbuf;
 
-	for (i=0; i<size; i++) {
-		if (pci_cdev[i].pci_dev == pdev) {
-			pci_cdev[i].pci_dev = NULL;
+	if (*off % 4 || len == 0) {
+		ret = 0;
+	} else {
+		kbuf = ioread32(mmio + *off);
+		if (copy_to_user(buf, (void *)&kbuf, 4)) {
+			ret = -EFAULT;
+		} else {
+			ret = 4;
+			(*off)++;
 		}
 	}
+	return ret;
 }
 
-static struct pci_dev *pci_cdev_search_pci_dev(struct pci_cdev pci_cdev[], int size, int minor)
+static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
-	int i;
-	struct pci_dev *pdev = NULL;
+	ssize_t ret;
+	u32 kbuf;
 
-	for(i=0; i<size; i++) {
-		if (pci_cdev[i].minor == minor) {
-			pdev = pci_cdev[i].pci_dev;
-			break;
+	ret = len;
+	if (!(*off % 4)) {
+		if (copy_from_user((void *)&kbuf, buf, 4) || len != 4) {
+			ret = -EFAULT;
+		} else {
+			iowrite32(kbuf, mmio + *off);
 		}
 	}
-
-	return pdev;
+	return ret;
 }
 
-static struct cdev *pci_cdev_search_cdev(struct pci_cdev pci_cdev[], int size, int minor)
+static loff_t llseek(struct file *filp, loff_t off, int whence)
 {
-	int i;
-	struct cdev *cdev = NULL;
-
-	for (i=0; i<size; i++) {
-		if (pci_cdev[i].minor == minor) {
-			cdev = pci_cdev[i].cdev;
-			break;
-		}
-	}
-	return cdev;
+	filp->f_pos = off;
+	return off;
 }
 
-/**
- * -1     => not found
- * others => found
- */
-static int pci_cdev_search_minor(struct pci_cdev pci_cdev[],
-		int size, struct pci_dev *pdev)
-{
-	int i, minor = -1;
-
-	for (i=0; i<size; i++) {
-		if (pci_cdev[i].pci_dev == pdev) {
-			minor = pci_cdev[i].minor;
-			break;
-		}
-	}
-	return minor;
-}
-
-static int pci_open(struct inode *inode, struct file *file)
-{
-	int minor = iminor(inode);
-	file->private_data = (void *)pci_cdev_search_pci_dev(pci_cdev, MAX_DEVICE, minor);
-	return 0;
-}
-
-static ssize_t pci_read(struct file *file,
-			char *buffer,
-			size_t length,
-			loff_t * offset)
-{
-	int byte_read = 0;
-	unsigned char value;
-	struct pci_dev *pdev = (struct pci_dev *)file->private_data;
-	unsigned long pci_io_addr = 0;
-
-	pci_io_addr = pci_resource_start(pdev,BAR_IO);
-	while (byte_read < length) {
-		value = inb(pci_io_addr + 1);
-		put_user(value, &buffer[byte_read]);
-		byte_read++;
-	}
-	return byte_read;
-}
-
-static ssize_t pci_write(struct file *filp, const char *buffer, size_t len, loff_t * off) {
-	int i;
-	unsigned char value;
-	struct pci_dev *pdev = (struct pci_dev *)filp->private_data;
-	unsigned long pci_io_addr = 0;
-
-	pci_io_addr = pci_resource_start(pdev,BAR_IO);
-	for (i=0; i<len; i++) {
-		value = (unsigned char)buffer[i];
-		outb(pci_io_addr+2, value);
-	}
-	return len;
-}
-
-static struct file_operations pci_ops = {
+/* These fops are a bit daft since read and write interfaces don't map well to IO registers.
+ *
+ * One ioctl per register would likely be the saner option. But we are lazy.
+ *
+ * We use the fact that every IO is aligned to 4 bytes. Misaligned reads means EOF. */
+static struct file_operations fops = {
 	.owner   = THIS_MODULE,
-	.read    = pci_read,
-	.write   = pci_write,
-	.open    = pci_open,
+	.llseek  = llseek,
+	.read    = read,
+	.write   = write,
 };
 
 /**
- * 0 => this driver doesn't handle this device
- * 1 => this driver handles this device
+ * Called just after insmod if the hardware device is connected,
+ * not called otherwise.
+ *
+ * 0: all good
+ * 1: failed
  */
 static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
-	int i, ret, minor;
-	struct cdev *cdev;
-	dev_t devno;
-
 	pr_info("pci_probe\n");
+	major = register_chrdev(0, CDEV_NAME, &fops);
+	pdev = dev;
+	if (pci_enable_device(dev) < 0) {
+		dev_err(&(pdev->dev), "pci_enable_device\n");
+		goto error;
+	}
+	if (pci_request_region(dev, BAR, "myregion0")) {
+		dev_err(&(pdev->dev), "pci_request_region\n");
+		goto error;
+	}
+	mmio = pci_iomap(pdev, BAR, pci_resource_len(pdev, BAR));
 
-	minor = -1;
-	for (i=0; i<MAX_DEVICE; i++) {
-		if (pci_cdev[i].pci_dev == NULL) {
-			pci_cdev[i].pci_dev = dev;
-			minor = pci_cdev[i].minor;
-			break;
+	/* Optional sanity checks. The PCI is ready now, all of this could also be called from fops. */
+	{
+		u8 val;
+		unsigned i;
+
+		/* Check that we are using MEM instead of IO.
+		 *
+		 * In QEMU, the type is defiened by either:
+		 *
+		 * - PCI_BASE_ADDRESS_SPACE_IO
+		 * - PCI_BASE_ADDRESS_SPACE_MEMORY
+		 */
+		if ((pci_resource_flags(dev, BAR) & IORESOURCE_MEM) != IORESOURCE_MEM) {
+			dev_err(&(dev->dev), "pci_resource_flags\n");
+			goto error;
+		}
+
+		/* 1Mb, as defined by the "1 << 20" in QEMU's memory_region_init_io. Same as pci_resource_len. */
+		resource_size_t start = pci_resource_start(pdev, BAR);
+		resource_size_t end = pci_resource_end(pdev, BAR);
+		pr_info("length %llx\n", (unsigned long long)(end + 1 - start));
+
+		/* The PCI standardized 64 bytes of the configuration space, see LDD3. */
+		for (i = 0; i < 64u; ++i) {
+			pci_read_config_byte(pdev, i, &val);
+			pr_info("config %x %x\n", i, val);
+		}
+
+		/* Initial value of the IO memory. */
+		for (i = 0; i < 0x28; i += 4) {
+			pr_info("io %x %x\n", i, ioread32((void*)(mmio + i)));
 		}
 	}
-	if (minor < 0) {
-		dev_info(&(dev->dev), "error pci_cdev_add");
-		goto error;
-	}
-
-	devno = MKDEV(major, minor);
-	cdev = cdev_alloc();
-	cdev_init(cdev, &pci_ops);
-	cdev->owner = THIS_MODULE;
-
-	/* register cdev */
-	ret = cdev_add(cdev, devno, 1);
-	if (ret < 0) {
-		dev_err(&(dev->dev), "Can't register character device\n");
-		goto error;
-	}
-	pci_cdev[minor].cdev = cdev;
-
-	dev_info(&(dev->dev), "%s The major device number is %d (%d).\n",
-	       "Registeration is a success", MAJOR(devno), MINOR(devno));
-	dev_info(&(dev->dev), "If you want to talk to the device driver,\n");
-	dev_info(&(dev->dev), "you'll have to create a device file. \n");
-	dev_info(&(dev->dev), "We suggest you use:\n");
-	dev_info(&(dev->dev), "mknod %s c %d %d\n", DEVICE_NAME, MAJOR(devno), MINOR(devno));
-	dev_info(&(dev->dev), "The device file name is important, because\n");
-	dev_info(&(dev->dev), "the ioctl program assumes that's the\n");
-	dev_info(&(dev->dev), "file you'll use.\n");
-
-	/* enable the device */
-	pci_enable_device(dev);
-
-	/* 'alloc' IO to talk with the card */
-	if (pci_request_region(dev, BAR_IO, "IO-pci")) {
-		dev_err(&(dev->dev), "Can't request BAR0\n");
-		cdev_del(cdev);
-		goto error;
-	}
-
-	/* TODO */
-	/* check that BAR_IO is *really* IO region */
-	/*if ((pci_resource_flags(dev, BAR_IO) & IORESOURCE_IO) != IORESOURCE_IO) {*/
-		/*dev_err(&(dev->dev), "BAR2 isn't an IO region\n");*/
-		/*cdev_del(cdev);*/
-		/*goto error;*/
-	/*}*/
 
 	return 0;
-
 error:
 	return 1;
 }
 
 static void pci_remove(struct pci_dev *dev)
 {
-	int minor;
-	struct cdev *cdev;
-
-	minor = pci_cdev_search_minor(pci_cdev, MAX_DEVICE, dev);
-	cdev = pci_cdev_search_cdev(pci_cdev, MAX_DEVICE, minor);
-	if (cdev != NULL)
-		cdev_del(cdev);
-	pci_cdev_del(pci_cdev, MAX_DEVICE, dev);
-	pci_release_region(dev, BAR_IO);
+	pr_info("pci_remove\n");
+	pci_release_region(dev, BAR);
+	unregister_chrdev(major, CDEV_NAME);
 }
 
 static struct pci_driver pci_driver = {
-	.name     = "pci",
+	.name     = "lkmc_pci",
 	.id_table = pci_ids,
 	.probe    = pci_probe,
 	.remove   = pci_remove,
 };
 
-static int __init pci_init_module(void)
+static int myinit(void)
 {
-	int i, first_minor, ret;
-
-	ret = alloc_chrdev_region(&devno, 0, MAX_DEVICE, "lkmc_pci");
-	major = MAJOR(devno);
-	first_minor = MINOR(devno);
-	for (i=0; i < MAX_DEVICE; i++) {
-		pci_cdev[i].minor   = first_minor++;
-		pci_cdev[i].pci_dev = NULL;
-		pci_cdev[i].cdev    = NULL;
+	if (pci_register_driver(&pci_driver) < 0) {
+		return 1;
 	}
-	ret = pci_register_driver(&pci_driver);
 	return 0;
 }
 
-static void pci_exit_module(void)
+static void myexit(void)
 {
-	int i;
-
 	pci_unregister_driver(&pci_driver);
-	for(i=0; i< MAX_DEVICE; i++) {
-		if (pci_cdev[i].pci_dev != NULL) {
-			cdev_del(pci_cdev[i].cdev);
-		}
-	}
-	unregister_chrdev_region(devno, MAX_DEVICE);
 }
 
-module_init(pci_init_module);
-module_exit(pci_exit_module);
+module_init(myinit);
+module_exit(myexit);

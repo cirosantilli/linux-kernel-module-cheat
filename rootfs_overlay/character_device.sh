@@ -1,7 +1,7 @@
 #!/bin/sh
 insmod /character_device.ko
-major="$(grep lkmc_character_device /proc/devices | cut -d ' ' -f 1)"
-mknod /character_device.dev c $major 0
-cat /character_device.dev
+/mknoddev.sh character_device
+cat /dev/lkmc_character_device
 # => abcd
+rm /dev/lkmc_character_device
 rmmod character_device
