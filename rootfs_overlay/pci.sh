@@ -22,6 +22,7 @@ printf '\x80\x00\x00\x00' | dd bs=4 status=none of=/dev/lkmc_pci count=1 seek=8
 # factorial(0xC) = 0x1c8cfc00
 printf '\x0C\x00\x00\x00' | dd bs=4 status=none of=/dev/lkmc_pci count=1 seek=2
 # => interrupt
+# Yes, we should the interrupt to notify poll, but lazy.
 sleep 1
 dd bs=4 status=none if=/dev/lkmc_pci count=1 skip=2 | od -An -t x1
 dd bs=4 status=none if=/dev/lkmc_pci count=1 skip=8 | od -An -t x1
