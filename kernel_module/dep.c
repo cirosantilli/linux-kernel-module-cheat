@@ -25,6 +25,12 @@ sys visibility:
 	cat refcnt
 	# => 1
 
+proc visibility:
+
+	grep lkmc_dep /proc/kallsyms
+
+Requires "CONFIG_KALLSYMS_ALL=y".
+
 depmod:
 
 	grep dep "/lib/module/"*"/depmod"

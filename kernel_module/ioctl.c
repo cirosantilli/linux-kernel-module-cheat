@@ -14,6 +14,9 @@ Documentation/ioctl/ioctl-number.txt has some info:
     _IOW   an ioctl with write parameters (copy_from_user)
     _IOR   an ioctl with read parameters  (copy_to_user)
     _IOWR  an ioctl with both write and read parameters.
+
+- https://stackoverflow.com/questions/2264384/how-do-i-use-ioctl-to-manipulate-my-kernel-module/44613896#44613896
+- https://askubuntu.com/questions/54239/problem-with-ioctl-in-a-simple-kernel-module/926675#926675
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
