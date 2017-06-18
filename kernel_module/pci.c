@@ -8,8 +8,11 @@ implements beautifully for us, so let's use the kernel API.
 This example relies on the QEMU "edu" educational device.
 Grep QEMU source for the device description, and keep it open at all times!
 
+-   edu device source and spec in QEMU tree:
+	- https://github.com/qemu/qemu/blob/v2.7.0/hw/misc/edu.c
+	- https://github.com/qemu/qemu/blob/v2.7.0/docs/specs/edu.txt
 -   http://www.zarb.org/~trem/kernel/pci/pci-driver.c inb outb runnable example (no device)
-- 	LDD3 PCI chapter
+-   LDD3 PCI chapter
 -   another QEMU device + module, but using a custom QEMU device:
 	- https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/module/levpci.c
 	- https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/qemu/hw/char/lev-pci.c
