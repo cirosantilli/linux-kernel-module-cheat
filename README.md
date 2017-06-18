@@ -57,6 +57,15 @@ We use `printk` a lot, and it shows on the QEMU terminal by default. If that ann
 
 See also: <https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console>
 
+You can scroll up a bit on the default TTY with:
+
+    Shift + PgUp
+
+How to increase the buffer:
+
+- <https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition>
+- <https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty>
+
 We use Buildroot's default kernel version, you can confirm it after build with:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/.config

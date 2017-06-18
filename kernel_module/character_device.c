@@ -15,6 +15,8 @@ conlicts with other devices.
 
 Then we need to check /proc/devices to find out the assigned number,
 and use that for the mknod.
+
+- https://unix.stackexchange.com/questions/37829/understanding-character-device-or-character-special-files/371758#371758
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
