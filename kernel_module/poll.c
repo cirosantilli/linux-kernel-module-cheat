@@ -2,6 +2,8 @@
 	/poll.sh
 
 Outcome: user echoes jiffies every second.
+
+https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-kernel-module-code/44645336#44645336
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */

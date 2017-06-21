@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox virtual machine with several minimal Linux kernel 4.9 module example tutorials with GDB and KGDB debug. Tested in x86 and ARM guests, Ubuntu 14.04 - 16.10 hosts.
+Run one command, get into QEMU Buildroot BusyBox virtual machine with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug. Tested in x86 and ARM guests, Ubuntu 14.04 - 16.10 hosts.
 
 ![](screenshot.png)
 
@@ -345,6 +345,7 @@ You can still send key presses to QEMU however even without the mouse capture, j
 1.  [Introduction](introduction.md)
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
+1.  [vermagic](vermagic.md)
 1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)
