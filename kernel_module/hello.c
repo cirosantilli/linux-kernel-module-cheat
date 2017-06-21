@@ -12,6 +12,7 @@ Hello world module.
 #include <linux/kernel.h>
 
 MODULE_LICENSE("GPL");
+MODULE_INFO(vermagic, "4.9.6 mod_unload ");
 
 static int myinit(void)
 {
