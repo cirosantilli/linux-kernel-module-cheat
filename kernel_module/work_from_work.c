@@ -13,9 +13,12 @@ MODULE_LICENSE("GPL");
 static int i = 0;
 static struct workqueue_struct *queue;
 
+static void work_func(struct work_struct *work);
+	
+DECLARE_DELAYED_WORK(next_work, work_func);
+
 static void work_func(struct work_struct *work)
 {
-	DECLARE_DELAYED_WORK(next_work, work_func);
 	printk(KERN_INFO "%d\n", i);
 	i++;
 	queue_delayed_work(queue, &next_work, HZ);
