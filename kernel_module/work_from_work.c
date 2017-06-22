@@ -13,9 +13,13 @@ MODULE_LICENSE("GPL");
 static int i = 0;
 static struct workqueue_struct *queue;
 
+static void work_func(struct work_struct *work);
+
+DECLARE_DELAYED_WORK(next_work, work_func);
+DECLARE_WORK(work, work_func);
+
 static void work_func(struct work_struct *work)
 {
-	DECLARE_DELAYED_WORK(next_work, work_func);
 	printk(KERN_INFO "%d\n", i);
 	i++;
 	queue_delayed_work(queue, &next_work, HZ);
@@ -23,7 +27,6 @@ static void work_func(struct work_struct *work)
 
 static int myinit(void)
 {
-	DECLARE_WORK(work, work_func);
 	queue = create_workqueue("myworkqueue");
 	queue_work(queue, &work);
 	return 0;
@@ -31,6 +34,8 @@ static int myinit(void)
 
 static void myexit(void)
 {
+	cancel_delayed_work(&next_work);
+	flush_workqueue( queue );
 	destroy_workqueue(queue);
 }
 
