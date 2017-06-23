@@ -19,6 +19,11 @@ Grep QEMU source for the device description, and keep it open at all times!
 -   https://is.muni.cz/el/1433/podzim2016/PB173/um/65218991/ course given by the creator of the edu device.
 	In Czech, and only describes API
 -   http://nairobi-embedded.org/linux_pci_device_driver.html
+
+DMA:
+
+- 	https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
+- 	https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
 */
 
 #include <asm/uaccess.h> /* put_user */
@@ -30,7 +35,9 @@ Grep QEMU source for the device description, and keep it open at all times!
 #include <linux/module.h>
 #include <linux/pci.h>
 
-/* Each PCI device has 6 BAR IOs (base address register) as per the PCI spec.
+/* https://stackoverflow.com/questions/30190050/what-is-base-address-register-bar-in-pcie/44716618#44716618
+ *
+ * Each PCI device has 6 BAR IOs (base address register) as per the PCI spec.
  *
  * Each BAR corresponds to an address range that can be used to communicate with the PCI.
  *
