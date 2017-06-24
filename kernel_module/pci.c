@@ -179,7 +179,8 @@ static irqreturn_t irq_handler(int irq, void *dev)
 	return ret;
 }
 
-/**
+/* https://stackoverflow.com/questions/5059501/probe-method-device-drivers/44739823#44739823
+ *
  * Called just after insmod if the hardware device is connected,
  * not called otherwise.
  *
