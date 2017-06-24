@@ -1,4 +1,8 @@
 /*
+Usage:
+
+	/pci.sh
+
 Like every other hardware, we could interact with PCI on x86
 using only IO instructions and memory operations.
 
@@ -140,7 +144,7 @@ static irqreturn_t irq_handler(int irq, void *dev)
 	devi = *(int *)dev;
 	if (devi == major) {
 		irq_status = ioread32(mmio + IO_IRQ_STATUS);
-		pr_info("interrupt irq = %d dev = %d irq_status = %llx\n",
+		pr_info("irq_handler irq = %d dev = %d irq_status = %llx\n",
 				irq, devi, (unsigned long long)irq_status);
 		/* Must do this ACK, or else the interrupts just keeps firing. */
 		iowrite32(irq_status, mmio + IO_IRQ_ACK);
@@ -162,7 +166,8 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	u8 val;
 
-	pr_info("pci_probe\n");
+	/* https://stackoverflow.com/questions/31382803/how-does-dev-family-functions-are-useful-while-debugging-kernel/44734857#44734857 */
+	dev_info(&(dev->dev), "pci_probe\n");
 	major = register_chrdev(0, CDEV_NAME, &fops);
 	pdev = dev;
 	if (pci_enable_device(dev) < 0) {

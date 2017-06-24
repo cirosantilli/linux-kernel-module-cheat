@@ -2,9 +2,20 @@
 
 set -ex
 
+# Our modules does not the PCI device yet.
+lspci -k
+# => 00:04.0 Class 00ff: 1234:11e8 lkmc_pci
+
+# Interrupt counts before we generate our interrupts.
+cat /proc/interrupts
+
 # Setup.
 insmod /pci.ko
 /mknoddev.sh pci
+
+# Shows that this module owns the PCI device.
+lspci -k
+# => 00:04.0 Class 00ff: 1234:11e8 lkmc_pci
 
 # Identifiction: just returns some fixed magic bytes.
 dd bs=4 status=none if=/dev/lkmc_pci count=1 skip=0 | od -An -t x1
@@ -39,3 +50,8 @@ sleep 1
 # Teardown.
 rm /dev/lkmc_pci
 rmmod pci
+
+# Interrupt counts after we generate our interrupts.
+# Compare with before.
+cat /proc/interrupts
+
