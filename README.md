@@ -95,6 +95,15 @@ or:
     Ctrl-C A
     quit
 
+or:
+
+    ./qemumonitor
+    quit
+
+or:
+
+    echo quit | ./qemumonitor
+
 See also:
 
 - <http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses>
