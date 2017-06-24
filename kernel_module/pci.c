@@ -224,6 +224,7 @@ error:
 static void pci_remove(struct pci_dev *dev)
 {
 	pr_info("pci_remove\n");
+	free_irq(pci_irq, &major);
 	pci_release_region(dev, BAR);
 	unregister_chrdev(major, CDEV_NAME);
 }
