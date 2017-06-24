@@ -3,6 +3,9 @@ Usage:
 
 	/pci.sh
 
+The standard is non-free, obviously: https://pcisig.com/specifications
+but Google gives several illegal PDF hits :-)
+
 Like every other hardware, we could interact with PCI on x86
 using only IO instructions and memory operations.
 

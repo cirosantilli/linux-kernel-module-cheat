@@ -33,6 +33,7 @@ static int myinit(void)
 static void myexit(void)
 {
 	cancel_delayed_work(&next_work);
+	flush_workqueue(queue);
 	destroy_workqueue(queue);
 }
 
