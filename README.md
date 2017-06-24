@@ -78,13 +78,17 @@ or in QEMU:
 
 Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
 
-    ./run -n
+    ./runqemu -n
 
 To exit, just do a regular:
 
     poweroff
 
-This is particularly useful to get full panic traces when you start making the kernel crash :-) See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
+This mode is very useful to:
+
+- get full panic traces when you start making the kernel crash :-) See also: <https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic>
+- copy and paste commands and stdout output to / from host
+- have a large scroll buffer, and be able to search it, e.g. by using GNU `screen` on host
 
 If the system crashes, you can't can quit QEMU with `poweroff`, but you can use either:
 
@@ -110,6 +114,11 @@ See also:
 - <https://superuser.com/questions/1087859/how-to-quit-qemu-monitor>
 - <https://superuser.com/questions/488263/problems-switching-to-qemu-control-panel-with-nographics>
 - <https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui/1211516#1211516>
+
+TODO: Ctrl + C kills the emulator, it is not sent to guest processes. See:
+
+- <https://github.com/cloudius-systems/osv/issues/49>
+- <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
 
 ## Debugging
 
@@ -238,9 +247,6 @@ Debug:
 ARM TODOs:
 
 -   only managed to run in the terminal interface (but weirdly a blank QEMU window is still opened)
--   Ctrl + C kills the emulator, not sent to guest. See:
-    - <https://github.com/cloudius-systems/osv/issues/49>
-    - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
 -   GDB not connecting to KGDB. Possibly linked to `-serial stdio`. See also: <https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm>
 
 ## KGDB
@@ -355,6 +361,7 @@ You can still send key presses to QEMU however even without the mouse capture, j
 1.  [Build](build.md)
 1.  [kmod](kmod.md)
 1.  [vermagic](vermagic.md)
+1.  [ftrace](ftrace.md)
 1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)
