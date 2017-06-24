@@ -6,6 +6,8 @@ Usage:
 The standard is non-free, obviously: https://pcisig.com/specifications
 but Google gives several illegal PDF hits :-)
 
+And of course: http://wiki.osdev.org/PCI
+
 Like every other hardware, we could interact with PCI on x86
 using only IO instructions and memory operations.
 
@@ -31,6 +33,25 @@ DMA:
 
 - 	https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
 - 	https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
+
+lspci -k shows something like:
+
+	00:04.0 Class 00ff: 1234:11e8 lkmc_pci
+
+Meaning of the first numbers:
+
+	<8:bus>:<5:device>.<3:function>
+
+Often abbreviated to BDF.
+
+- bus: groups PCI slots
+- device: maps to one slot
+- function: https://stackoverflow.com/questions/19223394/what-is-the-function-number-in-pci/44735372#44735372
+
+Class: pure magic: https://www-s.acm.illinois.edu/sigops/2007/roll_your_own/7.c.1.html
+TODO: does it have any side effects? Set in the edu device at:
+
+	k->class_id = PCI_CLASS_OTHERS
 */
 
 #include <asm/uaccess.h> /* put_user */

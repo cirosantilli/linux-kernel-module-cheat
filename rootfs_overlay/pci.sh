@@ -54,4 +54,3 @@ rmmod pci
 # Interrupt counts after we generate our interrupts.
 # Compare with before.
 cat /proc/interrupts
-
