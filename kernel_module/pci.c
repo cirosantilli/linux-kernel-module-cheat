@@ -242,6 +242,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		pr_info("irq %x\n", pci_irq);
 
 		/* Initial value of the IO memory. */
+        pr_info("mmio %p %llx\n", mmio, (unsigned long long)virt_to_phys(mmio));
 		for (i = 0; i < 0x28; i += 4) {
 			pr_info("io %x %x\n", i, ioread32((void*)(mmio + i)));
 		}
