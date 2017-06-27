@@ -73,7 +73,7 @@ TODO: does it have any side effects? Set in the edu device at:
  *
  * - IORESOURCE_IO: must be accessed with inX and outX
  * - IORESOURCE_MEM: must be accessed with ioreadX and iowriteX
- *   	This is the saner method apparently, and what the edu device uses.
+ *   This is the saner method apparently, and what the edu device uses.
  *
  * The length of each region is defined BY THE HARDWARE, and communicated to software
  * via the configuration registers.
@@ -101,7 +101,6 @@ static struct pci_device_id pci_ids[] = {
 };
 MODULE_DEVICE_TABLE(pci, pci_ids);
 
-static int pci_irq;
 static int major;
 static struct pci_dev *pdev;
 static void __iomem *mmio;
@@ -189,8 +188,6 @@ static irqreturn_t irq_handler(int irq, void *dev)
  */
 static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
-	u8 val;
-
 	/* https://stackoverflow.com/questions/31382803/how-does-dev-family-functions-are-useful-while-debugging-kernel/44734857#44734857 */
 	dev_info(&(dev->dev), "pci_probe\n");
 	major = register_chrdev(0, CDEV_NAME, &fops);
@@ -205,10 +202,15 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	}
 	mmio = pci_iomap(pdev, BAR, pci_resource_len(pdev, BAR));
 
-	/* IRQ setup. */
-	pci_read_config_byte(dev, PCI_INTERRUPT_LINE, &val);
-	pci_irq = val;
-	if (request_irq(pci_irq, irq_handler, IRQF_SHARED, "pci_irq_handler0", &major) < 0) {
+	/* IRQ setup.
+	 *
+	 * pci_read_config_byte(dev, PCI_INTERRUPT_LINE, &val);
+	 * has a different value and does not work if we insert the PCI device
+	 * after boot with device_add:
+	 * https://stackoverflow.com/questions/44740254/how-to-handle-interrupts-from-a-pci-device-that-already-have-a-non-shareable-han?noredirect=1#comment76558680_44740254
+	 */
+	pr_info("pdev->irq %u\n", pdev->irq);
+	if (request_irq(pdev->irq, irq_handler, IRQF_SHARED, "pci_irq_handler0", &major) < 0) {
 		dev_err(&(dev->dev), "request_irq\n");
 		goto error;
 	}
@@ -216,6 +218,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	/* Optional sanity checks. The PCI is ready now, all of this could also be called from fops. */
 	{
 		unsigned i;
+		u8 val;
 
 		/* Check that we are using MEM instead of IO.
 		 *
@@ -239,7 +242,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 			pci_read_config_byte(pdev, i, &val);
 			pr_info("config %x %x\n", i, val);
 		}
-		pr_info("irq %x\n", pci_irq);
+		pr_info("irq %x\n", pdev->irq);
 
 		/* Initial value of the IO memory. */
 		for (i = 0; i < 0x28; i += 4) {
@@ -254,7 +257,7 @@ error:
 static void pci_remove(struct pci_dev *dev)
 {
 	pr_info("pci_remove\n");
-	free_irq(pci_irq, &major);
+	free_irq(pdev->irq, &major);
 	pci_release_region(dev, BAR);
 	unregister_chrdev(major, CDEV_NAME);
 }
