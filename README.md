@@ -120,6 +120,19 @@ TODO: Ctrl + C kills the emulator, it is not sent to guest processes. See:
 - <https://github.com/cloudius-systems/osv/issues/49>
 - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
 
+## Automatic startup commands
+
+When debugging a module, it becomes tedious to wait for build and re-type:
+
+    root
+    /mymod.sh
+
+Instead, you can add your test commands to:
+
+    rootfs_overlay/etc/init.d/S99
+
+and they will be run automatically before the login prompt.
+
 ## Debugging
 
 To GDB the Linux kernel, first run:
