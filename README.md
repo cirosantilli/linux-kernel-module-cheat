@@ -225,11 +225,6 @@ And then tell GDB where the module was loaded with:
 
 The portability of the kernel and toolchains is amazing.
 
-If you already have an x86 build present, first:
-
-    cd buildroot
-    mv output output.x86~
-
 First ARM build:
 
     ./run -a arm
