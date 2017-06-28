@@ -209,7 +209,6 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	 * after boot with device_add:
 	 * https://stackoverflow.com/questions/44740254/how-to-handle-interrupts-from-a-pci-device-that-already-have-a-non-shareable-han?noredirect=1#comment76558680_44740254
 	 */
-	pr_info("pdev->irq %u\n", pdev->irq);
 	if (request_irq(pdev->irq, irq_handler, IRQF_SHARED, "pci_irq_handler0", &major) < 0) {
 		dev_err(&(dev->dev), "request_irq\n");
 		goto error;
@@ -242,7 +241,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 			pci_read_config_byte(pdev, i, &val);
 			pr_info("config %x %x\n", i, val);
 		}
-		pr_info("irq %x\n", pdev->irq);
+		pr_info("pdev->irq %x\n", pdev->irq);
 
 		/* Initial value of the IO memory. */
 		for (i = 0; i < 0x28; i += 4) {
