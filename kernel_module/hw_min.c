@@ -48,7 +48,7 @@ static int myinit(void)
 	major = register_chrdev(0, CDEV_NAME, &fops);
 	mmio = (void __iomem *)mmio_addr;
 	if (request_mem_region(mmio_addr, MMIO_LEN, CDEV_NAME) == NULL) {
-		pr_info("request_mem_region\n");
+		pr_info("request_mem_region mmio = %p\n", mmio);
 		goto error;
 	}
 	ioremap(mmio_addr, 8);
