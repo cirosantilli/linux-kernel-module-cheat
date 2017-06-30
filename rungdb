@@ -7,7 +7,7 @@ kgdb=false
 while getopts a:k OPT; do
   case "$OPT" in
     a)
-      arch=$OPTARG
+      arch="$OPTARG"
       ;;
     k)
       kgdb=true
@@ -18,7 +18,7 @@ shift "$(($OPTIND - 1))"
 if [ "$#" -gt 0 ]; then
   brk="-ex 'break $1'"
 else
-  brk=""
+  brk=''
 fi
 
 buildroot_out_dir="$(pwd)/buildroot/output.${arch}~"
@@ -50,16 +50,17 @@ else
         -ex 'target remote localhost:1234' \
         -ex 'lx-symbols ../kernel_module-1.0/'
       "
-      ;;
-    'arm')
+    ;;
+    'arm'|'mips64')
       cmd="$gdb \
         -q \
         -ex 'add-auto-load-safe-path $(pwd)' \
         -ex 'file vmlinux' \
         -ex 'target remote localhost:1234' \
-        -ex 'lx-symbols ../kernel_module-1.0/'
+        -ex 'lx-symbols ../kernel_module-1.0/' \
+        $brk \
       "
-      ;;
+    ;;
   esac
 fi
 eval "$cmd"

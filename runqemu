@@ -3,7 +3,7 @@
 set -e
 
 # CLI handling.
-arch=x86_64
+arch='x86_64'
 debug=false
 debug_qemu=''
 kgdb=false
@@ -13,7 +13,7 @@ extra_flags=''
 while getopts a:de:knq OPT; do
   case "$OPT" in
     a)
-      arch=$OPTARG
+      arch="$OPTARG"
       ;;
     d)
       debug=true
@@ -47,14 +47,15 @@ buildroot_out_dir="./buildroot/output.${arch}~"
 images_dir="$buildroot_out_dir/images"
 qemu_common="\
 $debug_qemu \
-$buildroot_out_dir/host/usr/bin/qemu-system-$arch \
+$buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -m 128M \
 -monitor telnet::45454,server,nowait \
 -net user \
 -smp 1 \
 "
+# The base QEMU commands are found under board/qemu/*/readme.tx
 case "$arch" in
-  x86_64)
+  'x86_64')
     if $kgdb; then
       extra_append="$extra_append kgdboc=ttyS0,115200"
     fi
@@ -68,7 +69,7 @@ case "$arch" in
       $extra_flags
     "
   ;;
-  arm)
+  'arm')
     if $kgdb; then
       extra_append="$extra_append kgdboc=ttyAMA0,115200"
     fi
@@ -83,14 +84,17 @@ case "$arch" in
       $extra_flags
     "
   ;;
+  'mips64')
+    cmd="$qemu_common \
+      -M malta \
+      -append 'root=/dev/hda $extra_append' \
+      -cpu I6400 \
+      -drive file=${images_dir}/rootfs.ext2,format=raw \
+      -kernel ${images_dir}/vmlinux \
+      -nographic \
+      -net nic,model=pcnet \
+      $extra_flags
+    "
+  ;;
 esac
-if "$debug" && ! "$nographic" && [ ! "$arch" = 'arm'  ]; then
-  eval "$cmd" &>/dev/null &
-  # TODO: Ctrl +C gets sent to QEMU? Why? Does not happen if I run
-  # ./rungdb manually from outside this script!!! But why?!?!
-  # eval has nothing to do with it, minimized example with explicit
-  # commands also fails in the same way...
-  #./rungdb
-else
-  eval "$cmd"
-fi
+eval "$cmd"

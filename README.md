@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get into QEMU Buildroot BusyBox virtual machine with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug. Tested in x86 and ARM guests, Ubuntu 14.04 - 16.10 hosts.
+Run one command, get a QEMU Buildroot BusyBox virtual machine with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug. Tested in x86, ARM and MIPS guests, Ubuntu 14.04 - 17.04 hosts.
 
 ![](screenshot.png)
 
@@ -139,9 +139,7 @@ To GDB the Linux kernel, first run:
 
     ./runqemu -d
 
-This starts QEMU on the background of the shell, to prepare for running GDB.
-
-If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, run:
+If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, run on another shell:
 
     ./rungdb start_kernel
 
@@ -234,11 +232,13 @@ And then tell GDB where the module was loaded with:
     Ctrl + C
     add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
 
-## ARM
+## Other architectures
 
-The portability of the kernel and toolchains is amazing.
+The portability of the kernel and toolchains is amazing: change an option and most things magically work on completely different hardware.
 
-First ARM build:
+### ARM
+
+First build:
 
     ./run -a arm
 
@@ -252,10 +252,14 @@ Debug:
     # On another terminal.
     ./rungdb -a arm
 
-ARM TODOs:
+TODOs:
 
 -   only managed to run in the terminal interface (but weirdly a blank QEMU window is still opened)
 -   GDB not connecting to KGDB. Possibly linked to `-serial stdio`. See also: <https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm>
+
+### MIPS
+
+    ./run -a mips64
 
 ## KGDB
 
