@@ -3,41 +3,39 @@ set -e
 arch='x86_64'
 while getopts a: OPT > /dev/null 2>&1; do
   case "$OPT" in
-    a)
+    'a')
       arch=$OPTARG
       ;;
   esac
 done
 case "$arch" in
-  x86_64)
+  'x86_64')
     defconfig=qemu_x86_64_defconfig
     ;;
-  arm)
+  'arm')
     # qemu_arm_vexpress_defconfig required a newer QEMU than 2.0.0 on a Ubuntu host.
     # so let's stick to versatile for now.
     defconfig=qemu_arm_versatile_defconfig
     ;;
 esac
 
-./setoutarch "$arch"
 cd buildroot
 for p in $(find '../buildroot_patches/' -maxdepth 1 -name '*.patch' -print); do
     patch -N -r - -p 1 <"$p" || :
 done
-make BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
+outdir="output.${arch}~"
+make O="$outdir" BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
 # TODO Can't get rid of this for now.
 # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
-cat ../buildroot_config_fragment >> .config
+cat ../buildroot_config_fragment >> "${outdir}/.config"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
 # Even if were an autotools package, there is no general way currently to pass extra configs to it:
 # https://stackoverflow.com/questions/44341188/how-to-pass-extra-custom-configure-autotools-options-to-a-buildroot-package/44341225#44341225
-#
-# We might add this later on.
-# host-qemu-rebuild \
 env \
   -u LD_LIBRARY_PATH \
   make \
+  O="$outdir" \
   BR2_JLEVEL="$(($(nproc) - 2))" \
   HOST_QEMU_OPTS="--enable-debug --enable-sdl --with-sdlabi=2.0" \
   host-qemu-rebuild \
