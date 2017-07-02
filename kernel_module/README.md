@@ -22,7 +22,9 @@
         1. [work_from_work](work_from_work.c)
     1.  [irq](irq.c)
     1.  Module dependencies
-        1. [dep.c](dep.c)
-        1. [dep2.c](dep2.c)
+        1. [dep](dep.c)
+        1. [dep2](dep2.c)
     1.  [character_device](character_device.c)
+    1.  Hardware device drivers
+        1. [pci](pci.c)
 1.  [user](user/)

@@ -47,9 +47,11 @@ If you are feeling fancy, you can also insert modules with:
 
     modprobe hello
 
-and if you are feeling raw, you can use:
+If you are feeling raw, you can use:
 
     /myinsmod.out /hello.ko
+
+Kernel modules built in-tree with `CONFIG_SOME_MOD=m`, are available via `modprobe`.
 
 We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
 
