@@ -27,4 +27,5 @@
     1.  [character_device](character_device.c)
     1.  Hardware device drivers
         1. [pci](pci.c)
+        1. [platform_device](platform_device.c)
 1.  [user](user/)
