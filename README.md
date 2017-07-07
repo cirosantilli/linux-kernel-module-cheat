@@ -376,6 +376,7 @@ You can still send key presses to QEMU however even without the mouse capture, j
 1.  [kmod](kmod.md)
 1.  [vermagic](vermagic.md)
 1.  [ftrace](ftrace.md)
+1.  [Device tree](device-tree.md)
 1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)
