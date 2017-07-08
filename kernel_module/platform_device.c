@@ -1,3 +1,12 @@
+/*
+Only works for ARM.
+
+Expected outcome after insmod:
+
+- QEMU reports MMIO with printfs
+- IRQs are generated and handled by this module, which logs to dmesg
+*/
+
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
