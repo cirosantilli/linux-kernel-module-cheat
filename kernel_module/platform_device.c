@@ -1,6 +1,10 @@
 /*
 Only works for ARM.
 
+Uses the hw/misc/lkmc_platform_device.c minimal device added in our QEMU fork.
+
+See: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code/44612957#44612957
+
 Expected outcome after insmod:
 
 - QEMU reports MMIO with printfs

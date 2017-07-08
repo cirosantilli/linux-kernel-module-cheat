@@ -1,4 +1,6 @@
 /*
+Only teted for x86.
+
 Usage:
 
 	/pci.sh
