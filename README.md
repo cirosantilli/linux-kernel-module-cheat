@@ -4,6 +4,8 @@ Run one command, get a QEMU Buildroot BusyBox virtual machine with several minim
 
 ![](screenshot.png)
 
+## Getting started
+
 Usage:
 
     sudo apt-get build-dep qemu
@@ -37,21 +39,52 @@ Good bets inside guest are:
     /modulename.sh
     /modulename.out
 
+## Save rebuild time
+
 After the first build, you can also run just:
 
     ./runqemu
 
 to save a few seconds. `./run` wouldn't rebuild everything, but checking timestamps takes a few moments.
 
+If you make changes to the kernel modules or most configurations, you can just use again:
+
+    ./run
+
+and they will updated.
+
+But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt, e.g.:
+
+    ./run -t linux-reconfigure -t host-qemu-rebuild
+
+Those aren't turned on by default because they take quite a few seconds.
+
+## insmod alternatives
+
 If you are feeling fancy, you can also insert modules with:
 
     modprobe hello
 
-If you are feeling raw, you can use:
+This method also deals with module dependencies, which we almost don't use to make examples simpler:
+
+- <https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe>
+- <https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe>
+
+`modprobe` searches for modules under:
+
+    ls /lib/modules/*/extra/
+
+Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
+
+    modprobe dummy-irq
+
+If you are feeling raw, you can use our own minimal:
 
     /myinsmod.out /hello.ko
 
-Kernel modules built in-tree with `CONFIG_SOME_MOD=m`, are available via `modprobe`.
+which demonstrates the C module API.
+
+## Message control
 
 We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
 
@@ -63,14 +96,16 @@ You can scroll up a bit on the default TTY with:
 
     Shift + PgUp
 
-How to increase the buffer:
+but I never managed to increase that buffer:
 
 - <https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition>
 - <https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty>
 
+## Kernel version
+
 We use Buildroot's default kernel version, you can confirm it after build with:
 
-    grep BR2_LINUX_KERNEL_VERSION buildroot/.config
+    grep BR2_LINUX_KERNEL_VERSION buildroot/output.*~/.config
 
 or in QEMU:
 

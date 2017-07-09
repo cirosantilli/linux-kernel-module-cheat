@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 set -e
 arch='x86_64'
-while getopts a: OPT > /dev/null 2>&1; do
+extra_targets=''
+while getopts a:t: OPT > /dev/null 2>&1; do
   case "$OPT" in
     'a')
       arch="$OPTARG"
-      ;;
+    ;;
+    't')
+      extra_targets="$extra_args $OPTARG"
+    ;;
   esac
 done
 case "$arch" in
@@ -42,9 +46,8 @@ env \
   O="$outdir" \
   BR2_JLEVEL="$(($(nproc) - 2))" \
   HOST_QEMU_OPTS="--enable-debug --enable-sdl --extra-cflags='-DDEBUG_PL061=1' --with-sdlabi=2.0" \
-  host-qemu-rebuild \
-  linux-rebuild \
   kernel_module-rebuild \
+  $extra_targets \
   all \
 ;
 cd ..
