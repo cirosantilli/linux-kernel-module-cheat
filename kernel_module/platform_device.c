@@ -55,9 +55,9 @@ static int lkmc_platform_device_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	/* IRQ. */
+	/* IRQ. Shared so that other test modules may snoop it. */
 	irq = irq_of_parse_and_map(dev->of_node, 0);
-	if (request_irq(irq, lkmc_irq_handler, 0, "lkmc_platform_device", dev) < 0) {
+	if (request_irq(irq, lkmc_irq_handler, IRQF_SHARED, "lkmc_platform_device", dev) < 0) {
 		dev_err(dev, "request_irq");
 		return -EINVAL;
 	}
