@@ -77,8 +77,8 @@ static int lkmc_platform_device_probe(struct platform_device *pdev)
 		dev_err(dev, "of_iomap");
 		return -EINVAL;
 	}
-	dev_info(dev, "res.start = %u resource_size = %llx\n",
-			res.start, (unsigned long long)resource_size(&res));
+	dev_info(dev, "res.start = %llx resource_size = %llx\n",
+			(unsigned long long)res.start, (unsigned long long)resource_size(&res));
 
 	/* Test MMIO and IRQ. */
 	iowrite32(0x12345678, map);
