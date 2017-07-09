@@ -1,7 +1,26 @@
 /*
-TODO: get handler running multiple times on some existing interrupt from /proc/interrupts.
+Brute force monitor every shared interrupt that will accept us.
 
-Inside QEMU, try:
+I.e. only works if for IRQs for which the other handlers are registered as IRQF_SHARED.
+
+Usage:
+
+1.  insmod and then use the keyboard and mouse. Those handlers are shared,
+	and the messages show up whenever you do something.
+
+	Does not work in text mode of course.
+
+2.  insmod some module that generates interrupts after insmod irq.,
+	e.g. pci_min or platform_device.
+
+	TODO: why does insmod in ARM lead to infinitely many interrupts handler irq = 45 dev = 252
+	and blocks the board? Is the ARM timer shared, and x86 isn't?
+
+TODO: properly understand how each IRQ maps to what.
+
+The Linux kernel mainline also has dummy-irq for monitoring a single IRQ.
+
+Inside QEMU, also try:
 
 	watch -n 1 cat /proc/interrupts
 
@@ -9,9 +28,6 @@ Then see how clicking the mouse and keyboard affect the interrupts. This will po
 
 - 1: keyboard
 - 12: mouse click and drags
-
-Likely this uses some old and simple serial interface that QEMU implements:
-USB mouses and keyboards are not that nice.
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
@@ -21,13 +37,12 @@ USB mouses and keyboards are not that nice.
 #include <linux/module.h>
 
 #define NAME "lkmc_character_device"
+#define MAX_IRQS 256
 
 MODULE_LICENSE("GPL");
 
+static int irqs[MAX_IRQS];
 static int major;
-static int irq = 0;
-module_param_named(i, irq, int, S_IRUSR);
-MODULE_PARM_DESC(i, "irq line number");
 
 /**
  * Return value from kernel docs:*
@@ -47,18 +62,18 @@ static const struct file_operations fops;
 
 static int myinit(void)
 {
-	int ret;
+	int ret, i;
 
 	major = register_chrdev(0, NAME, &fops);
-	for (int i = 0; i < 128; ++i) {
+	for (i = 0; i < MAX_IRQS; ++i) {
 		ret = request_irq(
 			i,
 			handler,
-			/* Requires an associated device. */
 			IRQF_SHARED,
 			"myirqhandler0",
 			&major
 		);
+		irqs[i] = ret;
 		pr_info("request_irq irq = %d ret = %d\n", i, ret);
 	}
 	return 0;
@@ -66,7 +81,13 @@ static int myinit(void)
 
 static void myexit(void)
 {
-	free_irq(irq, NULL);
+	int i;
+
+	for (i = 0; i < MAX_IRQS; ++i) {
+		if (!irqs[i]) {
+			free_irq(i, &major);
+		}
+	}
 	unregister_chrdev(major, NAME);
 }
 
