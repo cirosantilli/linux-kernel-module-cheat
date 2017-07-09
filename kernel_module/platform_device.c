@@ -29,6 +29,8 @@ static void __iomem *map;
 
 static irqreturn_t lkmc_irq_handler(int irq, void *dev)
 {
+	/* TODO this 34 and not 18 as in the DTS, likely the interrupt controller moves it around.
+	 * Understand precisely. 34 = 18 + 16. */
 	pr_info("lkmc_irq_handler irq = %d dev = %llx\n", irq, *(unsigned long long *)dev);
 	/* ACK the IRQ. */
 	iowrite32(0x9ABCDEF0, map + 4);
@@ -88,7 +90,7 @@ static int lkmc_platform_device_remove(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, "remove\n");
 	free_irq(irq, &pdev->dev);
-	/* TODO free iomap. */
+	iounmap(map);
 	release_mem_region(res.start, resource_size(&res));
 	return 0;
 }
