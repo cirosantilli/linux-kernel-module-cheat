@@ -111,6 +111,18 @@ or in QEMU:
 
     cat /proc/version
 
+## QEMU GUI is unresponsive
+
+Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.
+
+We have not managed to track this problem down yet, but the following workaround always works:
+
+    Ctrl + Shift + U
+    Ctrl + C
+    root
+
+This started happening when we switched to building QEMU through Buildroot, and has not been observed on later Ubuntu.
+
 ## Text mode
 
 Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
