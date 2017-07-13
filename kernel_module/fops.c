@@ -20,7 +20,7 @@ Here we use debugfs.
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
-#include <linux/fs.h>
+#include <linux/fs.h> /* file_operations */
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */

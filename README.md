@@ -123,6 +123,19 @@ We have not managed to track this problem down yet, but the following workaround
 
 This started happening when we switched to building QEMU through Buildroot, and has not been observed on later Ubuntu.
 
+## Filesystem persistency
+
+The root filesystem is persistent across:
+
+    ./runqemu
+    ./runqemu
+
+However, when you do:
+
+    ./run
+
+it gets overwritten by a fresh filesystem and you lose all changes.
+
 ## Text mode
 
 Show serial output of QEMU directly on the current terminal, without opening a QEMU window:

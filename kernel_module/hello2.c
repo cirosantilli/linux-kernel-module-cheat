@@ -11,13 +11,13 @@ MODULE_LICENSE("GPL");
 
 static int myinit(void)
 {
-	printk(KERN_INFO "hello2 init\n");
+	pr_info("hello2 init\n");
 	return 0;
 }
 
 static void myexit(void)
 {
-	printk(KERN_INFO "hello2 exit\n");
+	pr_info("hello2 exit\n");
 }
 
 module_init(myinit)
