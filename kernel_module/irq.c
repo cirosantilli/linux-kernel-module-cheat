@@ -55,7 +55,7 @@ static int major;
 static irqreturn_t handler(int irq, void *dev)
 {
 	pr_info("handler irq = %d dev = %d\n", irq, *(int *)dev);
-	return IRQ_HANDLED;
+	return IRQ_NONE;
 }
 
 static const struct file_operations fops;
