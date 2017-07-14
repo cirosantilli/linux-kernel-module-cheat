@@ -43,7 +43,7 @@ static const struct file_operations fops = {
 static int myinit(void)
 {
 	debugfs_file = debugfs_create_file(
-		"lkmc_seq_file_single", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
+		"lkmc_seq_file_single", S_IRUSR, NULL, NULL, &fops);
 	if (debugfs_file) {
 		return 0;
 	} else {
