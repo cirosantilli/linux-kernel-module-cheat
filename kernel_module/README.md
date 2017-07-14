@@ -27,6 +27,7 @@
         1.  [dep](dep.c)
         1.  [dep2](dep2.c)
     1.  [character_device](character_device.c)
+    1.  [virt_to_phys](virt_to_phys.c)
     1.  Hardware device drivers
         1.  [pci_min](pci_min.c)
         1.  [pci](pci.c)
