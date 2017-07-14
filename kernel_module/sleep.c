@@ -24,7 +24,7 @@ static void work_func(struct work_struct *work)
 {
 	int i = 0;
 	while (atomic_read(&run)) {
-		printk(KERN_INFO "%d\n", i);
+		pr_info("%d\n", i);
 		usleep_range(1000000, 1000001);
 		i++;
 		if (i == 10)

@@ -18,7 +18,7 @@ DECLARE_WORK(work, work_func);
 
 static void work_func(struct work_struct *work)
 {
-	printk(KERN_INFO "%d\n", i);
+	pr_info("%d\n", i);
 	i++;
 	queue_delayed_work(queue, &next_work, HZ);
 }

@@ -17,11 +17,11 @@ MODULE_LICENSE("GPL");
 
 int init_module(void)
 {
-	printk(KERN_INFO "init_module\n");
+	pr_info("init_module\n");
 	return 0;
 }
 
 void cleanup_module(void)
 {
-	printk(KERN_INFO "cleanup_module\n");
+	pr_info("cleanup_module\n");
 }

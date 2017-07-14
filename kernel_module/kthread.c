@@ -22,7 +22,7 @@ static int work_func(void *data)
 {
 	int i = 0;
 	while (!kthread_should_stop()) {
-		printk(KERN_INFO "%d\n", i);
+		pr_info("%d\n", i);
 		usleep_range(1000000, 1000001);
 		i++;
 		if (i == 10)

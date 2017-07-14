@@ -15,14 +15,14 @@ The alternative is to get the serial data out streamed to console or to a file:
 
 static int myinit(void)
 {
-	printk(KERN_INFO "panic init\n");
+	pr_info("panic init\n");
 	panic("hello panic");
 	return 0;
 }
 
 static void myexit(void)
 {
-	printk(KERN_INFO "panic cleanup\n");
+	pr_info("panic cleanup\n");
 }
 
 module_init(myinit)

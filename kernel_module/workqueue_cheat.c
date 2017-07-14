@@ -27,7 +27,7 @@ static struct workqueue_struct *queue;
 
 static void work_func(struct work_struct *work)
 {
-	printk(KERN_INFO "worker\n");
+	pr_info("worker\n");
 }
 
 DECLARE_WORK(work, work_func);

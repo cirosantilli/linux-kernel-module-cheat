@@ -57,7 +57,7 @@ static struct task_struct *kthread;
 static int work_func(void *data)
 {
 	while (!kthread_should_stop()) {
-		printk(KERN_INFO "%d\n", lkmc_dep);
+		pr_info("%d\n", lkmc_dep);
 		usleep_range(1000000, 1000001);
 	}
 	return 0;
