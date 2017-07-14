@@ -28,7 +28,7 @@ Documentation/ioctl/ioctl-number.txt has some info:
 
 MODULE_LICENSE("GPL");
 
-static struct dentry *dir;
+static struct dentry *debugfs_file;
 
 static long unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long argp)
 {
@@ -76,17 +76,16 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
-	dir = debugfs_create_dir("lkmc_ioctl", 0);
 	/* ioctl permissions are not automatically restricted by rwx as for read / write,
 	 * but we could of course implement that ourselves:
 	 * https://stackoverflow.com/questions/29891803/user-permission-check-on-ioctl-command */
-	debugfs_create_file("f", 0, dir, NULL, &fops);
+	debugfs_file = debugfs_create_file("lkmc_ioctl", 0, NULL, NULL, &fops);
 	return 0;
 }
 
 static void myexit(void)
 {
-	debugfs_remove_recursive(dir);
+	debugfs_remove(debugfs_file);
 }
 
 module_init(myinit)

@@ -24,7 +24,7 @@ which reduces namespace pollution.
 
 MODULE_LICENSE("GPL");
 
-static struct dentry *dir;
+static struct dentry *debugfs_file;
 
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
@@ -72,14 +72,13 @@ static const struct file_operations fops_ioctl = {
 
 static int myinit(void)
 {
-	dir = debugfs_create_dir("lkmc_anonymous_inode", 0);
-	debugfs_create_file("f", 0, dir, NULL, &fops_ioctl);
+	debugfs_file = debugfs_create_file("lkmc_anonymous_inode", 0, NULL, NULL, &fops_ioctl);
 	return 0;
 }
 
 static void myexit(void)
 {
-	debugfs_remove_recursive(dir);
+	debugfs_remove(debugfs_file);
 }
 
 module_init(myinit)

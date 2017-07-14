@@ -24,7 +24,7 @@ MODULE_LICENSE("GPL");
 
 static char readbuf[1024];
 static size_t readbuflen;
-static struct dentry *dir;
+static struct dentry *debugfs_file;
 static struct task_struct *kthread;
 static wait_queue_head_t waitqueue;
 
@@ -74,8 +74,8 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
-	dir = debugfs_create_dir("lkmc_poll", 0);
-	debugfs_create_file("f", S_IRUSR | S_IWUSR, dir, NULL, &fops);
+	debugfs_file = debugfs_create_file(
+		"lkmc_poll", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
 	init_waitqueue_head(&waitqueue);
 	kthread = kthread_create(kthread_func, NULL, "mykthread");
 	wake_up_process(kthread);
@@ -85,7 +85,7 @@ static int myinit(void)
 static void myexit(void)
 {
 	kthread_stop(kthread);
-	debugfs_remove_recursive(dir);
+	debugfs_remove(debugfs_file);
 }
 
 module_init(myinit)

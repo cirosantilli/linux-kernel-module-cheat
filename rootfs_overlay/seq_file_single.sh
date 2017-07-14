@@ -8,3 +8,5 @@ cat 'lkmc_seq_file_single'
 dd if='lkmc_seq_file_single' bs=1 count=3 skip=1
 # => b
 # => c
+
+rmmod seq_file_single

@@ -1,6 +1,5 @@
 #!/bin/sh
 set -e
 insmod /ioctl.ko
-cd /sys/kernel/debug/lkmc_ioctl/
-/ioctl.out f
+/ioctl.out /sys/kernel/debug/lkmc_ioctl
 rmmod ioctl

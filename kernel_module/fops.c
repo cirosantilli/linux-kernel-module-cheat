@@ -28,7 +28,7 @@ Here we use debugfs.
 
 MODULE_LICENSE("GPL");
 
-static struct dentry *dir;
+static struct dentry *debugfs_file;
 static char data[] = {'a', 'b', 'c', 'd'};
 
 static int open(struct inode *inode, struct file *filp)
@@ -143,14 +143,13 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
-	dir = debugfs_create_dir("lkmc_fops", 0);
-	debugfs_create_file("f", S_IRUSR | S_IWUSR, dir, NULL, &fops);
+	debugfs_file = debugfs_create_file("lkmc_fops", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
 	return 0;
 }
 
 static void myexit(void)
 {
-	debugfs_remove_recursive(dir);
+	debugfs_remove_recursive(debugfs_file);
 }
 
 module_init(myinit)

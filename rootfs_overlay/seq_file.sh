@@ -25,3 +25,5 @@ dd if='lkmc_seq_file' bs=1 count=2 skip=2 status=none
 dd if='lkmc_seq_file' bs=4 count=1 skip=0 status=none
 # => 0
 # => 1
+
+rmmod seq_file
