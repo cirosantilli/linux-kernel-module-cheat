@@ -19,8 +19,6 @@ and on QEMU monitor:
 #include <linux/module.h>
 #include <linux/seq_file.h> /* single_open, single_release */
 
-MODULE_LICENSE("GPL");
-
 static volatile u32 i = 0x12345678;
 
 static struct dentry *debugfs_file;
@@ -65,3 +63,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

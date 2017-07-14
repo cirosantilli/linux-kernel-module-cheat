@@ -15,8 +15,6 @@ Since insmod returns, this also illustrates how the work queues are asynchronous
 #include <linux/types.h> /* atomic_t */
 #include <linux/workqueue.h>
 
-MODULE_LICENSE("GPL");
-
 static struct workqueue_struct *queue;
 static atomic_t run = ATOMIC_INIT(1);
 
@@ -48,3 +46,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

@@ -26,8 +26,6 @@ Here we use debugfs.
 #include <linux/printk.h> /* printk */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
-MODULE_LICENSE("GPL");
-
 static struct dentry *debugfs_file;
 static char data[] = {'a', 'b', 'c', 'd'};
 
@@ -154,3 +152,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

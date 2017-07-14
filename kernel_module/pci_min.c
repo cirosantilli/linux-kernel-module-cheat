@@ -20,8 +20,6 @@ probe already does a mmio write, which generates an IRQ and tests everything.
 #define EDU_DEVICE_ID 0x11e9
 #define QEMU_VENDOR_ID 0x1234
 
-MODULE_LICENSE("GPL");
-
 static struct pci_device_id id_table[] = {
     { PCI_DEVICE(QEMU_VENDOR_ID, EDU_DEVICE_ID), },
     { 0, }
@@ -96,3 +94,4 @@ static void myexit(void)
 
 module_init(myinit);
 module_exit(myexit);
+MODULE_LICENSE("GPL");

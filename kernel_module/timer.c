@@ -15,8 +15,6 @@ See also:
 #include <linux/module.h>
 #include <linux/timer.h>
 
-MODULE_LICENSE("GPL");
-
 static void callback(unsigned long data);
 static unsigned long onesec;
 
@@ -42,3 +40,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

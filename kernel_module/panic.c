@@ -27,3 +27,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

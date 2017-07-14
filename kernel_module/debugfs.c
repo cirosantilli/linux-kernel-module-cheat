@@ -13,8 +13,6 @@ Requires `CONFIG_DEBUG_FS=y`.
 #include <linux/module.h>
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
-MODULE_LICENSE("GPL");
-
 static struct dentry *dir;
 static u32 value = 42;
 
@@ -41,3 +39,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

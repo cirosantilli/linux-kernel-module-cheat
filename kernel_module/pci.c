@@ -95,8 +95,6 @@ TODO: does it have any side effects? Set in the edu device at:
 #define IO_IRQ_STATUS 0x24
 #define QEMU_VENDOR_ID 0x1234
 
-MODULE_LICENSE("GPL");
-
 static struct pci_device_id pci_ids[] = {
 	{ PCI_DEVICE(QEMU_VENDOR_ID, EDU_DEVICE_ID), },
 	{ 0, }
@@ -285,3 +283,4 @@ static void myexit(void)
 
 module_init(myinit);
 module_exit(myexit);
+MODULE_LICENSE("GPL");

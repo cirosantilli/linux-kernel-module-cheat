@@ -48,8 +48,6 @@ TODO: at what point does buildroot / busybox generate that file?
 #include <linux/kthread.h>
 #include <linux/module.h>
 
-MODULE_LICENSE("GPL");
-
 int lkmc_dep = 0;
 EXPORT_SYMBOL(lkmc_dep);
 static struct task_struct *kthread;
@@ -77,3 +75,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

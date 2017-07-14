@@ -34,8 +34,6 @@ Bibliography:
 #include <linux/slab.h>
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
-MODULE_LICENSE("GPL");
-
 static int max = 2;
 module_param(max, int, S_IRUSR | S_IWUSR);
 
@@ -136,3 +134,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

@@ -6,8 +6,6 @@ Declare more work from a workqueue.
 #include <linux/module.h>
 #include <linux/workqueue.h>
 
-MODULE_LICENSE("GPL");
-
 static int i = 0;
 static struct workqueue_struct *queue;
 
@@ -39,3 +37,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

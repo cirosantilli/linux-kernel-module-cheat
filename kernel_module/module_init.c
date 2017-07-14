@@ -13,8 +13,6 @@ vs module_init and module_exit?
 #include <linux/module.h>
 #include <linux/kernel.h>
 
-MODULE_LICENSE("GPL");
-
 int init_module(void)
 {
 	pr_info("init_module\n");
@@ -25,3 +23,4 @@ void cleanup_module(void)
 {
 	pr_info("cleanup_module\n");
 }
+MODULE_LICENSE("GPL");

@@ -20,8 +20,6 @@ https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-ker
 #include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
-MODULE_LICENSE("GPL");
-
 static char readbuf[1024];
 static size_t readbuflen;
 static struct dentry *debugfs_file;
@@ -90,3 +88,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

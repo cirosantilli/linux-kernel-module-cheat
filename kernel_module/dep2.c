@@ -3,8 +3,6 @@
 #include <linux/kthread.h>
 #include <linux/module.h>
 
-MODULE_LICENSE("GPL");
-
 extern int lkmc_dep;
 static struct task_struct *kthread;
 
@@ -31,3 +29,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

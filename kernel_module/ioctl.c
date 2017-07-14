@@ -26,8 +26,6 @@ Documentation/ioctl/ioctl-number.txt has some info:
 
 #include "ioctl.h"
 
-MODULE_LICENSE("GPL");
-
 static struct dentry *debugfs_file;
 
 static long unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long argp)
@@ -90,3 +88,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

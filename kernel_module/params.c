@@ -27,8 +27,6 @@ Those parameters can also be read and modified at runtime from /sys.
 #include <linux/module.h>
 #include <uapi/linux/stat.h> /* S_IRUSR | S_IWUSR */
 
-MODULE_LICENSE("GPL");
-
 static int i = 0;
 static int j = 0;
 module_param(i, int, S_IRUSR | S_IWUSR);
@@ -61,3 +59,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

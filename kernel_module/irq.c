@@ -39,8 +39,6 @@ Then see how clicking the mouse and keyboard affect the interrupts. This will po
 #define NAME "lkmc_character_device"
 #define MAX_IRQS 256
 
-MODULE_LICENSE("GPL");
-
 static int irqs[MAX_IRQS];
 static int major;
 
@@ -93,3 +91,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

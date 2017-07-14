@@ -29,8 +29,6 @@ and use that for the mknod.
 
 #define NAME "lkmc_character_device"
 
-MODULE_LICENSE("GPL");
-
 static int major;
 
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
@@ -68,3 +66,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

@@ -23,8 +23,6 @@ Outcome:
 #include <linux/module.h>
 #include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
 
-MODULE_LICENSE("GPL");
-
 static struct task_struct *kthread1, *kthread2;
 static wait_queue_head_t queue;
 static atomic_t awake = ATOMIC_INIT(0);
@@ -74,3 +72,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

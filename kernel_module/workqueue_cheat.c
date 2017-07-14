@@ -21,8 +21,6 @@ Bibliography:
 #include <linux/module.h>
 #include <linux/workqueue.h>
 
-MODULE_LICENSE("GPL");
-
 static struct workqueue_struct *queue;
 
 static void work_func(struct work_struct *work)
@@ -47,3 +45,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

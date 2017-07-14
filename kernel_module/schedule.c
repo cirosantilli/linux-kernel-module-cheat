@@ -26,8 +26,6 @@ Then:
 #include <linux/module.h>
 #include <uapi/linux/stat.h> /* S_IRUSR | S_IWUSR */
 
-MODULE_LICENSE("GPL");
-
 static int yn = 1;
 module_param(yn, int,  S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(yn, "A short integer");
@@ -60,3 +58,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

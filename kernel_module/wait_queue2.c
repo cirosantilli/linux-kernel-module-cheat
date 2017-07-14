@@ -8,8 +8,6 @@ Two threads waiting on a single event.
 #include <linux/module.h>
 #include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
 
-MODULE_LICENSE("GPL");
-
 static struct task_struct *kthread_wake;
 static struct task_struct *kthread_sleep1;
 static struct task_struct *kthread_sleep2;
@@ -75,3 +73,4 @@ void cleanup_module(void)
 	kthread_stop(kthread_sleep1);
 	kthread_stop(kthread_wake);
 }
+MODULE_LICENSE("GPL");

@@ -27,8 +27,6 @@ which touches from userland through /dev/mem.
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 
-MODULE_LICENSE("GPL");
-
 static struct resource res;
 static unsigned int irq;
 static void __iomem *map;
@@ -132,3 +130,4 @@ static void lkmc_platform_device_exit(void)
 
 module_init(lkmc_platform_device_init)
 module_exit(lkmc_platform_device_exit)
+MODULE_LICENSE("GPL");

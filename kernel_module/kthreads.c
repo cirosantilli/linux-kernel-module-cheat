@@ -7,8 +7,6 @@
 #include <linux/kthread.h>
 #include <linux/module.h>
 
-MODULE_LICENSE("GPL");
-
 static struct task_struct *kthread1, *kthread2;
 
 static int work_func1(void *data)
@@ -54,3 +52,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");

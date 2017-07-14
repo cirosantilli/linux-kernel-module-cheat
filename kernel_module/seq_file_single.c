@@ -17,8 +17,6 @@ This example behaves like a file that contains:
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
-MODULE_LICENSE("GPL");
-
 static struct dentry *debugfs_file;
 
 static int show(struct seq_file *m, void *v)
@@ -54,3 +52,4 @@ static void myexit(void)
 
 module_init(myinit)
 module_exit(myexit)
+MODULE_LICENSE("GPL");
