@@ -1,5 +1,11 @@
 /*
-For single reads, single_open is an even more convenient version of seq_file.
+If you have the entire read output upfront, single_open
+is an even more convenient version of seq_file.
+
+This example behaves like a file that contains:
+
+	ab
+	cd
 */
 
 #include <asm/uaccess.h> /* copy_from_user, copy_to_user */
@@ -17,7 +23,7 @@ static struct dentry *debugfs_file;
 
 static int show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "abcd\n");
+	seq_printf(m, "ab\ncd\n");
 	return 0;
 }
 
@@ -36,8 +42,13 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
-	debugfs_file = debugfs_create_file("lkmc_seq_file", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
-	return 0;
+	debugfs_file = debugfs_create_file(
+		"lkmc_seq_file_single", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
+	if (debugfs_file) {
+		return 0;
+	} else {
+		return -EINVAL;
+	}
 }
 
 static void myexit(void)
