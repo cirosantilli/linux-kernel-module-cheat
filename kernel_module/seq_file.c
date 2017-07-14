@@ -31,7 +31,7 @@ Bibliography:
 #include <linux/module.h>
 #include <linux/printk.h> /* pr_info */
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
-#include <linux/slab.h>
+#include <linux/slab.h> /* kmalloc, kfree */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
 static int max = 2;
