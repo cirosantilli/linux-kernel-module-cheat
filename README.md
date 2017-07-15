@@ -123,20 +123,30 @@ We have not managed to track this problem down yet, but the following workaround
 
 This started happening when we switched to building QEMU through Buildroot, and has not been observed on later Ubuntu.
 
+Using text mode is another workaround if you don't need GUI features.
+
 ## Filesystem persistency
 
 The root filesystem is persistent across:
 
     ./runqemu
-    ./runqemu
+    date >f
+    sync
 
-However, when you do:
+then:
+
+    ./runqemu
+    cat f
+
+This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl + R`.
+
+When you do:
 
     ./run
 
-it gets overwritten by a fresh filesystem and you lose all changes.
+the disk image gets overwritten by a fresh filesystem and you lose all changes.
 
-Using text mode is another workaround if you don't need GUI features.
+Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, disk changes may not be saved.
 
 ## Text mode
 

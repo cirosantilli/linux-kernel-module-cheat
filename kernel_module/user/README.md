@@ -12,6 +12,8 @@ These programs can also be compiled and used on host.
     1.  [myinsmod](myinsmod.c)
     1.  [myrmmod](myrmmod.c)
     1.  [init_hello](init_hello.c)
+    1.  [usermem](usermem.c)
+        1.  [pagemap_dump](pagemap_dump.c)
 1.  Module tests
     1.  [anonymous_inode](anonymous_inode.c)
     1.  [poll](poll.c)
