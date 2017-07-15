@@ -17,7 +17,7 @@ Data sources: /proc/PIC/{map,pagemap}
 #include <sys/types.h>
 #define PAGE_SIZE 0x1000
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
 	char buffer[BUFSIZ];
 	char maps_file[BUFSIZ];
 	char pagemap_file[BUFSIZ];
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 	int pagemap;
 
 	if (argc < 2) {
-		printf("Usage: %s pid1\n", argv[0]);
+		printf("Usage: %s pid\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 	pid_t pid = (pid_t)strtoul(argv[1], NULL, 0);
@@ -50,45 +50,50 @@ int main(int argc, char *argv[]) {
 		for (size_t i = offset; i < (size_t)length; i++) {
 			unsigned long low = 0, high = 0;
 			if (buffer[i] == '\n' && i) {
-				size_t x = i - 1;
-				while(x && buffer[x] != '\n') x --;
-				if (buffer[x] == '\n') x++;
-				size_t beginning = x;
-				while(buffer[x] != '-' && x < sizeof buffer) {
-					char c = buffer[x++];
-					low *= 16;
-					if (c >= '0' && c <= '9') {
-						low += c - '0';
+				const char *lib_name;
+				size_t y;
+				/* Parse a line from maps. Each line contains a range that contains many pages. */
+				{
+					size_t x = i - 1;
+					while(x && buffer[x] != '\n') x --;
+					if (buffer[x] == '\n') x++;
+					size_t beginning = x;
+					while(buffer[x] != '-' && x < sizeof buffer) {
+						char c = buffer[x++];
+						low *= 16;
+						if (c >= '0' && c <= '9') {
+							low += c - '0';
+						}
+						else if (c >= 'a' && c <= 'f') {
+							low += c - 'a' + 10;
+						}
+						else break;
 					}
-					else if (c >= 'a' && c <= 'f') {
-						low += c - 'a' + 10;
+					while(buffer[x] != '-' && x < sizeof buffer) x++;
+					if (buffer[x] == '-') x++;
+					while(buffer[x] != ' ' && x < sizeof buffer) {
+						char c = buffer[x++];
+						high *= 16;
+						if (c >= '0' && c <= '9') {
+							high += c - '0';
+						}
+						else if (c >= 'a' && c <= 'f') {
+							high += c - 'a' + 10;
+						}
+						else break;
 					}
-					else break;
+					lib_name = 0;
+					for (int field = 0; field < 4; field++) {
+						x++;
+						while(buffer[x] != ' ' && x < sizeof buffer) x++;
+					}
+					while (buffer[x] == ' ' && x < sizeof buffer) x++;
+					y = x;
+					while (buffer[y] != '\n' && y < sizeof buffer) y++;
+					buffer[y] = 0;
+					lib_name = buffer + x;
 				}
-				while(buffer[x] != '-' && x < sizeof buffer) x++;
-				if (buffer[x] == '-') x++;
-				while(buffer[x] != ' ' && x < sizeof buffer) {
-					char c = buffer[x++];
-					high *= 16;
-					if (c >= '0' && c <= '9') {
-						high += c - '0';
-					}
-					else if (c >= 'a' && c <= 'f') {
-						high += c - 'a' + 10;
-					}
-					else break;
-				}
-
-				const char *lib_name = 0;
-				for (int field = 0; field < 4; field++) {
-					x++;
-					while(buffer[x] != ' ' && x < sizeof buffer) x++;
-				}
-				while (buffer[x] == ' ' && x < sizeof buffer) x++;
-				size_t y = x;
-				while (buffer[y] != '\n' && y < sizeof buffer) y++;
-				buffer[y] = 0;
-				lib_name = buffer + x;
+				/* Get info about all pages in this page range with pagemap. */
 				{
 					unsigned long data;
 					for (unsigned long i = low; i < high; i += PAGE_SIZE) {
@@ -108,6 +113,7 @@ int main(int argc, char *argv[]) {
 						);
 					}
 				}
+				buffer[y] = '\n';
 			}
 		}
 	}
