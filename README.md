@@ -136,6 +136,8 @@ However, when you do:
 
 it gets overwritten by a fresh filesystem and you lose all changes.
 
+Using text mode is another workaround if you don't need GUI features.
+
 ## Text mode
 
 Show serial output of QEMU directly on the current terminal, without opening a QEMU window:

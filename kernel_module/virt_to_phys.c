@@ -56,7 +56,7 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
- 	i = kmalloc(sizeof(loff_t), GFP_KERNEL);
+ 	i = kmalloc(sizeof(i), GFP_KERNEL);
  	*i = 0x12345678;
 	debugfs_file = debugfs_create_file(
 		"lkmc_virt_to_phys", S_IRUSR, NULL, NULL, &fops);
