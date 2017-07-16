@@ -13,6 +13,7 @@ static inline phys_addr_t virt_to_phys(volatile void *address)
 
 - https://stackoverflow.com/questions/5748492/is-there-any-api-for-determining-the-physical-address-from-virtual-address-in-li
 - https://stackoverflow.com/questions/43325205/can-we-use-virt-to-phys-for-user-space-memory-in-kernel-module
+- https://stackoverflow.com/questions/39134990/mmap-of-dev-mem-fails-with-invalid-argument-but-address-is-page-aligned
 */
 
 #include <asm/io.h> /* virt_to_phys */

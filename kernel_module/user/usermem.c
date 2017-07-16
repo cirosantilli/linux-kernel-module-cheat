@@ -30,6 +30,8 @@ where 0x7c7b is the PFN. To get the physical address, just add three zeros back:
 
 	0x7c7b000
 
+## QEMU monitor xp
+
 Examine the physical memory from the QEMU monitor: on host:
 
 	./qemumonitor
@@ -41,11 +43,37 @@ Output:
 
 Yes!!! We read the correct value from the physical address.
 
-TODO: why does:
+## /dev/mem
+
+Firts up, this requires:
+
+- CONFIG_STRICT_DEVMEM is not set.
+- nopat on kernel parameters
+
+see: https://stackoverflow.com/questions/11891979/how-to-access-mmaped-dev-mem-without-crashing-the-linux-kernel
+
+Then:
 
 	devmem2 0x7c7b800
 
-fail on the mmap? CONFIG_STRICT_DEVMEM is not set.
+Possible output:
+
+	Memory mapped at address 0x7ff7dbe01000.
+	Value at address 0X7C7B800 (0x7ff7dbe01800): 0x12345678
+
+where 0x7ff7dbe01000 is a new virtual address that was mapped
+to our physical address and given to the process that mapped /dev/mem.
+
+And finally, let's change the value!
+
+	devmem2 0x7c7b800 w 0x9abcdef0
+
+After one second, we see on the screen:
+
+	i 9abcdef0
+	[1]+  Done                       /usermem.out
+
+so the while loop was exited!
 */
 
 #define _XOPEN_SOURCE 700
