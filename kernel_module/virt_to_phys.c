@@ -3,7 +3,7 @@ Also try on QEMU monitor:
 
 	xp 0x<vaddr>
 
-x86 docs say it only works for kmalloc.
+Only works for kmalloc.
 
 static inline phys_addr_t virt_to_phys(volatile void *address)
 
@@ -21,19 +21,26 @@ static inline phys_addr_t virt_to_phys(volatile void *address)
 #include <linux/seq_file.h> /* single_open, single_release */
 #include <linux/slab.h> /* kmalloc, kfree */
 
-static volatile u32 *i;
+static volatile u32 *k;
+static volatile u32 i;
 
 static struct dentry *debugfs_file;
 
 static int show(struct seq_file *m, void *v)
 {
 	seq_printf(m,
-		"*i 0x%llx\n"
-		"i %p\n"
-		"virt_to_phys 0x%llx\n",
-		(unsigned long long)*i,
-		i,
-		(unsigned long long)virt_to_phys((void *)i)
+		"k 0x%llx\n"
+		"addr_k %p\n"
+		"virt_to_phys_k 0x%llx\n"
+		"i 0x%llx\n"
+		"addr_i %p\n"
+		"virt_to_phys_i 0x%llx\n",
+		(unsigned long long)*k,
+		k,
+		(unsigned long long)virt_to_phys((void *)k),
+		(unsigned long long)i,
+		&i,
+		(unsigned long long)virt_to_phys((void *)&i)
 	);
 	return 0;
 }
@@ -53,8 +60,9 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
- 	i = kmalloc(sizeof(i), GFP_KERNEL);
- 	*i = 0x12345678;
+ 	k = kmalloc(sizeof(k), GFP_KERNEL);
+ 	*k = 0x12345678;
+ 	i = 0x12345678;
 	debugfs_file = debugfs_create_file(
 		"lkmc_virt_to_phys", S_IRUSR, NULL, NULL, &fops);
 	return 0;
@@ -63,7 +71,7 @@ static int myinit(void)
 static void myexit(void)
 {
 	debugfs_remove(debugfs_file);
-	kfree((void *)i);
+	kfree((void *)k);
 }
 
 module_init(myinit)
