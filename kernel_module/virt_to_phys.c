@@ -1,9 +1,5 @@
 /*
-TODO not working. Tested with both:
-
-	/virt_to_phys.sh
-
-and on QEMU monitor:
+Also try on QEMU monitor:
 
 	xp 0x<vaddr>
 

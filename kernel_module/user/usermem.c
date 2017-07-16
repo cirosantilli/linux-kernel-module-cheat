@@ -4,7 +4,7 @@ Only tested in x86_64.
 Provide an allocated userland memory address for us to test out kernel memory APIs, including:
 
 - /proc/pid/maps
-- /proc/pid/pagemap
+- /proc/pid/pagemap. See also: https://stackoverflow.com/questions/17021214/decode-proc-pid-pagemap-entry/45126141#45126141
 - /dev/mem
 
 Usage:
@@ -18,13 +18,13 @@ Outputs address and pid, e.g.:
 
 Now translate the virtual address to physical for the given PID:
 
-	/pagemap2.out 110 | grep 0x600000
+	/pagemap_dump.out 110 | grep 0x600000
 
 where 0x600000 is the page that contains 0x600800.
 
 This produces a line of type:
 
-	0x600000 0x7c7b 0 0 0 1 /pagemap_test.out
+	0x600000 0x7c7b 0 0 0 1 /usermem.out
 
 where 0x7c7b is the PFN. To get the physical address, just add three zeros back:
 
