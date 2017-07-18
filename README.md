@@ -53,7 +53,7 @@ If you make changes to the kernel modules or most configurations, you can just u
 
 and they will updated.
 
-But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt, e.g.:
+But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra Targets, e.g.:
 
     ./run -t linux-reconfigure -t host-qemu-rebuild
 

@@ -91,9 +91,25 @@ TODO: does it have any side effects? Set in the edu device at:
 #define BAR 0
 #define CDEV_NAME "lkmc_pci"
 #define EDU_DEVICE_ID 0x11e8
-#define IO_IRQ_ACK 0x64
-#define IO_IRQ_STATUS 0x24
 #define QEMU_VENDOR_ID 0x1234
+
+/* Registers. */
+#define IO_IRQ_STATUS 0x24
+#define IO_IRQ_ACK 0x64
+#define IO_DMA_SRC 0x80
+#define IO_DMA_DST 0x88
+#define IO_DMA_CNT 0x90
+#define IO_DMA_CMD 0x98
+
+/* Constants. */
+/* TODO what is this magic value for? Can't it be always deduced from the direction? */
+#define DMA_BASE 0x40000
+/* Must give this for the DMA command to to anything. */
+#define DMA_CMD 0x1
+/* If given, device -> RAM. Otherwise: RAM -> dev. */
+#define DMA_FROM_DEV 0x2
+/* If given, raise an IRQ, and write 100 to the IRQ status register. */
+#define DMA_IRQ 0x4
 
 static struct pci_device_id pci_ids[] = {
 	{ PCI_DEVICE(QEMU_VENDOR_ID, EDU_DEVICE_ID), },
@@ -104,6 +120,26 @@ MODULE_DEVICE_TABLE(pci, pci_ids);
 static int major;
 static struct pci_dev *pdev;
 static void __iomem *mmio;
+
+static irqreturn_t irq_handler(int irq, void *dev)
+{
+	int devi;
+	irqreturn_t ret;
+	u32 irq_status;
+
+	devi = *(int *)dev;
+	if (devi == major) {
+		irq_status = ioread32(mmio + IO_IRQ_STATUS);
+		pr_info("irq_handler irq = %d dev = %d irq_status = %llx\n",
+				irq, devi, (unsigned long long)irq_status);
+		/* Must do this ACK, or else the interrupts just keeps firing. */
+		iowrite32(irq_status, mmio + IO_IRQ_ACK);
+		ret = IRQ_HANDLED;
+	} else {
+		ret = IRQ_NONE;
+	}
+	return ret;
+}
 
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
@@ -158,26 +194,6 @@ static struct file_operations fops = {
 	.write   = write,
 };
 
-static irqreturn_t irq_handler(int irq, void *dev)
-{
-	int devi;
-	irqreturn_t ret;
-	u32 irq_status;
-
-	devi = *(int *)dev;
-	if (devi == major) {
-		irq_status = ioread32(mmio + IO_IRQ_STATUS);
-		pr_info("irq_handler irq = %d dev = %d irq_status = %llx\n",
-				irq, devi, (unsigned long long)irq_status);
-		/* Must do this ACK, or else the interrupts just keeps firing. */
-		iowrite32(irq_status, mmio + IO_IRQ_ACK);
-		ret = IRQ_HANDLED;
-	} else {
-		ret = IRQ_NONE;
-	}
-	return ret;
-}
-
 /* https://stackoverflow.com/questions/5059501/probe-method-device-drivers/44739823#44739823
  *
  * Called just after insmod if the hardware device is connected,
@@ -193,14 +209,14 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	major = register_chrdev(0, CDEV_NAME, &fops);
 	pdev = dev;
 	if (pci_enable_device(dev) < 0) {
-		dev_err(&(pdev->dev), "pci_enable_device\n");
+		dev_err(&(dev->dev), "pci_enable_device\n");
 		goto error;
 	}
 	if (pci_request_region(dev, BAR, "myregion0")) {
-		dev_err(&(pdev->dev), "pci_request_region\n");
+		dev_err(&(dev->dev), "pci_request_region\n");
 		goto error;
 	}
-	mmio = pci_iomap(pdev, BAR, pci_resource_len(pdev, BAR));
+	mmio = pci_iomap(dev, BAR, pci_resource_len(dev, BAR));
 
 	/* IRQ setup.
 	 *
@@ -209,7 +225,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	 * after boot with device_add:
 	 * https://stackoverflow.com/questions/44740254/how-to-handle-interrupts-from-a-pci-device-that-already-have-a-non-shareable-han?noredirect=1#comment76558680_44740254
 	 */
-	if (request_irq(pdev->irq, irq_handler, IRQF_SHARED, "pci_irq_handler0", &major) < 0) {
+	if (request_irq(dev->irq, irq_handler, IRQF_SHARED, "pci_irq_handler0", &major) < 0) {
 		dev_err(&(dev->dev), "request_irq\n");
 		goto error;
 	}
@@ -232,20 +248,67 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		}
 
 		/* 1Mb, as defined by the "1 << 20" in QEMU's memory_region_init_io. Same as pci_resource_len. */
-		resource_size_t start = pci_resource_start(pdev, BAR);
-		resource_size_t end = pci_resource_end(pdev, BAR);
+		resource_size_t start = pci_resource_start(dev, BAR);
+		resource_size_t end = pci_resource_end(dev, BAR);
 		pr_info("length %llx\n", (unsigned long long)(end + 1 - start));
 
 		/* The PCI standardized 64 bytes of the configuration space, see LDD3. */
 		for (i = 0; i < 64u; ++i) {
-			pci_read_config_byte(pdev, i, &val);
+			pci_read_config_byte(dev, i, &val);
 			pr_info("config %x %x\n", i, val);
 		}
-		pr_info("pdev->irq %x\n", pdev->irq);
+		pr_info("dev->irq %x\n", dev->irq);
 
 		/* Initial value of the IO memory. */
 		for (i = 0; i < 0x28; i += 4) {
 			pr_info("io %x %x\n", i, ioread32((void*)(mmio + i)));
+		}
+
+		/* DMA test.
+		 *
+		 * TODO:
+		 *
+		 * - deal with interrupts properly.
+		 * - printf / gdb in QEMU source says dma_buf is not being set correctly
+		 *
+		 * Resources:
+		 *
+		 * - http://elixir.free-electrons.com/linux/v4.12/source/Documentation/DMA-API-HOWTO.txt
+		 * - http://www.makelinux.net/ldd3/chp-15-sect-4
+		 * - https://stackoverflow.com/questions/32592734/are-there-any-dma-linux-kernel-driver-example-with-pcie-for-fpga/44716747#44716747
+		 * - https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
+		 * - https://stackoverflow.com/questions/5539375/linux-kernel-device-driver-to-dma-from-a-device-into-user-space-memory
+		 * - RPI userland /dev/mem https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example
+		 */
+		{
+			dma_addr_t dma_handle_from, dma_handle_to;
+			void *vaddr_from, *vaddr_to;
+			enum { SIZE = 4 };
+
+			/* RAM -> device. */
+			vaddr_from = dma_alloc_coherent(&(dev->dev), 4, &dma_handle_from, GFP_ATOMIC);
+			dev_info(&(dev->dev), "vaddr_from = %p\n", vaddr_from);
+			dev_info(&(dev->dev), "dma_handle_from = %llx\n", (unsigned long long)dma_handle_from);
+			*((volatile u32*)vaddr_from) = 0x12345678;
+			iowrite32((u32)dma_handle_from, mmio + IO_DMA_SRC);
+			iowrite32(DMA_BASE, mmio + IO_DMA_DST);
+			iowrite32(SIZE, mmio + IO_DMA_CNT);
+			iowrite32(DMA_CMD | DMA_IRQ, mmio + IO_DMA_CMD);
+
+			/* device -> RAM. */
+			vaddr_to = dma_alloc_coherent(&(dev->dev), 4, &dma_handle_to, GFP_ATOMIC);
+			dev_info(&(dev->dev), "vaddr_to = %p\n", vaddr_to);
+			dev_info(&(dev->dev), "dma_handle_to = %llx\n", (unsigned long long)dma_handle_to);
+			/*
+			iowrite32(DMA_BASE, mmio + IO_DMA_SRC);
+			iowrite32((u32)dma_handle_to, mmio + IO_DMA_DST);
+			iowrite32(SIZE, mmio + IO_DMA_CNT);
+			iowrite32(DMA_CMD | DMA_FROM_DEV | DMA_IRQ, mmio + IO_DMA_CMD);
+			dev_info(&(dev->dev), "*vaddr_to = %llx\n", (unsigned long long)(*((u32*)vaddr_to)));
+			*/
+
+			/*dma_free_coherent(&(dev->dev), SIZE, vaddr_from, dma_handle_from);*/
+			/*dma_free_coherent(&(dev->dev), SIZE, vaddr_to, dma_handle_to);*/
 		}
 	}
 	return 0;
