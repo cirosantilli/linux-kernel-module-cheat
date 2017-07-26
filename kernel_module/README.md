@@ -11,6 +11,7 @@
     1.  [fops](fops.c)
         1.  [ioctl](ioctl.c)
         1.  [poll](poll.c)
+        1.  [mmap](mmap.c)
         1.  [anonymous_inode](anonymous_inode.c)
         1.  [seq_file](seq_file.c)
             1. [seq_file_single](seq_file_inode.c)
