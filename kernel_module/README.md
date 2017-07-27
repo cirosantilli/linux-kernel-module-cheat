@@ -10,6 +10,7 @@
     1.  Pseudo filesystems
         1.  [debugfs](debugfs.c)
         1.  [procfs](procfs.c)
+        1.  [sysfs](sysfs.c)
     1.  [fops](fops.c)
         1.  [ioctl](ioctl.c)
         1.  [poll](poll.c)
