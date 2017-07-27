@@ -1,4 +1,6 @@
-/* TODO neither works, mmap never gets called. */
+/*
+Remember: mmap does not work with debugfs as of 4.9!
+*/
 
 #if 0
 
@@ -122,7 +124,9 @@ module_init(myinit);
 module_exit(myexit);
 MODULE_LICENSE("GPL");
 
-#endif
+
+/*minimized debugfs*/
+
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
@@ -133,8 +137,9 @@ MODULE_LICENSE("GPL");
 
 static struct dentry *debugfs_file;
 
-static int map_mmap(struct file *filp, struct vm_area_struct *vma)
+static int mmap(struct file *filp, struct vm_area_struct *vma)
 {
+	pr_info("mmap\n");
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
 		return -EAGAIN;
@@ -146,7 +151,7 @@ struct file_operations fops =
 {
 	.owner = THIS_MODULE,
 	.open    = nonseekable_open,
-	.mmap    = map_mmap
+	.mmap    = mmap
 };
 
 static int myinit(void)
@@ -162,4 +167,91 @@ static void myexit(void)
 
 module_init(myinit);
 module_exit(myexit);
+MODULE_LICENSE("GPL");
+
+/*working chardev*/
+
+#include <linux/debugfs.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/fs.h>
+#include <linux/mm.h>
+
+#define NAME "lkmc_mmap"
+
+static int major;
+
+static int mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	pr_info("mmap\n");
+	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+				vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
+		return -EAGAIN;
+	}
+	return 0;
+}
+
+struct file_operations fops =
+{
+	.owner = THIS_MODULE,
+	.open    = nonseekable_open,
+	.mmap    = mmap
+};
+
+static int myinit(void)
+{
+	major = register_chrdev(0, NAME, &fops);
+	return 0;
+}
+
+static void myexit(void)
+{
+	unregister_chrdev(major, NAME);
+}
+
+module_init(myinit)
+module_exit(myexit)
+MODULE_LICENSE("GPL");
+
+#endif
+
+/* proc attempt */
+
+#include <linux/debugfs.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/fs.h>
+#include <linux/mm.h>
+#include <linux/proc_fs.h>
+
+static const char *filename = "lkmc_procfs";
+
+static int mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	pr_info("mmap\n");
+	return 0;
+}
+
+struct file_operations fops =
+{
+	.owner = THIS_MODULE,
+	.open = nonseekable_open,
+	.mmap = mmap
+};
+
+static int myinit(void)
+{
+	proc_create(filename, 0, NULL, &fops);
+	return 0;
+}
+
+static void myexit(void)
+{
+	remove_proc_entry(filename, NULL);
+}
+
+module_init(myinit)
+module_exit(myexit)
 MODULE_LICENSE("GPL");

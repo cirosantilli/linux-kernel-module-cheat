@@ -16,6 +16,7 @@ int main(int argc, char **argv)
 		printf("Usage: %s <mmap_file>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
+	printf("open pathname = %s\n", argv[1]);
 	fd = open(argv[1], O_RDWR | O_SYNC);
 	if (fd < 0) {
 		perror("open");

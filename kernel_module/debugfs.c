@@ -6,6 +6,11 @@ Usage:
 	/debugfs.sh
 
 Requires `CONFIG_DEBUG_FS=y`.
+
+Only the more basic fops can be implemented in debugfs, e.g. mmap is never called:
+
+- https://patchwork.kernel.org/patch/9252557/
+- https://github.com/torvalds/linux/blob/v4.9/fs/debugfs/file.c#L212
 */
 
 #include <linux/debugfs.h>
