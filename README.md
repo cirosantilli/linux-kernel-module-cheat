@@ -213,6 +213,8 @@ and they will be run automatically before the login prompt.
 
 `S99` is already gitignored for you.
 
+For convenience, we also setup a symlink from `S99` to `rootfs_overlay/etc/init.d/S99`.
+
 ## Debugging
 
 To GDB the Linux kernel, first run:

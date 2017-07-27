@@ -5,9 +5,11 @@
     1.  Debugging
         1.  [hello](hello.c)
         1.  [hello2](hello2.c)
-        1.  [debugfs](debugfs.c)
         1.  [panic](panic.c)
     1.  [params](params.c)
+    1.  Pseudo filesystems
+        1.  [debugfs](debugfs.c)
+        1.  [procfs](procfs.c)
     1.  [fops](fops.c)
         1.  [ioctl](ioctl.c)
         1.  [poll](poll.c)
