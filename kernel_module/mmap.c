@@ -74,6 +74,7 @@ static int open(struct inode *inode, struct file *filp)
 
 	pr_info("open\n");
 	info = kmalloc(sizeof(struct mmap_info), GFP_KERNEL);
+	pr_info("virt_to_phys = 0x%llx\n", (unsigned long long)virt_to_phys((void *)info->data));
 	info->data = (char *)get_zeroed_page(GFP_KERNEL);
 	memcpy(info->data, "asdf", BUFFER_SIZE);
 	filp->private_data = info;

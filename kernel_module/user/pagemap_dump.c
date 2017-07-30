@@ -3,19 +3,48 @@ Only tested in x86_64.
 
 Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c
 
+https://stackoverflow.com/questions/17021214/how-to-decode-proc-pid-pagemap-entries-in-linux/45126141#45126141
+
 Dump the page map of a given process PID.
 
 Data sources: /proc/PIC/{map,pagemap}
 */
 
 #define _POSIX_C_SOURCE 200809L
+#include <errno.h>
+#include <fcntl.h>
+#include <stdint>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <sys/types.h>
-#define PAGE_SIZE 0x1000
+#include <unistd.h>
+
+typedef struct {
+    uint64_t phys : 54;
+    int soft_dirty : 1;
+    int padding : 4;
+    int padding : 1;
+
+    * Bit  61    page is file-page or shared-anon (since 3.5)
+    * Bit  62    page swapped
+    * Bit  63    page present
+} PagemapEntry;
+
+
+int parse_pagemap(PagemapEntry &entry, int fd, size_t offset)
+{
+    if (pread(pagemap, &data, ) != sizeof(data)) {
+        perror("pread");
+        break;
+    }
+
+    data & 0x7fffffffffffff,
+    (data >> 55) & 1,
+    (data >> 61) & 1,
+    (data >> 62) & 1,
+    (data >> 63) & 1,
+
+}
 
 int main(int argc, char **argv) {
 	char buffer[BUFSIZ];
@@ -24,6 +53,7 @@ int main(int argc, char **argv) {
 	int maps;
 	int offset = 0;
 	int pagemap;
+	long page_size;
 
 	if (argc < 2) {
 		printf("Usage: %s pid\n", argv[0]);
@@ -42,6 +72,7 @@ int main(int argc, char **argv) {
 		perror("open pagemap");
 		return EXIT_FAILURE;
 	}
+	page_size = sysconf(_SC_PAGE_SIZE);
 	printf("addr pfn soft-dirty file/shared swapped present library\n");
 	for (;;) {
 		ssize_t length = read(maps, buffer + offset, sizeof buffer - offset);
@@ -66,8 +97,9 @@ int main(int argc, char **argv) {
 						}
 						else if (c >= 'a' && c <= 'f') {
 							low += c - 'a' + 10;
+						} else {
+						    break;
 						}
-						else break;
 					}
 					while(buffer[x] != '-' && x < sizeof buffer) x++;
 					if (buffer[x] == '-') x++;
@@ -96,12 +128,10 @@ int main(int argc, char **argv) {
 				/* Get info about all pages in this page range with pagemap. */
 				{
 					unsigned long data;
-					for (unsigned long i = low; i < high; i += PAGE_SIZE) {
-						unsigned long index = (i / PAGE_SIZE) * sizeof(data);
-						if (pread(pagemap, &data, sizeof(data), index) != sizeof(data)) {
-							if (errno) perror("pread");
-							break;
-						}
+					PagemapEntry entry;
+					for (unsigned long i = low; i < high; i += page_size) {
+						unsigned long index = (i / page_size) * sizeof(data);
+						parse_pagemap(&entry, pagemap, sizeof(data) * index);
 						printf("%lx %lx %d %d %d %d %s\n",
 							i,
 							data & 0x7fffffffffffff,
