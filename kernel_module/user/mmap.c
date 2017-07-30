@@ -2,9 +2,12 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h> /* uintmax_t */
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h> /* sysconf */
+
+#include "common.h" /* virt_to_phys_user */
 
 enum { BUFFER_SIZE = 4 };
 
@@ -14,6 +17,7 @@ int main(int argc, char **argv)
 	long page_size;
 	char *address1, *address2;
 	char buf[BUFFER_SIZE];
+	uintptr_t paddr;
 
 	if (argc < 2) {
 		printf("Usage: %s <mmap_file>\n", argv[0]);
@@ -53,6 +57,13 @@ int main(int argc, char **argv)
 	strcpy(address1, "qwer");
 	/* Also modified. So both virtual addresses point to the same physical address. */
 	assert(!strcmp(address2, "qwer"));
+
+	/* Check that the physical addresses are the same.
+	 * They are, but TODO why virt_to_phys on kernel gives a different value? */
+	assert(!virt_to_phys_user(&paddr, getpid(), (uintptr_t)address1));
+	printf("paddr1 = 0x%jx\n", (uintmax_t)paddr);
+	assert(!virt_to_phys_user(&paddr, getpid(), (uintptr_t)address2));
+	printf("paddr2 = 0x%jx\n", (uintmax_t)paddr);
 
     /* Check that modifications made from userland are also visible from the kernel. */
 	read(fd, buf, BUFFER_SIZE);
