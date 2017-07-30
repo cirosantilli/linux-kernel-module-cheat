@@ -1,4 +1,5 @@
 #!/bin/sh
+set -ex
 insmod /mmap.ko
-/mmap.out /sys/kernel/debug/lkmc_mmap
+/mmap.out /proc/lkmc_mmap
 rmmod /mmap.ko

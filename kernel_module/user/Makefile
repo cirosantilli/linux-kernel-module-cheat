@@ -1,6 +1,6 @@
 .PHONY: clean
 
-CC ?= gcc
+CC ?= gcc -ggdb3 -O0 -std=c99 -Wall -Werror -Wextra
 IN_EXT ?= .c
 OUT_EXT ?= .out
 

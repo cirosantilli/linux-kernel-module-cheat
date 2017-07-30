@@ -1,43 +1,35 @@
 /*
-Remember: mmap does not work with debugfs as of 4.9!
-*/
+Remember: mmap, like most fops, does not work with debugfs as of 4.9! https://patchwork.kernel.org/patch/9252557/
 
-#if 0
-
-/*
 Adapted from:
 https://coherentmusings.wordpress.com/2014/06/10/implementing-mmap-for-transferring-data-from-user-space-to-kernel-space/
 */
 
+#include <asm/uaccess.h> /* copy_from_user */
 #include <linux/debugfs.h>
 #include <linux/fs.h>
 #include <linux/init.h>
-#include <linux/kernel.h>
+#include <linux/kernel.h> /* min */
 #include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/proc_fs.h>
 #include <linux/slab.h>
 
-#ifndef VM_RESERVED
-# define  VM_RESERVED (VM_DONTEXPAND | VM_DONTDUMP)
-#endif
+static const char *filename = "lkmc_mmap";
 
-static struct dentry *debugfs_file;
+enum { BUFFER_SIZE = 4 };
 
-struct mmap_info
-{
+struct mmap_info {
 	char *data;
-	int reference;
 };
 
+/* After unmap. */
 static void vm_close(struct vm_area_struct *vma)
 {
-	struct mmap_info *info;
-
 	pr_info("vm_close\n");
-	info = (struct mmap_info *)vma->vm_private_data;
-	info->reference--;
 }
 
+/* First page access. */
 static int vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct page *page;
@@ -53,13 +45,10 @@ static int vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return 0;
 }
 
+/* Aftr mmap. TODO vs mmap, when can this happen at a different time than mmap? */
 static void vm_open(struct vm_area_struct *vma)
 {
-	struct mmap_info *info;
-
 	pr_info("vm_open\n");
-	info = (struct mmap_info *)vma->vm_private_data;
-	info->reference++;
 }
 
 static struct vm_operations_struct vm_ops =
@@ -73,7 +62,7 @@ static int mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	pr_info("mmap\n");
 	vma->vm_ops = &vm_ops;
-	vma->vm_flags |= VM_RESERVED;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_private_data = filp->private_data;
 	vm_open(vma);
 	return 0;
@@ -86,9 +75,36 @@ static int open(struct inode *inode, struct file *filp)
 	pr_info("open\n");
 	info = kmalloc(sizeof(struct mmap_info), GFP_KERNEL);
 	info->data = (char *)get_zeroed_page(GFP_KERNEL);
-	memcpy(info->data, "abc", 4);
+	memcpy(info->data, "asdf", BUFFER_SIZE);
 	filp->private_data = info;
 	return 0;
+}
+
+static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
+{
+	struct mmap_info *info;
+    int ret;
+
+	pr_info("read\n");
+	info = filp->private_data;
+    ret = min(len, (size_t)BUFFER_SIZE);
+    if (copy_to_user(buf, info->data, ret)) {
+        ret = -EFAULT;
+	}
+	return ret;
+}
+
+static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
+{
+	struct mmap_info *info;
+
+	pr_info("write\n");
+	info = filp->private_data;
+    if (copy_from_user(info->data, buf, min(len, (size_t)BUFFER_SIZE))) {
+        return -EFAULT;
+    } else {
+        return len;
+    }
 }
 
 static int release(struct inode *inode, struct file *filp)
@@ -107,138 +123,8 @@ static const struct file_operations fops = {
 	.mmap = mmap,
 	.open = open,
 	.release = release,
-};
-
-static int myinit(void)
-{
-	debugfs_file = debugfs_create_file("lkmc_mmap", S_IRWXU, NULL, NULL, &fops);
-	return 0;
-}
-
-static void myexit(void)
-{
-	debugfs_remove(debugfs_file);
-}
-
-module_init(myinit);
-module_exit(myexit);
-MODULE_LICENSE("GPL");
-
-
-/*minimized debugfs*/
-
-
-#include <linux/debugfs.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/mm.h>
-
-static struct dentry *debugfs_file;
-
-static int mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	pr_info("mmap\n");
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-				vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
-		return -EAGAIN;
-	}
-	return 0;
-}
-
-struct file_operations fops =
-{
-	.owner = THIS_MODULE,
-	.open    = nonseekable_open,
-	.mmap    = mmap
-};
-
-static int myinit(void)
-{
-	debugfs_file = debugfs_create_file("lkmc_mmap", S_IRWXU, NULL, NULL, &fops);
-	return 0;
-}
-
-static void myexit(void)
-{
-	debugfs_remove(debugfs_file);
-}
-
-module_init(myinit);
-module_exit(myexit);
-MODULE_LICENSE("GPL");
-
-/*working chardev*/
-
-#include <linux/debugfs.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/mm.h>
-
-#define NAME "lkmc_mmap"
-
-static int major;
-
-static int mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	pr_info("mmap\n");
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-				vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
-		return -EAGAIN;
-	}
-	return 0;
-}
-
-struct file_operations fops =
-{
-	.owner = THIS_MODULE,
-	.open    = nonseekable_open,
-	.mmap    = mmap
-};
-
-static int myinit(void)
-{
-	major = register_chrdev(0, NAME, &fops);
-	return 0;
-}
-
-static void myexit(void)
-{
-	unregister_chrdev(major, NAME);
-}
-
-module_init(myinit)
-module_exit(myexit)
-MODULE_LICENSE("GPL");
-
-#endif
-
-/* proc attempt */
-
-#include <linux/debugfs.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/mm.h>
-#include <linux/proc_fs.h>
-
-static const char *filename = "lkmc_procfs";
-
-static int mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	pr_info("mmap\n");
-	return 0;
-}
-
-struct file_operations fops =
-{
-	.owner = THIS_MODULE,
-	.open = nonseekable_open,
-	.mmap = mmap
+	.read = read,
+	.write = write,
 };
 
 static int myinit(void)

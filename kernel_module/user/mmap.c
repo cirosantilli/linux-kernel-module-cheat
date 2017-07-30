@@ -1,36 +1,80 @@
+#include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <unistd.h>
+#include <unistd.h> /* sysconf */
 
-#define PAGE_SIZE 4096
+enum { BUFFER_SIZE = 4 };
 
 int main(int argc, char **argv)
 {
 	int fd;
-	char *address = NULL;
+	long page_size;
+	char *address1, *address2;
+	char buf[BUFFER_SIZE];
 
 	if (argc < 2) {
 		printf("Usage: %s <mmap_file>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
+	page_size = sysconf(_SC_PAGE_SIZE);
 	printf("open pathname = %s\n", argv[1]);
 	fd = open(argv[1], O_RDWR | O_SYNC);
 	if (fd < 0) {
 		perror("open");
-		return EXIT_FAILURE;
+		assert(0);
 	}
 	printf("fd = %d\n", fd);
-	address = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if (address == MAP_FAILED) {
+
+    /* mmap twice for double fun. */
+	puts("mmap 1");
+	address1 = mmap(NULL, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (address1 == MAP_FAILED) {
+		perror("mmap");
+		assert(0);
+	}
+	puts("mmap 2");
+	address2 = mmap(NULL, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (address2 == MAP_FAILED) {
 		perror("mmap");
 		return EXIT_FAILURE;
 	}
-	printf("%s\n", address);
-	memcpy(address + 11 , "qwer", 6);
-	printf("%s\n", address);
+	assert(address1 != address2);
+
+    /* Read and modify memory. */
+	puts("access 1");
+	assert(!strcmp(address1, "asdf"));
+	/* vm_fault */
+	puts("access 2");
+	assert(!strcmp(address2, "asdf"));
+	/* vm_fault */
+	strcpy(address1, "qwer");
+	/* Also modified. So both virtual addresses point to the same physical address. */
+	assert(!strcmp(address2, "qwer"));
+
+    /* Check that modifications made from userland are also visible from the kernel. */
+	read(fd, buf, BUFFER_SIZE);
+	assert(!memcmp(buf, "qwer", BUFFER_SIZE));
+
+	/* Modify the data from the kernel, and check that the change is visible from userland. */
+	write(fd, "zxcv", 4);
+	assert(!strcmp(address1, "zxcv"));
+	assert(!strcmp(address2, "zxcv"));
+
+    /* Cleanup. */
+    puts("munmap 1");
+	if (munmap(address1, page_size)) {
+		perror("munmap");
+		assert(0);
+	}
+    puts("munmap 2");
+	if (munmap(address2, page_size)) {
+		perror("munmap");
+		assert(0);
+	}
+    puts("close");
 	close(fd);
 	return EXIT_SUCCESS;
 }
