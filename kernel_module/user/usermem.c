@@ -1,7 +1,7 @@
 /*
 Only tested in x86_64.
 
-Provide an allocated userland memory address for us to test out kernel memory APIs, including:
+Provide an allocated userland memory for us to test out kernel memory APIs, including:
 
 - /proc/pid/maps
 - /proc/pid/pagemap. See also: https://stackoverflow.com/questions/17021214/decode-proc-pid-pagemap-entry/45126141#45126141
@@ -11,24 +11,18 @@ Usage:
 
 	/usermem.out &
 
-Outputs address and pid, e.g.:
+Outputs the virtual address and pid, e.g.:
 
-	address 0x600800
+	vaddr 0x600800
 	pid 110
 
-Now translate the virtual address to physical for the given PID:
+Translate the virtual address to physical for the given PID:
 
-	/pagemap_dump.out 110 | grep 0x600000
+	/virt_to_phys_user.out 110 0x600800
 
-where 0x600000 is the page that contains 0x600800.
+Sample output physical address:
 
-This produces a line of type:
-
-	0x600000 0x7c7b 0 0 0 1 /usermem.out
-
-where 0x7c7b is the PFN. To get the physical address, just add three zeros back:
-
-	0x7c7b000
+	0x7c7b800
 
 ## QEMU monitor xp
 
@@ -87,7 +81,7 @@ enum { I0 = 0x12345678 };
 static volatile uint32_t i = I0;
 
 int main(void) {
-	printf("address %p\n", (void *)&i);
+	printf("vaddr %p\n", (void *)&i);
 	printf("pid %ju\n", (uintmax_t)getpid());
 	while (i == I0) {
 		sleep(1);

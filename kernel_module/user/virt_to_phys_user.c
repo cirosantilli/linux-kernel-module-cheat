@@ -2,6 +2,8 @@
 Convert a virtual address to physical for a given process PID using /proc/PID/pagemap.
 
 https://stackoverflow.com/questions/5748492/is-there-any-api-for-determining-the-physical-address-from-virtual-address-in-li/45128487#45128487
+
+Test this out with usermem.c.
 */
 
 #include <stdio.h> /* printf */
