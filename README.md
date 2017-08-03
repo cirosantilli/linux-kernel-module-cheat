@@ -4,9 +4,47 @@ Run one command, get a QEMU Buildroot BusyBox virtual machine with several minim
 
 ![](screenshot.png)
 
-## Getting started
+## Insane unsafe host super fast quickstart
 
-Usage:
+    cd kernel_module
+    ./make-host.sh
+
+If the compilation of any of the C files fails (because of kernel or toolchain differences that we don't control on the host), just rename it to remove the `.c` extension and try again:
+
+    mv broken.c broken.c~
+    ./build_host
+
+Once you manage to compile, try it out with:
+
+    sudo insmod hello.ko
+
+    # Our module is there.
+    sudo lsmod | grep hello
+
+    # Last message should be: hello init
+    dmest -T
+
+    sudo rmmod hello
+
+    # Last message should be: hello exit
+    dmesg -T
+
+    # Not present anymore
+    sudo lsmod | grep hello
+
+Why this is very bad and you should be ashamed:
+
+-   bugs can easily break you system. E.g.:
+    - segfaults can trivially lead to a kernel crash, and require a reboot
+    - your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`
+    - even more subtle problems like [not being able to rmmod](https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r)
+-   can't control which kernel version to use. So some of the modules may simply not compile because of kernel API changes, since [the Linux kernel does not have a stable kernel module API](https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681).
+-   can't control which hardware is are using, notably the CPU architecture
+-   can't step debug it with GDB easily
+
+The only advantage of using your host machine, is that you don't have to wait 2 hours and use up 8 Gigs for the build. But you will soon find out that this is a very reasonable price to pay.
+
+## Do the right thing and use a virtual machine
 
     sudo apt-get build-dep qemu
     ./run

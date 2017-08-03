@@ -11,7 +11,7 @@ Dump the page map of a given process PID.
 Data sources: /proc/PIC/{map,pagemap}
 */
 
-#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -63,7 +63,6 @@ int main(int argc, char **argv) {
 					size_t x = i - 1;
 					while (x && buffer[x] != '\n') x--;
 					if (buffer[x] == '\n') x++;
-					size_t beginning = x;
 					while (buffer[x] != '-' && x < sizeof buffer) {
 						char c = buffer[x++];
 						low *= 16;

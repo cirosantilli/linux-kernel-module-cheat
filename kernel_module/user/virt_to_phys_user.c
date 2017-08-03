@@ -6,6 +6,7 @@ https://stackoverflow.com/questions/5748492/is-there-any-api-for-determining-the
 Test this out with usermem.c.
 */
 
+#define _XOPEN_SOURCE 700
 #include <stdio.h> /* printf */
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE, strtoull */
 
@@ -14,7 +15,7 @@ Test this out with usermem.c.
 int main(int argc, char **argv)
 {
 	pid_t pid;
-	uintptr_t vaddr, paddr;
+	uintptr_t vaddr, paddr = 0;
 
 	if (argc < 3) {
 		printf("Usage: %s pid vaddr\n", argv[0]);

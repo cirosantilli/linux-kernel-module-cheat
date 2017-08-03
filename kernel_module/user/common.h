@@ -1,7 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 #include <fcntl.h> /* open */
 #include <stdint.h> /* uint64_t  */
 #include <stdlib.h> /* size_t */

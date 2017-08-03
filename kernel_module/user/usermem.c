@@ -39,7 +39,7 @@ Yes!!! We read the correct value from the physical address.
 
 ## /dev/mem
 
-Firts up, this requires:
+Firt up, this requires:
 
 - CONFIG_STRICT_DEVMEM is not set.
 - nopat on kernel parameters

@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE 700
+#include <assert.h>
 #include <fcntl.h> /* creat, O_CREAT */
 #include <poll.h> /* poll */
 #include <stdio.h> /* printf, puts, snprintf */
@@ -6,11 +7,15 @@
 #include <unistd.h> /* read */
 
 int main(int argc, char **argv) {
-	char buf[1024], path[1024];
+	char buf[1024];
 	int fd, i, n;
 	short revents;
 	struct pollfd pfd;
 
+	if (argc < 2) {
+		fprintf(stderr, "usage: %s <poll-device>\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
 	fd = open(argv[1], O_RDONLY | O_NONBLOCK);
 	if (fd == -1) {
 		perror("open");
@@ -23,7 +28,7 @@ int main(int argc, char **argv) {
 		i = poll(&pfd, 1, -1);
 		if (i == -1) {
 			perror("poll");
-			exit(EXIT_FAILURE);
+			assert(0);
 		}
 		revents = pfd.revents;
 		if (revents & POLLIN) {

@@ -1,13 +1,17 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 
-int init_module(void)
+static int myinit(void)
 {
-	printk(KERN_INFO "init_module\n");
+	pr_info("hello init\n");
 	return 0;
 }
 
-void cleanup_module(void)
+static void myexit(void)
 {
-	printk(KERN_INFO "cleanup_module\n");
+	pr_info("hello exit\n");
 }
+
+module_init(myinit)
+module_exit(myexit)
+MODULE_LICENSE("GPL");
