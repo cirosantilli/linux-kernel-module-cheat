@@ -9,6 +9,19 @@ Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807
 Dump the page map of a given process PID.
 
 Data sources: /proc/PIC/{map,pagemap}
+
+This program works in two steps:
+
+-   parse the human readable lines lines from `/proc/<pid>/maps`. This files contains lines of form:
+
+        7ffff7b6d000-7ffff7bdd000 r-xp 00000000 fe:00 658                        /lib/libuClibc-1.0.22.so
+
+    which gives us:
+
+    - `7f8af99f8000-7f8af99ff000`: a virtual address range that belong to the process, possibly containing multiple pages.
+    - `/lib/libuClibc-1.0.22.so` the name of the library that owns that memory.
+
+-   loop over each page of each address range, and ask `/proc/<pid>/pagemap` for more information about that page, including the physical address.
 */
 
 #define _XOPEN_SOURCE 700
@@ -22,7 +35,8 @@ Data sources: /proc/PIC/{map,pagemap}
 
 #include "common.h" /* pagemap_get_entry */
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	char buffer[BUFSIZ];
 	char maps_file[BUFSIZ];
 	char pagemap_file[BUFSIZ];

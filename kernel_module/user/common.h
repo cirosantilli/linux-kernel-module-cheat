@@ -7,12 +7,15 @@
 #include <stdlib.h> /* size_t */
 #include <unistd.h> /* pread, sysconf */
 
+/* Format documented at:
+ * https://github.com/torvalds/linux/blob/v4.9/Documentation/vm/pagemap.txt
+ **/
 typedef struct {
-    uint64_t pfn : 54;
-    unsigned int soft_dirty : 1;
-    unsigned int file_page : 1;
-    unsigned int swapped : 1;
-    unsigned int present : 1;
+	uint64_t pfn : 54;
+	unsigned int soft_dirty : 1;
+	unsigned int file_page : 1;
+	unsigned int swapped : 1;
+	unsigned int present : 1;
 } PagemapEntry;
 
 /* Parse the pagemap entry for the given virtual address.
