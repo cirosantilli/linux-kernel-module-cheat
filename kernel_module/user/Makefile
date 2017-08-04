@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-CCC ?= gcc -ggdb3 -O0 -std=c99 -Wall -Werror -Wextra
+CFLAGS_EXTRA ?= -ggdb3 -O0 -std=c99 -Wall -Werror -Wextra
 IN_EXT ?= .c
 OUT_EXT ?= .out
 
@@ -9,7 +9,7 @@ OUTS := $(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT))))
 all: $(OUTS)
 
 %$(OUT_EXT): %$(IN_EXT)
-	$(CCC) -o '$@' '$<'
+	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -o '$@' '$<'
 
 clean:
 	rm -f *'$(OUT_EXT)'
