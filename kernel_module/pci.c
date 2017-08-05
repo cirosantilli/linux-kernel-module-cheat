@@ -60,6 +60,10 @@ Class: pure magic: https://www-s.acm.illinois.edu/sigops/2007/roll_your_own/7.c.
 TODO: does it have any side effects? Set in the edu device at:
 
 	k->class_id = PCI_CLASS_OTHERS
+
+## Play with registers from the CLI
+
+Use setpci, devmem2 and /sys.
 */
 
 #include <asm/uaccess.h> /* put_user */
