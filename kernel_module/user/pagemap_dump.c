@@ -5,6 +5,7 @@ Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807
 
 - https://stackoverflow.com/questions/17021214/how-to-decode-proc-pid-pagemap-entries-in-linux/45126141#45126141
 - https://stackoverflow.com/questions/5748492/is-there-any-api-for-determining-the-physical-address-from-virtual-address-in-li
+- https://stackoverflow.com/questions/6284810/proc-pid-pagemaps-and-proc-pid-maps-linux/45500208#45500208
 
 Dump the page map of a given process PID.
 

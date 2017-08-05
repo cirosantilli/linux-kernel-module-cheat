@@ -50,6 +50,12 @@ Often abbreviated to BDF.
 - device: maps to one slot
 - function: https://stackoverflow.com/questions/19223394/what-is-the-function-number-in-pci/44735372#44735372
 
+Sometimes a fourth number is also added, e.g.:
+
+    0000:00:04.0
+
+TODO is that the domain?
+
 Class: pure magic: https://www-s.acm.illinois.edu/sigops/2007/roll_your_own/7.c.1.html
 TODO: does it have any side effects? Set in the edu device at:
 
@@ -279,6 +285,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		 * - https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
 		 * - https://stackoverflow.com/questions/5539375/linux-kernel-device-driver-to-dma-from-a-device-into-user-space-memory
 		 * - RPI userland /dev/mem https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example
+		 * - https://stackoverflow.com/questions/34188369/easiest-way-to-use-dma-in-linux
 		 */
 		{
 			dma_addr_t dma_handle_from, dma_handle_to;
