@@ -19,38 +19,31 @@ and use that for the mknod.
 - https://unix.stackexchange.com/questions/37829/understanding-character-device-or-character-special-files/371758#371758
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
-#include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h> /* register_chrdev, unregister_chrdev */
-#include <linux/jiffies.h>
 #include <linux/module.h>
-#include <linux/printk.h> /* printk */
-#include <uapi/linux/stat.h> /* S_IRUSR */
+#include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
 
 #define NAME "lkmc_character_device"
 
 static int major;
 
-static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
+static int show(struct seq_file *m, void *v)
 {
-	size_t ret;
-	char kbuf[] = {'a', 'b', 'c', 'd'};
+	seq_printf(m, "abcd");
+	return 0;
+}
 
-	ret = 0;
-	if (*off == 0) {
-		if (copy_to_user(buf, kbuf, sizeof(kbuf))) {
-			ret = -EFAULT;
-		} else {
-			ret = sizeof(kbuf);
-			*off = 1;
-		}
-	}
-	return ret;
+static int open(struct inode *inode, struct  file *file)
+{
+	return single_open(file, show, NULL);
 }
 
 static const struct file_operations fops = {
+	.llseek = seq_lseek,
+	.open = open,
 	.owner = THIS_MODULE,
-	.read = read,
+	.read = seq_read,
+	.release = single_release,
 };
 
 static int myinit(void)

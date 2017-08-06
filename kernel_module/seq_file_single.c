@@ -25,7 +25,7 @@ static int show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int open(struct inode *inode, struct  file *file)
+static int open(struct inode *inode, struct file *file)
 {
 	return single_open(file, show, NULL);
 }
