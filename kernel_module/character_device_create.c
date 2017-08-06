@@ -1,6 +1,8 @@
 /*
 Automatically create the device under /dev on insmod, and remove on rmmod.
 
+TODO: by itself works, but if I try to cat character_device.ko after removing this, that OOPS!
+
 https://stackoverflow.com/questions/5970595/create-a-device-node-in-code/
 https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/18594761#18594761
 */
@@ -39,7 +41,8 @@ static const struct file_operations fops = {
 static int myinit(void)
 {
     /* cat /proc/devices */
-    alloc_chrdev_region(&major, 0, 1, NAME "_proc");
+    if (alloc_chrdev_region(&major, 0, 1, NAME "_proc")) {
+    };
     /* ls /sys/class */
     myclass = class_create(THIS_MODULE, NAME "_sys");
     /* ls /dev/ */
