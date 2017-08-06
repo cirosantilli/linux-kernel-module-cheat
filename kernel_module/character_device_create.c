@@ -1,10 +1,7 @@
 /*
 Automatically create the device under /dev on insmod, and remove on rmmod.
 
-TODO: by itself works, but if I try to cat character_device.ko after removing this, that OOPS!
-
-https://stackoverflow.com/questions/5970595/create-a-device-node-in-code/
-https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/18594761#18594761
+https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module
 */
 
 #include <linux/cdev.h>
@@ -38,25 +35,44 @@ static const struct file_operations fops = {
 	.release = single_release,
 };
 
+static void cleanup(int device_created)
+{
+    if (device_created) {
+        device_destroy(myclass, major);
+        cdev_del(&mycdev);
+    }
+    if (myclass)
+        class_destroy(myclass);
+    if (major != -1)
+        unregister_chrdev_region(major, 1);
+}
+
 static int myinit(void)
 {
+    int device_created = 0;
+
     /* cat /proc/devices */
-    if (alloc_chrdev_region(&major, 0, 1, NAME "_proc")) {
-    };
+    if (alloc_chrdev_region(&major, 0, 1, NAME "_proc") < 0)
+        goto error;
     /* ls /sys/class */
-    myclass = class_create(THIS_MODULE, NAME "_sys");
+    if ((myclass = class_create(THIS_MODULE, NAME "_sys")) == NULL)
+        goto error;
     /* ls /dev/ */
-    device_create(myclass, NULL, major, NULL, NAME "_dev");
+    if (device_create(myclass, NULL, major, NULL, NAME "_dev") == NULL)
+        goto error;
+    device_created = 1;
     cdev_init(&mycdev, &fops);
-    cdev_add(&mycdev, major, 1);
+    if (cdev_add(&mycdev, major, 1) == -1)
+        goto error;
     return 0;
+error:
+    cleanup(device_created);
+    return -1;
 }
 
 static void myexit(void)
 {
-    device_destroy(myclass, major);
-    class_destroy(myclass);
-    unregister_chrdev_region(major, 1);
+    cleanup(1);
 }
 
 module_init(myinit)
