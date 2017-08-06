@@ -37,9 +37,9 @@ Why this is very bad and you should be ashamed:
 -   bugs can easily break you system. E.g.:
     - segfaults can trivially lead to a kernel crash, and require a reboot
     - your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`
-    - even more subtle problems like [not being able to rmmod](https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r)
+    - even more subtle system corruption such as [not being able to rmmod](https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r)
 -   can't control which kernel version and build options to use. So some of the modules may simply not compile because of kernel API changes, since [the Linux kernel does not have a stable kernel module API](https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681).
--   can't control which hardware is are using, notably the CPU architecture
+-   can't control which hardware is used, notably the CPU architecture
 -   can't step debug it with GDB easily
 
 The only advantage of using your host machine, is that you don't have to wait 2 hours and use up 8 Gigs for the build. But you will soon find out that this is a very reasonable price to pay.
