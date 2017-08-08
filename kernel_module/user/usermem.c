@@ -48,7 +48,7 @@ see: https://stackoverflow.com/questions/11891979/how-to-access-mmaped-dev-mem-w
 
 Then:
 
-	devmem2 0x7c7b800
+	devmem 0x7c7b800
 
 Possible output:
 
@@ -60,7 +60,7 @@ to our physical address and given to the process that mapped /dev/mem.
 
 And finally, let's change the value!
 
-	devmem2 0x7c7b800 w 0x9abcdef0
+	devmem 0x7c7b800 w 0x9abcdef0
 
 After one second, we see on the screen:
 

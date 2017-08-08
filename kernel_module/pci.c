@@ -63,7 +63,7 @@ TODO: does it have any side effects? Set in the edu device at:
 
 ## Play with registers from the CLI
 
-Use setpci, devmem2 and /sys.
+Use setpci, devmem and /sys.
 */
 
 #include <asm/uaccess.h> /* put_user */

@@ -12,7 +12,7 @@ Expected outcome after insmod:
 
 Also without insmodding this module, try:
 
-	devmem2 0x101e9000 w 0x12345678
+	devmem 0x101e9000 w 0x12345678
 
 which touches from userland through /dev/mem.
 */
