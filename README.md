@@ -501,15 +501,57 @@ Just make sure that you never click inside the QEMU window when doing that, othe
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
 
+## gdbserver
+
+Step debug userland processes to understand how they are talking to the kernel.
+
+In guest:
+
+    /gdbserver.sh /myinsmod.out /hello.ko
+
+In host:
+
+    ./rungdbserver kernel_module-1.0/user/myinsmod.out
+
+You can find the executable with:
+
+    find buildroot/output.x86_64~/build -name myinsmod.out
+
+Using the one under `buildroot/output.x86_64~/target` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. TODO: there is an option to disable that, but I wonder if it won't slow things down a lot.
+
+Also remember that BusyBox executables are all symlinks, so if you do on guest:
+
+    /gdbserver.sh ls
+
+on host you need:
+
+    ./rungdbserver busybox-1.26.2/busybox
+
+As usual, different archs work with:
+
+    ./rungdbserver -a arm kernel_module-1.0/user/myinsmod.out
+
 ## X11
 
-x86 has X11 support, simply run:
+Only tested successfully in `x86_64`:
 
     startx
 
 More details: <https://unix.stackexchange.com/questions/70931/how-to-install-x11-on-my-own-linux-buildroot-system/306116#306116>
 
-Not sure how well the graphics stack represents real systems, but if it does it would be a good way to understand how it works.
+Not sure how well that graphics stack represents real systems, but if it does it would be a good way to understand how it works.
+
+On ARM, `startx` hangs at a message:
+
+    vgaarb: this pci device is not a vga device
+
+and nothing shows on the screen, and:
+
+    grep EE /var/log/Xorg.0.log
+
+says:
+
+    (EE) Failed to load module "modesetting" (module does not exist, 0)
 
 ## Table of contents
 

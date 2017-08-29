@@ -1,0 +1,19 @@
+#!/bin/sh
+arch='x86_64'
+while getopts a:k OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+executable="$1"
+buildroot_out_dir="$(pwd)/buildroot/output.${arch}~"
+"${buildroot_out_dir}/host/usr/bin/${arch}-linux-gdb" \
+    -q \
+    -ex 'target remote localhost:45455' \
+    -ex 'tb main' \
+    -ex 'c' \
+    "${buildroot_out_dir}/build/${executable}" \
+;
