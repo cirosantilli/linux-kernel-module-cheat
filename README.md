@@ -531,6 +531,8 @@ As usual, different archs work with:
 
     ./rungdbserver -a arm kernel_module-1.0/user/myinsmod.out
 
+An implementation overview can be found at: <https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-mips-elf-with-qemu-toolchain/16214#16214>
+
 ## X11
 
 Only tested successfully in `x86_64`:
