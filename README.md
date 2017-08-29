@@ -501,6 +501,16 @@ Just make sure that you never click inside the QEMU window when doing that, othe
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
 
+## X11
+
+x86 has X11 support, simply run:
+
+    startx
+
+More details: <https://unix.stackexchange.com/questions/70931/how-to-install-x11-on-my-own-linux-buildroot-system/306116#306116>
+
+Not sure how well the graphics stack represents real systems, but if it does it would be a good way to understand how it works.
+
 ## Table of contents
 
 1.  [Introduction](introduction.md)
