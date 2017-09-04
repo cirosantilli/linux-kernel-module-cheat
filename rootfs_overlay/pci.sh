@@ -40,10 +40,10 @@ dd bs=4 status=none if=/dev/lkmc_pci count=1 skip=8 | od -An -t x1
 # => 1c8cfc00
 
 # Manual IRQ raising.
-printf '\x04\x03\x02\x01' | dd bs=4 status=none of=/dev/lkmc_pci count=1 seek=24
+printf '\x04\x03\x02\x01' | dd bs=4 status=none of=/dev/lkmc_pci count=1 seek=9
 # => irq_handler .*
 sleep 1
-printf '\x08\x07\x06\x05' | dd bs=4 status=none of=/dev/lkmc_pci count=1 seek=24
+printf '\x08\x07\x06\x05' | dd bs=4 status=none of=/dev/lkmc_pci count=1 seek=9
 # => irq_handler .*
 sleep 1
 
