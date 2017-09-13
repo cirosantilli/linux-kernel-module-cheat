@@ -91,7 +91,7 @@ If you make changes to the kernel modules or most configurations, you can just u
 
 and they will updated.
 
-But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra Targets, e.g.:
+But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra targets, e.g.:
 
     ./run -t linux-reconfigure -t host-qemu-rebuild
 
@@ -141,13 +141,18 @@ but I never managed to increase that buffer:
 
 ## Kernel version
 
-We use Buildroot's default kernel version, you can confirm it after build with:
+We use Buildroot's default kernel version with small educational patches on top, you can confirm it after build with:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/output.*~/.config
 
 or in QEMU:
 
     cat /proc/version
+    
+or in the source:
+
+    cd linux
+    git log | grep -E '    Linux [0-9]+\.' | head
 
 ## QEMU GUI is unresponsive
 
