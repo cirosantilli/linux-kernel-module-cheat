@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get a QEMU Buildroot BusyBox virtual machine with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug. Tested in x86, ARM and MIPS guests, Ubuntu 14.04 - 17.04 hosts.
+Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug and minimal QEMU devices models. Tested in x86, ARM and MIPS guests, Ubuntu 14.04 - 17.04 hosts.
 
 ![](screenshot.png)
 
@@ -120,7 +120,7 @@ If you are feeling raw, you can use our own minimal:
 
     /myinsmod.out /hello.ko
 
-which demonstrates the C module API.
+which demonstrates the C module API: <https://stackoverflow.com/questions/5947286/how-can-linux-kernel-modules-be-loaded-from-c-code/38606527#38606527>
 
 ## Message control
 
@@ -148,7 +148,7 @@ We use Buildroot's default kernel version with small educational patches on top,
 or in QEMU:
 
     cat /proc/version
-    
+
 or in the source:
 
     cd linux
@@ -543,6 +543,8 @@ An implementation overview can be found at: <https://reverseengineering.stackexc
 Only tested successfully in `x86_64`:
 
     startx
+
+![](x11.png)
 
 More details: <https://unix.stackexchange.com/questions/70931/how-to-install-x11-on-my-own-linux-buildroot-system/306116#306116>
 
