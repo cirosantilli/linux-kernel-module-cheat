@@ -3,10 +3,18 @@ Remember: mmap, like most fops, does not work with debugfs as of 4.9! https://pa
 
 Adapted from:
 https://coherentmusings.wordpress.com/2014/06/10/implementing-mmap-for-transferring-data-from-user-space-to-kernel-space/
+
+Related:
+
+- https://stackoverflow.com/questions/10760479/mmap-kernel-buffer-to-user-space/10770582#10770582
+- https://stackoverflow.com/questions/1623008/allocating-memory-for-user-space-from-kernel-thread
+- https://stackoverflow.com/questions/6967933/mmap-mapping-in-user-space-a-kernel-buffer-allocated-with-kmalloc
+- https://github.com/jeremytrimble/ezdma
+- https://github.com/simonjhall/dma
+- https://github.com/ikwzm/udmabuf
 */
 
 #include <asm/uaccess.h> /* copy_from_user */
-#include <linux/debugfs.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h> /* min */

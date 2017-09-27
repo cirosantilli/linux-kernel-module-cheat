@@ -10,8 +10,6 @@ Trace a single function:
     # Clear previous trace.
     echo '' > trace
 
-    echo 1 > max_graph_depth
-
     # List the available tracers, and pick one.
     cat available_tracers
     echo function > current_tracer
@@ -29,7 +27,7 @@ Trace a single function:
     head trace
 
     # Observe trace continously, and drain seen events out.
-    cat trace_pipe
+    cat trace_pipe &
 
 Sample output:
 
@@ -60,6 +58,7 @@ Sample output:
 
 Trace all possible functions, and draw a call graph:
 
+    echo 1 > max_graph_depth
     echo 1 > events/enable
     echo function_graph > current_tracer
 
