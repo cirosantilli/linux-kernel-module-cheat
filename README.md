@@ -562,6 +562,45 @@ says:
 
     (EE) Failed to load module "modesetting" (module does not exist, 0)
 
+## Count instructions
+
+- <https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take>
+- <https://github.com/cirosantilli/chat/issues/31>
+- <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
+
+Naive attempt: add to `S99`:
+
+    poweroff
+
+Then run as:
+
+    time ./runqemu -n -- -trace exec_tb,file=trace
+    wc -l trace
+
+This requires the simple QEMU patch mentioned at: <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
+
+Possible improvements:
+
+-   replace init with our own C program that immediately does a `shutdown` system call
+
+-   disable networking. Is replacing `init` enough?
+
+-   logging greatly slows down the CPU, and leads to this:
+
+        All QSes seen, last rcu_sched kthread activity 5252 (4294901421-4294896169), jiffies_till_next_fqs=1, root ->qsmask 0x0
+        swapper/0       R  running task        0     1      0 0x00000008
+         ffff880007c03ef8 ffffffff8107aa5d ffff880007c16b40 ffffffff81a3b100
+         ffff880007c03f60 ffffffff810a41d1 0000000000000000 0000000007c03f20
+         fffffffffffffedc 0000000000000004 fffffffffffffedc ffffffff00000000
+        Call Trace:
+         <IRQ>  [<ffffffff8107aa5d>] sched_show_task+0xcd/0x130
+         [<ffffffff810a41d1>] rcu_check_callbacks+0x871/0x880
+         [<ffffffff810a799f>] update_process_times+0x2f/0x60
+
+    Is it harmless, or does it change timings considerably.
+
+-   Confirm that the kernel enters at `0x1000000`.
+
 ## Table of contents
 
 1.  [Introduction](introduction.md)
