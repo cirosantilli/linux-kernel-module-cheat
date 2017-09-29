@@ -567,6 +567,7 @@ says:
 - <https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take>
 - <https://github.com/cirosantilli/chat/issues/31>
 - <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
+- `qemu/docs/tracing.txt` and `qemu/docs/replay.txt`
 
 Naive attempt: add to `S99`:
 
@@ -575,9 +576,18 @@ Naive attempt: add to `S99`:
 Then run as:
 
     time ./runqemu -n -- -trace exec_tb,file=trace
+    ./qemu/scripts/simpletrace.py qemu/trace-events trace >trace.txt
     wc -l trace
 
-This requires the simple QEMU patch mentioned at: <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
+This requires:
+
+-   `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
+
+    It makes 3x execution faster than the default trace backend which logs human readable data to stdout.
+
+    This also alters the actual execution, and reduces the instruction count by 10M TODO understand exactly why, possibly due to the `All QSes seen` thing.
+
+-   the simple QEMU patch mentioned at: <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
 
 Possible improvements:
 
@@ -585,7 +595,7 @@ Possible improvements:
 
 -   disable networking. Is replacing `init` enough?
 
--   logging greatly slows down the CPU, and leads to this:
+-   logging with the default backend `log` greatly slows down the CPU, and in particular leads to this during kernel boot:
 
         All QSes seen, last rcu_sched kthread activity 5252 (4294901421-4294896169), jiffies_till_next_fqs=1, root ->qsmask 0x0
         swapper/0       R  running task        0     1      0 0x00000008
@@ -597,9 +607,9 @@ Possible improvements:
          [<ffffffff810a41d1>] rcu_check_callbacks+0x871/0x880
          [<ffffffff810a799f>] update_process_times+0x2f/0x60
 
-    Is it harmless, or does it change timings considerably.
+    in which the boot appears to hang for a considerable time.
 
--   Confirm that the kernel enters at `0x1000000`.
+-   Confirm that the kernel enters at `0x1000000`, or where it enters. Once we have this, we can exclude what comes before in the BIOS.
 
 ## Table of contents
 
