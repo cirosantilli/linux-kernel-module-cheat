@@ -568,6 +568,7 @@ says:
 - <https://github.com/cirosantilli/chat/issues/31>
 - <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
 - `qemu/docs/tracing.txt` and `qemu/docs/replay.txt`
+- <https://stackoverflow.com/questions/39149446/how-to-use-qemus-simple-trace-backend/46497873#46497873>
 
 Naive attempt: add to `S99`:
 
