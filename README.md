@@ -258,6 +258,18 @@ and they will be run automatically before the login prompt.
 
 For convenience, we also setup a symlink from `S99` to `rootfs_overlay/etc/init.d/S99`.
 
+### Custom init
+
+Is the default BusyBox `/init` too bloated for you, minimalism freak?
+
+No problem, just use the `init` kernel boot parameter:
+
+    ./runqemu -e 'init=/init_hello.out'
+
+Remember that shell scripts can also be used for `init`:
+
+    ./runqemu -e 'init=/init.sh'
+
 ## Debugging
 
 To GDB the Linux kernel, first run:
@@ -562,7 +574,7 @@ says:
 
     (EE) Failed to load module "modesetting" (module does not exist, 0)
 
-## Count instructions
+## Count boot instructions
 
 - <https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take>
 - <https://github.com/cirosantilli/chat/issues/31>
@@ -570,17 +582,21 @@ says:
 - `qemu/docs/tracing.txt` and `qemu/docs/replay.txt`
 - <https://stackoverflow.com/questions/39149446/how-to-use-qemus-simple-trace-backend/46497873#46497873>
 
-Naive attempt: add to `S99`:
+Best attempt so far:
 
-    poweroff
+    time ./runqemu  -n -e 'init=/init_poweroff.out' -- -trace exec_tb,file=trace && \
+      time ./qemu/scripts/simpletrace.py qemu/trace-events trace >trace.txt && \
+      wc -l trace.txt
 
-Then run as:
+Parameter notes:
 
-    time ./runqemu -n -- -trace exec_tb,file=trace
-    ./qemu/scripts/simpletrace.py qemu/trace-events trace >trace.txt
-    wc -l trace
+-   `-n` is a good idea to reduce the chances that you send unwanted non-deterministic mouse or keyboard clicks to the VM.
 
-This requires:
+-   `-e 'init=/init_poweroff.out'` is crucial as it reduces the instruction count from 40 million to 20 million, so most instructions were actually running on the VM.
+
+    Without it, the bulk of the time seems to be spent in setting up the network with `ifup` that gets called from `/etc/init.d/S40network` from the default Buildroot BusyBox setup.
+
+This works because we have already done the following with QEMU:
 
 -   `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
 
@@ -588,13 +604,14 @@ This requires:
 
     This also alters the actual execution, and reduces the instruction count by 10M TODO understand exactly why, possibly due to the `All QSes seen` thing.
 
--   the simple QEMU patch mentioned at: <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/>
+-   the simple QEMU patch mentioned at: <https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/> of removing the `disable` from `exec_tb` in the `trace-events` template file in the QEMU source
 
 Possible improvements:
 
--   replace init with our own C program that immediately does a `shutdown` system call
+-   to disable networking. Is replacing `init` enough?
 
--   disable networking. Is replacing `init` enough?
+    - <https://superuser.com/questions/181254/how-do-you-boot-linux-with-networking-disabled>
+    - <https://superuser.com/questions/684005/how-does-one-permanently-disable-gnu-linux-networking/1255015#1255015>
 
 -   logging with the default backend `log` greatly slows down the CPU, and in particular leads to this during kernel boot:
 
