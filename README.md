@@ -266,7 +266,7 @@ No problem, just use the `init` kernel boot parameter:
 
     ./runqemu -e 'init=/init_hello.out'
 
-Remember that shell scripts can also be used for `init`:
+Remember that shell scripts can also be used for `init` <https://unix.stackexchange.com/questions/174062/init-as-a-shell-script/395375#395375>:
 
     ./runqemu -e 'init=/init.sh'
 
