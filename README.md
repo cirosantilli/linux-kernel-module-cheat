@@ -232,12 +232,16 @@ See also:
 - <https://superuser.com/questions/488263/problems-switching-to-qemu-control-panel-with-nographics>
 - <https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui/1211516#1211516>
 
-TODO: Ctrl + C kills the emulator, it is not sent to guest processes. See:
+Limitations:
 
-- <https://github.com/cloudius-systems/osv/issues/49>
-- <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
+-   TODO: Ctrl + C kills the emulator, it is not sent to guest processes. See:
 
-This is however fortunate when running QEMU with GDB, as the Ctrl + C reaches GDB and breaks.
+    - <https://github.com/cloudius-systems/osv/issues/49>
+    - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
+
+    This is however fortunate when running QEMU with GDB, as the Ctrl + C reaches GDB and breaks.
+
+-   Very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
 
 ## Automatic startup commands
 
@@ -315,13 +319,7 @@ See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-ke
 
 If you are using text mode:
 
-    ./runqemu -d -n
-
-QEMU cannot be put on the background of the current shell, so you will need to open a separate terminal and run:
-
-    ./rungdb
-
-`O=0` is however an impossible dream, `O=2` being the default: <https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0> So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
+`O=0` is an impossible dream, `O=2` being the default: <https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0> So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
 
 ### Kernel module debugging
 
@@ -591,9 +589,11 @@ Best attempt so far:
 
     time ./runqemu  -n -e 'init=/init_poweroff.out' -- -trace exec_tb,file=trace && \
       time ./qemu/scripts/simpletrace.py qemu/trace-events trace >trace.txt && \
-      wc -l trace.txt
+      wc -l trace.txt &&
+      sed '/0x1000000/q' trace.txt >trace-boot.txt &&
+      wc -l trace-boot.txt &&
 
-Parameter notes:
+Notes:
 
 -   `-n` is a good idea to reduce the chances that you send unwanted non-deterministic mouse or keyboard clicks to the VM.
 
@@ -602,6 +602,24 @@ Parameter notes:
     Without it, the bulk of the time seems to be spent in setting up the network with `ifup` that gets called from `/etc/init.d/S40network` from the default Buildroot BusyBox setup.
 
     And it becomes even worse if you try to `-net none` as recommended in the 2.7 `replay.txt` docs, because then `ifup` waits for 15 seconds before giving up as per `/etc/network/interfaces` line `wait-delay 15`.
+
+-   `0x1000000` is the address where QEMU puts the Linux kernel at with `-kernel` in x86.
+
+    It can be found from:
+
+        readelf -e buildroot/output.x86_64~/build/linux-*/vmlinux | grep Entry
+
+    TODO confirm further. If I try to break there with:
+
+        ./rungdb *0x1000000
+
+    but I have no corresponding source line. Also note that this line is not actually the first line, since the kernel messages such as `early console in extract_kernel` have already shown on screen at that point. This does not break at all:
+
+        ./rungdb extract_kernel
+
+    It only appears once on every log I've seen so far, checked with `grep 0x1000000 trace.txt`
+
+    Then when we count the instructions that run before the kernel entry point, there is only about 100k instructions, which is insignificant compared to the kernel boot itself.
 
 This works because we have already done the following with QEMU:
 
