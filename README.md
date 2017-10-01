@@ -9,7 +9,7 @@ Run one command, get a QEMU Buildroot BusyBox virtual machine built from source 
     cd kernel_module
     ./make-host.sh
 
-If the compilation of any of the C files fails (because of kernel or toolchain differences that we don't control on the host), just rename it to remove the `.c` extension and try again:
+If the compilation of any of the C files fails, e.g. because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
 
     mv broken.c broken.c~
     ./build_host
@@ -601,6 +601,8 @@ Parameter notes:
 
     Without it, the bulk of the time seems to be spent in setting up the network with `ifup` that gets called from `/etc/init.d/S40network` from the default Buildroot BusyBox setup.
 
+    And it becomes even worse if you try to `-net none` as recommended in the 2.7 `replay.txt` docs, because then `ifup` waits for 15 seconds before giving up as per `/etc/network/interfaces` line `wait-delay 15`.
+
 This works because we have already done the following with QEMU:
 
 -   `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
@@ -617,6 +619,8 @@ Possible improvements:
 
     - <https://superuser.com/questions/181254/how-do-you-boot-linux-with-networking-disabled>
     - <https://superuser.com/questions/684005/how-does-one-permanently-disable-gnu-linux-networking/1255015#1255015>
+
+    `CONFIG_NET=n` did not significantly reduce instruction, so maybe replacing `init` is enough.
 
 -   logging with the default backend `log` greatly slows down the CPU, and in particular leads to this during kernel boot:
 
