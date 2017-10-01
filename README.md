@@ -264,11 +264,16 @@ Is the default BusyBox `/init` too bloated for you, minimalism freak?
 
 No problem, just use the `init` kernel boot parameter:
 
-    ./runqemu -e 'init=/init_hello.out'
+    ./runqemu -e 'init=/sleep_forever.out'
 
 Remember that shell scripts can also be used for `init` <https://unix.stackexchange.com/questions/174062/init-as-a-shell-script/395375#395375>:
 
-    ./runqemu -e 'init=/init.sh'
+    ./runqemu -e 'init=/count.sh'
+
+Also remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
+
+- run forever in a loop or long sleep
+- `poweroff` the machine
 
 ## Debugging
 
