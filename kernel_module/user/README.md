@@ -18,6 +18,7 @@ These programs can also be compiled and used on host.
         1.  [poweroff](poweroff.c)
         1.  [init_dev_kmsg](init_dev_kmsg.c)
     1.  [uio_read](uio_read.c)
+    1.  [rand_check](rand_check.c)
 1.  Module tests
     1.  [anonymous_inode](anonymous_inode.c)
     1.  [poll](poll.c)

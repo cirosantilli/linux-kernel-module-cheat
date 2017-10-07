@@ -262,6 +262,8 @@ and they will be run automatically before the login prompt.
 
 For convenience, we also setup a symlink from `S99` to `rootfs_overlay/etc/init.d/S99`.
 
+Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
+
 ### Custom init
 
 Is the default BusyBox `/init` too bloated for you, minimalism freak?
