@@ -384,6 +384,15 @@ And then tell GDB where the module was loaded with:
     Ctrl + C
     add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
 
+### Debug kernel early boot
+
+TODO: why can't we break at early startup stuff such as:
+
+    ./rungdb extract_kernel
+    ./rungdb main
+
+See also: <https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot>
+
 ## Other architectures
 
 The portability of the kernel and toolchains is amazing: change an option and most things magically work on completely different hardware.
@@ -601,6 +610,29 @@ This is made possible by the GDB command:
 which automatically finds unstripped shared libraries on the host for us.
 
 See also: <https://stackoverflow.com/questions/8611194/debugging-shared-libraries-with-gdbserver/45252113#45252113>
+
+### Debug userland process directly from QEMU
+
+GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
+
+<https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel>
+
+    ./runqemu -d -e 'init=/rand_check.out' -n
+
+On another shell:
+
+    buildroot/output.x86_64~/host/usr/bin/x86_64-linux-readelf -h buildroot/output.x86_64~/build/kernel_module-1.0/user/rand_check.out | grep Entry
+    # Entry point address:               0x400560
+    buildroot/output.x86_64~/host/usr/bin/x86_64-linux-readelf -s buildroot/output.x86_64~/build/kernel_module-1.0/user/rand_check.out | grep -E '\bmain\b'
+    # 68: 0000000000400748   309 FUNC    GLOBAL DEFAULT    8 main
+    ./rungdb '*0x400748'
+
+Alternatively, from inside GDB you can do the more succinct:
+
+    shell ../../host/usr/bin/x86_64-linux-readelf -h ../kernel_module-1.0/user/rand_check.out | grep Ent
+    shell ../../host/usr/bin/x86_64-linux-readelf -s ../kernel_module-1.0/user/rand_check.out | grep -E '\bmain\b'
+
+Those steps should be fully automatable `.gdbinit` script.
 
 ## X11
 
