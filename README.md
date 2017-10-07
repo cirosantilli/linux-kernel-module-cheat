@@ -281,6 +281,18 @@ Also remember that if your init returns, the kernel will panic, there are just t
 - run forever in a loop or long sleep
 - `poweroff` the machine
 
+### BusyBox init is fine, but networking gets on my nerves
+
+I know right?
+
+Add this line to `rootfs_post_build_script`:
+
+    rm -f "${1}/etc/init.d/"S*network
+
+To restore it, run:
+
+    ./run -t initscripts-reconfigure
+
 ## Debugging
 
 To GDB the Linux kernel, first run:
