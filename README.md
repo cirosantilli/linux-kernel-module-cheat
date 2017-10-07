@@ -281,9 +281,9 @@ Also remember that if your init returns, the kernel will panic, there are just t
 - run forever in a loop or long sleep
 - `poweroff` the machine
 
-### BusyBox init is fine, but networking gets on my nerves
+### BusyBox init is fine, but networking timeout gets on my nerves
 
-I know right?
+I know, right?
 
 Add this line to `rootfs_post_build_script`:
 
@@ -330,8 +330,6 @@ which counts to infinity to stdout, and then in GDB:
 And you now control the counting from GDB.
 
 See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu>
-
-If you are using text mode:
 
 `O=0` is an impossible dream, `O=2` being the default: <https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0> So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
 
