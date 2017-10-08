@@ -9,6 +9,7 @@ C programs require cross compiling, but give us more control over system calls.
 These programs can also be compiled and used on host.
 
 1.  Standalone
+    1.  [hello](hello.c)
     1.  [myinsmod](myinsmod.c)
     1.  [myrmmod](myrmmod.c)
     1.  [usermem](usermem.c)
