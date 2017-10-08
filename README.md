@@ -549,9 +549,33 @@ You can find the executable with:
 
     find buildroot/output.x86_64~/build -name myinsmod.out
 
-Using the one under `buildroot/output.x86_64~/target` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. TODO: there is an option to disable that, but I wonder if it won't slow things down a lot.
+TODO: automate the path finding:
 
-Also remember that BusyBox executables are all symlinks, so if you do on guest:
+-   using the executable from under `buildroot/output.x86_64~/target` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. `BR2_STRIP_none=y` should disable stripping, but make the image way larger.
+
+-   `outputx86_64~/staging/` would be even better than `target/` as the docs say that this directory contains binaries before they were stripped. However, only a few binaries are pre-installed there by default, and it seems to be a manual per package thing.
+
+    E.g. `pciutils` has for `lspci`:
+
+        define PCIUTILS_INSTALL_STAGING_CMDS
+            $(TARGET_MAKE_ENV) $(MAKE1) -C $(@D) $(PCIUTILS_MAKE_OPTS) \
+                PREFIX=$(STAGING_DIR)/usr SBINDIR=$(STAGING_DIR)/usr/bin \
+                install install-lib install-pcilib
+        endef
+
+    and the docs describe the `*_INSTALL_STAGING` per package config, which is normally set for shared library packages.
+
+An implementation overview can be found at: <https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-mips-elf-with-qemu-toolchain/16214#16214>
+
+### gdbserver different archs
+
+As usual, different archs work with:
+
+    ./rungdbserver -a arm kernel_module-1.0/user/myinsmod.out
+
+### gdbserver BusyBox
+
+BusyBox executables are all symlinks, so if you do on guest:
 
     /gdbserver.sh ls
 
@@ -559,11 +583,24 @@ on host you need:
 
     ./rungdbserver busybox-1.26.2/busybox
 
-As usual, different archs work with:
+### gdbserver shared libraries
 
-    ./rungdbserver -a arm kernel_module-1.0/user/myinsmod.out
+Our setup gives you the rare opportunity to step debug libc and other system libraries e.g. with:
 
-An implementation overview can be found at: <https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-mips-elf-with-qemu-toolchain/16214#16214>
+    b open
+    c
+
+Or simply by stepping into calls:
+
+    s
+
+This is made possible by the GDB command:
+
+    set sysroot ${buildroot_out_dir}/staging
+
+which automatically finds unstripped shared libraries on the host for us.
+
+See also: <https://stackoverflow.com/questions/8611194/debugging-shared-libraries-with-gdbserver/45252113#45252113>
 
 ## X11
 
