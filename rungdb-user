@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -e
+usage="$0 <exec-relative-path> [<brk-symbol>]"
+arch='x86_64'
+while getopts a:h OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+      ;;
+    h)
+      echo "$usage"
+      exit 0
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+executable_rel="$1"
+shift
+if [ "$#" -gt 0 ]; then
+  brk="'$1'"
+  shift
+else
+  brk=''
+fi
+buildroot_out_dir="$(pwd)/buildroot/output.${arch}~"
+executable="${buildroot_out_dir}/build/${executable_rel}"
+readelf="${buildroot_out_dir}/host/usr/bin/${arch}-linux-readelf"
+addr="$("$readelf" -h "$executable" | awk '/Entry/{ print $NF }' )"
+ex="-ex \"add-symbol-file $executable $addr\""
+# Twice because lx-symbols overrides our add-symbol-file commands.
+cmd="./rungdb -b '$ex' -A '$ex' $brk"
+echo "$cmd"
+eval "$cmd"

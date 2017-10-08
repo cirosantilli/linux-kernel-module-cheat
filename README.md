@@ -574,6 +574,8 @@ TODO: automate the path finding:
 
     and the docs describe the `*_INSTALL_STAGING` per package config, which is normally set for shared library packages.
 
+    Feature request: <https://bugs.busybox.net/show_bug.cgi?id=10386>
+
 An implementation overview can be found at: <https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-mips-elf-with-qemu-toolchain/16214#16214>
 
 ### gdbserver different archs
@@ -611,28 +613,78 @@ which automatically finds unstripped shared libraries on the host for us.
 
 See also: <https://stackoverflow.com/questions/8611194/debugging-shared-libraries-with-gdbserver/45252113#45252113>
 
-### Debug userland process directly from QEMU
+### Userland process without gdbserver
 
 GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
 
-<https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel>
+- <https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel>
+- <https://stackoverflow.com/questions/16273614/debug-init-on-qemu-using-gdb>
 
-    ./runqemu -d -e 'init=/rand_check.out' -n
+The only use case I can see for this is to debug the init process (and have fun), otherwise, why wouldn't you just use `gdbserver`? Known of direct userland debugging:
 
-On another shell:
+-   the kernel might switch context to another process, and you would enter "garbage"
 
-    buildroot/output.x86_64~/host/usr/bin/x86_64-linux-readelf -h buildroot/output.x86_64~/build/kernel_module-1.0/user/rand_check.out | grep Entry
-    # Entry point address:               0x400560
-    buildroot/output.x86_64~/host/usr/bin/x86_64-linux-readelf -s buildroot/output.x86_64~/build/kernel_module-1.0/user/rand_check.out | grep -E '\bmain\b'
-    # 68: 0000000000400748   309 FUNC    GLOBAL DEFAULT    8 main
-    ./rungdb '*0x400748'
+-   TODO step into shared libraries. If I attempt to load them explicitly:
 
-Alternatively, from inside GDB you can do the more succinct:
+        (gdb) sharedlibrary ../../staging/lib/libc.so.0
+        No loaded shared libraries match the pattern `../../staging/lib/libc.so.0'.
 
-    shell ../../host/usr/bin/x86_64-linux-readelf -h ../kernel_module-1.0/user/rand_check.out | grep Ent
-    shell ../../host/usr/bin/x86_64-linux-readelf -s ../kernel_module-1.0/user/rand_check.out | grep -E '\bmain\b'
+    since GDB does not know that libc is loaded.
 
-Those steps should be fully automatable `.gdbinit` script.
+Custom init process:
+
+-   Shell 1:
+
+        ./runqemu -d -e 'init=/sleep_forever.out' -n
+
+-   Shell 2:
+
+        ./rungdb-user kernel_module-1.0/user/sleep_forever.out main
+
+BusyBox custom init process:
+
+-   Shell 1:
+
+        ./runqemu -d -e 'init=/bin/ls' -n
+
+-   Shell 2:
+
+        ./rungdb-user -h busybox-1.26.2/busybox ls_main
+
+This follows BusyBox' convention of calling the main for each executable as `<exec>_main` since the `busybox` executable has many "mains".
+
+BusyBox default init process:
+
+-   Shell 1:
+
+        ./runqemu -d -n
+
+-   Shell 2:
+
+        ./rungdb-user -h busybox-1.26.2/busybox init_main
+
+This cannot be debugged in another way without modifying the source, or `/sbin/init` exits early with:
+
+    "must be run as PID 1"
+
+Non-init process:
+
+-   Shell 1
+
+        ./runqemu -d -n
+
+-   Shell 2
+
+        ./rungdb-user kernel_module-1.0/user/sleep_forever.out
+        Ctrl + C
+        b main
+        continue
+
+-   Shell 1
+
+        /sleep_forever.out
+
+This is of least reliable setup as there might be other processes that use the given virtual address.
 
 ## X11
 
