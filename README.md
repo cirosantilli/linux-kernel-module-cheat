@@ -720,17 +720,17 @@ says:
 
 Best attempt so far:
 
-    time ./runqemu  -n -e 'init=/init_poweroff.out' -- -trace exec_tb,file=trace && \
+    time ./runqemu -n -e 'init=/poweroff.out' -- -trace exec_tb,file=trace && \
       time ./qemu/scripts/simpletrace.py qemu/trace-events trace >trace.txt && \
-      wc -l trace.txt &&
-      sed '/0x1000000/q' trace.txt >trace-boot.txt &&
-      wc -l trace-boot.txt &&
+      wc -l trace.txt && \
+      sed '/0x1000000/q' trace.txt >trace-boot.txt && \
+      wc -l trace-boot.txt
 
 Notes:
 
 -   `-n` is a good idea to reduce the chances that you send unwanted non-deterministic mouse or keyboard clicks to the VM.
 
--   `-e 'init=/init_poweroff.out'` is crucial as it reduces the instruction count from 40 million to 20 million, so most instructions were actually running on the VM.
+-   `-e 'init=/poweroff.out'` is crucial as it reduces the instruction count from 40 million to 20 million, so most instructions were actually running on the VM.
 
     Without it, the bulk of the time seems to be spent in setting up the network with `ifup` that gets called from `/etc/init.d/S40network` from the default Buildroot BusyBox setup.
 
@@ -753,6 +753,16 @@ Notes:
     It only appears once on every log I've seen so far, checked with `grep 0x1000000 trace.txt`
 
     Then when we count the instructions that run before the kernel entry point, there is only about 100k instructions, which is insignificant compared to the kernel boot itself.
+
+-   We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
+
+        ./rungdb-user kernel_module-1.0/user/poweroff.out main
+
+    And get that from the traces, e.g. if the address is `4003a0`, then we search:
+
+        grep -n 4003a0 trace.txt
+
+    I have observed a single match for that instruction, so it must be the init, and there were only 20k instructions after it, so the impact is negligible.
 
 This works because we have already done the following with QEMU:
 
