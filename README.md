@@ -1,3 +1,19 @@
+TODO get working:
+
+    ./runqemu -e 'init=/poweroff.out' -n --  -trace exec_tb,file=trace-rec -icount shift=7,rr=record,rrfile=replay.bin &&
+    ./runqemu -e 'init=/poweroff.out' -n --  -trace exec_tb,file=trace-rep -icount shift=7,rr=replay,rrfile=replay.bin
+
+then kernel stops at:
+
+    [   44.008396] NET: Registered protocol family 17
+
+so networking is still bogged. But for what it is worth, all timestamps are the same, and the -traces must be too up do that point.
+
+With `-net none`, it stops at:
+
+    [   19.826052] ALSA device list:
+    [   19.826798]   No soundcards found.
+
 # Linux Kernel Module Cheat
 
 Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug and minimal QEMU devices models. Tested in x86, ARM and MIPS guests, Ubuntu 14.04 - 17.04 hosts.
