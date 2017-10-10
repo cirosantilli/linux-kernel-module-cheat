@@ -710,6 +710,11 @@ says:
 
     (EE) Failed to load module "modesetting" (module does not exist, 0)
 
+ARM support: a friend told me but I haven't tried it yet:
+
+- `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
+- `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
+
 ## Count boot instructions
 
 - <https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take>
