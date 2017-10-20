@@ -812,6 +812,7 @@ Possible improvements:
 1.  [vermagic](vermagic.md)
 1.  [ftrace](ftrace.md)
 1.  [Device tree](device-tree.md)
+1.  [GEM5](gem5.md)
 1.  [Bibliography](bibliography.md)
 1.  Examples
     1.  [Host](host/)
