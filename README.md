@@ -613,9 +613,9 @@ which automatically finds unstripped shared libraries on the host for us.
 
 See also: <https://stackoverflow.com/questions/8611194/debugging-shared-libraries-with-gdbserver/45252113#45252113>
 
-### Userland process without gdbserver
+### Debug userland process without gdbserver
 
-GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
+QEMU `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
 
 - <https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel>
 - <https://stackoverflow.com/questions/16273614/debug-init-on-qemu-using-gdb>
@@ -698,6 +698,8 @@ More details: <https://unix.stackexchange.com/questions/70931/how-to-install-x11
 
 Not sure how well that graphics stack represents real systems, but if it does it would be a good way to understand how it works.
 
+### X11 ARM
+
 On ARM, `startx` hangs at a message:
 
     vgaarb: this pci device is not a vga device
@@ -710,7 +712,7 @@ says:
 
     (EE) Failed to load module "modesetting" (module does not exist, 0)
 
-ARM support: a friend told me but I haven't tried it yet:
+A friend told me this but I haven't tried it yet:
 
 - `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
 - `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
