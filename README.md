@@ -335,7 +335,7 @@ See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-ke
 
 ### Kernel module debugging
 
-Loadable kernel modules are a bit trickier since the kernel can place them at different memory locations depending on load other.
+Loadable kernel modules are a bit trickier since the kernel can place them at different memory locations depending on load order.
 
 So we cannot set the breakpoints before `insmod`.
 
