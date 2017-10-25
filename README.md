@@ -737,7 +737,7 @@ Notes:
 
 -   `-n` is a good idea to reduce the chances that you send unwanted non-deterministic mouse or keyboard clicks to the VM.
 
--   `-e 'init=/poweroff.out'` is crucial as it reduces the instruction count from 40 million to 20 million, so most instructions were actually running on the VM.
+-   `-e 'init=/poweroff.out'` is crucial as it reduces the instruction count from 40 million to 20 million, so half of the instructions were due to userland programs instead of the boot sequence.
 
     Without it, the bulk of the time seems to be spent in setting up the network with `ifup` that gets called from `/etc/init.d/S40network` from the default Buildroot BusyBox setup.
 
