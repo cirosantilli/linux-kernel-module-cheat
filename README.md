@@ -234,7 +234,7 @@ See also:
 
 Limitations:
 
--   TODO: Ctrl + C kills the emulator, it is not sent to guest processes. See:
+-   TODO: Ctrl + C kills the emulator for some setups (TODO which what exactly?), and not sent to guest processes. See:
 
     - <https://github.com/cloudius-systems/osv/issues/49>
     - <https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu>
