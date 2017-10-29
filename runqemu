@@ -52,7 +52,7 @@ $debug_qemu \
 $buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -m 128M \
 -monitor telnet::45454,server,nowait \
--net user,hostfwd=tcp::45455-:45455 \
+-netdev user,hostfwd=tcp::45455-:45455,id=net0 \
 -smp 1 \
 "
 # The base QEMU commands are found under board/qemu/*/readme.tx
@@ -66,9 +66,9 @@ case "$arch" in
 -append 'root=/dev/vda nopat $extra_append' \
 -device edu \
 -device lkmc_pci_min \
+-device virtio-net-pci,netdev=net0 \
 -drive file=${images_dir}/rootfs.ext2,if=virtio,format=raw \
 -kernel ${images_dir}/bzImage \
--net nic,model=virtio \
 $extra_flags \
 "
   ;;
@@ -79,10 +79,10 @@ $extra_flags \
     cmd="$qemu_common \
 -M versatilepb \
 -append 'root=/dev/sda $extra_append' \
+-device rtl8139,netdev=net0 \
 -drive file=${images_dir}/rootfs.ext2,if=scsi,format=raw \
 -dtb ${images_dir}/versatile-pb.dtb \
 -kernel ${images_dir}/zImage \
--net nic,model=rtl8139 \
 -serial stdio \
 $extra_flags \
 "
@@ -95,10 +95,9 @@ $extra_flags \
 -M virt \
 -append 'root=/dev/sda $extra_append' \
 -cpu cortex-a57 \
--device virtio-net-device,netdev=eth0 \
+-device virtio-net-device,netdev=net0 \
 -drive file=${images_dir}/rootfs.cpio,if=scsi,format=raw \
 -kernel ${images_dir}/Image \
--netdev user,id=eth0 \
 -nographic \
 -serial stdio \
 $extra_flags \
@@ -109,10 +108,10 @@ $extra_flags \
 -M malta \
 -append 'root=/dev/hda $extra_append' \
 -cpu I6400 \
+-device pcnet \
 -drive file=${images_dir}/rootfs.ext2,format=raw \
 -kernel ${images_dir}/vmlinux \
 -nographic \
--net nic,model=pcnet \
 $extra_flags \
 "
   ;;
