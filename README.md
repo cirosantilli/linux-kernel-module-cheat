@@ -264,6 +264,20 @@ For convenience, we also setup a symlink from `S99` to `rootfs_overlay/etc/init.
 
 Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
 
+### What is the init executable?
+
+When the Linux kernel finishes booting, it runs an executable as the first and only userland process.
+
+The default path is `/init`, but we an set a custom one with the `init=` kernel command line argument.
+
+This process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
+
+This typically means reading some configuration files (e.g. `/etc/initrc`) and forking a bunch of userland executables based on those files.
+
+systemd is a "popular" `/init` implementation for desktop distros as of 2017.
+
+BusyBox provides its own minimalistic init implementation which Buildroot uses by default.
+
 ### Custom init
 
 Is the default BusyBox `/init` too bloated for you, minimalism freak?
