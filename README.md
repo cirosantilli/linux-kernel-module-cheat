@@ -806,6 +806,12 @@ Possible improvements:
 
 -   Confirm that the kernel enters at `0x1000000`, or where it enters. Once we have this, we can exclude what comes before in the BIOS.
 
+### Record and replay
+
+Since we are already playing with `-icount`, we might as well try the potentially awesome deterministic record and replay feature.
+
+Unfortunately it is not working in the current QEMU: <https://stackoverflow.com/questions/46970215/how-to-use-qemus-deterministic-record-and-replay-feature-for-a-linux-kernel-boo>
+
 ## Table of contents
 
 1.  [Introduction](introduction.md)
