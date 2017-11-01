@@ -6,6 +6,7 @@ Runnable stuff:
 - <https://github.com/satoru-takeuchi/elkdat> manual build process without Buildroot, very few and simple kernel modules
 - <https://github.com/tinyclub/linux-lab> Buildroot based, no kernel modules?
 - <https://github.com/agelastic/eudyptula>
+- <https://github.com/linux-kernel-labs> Yocto based, source inside a kernel fork subdir: <https://github.com/linux-kernel-labs/linux/tree/f08b9e4238dfc612a9d019e3705bd906930057fc/tools/labs> which the author would like to upstream <https://www.reddit.com/r/programming/comments/79w2q9/linux_device_driver_labs_the_linux_kernel/dp6of43/>
 
 Theory:
 
