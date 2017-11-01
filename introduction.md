@@ -19,12 +19,6 @@ Device drivers (programs that enables the computer to talk to hardware) are one 
 
 Two devices can map to the same hardware!
 
-## Stable kernel interface
-
-Kernel modules can use any internal interface of the kernel, although some are more visible than others.
-
-But there is no stable kernel API for modules: if you don't add your driver to the kernel tree, it can break any time: <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/stable_api_nonsense.txt?id=v4.0>
-
 ## Configuration files
 
 If file it gets read, if dir, all files in dir get read:
