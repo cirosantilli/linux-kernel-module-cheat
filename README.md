@@ -46,6 +46,7 @@ The only advantage of using your host machine, is that you don't have to wait 2 
 
 ## Do the right thing and use a virtual machine
 
+    sudo apt-get install libsdl2-dev
     sudo apt-get build-dep qemu
     ./run
 
