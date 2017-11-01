@@ -2,6 +2,7 @@
 set -e
 arch='x86_64'
 extra_targets=''
+x11=false
 while getopts a:t: OPT > /dev/null 2>&1; do
   case "$OPT" in
     'a')
@@ -9,6 +10,9 @@ while getopts a:t: OPT > /dev/null 2>&1; do
     ;;
     't')
       extra_targets="$extra_args $OPTARG"
+    ;;
+    'x')
+      x11=true
     ;;
   esac
 done
@@ -40,6 +44,9 @@ make O="$outdir" BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
 # TODO Can't get rid of this for now.
 # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
 cat ../buildroot_config_fragment >> "${outdir}/.config"
+if $x11; then
+  cat ../buildroot_config_fragment_x11 >> "${outdir}/.config"
+fi
 make O="$outdir" olddefconfig
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
