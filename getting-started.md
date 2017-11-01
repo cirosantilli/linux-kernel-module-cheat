@@ -42,13 +42,18 @@ The only advantage of using your host machine, is that you don't have to wait 2 
 
 ## Do the right thing and use a virtual machine
 
+Reserve 12Gb of disk:
+
     git clone --recursive https://github.com/cirosantilli/linux-kernel-module-cheat
     cd linux-kernel-module-cheat
     sudo apt-get install libsdl2-dev
     sudo apt-get build-dep qemu
     ./run
 
-First build will take a while (GCC, Linux kernel).
+The first build will take a while ([GCC](https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain), Linux kernel), e.g.:
+
+- 2 hours on a mid end 2012 laptop
+- 30 minutes on a high end 2017 desktop
 
 QEMU opens up, and you can run:
 
@@ -92,7 +97,7 @@ and they will updated.
 
 But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra targets, e.g.:
 
-    ./run -t linux-reconfigure -t host-qemu-rebuild
+    ./run -t linux-reconfigure -t host-qemu-reconfigure
 
 Those aren't turned on by default because they take quite a few seconds.
 
