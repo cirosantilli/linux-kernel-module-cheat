@@ -6,15 +6,12 @@ The portability of the kernel and toolchains is amazing: change an option and mo
 
 First build:
 
+    ./build -a arm
     ./run -a arm
-
-Run without build:
-
-    ./runqemu -a arm
 
 Debug:
 
-    ./runqemu -a arm -d
+    ./run -a arm -d
     # On another terminal.
     ./rungdb -a arm
 
@@ -25,7 +22,7 @@ TODOs:
 
 ## aarch64
 
-    ./run -a aarch64
+    ./build -a aarch64
 
 TODOs:
 
@@ -39,4 +36,4 @@ TODOs:
 
 ## mips64
 
-    ./run -a mips64
+    ./build -a mips64

@@ -91,7 +91,7 @@ Custom init process:
 
 -   Shell 1:
 
-        ./runqemu -d -e 'init=/sleep_forever.out' -n
+        ./run -d -e 'init=/sleep_forever.out' -n
 
 -   Shell 2:
 
@@ -101,7 +101,7 @@ BusyBox custom init process:
 
 -   Shell 1:
 
-        ./runqemu -d -e 'init=/bin/ls' -n
+        ./run -d -e 'init=/bin/ls' -n
 
 -   Shell 2:
 
@@ -113,7 +113,7 @@ BusyBox default init process:
 
 -   Shell 1:
 
-        ./runqemu -d -n
+        ./run -d -n
 
 -   Shell 2:
 
@@ -127,7 +127,7 @@ Non-init process:
 
 -   Shell 1
 
-        ./runqemu -d -n
+        ./run -d -n
 
 -   Shell 2
 

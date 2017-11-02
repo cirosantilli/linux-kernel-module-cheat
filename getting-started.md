@@ -47,6 +47,7 @@ Reserve 12Gb of disk:
     git clone --recursive https://github.com/cirosantilli/linux-kernel-module-cheat
     cd linux-kernel-module-cheat
     ./configure
+    ./build
     ./run
 
 The first build will take a while ([GCC](https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain), Linux kernel), e.g.:
@@ -80,23 +81,18 @@ Good bets inside guest are:
     /modulename.sh
     /modulename.out
 
-## Save rebuild time
+## Rebuild
 
-After the first build, you can also run just:
+If you make changes to the kernel modules or most configurations tracked on this repository, you can just use again:
 
-    ./runqemu
-
-to save a few seconds. `./run` wouldn't rebuild everything, but checking timestamps takes a few moments.
-
-If you make changes to the kernel modules or most configurations, you can just use again:
-
+    ./build
     ./run
 
-and they will updated.
+and the modified files will be rebuilt.
 
-But if you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra targets, e.g.:
+If you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra targets, e.g.:
 
-    ./run -t linux-reconfigure -t host-qemu-reconfigure
+    ./build -t linux-reconfigure -t host-qemu-reconfigure
 
 Those aren't turned on by default because they take quite a few seconds.
 
@@ -104,20 +100,20 @@ Those aren't turned on by default because they take quite a few seconds.
 
 The root filesystem is persistent across:
 
-    ./runqemu
+    ./run
     date >f
     sync
 
 then:
 
-    ./runqemu
+    ./run
     cat f
 
 This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl + R`.
 
 When you do:
 
-    ./run
+    ./build
 
 the disk image gets overwritten by a fresh filesystem and you lose all changes.
 
@@ -144,7 +140,7 @@ but I never managed to increase that buffer:
 
 Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
 
-    ./runqemu -n
+    ./run -n
 
 To exit, just do a regular:
 
@@ -273,7 +269,7 @@ When you start interacting with QEMU hardware, it is useful to see what is going
 
 This is of course trivial since QEMU is just an userland program on the host, but we make it a bit easier with:
 
-    ./runqemu -q
+    ./run -q
 
 Then you could:
 

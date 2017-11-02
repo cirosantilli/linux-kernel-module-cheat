@@ -8,7 +8,7 @@ Cheaper than JTAG (free) and easier to setup (all you need is serial), but with 
 
 Usage:
 
-    ./runqemu -k
+    ./run -k
     ./rungdb -k
 
 In GDB:

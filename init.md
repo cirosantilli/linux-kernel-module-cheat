@@ -20,11 +20,11 @@ Is the default BusyBox `/init` too bloated for you, minimalism freak?
 
 No problem, just use the `init` kernel boot parameter:
 
-    ./runqemu -e 'init=/sleep_forever.out'
+    ./run -e 'init=/sleep_forever.out'
 
 Remember that shell scripts can also be used for `init` <https://unix.stackexchange.com/questions/174062/init-as-a-shell-script/395375#395375>:
 
-    ./runqemu -e 'init=/count.sh'
+    ./run -e 'init=/count.sh'
 
 Also remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
 
@@ -41,4 +41,4 @@ Add this line to `rootfs_post_build_script`:
 
 To restore it, run:
 
-    ./run -t initscripts-reconfigure
+    ./build -t initscripts-reconfigure

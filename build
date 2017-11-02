@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -e
+arch=x86_64
+extra_targets=''
+j="$(($(nproc) - 2))"
+x11=false
+v=0
+while getopts 'a:e:j:nt:v' OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+    ;;
+    j)
+      j="$OPTARG"
+    ;;
+    t)
+      extra_targets="$extra_args $OPTARG"
+    ;;
+    x)
+      x11=true
+    ;;
+    v)
+      v=1
+    ;;
+  esac
+done
+case "$arch" in
+  x86_64)
+    defconfig=qemu_x86_64_defconfig
+  ;;
+  arm)
+    # qemu_arm_vexpress_defconfig required a newer QEMU than 2.0.0 on a Ubuntu host.
+    # so let's stick to versatile for now.
+    defconfig=qemu_arm_versatile_defconfig
+  ;;
+  aarch64)
+    defconfig=qemu_aarch64_virt_defconfig
+  ;;
+  mips64)
+    defconfig=qemu_mips64r6_malta_defconfig
+  ;;
+esac
+
+cd kernel_module
+./make-host.sh -j "$j" clean
+cd ../buildroot
+for p in $(find '../buildroot_patches/' -maxdepth 1 -name '*.patch' -print); do
+    patch -N -r - -p 1 <"$p" || :
+done
+outdir="output.${arch}~"
+make O="$outdir" BR2_EXTERNAL="$(pwd)/../kernel_module" "$defconfig"
+# TODO Can't get rid of this for now.
+# http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
+cat ../buildroot_config_fragment >> "${outdir}/.config"
+if $x11; then
+  cat ../buildroot_config_fragment_x11 >> "${outdir}/.config"
+fi
+make O="$outdir" olddefconfig
+# HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
+# It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
+#
+# Even if were an autotools package, there is no general way currently to pass extra configs to it:
+# https://stackoverflow.com/questions/44341188/how-to-pass-extra-custom-configure-autotools-options-to-a-buildroot-package/44341225#44341225
+time \
+  env \
+  -u LD_LIBRARY_PATH \
+  make \
+  O="$outdir" \
+  BR2_JLEVEL="$j" \
+  HOST_QEMU_OPTS="--enable-debug --enable-sdl --extra-cflags='-DDEBUG_PL061=1' --with-sdlabi=2.0 --enable-trace-backends=simple" \
+  V="$v" \
+  kernel_module-rebuild \
+  $extra_targets \
+  all \
+;
+cd ..
+./runqemu "$@"

@@ -2,7 +2,7 @@
 
 To GDB the Linux kernel, first run:
 
-    ./runqemu -d
+    ./run -d
 
 If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, run on another shell:
 
@@ -46,7 +46,7 @@ So we cannot set the breakpoints before `insmod`.
 
 However, the Linux kernel GDB scripts offer the `lx-symbols` command, which takes care of that beautifully for us:
 
-    ./runqemu -d
+    ./run -d
     ./rungdb
 
 In QEMU:

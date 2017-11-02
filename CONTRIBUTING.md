@@ -6,6 +6,6 @@ Testing you should do before pushing: new modules:
 
 New arch:
 
-- `./run -a ARCH`
+- `./build -a ARCH && ./run -a ARCH`
 - `wget google.com` for Internet
-- `./runqemu -a ARCH -d` and `./rungdb -a ARCH`
+- `./run -a ARCH -d` and `./rungdb -a ARCH`

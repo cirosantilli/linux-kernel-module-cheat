@@ -8,7 +8,7 @@
 
 Best attempt so far:
 
-    time ./runqemu -n -e 'init=/poweroff.out' -- -trace exec_tb,file=trace && \
+    time ./run -n -e 'init=/poweroff.out' -- -trace exec_tb,file=trace && \
       time ./qemu/scripts/simpletrace.py qemu/trace-events trace >trace.txt && \
       wc -l trace.txt && \
       sed '/0x1000000/q' trace.txt >trace-boot.txt && \
