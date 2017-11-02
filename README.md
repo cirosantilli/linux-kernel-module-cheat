@@ -1,4 +1,4 @@
-# Linux Kernel Module Cheat
+# Linux Kernel Module Cheat [![Build Status](https://travis-ci.org/cirosantilli/linux-kernel-module-cheat.svg?branch=master)](https://travis-ci.org/cirosantilli/linux-kernel-module-cheat)
 
 Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug and minimal QEMU educational models. Tested in x86, ARM and MIPS guests, Ubuntu 14.04 - 17.04 hosts.
 
