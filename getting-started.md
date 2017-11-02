@@ -46,8 +46,7 @@ Reserve 12Gb of disk:
 
     git clone --recursive https://github.com/cirosantilli/linux-kernel-module-cheat
     cd linux-kernel-module-cheat
-    sudo apt-get install libsdl2-dev
-    sudo apt-get build-dep qemu
+    ./configure
     ./run
 
 The first build will take a while ([GCC](https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain), Linux kernel), e.g.:
