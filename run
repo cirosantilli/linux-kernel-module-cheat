@@ -2,11 +2,15 @@
 set -e
 arch='x86_64'
 extra_targets=''
+j="$(($(nproc) - 2))"
 x11=false
-while getopts a:t: OPT > /dev/null 2>&1; do
+while getopts a:j:t: OPT > /dev/null 2>&1; do
   case "$OPT" in
     'a')
       arch="$OPTARG"
+    ;;
+    'j')
+      j="$OPTARG"
     ;;
     't')
       extra_targets="$extra_args $OPTARG"
@@ -58,7 +62,7 @@ time \
   -u LD_LIBRARY_PATH \
   make \
   O="$outdir" \
-  BR2_JLEVEL="$(($(nproc) - 2))" \
+  BR2_JLEVEL="$j" \
   HOST_QEMU_OPTS="--enable-debug --enable-sdl --extra-cflags='-DDEBUG_PL061=1' --with-sdlabi=2.0 --enable-trace-backends=simple" \
   kernel_module-rebuild \
   $extra_targets \
