@@ -11,5 +11,14 @@
 # Trying to add `-i` to overcome incompatible modules will fail,
 # because any build failure prevents the generation of all `.mod.c` files.
 
-make -j $(($(nproc) - 2)) BR2_EXTERNAL_KERNEL_MODULE_PATH="$(pwd)" LINUX_DIR="/lib/modules/$(uname -r)/build" "$@"
-make -C user/ -j $(($(nproc) - 2)) "$@"
+j="$(($(nproc) - 2))"
+while getopts j: OPT; do
+  case "$OPT" in
+    'j')
+      j="$OPTARG"
+    ;;
+  esac
+done
+shift $(($OPTIND - 1))
+make -j "$j" KERNEL_MODULE_PATH="$(pwd)" LINUX_DIR="/lib/modules/$(uname -r)/build" "$@"
+make -C user/ -j "$j" "$@"
