@@ -38,7 +38,7 @@ Why this is very bad and you should be ashamed:
 -   can't control which hardware is used, notably the CPU architecture
 -   can't step debug it with GDB easily
 
-The only advantage of using your host machine, is that you don't have to wait 2 hours and use up 8 Gigs for the build. But you will soon find out that this is a very reasonable price to pay.
+The only advantage of using your host machine is that you don't have to wait some minutes / hours for the first build and waste a few Gigs of disk space. But you will soon find out that this is a very reasonable price to pay.
 
 ## Do the right thing and use a virtual machine
 
@@ -76,7 +76,7 @@ Each module comes from a C file under `kernel_module/`. For module usage see:
 
     head kernel_module/modulename.c
 
-Good bets inside guest are:
+Also have a look for the userland test scripts / executables that may be present in the host with the same name as the module:
 
     /modulename.sh
     /modulename.out
@@ -103,6 +103,7 @@ The root filesystem is persistent across:
     ./run
     date >f
     sync
+    poweroff
 
 then:
 
@@ -111,13 +112,13 @@ then:
 
 This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl + R`.
 
-When you do:
+However, when you do:
 
     ./build
 
 the disk image gets overwritten by a fresh filesystem and you lose all changes.
 
-Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, disk changes may not be saved.
+Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
 
 ## Message control
 
@@ -136,9 +137,11 @@ but I never managed to increase that buffer:
 - <https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition>
 - <https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty>
 
+The superior alternative is to use text mode or a telnet connection.
+
 ## Text mode
 
-Show serial output of QEMU directly on the current terminal, without opening a QEMU window:
+Show serial console directly on the current terminal, without opening a QEMU window:
 
     ./run -n
 
@@ -152,7 +155,7 @@ This mode is very useful to:
 - copy and paste commands and stdout output to / from host
 - have a large scroll buffer, and be able to search it, e.g. by using GNU `screen` on host
 
-If the system crashes, you can't can quit QEMU with `poweroff`, but you can use either:
+If the system crashes and you can't can quit QEMU with `poweroff`, or if `poweroff` is just too slow for your patience, you can hard kill the VM with
 
     Ctrl-C X
 
@@ -161,7 +164,7 @@ or:
     Ctrl-C A
     quit
 
-or:
+or on host:
 
     ./qemumonitor
     quit
@@ -193,19 +196,20 @@ Limitations:
 When debugging a module, it becomes tedious to wait for build and re-type:
 
     root
-    /mymod.sh
+    /modulename.sh
+
+every time.
 
 Instead, you can add your test commands to:
 
-    cd rootfs_overlay/etc/init.d
-    cp S98 S99
+    cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
     vim S99
+    ./build
+    ./run
 
 and they will be run automatically before the login prompt.
 
-`S99` is already gitignored for you.
-
-For convenience, we also setup a symlink from `S99` to `rootfs_overlay/etc/init.d/S99`.
+`S99` is a git tracked convenience symlink to the gitignored `rootfs_overlay/etc/init.d/S99`
 
 Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
 
@@ -223,6 +227,14 @@ or in the source:
 
     cd linux
     git log | grep -E '    Linux [0-9]+\.' | head
+
+Build configuration can be observed in guest with:
+
+    zcat /proc/config.gz
+
+or on host:
+
+    cat buildroot/output.*~/build/linux-custom/.config
 
 ## insmod alternatives
 
