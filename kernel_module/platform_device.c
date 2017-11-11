@@ -39,7 +39,7 @@ static void __iomem *map;
 static irqreturn_t lkmc_irq_handler(int irq, void *dev)
 {
 	/* TODO this 34 and not 18 as in the DTS, likely the interrupt controller moves it around.
-	 * Understand precisely. 34 = 18 + 16. */
+	 * Understand precisely. 34 = 18 + 16, I think 16 is by how much the controller will shift it. */
 	pr_info("lkmc_irq_handler irq = %d dev = %llx\n", irq, *(unsigned long long *)dev);
 	/* ACK the IRQ. */
 	iowrite32(0x9ABCDEF0, map + 4);
@@ -89,8 +89,12 @@ static int lkmc_platform_device_probe(struct platform_device *pdev)
 	dev_info(dev, "res.start = %llx resource_size = %llx\n",
 			(unsigned long long)res.start, (unsigned long long)resource_size(&res));
 
-	/* Test MMIO and IRQ. */
+	/* Test MMIO and IRQ: writing to the register generates an IRQ. */
 	iowrite32(0x12345678, map);
+
+	/* Test register read. */
+	if (ioread32(map + 0) != 0x12340000) panic("assert");
+	if (ioread32(map + 8) != 0x12340008) panic("assert");
 
 	return 0;
 }
@@ -115,7 +119,7 @@ MODULE_DEVICE_TABLE(of, of_lkmc_platform_device_match);
 
 static struct platform_driver lkmc_plaform_driver = {
 	.probe      = lkmc_platform_device_probe,
-	.remove	    = lkmc_platform_device_remove,
+	.remove     = lkmc_platform_device_remove,
 	.driver     = {
 		.name   = "lkmc_platform_device",
 		.of_match_table = of_lkmc_platform_device_match,
