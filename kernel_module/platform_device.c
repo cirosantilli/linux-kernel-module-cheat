@@ -6,7 +6,7 @@ Uses:
 -   hw/misc/lkmc_platform_device.c minimal device added in our QEMU fork
 
 -   the device tree entry we added to our Linux kernel fork:
-	https://github.com/cirosantilli/linux/blob/361bb623671a52a36a077a6dd45843389a687a33/arch/arm/boot/dts/versatile-pb.dts#L42
+    https://github.com/cirosantilli/linux/blob/361bb623671a52a36a077a6dd45843389a687a33/arch/arm/boot/dts/versatile-pb.dts#L42
 
 See: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code/44612957#44612957
 
@@ -17,7 +17,7 @@ Expected outcome after insmod:
 
 Also without insmodding this module, try:
 
-	devmem 0x101e9000 w 0x12345678
+    devmem 0x101e9000 w 0x12345678
 
 which touches from userland through /dev/mem.
 */
