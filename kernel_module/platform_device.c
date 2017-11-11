@@ -1,7 +1,12 @@
 /*
 Only works for ARM.
 
-Uses the hw/misc/lkmc_platform_device.c minimal device added in our QEMU fork.
+Uses:
+
+-   hw/misc/lkmc_platform_device.c minimal device added in our QEMU fork
+
+-   the device tree entry we added to our Linux kernel fork:
+	https://github.com/cirosantilli/linux/blob/361bb623671a52a36a077a6dd45843389a687a33/arch/arm/boot/dts/versatile-pb.dts#L42
 
 See: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code/44612957#44612957
 
@@ -49,7 +54,7 @@ static int lkmc_platform_device_probe(struct platform_device *pdev)
 
 	dev_info(dev, "probe\n");
 
-	/* Play with our custom poperty. */
+	/* Play with our custom device tree poperty. */
 	if (of_property_read_u32(np, "lkmc-asdf", &asdf) ) {
 		dev_err(dev, "of_property_read_u32\n");
 		return -EINVAL;
@@ -100,6 +105,8 @@ static int lkmc_platform_device_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id of_lkmc_platform_device_match[] = {
+	/* This tells our driver which device tree node it will use.
+	 * It matches the kmc_platform_device@XXXX entry that we added to the device tree. */
 	{ .compatible = "lkmc_platform_device", },
 	{},
 };

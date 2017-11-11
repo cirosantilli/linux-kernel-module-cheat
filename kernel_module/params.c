@@ -19,6 +19,14 @@ Those parameters can also be read and modified at runtime from /sys.
 	modinfo
 	/params.ko
 	# Output contains MODULE_PARAM_DESC descriptions.
+
+modprobe insertion can also set default parameters via the /etc/modprobe.conf file. So:
+
+	modprobe params
+
+Outputs:
+
+	12 34
 */
 
 #include <linux/delay.h> /* usleep_range */
