@@ -1,9 +1,9 @@
 /*
 Usage:
 
-	insmod /workqueue_cheat.ko
-	# dmesg => worker
-	rmmod workqueue_cheat
+    insmod /workqueue_cheat.ko
+    # dmesg => worker
+    rmmod workqueue_cheat
 
 Creates a separate thread. So init_module can return, but some work will still get done.
 

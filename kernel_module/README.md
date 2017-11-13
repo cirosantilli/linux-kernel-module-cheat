@@ -22,7 +22,7 @@
         1.  [seq_file](seq_file.c)
             1. [seq_file_single](seq_file_inode.c)
     1.  Asynchronous
-        1.  [workqueue](workqueue.c)
+        1.  [workqueue_cheat](workqueue_cheat.c)
         1.  [sleep](sleep.c)
         1.  [kthread](kthread.c)
         1.  [kthreads](kthreads.c)
