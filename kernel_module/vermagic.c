@@ -1,7 +1,9 @@
 /*
     insmod /vermagic.ko
     # => 4.9.6 SMP mod_unload modversions
-TODO how to get the vermagic from running kernel from userland? <https://lists.kernelnewbies.org/pipermail/kernelnewbies/2012-October/006306.html>
+
+TODO how to get the vermagic from running kernel from userland?
+<https://lists.kernelnewbies.org/pipermail/kernelnewbies/2012-October/006306.html>
 */
 
 #include <linux/module.h>
@@ -10,7 +12,7 @@ TODO how to get the vermagic from running kernel from userland? <https://lists.k
 
 static int myinit(void)
 {
-	pr_info(VERMAGIC_STRING "\n");
+	pr_info(__FILE__ "\n");
 	return 0;
 }
 

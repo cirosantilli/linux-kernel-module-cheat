@@ -9,6 +9,7 @@
     1.  [params](params.c)
     1.  [vermagic](vermagic.c)
     1.  [vermagic_fail](vermagic_fail.c)
+    1.  [module_version](module_version.c)
 1.  Pseudo filesystems
     1.  [debugfs](debugfs.c)
     1.  [procfs](procfs.c)
