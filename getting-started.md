@@ -236,31 +236,6 @@ or on host:
 
     cat buildroot/output.*~/build/linux-custom/.config
 
-## insmod alternatives
-
-If you are feeling fancy, you can also insert modules with:
-
-    modprobe hello
-
-This method also deals with module dependencies, which we almost don't use to make examples simpler:
-
-- <https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe>
-- <https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe>
-
-`modprobe` searches for modules under:
-
-    ls /lib/modules/*/extra/
-
-Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
-
-    modprobe dummy-irq
-
-If you are feeling raw, you can use our own minimal:
-
-    /myinsmod.out /hello.ko
-
-which demonstrates the C module API: <https://stackoverflow.com/questions/5947286/how-can-linux-kernel-modules-be-loaded-from-c-code/38606527#38606527>
-
 ## QEMU GUI is unresponsive
 
 Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.

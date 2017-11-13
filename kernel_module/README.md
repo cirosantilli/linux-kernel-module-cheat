@@ -6,7 +6,10 @@
         1.  [hello](hello.c)
         1.  [hello2](hello2.c)
         1.  [panic](panic.c)
-    1.  [params](params.c)
+    1.  Module utils
+        1.  [params](params.c)
+        1.  [vermagic](vermagic.c)
+        1.  [vermagic_fail](vermagic_fail.c)
     1.  Pseudo filesystems
         1.  [debugfs](debugfs.c)
         1.  [procfs](procfs.c)

@@ -12,14 +12,13 @@ Run one command, get a QEMU Buildroot BusyBox virtual machine built from source 
     1.  [X11](x11.md)
     1.  [gdbserver](gdbserver.md)
     1.  [Count boot instructions](count-boot-instructions.md)
-    1.  [Record and replay](record-and-replay.md)
     1.  [Hello host](hello_host/)
-1.  Conversation
-    1.  [Introduction](introduction.md)
-    1.  [Build](build.md)
-    1.  [kmod](kmod.md)
-    1.  [vermagic](vermagic.md)
     1.  [ftrace](ftrace.md)
     1.  [Device tree](device-tree.md)
+    1.  [modprobe](modprobe.md)
+1.  Failed action
+    1.  [Record and replay](record-and-replay.md)
     1.  [GEM5](gem5.md)
-    1.  [Bibliography](bibliography.md)
+1.  Conversation
+    1.  [kmod](kmod.md)
+1.  [Bibliography](bibliography.md)
