@@ -1,6 +1,6 @@
 # Linux Kernel Module Cheat
 
-Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.9 module development example tutorials with GDB and KGDB debug and minimal QEMU educational models. Tested in x86, ARM and MIPS guests, Ubuntu 14.04 - 17.04 hosts.
+Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.12 module development example tutorials with GDB and KGDB debug and minimal QEMU educational models. "Tested" in x86, ARM and MIPS guests, latest Ubuntu release host.
 
 ![](screenshot.png)
 
@@ -21,4 +21,5 @@ Run one command, get a QEMU Buildroot BusyBox virtual machine built from source 
     1.  [GEM5](gem5.md)
 1.  Conversation
     1.  [kmod](kmod.md)
-1.  [Bibliography](bibliography.md)
+    1.  [Maintainers](maintainers.md)
+    1.  [Bibliography](bibliography.md)

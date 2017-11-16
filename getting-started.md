@@ -215,7 +215,7 @@ Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by t
 
 ## Kernel version
 
-We use Buildroot's default kernel version with small educational patches on top, you can confirm it after build with:
+We try to use the latest possible kernel version:
 
     grep BR2_LINUX_KERNEL_VERSION buildroot/output.*~/.config
 

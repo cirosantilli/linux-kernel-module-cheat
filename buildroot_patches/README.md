@@ -5,3 +5,5 @@ Every `.patch` file in this directory gets applied to Buildroot before anything 
 Ideally, this directory should be empty, and we should use only built-in Buildroot configuration mechanisms.
 
 But alas, life is sometimes not ideal.
+
+We will use those patches only for things which could / have already been upstreamed. The patches will then be removed once we are able to rebase. Educational patches that we might want to do on QEMU will be done by forking the QEMU repo on our submodule. The difference is that it is a bit easier to remove the patches after upstreaming than to squash them out on rebase.
