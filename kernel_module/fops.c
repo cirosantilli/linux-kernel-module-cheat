@@ -17,13 +17,13 @@ in drivers (syscalls being the other one).
 Here we use debugfs.
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h> /* file_operations */
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
 static struct dentry *debugfs_file;

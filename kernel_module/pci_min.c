@@ -6,7 +6,6 @@ PCI driver for our minimal pci_min.c QEMU fork device.
 probe already does a mmio write, which generates an IRQ and tests everything.
 */
 
-#include <asm/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -14,6 +13,7 @@ probe already does a mmio write, which generates an IRQ and tests everything.
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 
 #define BAR 0
 #define CDEV_NAME "lkmc_hw_pci_min"

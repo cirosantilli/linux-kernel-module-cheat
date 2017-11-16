@@ -10,7 +10,6 @@ This method allows getting multiple file descriptors from a single filesystem,
 which reduces namespace pollution.
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/anon_inodes.h>
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
@@ -19,6 +18,7 @@ which reduces namespace pollution.
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
+#include <linux/uaccess.h> /* copy_from_user */
 
 #include "anonymous_inode.h"
 

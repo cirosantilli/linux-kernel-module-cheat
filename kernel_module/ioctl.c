@@ -19,10 +19,10 @@ Documentation/ioctl/ioctl-number.txt has some info:
 - https://askubuntu.com/questions/54239/problem-with-ioctl-in-a-simple-kernel-module/926675#926675
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 
 #include "ioctl.h"
 

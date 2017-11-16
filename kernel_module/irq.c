@@ -30,11 +30,11 @@ Then see how clicking the mouse and keyboard affect the interrupts. This will po
 - 12: mouse click and drags
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/fs.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 
 #define NAME "lkmc_character_device"
 #define MAX_IRQS 256

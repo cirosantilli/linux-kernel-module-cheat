@@ -66,7 +66,6 @@ TODO: does it have any side effects? Set in the edu device at:
 Use setpci, devmem and /sys.
 */
 
-#include <asm/uaccess.h> /* put_user */
 #include <linux/cdev.h> /* cdev_ */
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -74,6 +73,7 @@ Use setpci, devmem and /sys.
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
+#include <linux/uaccess.h> /* put_user */
 
 /* https://stackoverflow.com/questions/30190050/what-is-base-address-register-bar-in-pcie/44716618#44716618
  *

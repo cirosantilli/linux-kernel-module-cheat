@@ -24,7 +24,6 @@ Bibliography:
 - https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-modules
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h>
@@ -32,6 +31,7 @@ Bibliography:
 #include <linux/printk.h> /* pr_info */
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
 #include <linux/slab.h> /* kmalloc, kfree */
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
 static int max = 2;

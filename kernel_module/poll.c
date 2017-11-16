@@ -6,7 +6,6 @@ Outcome: user echoes jiffies every second.
 https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-kernel-module-code/44645336#44645336
 */
 
-#include <asm/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/debugfs.h>
 #include <linux/delay.h> /* usleep_range */
 #include <linux/errno.h> /* EFAULT */
@@ -17,6 +16,7 @@ https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-ker
 #include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/printk.h> /* printk */
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 

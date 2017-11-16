@@ -14,13 +14,13 @@ Related:
 - https://github.com/ikwzm/udmabuf
 */
 
-#include <asm/uaccess.h> /* copy_from_user */
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h> /* min */
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
+#include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/slab.h>
 
 static const char *filename = "lkmc_mmap";
@@ -38,13 +38,14 @@ static void vm_close(struct vm_area_struct *vma)
 }
 
 /* First page access. */
-static int vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+	int (*fault)(struct vm_fault *vmf);
+static int vm_fault(struct vm_fault *vmf)
 {
 	struct page *page;
 	struct mmap_info *info;
 
 	pr_info("vm_fault\n");
-	info = (struct mmap_info *)vma->vm_private_data;
+	info = (struct mmap_info *)vmf->vma->vm_private_data;
 	if (info->data) {
 		page = virt_to_page(info->data);
 		get_page(page);
