@@ -44,7 +44,7 @@ The only advantage of using your host machine is that you don't have to wait som
 
 Reserve 12Gb of disk:
 
-    git clone --recursive https://github.com/cirosantilli/linux-kernel-module-cheat
+    git clone https://github.com/cirosantilli/linux-kernel-module-cheat
     cd linux-kernel-module-cheat
     ./configure
     ./build
