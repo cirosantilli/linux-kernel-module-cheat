@@ -215,11 +215,9 @@ Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by t
 
 ## Kernel version
 
-We try to use the latest possible kernel version:
+We try to use the latest possible kernel major release version.
 
-    grep BR2_LINUX_KERNEL_VERSION buildroot/output.*~/.config
-
-or in QEMU:
+In QEMU:
 
     cat /proc/version
 
