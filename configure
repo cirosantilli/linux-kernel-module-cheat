@@ -11,9 +11,17 @@ while getopts t OPT; do
   esac
 done
 shift $(($OPTIND - 1))
+
+# Shallow clonning saves a considerable ammount of time, specially because of the linux kernel.
+# However, git submodules are buggy as usual, and this is the best way i've found to get it done:
+# https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
+# In particular:
+# - `shallow = true` on the submodule has no effect for the non default educational branches of our submodules
+# - QEMU's submodules point to commits that are neither under branches nor tags, and so `--shallow-submodules` fails
 git submodule update --depth 1 --jobs 4 --init
 cd qemu
 git submodule update --init
+
 sudo apt-get update $y
 # Building SDL for QEMU in Buildroot was rejected upstream because it adds many dependencies:
 # https://patchwork.ozlabs.org/patch/770684/
