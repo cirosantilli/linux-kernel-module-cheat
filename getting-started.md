@@ -1,15 +1,17 @@
 # Getting started
 
-## Where the modules come from
-
-Each module comes from a C file under the [`kernel_module` directory]((kernel_module/). For module usage see:
+## Module documentation
 
     head kernel_module/modulename.c
 
-Also have a look for the userland test scripts / executables that may be present in the host with the same name as the module:
+Many of the modules have userland test scripts / executables with the same name as the module, e.g. form inside the guest:
 
     /modulename.sh
     /modulename.out
+
+The sources of those tests will further clarify what the corresponding kernel modules does. To find them on the host, do a quick:
+
+    git ls-files | grep modulename
 
 ## Rebuild
 

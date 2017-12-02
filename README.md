@@ -1,6 +1,8 @@
 # Linux Kernel Module Cheat
 
-Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.14 module development example tutorials with GDB and KGDB debug and minimal QEMU educational models. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
+Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.14 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
+
+![](screenshot.png)
 
 Reserve 12Gb of disk and run:
 
@@ -15,7 +17,7 @@ The first build will take a while ([GCC](https://stackoverflow.com/questions/108
 - 2 hours on a mid end 2012 laptop
 - 30 minutes on a high end 2017 desktop
 
-If you don't want to wait, you could also try to compile the examples and run them on your host as explained on the [run on host section](run-on-host.md), but as explained on that section, that is dangerous and will likely not work.
+If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on the ["Run on host" section](run-on-host.md), but as explained on that section, that is dangerous, limited, and will likely not work.
 
 After QEMU opens up, you can start playing with the kernel modules:
 
@@ -34,21 +36,22 @@ This should print to the screen:
 
 which are `printk` messages from `init` and `cleanup` methods of those modules.
 
-See the [getting started section](getting-started.md) for further details.
+All available modules can be found in the [`kernel_module` directory](kernel_module/).
 
-![](screenshot.png)
+See the [getting started section](getting-started.md) for further details.
 
 1.  [**Getting started**](getting-started.md)
 1.  Action
-    1.  [Debugging](debugging.md)
-    1.  [KGDB](kgdb.md)
+    1.  Step debugging
+        1.  [GDB step debugging](gdb-step-debugging.md)
+        1.  [KGDB](kgdb.md)
+        1.  [gdbserver](gdbserver.md)
     1.  [Other architectures](other-architectures.md)
+    1.  [modprobe](modprobe.md)
     1.  [X11](x11.md)
-    1.  [gdbserver](gdbserver.md)
     1.  [Count boot instructions](count-boot-instructions.md)
     1.  [ftrace](ftrace.md)
     1.  [Device tree](device-tree.md)
-    1.  [modprobe](modprobe.md)
 1.  Failed action
     1.  [Record and replay](record-and-replay.md)
     1.  [GEM5](gem5.md)

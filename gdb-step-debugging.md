@@ -1,6 +1,6 @@
-# Debugging
+# GDB step debugging
 
-To GDB the Linux kernel, first run:
+To GDB step debug the Linux kernel, first run:
 
     ./run -d
 
