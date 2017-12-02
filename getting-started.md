@@ -1,78 +1,8 @@
 # Getting started
 
-## Insane unsafe host super fast quickstart
+## Where the modules come from
 
-    cd kernel_module
-    ./make-host.sh
-
-If the compilation of any of the C files fails, e.g. because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
-
-    mv broken.c broken.c~
-    ./build_host
-
-Once you manage to compile, try it out with:
-
-    sudo insmod hello.ko
-
-    # Our module is there.
-    sudo lsmod | grep hello
-
-    # Last message should be: hello init
-    dmest -T
-
-    sudo rmmod hello
-
-    # Last message should be: hello exit
-    dmesg -T
-
-    # Not present anymore
-    sudo lsmod | grep hello
-
-Why this is very bad and you should be ashamed:
-
--   bugs can easily break you system. E.g.:
-    - segfaults can trivially lead to a kernel crash, and require a reboot
-    - your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`
-    - even more subtle system corruption such as [not being able to rmmod](https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r)
--   can't control which kernel version and build options to use. So some of the modules may simply not compile because of kernel API changes, since [the Linux kernel does not have a stable kernel module API](https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681).
--   can't control which hardware is used, notably the CPU architecture
--   can't step debug it with GDB easily
-
-The only advantage of using your host machine is that you don't have to wait some minutes / hours for the first build and waste a few Gigs of disk space. But you will soon find out that this is a very reasonable price to pay.
-
-## Do the right thing and use a virtual machine
-
-Reserve 12Gb of disk:
-
-    git clone https://github.com/cirosantilli/linux-kernel-module-cheat
-    cd linux-kernel-module-cheat
-    ./configure
-    ./build
-    ./run
-
-The first build will take a while ([GCC](https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain), Linux kernel), e.g.:
-
-- 2 hours on a mid end 2012 laptop
-- 30 minutes on a high end 2017 desktop
-
-QEMU opens up, and you can run:
-
-    root
-    insmod /hello.ko
-    insmod /hello2.ko
-    rmmod hello
-    rmmod hello2
-
-This should print to the screen:
-
-    hello init
-    hello2 init
-    hello cleanup
-    hello2 cleanup
-
-which are `printk` messages from `init` and `cleanup` methods of those modules.
-
-Each module comes from a C file under `kernel_module/`. For module usage see:
+Each module comes from a C file under the [`kernel_module` directory]((kernel_module/). For module usage see:
 
     head kernel_module/modulename.c
 
