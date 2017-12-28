@@ -48,11 +48,11 @@ See the [getting started section](getting-started.md) for further details.
     1.  [modprobe](modprobe.md)
     1.  [X11](x11.md)
     1.  [Count boot instructions](count-boot-instructions.md)
+    1.  [GEM5](gem5.md)
     1.  [ftrace](ftrace.md)
     1.  [Device tree](device-tree.md)
 1.  Failed action
     1.  [Record and replay](record-and-replay.md)
-    1.  [GEM5](gem5.md)
 1.  Insane action
     1.  [Run on host](run-on-host.md)
     1.  [Hello host](hello_host/)

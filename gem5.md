@@ -6,7 +6,7 @@ GEM5 is a system simulator, much like QEMU: <http://gem5.org/>
 
 Vs QEMU:
 
--   advantage: simulates a generic more realistic CPU pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
+-   advantage: simulates a generic more realistic pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
 
     - do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
     - make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
