@@ -1,0 +1,18 @@
+#/usr/bin/env bash
+set -e
+if [ ! -d 'gem5' ]; then
+    git clone https://gem5.googlesource.com/public/gem5
+fi
+cd gem5
+git checkout da79d6c6cde0fbe5473ce868c9be4771160a003b
+# Compilation fails with gcc 7 on that commit.
+# There were some recent portability patches, so it will likely get there soon.
+CC=gcc-6 CXX=g++-6 scons -j"$(nproc)" --ignore-style build/ARM/gem5.opt
+make -C system/arm/dt
+make -C system/arm/simple_bootloader
+make -C system/arm/aarch64_bootloader/
+# TODO use local paths. The search path can be changed with M5_PATH="$(pwd)",
+# but the annoying "binaries/" is added in front of it.
+mkdir -p ../gem5-system/binaries
+cp ./system/arm/simple_bootloader/boot_emm.arm ../gem5-system/binaries
+cp ./system/arm/aarch64_bootloader/boot_emm.arm64 ../gem5-system/binaries

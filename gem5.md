@@ -1,20 +1,109 @@
 # GEM5
 
-TODO get working with a Buildroot recent Linux kernel. GEM5 is used mostly by chip makers, and they they keep everything that really works closed... This documents my failed attempts.
+## Introduction
+
+GEM5 is a system simulator, much like QEMU: <http://gem5.org/>
+
+Vs QEMU:
+
+-   advantage: simulates a generic more realistic CPU pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
+
+    - do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
+    - make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
+
+    It is not of course truly cycle accurate, as that would require exposing proprietary information of the CPU designs: <https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850>, but the approximation is reasonable.
+
+    It is used mostly for research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
+
+-   disadvantage: slower than QEMU by TODO 10x? Which implies:
+
+    - GEM5 is used only by chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-). So the documentation is much more scarce.
+
+    - the user base is much smaller (no Android devs!), and so it takes longer to support new hardware features, and reach newer kernel compatibility.
+
+## ARM
+
+    ./configure
+    ./build -a arm-gem5
+    ./rungem5
+
+On another shell:
+
+    ./rungem5-shell
+
+This is the best guide so far: <http://www.gem5.org/ARM_Kernel>
+
+    git checkout gem5-v4.9
+
+Linux:
+
+    cd linux
+    git checkout 69973b830859bc6529a7a0468ba0d80ee5117826
+
+Version found by: go down on branch gem5/v4.9 of <https://gem5.googlesource.com/arm/linux> until you find Linus :-) The patches there are just simple optimizations and instrumentation, but they are not needed to boot.
+
+    cd buildroot
+    git checkout 73b075737e23814a68c66e481230af662e1529cb
+
+Version found by: search for the message of type `"linux: bump default to version 4.9.6"`. This changes `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
+
+### Kernel command line arguments
+
+TODO no matter what argument I pass to: `--command-line`, e.g.  even an innocent `--command-line='printk.time=y'`, it fails with:
+
+    **** REAL SIMULATION ****
+    warn: Existing EnergyCtrl, but no enabled DVFSHandler found.
+    info: Entering event queue @ 0.  Starting simulation...
+    warn: The csselr register isn't implemented.
+    warn: The ccsidr register isn't implemented and always reads as 0.
+    warn:   instruction 'mcr dcisw' unimplemented
+    warn: Not doing anything for miscreg ACTLR
+    warn: Not doing anything for write of miscreg ACTLR
+    warn:   instruction 'mcr icimvau' unimplemented
+    warn:   instruction 'mcr bpiallis' unimplemented
+    warn: Device system.membus.badaddr_responder accessed by write to address 0xefffe000 size=4 data=0
+    gem5.opt: build/ARM/cpu/simple/atomic.cc:492: virtual Fault AtomicSimpleCPU::writeMem(uint8_t*, unsigned int, Addr, Request::Flags, uint64_t*): Assertion `!pkt.isError()' failed.                                 Program aborted at tick 296677000
+    Aborted (core dumped)
+
+### QEMU with GEM5 kernel configuration
+
+TODO:
+
+    ./run -a arm
+
+hangs at:
+
+    audio: Could not init `oss' audio driver
+
+and the display shows "  "
+
+### GEM5 with QEMU kernel configuration
+
+TODO hangs at:
+
+    **** REAL SIMULATION ****
+    warn: Existing EnergyCtrl, but no enabled DVFSHandler found.
+    info: Entering event queue @ 0.  Starting simulation...
+    1614868500: system.terminal: attach terminal 0
+
+and the `telnet` at:
+
+    2017-12-28-11-59-51@ciro@ciro-p51$ ./rungem5-shell
+    Trying 127.0.0.1...
+    Connected to localhost.
+    Escape character is '^]'.
+    ==== m5 slave terminal: Terminal 0 ====
+
+## x86
+
+TODO didn't get it working yet.
 
 Related threads:
 
 - <https://www.mail-archive.com/gem5-users@gem5.org/msg11384.html>
 - <https://stackoverflow.com/questions/37906425/booting-gem5-x86-ubuntu-full-system-simulation>
 
-Vs QEMU:
-
--   advantage: simulates a generic more realistic CPU cycle by cycle, e.g. memory access, caches and page table manipulations. This allows us to:
-    - do much more realistic performance benchmarking with it
-    - make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, and are used widely in drivers
--   disadvantage: slow
-
-## Working baseline
+### Working baseline
 
 Working x86 with the pre-built magic image with an ancient 2.6.22.9 kernel starting point:
 
@@ -30,11 +119,10 @@ Working x86 with the pre-built magic image with an ancient 2.6.22.9 kernel start
     mkswap disks/linux-bigswap2.img
     cd ..
 
-    sudo apt-get install libgoogle-perftools-dev mercurial protobuf-compiler
     git clone https://gem5.googlesource.com/public/gem5
     cd gem5
-    git checkout e519aa4ac2942915355f0ef12e88286322336419
-    scons -j$(nproc) build_opts/X86/gem5.opt
+    git checkout da79d6c6cde0fbe5473ce868c9be4771160a003b
+    scons -j$(nproc) build/X86/gem5.opt
     # That old blob has wrong filenames.
     ./build/X86/gem5.opt \
         -d /tmp/output \
@@ -46,7 +134,7 @@ On another shell:
 
     telnet localhost 3456
 
-## Unmodified Buildroot images
+### Unmodified Buildroot images
 
 bzImage fails, so we always try with vmlinux obtained from inside build/.
 
@@ -116,7 +204,7 @@ Boot goes quite far, on telnet:
 
 So just looks like we have to disable some Linux configs which GEM5 does not support... so fragile.
 
-## Copy upstream 2.6 configs on 4.9 kernel
+### Copy upstream 2.6 configs on 4.9 kernel
 
 The magic image provides its kernel configurations, so let's try that.
 
@@ -167,6 +255,6 @@ Copy `linux-2.6.22.9` into the kernel tree as `.config`, `git checkout v4.9.6`, 
     --- END LIBC BACKTRACE ---
     Aborted (core dumped)
 
-## Use upstream 2.6 configs and 2.6 kernel
+### Use upstream 2.6 configs and 2.6 kernel
 
 If we checkout to the ancient kernel `v2.6.22.9`, it fails to compile with modern GNU make 4.1: <https://stackoverflow.com/questions/35002691/makefile-make-clean-why-getting-mixed-implicit-and-normal-rules-deprecated-s> lol
