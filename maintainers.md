@@ -25,6 +25,22 @@ This backwards compatibility is just awesome, it makes getting and running the l
 
 This also makes this repo the perfect setup to develop the Linux kernel.
 
+## How to downgrade the Linux kernel?
+
+The kernel is not forward compatible, however, so downgrading the Linux kernel requires downgrading the userland too to the latest Buildroot branch that supports it.
+
+The default Linux kernel version is bumped in Buildroot with commit messages of type:
+
+    linux: bump default to version 4.9.6
+
+So you can try:
+
+    git log --grep 'linux: bump default to version'
+
+Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
+
+You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
+
 ## How to add new Buildroot options?
 
     cd buildroot/output.x86_64~

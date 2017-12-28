@@ -15,11 +15,14 @@ Vs QEMU:
 
     It is used mostly for research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
 
--   disadvantage: slower than QEMU by TODO 10x? Which implies:
+-   disadvantage: slower than QEMU by TODO 10x?
 
-    - GEM5 is used only by chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-). So the documentation is much more scarce.
+    This also implies that the user base is much smaller, since no Android devs.
 
-    - the user base is much smaller (no Android devs!), and so it takes longer to support new hardware features, and reach newer kernel compatibility.
+    Instead, we have only chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-) And this implies that:
+
+    - the documentation is more scarce
+    - it takes longer to support new hardware features
 
 ## ARM
 
@@ -29,22 +32,6 @@ Vs QEMU:
 On another shell:
 
     ./rungem5-shell
-
-This is the best guide so far: <http://www.gem5.org/ARM_Kernel>
-
-    git checkout gem5-v4.9
-
-Linux:
-
-    cd linux
-    git checkout 69973b830859bc6529a7a0468ba0d80ee5117826
-
-Version found by: go down on branch gem5/v4.9 of <https://gem5.googlesource.com/arm/linux> until you find Linus :-) The patches there are just simple optimizations and instrumentation, but they are not needed to boot.
-
-    cd buildroot
-    git checkout 73b075737e23814a68c66e481230af662e1529cb
-
-Version found by: search for the message of type `"linux: bump default to version 4.9.6"`. This changes `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 ### Kernel command line arguments
 
@@ -66,15 +53,19 @@ TODO no matter what argument I pass to: `--command-line`, e.g.  even an innocent
 
 ### QEMU with GEM5 kernel configuration
 
-TODO:
+TODO: QEMU did not work with the GEM5 kernel configurations.
+
+To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
 
     ./run -a arm
 
-hangs at:
+Now QEMU hangs at:
 
     audio: Could not init `oss' audio driver
 
-and the display shows "  "
+and the display shows:
+
+    Guest has not initialized the display (yet).
 
 ### GEM5 with QEMU kernel configuration
 
