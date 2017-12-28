@@ -4,15 +4,19 @@ arch=x86_64
 extra_targets=''
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 j="$(($(nproc) - 2))"
+post_script_args=''
 x11=false
 v=0
-while getopts 'a:e:j:nSt:v' OPT; do
+while getopts 'a:j:p:St:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
     ;;
     j)
       j="$OPTARG"
+    ;;
+    p)
+      post_script_args="$OPTARG"
     ;;
     S)
       qemu_sdl=''
@@ -28,6 +32,7 @@ while getopts 'a:e:j:nSt:v' OPT; do
     ;;
   esac
 done
+shift $(($OPTIND - 1))
 case "$arch" in
   x86_64)
     defconfig=qemu_x86_64_defconfig
@@ -41,6 +46,7 @@ case "$arch" in
     # qemu_arm_vexpress_defconfig required a newer QEMU than 2.0.0 on a Ubuntu host.
     # so let's stick to versatile for now.
     defconfig=qemu_arm_versatile_defconfig
+    post_script_args="$post_script_args -n"
   ;;
   aarch64)
     defconfig=qemu_aarch64_virt_defconfig
@@ -85,6 +91,7 @@ time \
   make \
   O="$outdir" \
   BR2_JLEVEL="$j" \
+  BR2_ROOTFS_POST_SCRIPT_ARGS="$post_script_args" \
   HOST_QEMU_OPTS="--enable-debug --extra-cflags='-DDEBUG_PL061=1' --enable-trace-backends=simple $qemu_sdl" \
   V="$v" \
   kernel_module-rebuild \

@@ -31,13 +31,13 @@ Also remember that if your init returns, the kernel will panic, there are just t
 - run forever in a loop or long sleep
 - `poweroff` the machine
 
-### BusyBox init is fine, but networking timeout gets on my nerves
+### Disable networking
 
-I know, right?
+The default BusyBox init scripts enable networking, and there is a 15 second timeout in case your network is down or if your kernel / emulator setup does not support it.
 
-Add this line to `rootfs_post_build_script`:
+To disable networking, use:
 
-    rm -f "${1}/etc/init.d/"S*network
+    ./build -p -n
 
 To restore it, run:
 
