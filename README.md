@@ -8,9 +8,7 @@ Reserve 12Gb of disk and run:
 
     git clone https://github.com/cirosantilli/linux-kernel-module-cheat
     cd linux-kernel-module-cheat
-    ./configure
-    ./build
-    ./run
+    ./configure && ./build && ./run
 
 The first build will take a while ([GCC](https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain), Linux kernel), e.g.:
 

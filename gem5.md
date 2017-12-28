@@ -23,8 +23,7 @@ Vs QEMU:
 
 ## ARM
 
-    ./configure
-    ./build -a arm-gem5
+    ./configure && ./build -a arm-gem5
     ./rungem5
 
 On another shell:
