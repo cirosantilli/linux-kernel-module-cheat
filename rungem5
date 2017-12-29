@@ -1,11 +1,35 @@
 #!/usr/bin/env bash
-outdir="$(pwd)/buildroot/output.arm-gem5~"
-M5_PATH="$(pwd)/gem5-system" \
+arch='arm-gem5'
+while getopts 'a:' OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+outdir="$(pwd)/buildroot/output.${arch}~"
+echo $arch
+if echo "$arch" | grep -Eq '^x86_64(-|$)'; then
+  cmd="\
+M5_PATH=\"$(pwd)/gem5-system\" \
+./gem5/build/X86/gem5.opt \
+gem5/configs/example/fs.py \
+--disk-image=\"${outdir}/images/rootfs.ext2\" \
+--kernel=\"${outdir}/build/linux-custom/vmlinux\" \
+--root-device='/dev/sda' \
+"
+elif echo "$arch" | grep -Eq '^arm-'; then
+  cmd="\
+M5_PATH=\"$(pwd)/gem5-system\" \
 ./gem5/build/ARM/gem5.opt \
-  gem5/configs/example/fs.py \
-  --disk-image="${outdir}/images/rootfs.ext2" \
-  --dtb-file="$(pwd)/gem5/system/arm/dt/armv7_gem5_v1_1cpu.dtb" \
-  --kernel="${outdir}/build/linux-custom/vmlinux" \
-  --machine-type='VExpress_GEM5_V1' \
-  --root-device='/dev/sda' \
-;
+gem5/configs/example/fs.py \
+--disk-image=\"${outdir}/images/rootfs.ext2\" \
+--dtb-file=\"$(pwd)/gem5/system/arm/dt/armv7_gem5_v1_1cpu.dtb\" \
+--kernel=\"${outdir}/build/linux-custom/vmlinux\" \
+--machine-type='VExpress_GEM5_V1' \
+--root-device='/dev/sda' \
+"
+fi
+echo "$cmd"
+eval "$cmd"

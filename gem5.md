@@ -27,7 +27,7 @@ Vs QEMU:
 ## ARM
 
     ./configure && ./build -a arm-gem5
-    ./rungem5
+    ./rungem5 -a arm-gem5
 
 On another shell:
 
@@ -92,8 +92,28 @@ Related threads:
 
 - <https://www.mail-archive.com/gem5-users@gem5.org/msg11384.html>
 - <https://stackoverflow.com/questions/37906425/booting-gem5-x86-ubuntu-full-system-simulation>
+- <http://www.lowepower.com/jason/creating-disk-images-for-gem5.html> claims to have a working config for x86_64 kernel 4.8.13
 
-### Working baseline
+### Our best attempt
+
+    ./configure && ./build -a x86_64-gem5
+    ./rungem5 -a x86_64-gem5
+
+telnet:
+
+    i8042: PNP: No PS/2 controller found.
+    i8042: Probing ports directly.
+    Connection closed by foreign host.
+
+stdout:
+
+    panic: Data written for unrecognized command 0xd1
+    Memory Usage: 1235908 KBytes
+    Program aborted at tick 427627410500
+
+The same failure happens if we use the working QEMU Linux kernel, and / or if we use the kernel 4.8.13 as proposed in lowepower's post..
+
+### Working baseline with magic image
 
 Working x86 with the pre-built magic image with an ancient 2.6.22.9 kernel starting point:
 
@@ -124,7 +144,7 @@ On another shell:
 
     telnet localhost 3456
 
-### Unmodified Buildroot images
+### Unmodified Buildroot images 2
 
 bzImage fails, so we always try with vmlinux obtained from inside build/.
 
