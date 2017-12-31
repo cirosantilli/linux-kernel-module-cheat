@@ -35,21 +35,23 @@ On another shell:
 
 ### Kernel command line arguments
 
-TODO no matter what argument I pass to: `--command-line`, e.g.  even an innocent `--command-line='printk.time=y'`, it fails with:
+E.g., to add `printk.time=y`, run:
 
-    **** REAL SIMULATION ****
-    warn: Existing EnergyCtrl, but no enabled DVFSHandler found.
-    info: Entering event queue @ 0.  Starting simulation...
-    warn: The csselr register isn't implemented.
-    warn: The ccsidr register isn't implemented and always reads as 0.
-    warn:   instruction 'mcr dcisw' unimplemented
-    warn: Not doing anything for miscreg ACTLR
-    warn: Not doing anything for write of miscreg ACTLR
-    warn:   instruction 'mcr icimvau' unimplemented
-    warn:   instruction 'mcr bpiallis' unimplemented
-    warn: Device system.membus.badaddr_responder accessed by write to address 0xefffe000 size=4 data=0
-    gem5.opt: build/ARM/cpu/simple/atomic.cc:492: virtual Fault AtomicSimpleCPU::writeMem(uint8_t*, unsigned int, Addr, Request::Flags, uint64_t*): Assertion `!pkt.isError()' failed.                                 Program aborted at tick 296677000
-    Aborted (core dumped)
+    ./rungem5 -a arm-gem5 -- --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda printk.time=y'
+
+When you use `--command-line=`, it overrides default command lines, which are required to boot properly.
+
+So if you pass just `--command-line='printk.time=y'`, it removes the required options, and boot fails.
+
+An easy way to find the other options is to to an initial boot:
+
+    ./rungem5 -a arm-gem5
+
+and then look at the line of the linux kernel that starts with
+
+    Kernel command line:
+
+We might copy the default `--command-line` into our startup scripts to make things easier at some point, but it would be fun to debug when the defaults change upstream and we don't notice :-(
 
 ### QEMU with GEM5 kernel configuration
 
@@ -69,6 +71,10 @@ and the display shows:
 
 ### GEM5 with QEMU kernel configuration
 
+Test it out with:
+
+    ./rungem5 -a arm
+
 TODO hangs at:
 
     **** REAL SIMULATION ****
@@ -83,6 +89,8 @@ and the `telnet` at:
     Connected to localhost.
     Escape character is '^]'.
     ==== m5 slave terminal: Terminal 0 ====
+
+I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
 
 ## x86
 
@@ -112,6 +120,16 @@ stdout:
     Program aborted at tick 427627410500
 
 The same failure happens if we use the working QEMU Linux kernel, and / or if we use the kernel 4.8.13 as proposed in lowepower's post..
+
+If we look a bit into the source, the panic message comes from `i8042.cc`, and on the header we see that the missing command is:
+
+        WriteOutputPort = 0xD1,
+
+The kernel was compiled with `CONFIG_SERIO_I8042=y`, I didn't dare disable it yet. The Linux kernel driver has no `grep` hits for either of `0xd1` nor `output.?port`, it must be using some random bitmask to build it then.
+
+This byte is documented at <http://wiki.osdev.org/%228042%22_PS/2_Controller>, as usual :-)
+
+There are also a bunch of `i8042` kernel CLI options, I tweaked all of them but nothing.
 
 ### Working baseline with magic image
 
