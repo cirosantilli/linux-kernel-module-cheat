@@ -50,7 +50,7 @@ See the [getting started section](getting-started.md) for further details.
     1.  [Count boot instructions](count-boot-instructions.md)
     1.  [GEM5](gem5.md)
     1.  [ftrace](ftrace.md)
-    1.  [Device tree](device-tree.md)
+    1.  [QEMU user mode](qemu-user-mode.md)
 1.  Failed action
     1.  [Record and replay](record-and-replay.md)
 1.  Insane action
@@ -58,5 +58,6 @@ See the [getting started section](getting-started.md) for further details.
     1.  [Hello host](hello_host/)
 1.  Conversation
     1.  [kmod](kmod.md)
+    1.  [Device tree](device-tree.md)
     1.  [Maintainers](maintainers.md)
     1.  [Bibliography](bibliography.md)
