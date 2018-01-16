@@ -76,7 +76,7 @@ QEMU `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory d
 - <https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel>
 - <https://stackoverflow.com/questions/16273614/debug-init-on-qemu-using-gdb>
 
-The only use case I can see for this is to debug the init process (and have fun), otherwise, why wouldn't you just use `gdbserver`? Known of direct userland debugging:
+The only use case I can see for this is to debug the init process (and have fun), otherwise, why wouldn't you just use `gdbserver`? Known limitations of direct userland debugging:
 
 -   the kernel might switch context to another process, and you would enter "garbage"
 
