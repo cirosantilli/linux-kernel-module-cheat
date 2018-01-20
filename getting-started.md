@@ -200,3 +200,23 @@ And in QEMU:
 Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
+
+## Clean the build
+
+You did something crazy, and nothing seems to work anymore?
+
+All builds are stored under `buildroot/`,
+
+The most coarse thing you can do is:
+
+    cd buildroot
+    git checkout -- .
+    git clean -xdf .
+
+To only nuke one architecture, do:
+
+    rm -rf buildroot/output.x86_64~
+
+Only nuke one one package:
+
+    rm -rf buildroot/output.x86_64~/build/<package>
