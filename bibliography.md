@@ -7,6 +7,7 @@ Runnable stuff:
 - <https://github.com/tinyclub/linux-lab> Buildroot based, no kernel modules?
 - <https://github.com/agelastic/eudyptula>
 - <https://github.com/linux-kernel-labs> Yocto based, source inside a kernel fork subdir: <https://github.com/linux-kernel-labs/linux/tree/f08b9e4238dfc612a9d019e3705bd906930057fc/tools/labs> which the author would like to upstream <https://www.reddit.com/r/programming/comments/79w2q9/linux_device_driver_labs_the_linux_kernel/dp6of43/>
+- Android AOSP: <https://stackoverflow.com/questions/1809774/how-to-compile-the-android-aosp-kernel-and-test-it-with-the-android-emulator/48310014#48310014> AOSP is basically a uber bloated Buildroot, Android is Linux based, and QEMU is the emulator backend. 
 
 Theory:
 
