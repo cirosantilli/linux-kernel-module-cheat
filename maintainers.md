@@ -2,20 +2,21 @@
 
 ## How to update the Linux kernel?
 
-If you don't care about educational patches:
-
-    cd linux
-    git fetch
-    git checkout master
-
-If you do:
-
     last_mainline_revision=v4.14
-    git rebase --onto master $last_mainline_revision
-
-Then rebuild the kernel:
-
+    next_mainline_revision=v4.15
+    cd linux
+    git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+    git fetch up
+    git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
     ./build -t linux-reconfigure
+
+Create and push a tag to make things saner:
+
+    git checkout -b "lkmc-${next_mainline_revision}"
+    git remote set-url origin git@github.com:cirosantilli/linux.git
+    git push --follow-tag
+
+and update the README!
 
 Now, all you kernel modules may break, although they are usually trivial breaks of things moving around headers or to sub-structs.
 

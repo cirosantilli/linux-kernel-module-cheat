@@ -1,4 +1,6 @@
 /*
+Print the jiffies every second.
+
 Timers are callbacks that run when an interrupt happens, from the interrupt context itself.
 
 Therefore they produce more accurate timing than thread scheduling, which is more complex,
@@ -15,12 +17,12 @@ See also:
 #include <linux/module.h>
 #include <linux/timer.h>
 
-static void callback(unsigned long data);
+static void callback(struct timer_list *data);
 static unsigned long onesec;
 
-DEFINE_TIMER(mytimer, callback, 0, 0);
+DEFINE_TIMER(mytimer, callback);
 
-static void callback(unsigned long data)
+static void callback(struct timer_list *data)
 {
 	pr_info("%u\n", (unsigned)jiffies);
 	mod_timer(&mytimer, jiffies + onesec);
