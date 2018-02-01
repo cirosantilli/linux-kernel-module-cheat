@@ -34,7 +34,10 @@ which counts to infinity to stdout, and then in GDB:
 
 And you now control the counting from GDB.
 
-See also: <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu>
+See also:
+
+- <http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu/33203642#33203642>
+- <http://stackoverflow.com/questions/4943857/linux-kernel-live-debugging-how-its-done-and-what-tools-are-used/42316607#42316607>
 
 `O=0` is an impossible dream, `O=2` being the default: <https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0> So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
 
@@ -72,6 +75,8 @@ and GDB now breaks at our `fop_write` function!
 Just don't forget to remove your breakpoints after `rmmod`, or they will point to stale memory locations.
 
 TODO: why does `break work_func` for `insmod kthread.ko` not break the first time I `insmod`, but breaks the second time?
+
+See also: <http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-modules-with-qemu/44095831#44095831>
 
 ### Bypassing lx-symbols
 
