@@ -2,23 +2,33 @@
 
 ## How to update the Linux kernel?
 
+    # Last point before out patches.
     last_mainline_revision=v4.14
     next_mainline_revision=v4.15
     cd linux
+
+    # Create a branch before the rebase.
+    git branch "lkmc-${last_mainline_revision}"
+    git remote set-url origin git@github.com:cirosantilli/linux.git
+    git push
+
     git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
     git fetch up
     git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
     ./build -t linux-reconfigure
+    # Manually fix our kernel modules if necessary.
 
-Create and push a tag to make things saner:
-
-    git checkout -b "lkmc-${next_mainline_revision}"
-    git remote set-url origin git@github.com:cirosantilli/linux.git
-    git push --follow-tag
+    cd ..
+    git branch "buildroot-2017.08-linux-${last_mainline_revision}"
+    git add .
+    git commit -m "Linux ${next_mainline_revision}"
+    git push
 
 and update the README!
 
-Now, all you kernel modules may break, although they are usually trivial breaks of things moving around headers or to sub-structs.
+During update all you kernel modules may break since the kernel API is not stable.
+
+They are usually trivial breaks of things moving around headers or to sub-structs.
 
 The userland, however, should simply not break, as Linus enforces strict backwards compatibility of userland interfaces.
 
