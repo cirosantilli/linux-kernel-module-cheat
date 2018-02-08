@@ -7,5 +7,5 @@ Testing you should do before pushing: new modules:
 New arch:
 
 - `./build -a ARCH && ./run -a ARCH`
-- `wget google.com` for Internet
+- `wget google.com && cat index.html` for Internet
 - `./run -a ARCH -d` and `./rungdb -a ARCH`
