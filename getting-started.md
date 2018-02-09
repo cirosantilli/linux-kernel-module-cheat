@@ -132,7 +132,15 @@ When debugging a module, it becomes tedious to wait for build and re-type:
 
 every time.
 
-Instead, you can add your test commands to:
+Instead, you can either run them from a minimal init:
+
+    ./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
+
+or run them at the end of the BusyBox init, which does things like setting up networking:
+
+    ./run -e '- lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
+
+or add them to a new `init.d` entry:
 
     cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
     vim S99
