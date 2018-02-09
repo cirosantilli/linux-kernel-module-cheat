@@ -14,7 +14,7 @@ systemd is a "popular" `/init` implementation for desktop distros as of 2017.
 
 BusyBox provides its own minimalistic init implementation which Buildroot uses by default.
 
-### Custom init
+## Custom init
 
 Is the default BusyBox `/init` too bloated for you, minimalism freak?
 
@@ -31,7 +31,7 @@ Also remember that if your init returns, the kernel will panic, there are just t
 - run forever in a loop or long sleep
 - `poweroff` the machine
 
-### Disable networking
+## Disable networking
 
 The default BusyBox init scripts enable networking, and there is a 15 second timeout in case your network is down or if your kernel / emulator setup does not support it.
 
@@ -42,3 +42,16 @@ To disable networking, use:
 To restore it, run:
 
     ./build -t initscripts-reconfigure
+
+## The init environment
+
+The docs make it clear https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html
+
+> The kernel parses parameters from the kernel command line up to “–”;
+> if it doesn’t recognize a parameter and it doesn’t contain a ‘.’, the parameter gets passed to init:
+> parameters with ‘=’ go into init’s environment, others are passed as command line arguments to init.
+> Everything after “–” is passed as an argument to init.
+
+And you can try it out with:
+
+    ./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv' -n

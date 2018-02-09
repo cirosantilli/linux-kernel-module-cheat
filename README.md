@@ -45,6 +45,7 @@ See the [getting started section](getting-started.md) for further details.
         1.  [KGDB](kgdb.md)
         1.  [gdbserver](gdbserver.md)
     1.  [Other architectures](other-architectures.md)
+    1.  [init](init.md)
     1.  [modprobe](modprobe.md)
     1.  [X11](x11.md)
     1.  [Count boot instructions](count-boot-instructions.md)
