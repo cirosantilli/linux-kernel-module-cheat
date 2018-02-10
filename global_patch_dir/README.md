@@ -1,6 +1,0 @@
-# global_patch_dir
-
-This directory has the following structure:
-
-    package-name
-        00001-do-something.patch
