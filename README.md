@@ -52,6 +52,7 @@ See the [getting started section](getting-started.md) for further details.
     1.  [GEM5](gem5.md)
     1.  [ftrace](ftrace.md)
     1.  [QEMU user mode](qemu-user-mode.md)
+    1.  [Snapshot](snapshot.md)
 1.  Failed action
     1.  [Record and replay](record-and-replay.md)
 1.  Insane action
