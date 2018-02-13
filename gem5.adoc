@@ -1,45 +1,27 @@
-[[gem5]]
-= GEM5
+=== GEM5
 
-[[introduction]]
-== Introduction
+==== Introduction
 
 GEM5 is a system simulator, much like QEMU: http://gem5.org/
 
 Vs QEMU:
 
-* advantage: simulates a generic more realistic pipelined and optionally
-out of order CPU cycle by cycle, including a realistic DRAM memory
-access model with latencies, caches and page table manipulations. This
-allows us to:
-** do much more realistic performance benchmarking with it, which makes
-absolutely no sense in QEMU, which is purely functional
-** make functional cache observations, e.g. to use Linux kernel APIs
-that flush memory like DMA, which are crucial for driver development. In
-QEMU, the driver would still work even if we forget to flush caches.
+* advantage: simulates a generic more realistic pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
+** do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
+** make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
 +
-It is not of course truly cycle accurate, as that would require exposing
-proprietary information of the CPU designs:
-https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850,
-but the approximation is reasonable.
+It is not of course truly cycle accurate, as that would require exposing proprietary information of the CPU designs: https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850, but the approximation is reasonable.
 +
-It is used mostly for research purposes: when you are making a new chip
-technology, you don't really need to specialize enormously to an
-existing microarchitecture, but rather develop something that will work
-with a wide range of future architectures.
+It is used mostly for research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
 * disadvantage: slower than QEMU by TODO 10x?
 +
-This also implies that the user base is much smaller, since no Android
-devs.
+This also implies that the user base is much smaller, since no Android devs.
 +
-Instead, we have only chip makers, who keep everything that really works
-closed, and researchers, who can't version track or document code
-properly >:-) And this implies that:
+Instead, we have only chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-) And this implies that:
 ** the documentation is more scarce
 ** it takes longer to support new hardware features
 
-[[arm]]
-== ARM
+==== ARM
 
 ....
 ./configure && ./build -a arm-gem5
@@ -52,8 +34,7 @@ On another shell:
 ./rungem5-shell
 ....
 
-[[kernel-command-line-arguments]]
-=== Kernel command line arguments
+===== Kernel command line arguments
 
 E.g., to add `printk.time=y`, run:
 
@@ -61,11 +42,9 @@ E.g., to add `printk.time=y`, run:
 ./rungem5 -a arm-gem5 -- --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda printk.time=y'
 ....
 
-When you use `--command-line=`, it overrides default command lines,
-which are required to boot properly.
+When you use `--command-line=`, it overrides default command lines, which are required to boot properly.
 
-So if you pass just `--command-line='printk.time=y'`, it removes the
-required options, and boot fails.
+So if you pass just `--command-line='printk.time=y'`, it removes the required options, and boot fails.
 
 An easy way to find the other options is to to an initial boot:
 
@@ -79,17 +58,13 @@ and then look at the line of the linux kernel that starts with
 Kernel command line:
 ....
 
-We might copy the default `--command-line` into our startup scripts to
-make things easier at some point, but it would be fun to debug when the
-defaults change upstream and we don't notice :-(
+We might copy the default `--command-line` into our startup scripts to make things easier at some point, but it would be fun to debug when the defaults change upstream and we don't notice :-(
 
-[[qemu-with-gem5-kernel-configuration]]
-=== QEMU with GEM5 kernel configuration
+===== QEMU with GEM5 kernel configuration
 
 TODO: QEMU did not work with the GEM5 kernel configurations.
 
-To test this, hack up `run` to use the `buildroot/output.arm-gem5~`
-directory, and then run:
+To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
 
 ....
 ./run -a arm
@@ -107,8 +82,7 @@ and the display shows:
 Guest has not initialized the display (yet).
 ....
 
-[[gem5-with-qemu-kernel-configuration]]
-=== GEM5 with QEMU kernel configuration
+===== GEM5 with QEMU kernel configuration
 
 Test it out with:
 
@@ -135,11 +109,9 @@ Escape character is '^]'.
 ==== m5 slave terminal: Terminal 0 ====
 ....
 
-I have also tried to copy the exact same kernel command line options
-used by QEMU, but nothing changed.
+I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
 
-[[x86]]
-== x86
+==== x86
 
 TODO didn't get it working yet.
 
@@ -147,11 +119,9 @@ Related threads:
 
 * https://www.mail-archive.com/gem5-users@gem5.org/msg11384.html
 * https://stackoverflow.com/questions/37906425/booting-gem5-x86-ubuntu-full-system-simulation
-* http://www.lowepower.com/jason/creating-disk-images-for-gem5.html
-claims to have a working config for x86_64 kernel 4.8.13
+* http://www.lowepower.com/jason/creating-disk-images-for-gem5.html claims to have a working config for x86_64 kernel 4.8.13
 
-[[our-best-attempt]]
-=== Our best attempt
+===== Our best attempt
 
 ....
 ./configure && ./build -a x86_64-gem5
@@ -174,32 +144,23 @@ Memory Usage: 1235908 KBytes
 Program aborted at tick 427627410500
 ....
 
-The same failure happens if we use the working QEMU Linux kernel, and /
-or if we use the kernel 4.8.13 as proposed in lowepower's post..
+The same failure happens if we use the working QEMU Linux kernel, and / or if we use the kernel 4.8.13 as proposed in lowepower's post..
 
-If we look a bit into the source, the panic message comes from
-`i8042.cc`, and on the header we see that the missing command is:
+If we look a bit into the source, the panic message comes from `i8042.cc`, and on the header we see that the missing command is:
 
 ....
     WriteOutputPort = 0xD1,
 ....
 
-The kernel was compiled with `CONFIG_SERIO_I8042=y`, I didn't dare
-disable it yet. The Linux kernel driver has no `grep` hits for either of
-`0xd1` nor `output.?port`, it must be using some random bitmask to build
-it then.
+The kernel was compiled with `CONFIG_SERIO_I8042=y`, I didn't dare disable it yet. The Linux kernel driver has no `grep` hits for either of `0xd1` nor `output.?port`, it must be using some random bitmask to build it then.
 
-This byte is documented at
-http://wiki.osdev.org/%228042%22_PS/2_Controller, as usual :-)
+This byte is documented at http://wiki.osdev.org/%228042%22_PS/2_Controller, as usual :-)
 
-There are also a bunch of `i8042` kernel CLI options, I tweaked all of
-them but nothing.
+There are also a bunch of `i8042` kernel CLI options, I tweaked all of them but nothing.
 
-[[working-baseline-with-magic-image]]
-=== Working baseline with magic image
+===== Working baseline with magic image
 
-Working x86 with the pre-built magic image with an ancient 2.6.22.9
-kernel starting point:
+Working x86 with the pre-built magic image with an ancient 2.6.22.9 kernel starting point:
 
 ....
 sudo mkdir -p /dist/m5/system
@@ -232,14 +193,11 @@ On another shell:
 telnet localhost 3456
 ....
 
-[[unmodified-buildroot-images-2]]
-=== Unmodified Buildroot images 2
+===== Unmodified Buildroot images 2
 
-bzImage fails, so we always try with vmlinux obtained from inside
-build/.
+bzImage fails, so we always try with vmlinux obtained from inside build/.
 
-rootfs.ext2 and vmlinux from
-670366caaded57d318b6dbef34e863e3b30f7f29ails as:
+rootfs.ext2 and vmlinux from 670366caaded57d318b6dbef34e863e3b30f7f29ails as:
 
 Fails as:
 
@@ -307,11 +265,9 @@ ALSA device list:
   No soundcards found.
 ....
 
-So just looks like we have to disable some Linux configs which GEM5 does
-not support... so fragile.
+So just looks like we have to disable some Linux configs which GEM5 does not support... so fragile.
 
-[[copy-upstream-2.6-configs-on-4.9-kernel]]
-=== Copy upstream 2.6 configs on 4.9 kernel
+===== Copy upstream 2.6 configs on 4.9 kernel
 
 The magic image provides its kernel configurations, so let's try that.
 
@@ -323,9 +279,7 @@ wget http://www.gem5.org/dist/current/x86/config-x86.tar.bz2
 
 backed up at: https://github.com/cirosantilli/media/releases/tag/gem5
 
-Copy `linux-2.6.22.9` into the kernel tree as `.config`,
-`git checkout v4.9.6`, `make olddefconfig`, `make`, then use the
-Buildroot filesystem as above, failure:
+Copy `linux-2.6.22.9` into the kernel tree as `.config`, `git checkout v4.9.6`, `make olddefconfig`, `make`, then use the Buildroot filesystem as above, failure:
 
 ....
 panic: Invalid IDE control register offset: 0
@@ -368,10 +322,6 @@ Program aborted at tick 382834812000
 Aborted (core dumped)
 ....
 
-[[use-upstream-2.6-configs-and-2.6-kernel]]
-=== Use upstream 2.6 configs and 2.6 kernel
+===== Use upstream 2.6 configs and 2.6 kernel
 
-If we checkout to the ancient kernel `v2.6.22.9`, it fails to compile
-with modern GNU make 4.1:
-https://stackoverflow.com/questions/35002691/makefile-make-clean-why-getting-mixed-implicit-and-normal-rules-deprecated-s
-lol
+If we checkout to the ancient kernel `v2.6.22.9`, it fails to compile with modern GNU make 4.1: https://stackoverflow.com/questions/35002691/makefile-make-clean-why-getting-mixed-implicit-and-normal-rules-deprecated-s lol
