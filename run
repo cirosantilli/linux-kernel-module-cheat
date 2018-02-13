@@ -13,7 +13,9 @@ nographic=false
 #   Turned on by default since v4.12
 extra_append='nokaslr norandmaps printk.devkmsg=on printk.time=y'
 extra_flags=''
-while getopts a:de:knqt:x OPT; do
+initrd=false
+root=''
+while getopts a:de:iknqt:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -30,6 +32,9 @@ while getopts a:de:knqt:x OPT; do
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
       extra_flags="$extra_flags -serial tcp::1234,server,nowait"
       kgdb=true
+      ;;
+    i)
+      initrd=true
       ;;
     n)
       extra_append="$extra_append console=ttyS0"
@@ -60,13 +65,18 @@ case "$arch" in
     if $kgdb; then
       extra_append="$extra_append kgdboc=ttyS0,115200"
     fi
+    if $initrd; then
+      extra_flags="$extra_flags -initrd '${images_dir}/rootfs.cpio'"
+    else
+      root='root=/dev/vda'
+      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2,if=virtio,format=raw'"
+    fi
     cmd="$qemu_common \
 -M pc \
--append 'root=/dev/vda nopat $extra_append' \
--device lkmc_pci_min \
+-append '$root nopat $extra_append' \
 -device edu \
+-device lkmc_pci_min \
 -device virtio-net-pci,netdev=net0 \
--drive file=${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2 \
 -kernel ${images_dir}/bzImage \
 $extra_flags \
 "
@@ -77,14 +87,16 @@ $extra_flags \
     fi
     cmd="$qemu_common \
 -M versatilepb \
--append 'root=/dev/sda $extra_append' \
+-append '$extra_append' \
 -device rtl8139,netdev=net0 \
--drive file=${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2 \
+-initrd ${images_dir}/rootfs.cpio \
 -dtb ${images_dir}/versatile-pb.dtb \
 -kernel ${images_dir}/zImage \
 -serial stdio \
 $extra_flags \
 "
+#-append 'root=/dev/sda $extra_append' \
+#-drive file=${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2 \
   ;;
   aarch64)
     if $kgdb; then

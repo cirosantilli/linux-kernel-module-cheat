@@ -892,7 +892,7 @@ ____
 +
 `-M virt` has some limitations, e.g. I could not pass `-drive if=scsi` as for `arm`, and so <<Snapshot>> fails.
 +
-* uses initramfs. This glues the rootfs as an initrd directly to the kernel image, so the only argument that QEMU needs is the `-kernel`, and no disk! Pretty cool.
+* uses <<initramfs>>, so thre is no filesystem persistency.
 
 So, as long as you keep those points in mind, our `-a aarch64` offers an interesting different setup to play with.
 
@@ -1494,6 +1494,61 @@ Aborted (core dumped)
 ===== GEM5 x86 use upstream 2.6 configs and 2.6 kernel
 
 If we checkout to the ancient kernel `v2.6.22.9`, it fails to compile with modern GNU make 4.1: https://stackoverflow.com/questions/35002691/makefile-make-clean-why-getting-mixed-implicit-and-normal-rules-deprecated-s lol
+
+=== initrd
+
+The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
+
+The bootloader, which for us is QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
+
+With this setup, you don't even need to give a root filesystem to the kernel, it just does everything in memory in a ramfs.
+
+Try it out with:
+
+....
+./run -i
+....
+
+Notice how it boots fine, even though `-drive` is not given.
+
+Also as expected, there is no filesystem persistency, since we are doing everything in memory:
+
+....
+date >f
+poweroff
+cat f
+# can't open 'f': No such file or directory
+....
+
+The main ingredients to get this working are:
+
+* `BR2_TARGET_ROOTFS_CPIO=y`: make Buildroot generate `output/images/rootfs.cpio` in addition to the other images.
++
+It is also possible to compress that image with other options.
+* `qemu -initrd`: make QEMU put the image into memory and tell the kernel about it.
+* `CONFIG_BLK_DEV_INITRD=y`: Compile the kernel with initrd support
++
+Buildroot forces that option when `BR2_TARGET_ROOTFS_CPIO=y` is given
+
+https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image asks how the mechanism works in more detail.
+
+==== initramfs
+
+initramfs is just like initrd, but you also glue the image directly to the kernel image itself.
+
+So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-initrd`! Pretty cool.
+
+Try it out with:
+
+....
+./run -a aarch64
+....
+
+since our <<aarch64>> setup uses it by default.
+
+In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the kernel config option `CONFIG_INITRAMFS_SOURCE` point to the CPIO that will be embedded in the kernel image.
+
+http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
 
 === ftrace
 
