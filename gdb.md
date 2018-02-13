@@ -102,3 +102,33 @@ TODO: why can't we break at early startup stuff such as:
     ./rungdb main
 
 See also: <https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot>
+
+## call
+
+GDB can call functions as explained at: <https://stackoverflow.com/questions/1354731/how-to-evaluate-functions-in-gdb>
+
+However this is failing for us:
+
+- some symbols are not visible to `call` even though `b` sees them
+- for those that are, `call` fails with an E14 error
+
+E.g.: if we break on `sys_write` on `/count.sh`:
+
+    >>> call printk(0, "asdf")
+    Could not fetch register "orig_rax"; remote failure reply 'E14'
+    >>> b printk
+    Breakpoint 2 at 0xffffffff81091bca: file kernel/printk/printk.c, line 1824.
+    >>> call fdget_pos(fd)
+    No symbol "fdget_pos" in current context.
+    >>> b fdget_pos
+    Breakpoint 3 at 0xffffffff811615e3: fdget_pos. (9 locations)
+    >>>
+
+even though `fdget_pos` is the first thing `sys_write` does:
+
+    581 SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
+    582         size_t, count)
+    583 {
+    584     struct fd f = fdget_pos(fd);
+
+See also: <https://github.com/cirosantilli/linux-kernel-module-cheat/issues/19>

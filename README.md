@@ -5,7 +5,7 @@ Run one command, get a QEMU Buildroot BusyBox virtual machine built from source 
 1.  [**Getting started**](getting-started.md)
 1.  Action
     1.  Step debugging
-        1.  [GDB step debugging](gdb-step-debugging.md)
+        1.  [GDB step debugging](gdb.md)
         1.  [KGDB](kgdb.md)
         1.  [gdbserver](gdbserver.md)
     1.  [Other architectures](other-architectures.md)
