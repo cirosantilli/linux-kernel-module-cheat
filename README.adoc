@@ -101,6 +101,13 @@ Linux and QEMU rebuilds are so common that we have dedicated shortcut flags for 
 ./build -l -q
 ....
 
+Sometimes, if you change the version of the submodules a lot, builds fail. We should try to understand why and report bugs, but if you are lazy, first try something like:
+
+....
+rm -rf buildroot/output.x86_64~/build/host-qemu-custom
+./build -q
+....
+
 ==== Filesystem persistency
 
 The root filesystem is persistent across:
@@ -838,16 +845,32 @@ TODOs:
 ./build -a aarch64
 ....
 
+As usual, we use Buildroot's recommended QEMU setup QEMU `aarch64` setup:
+
+* https://github.com/buildroot/buildroot/blob/2017.08/board/qemu/aarch64-virt/readme.txt
+* https://github.com/buildroot/buildroot/blob/2017.08/configs/qemu_aarch64_virt_defconfig
+
+This makes aarch64 a bit different from `arm`:
+
+* uses `-M virt`. https://wiki.qemu.org/Documentation/Platforms/ARM explains:
++
+____
+Most of the machines QEMU supports have annoying limitations (small amount of RAM, no PCI or other hard disk, etc) which are there because that's what the real hardware is like. If you don't care about reproducing the idiosyncrasies of a particular bit of hardware, the best choice today is the "virt" machine.
+____
++
+`-M virt` has some limitations, e.g. I could not pass `-drive if=scsi` as for `arm`, and so <<Snapshot>> fails.
++
+* uses initramfs. This glues the rootfs as an initrd directly to the kernel image, so the only argument that QEMU needs is the `-kernel`, and no disk! Pretty cool.
+
+So, as long as you keep those points in mind, our `-a aarch64` offers an interesting different setup to play with.
+
 TODOs:
 
-* GDB gives a ton of messages:
+* <<gdb>> appears to be stuck on an infinite loop:
 +
 ....
 no module object found for ''
 ....
-+
-when you connect. `Ctrl + C` then `c` works though.
-* How to add devices to `-M virt` as we did for `-M versatilepb`
 
 ==== mips64
 
@@ -1850,7 +1873,7 @@ git push
 git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 git fetch up
 git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
-./build -t linux-reconfigure
+./build -l
 # Manually fix our kernel modules if necessary.
 
 cd ..

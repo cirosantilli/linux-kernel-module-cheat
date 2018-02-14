@@ -3,7 +3,7 @@ Only works for ARM.
 
 Uses:
 
--   hw/misc/lkmc_platform_device.c minimal device added in our QEMU fork
+-   hw/misc/lkmc_platform_device.c minimal device added in our QEMU fork to `-M versatilepb`
 
 -   the device tree entry we added to our Linux kernel fork:
     https://github.com/cirosantilli/linux/blob/361bb623671a52a36a077a6dd45843389a687a33/arch/arm/boot/dts/versatile-pb.dts#L42
