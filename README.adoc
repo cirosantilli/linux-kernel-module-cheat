@@ -1578,11 +1578,66 @@ TODO: find source. Lazy now.
 
 === Snapshot
 
+https://stackoverflow.com/questions/40227651/does-qemu-emulator-have-checkpoint-function/48724371#48724371
+
 QEMU allows us to take snapshots at any time through the monitor.
 
 You can then restore CPU, memory and disk state back at any time.
 
-Here's how: https://stackoverflow.com/questions/40227651/does-qemu-emulator-have-checkpoint-function/48724371#48724371
+qcow2 filesystems must be used for that to work.
+
+To test it out, login into the VM, and run:
+
+....
+/count.sh
+....
+
+Then on another shell, open the monitor:
+
+....
+./runqemu
+savevm my_snap_id
+....
+
+The counting continues. The, if we load the vm:
+
+....
+loadvm my_snap_id
+....
+
+the counting goes back to where we saved. This shows that CPU and memory states were reverted.
+
+We can also verify that the disk state is also reversed. Guest:
+
+....
+echo 0 >f
+....
+
+Monitor:
+
+....
+savevm my_snap_id
+....
+
+Guest:
+
+....
+echo 1 >f
+....
+
+Monitor:
+
+....
+loadvm
+....
+
+Guest:
+
+....
+cat f
+....
+
+And the output is `0`.
 
 == Failed action
 
