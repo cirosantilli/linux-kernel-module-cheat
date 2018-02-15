@@ -101,12 +101,34 @@ Linux and QEMU rebuilds are so common that we have dedicated shortcut flags for 
 ./build -l -q
 ....
 
-Sometimes, if you change the version of the submodules a lot, builds fail. We should try to understand why and report bugs, but if you are lazy, first try something like:
+==== Clean the build
+
+You did something crazy, and nothing seems to work anymore?
+
+All builds are stored under `buildroot/`,
+
+The most coarse thing you can do is:
+
+....
+cd buildroot
+git checkout -- .
+git clean -xdf .
+....
+
+To only nuke one architecture, do:
+
+....
+rm -rf buildroot/output.x86_64~
+....
+
+Only nuke one one package:
 
 ....
 rm -rf buildroot/output.x86_64~/build/host-qemu-custom
 ./build -q
 ....
+
+This is sometimes necessary when changing the version of the submodules, and then builds fail. We should try to understand why and report bugs.
 
 ==== Filesystem persistency
 
@@ -290,6 +312,42 @@ or on host:
 cat buildroot/output.*~/build/linux-custom/.config
 ....
 
+==== Kernel boot command line arguments
+
+Bootloaders can pass a string as input to the Linux kernel when it is booting to control its behaviour, much like the `execve` system call does to userland processes.
+
+This allows us to control the behaviour of the kernel without rebuilding anything.
+
+With QEMU, QEMU itself acts as the bootloader, and provides the `-append` option and we expose it through `./run -e`, e.g.:
+
+....
+./run -e 'foo bar'
+....
+
+Then inside the host, you can check which options were given with:
+
+....
+cat /proc/cmdline
+....
+
+They are also printed at the beginning of the boot message:
+
+....
+dmesg | grep "Command line"
+....
+
+See also:
+
+* https://unix.stackexchange.com/questions/48601/how-to-display-the-linux-kernel-command-line-parameters-given-for-the-current-bo
+* https://askubuntu.com/questions/32654/how-do-i-find-the-boot-parameters-used-by-the-running-kernel
+
+The arguments are documented in the kernel documentation: https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html
+
+When dealing with real boards, extra command line options are provided on some magic bootloader configuration file, e.g.:
+
+* GRUB configuration files: https://askubuntu.com/questions/19486/how-do-i-add-a-kernel-boot-parameter
+* Raspberry pi `/boot/cmdline.txt` on a magic partition: https://raspberrypi.stackexchange.com/questions/14839/how-to-change-the-kernel-commandline-for-archlinuxarm-on-raspberry-pi-effectly
+
 ==== QEMU GUI is unresponsive
 
 Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.
@@ -332,32 +390,6 @@ And in QEMU:
 Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
-
-==== Clean the build
-
-You did something crazy, and nothing seems to work anymore?
-
-All builds are stored under `buildroot/`,
-
-The most coarse thing you can do is:
-
-....
-cd buildroot
-git checkout -- .
-git clean -xdf .
-....
-
-To only nuke one architecture, do:
-
-....
-rm -rf buildroot/output.x86_64~
-....
-
-Only nuke one one package:
-
-....
-rm -rf buildroot/output.x86_64~/build/<package>
-....
 
 [[gdb]]
 === GDB step debugging
