@@ -59,17 +59,18 @@ $buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -netdev user,hostfwd=tcp::45455-:45455,id=net0 \
 -smp 1 \
 "
+if $initrd; then
+  extra_flags="$extra_flags -initrd '${images_dir}/rootfs.cpio'"
+fi
 # The base QEMU commands are found under board/qemu/*/readme.tx
 case "$arch" in
   x86_64)
     if $kgdb; then
       extra_append="$extra_append kgdboc=ttyS0,115200"
     fi
-    if $initrd; then
-      extra_flags="$extra_flags -initrd '${images_dir}/rootfs.cpio'"
-    else
+    if ! $initrd; then
       root='root=/dev/vda'
-      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2,if=virtio,format=raw'"
+      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
     fi
     cmd="$qemu_common \
 -M pc \
@@ -85,18 +86,19 @@ $extra_flags \
     if $kgdb; then
       extra_append="$extra_append kgdboc=ttyAMA0,115200"
     fi
+    if ! $initrd; then
+      root='root=/dev/sda'
+      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
+    fi
     cmd="$qemu_common \
 -M versatilepb \
--append '$extra_append' \
+-append '$root $extra_append' \
 -device rtl8139,netdev=net0 \
--initrd ${images_dir}/rootfs.cpio \
 -dtb ${images_dir}/versatile-pb.dtb \
 -kernel ${images_dir}/zImage \
 -serial stdio \
 $extra_flags \
 "
-#-append 'root=/dev/sda $extra_append' \
-#-drive file=${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2 \
   ;;
   aarch64)
     if $kgdb; then
