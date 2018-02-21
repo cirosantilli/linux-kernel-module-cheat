@@ -1208,8 +1208,8 @@ Instead, we have only chip makers, who keep everything that really works closed,
 ==== GEM5 ARM
 
 ....
-./configure && ./build -a arm-gem5
-./rungem5 -a arm-gem5
+./configure && ./build -a arm -g
+./rungem5 -a arm
 ....
 
 On another shell:
@@ -1223,7 +1223,7 @@ On another shell:
 E.g., to add `printk.time=y`, run:
 
 ....
-./rungem5 -a arm-gem5 -- --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda printk.time=y'
+./rungem5 -a arm -- --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda printk.time=y'
 ....
 
 When you use `--command-line=`, it overrides default command lines, which are required to boot properly.
@@ -1233,7 +1233,7 @@ So if you pass just `--command-line='printk.time=y'`, it removes the required op
 An easy way to find the other options is to to an initial boot:
 
 ....
-./rungem5 -a arm-gem5
+./rungem5 -a arm
 ....
 
 and then look at the line of the linux kernel that starts with
@@ -1294,6 +1294,54 @@ Escape character is '^]'.
 ....
 
 I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
+
+===== GEM5 checkpoint
+
+Analogous to QEMU's <<snapshot>>.
+
+Documentation: http://gem5.org/Checkpoints
+
+....
+./rungem5 -a arm
+....
+
+In guest, wait for the boot to end and run:
+
+....
+/m5 checkpoint
+....
+
+To restore the checkpoint, kill the VM and run:
+
+....
+./rungem5 -a arm -- -r 1
+....
+
+Let's create a second checkpoint to see how it works, in guest:
+
+....
+date >f
+/m5 checkpoint
+....
+
+Kill the VM, and try it out:
+
+....
+./rungem5 -a arm -- -r 2
+....
+
+and now in the guest:
+
+....
+cat f
+....
+
+contains the `date`. The file `f` wouldn't exist had we used the first checkpoint with `-r 1`.
+
+Internals:
+
+- the checkpoints are stored under `m5out/cpt.*`
+- `m5` is a guest utility present inside the GEM5 tree which we cross-compiled and installed into the guest
 
 ==== GEM5 x86
 

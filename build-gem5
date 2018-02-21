@@ -1,6 +1,6 @@
 #/usr/bin/env bash
 set -eu
-arch='arm-gem5'
+arch=arm
 while getopts 'a:' OPT; do
   case "$OPT" in
     a)
@@ -9,16 +9,13 @@ while getopts 'a:' OPT; do
   esac
 done
 shift "$(($OPTIND - 1))"
-if [ ! -d 'gem5' ]; then
-  git clone https://gem5.googlesource.com/public/gem5
-fi
-cd gem5
-git checkout da79d6c6cde0fbe5473ce868c9be4771160a003b
-system_dir='../gem5-system'
+top="$(pwd)/gem5"
+system_dir="${top}/gem5-system"
 binaries_dir="${system_dir}/binaries"
 disks_dir="${system_dir}/disks"
 mkdir -p "$binaries_dir" "$disks_dir"
-if [ "$arch" = 'x86_64-gem5' ]; then
+cd "${top}/gem5"
+if [ "$arch" = x86_64 ]; then
   CC=gcc-6 CXX=g++-6 scons -j"$(nproc)" --ignore-style build/X86/gem5.opt
   f="${disks_dir}/linux-bigswap2.img"
   dd if=/dev/zero of="$f" bs=1024 count=65536
@@ -26,7 +23,7 @@ if [ "$arch" = 'x86_64-gem5' ]; then
   # This file must always be present, despite --kernel overriding that default and selecting the kernel.
   # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
   touch "${binaries_dir}/x86_64-vmlinux-2.6.22.9"
-elif [ "$arch" = 'arm-gem5' ]; then
+elif [ "$arch" = arm ]; then
   # Compilation fails with gcc 7 on that commit.
   # There were some recent portability patches, so it will likely get there soon.
   CC=gcc-6 CXX=g++-6 scons -j"$(nproc)" --ignore-style build/ARM/gem5.opt
@@ -37,4 +34,4 @@ elif [ "$arch" = 'arm-gem5' ]; then
   cp ./system/arm/aarch64_bootloader/boot_emm.arm64 "$binaries_dir"
 fi
 # TODO vs telnet?
-make -C gem5/util/term
+make -C util/term
