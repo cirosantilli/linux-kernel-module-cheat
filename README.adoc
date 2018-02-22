@@ -871,6 +871,25 @@ TODOs:
 ....
 pkill qemu
 ....
+* GDB step debugging of kernel modules broke at some point. This was noticed at 6420c31986e064c81561da8f2be0bd33483af598 and a likely candidate was the recent move to kernel v4.15, but this has to be bisected.
++
+Just afte GDB connects, we get the following message from the kernel GDB Python scripts:
+....
+loading vmlinux
+Traceback (most recent call last):
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
+    self.load_all_symbols()
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
+    [self.load_module_symbols(module) for module in module_list]
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
+    module_name = module['name'].string()
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/host/lib/python2.7/encodings/utf_8.py", line 16, in decode
+    return codecs.utf_8_decode(input, errors, True)
+UnicodeDecodeError: 'utf8' codec can't decode byte 0x9f in position 2: invalid start byte
+Error occurred in Python command: 'utf8' codec can't decode byte 0x9f in position 2: invalid start byte
+....
++
+and then after inserting the module, symbols are not found, presumably because `lx-symbols` never ran.
 
 ==== aarch64
 
