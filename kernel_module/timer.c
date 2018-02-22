@@ -17,12 +17,14 @@ See also:
 #include <linux/module.h>
 #include <linux/timer.h>
 
-static void callback(struct timer_list *data);
+/* We would normally mark this as static and give it a more generic name.
+ * But let's do it like this this time for the sake of our GDB kernel module step debugging example. */
+void lkmc_timer_callback(struct timer_list *data);
 static unsigned long onesec;
 
-DEFINE_TIMER(mytimer, callback);
+DEFINE_TIMER(mytimer, lkmc_timer_callback);
 
-static void callback(struct timer_list *data)
+void lkmc_timer_callback(struct timer_list *data)
 {
 	pr_info("%u\n", (unsigned)jiffies);
 	mod_timer(&mytimer, jiffies + onesec);

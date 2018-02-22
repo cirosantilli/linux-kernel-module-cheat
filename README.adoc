@@ -463,30 +463,26 @@ However, the Linux kernel GDB scripts offer the `lx-symbols` command, which take
 In QEMU:
 
 ....
-insmod /fops.ko
+insmod /timer.ko
 ....
 
 In GDB, hit `Ctrl + C`, and note how it says:
 
 ....
-scanning for modules in ../kernel_module-1.0/
-loading @0xffffffffa0000000: ../kernel_module-1.0//fops.ko
+scanning for modules in /home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64~/build/linux-custom
+loading @0xffffffffc0000000: ../kernel_module-1.0//timer.ko
 ....
 
 That's `lx-symbols` working! Now simply:
 
 ....
-b fop_write
+b lkmc_timer_callback
+c
+c
 c
 ....
 
-In QEMU:
-
-....
-printf a >/sys/kernel/debug/lkmc_fops/f
-....
-
-and GDB now breaks at our `fop_write` function!
+and we now control the callback from GDB!
 
 Just don't forget to remove your breakpoints after `rmmod`, or they will point to stale memory locations.
 
@@ -929,7 +925,7 @@ TODOs:
 
 When the Linux kernel finishes booting, it runs an executable as the first and only userland process.
 
-The default path is `/init`, but we an set a custom one with the `init=` kernel command line argument.
+The default path is `/init`, but we an set a custom one with the `init=` <<kernel-boot-command-line-arguments,kernel boot command line option>>.
 
 This process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
 
@@ -1219,35 +1215,70 @@ On another shell:
 ./rungem5-shell
 ....
 
-===== GEM5 kernel command line arguments
+===== GEM5 kernel boot command line arguments
 
-E.g., to add `printk.time=y`, run:
+Analogous <<kernel-boot-command-line-arguments,to QEMU>>:
 
 ....
 ./run -a arm -e 'init=/poweroff.out' -g
 ....
 
-Internals: when we give `--command-line=` to GEM5, it overrides default command lines, which are required to boot properly.
-
-So if you pass just `--command-line='printk.time=y'` for example, it removes the required options, and boot fails.
+Internals: when we give `--command-line=` to GEM5, it overrides default command lines, including some mandatory ones which are required to boot properly.
 
 Our run script hardcodes the require options in the default `--command-line` and appends extra options given by `-e`.
 
-The default options can be found found with:
+To find the default options in the first place, we removed `--command-line` and ran:
 
 ....
 ./run -a arm -g
 ....
 
-and then look at the line of the linux kernel that starts with:
+and then looked at the line of the Linux kernel that starts with:
 
 ....
 Kernel command line:
 ....
 
-===== QEMU with GEM5 kernel configuration
+[[gem5-gdb]]
+===== GEM5 GDB step debugging
 
-TODO: QEMU did not work with the GEM5 kernel configurations.
+Analogous <<gdb,to QEMU>>, on the first shell:
+
+....
+./run -a arm -d -g
+....
+
+On the second shell:
+
+....
+./rungdb -a arm -g
+....
+
+This makes the VM stop, so from inside GDB:
+
+....
+continue
+....
+
+On a third shell:
+
+....
+./rungem5-shell
+....
+
+And we now see the boot messages, and then get a shell. Now try the `/continue.sh` procedure described for QEMU.
+
+TODO: how to stop at `start_kernel`? GEM5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used?
+
+===== QEMU and GEM5 with the same kernel configuration
+
+We would like to be able to run both GEM5 and QEMU with the same kernel build to avoid duplication, but TODO we haven't been able to get that working yet.
+
+This documents our failed attempts so far.
+
+As a result, we currently have to create two full `buildroot/output*` directories, which means two full GCC builds.
+
+====== QEMU with GEM5 kernel configuration
 
 To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
 
@@ -1267,7 +1298,7 @@ and the display shows:
 Guest has not initialized the display (yet).
 ....
 
-===== GEM5 with QEMU kernel configuration
+====== GEM5 with QEMU kernel configuration
 
 Test it out with:
 
@@ -1715,13 +1746,13 @@ Sample output:
  0)   5.016 us    |                    update_vsyscall();
  0)               |                    raw_notifier_call_chain() {
  0)   2.241 us    |                      notifier_call_chain();
- 0) + 19.879 us   |                    }  
+ 0) + 19.879 us   |                    }
  0)   3.144 us    |                    update_fast_timekeeper();
  0)   2.738 us    |                    update_fast_timekeeper();
  0) ! 117.147 us  |                  }
  0)               |                  _raw_spin_unlock_irqrestore() {
  0)   4.045 us    |                    _raw_write_unlock_irqrestore();
- 0) + 22.066 us   |                  }   
+ 0) + 22.066 us   |                  }
  0) ! 265.278 us  |                } /* update_wall_time */
 ....
 
