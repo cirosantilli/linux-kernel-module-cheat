@@ -1209,7 +1209,7 @@ Instead, we have only chip makers, who keep everything that really works closed,
 
 ....
 ./configure && ./build -a arm -g
-./rungem5 -a arm
+./run -a arm -g
 ....
 
 On another shell:
@@ -1218,31 +1218,31 @@ On another shell:
 ./rungem5-shell
 ....
 
-===== GEM5 Kernel command line arguments
+===== GEM5 kernel command line arguments
 
 E.g., to add `printk.time=y`, run:
 
 ....
-./rungem5 -a arm -- --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda printk.time=y'
+./run -a arm -e 'init=/poweroff.out' -g
 ....
 
-When you use `--command-line=`, it overrides default command lines, which are required to boot properly.
+Internals: when we give `--command-line=` to GEM5, it overrides default command lines, which are required to boot properly.
 
-So if you pass just `--command-line='printk.time=y'`, it removes the required options, and boot fails.
+So if you pass just `--command-line='printk.time=y'` for example, it removes the required options, and boot fails.
 
-An easy way to find the other options is to to an initial boot:
+Our run script hardcodes the require options in the default `--command-line` and appends extra options given by `-e`.
+
+The default options can be found found with:
 
 ....
-./rungem5 -a arm
+./run -a arm -g
 ....
 
-and then look at the line of the linux kernel that starts with
+and then look at the line of the linux kernel that starts with:
 
 ....
 Kernel command line:
 ....
-
-We might copy the default `--command-line` into our startup scripts to make things easier at some point, but it would be fun to debug when the defaults change upstream and we don't notice :-(
 
 ===== QEMU with GEM5 kernel configuration
 
@@ -1271,7 +1271,7 @@ Guest has not initialized the display (yet).
 Test it out with:
 
 ....
-./rungem5 -a arm
+./run -a arm -g
 ....
 
 TODO hangs at:
@@ -1302,7 +1302,7 @@ Analogous to QEMU's <<snapshot>>.
 Documentation: http://gem5.org/Checkpoints
 
 ....
-./rungem5 -a arm
+./rung -a arm -g
 ....
 
 In guest, wait for the boot to end and run:
@@ -1314,7 +1314,7 @@ In guest, wait for the boot to end and run:
 To restore the checkpoint, kill the VM and run:
 
 ....
-./rungem5 -a arm -- -r 1
+./rung -a arm -g -- -r 1
 ....
 
 Let's create a second checkpoint to see how it works, in guest:
@@ -1327,7 +1327,7 @@ date >f
 Kill the VM, and try it out:
 
 ....
-./rungem5 -a arm -- -r 2
+./run -a arm -g -- -r 2
 ....
 
 and now in the guest:
@@ -1343,6 +1343,10 @@ Internals:
 - the checkpoints are stored under `m5out/cpt.*`
 - `m5` is a guest utility present inside the GEM5 tree which we cross-compiled and installed into the guest
 
+===== GEM5 limitations
+
+* networking not working
+
 ==== GEM5 x86
 
 TODO didn't get it working yet.
@@ -1357,7 +1361,7 @@ Related threads:
 
 ....
 ./configure && ./build -a x86_64-gem5
-./rungem5 -a x86_64-gem5
+./run -a x86_64 -g
 ....
 
 telnet:

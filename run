@@ -13,9 +13,10 @@ nographic=false
 #   Turned on by default since v4.12
 extra_append='nokaslr norandmaps printk.devkmsg=on printk.time=y'
 extra_flags=''
+gem5=false
 initrd=false
 root=''
-while getopts a:de:iknqt:x OPT; do
+while getopts a:de:giknqt:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -33,6 +34,9 @@ while getopts a:de:iknqt:x OPT; do
       extra_flags="$extra_flags -serial tcp::1234,server,nowait"
       kgdb=true
       ;;
+    g)
+      gem5=true
+      ;;
     i)
       initrd=true
       ;;
@@ -49,9 +53,35 @@ done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
 
-buildroot_out_dir="./buildroot/output.${arch}~"
-images_dir="$buildroot_out_dir/images"
-qemu_common="\
+if $gem5; then
+  outdir="$(pwd)/buildroot/output.${arch}-gem5~"
+  gem5_dir="$(pwd)/gem5/gem5"
+  if [ "$arch" = x86_64 ]; then
+    cmd="\
+M5_PATH='$(pwd)/gem5/gem5-system' \
+'${gem5_dir}/build/X86/gem5.opt' \
+'${gem5_dir}/configs/example/fs.py' \
+--disk-image='${outdir}/images/rootfs.ext2' \
+--kernel='${outdir}/build/linux-custom/vmlinux' \
+--root-device=/dev/sda \
+"
+  elif [ "$arch" = arm ]; then
+    cmd="\
+M5_PATH='$(pwd)/gem5/gem5-system' \
+'${gem5_dir}/build/ARM/gem5.opt' \
+'${gem5_dir}/configs/example/fs.py' \
+--command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda $extra_append' \
+--disk-image='${outdir}/images/rootfs.ext2' \
+--dtb-file='${gem5_dir}/system/arm/dt/armv7_gem5_v1_1cpu.dtb' \
+--kernel='${outdir}/build/linux-custom/vmlinux' \
+--machine-type=VExpress_GEM5_V1 \
+"
+  fi
+  cmd="$cmd \"\$@\""
+else
+  buildroot_out_dir="./buildroot/output.${arch}~"
+  images_dir="$buildroot_out_dir/images"
+  qemu_common="\
 $debug_qemu \
 $buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -m 128M \
@@ -59,20 +89,20 @@ $buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -netdev user,hostfwd=tcp::45455-:45455,id=net0 \
 -smp 1 \
 "
-if $initrd; then
-  extra_flags="$extra_flags -initrd '${images_dir}/rootfs.cpio'"
-fi
-# The base QEMU commands are found under board/qemu/*/readme.tx
-case "$arch" in
-  x86_64)
-    if $kgdb; then
-      extra_append="$extra_append kgdboc=ttyS0,115200"
-    fi
-    if ! $initrd; then
-      root='root=/dev/vda'
-      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
-    fi
-    cmd="$qemu_common \
+  if $initrd; then
+    extra_flags="$extra_flags -initrd '${images_dir}/rootfs.cpio'"
+  fi
+  # The base QEMU commands are found under board/qemu/*/readme.tx
+  case "$arch" in
+    x86_64)
+      if $kgdb; then
+        extra_append="$extra_append kgdboc=ttyS0,115200"
+      fi
+      if ! $initrd; then
+        root='root=/dev/vda'
+        extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
+      fi
+      cmd="$qemu_common \
 -M pc \
 -append '$root nopat $extra_append' \
 -device edu \
@@ -81,16 +111,16 @@ case "$arch" in
 -kernel ${images_dir}/bzImage \
 $extra_flags \
 "
-  ;;
-  arm)
-    if $kgdb; then
-      extra_append="$extra_append kgdboc=ttyAMA0,115200"
-    fi
-    if ! $initrd; then
-      root='root=/dev/sda'
-      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
-    fi
-    cmd="$qemu_common \
+    ;;
+    arm)
+      if $kgdb; then
+        extra_append="$extra_append kgdboc=ttyAMA0,115200"
+      fi
+      if ! $initrd; then
+        root='root=/dev/sda'
+        extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
+      fi
+      cmd="$qemu_common \
 -M versatilepb \
 -append '$root $extra_append' \
 -device rtl8139,netdev=net0 \
@@ -99,12 +129,12 @@ $extra_flags \
 -serial stdio \
 $extra_flags \
 "
-  ;;
-  aarch64)
-    if $kgdb; then
-      extra_append="$extra_append kgdboc=ttyAMA0,115200"
-    fi
-    cmd="$qemu_common \
+    ;;
+    aarch64)
+      if $kgdb; then
+        extra_append="$extra_append kgdboc=ttyAMA0,115200"
+      fi
+      cmd="$qemu_common \
 -M virt \
 -append 'root=/dev/sda $extra_append' \
 -cpu cortex-a57 \
@@ -114,13 +144,13 @@ $extra_flags \
 -serial stdio \
 $extra_flags \
 "
-  ;;
-  mips64)
-    if ! $initrd; then
-      root='root=/dev/hda'
-      extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
-    fi
-    cmd="$qemu_common \
+    ;;
+    mips64)
+      if ! $initrd; then
+        root='root=/dev/hda'
+        extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
+      fi
+      cmd="$qemu_common \
 -M malta \
 -append 'root=/dev/hda $extra_append' \
 -cpu I6400 \
@@ -129,7 +159,10 @@ $extra_flags \
 -nographic \
 $extra_flags \
 "
-  ;;
-esac
+    ;;
+  esac
+fi
+
+
 echo "$cmd"
 eval "$cmd"
