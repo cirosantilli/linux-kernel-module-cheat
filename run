@@ -4,7 +4,7 @@ set -e
 
 # CLI handling.
 arch=x86_64
-debug_qemu=''
+debug_vm=''
 kgdb=false
 nographic=false
 # norandmaps: Don't use address space randomization. Equivalent to echo 0 > /proc/sys/kernel/randomize_va_space.
@@ -16,13 +16,16 @@ extra_flags=''
 gem5=false
 initrd=false
 root=''
-while getopts a:de:giknqt:x OPT; do
+while getopts a:Dde:giknt:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
       ;;
     d)
       extra_flags="$extra_flags -S -s"
+      ;;
+    D)
+      debug_vm='gdb -q -ex start --args'
       ;;
     e)
       extra_append="$extra_append $OPTARG"
@@ -45,9 +48,6 @@ while getopts a:de:giknqt:x OPT; do
       extra_flags="$extra_flags -nographic"
       nographic=true
       ;;
-    q)
-      debug_qemu='gdb -q -ex start --args'
-      ;;
   esac
 done
 shift "$(($OPTIND - 1))"
@@ -68,6 +68,7 @@ M5_PATH='$(pwd)/gem5/gem5-system' \
   elif [ "$arch" = arm ]; then
     cmd="\
 M5_PATH='$(pwd)/gem5/gem5-system' \
+$debug_vm \
 '${gem5_dir}/build/ARM/gem5.opt' \
 '${gem5_dir}/configs/example/fs.py' \
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 norandmaps rw loglevel=8 mem=512MB root=/dev/sda $extra_append' \
@@ -82,7 +83,7 @@ else
   buildroot_out_dir="./buildroot/output.${arch}~"
   images_dir="$buildroot_out_dir/images"
   qemu_common="\
-$debug_qemu \
+$debug_vm \
 $buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -m 128M \
 -monitor telnet::45454,server,nowait \
