@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+replay=false
+while getopts r OPT; do
+  case "$OPT" in
+    r)
+      replay=true
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+bench="$@"
+if "$replay"; then
+  ./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 resetstats;'"$bench"';m5 exit"' -g -- -r 1
+else
+  ./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;'"$bench"';m5 exit"' -g
+fi
+awk '/^system.cpu.numCycles /{ print $2 }' m5out/stats.txt

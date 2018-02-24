@@ -1533,23 +1533,23 @@ https://stackoverflow.com/questions/48944587/how-to-count-the-number-of-cpu-cloc
 Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildroot provides:
 
 ....
-./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 dumpstats;dhrystone 1000;m5 exit"' -g
-./gem5-cycles
+./gem5-bench dhrystone 1000
 ....
 
-`./gem5-cycles` outputs the approximate number of CPU cycles it took Dhrystone to run. A few possible problems are:
+This initial run generates a <<gem5-checkpoint,checkpoint>> after the kernel boots and before running the benchmark.
+
+Then we can speed up further benchmark runs by skipping the Linux kernel boot:
+
+....
+./gem5-bench -r dhrystone 1000
+....
+
+These commands output the approximate number of CPU cycles it took Dhrystone to run. A few possible problems are:
 
 * when we do `m5 dumpstats`, there is some time passed before the `exec` system call returns and the actual benchmark starts
 * the benchmark outputs to stdout, which means so extra cycles in addition to the actual computation. But TODO: how to get the output to check that it is correct without such IO cycles?
 
 Those problems should be insignificant if the benchmark runs for long enough however.
-
-We can then speed up further benchmark runs by skipping the Linux kernel boot:
-
-....
-./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 dumpstats;dhrystone 1000;m5 exit"' -g -- -r 1
-./gem5-cycles
-....
 
 TODO: the cycle counts on the original run and the one with checkpoint restore differ slightly. Why? Multiple checkpoint restores give the same results however.
 
@@ -1574,6 +1574,26 @@ Each time we run `m5 dumpstats`, a section with the following format is added to
 ....
 
 TODO: diff out all the stats, not just `system.cpu.numCycles`.
+
+====== Enable compiler optimizations
+
+If you are benchmarking compiled programs instead of hand written assembly, remember that we configure Buildroot to disable optimizations by default with:
+
+....
+BR2_OPTIMIZE_0=y
+....
+
+to improve the debugging experience.
+
+You will likely want to change that to:
+
+....
+BR2_OPTIMIZE_3=y
+....
+
+and do a full rebuild.
+
+TODO is it possible to compile a single package with optimizations enabled? In any case, this wouldn't be very representative, since calls to an unoptimized libc will also have an impact on performance. Kernel-wise it should be fine though, since the kernel requires `O=2`.
 
 ===== GEM5 kernel boot command line arguments
 
@@ -2230,6 +2250,19 @@ diff .config.olg .config
 ....
 
 Copy and paste the diff additions to `buildroot_config_fragment`.
+
+==== What is making my build so slow?
+
+....
+cd buildroot/output.x86_64~
+make graph-build
+xdg-open graphs/build.pie-packages.pdf
+....
+
+Our phylosophy is:
+
+* if something adds little to the build time, build it in by default
+* otherwise, make it optional
 
 === About
 
