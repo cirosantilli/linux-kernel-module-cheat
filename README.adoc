@@ -866,12 +866,20 @@ TODOs:
 
 * only managed to run in the terminal interface (but weirdly a blank QEMU window is still opened)
 * GDB not connecting to KGDB. Possibly linked to `-serial stdio`. See also: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
-* `/poweroff.out` does not exit QEMU, the terminal just hangs: https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve A blunt resolution is:
+* `/poweroff.out` does not exit QEMU nor GEM5, the terminal just hangs: https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve
++
+A blunt resolution for QEMU is on host:
 +
 ....
 pkill qemu
 ....
-* GDB step debugging of kernel modules broke at some point. This happens at 6420c31986e064c81561da8f2be0bd33483af598, 6b0f89a8b43e8d33d3a3a436ed827f962da3008a and 5ad68edd000685c016c45e344470f2c1867b8e39.
+* GDB step debugging of kernel modules broke at some point. This was noticed at 6420c31986e064c81561da8f2be0bd33483af598 and a likely candidate was the recent move to kernel v4.15, but this has to be bisected.
++
+On GEM5, it is possible to use the `m5` instrumentation from guest as a good workaround:
++
+....
+m5 exit
+....
 +
 Just afte GDB connects, we get the following message from the kernel GDB Python scripts:
 ....
@@ -1476,21 +1484,27 @@ GEM5 is a system simulator, much like QEMU: http://gem5.org/
 
 ==== GEM5 vs QEMU
 
-* advantage: simulates a generic more realistic pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
-** do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
-** make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
+* advantages of GEM5:
+** simulates a generic more realistic pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
+*** do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
+*** make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
 +
 It is not of course truly cycle accurate, as that would require exposing proprietary information of the CPU designs: https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850, but the approximation is reasonable.
 +
 It is used mostly for research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
-* disadvantage: slower than QEMU by TODO 10x?
+** runs are deterministic by default, unlike QEMU which has a special <<record-and-replay>> mode, that requires first playing the content once and then replaying
+* disadvantage of GEM5: slower than QEMU by TODO 10x?
 +
 This also implies that the user base is much smaller, since no Android devs.
 +
 Instead, we have only chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-) And this implies that:
 +
+--
 ** the documentation is more scarce
 ** it takes longer to support new hardware features
+--
++
+Well, not that AOSP is that much better anyways.
 * not sure: GEM5 has BSD license while QEMU has GPL
 +
 This suits chip makers that want to distribute forks with secret IP to their customers.
@@ -1509,6 +1523,57 @@ On another shell:
 ....
 ./gem5-shell
 ....
+
+===== GEM5 run benchmark
+
+OK, this is why we used GEM5 in the first place, performance measurements!
+
+https://stackoverflow.com/questions/48944587/how-to-count-the-number-of-cpu-clock-cycles-between-the-start-and-end-of-a-bench
+
+Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildroot provides:
+
+....
+./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 dumpstats;dhrystone 1000;m5 exit"' -g
+./gem5-cycles
+....
+
+`./gem5-cycles` outputs the approximate number of CPU cycles it took Dhrystone to run. A few possible problems are:
+
+* when we do `m5 dumpstats`, there is some time passed before the `exec` system call returns and the actual benchmark starts
+* the benchmark outputs to stdout, which means so extra cycles in addition to the actual computation. But TODO: how to get the output to check that it is correct without such IO cycles?
+
+Those problems should be insignificant if the benchmark runs for long enough however.
+
+We can then speed up further benchmark runs by skipping the Linux kernel boot:
+
+....
+./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 dumpstats;dhrystone 1000;m5 exit"' -g -- -r 1
+./gem5-cycles
+....
+
+TODO: the cycle counts on the original run and the one with checkpoint restore differ slightly. Why? Multiple checkpoint restores give the same results however.
+
+Now you can play a fun little game with your friends:
+
+* pick a computational problem
+* make a program that solves the computation problem, and outputs output to stdout
+* write the code that runs the correct computation in the smallest number of cycles possible
+
+To find out why your program is slow, a good first step is to have a look at the statistics for the run:
+
+....
+cat m5out/stats.txt
+....
+
+Each time we run `m5 dumpstats`, a section with the following format is added to that file:
+
+....
+---------- Begin Simulation Statistics ----------
+[the stats]
+---------- End Simulation Statistics   ----------
+....
+
+TODO: diff out all the stats, not just `system.cpu.numCycles`.
 
 ===== GEM5 kernel boot command line arguments
 
@@ -1564,6 +1629,54 @@ On a third shell:
 And we now see the boot messages, and then get a shell. Now try the `/continue.sh` procedure described for QEMU.
 
 TODO: how to stop at `start_kernel`? GEM5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used?
+
+===== GEM5 checkpoint
+
+Analogous to QEMU's <<snapshot>>, but better since it can be started from inside the guest, so we can easily checkpoint after a specific guest event, e.g. just before `init` is done.
+
+Documentation: http://gem5.org/Checkpoints
+
+....
+./rung -a arm -g
+....
+
+In guest, wait for the boot to end and run:
+
+....
+m5 checkpoint
+....
+
+To restore the checkpoint, kill the VM and run:
+
+....
+./rung -a arm -g -- -r 1
+....
+
+Let's create a second checkpoint to see how it works, in guest:
+
+....
+date >f
+m5 checkpoint
+....
+
+Kill the VM, and try it out:
+
+....
+./run -a arm -g -- -r 2
+....
+
+and now in the guest:
+
+....
+cat f
+....
+
+contains the `date`. The file `f` wouldn't exist had we used the first checkpoint with `-r 1`.
+
+Internals:
+
+* the checkpoints are stored under `m5out/cpt.*`
+* `m5` is a guest utility present inside the GEM5 tree which we cross-compiled and installed into the guest
 
 ===== QEMU and GEM5 with the same kernel configuration
 
@@ -1622,57 +1735,10 @@ Escape character is '^]'.
 
 I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
 
-===== GEM5 checkpoint
-
-Analogous to QEMU's <<snapshot>>, but better since it can be started from inside the guest, so we can easily checkpoint after a specific guest event, e.g. just before `init` is done.
-
-Documentation: http://gem5.org/Checkpoints
-
-....
-./rung -a arm -g
-....
-
-In guest, wait for the boot to end and run:
-
-....
-/m5 checkpoint
-....
-
-To restore the checkpoint, kill the VM and run:
-
-....
-./rung -a arm -g -- -r 1
-....
-
-Let's create a second checkpoint to see how it works, in guest:
-
-....
-date >f
-/m5 checkpoint
-....
-
-Kill the VM, and try it out:
-
-....
-./run -a arm -g -- -r 2
-....
-
-and now in the guest:
-
-....
-cat f
-....
-
-contains the `date`. The file `f` wouldn't exist had we used the first checkpoint with `-r 1`.
-
-Internals:
-
-- the checkpoints are stored under `m5out/cpt.*`
-- `m5` is a guest utility present inside the GEM5 tree which we cross-compiled and installed into the guest
-
 ===== GEM5 limitations
 
 * networking not working
+* `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
 
 ==== GEM5 aarch64
 

@@ -19,7 +19,7 @@ define GEM5_BUILD_CMDS
 endef
 
 define GEM5_INSTALL_TARGET_CMDS
-	$(INSTALL) -D -m 0755 '$(@D)/gem5/util/m5/m5' '$(TARGET_DIR)'
+	$(INSTALL) -D -m 0755 '$(@D)/gem5/util/m5/m5' '$(TARGET_DIR)/usr/bin'
 endef
 
 $(eval $(generic-package))
