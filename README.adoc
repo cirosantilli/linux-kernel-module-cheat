@@ -312,7 +312,7 @@ or on host:
 cat buildroot/output.*~/build/linux-custom/.config
 ....
 
-==== Kernel boot command line arguments
+==== Kernel command line parameters
 
 Bootloaders can pass a string as input to the Linux kernel when it is booting to control its behaviour, much like the `execve` system call does to userland processes.
 
@@ -952,7 +952,7 @@ TODOs:
 
 When the Linux kernel finishes booting, it runs an executable as the first and only userland process.
 
-The default path is `/init`, but we an set a custom one with the `init=` <<kernel-boot-command-line-arguments,kernel boot command line option>>.
+The default path is `/init`, but we an set a custom one with the `init=` <<kernel-command-line-parameters,kernel command line parameter>>.
 
 This process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
 
@@ -1493,9 +1493,9 @@ It is not of course truly cycle accurate, as that would require exposing proprie
 +
 It is used mostly for research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
 ** runs are deterministic by default, unlike QEMU which has a special <<record-and-replay>> mode, that requires first playing the content once and then replaying
-* disadvantage of GEM5: slower than QEMU by TODO 10x?
+* disadvantage of GEM5: slower than QEMU, see: <<gem5-vs-qemu-performance>>
 +
-This also implies that the user base is much smaller, since no Android devs.
+This implies that the user base is much smaller, since no Android devs.
 +
 Instead, we have only chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-) And this implies that:
 +
@@ -1510,6 +1510,34 @@ Well, not that AOSP is that much better anyways.
 This suits chip makers that want to distribute forks with secret IP to their customers.
 +
 On the other hand, the chip makers tend to upstream less, and the project becomes more crappy in average :-)
+
+===== GEM5 vs QEMU performance
+
+We have benchmarked a Linux kernel boot with:
+
+....
+# Try to manually hit Ctrl + C as soon as system shutdown message appears.
+time ./run -a arm -e 'init=/poweroff.out'
+time ./run -a arm -e 'm5 exit' -g
+time ./run -a arm -e 'm5 exit' -g -- --caches --cpu-type=HPI
+....
+
+and the results were:
+
+[options="header"]
+|===
+|Emulator |Time |N times slower than QEMU
+|QEMU |6 seconds |1
+|GEM5 AtomicSimpleCPU |1 minute 40 seconds| 17
+|GEM5 HPI |10 minutes |100
+|===
+
+on a Lenovo P51 laptop with:
+
+* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
+* 32GB(16+16) DDR4 2400MHz SODIMM
+* 512GB SSD PCIe TLC OPAL2
+* Ubuntu 17.10
 
 ==== GEM5 ARM
 
@@ -1534,24 +1562,29 @@ Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildro
 
 ....
 ./gem5-bench dhrystone 1000
-....
-
-This initial run generates a <<gem5-checkpoint,checkpoint>> after the kernel boots and before running the benchmark.
-
-Then we can speed up further benchmark runs by skipping the Linux kernel boot:
-
-....
 ./gem5-bench -r dhrystone 1000
 ....
 
-These commands output the approximate number of CPU cycles it took Dhrystone to run. A few possible problems are:
+These commands output the approximate number of CPU cycles it took Dhrystone to run, you should be more interested in the
 
-* when we do `m5 dumpstats`, there is some time passed before the `exec` system call returns and the actual benchmark starts
+It works like this:
+
+* the first commond boots linux with the default simplified `AtomicSimpleCPU`, and generates a <<gem5-checkpoint,checkpoint>> after the kernel boots and before running the benchmark
+* the second command restores the checkpoint with the more detailed `HPI` CPU model, and runs the benchmark. We don't boot with it because that is much slower.
+
+A few imperfections of our benchmarking method are:
+
+* when we do `m5 resetstats` and `m5 exit`, there is some time passed before the `exec` system call returns and the actual benchmark starts and ends
 * the benchmark outputs to stdout, which means so extra cycles in addition to the actual computation. But TODO: how to get the output to check that it is correct without such IO cycles?
 
 Those problems should be insignificant if the benchmark runs for long enough however.
 
-TODO: the cycle counts on the original run and the one with checkpoint restore differ slightly. Why? Multiple checkpoint restores give the same results however.
+TODO: even if we don't switch to the detailed CPU model, the cycle counts on the original run and the one with checkpoint restore differ slightly. Why? Multiple checkpoint restores give the same results as expected however:
+
+....
+./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit"' -g
+./run -a arm -g -- -r 1
+....
 
 Now you can play a fun little game with your friends:
 
@@ -1565,15 +1598,13 @@ To find out why your program is slow, a good first step is to have a look at the
 cat m5out/stats.txt
 ....
 
-Each time we run `m5 dumpstats`, a section with the following format is added to that file:
+Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
 
 ....
 ---------- Begin Simulation Statistics ----------
 [the stats]
 ---------- End Simulation Statistics   ----------
 ....
-
-TODO: diff out all the stats, not just `system.cpu.numCycles`.
 
 ====== Enable compiler optimizations
 
@@ -1595,9 +1626,34 @@ and do a full rebuild.
 
 TODO is it possible to compile a single package with optimizations enabled? In any case, this wouldn't be very representative, since calls to an unoptimized libc will also have an impact on performance. Kernel-wise it should be fine though, since the kernel requires `O=2`.
 
-===== GEM5 kernel boot command line arguments
+====== Interesting benchmarks
 
-Analogous <<kernel-boot-command-line-arguments,to QEMU>>:
+Buildroot built-in libraries, mostly under Libraries > Other:
+
+* Armadillo `C++`: linear algebra
+* CBLAS / CLAPACK: linear algebra
+* fftw: Fourier transform
+* Eigen: linear algebra
+* Flann
+* GSL: various
+* liblinear
+* libspacialindex
+* libtommath
+* qhull
+
+There are not yet enabled, but it should be easy to so:
+
+* enable them in link::buildroot_config_fragment[] and rebuild
+* create a test program that uses each library under link::kernel_module/user[]
+
+External open source benchmarks. We will try to create Buildroot packages for them, add them to this repo, and potentially upstream:
+
+* http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
+* http://www.m5sim.org/Splash_benchmarks
+
+===== GEM5 kernel command line parameters
+
+Analogous <<kernel-command-line-parameters,to QEMU>>:
 
 ....
 ./run -a arm -e 'init=/poweroff.out' -g
@@ -1697,6 +1753,67 @@ Internals:
 
 * the checkpoints are stored under `m5out/cpt.*`
 * `m5` is a guest utility present inside the GEM5 tree which we cross-compiled and installed into the guest
+
+If you automate things with <<kernel-command-line-parameters>> as in:
+
+....
+./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit"' -g
+....
+
+Then there is no need to pass the kernel command line again to GEM5 for replay:
+
+....
+./run -a arm -g -- -r 1
+....
+
+since boot has already happened, and the parameters are already in the RAM of the snapshot.
+
+====== GEM5 restore checkpoint with a different CPU
+
+GEM5 can switch to a different CPU model when restoring a checkpoint.
+
+A common combo is to boot Linux with a fast CPU, make a checkpoint and then replay the benchmark of interest with a slower CPU.
+
+An illustrative interactive run:
+
+....
+./run -a arm -g
+....
+
+In guest:
+
+....
+m5 checkpoint
+....
+
+And then restore the checkpoint with a different CPU:
+
+....
+./run -a arm -g -- --caches -r 1 --restore-with-cpu=HPI
+....
+
+===== Pass extra options to GEM5
+
+Pass options to the `fs.py` script:
+
+* get help:
++
+....
+./run -g -- -h
+....
+* boot with the more detailed and slow `HPI` CPU model:
++
+....
+./run -a arm -g -- --caches --cpu-type=HPI
+....
+
+Pass options to the `gem5` executable itself:
+
+* get help:
++
+....
+./run -G '-h' -g
+....
 
 ===== QEMU and GEM5 with the same kernel configuration
 

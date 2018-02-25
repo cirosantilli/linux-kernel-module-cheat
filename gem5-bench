@@ -9,9 +9,11 @@ while getopts r OPT; do
 done
 shift "$(($OPTIND - 1))"
 bench="$@"
+statfile=m5out/stats.txt
 if "$replay"; then
-  ./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 resetstats;'"$bench"';m5 exit"' -g -- -r 1
+  ./run -a arm -g -- --caches -r 1 --restore-with-cpu=HPI
+  awk '/^system.switch_cpus.numCycles /{ print $2 }' "$statfile"
 else
   ./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;'"$bench"';m5 exit"' -g
+  awk '/^system.cpu.numCycles /{ print $2 }' "$statfile"
 fi
-awk '/^system.cpu.numCycles /{ print $2 }' m5out/stats.txt
