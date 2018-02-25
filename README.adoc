@@ -1663,6 +1663,8 @@ External open source benchmarks. We will try to create Buildroot packages for th
 
 Besides optimizing a program for a given CPU setup, chip developers can also do the inverse, and optimize the chip for a given benchmark!
 
+The rabbit hole is likely deep, but let's scratch a bit of the surface.
+
 * Number of CPUs:
 +
 ....
@@ -1678,7 +1680,8 @@ getconf _NPROCESSORS_CONF
 * Cache sizes:
 +
 ....
-./run -a arm -c 2 -g -- --caches --l2cache
+./run -a arm    -c 2 -g -- --caches --l2cache
+./run -a x86_64      -g -- --caches --l2cache --l2_size=$((1024*1024))
 ....
 +
 Check with:
@@ -1693,18 +1696,44 @@ Checking `level` is needed, for example `level0` and `level1` represented the sa
 +
 TODO: check not working. `/sys` files don't exist, and `getconf` values empty. Ticket inbound. Related:
 ** http://gem5-users.gem5.narkive.com/4xVBlf3c/verify-cache-configuration
-* Memory latency: TODO
-* Disk and network latency: TODO
-* Clock frequency: TODO. Check with:
-
+* Memory latency: TODO These look promising:
++
+....
+--list-mem-types
+--mem-type=MEM_TYPE
+--mem-channels=MEM_CHANNELS
+--mem-ranks=MEM_RANKS
+--mem-size=MEM_SIZE
+....
+* Disk and network latency: TODO These look promising:
++
+....
+--ethernet-linkspeed
+--ethernet-linkdelay
+....
++
+and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
+* Clock frequency: TODO how does it affect performance in benchmarks?
++
+....
+./run -a arm -g -- --cpu-clock 10000000
+....
++
+Check with:
++
 ....
 m5 resetstats && sleep 10 && m5 dumpstats
 ....
-
++
 and then:
-
++
 ....
 grep numCycles m5out/stats.txt
+....
++
+TODO: why doesn't this exist:
+....
+ls /sys/devices/system/cpu/cpu0/cpufreq
 ....
 
 ===== GEM5 kernel command line parameters
