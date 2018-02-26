@@ -1517,7 +1517,7 @@ On the other hand, the chip makers tend to upstream less, and the project become
 
 ===== GEM5 vs QEMU performance
 
-We have benchmarked a Linux kernel boot with:
+We have benchmarked a Linux kernel boot at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the commands:
 
 ....
 # Try to manually hit Ctrl + C as soon as system shutdown message appears.
@@ -1679,35 +1679,56 @@ Check with:
 cat /proc/cpuinfo
 getconf _NPROCESSORS_CONF
 ....
-* Cache sizes:
-+
-....
-./run -a arm    -c 2 -g -- --caches --l2cache
-./run -a x86_64      -g -- --caches --l2cache --l2_size=$((1024*1024))
-....
-+
-Check with:
+* Cache can in theory be checked with either of:
 +
 ....
 getconf -a | grep CACHE
+lscpu
 cat /sys/devices/system/cpu/cpu0/cache/index2/level
 cat /sys/devices/system/cpu/cpu0/cache/index2/size
 ....
 +
 Checking `level` is needed, for example `level0` and `level1` represented the same level on Linux 4.15.
 +
-TODO: check not working. Breakdown:
+But TODO: those not working. Breakdown:
 +
 --
-** arm QEMU and GEM5, x86 GEM5: `/sys` files don't exist, and `getconf` values empty
+** arm QEMU and GEM5 (both `SimpleAtomic` or `HPI`), x86 GEM5: `/sys` files don't exist, and `getconf` values empty
 ** x86 QEMU: `/sys` files exist, but `getconf` values still empty
 --
 +
-We can also try to check simply by verifying if benchmarks are getting sped up by larger caches.
+However, we can do observe differences for certain setups, so it is also a matter of not communicating the caches sizes to the Linux kernel. Test command:
++
+....
+m5 resetstats && dhrystone 10000 && m5 dumpstats
+....
++
+GEM5 commands and cycle counts at commit da79d6c6cde0fbe5473ce868c9be4771160a003b:
++
+....
+# 11M
+./run -a arm -g
+./run -a arm -g -- --caches --l2cache
+
+# 17-18M
+./run -a arm -g -- --caches --cpu-type=HPI --l2cache --l2_size=2MB
+
+# 43M
+./run -a arm -g -- --caches --cpu-type=HPI --l1d_size=1024 --l2cache --l2_size=1024 --l3_size=1024
+
+# 20M
+./run -a x86_64 -g -- --caches --l1d_size=1024 --l2cache --l2_size=1024 --l3_size=1024
+./run -a x86_64 -g -- --caches --l1d_size=1024MB --l2cache --l2_size=1024MB --l3_size=1024MB
+....
++
+From those results, we see that caches are effectively used in `HPI`, even though they don't show up correctly on the Linux kernel.
++
+Other setups simply ignore the caches. TODO: find a setup that uses caches on x86.
 +
 Related:
 +
 ** http://gem5-users.gem5.narkive.com/4xVBlf3c/verify-cache-configuration
+** https://www.quora.com/How-do-I-simulate-multi-level-caches-in-x86-architecture-using-Gem5-simulator
 * Memory latency: TODO These look promising:
 +
 ....
@@ -1717,6 +1738,8 @@ Related:
 --mem-ranks=MEM_RANKS
 --mem-size=MEM_SIZE
 ....
++
+TODO: now to verify this with the Linux kernel? Besides raw performance benchmarks.
 * Disk and network latency: TODO These look promising:
 +
 ....
