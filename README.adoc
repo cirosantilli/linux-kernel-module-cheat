@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.15 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. Limited GEM5 full system support. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
+Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.15 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. Limited gem5 full system support. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
 
 toc::[]
 
@@ -30,7 +30,7 @@ The first build will take a while (https://stackoverflow.com/questions/10833672/
 * 2 hours on a mid end 2012 laptop
 * 30 minutes on a high end 2017 desktop
 
-If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on the link:run-on-host.md["Run on host" section], but as explained on that section, that is dangerous, limited, and will likely not work.
+If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
 
 After QEMU opens up, you can start playing with the kernel modules:
 
@@ -866,7 +866,7 @@ TODOs:
 
 * only managed to run in the terminal interface (but weirdly a blank QEMU window is still opened)
 * GDB not connecting to KGDB. Possibly linked to `-serial stdio`. See also: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
-* `/poweroff.out` does not exit QEMU nor GEM5, the terminal just hangs: https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve
+* `/poweroff.out` does not exit QEMU nor gem5, the terminal just hangs: https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve
 +
 A blunt resolution for QEMU is on host:
 +
@@ -874,7 +874,7 @@ A blunt resolution for QEMU is on host:
 pkill qemu
 ....
 +
-On GEM5, it is possible to use the `m5` instrumentation from guest as a good workaround:
+On gem5, it is possible to use the `m5` instrumentation from guest as a good workaround:
 +
 ....
 m5 exit
@@ -1478,26 +1478,26 @@ And the output is `0`.
 
 Our setup does not allow for snapshotting while using <<initrd>>.
 
-=== GEM5
+=== gem5
 
-GEM5 is a system simulator, much like QEMU: http://gem5.org/
+gem5 is a system simulator, much like QEMU: http://gem5.org/
 
-==== GEM5 vs QEMU
+==== gem5 vs QEMU
 
-* advantages of GEM5:
+* advantages of gem5:
 ** simulates a generic more realistic pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
 *** do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
 *** make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
 +
 It is not of course truly cycle accurate, as that
-** would require exposing proprietary information of the CPU designs: link::https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850[]
+** would require exposing proprietary information of the CPU designs: link:https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850[]
 ** would make the simulation even slower TODO confirm, by how much
 +
 but the approximation is reasonable.
 +
 It is used mostly for microarchitecture research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
 ** runs are deterministic by default, unlike QEMU which has a special <<record-and-replay>> mode, that requires first playing the content once and then replaying
-* disadvantage of GEM5: slower than QEMU, see: <<gem5-vs-qemu-performance>>
+* disadvantage of gem5: slower than QEMU, see: <<gem5-vs-qemu-performance>>
 +
 This implies that the user base is much smaller, since no Android devs.
 +
@@ -1509,13 +1509,13 @@ Instead, we have only chip makers, who keep everything that really works closed,
 --
 +
 Well, not that AOSP is that much better anyways.
-* not sure: GEM5 has BSD license while QEMU has GPL
+* not sure: gem5 has BSD license while QEMU has GPL
 +
 This suits chip makers that want to distribute forks with secret IP to their customers.
 +
 On the other hand, the chip makers tend to upstream less, and the project becomes more crappy in average :-)
 
-===== GEM5 vs QEMU performance
+===== gem5 vs QEMU performance
 
 We have benchmarked a Linux kernel boot at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the commands:
 
@@ -1535,11 +1535,11 @@ and the results were:
 |===
 |Emulator |Time |N times slower than QEMU
 |QEMU ARM |6 seconds |1
-|GEM5 ARM AtomicSimpleCPU |1 minute 40 seconds| 17
-|GEM5 ARM HPI |10 minutes |100
+|gem5 ARM AtomicSimpleCPU |1 minute 40 seconds| 17
+|gem5 ARM HPI |10 minutes |100
 |QEMU X86_64 |4 seconds |1
 |QEMU X86_64 KVM |2 seconds |0.5
-|GEM5 X86_64 |5 minutes 30 seconds| 82
+|gem5 X86_64 |5 minutes 30 seconds| 82
 |===
 
 on a Lenovo P51 laptop with:
@@ -1549,7 +1549,9 @@ on a Lenovo P51 laptop with:
 * 512GB SSD PCIe TLC OPAL2
 * Ubuntu 17.10
 
-==== GEM5 ARM
+==== gem5 ARM
+
+For the most part, just add the `-g` option to the QEMU commands:
 
 ....
 ./configure && ./build -a arm -g
@@ -1562,9 +1564,9 @@ On another shell:
 ./gem5-shell
 ....
 
-===== GEM5 run benchmark
+===== gem5 run benchmark
 
-OK, this is why we used GEM5 in the first place, performance measurements!
+OK, this is why we used gem5 in the first place, performance measurements!
 
 https://stackoverflow.com/questions/48944587/how-to-count-the-number-of-cpu-clock-cycles-between-the-start-and-end-of-a-bench
 
@@ -1653,15 +1655,15 @@ Buildroot built-in libraries, mostly under Libraries > Other:
 
 There are not yet enabled, but it should be easy to so:
 
-* enable them in link::buildroot_config_fragment[] and rebuild
-* create a test program that uses each library under link::kernel_module/user[]
+* enable them in link:buildroot_config_fragment[] and rebuild
+* create a test program that uses each library under link:kernel_module/user[]
 
 External open source benchmarks. We will try to create Buildroot packages for them, add them to this repo, and potentially upstream:
 
 * http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
 * http://www.m5sim.org/Splash_benchmarks
 
-====== GEM5 change system parameters
+====== gem5 change system parameters
 
 Besides optimizing a program for a given CPU setup, chip developers can also do the inverse, and optimize the chip for a given benchmark!
 
@@ -1679,31 +1681,35 @@ Check with:
 cat /proc/cpuinfo
 getconf _NPROCESSORS_CONF
 ....
-* Cache can in theory be checked with either of:
+* Cache size:
 +
 ....
-getconf -a | grep CACHE
-lscpu
-cat /sys/devices/system/cpu/cpu0/cache/index2/level
-cat /sys/devices/system/cpu/cpu0/cache/index2/size
+--caches
+--l1d_size=1024
+--l1i_size=1024
+--l2cache
+--l2_size=1024
+--l3_size=1024
 ....
 +
-Checking `level` is needed, for example `level0` and `level1` represented the same level on Linux 4.15.
+But keep in mind that it only affects benchmark performance of the most detailed CPU types:
 +
-But TODO: those not working. Breakdown:
+[options="header"]
+|===
+|arch |CPU type |caches used
+|X86 |`AtomicSimpleCPU` | no
+|X86 |`DerivO3CPU` | ?
+|ARM |`AtomicSimpleCPU` | no
+|ARM |`HPI` | yes
+|===
 +
---
-** arm QEMU and GEM5 (both `SimpleAtomic` or `HPI`), x86 GEM5: `/sys` files don't exist, and `getconf` values empty
-** x86 QEMU: `/sys` files exist, but `getconf` values still empty
---
-+
-However, we can do observe differences for certain setups, so it is also a matter of not communicating the caches sizes to the Linux kernel. Test command:
+This has been verified with:
 +
 ....
 m5 resetstats && dhrystone 10000 && m5 dumpstats
 ....
 +
-GEM5 commands and cycle counts at commit da79d6c6cde0fbe5473ce868c9be4771160a003b:
+at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the following gem5 commands cycle counts:
 +
 ....
 # 11M
@@ -1719,20 +1725,31 @@ GEM5 commands and cycle counts at commit da79d6c6cde0fbe5473ce868c9be4771160a003
 # 20M
 ./run -a x86_64 -g -- --caches --l1d_size=1024 --l2cache --l2_size=1024 --l3_size=1024
 ./run -a x86_64 -g -- --caches --l1d_size=1024MB --l2cache --l2_size=1024MB --l3_size=1024MB
-
-# TODO
-./run -a x86_64 -g -- --caches --cpu-type=DerivO3CPU --l1d_size=1024 --l2cache --l2_size=1024 --l3_size=1024
-./run -a x86_64 -g -- --caches --cpu-type=DerivO3CPU --l1d_size=1024MB --l2cache --l2_size=1024MB --l3_size=1024MB
 ....
 +
-From those results, we see that caches are effectively used in `HPI`, even though they don't show up correctly on the Linux kernel.
+Cache sizes can in theory be checked with the methods described at: link:https://superuser.com/questions/55776/finding-l2-cache-size-in-linux[]:
 +
-Other setups simply ignore the caches. TODO: find a setup that uses caches on x86.
+....
+getconf -a | grep CACHE
+lscpu
+cat /sys/devices/system/cpu/cpu0/cache/index2/level
+cat /sys/devices/system/cpu/cpu0/cache/index2/size
+....
 +
-Related:
+but for some reason the Linux kernel is not seeing the cache sizes:
 +
 ** http://gem5-users.gem5.narkive.com/4xVBlf3c/verify-cache-configuration
-** https://www.quora.com/How-do-I-simulate-multi-level-caches-in-x86-architecture-using-Gem5-simulator
+**
++
+Checking `level` is needed, for example `level0` and `level1` represented the same level on Linux 4.15.
++
+Behaviour breakdown:
++
+--
+** arm QEMU and gem5 (both `AtomicSimpleCPU` or `HPI`), x86 gem5: `/sys` files don't exist, and `getconf` values empty
+** x86 QEMU: `/sys` files exist, but `getconf` values still empty
+--
++
 * Memory latency: TODO These look promising:
 +
 ....
@@ -1776,7 +1793,7 @@ TODO: why doesn't this exist:
 ls /sys/devices/system/cpu/cpu0/cpufreq
 ....
 
-===== GEM5 kernel command line parameters
+===== gem5 kernel command line parameters
 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
@@ -1784,7 +1801,7 @@ Analogous <<kernel-command-line-parameters,to QEMU>>:
 ./run -a arm -e 'init=/poweroff.out' -g
 ....
 
-Internals: when we give `--command-line=` to GEM5, it overrides default command lines, including some mandatory ones which are required to boot properly.
+Internals: when we give `--command-line=` to gem5, it overrides default command lines, including some mandatory ones which are required to boot properly.
 
 Our run script hardcodes the require options in the default `--command-line` and appends extra options given by `-e`.
 
@@ -1801,7 +1818,7 @@ Kernel command line:
 ....
 
 [[gem5-gdb]]
-===== GEM5 GDB step debugging
+===== gem5 GDB step debugging
 
 Analogous <<gdb,to QEMU>>, on the first shell:
 
@@ -1829,9 +1846,9 @@ On a third shell:
 
 And we now see the boot messages, and then get a shell. Now try the `/continue.sh` procedure described for QEMU.
 
-TODO: how to stop at `start_kernel`? GEM5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used?
+TODO: how to stop at `start_kernel`? gem5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used?
 
-===== GEM5 checkpoint
+===== gem5 checkpoint
 
 Analogous to QEMU's <<snapshot>>, but better since it can be started from inside the guest, so we can easily checkpoint after a specific guest event, e.g. just before `init` is done.
 
@@ -1877,7 +1894,7 @@ contains the `date`. The file `f` wouldn't exist had we used the first checkpoin
 Internals:
 
 * the checkpoints are stored under `m5out/cpt.*`
-* `m5` is a guest utility present inside the GEM5 tree which we cross-compiled and installed into the guest
+* `m5` is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
 
 If you automate things with <<kernel-command-line-parameters>> as in:
 
@@ -1885,7 +1902,7 @@ If you automate things with <<kernel-command-line-parameters>> as in:
 ./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit"' -g
 ....
 
-Then there is no need to pass the kernel command line again to GEM5 for replay:
+Then there is no need to pass the kernel command line again to gem5 for replay:
 
 ....
 ./run -a arm -g -- -r 1
@@ -1893,9 +1910,9 @@ Then there is no need to pass the kernel command line again to GEM5 for replay:
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
 
-====== GEM5 restore checkpoint with a different CPU
+====== gem5 restore checkpoint with a different CPU
 
-GEM5 can switch to a different CPU model when restoring a checkpoint.
+gem5 can switch to a different CPU model when restoring a checkpoint.
 
 A common combo is to boot Linux with a fast CPU, make a checkpoint and then replay the benchmark of interest with a slower CPU.
 
@@ -1917,7 +1934,7 @@ And then restore the checkpoint with a different CPU:
 ./run -a arm -g -- --caches -r 1 --restore-with-cpu=HPI
 ....
 
-===== Pass extra options to GEM5
+===== Pass extra options to gem5
 
 Pass options to the `fs.py` script:
 
@@ -1940,9 +1957,9 @@ Pass options to the `gem5` executable itself:
 ./run -G '-h' -g
 ....
 
-===== Run multiple GEM5 instances at once
+===== Run multiple gem5 instances at once
 
-GEM5 just assigns new ports if some ports are occupied, so we can do:
+gem5 just assigns new ports if some ports are occupied, so we can do:
 
 ....
 ./run -g
@@ -1959,15 +1976,15 @@ And a second instance:
 
 TODO Now we just need to network them up to have some more fun!
 
-===== QEMU and GEM5 with the same kernel configuration
+===== QEMU and gem5 with the same kernel configuration
 
-We would like to be able to run both GEM5 and QEMU with the same kernel build to avoid duplication, but TODO we haven't been able to get that working yet.
+We would like to be able to run both gem5 and QEMU with the same kernel build to avoid duplication, but TODO we haven't been able to get that working yet.
 
 This documents our failed attempts so far.
 
 As a result, we currently have to create two full `buildroot/output*` directories, which means two full GCC builds.
 
-====== QEMU with GEM5 kernel configuration
+====== QEMU with gem5 kernel configuration
 
 To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
 
@@ -1987,7 +2004,7 @@ and the display shows:
 Guest has not initialized the display (yet).
 ....
 
-====== GEM5 with QEMU kernel configuration
+====== gem5 with QEMU kernel configuration
 
 Test it out with:
 
@@ -2016,19 +2033,19 @@ Escape character is '^]'.
 
 I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
 
-===== GEM5 limitations
+===== gem5 limitations
 
-* networking not working
+* networking not working. We currently just disable it from `inittab` by default to prevent waiting at startup
 * `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
 
-==== GEM5 aarch64
+==== gem5 aarch64
 
 ....
 ./configure && ./build -a aarch64 -g
 ./run -a aarch64 -g
 ....
 
-==== GEM5 x86
+==== gem5 x86
 
 ....
 ./configure && ./build -a x86_64 -g
@@ -2322,7 +2339,7 @@ Our phylosophy is:
 This project is for people who want to learn and modify low level system components:
 
 * Linux kernel and Linux kernel modules
-* full systems emulators like QEMU and GEM5
+* full systems emulators like QEMU and gem5
 * C standard libraries. This could also be put on a submodule if people show interest.
 * Buildroot. We use and therefore a large feature set of it.
 
