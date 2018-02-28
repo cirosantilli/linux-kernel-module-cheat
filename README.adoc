@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.15 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. Limited gem5 full system support. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
+Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.15 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
 
 toc::[]
 
@@ -488,7 +488,7 @@ TODO: why does `break work_func` for `insmod kthread.ko` not break the first tim
 
 See also: http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-modules-with-qemu/44095831#44095831
 
-==== Bypassing lx-symbols
+==== Bypass lx-symbols
 
 Useless, but a good way to show how hardcore you are. From inside QEMU:
 
@@ -839,13 +839,11 @@ continue
 
 This is of least reliable setup as there might be other processes that use the given virtual address.
 
-== Other architectures
+== Architecture
 
 The portability of the kernel and toolchains is amazing: change an option and most things magically work on completely different hardware.
 
-=== arm
-
-First build:
+To use `arm` instead of x86 for example:
 
 ....
 ./build -a arm
@@ -859,6 +857,10 @@ Debug:
 # On another terminal.
 ./rungdb -a arm
 ....
+
+Known quirks of the supported architectures are documented in this section.
+
+=== arm
 
 TODOs:
 
@@ -899,10 +901,6 @@ and then after inserting the module, symbols are not found, presumably because `
 
 === aarch64
 
-....
-./build -a aarch64
-....
-
 As usual, we use Buildroot's recommended QEMU setup QEMU `aarch64` setup:
 
 * https://github.com/buildroot/buildroot/blob/2017.08/board/qemu/aarch64-virt/readme.txt
@@ -931,10 +929,6 @@ no module object found for ''
 ....
 
 === mips64
-
-....
-./build -a mips64
-....
 
 Keep in mind that MIPS has the worst support compared to our other architectures due to the smaller community. Patches welcome as usual.
 
@@ -1478,14 +1472,37 @@ Our setup does not allow for snapshotting while using <<initrd>>.
 
 == gem5
 
-gem5 is a system simulator, much like QEMU: http://gem5.org/
+gem5 is a system simulator, much <<gem5-vs-qemu,like QEMU>>: http://gem5.org/
+
+For the most part, just add the `-g` option to the QEMU commands and everything should magically work:
+
+....
+./configure && ./build -a arm -g
+./run -a arm -g
+....
+
+On another shell:
+
+....
+./gem5-shell
+....
+
+A full rebuild is currently needed even if you already have QEMU working unfortunately, see: <<gem5-and-qemu-with-the-same-kernel-configuration>>
+
+Tested architectures:
+
+* `arm`
+* `aarch64`
+* `x86_64`
 
 === gem5 vs QEMU
 
 * advantages of gem5:
 ** simulates a generic more realistic pipelined and optionally out of order CPU cycle by cycle, including a realistic DRAM memory access model with latencies, caches and page table manipulations. This allows us to:
 *** do much more realistic performance benchmarking with it, which makes absolutely no sense in QEMU, which is purely functional
-*** make functional cache observations, e.g. to use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
+*** make certain functional cache observations that are not possible in QEMU, e.g.:
+**** use Linux kernel APIs that flush memory like DMA, which are crucial for driver development. In QEMU, the driver would still work even if we forget to flush caches.
+**** TODO spectre / meltdown
 +
 It is not of course truly cycle accurate, as that
 ** would require exposing proprietary information of the CPU designs: link:https://stackoverflow.com/questions/17454955/can-you-check-performance-of-a-program-running-with-qemu-simulator/33580850#33580850[]
@@ -1547,22 +1564,7 @@ on a Lenovo P51 laptop with:
 * 512GB SSD PCIe TLC OPAL2
 * Ubuntu 17.10
 
-=== gem5 ARM
-
-For the most part, just add the `-g` option to the QEMU commands:
-
-....
-./configure && ./build -a arm -g
-./run -a arm -g
-....
-
-On another shell:
-
-....
-./gem5-shell
-....
-
-==== gem5 run benchmark
+=== gem5 run benchmark
 
 OK, this is why we used gem5 in the first place, performance measurements!
 
@@ -1575,7 +1577,7 @@ Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildro
 ./gem5-bench -r dhrystone 1000
 ....
 
-These commands output the approximate number of CPU cycles it took Dhrystone to run, you should be more interested in the
+These commands output the approximate number of CPU cycles it took Dhrystone to run.
 
 It works like this:
 
@@ -1616,52 +1618,7 @@ Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format
 ---------- End Simulation Statistics   ----------
 ....
 
-===== Enable compiler optimizations
-
-If you are benchmarking compiled programs instead of hand written assembly, remember that we configure Buildroot to disable optimizations by default with:
-
-....
-BR2_OPTIMIZE_0=y
-....
-
-to improve the debugging experience.
-
-You will likely want to change that to:
-
-....
-BR2_OPTIMIZE_3=y
-....
-
-and do a full rebuild.
-
-TODO is it possible to compile a single package with optimizations enabled? In any case, this wouldn't be very representative, since calls to an unoptimized libc will also have an impact on performance. Kernel-wise it should be fine though, since the kernel requires `O=2`.
-
-===== Interesting benchmarks
-
-Buildroot built-in libraries, mostly under Libraries > Other:
-
-* Armadillo `C++`: linear algebra
-* CBLAS / CLAPACK: linear algebra
-* fftw: Fourier transform
-* Eigen: linear algebra
-* Flann
-* GSL: various
-* liblinear
-* libspacialindex
-* libtommath
-* qhull
-
-There are not yet enabled, but it should be easy to so:
-
-* enable them in link:buildroot_config_fragment[] and rebuild
-* create a test program that uses each library under link:kernel_module/user[]
-
-External open source benchmarks. We will try to create Buildroot packages for them, add them to this repo, and potentially upstream:
-
-* http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
-* http://www.m5sim.org/Splash_benchmarks
-
-===== gem5 change system parameters
+==== gem5 system parameters
 
 Besides optimizing a program for a given CPU setup, chip developers can also do the inverse, and optimize the chip for a given benchmark!
 
@@ -1798,7 +1755,52 @@ TODO: why doesn't this exist:
 ls /sys/devices/system/cpu/cpu0/cpufreq
 ....
 
-==== gem5 kernel command line parameters
+==== Enable compiler optimizations
+
+If you are benchmarking compiled programs instead of hand written assembly, remember that we configure Buildroot to disable optimizations by default with:
+
+....
+BR2_OPTIMIZE_0=y
+....
+
+to improve the debugging experience.
+
+You will likely want to change that to:
+
+....
+BR2_OPTIMIZE_3=y
+....
+
+and do a full rebuild.
+
+TODO is it possible to compile a single package with optimizations enabled? In any case, this wouldn't be very representative, since calls to an unoptimized libc will also have an impact on performance. Kernel-wise it should be fine though, since the kernel requires `O=2`.
+
+==== Interesting benchmarks
+
+Buildroot built-in libraries, mostly under Libraries > Other:
+
+* Armadillo `C++`: linear algebra
+* CBLAS / CLAPACK: linear algebra
+* fftw: Fourier transform
+* Eigen: linear algebra
+* Flann
+* GSL: various
+* liblinear
+* libspacialindex
+* libtommath
+* qhull
+
+There are not yet enabled, but it should be easy to so:
+
+* enable them in link:buildroot_config_fragment[] and rebuild
+* create a test program that uses each library under link:kernel_module/user[]
+
+External open source benchmarks. We will try to create Buildroot packages for them, add them to this repo, and potentially upstream:
+
+* http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
+* http://www.m5sim.org/Splash_benchmarks
+
+=== gem5 kernel command line parameters
 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
@@ -1823,7 +1825,7 @@ Kernel command line:
 ....
 
 [[gem5-gdb]]
-==== gem5 GDB step debugging
+=== gem5 GDB step debugging
 
 Analogous <<gdb,to QEMU>>, on the first shell:
 
@@ -1853,7 +1855,7 @@ And we now see the boot messages, and then get a shell. Now try the `/continue.s
 
 TODO: how to stop at `start_kernel`? gem5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used?
 
-==== gem5 checkpoint
+=== gem5 checkpoint
 
 Analogous to QEMU's <<snapshot>>, but better since it can be started from inside the guest, so we can easily checkpoint after a specific guest event, e.g. just before `init` is done.
 
@@ -1915,7 +1917,7 @@ Then there is no need to pass the kernel command line again to gem5 for replay:
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
 
-===== gem5 restore checkpoint with a different CPU
+==== gem5 restore checkpoint with a different CPU
 
 gem5 can switch to a different CPU model when restoring a checkpoint.
 
@@ -1939,7 +1941,7 @@ And then restore the checkpoint with a different CPU:
 ./run -a arm -g -- --caches -r 1 --restore-with-cpu=HPI
 ....
 
-==== Pass extra options to gem5
+=== Pass extra options to gem5
 
 Pass options to the `fs.py` script:
 
@@ -1962,7 +1964,7 @@ Pass options to the `gem5` executable itself:
 ./run -G '-h' -g
 ....
 
-==== Run multiple gem5 instances at once
+=== Run multiple gem5 instances at once
 
 gem5 just assigns new ports if some ports are occupied, so we can do:
 
@@ -1981,7 +1983,7 @@ And a second instance:
 
 TODO Now we just need to network them up to have some more fun!
 
-==== QEMU and gem5 with the same kernel configuration
+=== gem5 and QEMU with the same kernel configuration
 
 We would like to be able to run both gem5 and QEMU with the same kernel build to avoid duplication, but TODO we haven't been able to get that working yet.
 
@@ -1989,7 +1991,7 @@ This documents our failed attempts so far.
 
 As a result, we currently have to create two full `buildroot/output*` directories, which means two full GCC builds.
 
-===== QEMU with gem5 kernel configuration
+==== QEMU with gem5 kernel configuration
 
 To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
 
@@ -2009,7 +2011,7 @@ and the display shows:
 Guest has not initialized the display (yet).
 ....
 
-===== gem5 with QEMU kernel configuration
+==== gem5 with QEMU kernel configuration
 
 Test it out with:
 
@@ -2038,24 +2040,14 @@ Escape character is '^]'.
 
 I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
 
-==== gem5 limitations
+=== gem5 limitations
 
 * networking not working. We currently just disable it from `inittab` by default to prevent waiting at startup
 * `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
 
-=== gem5 aarch64
+==== gem5 x86_64 limitations
 
-....
-./configure && ./build -a aarch64 -g
-./run -a aarch64 -g
-....
-
-=== gem5 x86
-
-....
-./configure && ./build -a x86_64 -g
-./run -a x86_64 -g
-....
+* `gdb` debugging not working. First we need to remove the initial `set arch i386:x86-64:intel` required for QEMU. Then it cannot find the symbols.
 
 == Failed action
 
