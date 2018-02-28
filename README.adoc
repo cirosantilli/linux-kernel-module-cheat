@@ -1089,7 +1089,19 @@ A friend told me this but I haven't tried it yet:
 * `qemu/docs/tracing.txt` and `qemu/docs/replay.txt`
 * https://stackoverflow.com/questions/39149446/how-to-use-qemus-simple-trace-backend/46497873#46497873
 
-Best attempt so far:
+Results:
+
+[options="header"]
+|===
+|Commit |Arch |Simulator |Instruction count
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |QEMU |680k
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 AtomicSimpleCPU |160M
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 HPI |155M
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |QEMU |3M
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |gem5 AtomicSimpleCPU |528M
+|===
+
+QEMU:
 
 ....
 time ./run -n -e 'init=/poweroff.out' -- -trace exec_tb,file=trace
@@ -1097,6 +1109,15 @@ time ./qemu/scripts/simpletrace.py buildroot/output.x86_64~/build/host-qemu-cust
 wc -l trace.txt
 sed '/0x1000000/q' trace.txt >trace-boot.txt
 wc -l trace-boot.txt
+....
+
+gem5:
+
+....
+./run -a arm -g -e 'init=/eval.sh - lkmc_eval="m5 exit"' -n
+# Or:
+# ./run -a arm -g -e 'init=/eval.sh - lkmc_eval="m5 exit"' -n -- --cpu-type=HPI --caches
+grep sim_insts m5out/stats.txt
 ....
 
 Notes:
@@ -1143,6 +1164,7 @@ grep -n 4003a0 trace.txt
 ....
 +
 I have observed a single match for that instruction, so it must be the init, and there were only 20k instructions after it, so the impact is negligible.
+* gem5 simulates memory latencies. So I think that the CPU loops idle while waiting for memory, and counts will be higher.
 
 This works because we have already done the following with QEMU:
 
@@ -1698,8 +1720,8 @@ but for some reason the Linux kernel is not seeing the cache sizes:
 
 Behaviour breakdown:
 
-* arm QEMU and gem5 (both `AtomicSimpleCPU` or `HPI`), x86 gem5: `/sys` files don't exist, and `getconf` values empty
-* x86 QEMU: `/sys` files exist, but `getconf` values still empty
+* arm QEMU and gem5 (both `AtomicSimpleCPU` or `HPI`), x86 gem5: `/sys` files don't exist, and `getconf` and `lscpu` value empty
+* x86 QEMU: `/sys` files exist, but `getconf` and `lscpu` values still empty
 
 ===== gem5 memory latency
 
