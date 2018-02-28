@@ -14,6 +14,7 @@ nographic=false
 #   Turned on by default since v4.12
 extra_append='nokaslr norandmaps printk.devkmsg=on printk.time=y'
 extra_flags=''
+extra_flags_qemu=''
 gem5=false
 gem5opts=''
 initrd=false
@@ -27,7 +28,7 @@ while getopts a:c:Dde:G:giknt:x OPT; do
       cpus="$OPTARG"
       ;;
     d)
-      extra_flags="$extra_flags -S -s"
+      extra_flags_qemu="$extra_flags -S -s"
       ;;
     D)
       debug_vm='gdb -q -ex start --args'
@@ -39,7 +40,7 @@ while getopts a:c:Dde:G:giknt:x OPT; do
       extra_append="$extra_append kgdbwait"
       # For those who want to try KDB.
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
-      extra_flags="$extra_flags -serial tcp::1234,server,nowait"
+      extra_flags_qemu="$extra_flags -serial tcp::1234,server,nowait"
       kgdb=true
       ;;
     g)
@@ -53,7 +54,7 @@ while getopts a:c:Dde:G:giknt:x OPT; do
       ;;
     n)
       extra_append="$extra_append console=ttyS0"
-      extra_flags="$extra_flags -nographic"
+      extra_flags_qemu="$extra_flags -nographic"
       nographic=true
       ;;
   esac
@@ -94,6 +95,7 @@ $extra_flags \
   fi
 else
   buildroot_out_dir="./buildroot/output.${arch}~"
+  extra_flags="$extra_flags_qemu $extra_flags"
   images_dir="$buildroot_out_dir/images"
   qemu_common="\
 $debug_vm \
