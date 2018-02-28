@@ -1624,20 +1624,23 @@ Besides optimizing a program for a given CPU setup, chip developers can also do 
 
 The rabbit hole is likely deep, but let's scratch a bit of the surface.
 
-* Number of CPUs:
-+
+===== gem5 number of cores
+
 ....
 ./run -a arm -c 2 -g
 ....
-+
+
 Check with:
-+
+
 ....
 cat /proc/cpuinfo
 getconf _NPROCESSORS_CONF
 ....
-* Cache size:
-+
+
+===== gem5 cache size
+
+A quick `./run -g -- -h` leads us to the options:
+
 ....
 --caches
 --l1d_size=1024
@@ -1646,9 +1649,9 @@ getconf _NPROCESSORS_CONF
 --l2_size=1024
 --l3_size=1024
 ....
-+
+
 But keep in mind that it only affects benchmark performance of the most detailed CPU types:
-+
+
 [options="header"]
 |===
 |arch |CPU type |caches used
@@ -1657,22 +1660,20 @@ But keep in mind that it only affects benchmark performance of the most detailed
 |ARM |`AtomicSimpleCPU` | no
 |ARM |`HPI` | yes
 |===
-+
+
 {empty}*: couldn't test because of:
-+
---
-** https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
-** https://github.com/gem5/gem5/issues/16
---
-+
+
+* https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
+* https://github.com/gem5/gem5/issues/16
+
 This has been verified with:
-+
+
 ....
 m5 resetstats && dhrystone 10000 && m5 dumpstats
 ....
-+
+
 at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the following gem5 commands cycle counts:
-+
+
 ....
 # 11M
 ./run -a arm -g
@@ -1688,32 +1689,29 @@ at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the following gem5 comma
 ./run -a x86_64 -g -- --caches --l1d_size=1024 --l2cache --l2_size=1024 --l3_size=1024
 ./run -a x86_64 -g -- --caches --l1d_size=1024MB --l2cache --l2_size=1024MB --l3_size=1024MB
 ....
-+
+
 Cache sizes can in theory be checked with the methods described at: link:https://superuser.com/questions/55776/finding-l2-cache-size-in-linux[]:
-+
+
 ....
 getconf -a | grep CACHE
 lscpu
-cat /sys/devices/system/cpu/cpu0/cache/index2/level
 cat /sys/devices/system/cpu/cpu0/cache/index2/size
 ....
-+
+
 but for some reason the Linux kernel is not seeing the cache sizes:
-+
-** http://gem5-users.gem5.narkive.com/4xVBlf3c/verify-cache-configuration
-**
-+
-Checking `level` is needed, for example `level0` and `level1` represented the same level on Linux 4.15.
-+
+
+* https://stackoverflow.com/questions/49008792/why-doesnt-the-linux-kernel-see-the-cache-sizes-in-the-gem5-emulator-in-full-sy
+* http://gem5-users.gem5.narkive.com/4xVBlf3c/verify-cache-configuration
+
 Behaviour breakdown:
-+
---
-** arm QEMU and gem5 (both `AtomicSimpleCPU` or `HPI`), x86 gem5: `/sys` files don't exist, and `getconf` values empty
-** x86 QEMU: `/sys` files exist, but `getconf` values still empty
---
-+
-* Memory latency: TODO These look promising:
-+
+
+* arm QEMU and gem5 (both `AtomicSimpleCPU` or `HPI`), x86 gem5: `/sys` files don't exist, and `getconf` values empty
+* x86 QEMU: `/sys` files exist, but `getconf` values still empty
+
+===== gem5 memory latency
+
+TODO These look promising:
+
 ....
 --list-mem-types
 --mem-type=MEM_TYPE
@@ -1721,36 +1719,42 @@ Behaviour breakdown:
 --mem-ranks=MEM_RANKS
 --mem-size=MEM_SIZE
 ....
-+
+
 TODO: now to verify this with the Linux kernel? Besides raw performance benchmarks.
-* Disk and network latency: TODO These look promising:
-+
+
+===== gem5 disk and network latency
+
+TODO These look promising:
+
 ....
 --ethernet-linkspeed
 --ethernet-linkdelay
 ....
-+
+
 and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
-* Clock frequency: TODO how does it affect performance in benchmarks?
-+
+
+===== gem5 clock frequency
+
+Clock frequency: TODO how does it affect performance in benchmarks?
+
 ....
 ./run -a arm -g -- --cpu-clock 10000000
 ....
-+
+
 Check with:
-+
+
 ....
 m5 resetstats && sleep 10 && m5 dumpstats
 ....
-+
+
 and then:
-+
+
 ....
 grep numCycles m5out/stats.txt
 ....
-+
+
 TODO: why doesn't this exist:
-+
+
 ....
 ls /sys/devices/system/cpu/cpu0/cpufreq
 ....
