@@ -87,7 +87,7 @@ For example, you you modify the kernel modules, you must rebuild with:
 which is just an alias for:
 
 ....
-./build -t kernel_module-reconfigure
+./build -- kernel_module-reconfigure
 ....
 
 where `kernel_module` is the name of out Buildroot package that contains the kernel modules.
@@ -95,7 +95,7 @@ where `kernel_module` is the name of out Buildroot package that contains the ker
 Other important targets are:
 
 ....
-./build -t linux-reconfigure -t host-qemu-reconfigure
+./build -- linux-reconfigure host-qemu-reconfigure
 ....
 
 which are aliased respectively to:
@@ -249,13 +249,23 @@ Instead, you can either run them from a minimal init:
 ./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
 ....
 
+or if the script is large, add it to a gitignored file that will go into the guest:
+
+....
+echo '
+insmod /hello.ko
+/poweroff.out
+' > rootfs_overlay/ignore.sh
+./run -e 'init=/ignore.sh' -n
+....
+
 or run them at the end of the BusyBox init, which does things like setting up networking:
 
 ....
 ./run -e '- lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
 ....
 
-or add them to a new `init.d` entry:
+or add them to a new `init.d` entry to run at the end o the BusyBox init:
 
 ....
 cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
@@ -977,7 +987,7 @@ To disable networking, use:
 To restore it, run:
 
 ....
-./build -t initscripts-reconfigure
+./build -- initscripts-reconfigure
 ....
 
 === The init environment
@@ -1047,7 +1057,7 @@ Only tested successfully in `x86_64`.
 Build:
 
 ....
-./build -x
+./build -i buildroot_config_fragment_x11
 ./run
 ....
 
@@ -1257,7 +1267,7 @@ One obvious use case is having an encrypted root filesystem: you keep the initrd
 
 I think GRUB then knows read common disk formats, and then loads that initrd to memory with a `/boot/grub/grub.cfg` directive of type:
 
-    initrd	/initrd.img-4.4.0-108-generic
+    initrd /initrd.img-4.4.0-108-generic
 
 Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
 
@@ -1829,6 +1839,147 @@ External open source benchmarks. We will try to create Buildroot packages for th
 
 * http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
 * http://www.m5sim.org/Splash_benchmarks
+
+===== PARSEC benchmark
+
+We have ported the PARSEC benchmark http://parsec.cs.princeton.edu for cross compilation at: https://github.com/cirosantilli/parsec-benchmark
+
+This repo makes it trivial to get started with it:
+
+....
+./build -a arm -g -i buildroot_config_fragment_parsec
+./run -a arm -g
+....
+
+As mentioned at link:https://github.com/cirosantilli/parsec-benchmark[], only SPLASH2 was currently ported.
+
+Keep in mind that activating PARSEC makes images huge at a few Gigs, specially so since we make multiple images for each configuration for different purposes, e.g. `.ext2`, `.cpio`, etc. This is why we don't build PARSEC by default.
+
+Once inside the guest, we could in theory launch PARSEC exactly as you would launch it on the host:
+
+....
+cd /parsec/
+bash
+. env.sh
+parsecmgmt -a run -p splash2x.fmm -i test
+....
+
+TODO: `splash2x.barnes` segfaults on `arsecmgmt -a run -p splash2x.fmm -i simsmall` inside QEMU. Why? Other benchmarks ran fine.
+
+....
+[PARSEC] [---------- Beginning of output ----------]
+Generating input file input_1...
+Running /parsec/ext/splash2x/apps/barnes/inst/arm-linux.gcc/bin/barnes 1 < input_1:
+reading input file :
+
+Segmentation fault
+....
+
+However, while this is fine inside QEMU, it is not practical in gem5, since the `parsecmgmt` Bash scripts just takes too long to run in that case!
+
+So instead, you must find out the raw executable command, and run it manually yourself.
+
+This command can be found from the `Running` line that `parsecmgmt` outputs when running the programs.
+
+"Luckily", we run the run scripts while creating the image to extract the inputs, so you can just do a find in your shell history to find the run command and find a line of type:
+
+....
+Running /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1:
+....
+
+which teaches you that you can run `fmm` as:
+
+....
+cd /parsec/ext/splash2x/apps/fmm/run
+/parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1
+....
+
+And so inside of `gem5`, you likely want to do:
+
+....
+cd /parsec/ext/splash2x/apps/fmm/run
+m5 checkpoint
+m5 resetstats && /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1 && m5 dumpstats
+....
+
+You will always want to `cd` into the `run` directory first, which is where the input is located.
+
+====== PARSEC change the input size
+
+One limitation is that only one input size is available on the guest for a given build.
+
+To change that, edit link:buildroot_config_fragment_parsec[] to contain for example:
+
+....
+BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
+....
+
+and then rebuild with:
+
+....
+./build -a arm -g -i buildroot_config_fragment_parsec parsec-benchmark-reconfigure
+....
+
+This limitation exists because `parsecmgmt` generates the input files just before running, but we can't run on gem5 as it is too slow!
+
+One option would be to do that inside the guest with QEMU, but this would required a full rebuild due to <<gem5-and-qemu-with-the-same-kernel-configuration>>.
+
+Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another... Parsec clearly needs a redesign for embedded, maybe we will patch it later.
+
+====== PARSEC uninstall
+
+If you want to remove PARSEC later, Buildroot doesn't provide an automated package removal mechanism as documented at: link:https://github.com/buildroot/buildroot/blob/2017.08/docs/manual/rebuilding-packages.txt#L90[], but the following procedure should be satisfactory:
+
+....
+rm -rf \
+  ./buildroot/dl/parsec-* \
+  ./buildroot/output.arm-gem5~/build/parsec-* \
+  ./buildroot/output.arm-gem5~/images/rootfs.* \
+  ./buildroot/output.arm-gem5~/target/parsec-* \
+;
+./build -a arm -g
+....
+
+====== PARSEC benchmark hacking
+
+If you end up going inside link:parsec/parsec[] to hack up the benchmark (you will!), these tips will be helpful.
+
+Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.
+
+A few workarounds are:
+
+* develop in host first as much as you can. Our PARSEC fork supports it.
++
+If you do this, don't forget to do a:
++
+....
+cd parsec-benchmark/parsec-benchmark
+git clean -xdf .
+....
+before going for the cross compile build.
++
+* patch Buildroot to work well, and keep cross compiling all the way. This should be totally viable, and we should do it.
++
+Don't forget to explicitly rebuild PARSEC with:
+....
+./build -a arm -g -i buildroot_config_fragment_parsec parsec-benchmark-reconfigure
+....
++
+You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
++
+* sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
+
+TODO Buildroot is slow because of the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`.
+
+The pause is followed by:
+
+....
+buildroot/output.arm~/build/parsec-benchmark-custom/.stamp_target_installed
+....
+
+so which shows that the whole delay is inside our install itself.
+
+I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop on a particular package.
 
 === gem5 kernel command line parameters
 
