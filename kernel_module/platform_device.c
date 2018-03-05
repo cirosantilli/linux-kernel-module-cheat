@@ -19,7 +19,7 @@ Also without insmodding this module, try:
 
     devmem 0x101e9000 w 0x12345678
 
-which touches from userland through /dev/mem.
+which touches the register from userland through /dev/mem.
 */
 
 #include <linux/init.h>
