@@ -23,10 +23,7 @@ cd linux-kernel-module-cheat
 ./configure && ./build && ./run
 ....
 
-The first build will take a while (link:https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain[GCC], Linux kernel), e.g.:
-
-* 2 hours on a mid end 2012 laptop
-* 30 minutes on a high end 2017 desktop
+The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmarking-this-repo>> for more details.
 
 If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
 
@@ -1591,12 +1588,7 @@ and the results were:
 |gem5 X86_64 |5 minutes 30 seconds| 82
 |===
 
-on a Lenovo P51 laptop with:
-
-* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
-* 32GB(16+16) DDR4 2400MHz SODIMM
-* 512GB SSD PCIe TLC OPAL2
-* Ubuntu 17.10
+tested on the <<p51>>.
 
 === gem5 run benchmark
 
@@ -1915,7 +1907,7 @@ BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
 and then rebuild with:
 
 ....
-./build -a arm -g -i buildroot_config_fragment_parsec parsec-benchmark-reconfigure
+./build -a arm -g -i buildroot_config_fragment_parsec -- parsec-benchmark-reconfigure
 ....
 
 This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
@@ -2210,7 +2202,7 @@ info: Entering event queue @ 0.  Starting simulation...
 and the `telnet` at:
 
 ....
-2017-12-28-11-59-51@ciro@ciro-p51$ ./gem5-shell
+$ ./gem5-shell
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
@@ -2497,7 +2489,13 @@ diff .config.olg .config
 
 Copy and paste the diff additions to `buildroot_config_fragment`.
 
-==== What is making my build so slow?
+==== Benchmarking this repo
+
+In this section document how fast the build and clone are, and how to investigate them.
+
+Send a pull request if you try it out on something significantly different.
+
+===== What is making my build so slow?
 
 ....
 cd buildroot/output.x86_64~
@@ -2509,6 +2507,36 @@ Our philosophy is:
 
 * if something adds little to the build time, build it in by default
 * otherwise, make it optional
+
+The biggest time hog is always GCC, can we use a precompiled one? https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
+
+===== Benchmark machines
+
+====== P51
+
+Build time at 2c12b21b304178a81c9912817b782ead0286d282: 30 minutes
+
+Lenovo link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
+
+* 2500 USD in 2018 (high end)
+* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
+* 32GB(16+16) DDR4 2400MHz SODIMM
+* 512GB SSD PCIe TLC OPAL2
+* Ubuntu 17.10
+
+====== T430
+
+Build time: 2 hours.
+
+TODO specs, SHA.
+
+===== Benchmark internets
+
+====== 38Mbps
+
+Shallow clone of all submodules at 2c12b21b304178a81c9912817b782ead0286d282: 4 minutes.
+
+Google M-lab speed test 36.4Mbps
 
 === About
 
