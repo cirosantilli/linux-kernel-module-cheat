@@ -40,6 +40,8 @@ define PARSEC_BENCHMARK_INSTALL_TARGET_CMDS
   # know if this works until time consuming testing is done :-)
   mkdir -p '$(TARGET_DIR)/parsec/'
 
+  $(INSTALL) -D -m 0755 '$(PARSEC_BENCHMARK_PKGDIR)/test.sh' '$(TARGET_DIR)/parsec/'
+
   rsync -am $(if $(filter $(V),1),-v,) --include '*/' \
     --include '/bin/***' \
     --include '/config/***' \
