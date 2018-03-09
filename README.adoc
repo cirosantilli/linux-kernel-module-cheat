@@ -882,23 +882,6 @@ Debug:
 
 Known quirks of the supported architectures are documented in this section.
 
-=== x86
-
-You can make QEMU <<gem5-vs-qemu-performance,run faster>> by passing it the `-enable-kvm` option as in:
-
-....
-./run - -enable-kvm
-....
-
-This uses the link:https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine[KVM Linux kernel feature] of the host to run most instructions natively, and therefore.
-
-There are several downsides to this however:
-
-* only works for x86 guest
-* limits visibility, since more things are running natively
-
-So for those reasons we don't turn it on by default.
-
 === arm
 
 TODOs:
@@ -1089,6 +1072,32 @@ Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are 
 ....
 modprobe dummy-irq
 ....
+
+== KVM
+
+You can make QEMU or gem5 <<gem5-vs-qemu-performance,run faster>> by passing enabling KVM with:
+
+....
+./run -K
+....
+
+but it was broken in gem5 with pending patches: https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html
+
+KVM uses the link:https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine[KVM Linux kernel feature] of the host to run most instructions natively.
+
+We don't enable KVM by default because:
+
+* only works if the architecture of the guest equals that of the host.
++
+We have only tested / supported it on x86, but it is rumoured that QEMU and gem5 also have ARM KVM support if you are link:https://www.youtube.com/watch?v=8ItXpmLsINs[running an ARM desktop for some weird reason] :-)
+* limits visibility, since more things are running natively:
+** can't use GDB
+** can't do instruction tracing
+* kernel boots are already fast enough without `-enable-kvm`
+
+The main use case for `-enable-kvm` in this repository is to test if something that takes a long time to run is functionally correct.
+
+For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
 
 == X11
 
@@ -1616,7 +1625,7 @@ time ./run -a arm -e 'init=/poweroff.out'
 time ./run -a arm -e 'm5 exit' -g
 time ./run -a arm -e 'm5 exit' -g -- --caches --cpu-type=HPI
 time ./run -a x86_64 -e 'init=/poweroff.out'
-time ./run -a x86_64 -e 'init=/poweroff.out' - -enable-kvm
+time ./run -a x86_64 -e 'init=/poweroff.out' -- -enable-kvm
 time ./run -a x86_64 -e 'init=/poweroff.out' -g
 ....
 
@@ -1879,7 +1888,7 @@ External open source benchmarks. We will try to create Buildroot packages for th
 
 ===== PARSEC benchmark
 
-We have ported the PARSEC benchmark http://parsec.cs.princeton.edu for cross compilation at: https://github.com/cirosantilli/parsec-benchmark
+We have ported parts of the link:http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported.
 
 This repo makes it trivial to get started with it:
 
@@ -1887,8 +1896,6 @@ This repo makes it trivial to get started with it:
 configure -gpq && ./build -a arm -g -i buildroot_config_fragment_parsec
 ./run -a arm -g
 ....
-
-As mentioned at link:https://github.com/cirosantilli/parsec-benchmark[], only SPLASH2 was currently ported.
 
 Once inside the guest, we could in theory launch PARSEC exactly as you would launch it on the host:
 
@@ -1971,6 +1978,7 @@ If you want to remove PARSEC later, Buildroot doesn't provide an automated packa
 rm -rf \
   ./buildroot/dl/parsec-* \
   ./buildroot/output.arm-gem5~/build/parsec-* \
+  ./buildroot/output.arm-gem5~/build/packages-file-list.txt \
   ./buildroot/output.arm-gem5~/images/rootfs.* \
   ./buildroot/output.arm-gem5~/target/parsec-* \
 ;
