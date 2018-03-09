@@ -1473,9 +1473,15 @@ Some QEMU specific features to play with and limitations to cry over.
 
 === 9P
 
-https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
+This protocol allows sharing a mountable filesystem between guest and host.
 
 With networking, it's boring, we can just use any of the old tools like sshfs and NFS.
+
+https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
+
+One advantage of this method over NFS is that can run without `sudo` on host, or having to pass host cretendials on guest for sshfs.
+
+TODO performance compared to NFS.
 
 As usual, we have already set everything up for you. On host:
 
@@ -1521,6 +1527,8 @@ writes from guest failed due to user mismatch problems: https://serverfault.com/
 
 The feature is documented at: https://wiki.qemu.org/Documentation/9psetup
 
+==== 9P arm
+
 TODO: not working on `arm`, manual mount failed with:
 
 ....
@@ -1536,6 +1544,13 @@ mount: mounting host0 on /mnt/my9p failed: Invalid argument
 A few hits:
 
 * https://superuser.com/questions/502205/libvirt-9p-kvm-mount-in-fstab-fails-to-mount-at-boot-time
+
+==== 9P gem5
+
+Seems possible! Lets do it:
+
+* http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
+* http://gem5.org/WA-gem5
 
 === QEMU user mode
 
@@ -1958,16 +1973,107 @@ External open source benchmarks. We will try to create Buildroot packages for th
 
 ===== PARSEC benchmark
 
-We have ported parts of the link:http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported.
+We have ported parts of the link:http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported. Furthermore, some of the benchmarks were are segfaulting, see link:parsec-benchmark/test.sh[]
 
-This repo makes it trivial to get started with it:
+There are two ways to run PARSEC with this repo:
+
+* <<parsec-benchmark-without-parsecmgmt,without `pasecmgmt`>>, most likely what you want
+* <<parsec-benchmark-with-parsecmgmt,with `pasecmgmt`>>
+
+====== PARSEC benchmark without parsecmgmt
 
 ....
 configure -gpq && ./build -a arm -g -i buildroot_config_fragment_parsec
 ./run -a arm -g
 ....
 
-Once inside the guest, we could in theory launch PARSEC exactly as you would launch it on the host:
+Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
+
+....
+cd /parsec/ext/splash2x/apps/fmm/run
+../inst/arm-linux.gcc/bin/fmm 1 < input_1
+....
+
+To find out how to run many of the benchmarks, you can either:
+
+* have a look at: link:parsec-benchmark/test.sh[]
+* do a search on the build stdout on your terminal for a line of type:
++
+....
+Running /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1:
+....
++
+Yes, we do run the benchmarks on host just to unpack / generate inputs... and they almost always fail to run since they were build for the guest instead of host. Hopefully, since we don't want to wait for them to finish anyways.
+* have a quick peak at the package sources, usually `src/run.sh` and `parsec/*.runconf`.
+
+PARSEC simply wasn't designed with non native machines in mind.
+
+Running a benchmark of a different size requires a rebuild wit:
+
+....
+./build \
+  -a arm \
+  -c 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
+  -c BR2_TARGET_ROOTFS_EXT2_SIZE="500M" \
+  -g \
+  -i buildroot_config_fragment_parsec \
+  -- parsec-benchmark-reconfigure \
+;
+....
+
+and then try running the benchmarks as before.
+
+The rebuild is required because some of the input sizes
+
+Separating input sizes also allows to create smaller images when only running the smaller benchmarks.
+
+We don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`, one good heuristic is:
+
+....
+du -hsx buildroot/output.arm-gem5~/target/parsec
+....
+
+Also dots cannot be used as in `1.5G`, so just use Megs as in `1500M` instead.
+
+If you don't set it high enough, you will get the message:
+
+....
+Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
+....
+
+https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
+
+TODO: mount the benchmarks from host instead of installing them on guest. <<9p>> would be perfect for this, but we need to get it working on gem5 and arm first.
+
+====== PARSEC benchmark with parsecmgmt
+
+Most users won't want to use this method because:
+
+* running the `parsecmgmt` Bash scripts takes forever before it ever starts running the actual benchmarks on gem5
++
+Running on QEMU is feasible, but not the main use case, since QEMU cannot be used for performance measurements
+* it requires putting the full `.tar` inputs on the guest, which makes the image twice as large (1x for the `.tar`, 1x for the unpacked input files)
+
+It would be awesome if it were possible to use this method, since this is what Parsec supports officially, and so:
+
+* you don't have to dig into what raw command to run
+* there is an easy way to run all the benchmarks in one go to test them out
+* you can just run any of the benchmarks that you want
+
+but it simply is not feasible in gem5 because it takes too long.
+
+If you still want to run this, try it out with:
+
+....
+./build -a arm \
+  -c BR2_TARGET_ROOTFS_EXT2_SIZE="3G" \
+  -g
+  -i buildroot_config_fragment_parsec
+  -- parsec-benchmark-reconfigure \
+;
+....
+
+And then you can run it just as you would on the host:
 
 ....
 cd /parsec/
@@ -1975,48 +2081,6 @@ bash
 . env.sh
 parsecmgmt -a run -p splash2x.fmm -i test
 ....
-
-TODO: `splash2x.barnes` segfaults on `arsecmgmt -a run -p splash2x.fmm -i simsmall` inside QEMU. Why? Other benchmarks ran fine.
-
-....
-[PARSEC] [---------- Beginning of output ----------]
-Generating input file input_1...
-Running /parsec/ext/splash2x/apps/barnes/inst/arm-linux.gcc/bin/barnes 1 < input_1:
-reading input file :
-
-Segmentation fault
-....
-
-However, while this is fine inside QEMU, it is not practical in gem5, since the `parsecmgmt` Bash scripts just takes too long to run in that case!
-
-So instead, you must find out the raw executable command, and run it manually yourself.
-
-This command can be found from the `Running` line that `parsecmgmt` outputs when running the programs.
-
-"Luckily", we run the run scripts while creating the image to extract the inputs, so you can just do a find in your shell history to find the run command and find a line of type:
-
-....
-Running /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1:
-....
-
-which teaches you that you can run `fmm` as:
-
-....
-cd /parsec/ext/splash2x/apps/fmm/run
-../inst/arm-linux.gcc/bin/fmm 1 < input_1
-....
-
-We are also collecting more raw commands for testing at: link:parsec-benchmark/test.sh[]
-
-And so inside of `gem5`, you likely want to do:
-
-....
-cd /parsec/ext/splash2x/apps/fmm/run
-m5 checkpoint
-m5 resetstats && /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1 && m5 dumpstats
-....
-
-You will always want to `cd` into the `run` directory first, which is where the input is located.
 
 ====== PARSEC change the input size
 

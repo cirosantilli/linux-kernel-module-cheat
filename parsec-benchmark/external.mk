@@ -23,33 +23,29 @@ define PARSEC_BENCHMARK_BUILD_CMDS
     export TARGET_CROSS='$(TARGET_CROSS)'; \
     export HOSTTYPE='$(BR2_ARCH)'; \
     parsecmgmt -a build -p $$pkg; \
-    parsecmgmt -a run -p $$pkg -i $(BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE); \
+  	if [ ! '$(BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT)' = y ]; then \
+      parsecmgmt -a run -p $$pkg -i $(BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE); \
+    fi \
   done
 endef
 
 define PARSEC_BENCHMARK_INSTALL_TARGET_CMDS
-  # This is a bit coarse and makes the image larger with useless source code.
-  #
-  # But according to du, the source accounts for only 1/5 of the total size,
-  # so benchmarks dominate, and it doesn't matter much.
-  #
-  # Also it is not so critical for simulators anyways unlike real embedded systems.
-  #
-  # One possibility to make this better may be to install only the 'inst/' and 'input/'
-  # folders for each package + toplevel '/bin/' and '/config/', but of course we won't
-  # know if this works until time consuming testing is done :-)
   mkdir -p '$(TARGET_DIR)/parsec/'
-
   $(INSTALL) -D -m 0755 '$(PARSEC_BENCHMARK_PKGDIR)/test.sh' '$(TARGET_DIR)/parsec/'
-
-  rsync -am $(if $(filter $(V),1),-v,) --include '*/' \
-    --include '/bin/***' \
-    --include '/config/***' \
-    --include '/env.sh' \
-    --include 'inst/***' \
-    --include 'run/***' \
-    --exclude '*' '$(@D)/' '$(TARGET_DIR)/parsec/' \
-  ;
+  if [ '$(BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT)' = y ]; then \
+    rsync -am $(if $(filter $(V),1),-v,) \
+      --exclude '**/obj/' \
+      --exclude '**/run/' \
+      --exclude '**/src/' \
+      '$(@D)/' '$(TARGET_DIR)/parsec/' \
+    ; \
+  else \
+    rsync -am $(if $(filter $(V),1),-v,) --include '*/' \
+      --include 'inst/***' \
+      --include 'run/***' \
+      --exclude '*' '$(@D)/' '$(TARGET_DIR)/parsec/' \
+    ; \
+  fi
   # rsync finished.
 endef
 
