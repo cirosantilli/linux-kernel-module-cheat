@@ -3,6 +3,8 @@
 # Since Parsec does not stop on errors and we need some raw commands for gem5,
 # let's do some of our own unit tests here. Thses should be run on QEMU
 # to be reasonably fast.
+#
+# Must be run with BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=test
 
 set -ex
 
