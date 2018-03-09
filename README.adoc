@@ -23,10 +23,7 @@ cd linux-kernel-module-cheat
 ./configure && ./build && ./run
 ....
 
-The first build will take a while (https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain[GCC], Linux kernel), e.g.:
-
-* 2 hours on a mid end 2012 laptop
-* 30 minutes on a high end 2017 desktop
+The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmarking-this-repo>> for more details.
 
 If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
 
@@ -76,28 +73,35 @@ git ls-files | grep modulename
 
 === Rebuild
 
-If you make changes to the kernel modules or most configurations tracked on this repository, you can just use again:
+After making changes to a package, you must explicitly tell it to be rebuilt.
+
+For example, you you modify the kernel modules, you must rebuild with:
 
 ....
-./build
-./run
+./build -k
 ....
 
-and the modified files will be rebuilt.
-
-If you change any package besides `kernel_module`, you must also request those packages to be reconfigured or rebuilt with extra targets, e.g.:
+which is just an alias for:
 
 ....
-./build -t linux-reconfigure -t host-qemu-reconfigure
+./build -- kernel_module-reconfigure
 ....
 
-Those aren't turned on by default because they take quite a few seconds.
+where `kernel_module` is the name of out Buildroot package that contains the kernel modules.
 
-Linux and QEMU rebuilds are so common that we have dedicated shortcut flags for them:
+Other important targets are:
+
+....
+./build -- linux-reconfigure host-qemu-reconfigure
+....
+
+which are aliased respectively to:
 
 ....
 ./build -l -q
 ....
+
+We don't rebuild by default because, even with `make` incremental rebuilds, the timestamp check takes a few annoying seconds.
 
 === Clean the build
 
@@ -157,6 +161,8 @@ However, when you do:
 the disk image gets overwritten by a fresh filesystem and you lose all changes.
 
 Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
+
+When booting from <<initrd>> however without a disk, persistency is lost.
 
 === Message control
 
@@ -240,13 +246,23 @@ Instead, you can either run them from a minimal init:
 ./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
 ....
 
+or if the script is large, add it to a gitignored file that will go into the guest:
+
+....
+echo '
+insmod /hello.ko
+/poweroff.out
+' > rootfs_overlay/ignore.sh
+./run -e 'init=/ignore.sh' -n
+....
+
 or run them at the end of the BusyBox init, which does things like setting up networking:
 
 ....
 ./run -e '- lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
 ....
 
-or add them to a new `init.d` entry:
+or add them to a new `init.d` entry to run at the end o the BusyBox init:
 
 ....
 cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
@@ -368,6 +384,32 @@ And in QEMU:
 Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
+
+=== What command was actually run?
+
+When asking for help on upstream repositories outside of this repository, you will need to provide the commands that you are running in detail without referencing our scripts.
+
+For example, QEMU developers will only want to see the final QEMU command that you are running.
+
+We make that easy by building commands as strings, and then echoing them before evaling.
+
+So for example when you run:
+
+....
+./run -a arm
+....
+
+Stdout shows a line with the full command of type:
+
+....
+./buildroot/output.arm~/host/usr/bin/qemu-system-arm -m 128M -monitor telnet::45454,server,nowait -netdev user,hostfwd=tcp::45455-:45455,id=net0 -smp 1  -M versatilepb -append 'root=/dev/sda nokaslr norandmaps printk.devkmsg=on printk.time=y' -device rtl8139,netdev=net0 -dtb ./buildroot/output.arm~/images/versatile-pb.dtb -kernel ./buildroot/output.arm~/images/zImage -serial stdio    -drive file='./buildroot/output.arm~/images/rootfs.ext2.qcow2,if=scsi,format=qcow2'
+....
+
+This line is also saved to a file for convenience:
+
+....
+cat ./run.log
+....
 
 [[gdb]]
 == GDB step debugging
@@ -819,7 +861,7 @@ continue
 
 This is of least reliable setup as there might be other processes that use the given virtual address.
 
-== Architecture
+== Architectures
 
 The portability of the kernel and toolchains is amazing: change an option and most things magically work on completely different hardware.
 
@@ -968,7 +1010,7 @@ To disable networking, use:
 To restore it, run:
 
 ....
-./build -t initscripts-reconfigure
+./build -- initscripts-reconfigure
 ....
 
 === The init environment
@@ -1031,6 +1073,32 @@ Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are 
 modprobe dummy-irq
 ....
 
+== KVM
+
+You can make QEMU or gem5 <<gem5-vs-qemu-performance,run faster>> by passing enabling KVM with:
+
+....
+./run -K
+....
+
+but it was broken in gem5 with pending patches: https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html
+
+KVM uses the link:https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine[KVM Linux kernel feature] of the host to run most instructions natively.
+
+We don't enable KVM by default because:
+
+* only works if the architecture of the guest equals that of the host.
++
+We have only tested / supported it on x86, but it is rumoured that QEMU and gem5 also have ARM KVM support if you are link:https://www.youtube.com/watch?v=8ItXpmLsINs[running an ARM desktop for some weird reason] :-)
+* limits visibility, since more things are running natively:
+** can't use GDB
+** can't do instruction tracing
+* kernel boots are already fast enough without `-enable-kvm`
+
+The main use case for `-enable-kvm` in this repository is to test if something that takes a long time to run is functionally correct.
+
+For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
+
 == X11
 
 Only tested successfully in `x86_64`.
@@ -1038,7 +1106,7 @@ Only tested successfully in `x86_64`.
 Build:
 
 ....
-./build -x
+./build -i buildroot_config_fragment_x11
 ./run
 ....
 
@@ -1248,7 +1316,7 @@ One obvious use case is having an encrypted root filesystem: you keep the initrd
 
 I think GRUB then knows read common disk formats, and then loads that initrd to memory with a `/boot/grub/grub.cfg` directive of type:
 
-    initrd	/initrd.img-4.4.0-108-generic
+    initrd /initrd.img-4.4.0-108-generic
 
 Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
 
@@ -1485,12 +1553,14 @@ To get started, have a look at the "Hardware device drivers" secion under link:k
 
 == gem5
 
+=== gem5 getting started
+
 gem5 is a system simulator, much <<gem5-vs-qemu,like QEMU>>: http://gem5.org/
 
 For the most part, just add the `-g` option to the QEMU commands and everything should magically work:
 
 ....
-./configure && ./build -a arm -g
+./configure -gq && ./build -a arm -g
 ./run -a arm -g
 ....
 
@@ -1555,7 +1625,7 @@ time ./run -a arm -e 'init=/poweroff.out'
 time ./run -a arm -e 'm5 exit' -g
 time ./run -a arm -e 'm5 exit' -g -- --caches --cpu-type=HPI
 time ./run -a x86_64 -e 'init=/poweroff.out'
-time ./run -a x86_64 -e 'init=/poweroff.out' - -enable-kvm
+time ./run -a x86_64 -e 'init=/poweroff.out' -- -enable-kvm
 time ./run -a x86_64 -e 'init=/poweroff.out' -g
 ....
 
@@ -1572,12 +1642,7 @@ and the results were:
 |gem5 X86_64 |5 minutes 30 seconds| 82
 |===
 
-on a Lenovo P51 laptop with:
-
-* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
-* 32GB(16+16) DDR4 2400MHz SODIMM
-* 512GB SSD PCIe TLC OPAL2
-* Ubuntu 17.10
+tested on the <<p51>>.
 
 === gem5 run benchmark
 
@@ -1598,6 +1663,8 @@ It works like this:
 
 * the first commond boots linux with the default simplified `AtomicSimpleCPU`, and generates a <<gem5-checkpoint,checkpoint>> after the kernel boots and before running the benchmark
 * the second command restores the checkpoint with the more detailed `HPI` CPU model, and runs the benchmark. We don't boot with it because that is much slower.
+
+ARM employees have just been modifying benchmarking code with instrumentation directly: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/xcompile-patch.diff#L230
 
 A few imperfections of our benchmarking method are:
 
@@ -1818,6 +1885,146 @@ External open source benchmarks. We will try to create Buildroot packages for th
 
 * http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
 * http://www.m5sim.org/Splash_benchmarks
+
+===== PARSEC benchmark
+
+We have ported parts of the link:http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported.
+
+This repo makes it trivial to get started with it:
+
+....
+configure -gpq && ./build -a arm -g -i buildroot_config_fragment_parsec
+./run -a arm -g
+....
+
+Once inside the guest, we could in theory launch PARSEC exactly as you would launch it on the host:
+
+....
+cd /parsec/
+bash
+. env.sh
+parsecmgmt -a run -p splash2x.fmm -i test
+....
+
+TODO: `splash2x.barnes` segfaults on `arsecmgmt -a run -p splash2x.fmm -i simsmall` inside QEMU. Why? Other benchmarks ran fine.
+
+....
+[PARSEC] [---------- Beginning of output ----------]
+Generating input file input_1...
+Running /parsec/ext/splash2x/apps/barnes/inst/arm-linux.gcc/bin/barnes 1 < input_1:
+reading input file :
+
+Segmentation fault
+....
+
+However, while this is fine inside QEMU, it is not practical in gem5, since the `parsecmgmt` Bash scripts just takes too long to run in that case!
+
+So instead, you must find out the raw executable command, and run it manually yourself.
+
+This command can be found from the `Running` line that `parsecmgmt` outputs when running the programs.
+
+"Luckily", we run the run scripts while creating the image to extract the inputs, so you can just do a find in your shell history to find the run command and find a line of type:
+
+....
+Running /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1:
+....
+
+which teaches you that you can run `fmm` as:
+
+....
+cd /parsec/ext/splash2x/apps/fmm/run
+../inst/arm-linux.gcc/bin/fmm 1 < input_1
+....
+
+We are also collecting more raw commands for testing at: link:parsec-benchmark/test.sh[]
+
+And so inside of `gem5`, you likely want to do:
+
+....
+cd /parsec/ext/splash2x/apps/fmm/run
+m5 checkpoint
+m5 resetstats && /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1 && m5 dumpstats
+....
+
+You will always want to `cd` into the `run` directory first, which is where the input is located.
+
+====== PARSEC change the input size
+
+One limitation is that only one input size is available on the guest for a given build.
+
+To change that, edit link:buildroot_config_fragment_parsec[] to contain for example:
+
+....
+BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
+....
+
+and then rebuild with:
+
+....
+./build -a arm -g -i buildroot_config_fragment_parsec -- parsec-benchmark-reconfigure
+....
+
+This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
+
+One option would be to do that inside the guest with QEMU, but this would required a full rebuild due to <<gem5-and-qemu-with-the-same-kernel-configuration>>.
+
+Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another... Parsec clearly needs a redesign for embedded, maybe we will patch it later.
+
+====== PARSEC uninstall
+
+If you want to remove PARSEC later, Buildroot doesn't provide an automated package removal mechanism as documented at: link:https://github.com/buildroot/buildroot/blob/2017.08/docs/manual/rebuilding-packages.txt#L90[], but the following procedure should be satisfactory:
+
+....
+rm -rf \
+  ./buildroot/dl/parsec-* \
+  ./buildroot/output.arm-gem5~/build/parsec-* \
+  ./buildroot/output.arm-gem5~/build/packages-file-list.txt \
+  ./buildroot/output.arm-gem5~/images/rootfs.* \
+  ./buildroot/output.arm-gem5~/target/parsec-* \
+;
+./build -a arm -g
+....
+
+====== PARSEC benchmark hacking
+
+If you end up going inside link:parsec-benchmark/parsec-benchmark[] to hack up the benchmark (you will!), these tips will be helpful.
+
+Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.
+
+A few workarounds are:
+
+* develop in host first as much as you can. Our PARSEC fork supports it.
++
+If you do this, don't forget to do a:
++
+....
+cd parsec-benchmark/parsec-benchmark
+git clean -xdf .
+....
+before going for the cross compile build.
++
+* patch Buildroot to work well, and keep cross compiling all the way. This should be totally viable, and we should do it.
++
+Don't forget to explicitly rebuild PARSEC with:
++
+....
+./build -a arm -g -i buildroot_config_fragment_parsec parsec-benchmark-reconfigure
+....
++
+You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
+* sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
+
+TODO Buildroot is slow because of the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`.
+
+The pause is followed by:
+
+....
+buildroot/output.arm~/build/parsec-benchmark-custom/.stamp_target_installed
+....
+
+so which shows that the whole delay is inside our install itself.
+
+I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop on a particular package.
 
 === gem5 kernel command line parameters
 
@@ -2050,7 +2257,7 @@ info: Entering event queue @ 0.  Starting simulation...
 and the `telnet` at:
 
 ....
-2017-12-28-11-59-51@ciro@ciro-p51$ ./gem5-shell
+$ ./gem5-shell
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
@@ -2337,7 +2544,13 @@ diff .config.olg .config
 
 Copy and paste the diff additions to `buildroot_config_fragment`.
 
-==== What is making my build so slow?
+==== Benchmarking this repo
+
+In this section document how fast the build and clone are, and how to investigate them.
+
+Send a pull request if you try it out on something significantly different.
+
+===== What is making my build so slow?
 
 ....
 cd buildroot/output.x86_64~
@@ -2349,6 +2562,41 @@ Our philosophy is:
 
 * if something adds little to the build time, build it in by default
 * otherwise, make it optional
+
+The biggest time hog is always GCC, can we use a precompiled one? https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
+
+===== Benchmark machines
+
+The build times are calculated after doing link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the Internet.
+
+====== P51
+
+Build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes
+
+Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
+
+* 2500 USD in 2018 (high end)
+* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
+* 32GB(16+16) DDR4 2400MHz SODIMM
+* 512GB SSD PCIe TLC OPAL2
+* Ubuntu 17.10
+
+====== T430
+
+Build time: 2 hours.
+
+TODO specs, SHA.
+
+===== Benchmark internets
+
+====== 38Mbps
+
+2c12b21b304178a81c9912817b782ead0286d282:
+
+* shallow clone of all submodules: 4 minutes.
+* `make source`: 2 minutes
+
+Google M-lab speed test: 36.4Mbps
 
 === About
 

@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-set -e
+set -eu
 arch=x86_64
-extra_targets=''
+configure=true
+config_fragments=buildroot_config_fragment
+extra_make_args=''
 gem5=false
 j="$(($(nproc) - 2))"
 post_script_args=''
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
-x11=false
 v=0
-while getopts 'a:gj:lp:qSt:v' OPT; do
+while getopts 'a:Cgj:i:klp:qS:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
+    ;;
+    C)
+      configure=false
     ;;
     g)
       gem5=true
@@ -19,23 +23,23 @@ while getopts 'a:gj:lp:qSt:v' OPT; do
     j)
       j="$OPTARG"
     ;;
+    i)
+      config_fragments="$config_fragments $OPTARG"
+    ;;
+    k)
+      extra_make_args="$extra_make_args kernel_module-reconfigure"
+    ;;
     l)
-      extra_targets="$extra_args linux-reconfigure"
+      extra_make_args="$extra_make_args linux-reconfigure"
     ;;
     p)
       post_script_args="$OPTARG"
     ;;
     q)
-      extra_targets="$extra_args host-qemu-reconfigure"
+      extra_make_args="$extra_make_args host-qemu-reconfigure"
     ;;
     S)
       qemu_sdl=''
-    ;;
-    t)
-      extra_targets="$extra_args $OPTARG"
-    ;;
-    x)
-      x11=true
     ;;
     v)
       v=1
@@ -43,6 +47,7 @@ while getopts 'a:gj:lp:qSt:v' OPT; do
   esac
 done
 shift $(($OPTIND - 1))
+extra_make_args="$extra_make_args $@"
 case "$arch" in
   x86_64)
     defconfig=qemu_x86_64_defconfig
@@ -62,60 +67,71 @@ if "$gem5"; then
   arch_dir="${arch}-gem5"
   # Networking was not working, so disable it to speed things up.
   post_script_args="$post_script_args -n"
+else
+  config_fragments="$config_fragments buildroot_config_fragment_qemu"
+fi
+root_dir="$(pwd)"
+buildroot_dir="${root_dir}/buildroot"
+out_dir="${buildroot_dir}/output.${arch_dir}~"
+config_file="${out_dir}/.config"
+
+if "$configure"; then
+  cd "${buildroot_dir}"
+  for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
+      patch -N -r - -p 1 <"$p" || :
+  done
+  make O="$out_dir" BR2_EXTERNAL="${root_dir}/kernel_module:${root_dir}/gem5:${root_dir}/parsec-benchmark" "$defconfig"
+  # TODO Can't get rid of these for now.
+  # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
+  for config_fragment in $config_fragments; do
+    cat "../$config_fragment" >> "${config_file}"
+  done
+  printf "
+BR2_JLEVEL=$j
+BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
+" >> "${config_file}"
+  if "$gem5"; then
+    printf "\
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../kernel_config_${arch_dir}\"
+BR2_PACKAGE_GEM5=y
+" >> "${config_file}"
+  else
+    printf "\
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"../kernel_config_fragment\"
+" >> "${config_file}"
+  fi
+  if [ "$arch" = 'mips64' ]; then
+    # Workaround for:
+    # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
+    sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${config_file}"
+  fi
+  make O="$out_dir" olddefconfig
 fi
 
-cd kernel_module
+cd "${root_dir}/kernel_module"
 ./make-host.sh -j "$j" clean
-cd ../buildroot
-for p in $(find '../buildroot_patches/' -maxdepth 1 -name '*.patch' -print); do
-    patch -N -r - -p 1 <"$p" || :
-done
-outdir="output.${arch_dir}~"
-make O="$outdir" BR2_EXTERNAL="$(pwd)/../kernel_module:$(pwd)/../gem5" "$defconfig"
-# TODO Can't get rid of this for now.
-# http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
-cat ../buildroot_config_fragment >> "${outdir}/.config"
-if "$gem5"; then
-  echo "\
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../kernel_config_${arch_dir}\"
-" >> "${outdir}/.config"
-else
-  echo "\
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"../kernel_config_fragment\"
-" >> "${outdir}/.config"
-fi
-if "$x11"; then
-  cat ../buildroot_config_fragment_x11 >> "${outdir}/.config"
-fi
-if ! "$gem5"; then
-  cat ../buildroot_config_fragment_qemu >> "${outdir}/.config"
-fi
-if [ "$arch" = 'mips64' ]; then
-  # Workaround for:
-  # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
-  sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${outdir}/.config"
-fi
-make O="$outdir" olddefconfig
+cd "${buildroot_dir}"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
 #
 # Even if were an autotools package, there is no general way currently to pass extra configs to it:
 # https://stackoverflow.com/questions/44341188/how-to-pass-extra-custom-configure-autotools-options-to-a-buildroot-package/44341225#44341225
-time \
+#
+# BR2_ options may be given on the command line here, and they do have direct "define" effects.
+# But this is generally bad, as it skips the Kconfig mechanism, e.g. it does not set defaults properly.
+cmd="time \
   env \
   -u LD_LIBRARY_PATH \
   make \
-  O="$outdir" \
-  BR2_JLEVEL="$j" \
-  BR2_PACKAGE_GEM5="$("$gem5" && echo y || echo n)" \
-  BR2_ROOTFS_POST_SCRIPT_ARGS="$post_script_args" \
-  HOST_QEMU_OPTS="--enable-debug --extra-cflags='-DDEBUG_PL061=1' --enable-trace-backends=simple $qemu_sdl" \
-  V="$v" \
-  kernel_module-rebuild \
-  $extra_targets \
+  O='$out_dir' \
+  HOST_QEMU_OPTS='--enable-debug --extra-cflags=-DDEBUG_PL061=1 --enable-trace-backends=simple $qemu_sdl' \
+  V='$v' \
+  $extra_make_args \
   all \
-;
-cd ..
+"
+echo "$cmd" | tee "${root_dir}/build.log"
+eval "$cmd"
 if "$gem5"; then
+  cd "${root_dir}"
   ./build-gem5 -a "$arch"
 fi
