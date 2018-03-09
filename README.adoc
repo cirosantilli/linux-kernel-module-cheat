@@ -342,49 +342,6 @@ When dealing with real boards, extra command line options are provided on some m
 * GRUB configuration files: https://askubuntu.com/questions/19486/how-do-i-add-a-kernel-boot-parameter
 * Raspberry pi `/boot/cmdline.txt` on a magic partition: https://raspberrypi.stackexchange.com/questions/14839/how-to-change-the-kernel-commandline-for-archlinuxarm-on-raspberry-pi-effectly
 
-=== QEMU GUI is unresponsive
-
-Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.
-
-We have not managed to track this problem down yet, but the following workaround always works:
-
-....
-Ctrl + Shift + U
-Ctrl + C
-root
-....
-
-This started happening when we switched to building QEMU through Buildroot, and has not been observed on later Ubuntu.
-
-Using text mode is another workaround if you don't need GUI features.
-
-=== Debug QEMU
-
-When you start interacting with QEMU hardware, it is useful to see what is going on inside of QEMU itself.
-
-This is of course trivial since QEMU is just an userland program on the host, but we make it a bit easier with:
-
-....
-./run -D
-....
-
-Then you could:
-
-....
-b edu_mmio_read
-c
-....
-
-And in QEMU:
-
-....
-/pci.sh
-....
-
-Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
-
-You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
-
 === What command was actually run?
 
 When asking for help on upstream repositories outside of this repository, you will need to provide the commands that you are running in detail without referencing our scripts.
@@ -1433,47 +1390,6 @@ TODO: what do `+` and `!` mean?
 
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
 
-== QEMU user mode
-
-This has nothing to do with the Linux kernel, but it is cool:
-
-....
-sudo apt-get install qemu-user
-./build -a arm
-cd buildroot/output.arm~/target
-qemu-arm -L . bin/ls
-....
-
-This uses QEMU's user-mode emulation mode that allows us to run cross-compiled userland programs directly on the host.
-
-The reason this is cool, is that `ls` is not statically compiled, but since we have the Buildroot image, we are still able to find the shared linker and the shared library at the given path.
-
-In other words, much cooler than:
-
-....
-arm-linux-gnueabi-gcc -o hello -static hello.c
-qemu-arm hello
-....
-
-It is also possible to compile QEMU user mode from source with `BR2_PACKAGE_HOST_QEMU_LINUX_USER_MODE=y`, but then your compilation will likely fail with:
-
-....
-package/qemu/qemu.mk:110: *** "Refusing to build qemu-user: target Linux version newer than host's.".  Stop.
-....
-
-since we are using a bleeding edge kernel, which is a sanity check in the Buildroot QEMU package.
-
-Anyways, this warns us that the userland emulation will likely not be reliable, which is good to know. TODO: where is it documented the host kernel must be as new as the target one?
-
-GDB step debugging is also possible with:
-
-....
-qemu-arm -g 1234 -L . bin/ls
-../host/usr/bin/arm-buildroot-linux-uclibcgnueabi-gdb -ex 'target remote localhost:1234'
-....
-
-TODO: find source. Lazy now.
-
 == Snapshot
 
 https://stackoverflow.com/questions/40227651/does-qemu-emulator-have-checkpoint-function/48724371#48724371
@@ -1549,7 +1465,161 @@ This is useful to learn:
 * how to create new hardware models for QEMU. Overview: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code
 * how the Linux kernel interacts with hardware
 
-To get started, have a look at the "Hardware device drivers" secion under link:kernel_module/README.adoc[], and try to run those modules, and then grep the QEMU source code.
+To get started, have a look at the "Hardware device drivers" section under link:kernel_module/README.adoc[], and try to run those modules, and then grep the QEMU source code.
+
+== QEMU
+
+Some QEMU specific features to play with and limitations to cry over.
+
+=== 9P
+
+https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
+
+With networking, it's boring, we can just use any of the old tools like sshfs and NFS.
+
+As usual, we have already set everything up for you. On host:
+
+....
+cd 9p
+uname -a > host
+....
+
+Guest:
+
+....
+cd /mnt/9p
+cat host
+uname -a > guest
+....
+
+Host:
+
+....
+cat guest
+....
+
+The main ingredients for this are:
+
+* `9P` settings in our link:kernel_config_fragment[]
+* `9p` entry on our link:rootfs_overlay/etc/fstab[]
++
+Alternatively, you could also mount your own with:
++
+....
+mkdir /mnt/my9p
+mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/my9p
+....
+* Launch QEMU with `-virtfs` as in your link:run[] script
++
+When we tried:
++
+....
+security_model=mapped
+....
++
+writes from guest failed due to user mismatch problems: https://serverfault.com/questions/342801/read-write-access-for-passthrough-9p-filesystems-with-libvirt-qemu
+
+The feature is documented at: https://wiki.qemu.org/Documentation/9psetup
+
+TODO: not working on `arm`, manual mount failed with:
+
+....
+mount: mounting host0 on /mnt/my9p failed: No such file or directory
+....
+
+and on `aarch64`:
+
+....
+mount: mounting host0 on /mnt/my9p failed: Invalid argument
+....
+
+A few hits:
+
+* https://superuser.com/questions/502205/libvirt-9p-kvm-mount-in-fstab-fails-to-mount-at-boot-time
+
+=== QEMU user mode
+
+This has nothing to do with the Linux kernel, but it is cool:
+
+....
+sudo apt-get install qemu-user
+./build -a arm
+cd buildroot/output.arm~/target
+qemu-arm -L . bin/ls
+....
+
+This uses QEMU's user-mode emulation mode that allows us to run cross-compiled userland programs directly on the host.
+
+The reason this is cool, is that `ls` is not statically compiled, but since we have the Buildroot image, we are still able to find the shared linker and the shared library at the given path.
+
+In other words, much cooler than:
+
+....
+arm-linux-gnueabi-gcc -o hello -static hello.c
+qemu-arm hello
+....
+
+It is also possible to compile QEMU user mode from source with `BR2_PACKAGE_HOST_QEMU_LINUX_USER_MODE=y`, but then your compilation will likely fail with:
+
+....
+package/qemu/qemu.mk:110: *** "Refusing to build qemu-user: target Linux version newer than host's.".  Stop.
+....
+
+since we are using a bleeding edge kernel, which is a sanity check in the Buildroot QEMU package.
+
+Anyways, this warns us that the userland emulation will likely not be reliable, which is good to know. TODO: where is it documented the host kernel must be as new as the target one?
+
+GDB step debugging is also possible with:
+
+....
+qemu-arm -g 1234 -L . bin/ls
+../host/usr/bin/arm-buildroot-linux-uclibcgnueabi-gdb -ex 'target remote localhost:1234'
+....
+
+TODO: find source. Lazy now.
+
+=== Debug QEMU
+
+When you start interacting with QEMU hardware, it is useful to see what is going on inside of QEMU itself.
+
+This is of course trivial since QEMU is just an userland program on the host, but we make it a bit easier with:
+
+....
+./run -D
+....
+
+Then you could:
+
+....
+b edu_mmio_read
+c
+....
+
+And in QEMU:
+
+....
+/pci.sh
+....
+
+Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
+
+You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
+
+=== QEMU GUI is unresponsive
+
+Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.
+
+We have not managed to track this problem down yet, but the following workaround always works:
+
+....
+Ctrl + Shift + U
+Ctrl + C
+root
+....
+
+This started happening when we switched to building QEMU through Buildroot, and has not been observed on later Ubuntu.
+
+Using text mode is another workaround if you don't need GUI features.
 
 == gem5
 
@@ -2614,12 +2684,14 @@ Philosophy:
 
 This project should be called "Linux kernel playground", like: https://github.com/Fuzion24/AndroidKernelExploitationPlayground maybe I'll rename it some day. Would semi conflict with: http://copr-fe.cloud.fedoraproject.org/coprs/jwboyer/kernel-playground/ though.
 
-History:
+==== Fairy tale
 
 ____
-Once upon a time, there was a boy called Linus. Linus made a super fun toy, and since he was not very humble, decided to call it Linux.
+Once upon a time, there was a boy called Linus.
 
-Linux was great, but it had one big problem: it was very difficult to learn how to play with it!
+Linus made a super fun toy, and since he was not very humble, decided to call it Linux.
+
+Linux was an awesome toy, but it had one big problem: it was very difficult to learn how to play with it!
 
 As a result, only some weird kids who were very bored ended up playing with Linux, and everyone thought those kids were very cool, in their own weird way.
 
@@ -2629,7 +2701,9 @@ A few years later, Ciro had grown up a bit, and by chance came across a very coo
 
 Ciro noticed that if you used Buildroot together with Linux, Linux suddenly became very fun to play with!
 
-So Ciro decided to explain to as many kids as possible how to use Buildroot to play with Linux, and everyone was happy.
+So Ciro decided to explain to as many kids as possible how to use Buildroot to play with Linux.
+
+And so everyone was happy. Except some of the old weird kernel hackers who wanted to keep their mystique, but so be it.
 
 THE END
 ____
