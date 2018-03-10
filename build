@@ -8,10 +8,11 @@ config_fragments='buildroot_config_fragment buildroot_config_fragment_cli'
 extra_make_args=''
 gem5=false
 j="$(($(nproc) - 2))"
+linux_kernel_custom_config_file=''
 post_script_args=''
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 v=0
-while getopts 'a:c:Cgj:i:klp:qS:v' OPT; do
+while getopts 'a:c:Cgj:i:kK:lp:qS:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -33,6 +34,9 @@ while getopts 'a:c:Cgj:i:klp:qS:v' OPT; do
     ;;
     k)
       extra_make_args="$extra_make_args kernel_module-reconfigure"
+    ;;
+    K)
+      linux_kernel_custom_config_file="$OPTARG"
     ;;
     l)
       extra_make_args="$extra_make_args linux-reconfigure"
@@ -83,7 +87,7 @@ config_file="${out_dir}/.config"
 if "$configure"; then
   cd "${buildroot_dir}"
   for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
-      patch -N -r - -p 1 <"$p" || :
+    patch -N -r - -p 1 <"$p" || :
   done
   make O="$out_dir" BR2_EXTERNAL="${root_dir}/kernel_module:${root_dir}/gem5:${root_dir}/parsec-benchmark" "$defconfig"
   # TODO Can't get rid of these for now.
@@ -96,19 +100,25 @@ BR2_JLEVEL=$j
 BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
 " >> "${config_file}"
   if "$gem5"; then
-    printf "\
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../kernel_config_${arch_dir}\"
-BR2_PACKAGE_GEM5=y
-" >> "${config_file}"
+    if [ -z "$linux_kernel_custom_config_file" ]; then
+      printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../kernel_config_${arch_dir}\"" >> "${config_file}"
+    fi
+    printf "BR2_PACKAGE_GEM5=\"../kernel_config_${arch_dir}\"" >> "${config_file}"
   else
-    printf "\
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"../kernel_config_fragment\"
-" >> "${config_file}"
+    if [ -z "$linux_kernel_custom_config_file" ]; then
+      printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"../kernel_config_fragment\"" >> "${config_file}"
+    fi
   fi
   if [ "$arch" = 'mips64' ]; then
     # Workaround for:
     # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
     sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${config_file}"
+  fi
+  # TODO why is this needed. Otherwise kernel .config does not change, even though Buildroot
+  # .config did due to -K. even if we are running linux-kernel-reconfigure!
+  rm -f "${out_dir}/build/linux-custom/.config"
+  if [ -n "$linux_kernel_custom_config_file" ]; then
+    printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../${linux_kernel_custom_config_file}\"" >> "${config_file}"
   fi
   make O="$out_dir" olddefconfig
 fi

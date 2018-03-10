@@ -1295,7 +1295,24 @@ In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the ker
 
 http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
 
-== ftrace
+== Linux kernel
+
+=== Use your own .config
+
+By default, we use a `.config` that is a mixture of:
+
+* Buildroot's minimal per machine `.config`, which has the minimal options needed to boot
+* our link:kernel_config_fragment[] which enables options we want to play with
+
+If you want to just use your own exact `.config` instead, do:
+
+....
+./build -K myconfig
+....
+
+Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on.
+
+=== ftrace
 
 Trace a single function:
 
@@ -1390,7 +1407,11 @@ TODO: what do `+` and `!` mean?
 
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
 
-== Snapshot
+== QEMU
+
+Some QEMU specific features to play with and limitations to cry over.
+
+=== Snapshot
 
 https://stackoverflow.com/questions/40227651/does-qemu-emulator-have-checkpoint-function/48724371#48724371
 
@@ -1467,10 +1488,6 @@ This is useful to learn:
 
 To get started, have a look at the "Hardware device drivers" section under link:kernel_module/README.adoc[], and try to run those modules, and then grep the QEMU source code.
 
-== QEMU
-
-Some QEMU specific features to play with and limitations to cry over.
-
 === 9P
 
 This protocol allows sharing a mountable filesystem between guest and host.
@@ -1479,7 +1496,7 @@ With networking, it's boring, we can just use any of the old tools like sshfs an
 
 https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
 
-One advantage of this method over NFS is that can run without `sudo` on host, or having to pass host cretendials on guest for sshfs.
+One advantage of this method over NFS is that can run without `sudo` on host, or having to pass host credentials on guest for sshfs.
 
 TODO performance compared to NFS.
 
@@ -1541,8 +1558,15 @@ and on `aarch64`:
 mount: mounting host0 on /mnt/my9p failed: Invalid argument
 ....
 
+and dmesg gives:
+
+....
+9pnet_virtio: no channels available for device
+....
+
 A few hits:
 
+* https://lists.gnu.org/archive/html/qemu-devel/2013-08/msg00044.html
 * https://superuser.com/questions/502205/libvirt-9p-kvm-mount-in-fstab-fails-to-mount-at-boot-time
 
 ==== 9P gem5
