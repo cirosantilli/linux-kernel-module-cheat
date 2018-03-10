@@ -277,35 +277,6 @@ and they will be run automatically before the login prompt.
 
 Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
 
-=== Kernel version
-
-We try to use the latest possible kernel major release version.
-
-In QEMU:
-
-....
-cat /proc/version
-....
-
-or in the source:
-
-....
-cd linux
-git log | grep -E '    Linux [0-9]+\.' | head
-....
-
-Build configuration can be observed in guest with:
-
-....
-/conf.sh
-....
-
-or on host:
-
-....
-cat buildroot/output.*~/build/linux-custom/.config
-....
-
 === Kernel command line parameters
 
 Bootloaders can pass a string as input to the Linux kernel when it is booting to control its behaviour, much like the `execve` system call does to userland processes.
@@ -860,7 +831,7 @@ m5 exit
 ....
 * GDB step debugging of kernel modules broke at some point. This happens at 6420c31986e064c81561da8f2be0bd33483af598 on kernel v4.15, 6b0f89a8b43e8d33d3a3a436ed827f962da3008a v4.14 and 5ad68edd000685c016c45e344470f2c1867b8e39 v4.12 and also if kernel 4.9.6 is checked out. So maybe it was never working in the first place, but we never noticed?
 +
-Just afte GDB connects, we get the following message from the kernel GDB Python scripts:
+Just after GDB connects, we get the following message from the kernel GDB Python scripts:
 ....
 loading vmlinux
 Traceback (most recent call last):
@@ -1307,10 +1278,41 @@ By default, we use a `.config` that is a mixture of:
 If you want to just use your own exact `.config` instead, do:
 
 ....
-./build -K myconfig
+./build -K myconfig -l
 ....
 
-Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on.
+Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
+
+=== Find the kernel config
+
+Build configuration can be observed in guest with:
+
+....
+/conf.sh
+....
+
+or on host:
+
+....
+cat buildroot/output.*~/build/linux-custom/.config
+....
+
+=== Find the kernel version
+
+We try to use the latest possible kernel major release version.
+
+In QEMU:
+
+....
+cat /proc/version
+....
+
+or in the source:
+
+....
+cd linux
+git log | grep -E '    Linux [0-9]+\.' | head
+....
 
 === ftrace
 
@@ -1543,31 +1545,6 @@ security_model=mapped
 writes from guest failed due to user mismatch problems: https://serverfault.com/questions/342801/read-write-access-for-passthrough-9p-filesystems-with-libvirt-qemu
 
 The feature is documented at: https://wiki.qemu.org/Documentation/9psetup
-
-==== 9P arm
-
-TODO: not working on `arm`, manual mount failed with:
-
-....
-mount: mounting host0 on /mnt/my9p failed: No such file or directory
-....
-
-and on `aarch64`:
-
-....
-mount: mounting host0 on /mnt/my9p failed: Invalid argument
-....
-
-and dmesg gives:
-
-....
-9pnet_virtio: no channels available for device
-....
-
-A few hits:
-
-* https://lists.gnu.org/archive/html/qemu-devel/2013-08/msg00044.html
-* https://superuser.com/questions/502205/libvirt-9p-kvm-mount-in-fstab-fails-to-mount-at-boot-time
 
 ==== 9P gem5
 
