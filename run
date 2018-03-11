@@ -65,67 +65,73 @@ while getopts a:c:Dde:G:giKknt:x OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
+arch_dir="$arch"
+if "$gem5"; then
+  arch_dir="${arch}-gem5"
+fi
+root_dir="$(pwd)"
+buildroot_dir="${root_dir}/buildroot"
+out_dir="${root_dir}/buildroot/output.${arch_dir}~"
 
-if $gem5; then
-  outdir="$(pwd)/buildroot/output.${arch}-gem5~"
-  gem5_dir="$(pwd)/gem5/gem5"
+if "$gem5"; then
+  gem5_dir="${root_dir}/gem5/gem5"
   if [ "$arch" = x86_64 ]; then
     if "$kvm"; then
       extra_flags="$extra_flags --cpu-type=X86KvmCPU"
     fi
     cmd="\
-M5_PATH='$(pwd)/gem5/gem5-system' \
+M5_PATH='${root_dir}/gem5/gem5-system' \
 '${gem5_dir}/build/X86/gem5.opt' \
 ${gem5opts} \
 '${gem5_dir}/configs/example/fs.py' \
 --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda $extra_append' \
---disk-image='${outdir}/images/rootfs.ext2' \
---kernel='${outdir}/build/linux-custom/vmlinux' \
+--disk-image='${out_dir}/images/rootfs.ext2' \
+--kernel='${out_dir}/build/linux-custom/vmlinux' \
 --num-cpus=${cpus} \
 $extra_flags \
 "
   elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
     cmd="\
-M5_PATH='$(pwd)/gem5/gem5-system' \
+M5_PATH='${root_dir}/gem5/gem5-system' \
 $debug_vm \
 '${gem5_dir}/build/ARM/gem5.opt' \
 ${gem5opts} \
 '${gem5_dir}/configs/example/fs.py' \
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=512MB root=/dev/sda $extra_append' \
---disk-image='${outdir}/images/rootfs.ext2' \
+--disk-image='${out_dir}/images/rootfs.ext2' \
 --dtb-file='${gem5_dir}/system/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \
---kernel='${outdir}/build/linux-custom/vmlinux' \
+--kernel='${out_dir}/build/linux-custom/vmlinux' \
 --machine-type=VExpress_GEM5_V1 \
 --num-cpus=${cpus} \
 $extra_flags \
 "
   fi
 else
-  buildroot_out_dir="./buildroot/output.${arch}~"
   if "$kvm"; then
-    extra_flags="$extra_flags -enable-kvm"
+    extra_flags="${extra_flags} -enable-kvm"
   fi
-  extra_flags="$extra_flags_qemu $extra_flags"
-  images_dir="$buildroot_out_dir/images"
+  extra_flags="${extra_flags_qemu} ${extra_flags}"
+  images_dir="${out_dir}/images"
   qemu_common="\
-$debug_vm \
-$buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
+${debug_vm} \
+${out_dir}/host/usr/bin/qemu-system-${arch} \
 -m 128M \
 -monitor telnet::45454,server,nowait \
 -netdev user,hostfwd=tcp::45455-:45455,id=net0 \
 -smp $cpus \
--virtfs local,path=9p,mount_tag=host0,security_model=mapped,id=host0 \
+-virtfs local,path=9p,mount_tag=host_scratch,security_model=mapped,id=host_scratch \
+-virtfs local,path=${out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out \
 "
-  if $initrd; then
-    extra_flags="$extra_flags -initrd '${images_dir}/rootfs.cpio'"
+  if "$initrd"; then
+    extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio'"
   fi
   # The base QEMU commands are found under board/qemu/*/readme.tx
   case "$arch" in
     x86_64)
-      if $kgdb; then
+      if "$kgdb"; then
         extra_append="$extra_append kgdboc=ttyS0,115200"
       fi
-      if ! $initrd; then
+      if ! "$initrd"; then
         root='root=/dev/vda'
         extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
       fi
@@ -136,14 +142,14 @@ $buildroot_out_dir/host/usr/bin/qemu-system-${arch} \
 -device lkmc_pci_min \
 -device virtio-net-pci,netdev=net0 \
 -kernel ${images_dir}/bzImage \
-$extra_flags \
+${extra_flags} \
 "
     ;;
     arm)
-      if $kgdb; then
+      if "$kgdb"; then
         extra_append="$extra_append kgdboc=ttyAMA0,115200"
       fi
-      if ! $initrd; then
+      if ! "$initrd"; then
         root='root=/dev/sda'
         extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
       fi
@@ -158,33 +164,33 @@ $extra_flags \
 "
     ;;
     aarch64)
-      if $kgdb; then
-        extra_append="$extra_append kgdboc=ttyAMA0,115200"
+      if "$kgdb"; then
+        extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      cmd="$qemu_common \
+      cmd="${qemu_common} \
 -M virt \
--append 'root=/dev/sda $extra_append' \
+-append 'root=/dev/sda ${extra_append}' \
 -cpu cortex-a57 \
 -device virtio-net-device,netdev=net0 \
 -kernel ${images_dir}/Image \
 -nographic \
 -serial stdio \
-$extra_flags \
+${extra_flags} \
 "
     ;;
     mips64)
-      if ! $initrd; then
+      if ! "$initrd"; then
         root='root=/dev/hda'
-        extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
       fi
       cmd="$qemu_common \
 -M malta \
--append 'root=/dev/hda $extra_append' \
+-append 'root=/dev/hda ${extra_append}' \
 -cpu I6400 \
 -device pcnet \
 -kernel ${images_dir}/vmlinux \
 -nographic \
-$extra_flags \
+${extra_flags} \
 "
     ;;
   esac
