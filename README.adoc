@@ -1268,7 +1268,7 @@ http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
 
 == Linux kernel
 
-=== Use your own .config
+=== Use your own kernel config
 
 By default, we use a `.config` that is a mixture of:
 
@@ -2482,6 +2482,44 @@ dmesg
 rmmod hello.ko
 dmesg
 ....
+
+== Buildroot
+
+=== ccache
+
+We have link:https://buildroot.org/downloads/manual/manual.html#ccache[enabled ccached] builds by default.
+
+`BR2_CCACHE_USE_BASEDIR=n` is used, which means that:
+
+* absolute paths are used and GDB can find source files
+* but builds are not reused across separated LKMC directories
+
+ccache can considerably speed up builds when you:
+
+* are switching between multiple configurations for a given package to bisect something out, as mentioned at: <<use-your-own-kernel-config>>
+* clean the build because things stopped working. We store the cache outside of this repository, so you can nuke away without fear
+
+The ccache directory we use is different from your system one because Buildroot builds its own ccache which could be different from you system ccache.
+
+You can increase the size of your cache with:
+
+....
+make -C buildroot/output.x86_64~/ CCACHE_OPTIONS="--max-size=20G" ccache-options
+....
+
+This can be done for any architecture you have already built for previously, and affects all architectures permanently, since the cache is shared for all architectures and stored outside of this repo, see:
+
+....
+cat ~/.buildroot-ccache/ccache.conf
+....
+
+I find it very relaxing to watch ccache at work with:
+
+....
+watch -n1 'make -C buildroot/output.x86_64~/ ccache-stats'
+....
+
+while a build is going on in another terminal and my cooler is humming. Especially when the hit count goes up ;-) The joys of system programming.
 
 == Conversation
 
