@@ -15,7 +15,8 @@ ARCH_MAKE = $(ARCH)
 endif
 
 define GEM5_BUILD_CMDS
-	cd '$(@D)' && ./build -a '$(ARCH)' -c '$(TARGET_CROSS)' -j '$(BR2_JLEVEL)'
+	# Cannot pass "-c '$(TARGET_CROSS)'" here because the ARM build uses aarch64 for the bootloader...
+	cd '$(@D)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)'
 	cd '$(@D)/gem5/util/m5' && $(MAKE) -f 'Makefile.$(ARCH_MAKE)' CC='$(TARGET_CC)' LD='$(TARGET_LD)'
 endef
 
