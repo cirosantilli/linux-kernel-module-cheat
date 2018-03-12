@@ -15,6 +15,7 @@ ARCH_MAKE = $(ARCH)
 endif
 
 define GEM5_BUILD_CMDS
+	cd '$(@D)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)'
 	cd '$(@D)/gem5/util/m5' && $(MAKE) -f 'Makefile.$(ARCH_MAKE)' CC='$(TARGET_CC)' LD='$(TARGET_LD)'
 endef
 
