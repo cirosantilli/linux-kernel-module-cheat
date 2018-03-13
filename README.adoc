@@ -2499,24 +2499,30 @@ ccache can considerably speed up builds when you:
 * are switching between multiple configurations for a given package to bisect something out, as mentioned at: <<use-your-own-kernel-config>>
 * clean the build because things stopped working. We store the cache outside of this repository, so you can nuke away without fear
 
-The ccache directory we use is different from your system one because Buildroot builds its own ccache which could be different from you system ccache.
-
-You can increase the size of your cache with:
+The default ccache environment variables are honored if you have them set, which we recommend you do. E.g., in your `.bashrc`:
 
 ....
-make -C buildroot/output.x86_64~/ CCACHE_OPTIONS="--max-size=20G" ccache-options
+export CCACHE_DIR=~/.ccache
+export CCACHE_MAXSIZE="20G"
 ....
 
-This can be done for any architecture you have already built for previously, and affects all architectures permanently, since the cache is shared for all architectures and stored outside of this repo, see:
+The choice basically comes down to:
 
-....
-cat ~/.buildroot-ccache/ccache.conf
-....
+* should I store my cache on my HD or SSD?
+* how big is my build, and how many build configurarations do I need to keep around at a time?
+
+If you don't set it, the default is to use `~/.buildroot-ccache` with `5G`, which is a bit small for us.
 
 I find it very relaxing to watch ccache at work with:
 
 ....
 watch -n1 'make -C buildroot/output.x86_64~/ ccache-stats'
+....
+
+or if you have it installed on host and the environment variables exported simply with:
+
+....
+watch -n1 'ccache -s'
 ....
 
 while a build is going on in another terminal and my cooler is humming. Especially when the hit count goes up ;-) The joys of system programming.
