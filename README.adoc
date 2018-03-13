@@ -1791,7 +1791,7 @@ These commands output the approximate number of CPU cycles it took Dhrystone to 
 
 It works like this:
 
-* the first commond boots linux with the default simplified `AtomicSimpleCPU`, and generates a <<gem5-checkpoint,checkpoint>> after the kernel boots and before running the benchmark
+* the first command boots linux with the default simplified `AtomicSimpleCPU`, and generates a <<gem5-checkpoint,checkpoint>> after the kernel boots and before running the benchmark
 * the second command restores the checkpoint with the more detailed `HPI` CPU model, and runs the benchmark. We don't boot with it because that is much slower.
 
 ARM employees have just been modifying benchmarking code with instrumentation directly: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/xcompile-patch.diff#L230
@@ -2267,10 +2267,10 @@ Analogous to QEMU's <<snapshot>>, but better since it can be started from inside
 Documentation: http://gem5.org/Checkpoints
 
 ....
-./rung -a arm -g
+./run -a arm -g
 ....
 
-In guest, wait for the boot to end and run:
+In the guest, wait for the boot to end and run:
 
 ....
 m5 checkpoint
@@ -2279,7 +2279,7 @@ m5 checkpoint
 To restore the checkpoint, kill the VM and run:
 
 ....
-./rung -a arm -g -- -r 1
+./run -a arm -g -- -r 1
 ....
 
 Let's create a second checkpoint to see how it works, in guest:
@@ -2303,11 +2303,6 @@ cat f
 
 contains the `date`. The file `f` wouldn't exist had we used the first checkpoint with `-r 1`.
 
-Internals:
-
-* the checkpoints are stored under `m5out/cpt.*`
-* `m5` is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
-
 If you automate things with <<kernel-command-line-parameters>> as in:
 
 ....
@@ -2321,6 +2316,20 @@ Then there is no need to pass the kernel command line again to gem5 for replay:
 ....
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
+
+Our scripts "namespace" with the checkpoint by architecture with `--checkpoint-dir`, so if you make two checkpoints:
+
+* one in x86
+* the other in arm
+
+Then you would still restore both of them with `-- -r 1`.
+
+This makes it easier to remember which checkpoint is which, especially since there appears to be no runtime way to set the checkpoint names.
+
+Internals:
+
+* the checkpoints are stored under `m5out/cpts/$arch/cpt.$todo_whatisthis`
+* `m5` is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
 
 ==== gem5 restore checkpoint with a different CPU
 
