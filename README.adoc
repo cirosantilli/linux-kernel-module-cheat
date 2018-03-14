@@ -2015,6 +2015,34 @@ External open source benchmarks. We will try to create Buildroot packages for th
 * http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
 * http://www.m5sim.org/Splash_benchmarks
 
+===== BLAS
+
+Buildroot supports it, which makes everything just trivial:
+
+....
+printf 'BR2_PACKAGE_OPENBLAS=y\n' >> br2_local
+printf 'BR2_TARGET_ROOTFS_EXT2_SIZE="128M"\n' >> br2_local
+./build -a arm -g -i br2_local -- kernel_module-reconfigure
+....
+
+and then inside the guest run our test program:
+
+....
+/openblas.out
+....
+
+For x86, you also need:
+
+....
+printf 'BR2_PACKAGE_OPENBLAS_TARGET="NEHALEM"\n' >> br2_local
+....
+
+to overcome this bug: https://bugs.busybox.net/show_bug.cgi?id=10856
+
+....
+sgemm_kernel.o: No such file or directory
+....
+
 ===== PARSEC benchmark
 
 We have ported parts of the link:http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported. Furthermore, some of the benchmarks were are segfaulting, see link:parsec-benchmark/test.sh[]
@@ -2541,12 +2569,14 @@ dmesg
 
 We provide the following mechanisms:
 
-* `br2_local`: a gitignored file that gets appended to the `.config`. Get started with:
+* `./build -i br2_local`: append the file `br2_local` to a single build. Must be passed every time you run `./build`.
++
+For convenience, we already gitignore `br2_local` for you.
 +
 ....
 cp br2_local.off br2_local
 ....
-* `./build -i somefile`: append `somefile` to a single build. Must be passed every time you run `./build`.
++
 * `./build -c 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
 
 === ccache
