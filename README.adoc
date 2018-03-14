@@ -1034,7 +1034,7 @@ Only tested successfully in `x86_64`.
 Build:
 
 ....
-./build -i buildroot_config_fragment_x11
+./build -i br2_x11
 ./run
 ....
 
@@ -1996,7 +1996,6 @@ TODO is it possible to compile a single package with optimizations enabled? In a
 Buildroot built-in libraries, mostly under Libraries > Other:
 
 * Armadillo `C++`: linear algebra
-* CBLAS / CLAPACK: linear algebra
 * fftw: Fourier transform
 * Eigen: linear algebra
 * Flann
@@ -2008,7 +2007,7 @@ Buildroot built-in libraries, mostly under Libraries > Other:
 
 There are not yet enabled, but it should be easy to so:
 
-* enable them in link:buildroot_config_fragment[] and rebuild
+* enable them in link:br2[] and rebuild
 * create a test program that uses each library under link:kernel_module/user[]
 
 External open source benchmarks. We will try to create Buildroot packages for them, add them to this repo, and potentially upstream:
@@ -2028,7 +2027,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-configure -gpq && ./build -a arm -g -i buildroot_config_fragment_parsec
+configure -gpq && ./build -a arm -g -i br2_parsec
 ./run -a arm -g
 ....
 
@@ -2061,7 +2060,7 @@ Running a benchmark of a different size requires a rebuild wit:
   -c 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
   -c BR2_TARGET_ROOTFS_EXT2_SIZE="500M" \
   -g \
-  -i buildroot_config_fragment_parsec \
+  -i br2_parsec \
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -2113,7 +2112,7 @@ If you still want to run this, try it out with:
 ./build -a arm \
   -c BR2_TARGET_ROOTFS_EXT2_SIZE="3G" \
   -g
-  -i buildroot_config_fragment_parsec
+  -i br2_parsec
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -2131,7 +2130,7 @@ parsecmgmt -a run -p splash2x.fmm -i test
 
 One limitation is that only one input size is available on the guest for a given build.
 
-To change that, edit link:buildroot_config_fragment_parsec[] to contain for example:
+To change that, edit link:br2_parsec[] to contain for example:
 
 ....
 BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
@@ -2140,7 +2139,7 @@ BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
 and then rebuild with:
 
 ....
-./build -a arm -g -i buildroot_config_fragment_parsec -- parsec-benchmark-reconfigure
+./build -a arm -g -i br2_parsec -- parsec-benchmark-reconfigure
 ....
 
 This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
@@ -2187,7 +2186,7 @@ before going for the cross compile build.
 Don't forget to explicitly rebuild PARSEC with:
 +
 ....
-./build -a arm -g -i buildroot_config_fragment_parsec parsec-benchmark-reconfigure
+./build -a arm -g -i br2_parsec parsec-benchmark-reconfigure
 ....
 +
 You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
@@ -2538,6 +2537,18 @@ dmesg
 
 == Buildroot
 
+=== Change Buildroot options
+
+We provide the following mechanisms:
+
+* `br2_local`: a gitignored file that gets appended to the `.config`. Get started with:
++
+....
+cp br2_local.off br2_local
+....
+* `./build -i somefile`: append `somefile` to a single build. Must be passed every time you run `./build`.
+* `./build -c 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
+
 === ccache
 
 We have link:https://buildroot.org/downloads/manual/manual.html#ccache[enabled ccached] builds by default.
@@ -2774,7 +2785,7 @@ Save and quit.
 diff .config.olg .config
 ....
 
-Copy and paste the diff additions to `buildroot_config_fragment`.
+Copy and paste the diff additions to link:br2[].
 
 ==== Benchmarking this repo
 
