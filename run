@@ -17,9 +17,10 @@ extra_flags=''
 extra_flags_qemu=''
 gem5=false
 gem5opts=''
+lkmc_eval=''
 initrd=false
 root=''
-while getopts a:c:Dde:G:giKknt:x OPT; do
+while getopts a:c:DdE:e:G:giKknt:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -32,6 +33,9 @@ while getopts a:c:Dde:G:giKknt:x OPT; do
       ;;
     D)
       debug_vm='gdb -q -ex start --args'
+      ;;
+    E)
+      lkmc_eval="$OPTARG"
       ;;
     e)
       extra_append="$extra_append $OPTARG"
@@ -71,6 +75,9 @@ root_dir="$(pwd)"
 buildroot_dir="${root_dir}/buildroot"
 out_dir="${root_dir}/buildroot/output.${arch_dir}~"
 images_dir="${out_dir}/images"
+if [ -n "$lkmc_eval" ]; then
+  extra_append="$extra_append init=/eval_base64.sh - lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
+fi
 
 if "$gem5"; then
   build_dir="${out_dir}/build/gem5-1.0"

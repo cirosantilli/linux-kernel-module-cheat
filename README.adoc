@@ -139,7 +139,7 @@ The root filesystem is persistent across:
 ....
 ./run
 date >f
-sync
+# poweroff syncs by default without -n.
 poweroff
 ....
 
@@ -149,6 +149,14 @@ then:
 ./run
 cat f
 ....
+
+The command:
+
+....
+sync
+....
+
+also saves the disk.
 
 This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl + R`.
 
@@ -240,23 +248,49 @@ root
 
 every time.
 
-Instead, you can either run them from a minimal init:
+Here are some methods to automate that.
+
+==== Replace init
+
+This method replaces init and evals a command from the <<kernel-command-line-parameters>>:
+
+....
+./run -E 'echo "asdf qwer";insmod /hello.ko;/poweroff.out' -n
+....
+
+It is basically a shortcut for:
 
 ....
 ./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
 ....
 
-or if the script is large, add it to a gitignored file that will go into the guest:
+although `-E` allows for quoting and newlines by using base64 encoding, so you should almost always use it, unless you are really counting each cycle ;-)
+
+If the script is large, you can add it to a gitignored file and pass that to `-E` as in:
 
 ....
 echo '
 insmod /hello.ko
 /poweroff.out
+' > ignore.sh
+./run -E "$(cat ignore.sh)" -n
+....
+
+or add it to a file to the root filesystem guest and rebuild:
+
+....
+echo '#!/bin/sh
+insmod /hello.ko
+/poweroff.out
 ' > rootfs_overlay/ignore.sh
+chmod +x rootfs_overlay/ignore.sh
+./build
 ./run -e 'init=/ignore.sh' -n
 ....
 
-or run them at the end of the BusyBox init, which does things like setting up networking:
+==== Run command at the end of BusyBox init
+
+If you rely on something that BusyBox' init set up for you like networking, this is the way to go:
 
 ....
 ./run -e '- lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
@@ -276,6 +310,26 @@ and they will be run automatically before the login prompt.
 `S99` is a git tracked convenience symlink to the gitignored `rootfs_overlay/etc/init.d/S99`
 
 Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
+
+==== The kernel panics despite poweroff
+
+Just using Busybox' `poweroff` at the end of the `init` does not work and the kernel panics:
+
+....
+./run -E poweroff
+....
+
+because BusyBox' `poweroff` tries to do some fancy stuff like killing init, likely to allow userland to shutdown nicely.
+
+But this fails when we are `init` itself!
+
+`poweroff` works more brutally and effectively if you add `-f`:
+
+....
+./run -E 'poweroff -f'
+....
+
+but why not just use your super simple and effective `/poweroff.out` and be done with it?
 
 === Kernel command line parameters
 
@@ -1110,9 +1164,9 @@ wc -l trace-boot.txt
 gem5:
 
 ....
-./run -a arm -g -e 'init=/eval.sh - lkmc_eval="m5 exit"'
+./run -a arm -g -E 'm5 exit'
 # Or:
-# ./run -a arm -g -e 'init=/eval.sh - lkmc_eval="m5 exit"' -- --cpu-type=HPI --caches
+# ./run -a arm -g -E 'm5 exit' -- --cpu-type=HPI --caches
 grep sim_insts m5out/stats.txt
 ....
 
@@ -1810,7 +1864,7 @@ Those problems should be insignificant if the benchmark runs for long enough how
 TODO: even if we don't switch to the detailed CPU model, the cycle counts on the original run and the one with checkpoint restore differ slightly. Why? Multiple checkpoint restores give the same results as expected however:
 
 ....
-./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit"' -g
+./run -a arm -E 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' -g
 ./run -a arm -g -- -r 1
 ....
 
@@ -2337,7 +2391,7 @@ contains the `date`. The file `f` wouldn't exist had we used the first checkpoin
 If you automate things with <<kernel-command-line-parameters>> as in:
 
 ....
-./run -a arm -e 'init=/eval.sh - lkmc_eval="m5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit"' -g
+./run -a arm -E 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' -g
 ....
 
 Then there is no need to pass the kernel command line again to gem5 for replay:
