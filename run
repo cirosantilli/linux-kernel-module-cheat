@@ -19,8 +19,11 @@ gem5=false
 gem5opts=''
 lkmc_eval=''
 initrd=false
+initramfs=false
+memory=128M
+nographic=false
 root=''
-while getopts a:c:DdE:e:G:giKknt:x OPT; do
+while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -29,7 +32,7 @@ while getopts a:c:DdE:e:G:giKknt:x OPT; do
       cpus="$OPTARG"
       ;;
     d)
-      extra_flags_qemu="$extra_flags -S -s"
+      extra_flags_qemu="$extra_flags_qemu -S -s"
       ;;
     D)
       debug_vm='gdb -q -ex start --args'
@@ -47,7 +50,7 @@ while getopts a:c:DdE:e:G:giKknt:x OPT; do
       extra_append="$extra_append kgdbwait"
       # For those who want to try KDB.
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
-      extra_flags_qemu="$extra_flags -serial tcp::1234,server,nowait"
+      extra_flags_qemu="$extra_flags_qemu -serial tcp::1234,server,nowait"
       kgdb=true
       ;;
     g)
@@ -56,12 +59,17 @@ while getopts a:c:DdE:e:G:giKknt:x OPT; do
     G)
       gem5opts="$OPTARG"
       ;;
+    I)
+      initramfs=true
+      ;;
     i)
       initrd=true
       ;;
+    m)
+      memory="$OPTARG"
+      ;;
     n)
-      extra_append="$extra_append console=ttyS0"
-      extra_flags_qemu="$extra_flags -nographic"
+      nographic=true
       ;;
   esac
 done
@@ -75,12 +83,27 @@ root_dir="$(pwd)"
 buildroot_dir="${root_dir}/buildroot"
 out_dir="${root_dir}/buildroot/output.${arch_dir}~"
 images_dir="${out_dir}/images"
+if "$initrd" || "$initramfs"; then
+  ramfs=true
+else
+  ramfs=false
+fi
 if [ -n "$lkmc_eval" ]; then
-  extra_append="$extra_append init=/eval_base64.sh - lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
+  if "$ramfs"; then
+    initarg="rdinit"
+  else
+    initarg="init"
+  fi
+  extra_append="${extra_append} ${initarg}=/eval_base64.sh - lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
+fi
+if "$nographic" && [ "$arch" = x86_64 ]; then
+  extra_append="$extra_append console=ttyS0"
+  extra_flags_qemu="$extra_flags_qemu -nographic"
 fi
 
 if "$gem5"; then
   build_dir="${out_dir}/build/gem5-1.0"
+  memory="${memory}B"
   gem5_dir="${build_dir}/gem5"
   if [ "$arch" = x86_64 ]; then
     gem5_arch=X86
@@ -98,6 +121,7 @@ ${gem5opts} \
 --checkpoint-dir='${gem5_cpt_dir}' \
 --disk-image='${out_dir}/images/rootfs.ext2' \
 --kernel='${out_dir}/build/linux-custom/vmlinux' \
+--mem-size=${memory} \
 --num-cpus='${cpus}' \
 "
   if [ "$arch" = x86_64 ]; then
@@ -109,11 +133,13 @@ ${gem5opts} \
 $extra_flags \
 "
   elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
+    # TODO why is it mandatory to pass mem= here? Not true for QEMU.
+    # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
     cmd="${gem5_common} \
---command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=512MB root=/dev/sda $extra_append' \
+--command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda $extra_append' \
 --dtb-file='${gem5_dir}/system/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \
 --machine-type=VExpress_GEM5_V1 \
-$extra_flags \
+${extra_flags} \
 "
   fi
 else
@@ -125,7 +151,7 @@ else
   qemu_common="\
 ${debug_vm} \
 '${out_dir}/host/usr/bin/qemu-system-${arch}' \
--m 128M \
+-m ${memory} \
 -monitor telnet::45454,server,nowait \
 -netdev user,hostfwd=tcp::45455-:45455,id=net0 \
 -smp $cpus \
@@ -139,15 +165,17 @@ ${debug_vm} \
   case "$arch" in
     x86_64)
       if "$kgdb"; then
-        extra_append="$extra_append kgdboc=ttyS0,115200"
+        extra_append="${extra_append} kgdboc=ttyS0,115200"
       fi
-      if ! "$initrd"; then
+      if "$ramfs"; then
+        root='root=/dev/anything'
+      else
         root='root=/dev/vda'
-        extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
       fi
-      cmd="$qemu_common \
+      cmd="${qemu_common} \
 -M pc \
--append '$root nopat $extra_append' \
+-append '${root} nopat ${extra_append}' \
 -device edu \
 -device lkmc_pci_min \
 -device virtio-net-pci,netdev=net0 \
@@ -157,15 +185,17 @@ ${extra_flags} \
     ;;
     arm)
       if "$kgdb"; then
-        extra_append="$extra_append kgdboc=ttyAMA0,115200"
+        extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      if ! "$initrd"; then
+      if "$ramfs"; then
+        root='root=/dev/anything'
+      else
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
         root='root=/dev/sda'
-        extra_flags="$extra_flags -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
       fi
       cmd="$qemu_common \
 -M versatilepb \
--append '$root $extra_append' \
+-append '${root} ${extra_append}' \
 -device rtl8139,netdev=net0 \
 -dtb '${images_dir}/versatile-pb.dtb' \
 -kernel '${images_dir}/zImage' \
@@ -177,9 +207,15 @@ $extra_flags \
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
+      if "$ramfs"; then
+        root='root=/dev/anything'
+      else
+        root='root=/dev/vda'
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
+      fi
       cmd="${qemu_common} \
 -M virt \
--append 'root=/dev/sda ${extra_append}' \
+-append '${root} ${extra_append}' \
 -cpu cortex-a57 \
 -device virtio-net-device,netdev=net0 \
 -kernel '${images_dir}/Image' \
@@ -189,13 +225,15 @@ ${extra_flags} \
 "
     ;;
     mips64)
-      if ! "$initrd"; then
+      if "$ramfs"; then
+        root='root=/dev/anything'
+      else
         root='root=/dev/hda'
         extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
       fi
-      cmd="$qemu_common \
+      cmd="${qemu_common} \
 -M malta \
--append 'root=/dev/hda ${extra_append}' \
+-append '${root} ${extra_append}' \
 -cpu I6400 \
 -device pcnet \
 -kernel '${images_dir}/vmlinux' \

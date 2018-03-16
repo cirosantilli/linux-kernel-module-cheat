@@ -248,88 +248,7 @@ root
 
 every time.
 
-Here are some methods to automate that.
-
-==== Replace init
-
-This method replaces init and evals a command from the <<kernel-command-line-parameters>>:
-
-....
-./run -E 'echo "asdf qwer";insmod /hello.ko;/poweroff.out' -n
-....
-
-It is basically a shortcut for:
-
-....
-./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
-....
-
-although `-E` allows for quoting and newlines by using base64 encoding, so you should almost always use it, unless you are really counting each cycle ;-)
-
-If the script is large, you can add it to a gitignored file and pass that to `-E` as in:
-
-....
-echo '
-insmod /hello.ko
-/poweroff.out
-' > ignore.sh
-./run -E "$(cat ignore.sh)" -n
-....
-
-or add it to a file to the root filesystem guest and rebuild:
-
-....
-echo '#!/bin/sh
-insmod /hello.ko
-/poweroff.out
-' > rootfs_overlay/ignore.sh
-chmod +x rootfs_overlay/ignore.sh
-./build
-./run -e 'init=/ignore.sh' -n
-....
-
-==== Run command at the end of BusyBox init
-
-If you rely on something that BusyBox' init set up for you like networking, this is the way to go:
-
-....
-./run -e '- lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
-....
-
-or add them to a new `init.d` entry to run at the end o the BusyBox init:
-
-....
-cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
-vim S99
-./build
-./run
-....
-
-and they will be run automatically before the login prompt.
-
-`S99` is a git tracked convenience symlink to the gitignored `rootfs_overlay/etc/init.d/S99`
-
-Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
-
-==== The kernel panics despite poweroff
-
-Just using Busybox' `poweroff` at the end of the `init` does not work and the kernel panics:
-
-....
-./run -E poweroff
-....
-
-because BusyBox' `poweroff` tries to do some fancy stuff like killing init, likely to allow userland to shutdown nicely.
-
-But this fails when we are `init` itself!
-
-`poweroff` works more brutally and effectively if you add `-f`:
-
-....
-./run -E 'poweroff -f'
-....
-
-but why not just use your super simple and effective `/poweroff.out` and be done with it?
+To automate that, use the methods described at: <<init>>
 
 === Kernel command line parameters
 
@@ -366,6 +285,12 @@ When dealing with real boards, extra command line options are provided on some m
 
 * GRUB configuration files: https://askubuntu.com/questions/19486/how-do-i-add-a-kernel-boot-parameter
 * Raspberry pi `/boot/cmdline.txt` on a magic partition: https://raspberrypi.stackexchange.com/questions/14839/how-to-change-the-kernel-commandline-for-archlinuxarm-on-raspberry-pi-effectly
+
+=== Kernel command line parameters escaping
+
+Double quotes can be used to escape spaces as in `opt="a b"`, but double quotes themselves cannot be escaped, e.g. `opt"a\"b"`
+
+This even lead us to use base64 encoding with `-E`!
 
 === What command was actually run?
 
@@ -406,6 +331,12 @@ If you want to break immediately at a symbol, e.g. `start_kernel` of the boot se
 
 ....
 ./rungdb start_kernel
+....
+
+or at a given line:
+
+....
+./rungdb init/main.c:1088
 ....
 
 Now QEMU will stop there, and you can use the normal GDB commands:
@@ -948,36 +879,139 @@ TODOs:
 
 When the Linux kernel finishes booting, it runs an executable as the first and only userland process.
 
-The default path is `/init`, but we an set a custom one with the `init=` <<kernel-command-line-parameters,kernel command line parameter>>.
-
-This process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
+This init process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
 
 This typically means reading some configuration files (e.g. `/etc/initrc`) and forking a bunch of userland executables based on those files.
 
-systemd is a "popular" `/init` implementation for desktop distros as of 2017.
+systemd provides a "popular" init implementation for desktop distros as of 2017.
 
-BusyBox provides its own minimalistic init implementation which Buildroot uses by default.
+BusyBox provides its own minimalistic init implementation which Buildroot, and therefore this repo, uses by default.
 
-=== Custom init
+=== Replace init
 
-Is the default BusyBox `/init` too bloated for you, minimalism freak?
+To have more control over the system, you can replace BusyBox's init with your own.
 
-No problem, just use the `init` kernel boot parameter:
-
-....
-./run -e 'init=/sleep_forever.out'
-....
-
-Remember that shell scripts can also be used for `init` https://unix.stackexchange.com/questions/174062/init-as-a-shell-script/395375#395375:
+The following method replaces init and evals a command from the <<kernel-command-line-parameters>>:
 
 ....
-./run -e 'init=/count.sh'
+./run -E 'echo "asdf qwer";insmod /hello.ko;/poweroff.out' -n
 ....
 
-Also remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
+It is basically a shortcut for:
+
+....
+./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
+....
+
+although `-E` is smarter:
+
+* allows quoting and newlines by using base64 encoding, see: <<kernel-command-line-parameters-escaping>>
+* automatically chooses between `init=` and `rcinit=` for you, see: <<path-to-init>>
+
+so you should almost always use it, unless you are really counting each cycle ;-)
+
+If the script is large, you can add it to a gitignored file and pass that to `-E` as in:
+
+....
+echo '
+insmod /hello.ko
+/poweroff.out
+' > ignore.sh
+./run -E "$(cat ignore.sh)" -n
+....
+
+or add it to a file to the root filesystem guest and rebuild:
+
+....
+echo '#!/bin/sh
+insmod /hello.ko
+/poweroff.out
+' > rootfs_overlay/ignore.sh
+chmod +x rootfs_overlay/ignore.sh
+./build
+./run -e 'init=/ignore.sh' -n
+....
+
+Remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
 
 * run forever in a loop or long sleep
 * `poweroff` the machine
+
+==== The kernel panics despite poweroff
+
+Just using BusyBox' `poweroff` at the end of the `init` does not work and the kernel panics:
+
+....
+./run -E poweroff
+....
+
+because BusyBox' `poweroff` tries to do some fancy stuff like killing init, likely to allow userland to shutdown nicely.
+
+But this fails when we are `init` itself!
+
+`poweroff` works more brutally and effectively if you add `-f`:
+
+....
+./run -E 'poweroff -f'
+....
+
+but why not just use your super simple and effective `/poweroff.out` and be done with it?
+
+=== Run command at the end of BusyBox init
+
+If you rely on something that BusyBox' init set up for you like networking, you caould do:
+
+....
+./run -e '- lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
+....
+
+The `lkmc_eval` option gets evaled by our default `S98` startup script if present.
+
+Alternatively, add them to a new `init.d` entry to run at the end o the BusyBox init:
+
+....
+cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
+vim S99
+./build
+./run
+....
+
+and they will be run automatically before the login prompt.
+
+`S99` is a git tracked convenience symlink to the gitignored `rootfs_overlay/etc/init.d/S99`
+
+Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
+
+=== Path to init
+
+The init is selected at:
+
+- initrd or initramfs system: `/init`, a custom one can be set with the `rdinit=` <<kernel-command-line-parameters,kernel command line parameter>>
+- otherwise: default is `/sbin/init`, followed by some other paths, a custom one can be set with `init=`
+
+More details: https://unix.stackexchange.com/questions/30414/what-can-make-passing-init-path-to-program-to-the-kernel-not-start-program-as-i/430614#430614
+
+=== Init environment
+
+Documented at link:https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html[]:
+
+____
+The kernel parses parameters from the kernel command line up to "-"; if it doesn't recognize a parameter and it doesn't contain a '.', the parameter gets passed to init: parameters with '=' go into init's environment, others are passed as command line arguments to init. Everything after "-" is passed as an argument to init.
+____
+
+And you can try it out with:
+
+....
+./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv' -n
+....
+
+Also note how the annoying dash `-` also gets passed as a parameter to `init`, which makes it impossible to use this method for most executables.
+
+Finally, the docs are lying, arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear:
+
+....
+./run -e 'init=/init_env_poweroff.sh - /poweroff.out' -n
+....
 
 === Disable networking
 
@@ -993,20 +1027,6 @@ To restore it, run:
 
 ....
 ./build -- initscripts-reconfigure
-....
-
-=== The init environment
-
-The docs make it clear https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html
-
-____
-The kernel parses parameters from the kernel command line up to “–”; if it doesn’t recognize a parameter and it doesn’t contain a ‘.’, the parameter gets passed to init: parameters with ‘=’ go into init’s environment, others are passed as command line arguments to init. Everything after “–” is passed as an argument to init.
-____
-
-And you can try it out with:
-
-....
-./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv' -n
 ....
 
 == modprobe
@@ -1088,7 +1108,7 @@ Only tested successfully in `x86_64`.
 Build:
 
 ....
-./build -i br2_x11
+./build -b br2_x11
 ./run
 ....
 
@@ -1257,13 +1277,18 @@ The bootloader, which for us is QEMU itself, is then configured to put that CPIO
 
 With this setup, you don't even need to give a root filesystem to the kernel, it just does everything in memory in a ramfs.
 
-Try it out with:
+To enable initrd instead of the default ext2 disk image, do:
 
 ....
+./build -i
 ./run -i
 ....
 
-Notice how it boots fine, even though `-drive` is not given.
+Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
+
+....
+cat ./run.log
+....
 
 Also as expected, there is no filesystem persistency, since we are doing everything in memory:
 
@@ -1274,9 +1299,21 @@ cat f
 # can't open 'f': No such file or directory
 ....
 
-This can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.
+which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.
 
-The main ingredients to get this working are:
+One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:
+
+....
+end Kernel panic - not syncing: Out of memory and no killable processes...
+....
+
+This can be solved by increasing the memory with:
+
+....
+./run -im 256M
+....
+
+The main ingredients to get initrd working are:
 
 * `BR2_TARGET_ROOTFS_CPIO=y`: make Buildroot generate `output/images/rootfs.cpio` in addition to the other images.
 +
@@ -1311,14 +1348,42 @@ So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-in
 Try it out with:
 
 ....
-./run -a aarch64
+rm -f buildroot/output.x86_64~/build/linux-custom/.config
+./build -I
+./run -I
 ....
 
-since our <<aarch64>> setup uses it by default.
+The line:
+
+....
+rm -f buildroot/output.x86_64~/build/linux-custom/.config
+....
+
+is only needed the first time you move from a different root filesystem method (ext2 or cpio) to initramfs. It is needed because Buildroot is not automatically updating `CONFIG_INITRAMFS_SOURCE` in the kernel config for some reason: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+
+Then to go back to another boot method such as ext filesystems to:
+
+....
+rm -f buildroot/output.x86_64~/build/linux-custom/.config
+./build
+./run
+....
+
+It is interesting to see how this increases the size of the kernel image if you do a:
+
+....
+ls -lh buildroot/output.x86_64~/images/bzImage
+....
+
+before and after using initramfs, since the `.cpio` is now glued to the kernel image.
 
 In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the kernel config option `CONFIG_INITRAMFS_SOURCE` point to the CPIO that will be embedded in the kernel image.
 
 http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
+
+=== gem5 initrd
+
+TODO we were not able to get it working yet: https://stackoverflow.com/questions/49261801/how-to-boot-the-linux-kernel-with-initrd-or-initramfs-with-gem5
 
 == Linux kernel
 
@@ -1992,6 +2057,18 @@ TODO These look promising:
 
 TODO: now to verify this with the Linux kernel? Besides raw performance benchmarks.
 
+===== gem5 memory size
+
+....
+./run -a arm -m 512M
+....
+
+and verify inside the guest with:
+
+....
+free -m
+....
+
 ===== gem5 disk and network latency
 
 TODO These look promising:
@@ -2080,7 +2157,7 @@ Buildroot supports it, which makes everything just trivial:
 ....
 printf 'BR2_PACKAGE_OPENBLAS=y\n' >> br2_local
 printf 'BR2_TARGET_ROOTFS_EXT2_SIZE="128M"\n' >> br2_local
-./build -a arm -g -i br2_local -- kernel_module-reconfigure
+./build -a arm -g -b br2_local -- kernel_module-reconfigure
 ....
 
 and then inside the guest run our test program:
@@ -2113,7 +2190,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-configure -gpq && ./build -a arm -g -i br2_parsec
+configure -gpq && ./build -a arm -g -b br2_parsec
 ./run -a arm -g
 ....
 
@@ -2146,7 +2223,7 @@ Running a benchmark of a different size requires a rebuild wit:
   -c 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
   -c BR2_TARGET_ROOTFS_EXT2_SIZE="500M" \
   -g \
-  -i br2_parsec \
+  -b br2_parsec \
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -2198,7 +2275,7 @@ If you still want to run this, try it out with:
 ./build -a arm \
   -c BR2_TARGET_ROOTFS_EXT2_SIZE="3G" \
   -g
-  -i br2_parsec
+  -b br2_parsec
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -2225,7 +2302,7 @@ BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
 and then rebuild with:
 
 ....
-./build -a arm -g -i br2_parsec -- parsec-benchmark-reconfigure
+./build -a arm -g -b br2_parsec -- parsec-benchmark-reconfigure
 ....
 
 This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
@@ -2272,7 +2349,7 @@ before going for the cross compile build.
 Don't forget to explicitly rebuild PARSEC with:
 +
 ....
-./build -a arm -g -i br2_parsec parsec-benchmark-reconfigure
+./build -a arm -g -b br2_parsec parsec-benchmark-reconfigure
 ....
 +
 You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
@@ -2627,7 +2704,7 @@ dmesg
 
 We provide the following mechanisms:
 
-* `./build -i br2_local`: append the file `br2_local` to a single build. Must be passed every time you run `./build`.
+* `./build -b br2_local`: append the file `br2_local` to a single build. Must be passed every time you run `./build`.
 +
 For convenience, we already gitignore `br2_local` for you.
 +
