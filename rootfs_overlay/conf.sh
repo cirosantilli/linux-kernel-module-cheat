@@ -1,2 +1,2 @@
-#!/usr/bin/env bash
+#!/bin/sh
 zcat /proc/config.gz
