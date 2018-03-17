@@ -1670,6 +1670,46 @@ Seems possible! Lets do it:
 * http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
 * http://gem5.org/WA-gem5
 
+==== OverlayFS
+
+It would be uber awesome if we could overlay a 9p filesystem on top of the root.
+
+That would allow us to have a second Buildroot `target/` directory, and without any extra configs, keep the root filesystem image small, which implies:
+
+* less host disk usage, no need to copy the entire `target/` to the image again
+* faster rebuild turnaround:
+** no need to regenerate the root filesystem at all and reboot
+** overcomes the `check_bin_arch` problem: <<rpath>>
+* no need to worry about <<br2_target_rootfs_ext2_size>>
+
+But TODO we didn't get it working yet:
+
+* https://stackoverflow.com/questions/41119656/how-can-i-overlayfs-the-root-filesystem-on-linux
+* https://unix.stackexchange.com/questions/316018/how-to-use-overlayfs-to-protect-the-root-filesystem
+
+Test with the script:
+
+....
+/overlayfs.sh
+....
+
+It shows that files from the `upper/` does not show on the root.
+
+Furthermore, if you try to mount the root elsewhere to prepare for a chroot:
+
+....
+/overlayfs.sh / /overlay
+# chroot /overlay
+....
+
+it does not work well either because sub filesystems like `/proc` do not show on the mount:
+
+....
+ls /overlay/proc
+....
+
+A less good alternative is to set `LD_LIBRARY_PATH` on the 9p mount and run executables directly from the mount.
+
 === Guest host networking
 
 ==== Host to guest
@@ -2232,23 +2272,33 @@ The rebuild is required because some of the input sizes
 
 Separating input sizes also allows to create smaller images when only running the smaller benchmarks.
 
-We don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`, one good heuristic is:
+====== BR2_TARGET_ROOTFS_EXT2_SIZE
 
-....
-du -hsx buildroot/output.arm-gem5~/target/parsec
-....
-
-Also dots cannot be used as in `1.5G`, so just use Megs as in `1500M` instead.
-
-If you don't set it high enough, you will get the message:
+When adding new large package to the Buildroot root filesystem, it may fail with the message:
 
 ....
 Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
 ....
 
+The solution is to simply add:
+
+....
+./build -c BR2_TARGET_ROOTFS_EXT2_SIZE="500M"
+....
+
+where 500M is "large enough".
+
+Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` instead.
+
+Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
+
+....
+du -hsx buildroot/output.arm-gem5~/target/parsec
+....
+
 https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
 
-TODO: mount the benchmarks from host instead of installing them on guest. <<9p>> would be perfect for this, but we need to get it working on gem5 and arm first.
+One way to overcome this problem is to mount benchmarks from host instead of adding them to the root filesystem, e.g. with: <<9p>>
 
 ====== PARSEC benchmark with parsecmgmt
 
@@ -2353,7 +2403,16 @@ Don't forget to explicitly rebuild PARSEC with:
 You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
 * sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
 
-TODO Buildroot is slow because of the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`.
+[[rpath]]
+====== Buildroot rebuild is slow when the root filesystem is large
+
+Buildroot is not designed for large root filesystem images, and the rebuild becomes very slow when we add a large package to it.
+
+This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`, which get stuck for a long time on the message:
+
+....
+>>>   Sanitizing RPATH in target tree               
+....
 
 The pause is followed by:
 
