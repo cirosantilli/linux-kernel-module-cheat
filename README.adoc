@@ -914,8 +914,8 @@ If the script is large, you can add it to a gitignored file and pass that to `-E
 echo '
 insmod /hello.ko
 /poweroff.out
-' > ignore.sh
-./run -E "$(cat ignore.sh)" -n
+' > gitignore.sh
+./run -E "$(cat gitignore.sh)" -n
 ....
 
 or add it to a file to the root filesystem guest and rebuild:
@@ -924,10 +924,10 @@ or add it to a file to the root filesystem guest and rebuild:
 echo '#!/bin/sh
 insmod /hello.ko
 /poweroff.out
-' > rootfs_overlay/ignore.sh
-chmod +x rootfs_overlay/ignore.sh
+' > rootfs_overlay/gitignore.sh
+chmod +x rootfs_overlay/gitignore.sh
 ./build
-./run -e 'init=/ignore.sh' -n
+./run -e 'init=/gitignore.sh' -n
 ....
 
 Remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
@@ -968,15 +968,13 @@ The `lkmc_eval` option gets evaled by our default `S98` startup script if presen
 Alternatively, add them to a new `init.d` entry to run at the end o the BusyBox init:
 
 ....
-cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99
-vim S99
+cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99.gitignore
+vim rootfs_overlay/etc/init.d/S99.gitignore
 ./build
 ./run
 ....
 
 and they will be run automatically before the login prompt.
-
-`S99` is a git tracked convenience symlink to the gitignored `rootfs_overlay/etc/init.d/S99`
 
 Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by the line `::sysinit:/etc/init.d/rcS` in `/etc/inittab`.
 
@@ -2209,9 +2207,9 @@ External open source benchmarks. We will try to create Buildroot packages for th
 Buildroot supports it, which makes everything just trivial:
 
 ....
-printf 'BR2_PACKAGE_OPENBLAS=y\n' >> br2_local
-printf 'BR2_TARGET_ROOTFS_EXT2_SIZE="128M"\n' >> br2_local
-./build -a arm -g -b br2_local -- kernel_module-reconfigure
+printf 'BR2_PACKAGE_OPENBLAS=y\n' >> br2.gitignore
+printf 'BR2_TARGET_ROOTFS_EXT2_SIZE="128M"\n' >> br2.gitignore
+./build -a arm -g -b br2.gitignore -- kernel_module-reconfigure
 ....
 
 and then inside the guest run our test program:
@@ -2223,7 +2221,7 @@ and then inside the guest run our test program:
 For x86, you also need:
 
 ....
-printf 'BR2_PACKAGE_OPENBLAS_TARGET="NEHALEM"\n' >> br2_local
+printf 'BR2_PACKAGE_OPENBLAS_TARGET="NEHALEM"\n' >> br2.gitignore
 ....
 
 to overcome this bug: https://bugs.busybox.net/show_bug.cgi?id=10856
@@ -2794,12 +2792,10 @@ dmesg
 
 We provide the following mechanisms:
 
-* `./build -b br2_local`: append the file `br2_local` to a single build. Must be passed every time you run `./build`.
-+
-For convenience, we already gitignore `br2_local` for you. A template is provided by:
+* `./build -b br2.gitignore`: append the file `br2.gitignore` to a single build. Must be passed every time you run `./build`.
 +
 ....
-cp br2_local.example br2_local
+cp br2.gitignore.example br2.gitignore
 ....
 +
 * `./build -c 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
