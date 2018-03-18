@@ -318,6 +318,65 @@ This line is also saved to a file for convenience:
 cat ./run.log
 ....
 
+=== modprobe
+
+If you are feeling fancy, you can also insert modules with:
+
+....
+modprobe dep2
+lsmod
+# dep and dep2
+....
+
+This method also deals with module dependencies, which we almost don't use to make examples simpler:
+
+* https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe
+* https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe
+
+Removal also removes required modules that have zero usage count:
+
+....
+modprobe -r dep2
+lsmod
+# Nothing.
+....
+
+but it can't know if you actually insmodded them separately or not:
+
+....
+modprobe dep
+modprobe dep2
+modprobe -r dep2
+# Nothing.
+....
+
+so it is a bit risky.
+
+`modprobe` searches for modules under:
+
+....
+ls /lib/modules/*/extra/
+....
+
+Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
+
+....
+modprobe dummy-irq
+....
+
+=== myinsmod
+
+https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
+
+If you are feeling raw, you can insert and remove modules with our own minimal module inserter and remover!
+
+....
+/myinsmod.out /hello.ko
+/myrmmod.out hello
+....
+
+which teaches you how it is done from C code.
+
 [[gdb]]
 == GDB step debugging
 
@@ -1023,52 +1082,6 @@ To restore it, run:
 
 ....
 ./build -- initscripts-reconfigure
-....
-
-== modprobe
-
-If you are feeling fancy, you can also insert modules with:
-
-....
-modprobe dep2
-lsmod
-# dep and dep2
-....
-
-This method also deals with module dependencies, which we almost don't use to make examples simpler:
-
-* https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe
-* https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe
-
-Removal also removes required modules that have zero usage count:
-
-....
-modprobe -r dep2
-lsmod
-# Nothing.
-....
-
-but it can't know if you actually insmodded them separately or not:
-
-....
-modprobe dep
-modprobe dep2
-modprobe -r dep2
-# Nothing.
-....
-
-so it is a bit risky.
-
-`modprobe` searches for modules under:
-
-....
-ls /lib/modules/*/extra/
-....
-
-Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
-
-....
-modprobe dummy-irq
 ....
 
 == KVM
@@ -3026,6 +3039,8 @@ Google M-lab speed test: 36.4Mbps
 
 === kmod
 
+https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
+
 Multi-call executable that implements: `lsmod`, `insmod`, `rmmod`, and other tools on desktop distros such as Ubuntu 16.04, where e.g.:
 
 ....
@@ -3056,15 +3071,13 @@ Buildroot also has a kmod package, but we are not using it since BusyBox' versio
 
 This page will only describe features that differ from kmod to the BusyBox implementation.
 
-Source code: https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
-
 ==== module-init-tools
 
 Name of a predecessor set of tools.
 
-==== modprobe
+==== kmod modprobe
 
-Load module under different name to avoid conflicts:
+kmod's `modprobe` can also load modules under different names to avoid conflicts, e.g.:
 
 ....
 sudo modprobe vmhgfs -o vm_hgfs
