@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -eu
+help_text='
+'
 arch=x86_64
 rm -f br2_cli
 touch br2_cli
 configure=true
-config_fragments='br2 br2_cli'
+config_fragments='br2'
 extra_make_args=''
 gem5=false
 j="$(($(nproc) - 2))"
@@ -12,7 +14,7 @@ linux_kernel_custom_config_file=''
 post_script_args=''
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 v=0
-while getopts 'a:b:c:Cgj:IiKk:lp:qS:v' OPT; do
+while getopts 'a:b:c:Cgj:IiK:klp:qSv' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -97,6 +99,7 @@ root_dir="$(pwd)"
 buildroot_dir="${root_dir}/buildroot"
 out_dir="${buildroot_dir}/output.${arch_dir}~"
 config_file="${out_dir}/.config"
+config_fragments="$config_fragments br2_cli"
 
 if "$configure"; then
   cd "${buildroot_dir}"
@@ -128,11 +131,6 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
     sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${config_file}"
   fi
   if [ -n "$linux_kernel_custom_config_file" ]; then
-    # TODO why is this needed. Otherwise kernel .config does not change, even though Buildroot
-    # .config did due to -K. even if we are running linux-kernel-reconfigure!
-    # But doing this forces launches the kernel's reconfigure. Annoying.
-    # https://stackoverflow.com/questions/49260466/why-is-it-that-if-i-change-br2-linux-kernel-custom-config-file-and-run-linux-rec
-    rm -f "${out_dir}/build/linux-custom/.config"
     printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../${linux_kernel_custom_config_file}\"\n" >> "${config_file}"
   fi
   make O="$out_dir" olddefconfig

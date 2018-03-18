@@ -1333,7 +1333,9 @@ One obvious use case is having an encrypted root filesystem: you keep the initrd
 
 I think GRUB then knows read common disk formats, and then loads that initrd to memory with a `/boot/grub/grub.cfg` directive of type:
 
-    initrd /initrd.img-4.4.0-108-generic
+....
+initrd /initrd.img-4.4.0-108-generic
+....
 
 Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
 
@@ -1346,25 +1348,14 @@ So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-in
 Try it out with:
 
 ....
-rm -f buildroot/output.x86_64~/build/linux-custom/.config
-./build -I
-./run -I
+touch kernel_config_fragment
+./build -I && ./run -I
 ....
 
-The line:
+The `touch` should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: <<force-linux-kernel-configuration-update>>. Further builds should be done simply as:
 
 ....
-rm -f buildroot/output.x86_64~/build/linux-custom/.config
-....
-
-is only needed the first time you move from a different root filesystem method (ext2 or cpio) to initramfs. It is needed because Buildroot is not automatically updating `CONFIG_INITRAMFS_SOURCE` in the kernel config for some reason: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-
-Then to go back to another boot method such as ext filesystems to:
-
-....
-rm -f buildroot/output.x86_64~/build/linux-custom/.config
-./build
-./run
+./build -I && ./run -I
 ....
 
 It is interesting to see how this increases the size of the kernel image if you do a:
@@ -1385,7 +1376,9 @@ TODO we were not able to get it working yet: https://stackoverflow.com/questions
 
 == Linux kernel
 
-=== Use your own kernel config
+=== Linux kernel configuration
+
+==== Use your own kernel config
 
 By default, we use a `.config` that is a mixture of:
 
@@ -1395,12 +1388,15 @@ By default, we use a `.config` that is a mixture of:
 If you want to just use your own exact `.config` instead, do:
 
 ....
-./build -K myconfig -l
+touch myconfig
+./build -K myconfig
 ....
+
+The `touch` is only need the first time you move to a new kernel configuration: <<force-linux-kernel-configuration-update>>.
 
 Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
 
-=== Find the kernel config
+==== Find the kernel config
 
 Build configuration can be observed in guest with:
 
@@ -1413,6 +1409,26 @@ or on host:
 ....
 cat buildroot/output.*~/build/linux-custom/.config
 ....
+
+==== Force Linux kernel configuration update
+
+https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+
+To save rebuild time, Buildroot does many things based on timestamps.
+
+This means that some operations end up not updating the Linux kernel `.config`, and we just require you to do it manually with:
+
+....
+touch kernel_config_fragment
+....
+
+When this works, you should see Buildroot run the kernel rebuild commands:
+
+The reason we don't do that automatically all the time, is that this would defeat the purpose of the timestamp, and add some overhead even when you are not modifying the config at all.
+
+Maybe we could think of smarter methods to overcome this problem more automatically, e.g. take hashes and check them whenever a suspicious operations happens.
+
+But for now we just require you to do the `touch` manually yourself, and document when this is needed.
 
 === Find the kernel version
 
@@ -2411,7 +2427,7 @@ Buildroot is not designed for large root filesystem images, and the rebuild beco
 This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`, which get stuck for a long time on the message:
 
 ....
->>>   Sanitizing RPATH in target tree               
+>>>   Sanitizing RPATH in target tree
 ....
 
 The pause is followed by:
@@ -2771,10 +2787,10 @@ We provide the following mechanisms:
 
 * `./build -b br2_local`: append the file `br2_local` to a single build. Must be passed every time you run `./build`.
 +
-For convenience, we already gitignore `br2_local` for you.
+For convenience, we already gitignore `br2_local` for you. A template is provided by:
 +
 ....
-cp br2_local.off br2_local
+cp br2_local.example br2_local
 ....
 +
 * `./build -c 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
@@ -3044,8 +3060,6 @@ The build times are calculated after doing link:https://buildroot.org/downloads/
 
 ====== P51
 
-Build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes
-
 Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
 
 * 2500 USD in 2018 (high end)
@@ -3053,6 +3067,35 @@ Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51
 * 32GB(16+16) DDR4 2400MHz SODIMM
 * 512GB SSD PCIe TLC OPAL2
 * Ubuntu 17.10
+
+Build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
+
+Single file change on `./build kernel_module-reconfigure`: 7 seconds.
+
+Baseline 7d43534625ac06ae01987113e912ffaf1aec2302 commands:
+
+....
+make qemu_x86_64_defconfig
+printf 'BR2_CCACHE=y\n' >>.config
+make olddefconfig
+time make BR2_JLEVEL="$(nproc)"
+....
+
+This is the minimal build we could expect to get away with.
+
+Time: 11 minutes, 7 with full ccache hits. Breakdown: 47% GCC, 15% Linux kernel, 9% uclibc, 5% host-binutils. Conclusions:
+
+* we have bloated our kernel build 3x with all those delicious features :-)
+* GCC time increased 1.5x by our bloat, but its percentage of the total was greatly reduced, due to new packages being introduced.
++
+`make graph-depends` shows that most new dependencies come from QEMU and GDB, which we can't get rid of anyways.
+
+A quick look at the system monitor reveals that the build switches between times when:
+
+* CPUs are at a max, memory is fine. So we must be CPU / memory speed bound. I bet that this happens during heavy compilation.
+* CPUs are not at a max, and memory is fine. So we are likely disk bound. I bet that this happens during configuration steps.
+
+This is consistent with the fact that ccache reduces the build time only partially, since ccache should only overcome the CPU bound compilation steps, but not the disk bound ones.
 
 ====== T430
 
