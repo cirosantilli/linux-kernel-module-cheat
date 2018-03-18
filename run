@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-
 set -e
+. common
 
 # CLI handling.
 arch=x86_64
@@ -20,7 +20,7 @@ gem5opts=''
 lkmc_eval=''
 initrd=false
 initramfs=false
-memory=128M
+memory=256M
 nographic=false
 root=''
 while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
@@ -31,11 +31,11 @@ while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
     c)
       cpus="$OPTARG"
       ;;
-    d)
-      extra_flags_qemu="$extra_flags_qemu -S -s"
-      ;;
     D)
       debug_vm='gdb -q -ex start --args'
+      ;;
+    d)
+      extra_flags_qemu="$extra_flags_qemu -S -s"
       ;;
     E)
       lkmc_eval="$OPTARG"
@@ -53,12 +53,16 @@ while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
       extra_flags_qemu="$extra_flags_qemu -serial tcp::1234,server,nowait"
       kgdb=true
       ;;
-    g)
-      gem5=true
-      ;;
     G)
       gem5opts="$OPTARG"
       ;;
+    g)
+      gem5=true
+      ;;
+    h)
+      cat build-usage.adoc 1>&2
+      exit
+    ;;
     I)
       initramfs=true
       ;;
@@ -75,14 +79,7 @@ while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
-arch_dir="$arch"
-if "$gem5"; then
-  arch_dir="${arch}-gem5"
-fi
-root_dir="$(pwd)"
-buildroot_dir="${root_dir}/buildroot"
-out_dir="${root_dir}/buildroot/output.${arch_dir}~"
-images_dir="${out_dir}/images"
+set_common_vars "$arch"
 if "$initrd" || "$initramfs"; then
   ramfs=true
 else
@@ -147,7 +144,6 @@ else
     extra_flags="${extra_flags} -enable-kvm"
   fi
   extra_flags="${extra_flags_qemu} ${extra_flags}"
-  images_dir="${out_dir}/images"
   qemu_common="\
 ${debug_vm} \
 '${out_dir}/host/usr/bin/qemu-system-${arch}' \

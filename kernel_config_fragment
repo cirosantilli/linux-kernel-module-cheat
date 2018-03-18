@@ -93,6 +93,34 @@ CONFIG_E1000=y
 # cat /sys/kernel/debug/kernel_page_tables
 CONFIG_X86_PTDUMP=y
 
+## UIO
+
+# Userspace drivers: allow you to handle IRQs and do memory IO from userland through a /dev file.
+#
+# Superseded by the more featureful VFIO.
+#
+# Documentation/DocBook/uio-howto.tmpl contains actual userland examples
+# for the generic examples under drivers/uio
+#
+# UIO interface in a nutshell:
+#
+# - blocking read / poll: waits until interrupts
+# - write: call irqcontrol callback. Default: 0 or 1 to enable / disable interrupts.
+# - mmap: access device memory
+
+# All other UIO depend on this module.
+CONFIG_UIO=m
+
+# Generic platform devices.
+# https://yurovsky.github.io/2014/10/10/linux-uio-gpio-interrupt/
+CONFIG_UIO_DMEM_GENIRQ=m
+CONFIG_UIO_PDRV_GENIRQ=m
+
+# https://github.com/rumpkernel/wiki/wiki/Howto:-Accessing-PCI-devices-from-userspace
+# /sys/class/uio/
+# /sys/class/uio/uio0
+CONFIG_UIO_PCI_GENERIC=m
+
 ## ARM
 
 # LEDs:
@@ -140,7 +168,7 @@ CONFIG_LEDS_TRIGGER_ONESHOT=y
 CONFIG_LEDS_TRIGGER_TIMER=y
 CONFIG_NEW_LEDS=y
 
-# GPIO.
+# GPIO
 CONFIG_ARM_AMBA=y
 CONFIG_GPIOLIB=y
 CONFIG_GPIO_SYSFS=y
@@ -161,39 +189,22 @@ CONFIG_GPIO_PL061=y
 # The IRQ number 34 was found by via dmesg on a previous "insmod /platform_device.ko".
 CONFIG_DUMMY_IRQ=m
 
-## aarch64
-
-# For some reason not selected by default as it was for arm, and pci modules fail to build.
-# Not that we have PCI working on ARM anyways.
-CONFIG_PCI=y
-
 # Like CONFIG_X86_PTDUMP for ARM.
 CONFIG_ARM64_PTDUMP=y
 
-## UIO
+## aarch64
 
-# Userspace drivers: allow you to handle IRQs and do memory IO from userland through a /dev file.
-#
-# Superseded by the more featureful VFIO.
-#
-# Documentation/DocBook/uio-howto.tmpl contains actual userland examples
-# for the generic examples under drivers/uio
-#
-# UIO interface in a nutshell:
-#
-# - blocking read / poll: waits until interrupts
-# - write: call irqcontrol callback. Default: 0 or 1 to enable / disable interrupts.
-# - mmap: access device memory
+# For some reason not selected by the Buildroot kernel config by default as it was for arm,
+# and pci modules fail to build. Not that we have PCI working on ARM anyways.
+CONFIG_PCI=y
 
-# All other UIO depend on this module.
-CONFIG_UIO=m
+### gem5 aarch64
+# Minimal options required to run gem5 aarch64 in addition to QEMU's aarch64 setup.
+# Doing such a minimal boot made the gem5 boot 3x faster on the P51, which is awesome.
+CONFIG_ATA_PIIX=y
+CONFIG_PCI_HOST_GENERIC=y
 
-# Generic platform devices.
-# https://yurovsky.github.io/2014/10/10/linux-uio-gpio-interrupt/
-CONFIG_UIO_DMEM_GENIRQ=m
-CONFIG_UIO_PDRV_GENIRQ=m
-
-# https://github.com/rumpkernel/wiki/wiki/Howto:-Accessing-PCI-devices-from-userspace
-# /sys/class/uio/
-# /sys/class/uio/uio0
-CONFIG_UIO_PCI_GENERIC=m
+### qemu aarch64 ext2
+# Also requires gem5 aarch64 options.
+# Not needed for initrd / initramfs.
+CONFIG_VIRTIO_PCI=y

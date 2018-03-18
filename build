@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-help_text='
-'
+. common
 arch=x86_64
 rm -f br2_cli.gitignore
 touch br2_cli.gitignore
@@ -14,7 +13,7 @@ linux_kernel_custom_config_file=''
 post_script_args=''
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 v=0
-while getopts 'a:b:c:Cgj:IiK:klp:qSv' OPT; do
+while getopts 'a:b:c:Cgj:hIiK:klp:qSv' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -22,7 +21,7 @@ while getopts 'a:b:c:Cgj:IiK:klp:qSv' OPT; do
     b)
       config_fragments="$config_fragments $OPTARG"
     ;;
-    c)
+    B)
       echo "$OPTARG" >> br2_cli.gitignore
     ;;
     C)
@@ -30,6 +29,10 @@ while getopts 'a:b:c:Cgj:IiK:klp:qSv' OPT; do
     ;;
     g)
       gem5=true
+    ;;
+    h)
+      cat build-usage.adoc 1>&2
+      exit
     ;;
     I)
       echo "
@@ -48,11 +51,11 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
     j)
       echo "$OPTARG" >> br2_cli.gitignore
     ;;
-    k)
-      extra_make_args="$extra_make_args kernel_module-reconfigure"
-    ;;
     K)
       linux_kernel_custom_config_file="$OPTARG"
+    ;;
+    k)
+      extra_make_args="$extra_make_args kernel_module-reconfigure"
     ;;
     l)
       extra_make_args="$extra_make_args linux-reconfigure"
@@ -73,6 +76,7 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
 done
 shift $(($OPTIND - 1))
 extra_make_args="$extra_make_args $@"
+set_common_vars "$arch"
 case "$arch" in
   x86_64)
     defconfig=qemu_x86_64_defconfig
@@ -87,20 +91,14 @@ case "$arch" in
     defconfig=qemu_mips64r6_malta_defconfig
   ;;
 esac
-arch_dir="$arch"
 if "$gem5"; then
-  arch_dir="${arch}-gem5"
-  # Networking was not working, so disable it to speed things up.
   post_script_args="$post_script_args -n"
 else
   config_fragments="$config_fragments br2_qemu"
 fi
-root_dir="$(pwd)"
-buildroot_dir="${root_dir}/buildroot"
-out_dir="${buildroot_dir}/output.${arch_dir}~"
-config_file="${out_dir}/.config"
 config_fragments="$config_fragments br2_cli.gitignore"
 
+# Configure.
 if "$configure"; then
   cd "${buildroot_dir}"
   for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
@@ -118,8 +116,11 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
 " >> "${config_file}"
   if "$gem5"; then
     printf "BR2_PACKAGE_GEM5=y\n" >> "${config_file}"
-    if [ -z "$linux_kernel_custom_config_file" ]; then
-      printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../kernel_config_${arch_dir}\"\n" >> "${config_file}"
+    if [ -z "$linux_kernel_custom_config_file" ] && [ ! "$arch" = aarch64 ]; then
+      f="kernel_config_${arch_dir}"
+      if [ -f "$f" ]; then
+        printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../$f\"\n" >> "${config_file}"
+      fi
     fi
   fi
   if [ -z "$linux_kernel_custom_config_file" ]; then
@@ -136,6 +137,7 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
   make O="$out_dir" olddefconfig
 fi
 
+# Build.
 mkdir -p "${root_dir}/9p"
 cd "${buildroot_dir}"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.

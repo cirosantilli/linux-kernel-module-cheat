@@ -127,7 +127,7 @@ Only nuke one one package:
 
 ....
 rm -rf buildroot/output.x86_64~/build/host-qemu-custom
-./build -q
+./build
 ....
 
 This is sometimes necessary when changing the version of the submodules, and then builds fail. We should try to understand why and report bugs.
@@ -221,6 +221,7 @@ Limitations:
 --
 +
 It is also hard to enter the monitor for the same reason:
++
 --
 * http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses
 * https://superuser.com/questions/488263/how-to-switch-to-the-qemu-control-panel-with-nographics
@@ -1848,7 +1849,11 @@ We us this exact procedure to connect to <<gdbserver>>.
 
 https://unix.stackexchange.com/questions/124681/how-to-ssh-from-host-to-guest-using-qemu/307557#307557
 
-Uses OpenSSH's `sshd`.
+Uses OpenSSH's `sshd`, enable with the option:
+
+....
+BR2_PACKAGE_OPENSSH=y
+....
 
 Not enabled by default due to the build / runtime overhead, but it was tested and worked at the time of this commit.
 
@@ -1971,7 +1976,7 @@ gem5 is a system simulator, much <<gem5-vs-qemu,like QEMU>>: http://gem5.org/
 For the most part, just add the `-g` option to the QEMU commands and everything should magically work:
 
 ....
-./configure -gq && ./build -a arm -g
+./configure -g && ./build -a arm -g
 ./run -a arm -g
 ....
 
@@ -2046,14 +2051,16 @@ and the results were:
 |===
 |Emulator |Time |N times slower than QEMU
 |QEMU ARM |6 seconds |1
-|gem5 ARM AtomicSimpleCPU |1 minute 40 seconds| 17
+|gem5 ARM AtomicSimpleCPU |1 minute 40 seconds |17
 |gem5 ARM HPI |10 minutes |100
 |QEMU X86_64 |4 seconds |1
 |QEMU X86_64 KVM |2 seconds |0.5
-|gem5 X86_64 |5 minutes 30 seconds| 82
+|gem5 X86_64 |5 minutes 30 seconds |82
 |===
 
 tested on the <<p51>>.
+
+One methodology problem is that gem5 and QEMU were run with different kernel configs, due to <<gem5-qemu-config>>. This could have been improved if we normalized by instruction counts, but we didn't think of that previously.
 
 === gem5 run benchmark
 
@@ -2348,8 +2355,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-configure -gpq && ./build -a arm -g -b br2_parsec
-./run -a arm -g
+configure -gpq && ./build -a arm -b br2_parsec -g && ./run -a arm -g
 ....
 
 Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
@@ -2403,7 +2409,7 @@ Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
 The solution is to simply add:
 
 ....
-./build -c BR2_TARGET_ROOTFS_EXT2_SIZE="500M"
+./build -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="500M"'
 ....
 
 where 500M is "large enough".
@@ -2736,15 +2742,35 @@ And a second instance:
 
 TODO Now we just need to network them up to have some more fun! See dist-gem5: http://publish.illinois.edu/icsl-pdgem5/
 
+[[gem5-qemu-config]]
 === gem5 and QEMU with the same kernel configuration
 
-We would like to be able to run both gem5 and QEMU with the same kernel build to avoid duplication, but TODO we haven't been able to get that working yet.
+We would like to be able to run both gem5 and QEMU with the same minimal kernel build to:
 
-This documents our failed attempts so far.
+* do a single Buildroot build for both. Otherwise, we have to create two full `buildroot/output*` directories, which takes up a lot of time.
++
+Alternatively, we could try to be brave and switch between two kernel builds inside `buildroot/output.*/`, but that would be too hackish.
+* be able to compare behaviour between QEMU and gem5 when one is doing something weird.
++
+Note however that there are also variations which need to be controlled, e.g. kernel command line, DTB and QEMU's non-determinism.
 
-As a result, we currently have to create two full `buildroot/output*` directories, which means two full GCC builds.
+Unfortunately, we have only managed to find a working config for aarch64, which just works transparently.
 
-==== QEMU with gem5 kernel configuration
+The others use the Buildroot config for QEMU, and magic huge post-olddefconfig config files floating around the web for GEM5.
+
+Subsections of this section document our failed attempts so far.
+
+This is the strategy that we used to make it work for aarch64:
+
+* `make savedefconfig` on the working gem5 kernel tree
+* paste the result on `kernel_config_fragment`
+* bisect it up
+
+but this strategy failed for the other archs for some reason.
+
+==== gem5 and QEMU with the same kernel configuration ARM
+
+===== QEMU with gem5 kernel configuration ARM
 
 To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
 
@@ -2764,7 +2790,7 @@ and the display shows:
 Guest has not initialized the display (yet).
 ....
 
-==== gem5 with QEMU kernel configuration
+==== gem5 with QEMU kernel configuration ARM
 
 Test it out with:
 
@@ -2781,7 +2807,7 @@ info: Entering event queue @ 0.  Starting simulation...
 1614868500: system.terminal: attach terminal 0
 ....
 
-and the `telnet` at:
+and the `telnet` remains empty even after 20 minutes:
 
 ....
 $ ./gem5-shell
@@ -2791,7 +2817,136 @@ Escape character is '^]'.
 ==== m5 slave terminal: Terminal 0 ====
 ....
 
-I have also tried to copy the exact same kernel command line options used by QEMU, but nothing changed.
+Finally, it is not just an output problem, since running:
+
+....
+./run -a arm -g -E 'm5 exit'
+....
+
+never finishes, so boot never really finished.
+
+I have also tried to do `make savedefconfig` on the gem5 kernel, and then paste that on `kernel_config_fragment`, but the boot still fails... so the only option I see left is to bisect the huge unclean `kernel_config_arm-gem5` itself...
+
+==== gem5 and QEMU with the same kernel configuration x86_64
+
+==== gem5 with QEMU kernel configuration x86
+
+Boot fails with:
+
+....
+--- BEGIN LIBC BACKTRACE ---
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x557f6290bc89]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x557f6291f88a]
+/lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7fbb3bd13150]
+/lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7fbb3a3450bb]
+/lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7fbb3a346f5d]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x557f626570bf]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x557f6264940a]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x557f6264bb5c]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x557f6311eace]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x557f62b63969]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x557f62b3a7f6]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x557f62b4724b]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x557f627fd12d]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x557f6280b439]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x557f6301712b]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x557f627fc054]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x557f62912f79]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x557f6292cb88]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x557f6292db7a]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x557f62aefc7b]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x557f629735ab]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7fbb3bfd37e4]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7fbb3bfd583a]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7fbb3bfd583a]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCode+0x19)[0x7fbb3bfcc7f9]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x63a3)[0x7fbb3bfd2d33]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
+--- END LIBC BACKTRACE ---
+./run: line 249: 21991 Aborted                 (core dumped) M5_PATH='/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/system' '/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt' '/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/configs/example/fs.py' --checkpoint-dir='./m5out/cpts/x86_64' --disk-image='/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/images/rootfs.ext2' --mem-size=256MB --num-cpus='1' --kernel=/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64~/build/linux-custom/vmlinux --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda nokaslr norandmaps printk.devkmsg=on printk.time=y init=/eval_base64.sh - lkmc_eval="bTUgZXhpdA=="'
+....
+
+dmesg stops at:
+
+....
+[    0.420680] ALSA device list:
+[    0.420687]   No soundcards found.
+....
+
+The following lines of a normal boot would be:
+
+....
+[    0.684720] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100
+[    0.686057] ata2.00: configured for MWDMA2
+[    0.697741] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
+[    0.699565] scsi 1:0:0:0: Attached scsi generic sg0 type 5
+[    1.229087] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input3
+[    1.234371] EXT4-fs (vda): couldn't mount as ext3 due to feature incompatibilities
+[    1.243156] EXT4-fs (vda): mounted filesystem without journal. Opts: (null)
+[    1.244443] VFS: Mounted root (ext4 filesystem) readonly on device 254:0.
+....
+
+If I append `savedefconfig` to our `kernel_config_fragment`:
+
+....
+--- BEGIN LIBC BACKTRACE ---
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x559636f44c89]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x559636f5888a]
+/lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7f855f8f3150]
+/lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7f855df250bb]
+/lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7f855df26f5d]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x559636c900bf]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x559636c8240a]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x559636c84b5c]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x559637757ace]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x55963719c969]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x5596371737f6]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x55963718024b]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x559636e3612d]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x559636e44439]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x55963765012b]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x559636e35054]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x559636f4bf79]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x559636f65b88]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x559636f66b7a]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x559637128c7b]
+/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x559636fac5ab]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7f855fbb37e4]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7f855fbb2580]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7f855fbb583a]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7f855fbb583a]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCode+0x19)[0x7f855fbac7f9]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x63a3)[0x7f855fbb2d33]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7f855fbb2580]
+/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
+--- END LIBC BACKTRACE ---
+....
+
+and dmesg stops at:
+
+....
+[    2.803252] devtmpfs: mounted
+[    2.803885] Freeing unused kernel memory: 1024K
+....
+
+the following lines would be:
+
+....
+[    2.827254] Freeing unused kernel memory: 2016K
+[    2.828949] Freeing unused kernel memory: 836K
+[    2.829561] rodata_test: all tests were successful
+[    2.841871] EXT4-fs (vda): re-mounted. Opts: block_validity,delalloc,barrier,user_xattr,acl
+....
+
+which is very close to the end of the boot. Increasing the memory from 256M to 512M didn't help.
 
 === gem5 limitations
 
@@ -2801,6 +2956,12 @@ I have also tried to copy the exact same kernel command line options used by QEM
 ==== gem5 x86_64 limitations
 
 * `gdb` debugging not working. First we need to remove the initial `set arch i386:x86-64:intel` required for QEMU. Then it cannot find the symbols.
+* gets stuck for a long time at:
++
+....
+[    0.000000] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645519600211568 ns
+....
+
 
 == Insane action
 
@@ -2880,13 +3041,13 @@ dmesg
 
 We provide the following mechanisms:
 
-* `./build -b br2.gitignore`: append the file `br2.gitignore` to a single build. Must be passed every time you run `./build`.
+* `./build -b br2.gitignore`: append the file `br2.gitignore` to a single build. Must be passed every time you run `./build`. A good template is provided by:
 +
 ....
 cp br2.gitignore.example br2.gitignore
 ....
 +
-* `./build -c 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
+* `./build -B 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
 
 === Find Buildroot options with make menuconfig
 
