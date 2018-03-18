@@ -1147,6 +1147,12 @@ A friend told me this but I haven't tried it yet:
 * `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
 * `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
 
+=== X11 MIPS
+
+Haven't tried it, doubt it will work out of the box! :-)
+
+Maybe: https://stackoverflow.com/questions/47857023/booting-a-graphical-mips-qemu-machine
+
 == Count boot instructions
 
 * https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take
@@ -1170,12 +1176,20 @@ Results:
 QEMU:
 
 ....
-time ./run -n -e 'init=/poweroff.out' -- -trace exec_tb,file=trace
-time ./qemu/scripts/simpletrace.py buildroot/output.x86_64~/build/host-qemu-custom/trace-events-all trace >trace.txt
-wc -l trace.txt
-sed '/0x1000000/q' trace.txt >trace-boot.txt
-wc -l trace-boot.txt
+./count-boot-instructions
 ....
+
+sample output:
+
+....
+1778927 trace.txt
+26264 trace-boot.txt
+....
+
+where:
+
+* 1778927: is the total number of boot instructions
+* 26264: is the number of bootloader instructions
 
 gem5:
 
@@ -1445,6 +1459,64 @@ cd linux
 git log | grep -E '    Linux [0-9]+\.' | head
 ....
 
+=== Update the Linux kernel
+
+....
+# Last point before out patches.
+last_mainline_revision=v4.14
+next_mainline_revision=v4.15
+cd linux
+
+# Create a branch before the rebase.
+git branch "lkmc-${last_mainline_revision}"
+git remote set-url origin git@github.com:cirosantilli/linux.git
+git push
+
+git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+git fetch up
+git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
+./build -l
+# Manually fix our kernel modules if necessary.
+
+cd ..
+git branch "buildroot-2017.08-linux-${last_mainline_revision}"
+git add .
+git commit -m "Linux ${next_mainline_revision}"
+git push
+....
+
+and update the README!
+
+During update all you kernel modules may break since the kernel API is not stable.
+
+They are usually trivial breaks of things moving around headers or to sub-structs.
+
+The userland, however, should simply not break, as Linus enforces strict backwards compatibility of userland interfaces.
+
+This backwards compatibility is just awesome, it makes getting and running the latest master painless.
+
+This also makes this repo the perfect setup to develop the Linux kernel.
+
+=== Downgrade the Linux kernel
+
+The kernel is not forward compatible, however, so downgrading the Linux kernel requires downgrading the userland too to the latest Buildroot branch that supports it.
+
+The default Linux kernel version is bumped in Buildroot with commit messages of type:
+
+....
+linux: bump default to version 4.9.6
+....
+
+So you can try:
+
+....
+git log --grep 'linux: bump default to version'
+....
+
+Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
+
+You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
+
 === ftrace
 
 Trace a single function:
@@ -1474,7 +1546,7 @@ echo 1 > tracing_on
 # Latest events.
 head trace
 
-# Observe trace continously, and drain seen events out.
+# Observe trace continuously, and drain seen events out.
 cat trace_pipe &
 ....
 
@@ -1539,6 +1611,14 @@ Sample output:
 TODO: what do `+` and `!` mean?
 
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
+
+=== User mode Linux
+
+I once got link:https://en.wikipedia.org/wiki/User-mode_Linux[UML] running on a minimal Buildroot setup at: https://unix.stackexchange.com/questions/73203/how-to-create-rootfs-for-user-mode-linux-on-fedora-18/372207#372207
+
+But in part because it is dying, I didn't spend much effort to integrate it into this repo, although it would be a good fit in principle, since it is essentially a virtualization method.
+
+Maybe some brave should will send a pull request one day.
 
 == QEMU
 
@@ -1844,6 +1924,14 @@ And in QEMU:
 Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
+
+=== QEMU record and replay
+
+QEMU supports deterministic record and replay by saving external inputs, which would be awesome to understand the kernel, as you would be able to examine a single run as many times as you would like.
+
+Unfortunately it is not working in the current QEMU: https://stackoverflow.com/questions/46970215/how-to-use-qemus-deterministic-record-and-replay-feature-for-a-linux-kernel-boo
+
+Alternatively, https://github.com/mozilla/rr[`mozilla/rr`] claims it is able to run QEMU: but using it would require you to step through QEMU code itself. Likely doable, but do you really want to?
 
 === QEMU GUI is unresponsive
 
@@ -2701,24 +2789,6 @@ I have also tried to copy the exact same kernel command line options used by QEM
 
 * `gdb` debugging not working. First we need to remove the initial `set arch i386:x86-64:intel` required for QEMU. Then it cannot find the symbols.
 
-== User mode Linux
-
-I once got link:https://en.wikipedia.org/wiki/User-mode_Linux[UML] running on a minimal Buildroot setup at: https://unix.stackexchange.com/questions/73203/how-to-create-rootfs-for-user-mode-linux-on-fedora-18/372207#372207
-
-But in part because it is dying, I didn't spend much effort to integrate it into this repo, although it would be a good fit in principle, since it is essentially a virtualization method.
-
-Maybe some brave sould will send a pull request one day.
-
-== Failed action
-
-=== Record and replay
-
-QEMU supports deterministic record and replay by saving external inputs, which would be awesome to understand the kernel, as you would be able to examine a single run as many times as you would like.
-
-Unfortunately it is not working in the current QEMU: https://stackoverflow.com/questions/46970215/how-to-use-qemus-deterministic-record-and-replay-feature-for-a-linux-kernel-boo
-
-Alternatively, https://github.com/mozilla/rr[`mozilla/rr`] claims it is able to run QEMU: but using it would require you to step through QEMU code itself. Likely doable, but do you really want to?
-
 == Insane action
 
 === Run on host
@@ -2805,6 +2875,25 @@ cp br2.gitignore.example br2.gitignore
 +
 * `./build -c 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
 
+=== Find Buildroot options with make menuconfig
+
+`make menuconfig` is a convenient way to find Buildroot configurations:
+
+....
+cd buildroot/output.x86_64~
+make menuconfig
+....
+
+Hit `/` and search for the settings.
+
+Save and quit.
+
+....
+diff -u .config.olg .config
+....
+
+Then copy and paste the diff additions to link:br2[] to make them permanent.
+
 === ccache
 
 We have link:https://buildroot.org/downloads/manual/manual.html#ccache[enabled ccached] builds by default.
@@ -2846,6 +2935,92 @@ watch -n1 'ccache -s'
 ....
 
 while a build is going on in another terminal and my cooler is humming. Especially when the hit count goes up ;-) The joys of system programming.
+
+== Benchmark this repo
+
+In this section document how fast the build and clone are, and how to investigate them.
+
+Send a pull request if you try it out on something significantly different.
+
+=== Find which packages are making the build slow
+
+....
+cd buildroot/output.x86_64~
+make graph-build graph-depends
+xdg-open graphs/build.pie-packages.pdf
+xdg-open graphs/graph-depends.pdf
+....
+
+Our philosophy is:
+
+* if something adds little to the build time, build it in by default
+* otherwise, make it optional
+
+The build biggest time hog is always GCC, and it does not look like we can use a precompiled one: https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
+
+=== Benchmark machines
+
+The build times are calculated after doing link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the Internet.
+
+==== P51
+
+Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
+
+* 2500 USD in 2018 (high end)
+* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
+* 32GB(16+16) DDR4 2400MHz SODIMM
+* 512GB SSD PCIe TLC OPAL2
+* Ubuntu 17.10
+
+Build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
+
+Single file change on `./build kernel_module-reconfigure`: 7 seconds.
+
+===== P51 baseline benchmarks
+
+This is the minimal build we could expect to get away with.
+
+On the upstream Buildroot repo at 7d43534625ac06ae01987113e912ffaf1aec2302 we run:
+
+....
+make qemu_x86_64_defconfig
+printf 'BR2_CCACHE=y\n' >>.config
+make olddefconfig
+time make BR2_JLEVEL="$(nproc)"
+....
+
+Time: 11 minutes, 7 with full ccache hits. Breakdown: 47% GCC, 15% Linux kernel, 9% uclibc, 5% host-binutils. Conclusions:
+
+* we have bloated our kernel build 3x with all those delicious features :-)
+* GCC time increased 1.5x by our bloat, but its percentage of the total was greatly reduced, due to new packages being introduced.
++
+`make graph-depends` shows that most new dependencies come from QEMU and GDB, which we can't get rid of anyways.
+
+A quick look at the system monitor reveals that the build switches between times when:
+
+* CPUs are at a max, memory is fine. So we must be CPU / memory speed bound. I bet that this happens during heavy compilation.
+* CPUs are not at a max, and memory is fine. So we are likely disk bound. I bet that this happens during configuration steps.
+
+This is consistent with the fact that ccache reduces the build time only partially, since ccache should only overcome the CPU bound compilation steps, but not the disk bound ones.
+
+The instructions counts varied very little between the baseline and LKMC, so runtime overhead is not a big deal apparently.
+
+==== T430
+
+Build time: 2 hours.
+
+TODO specs, SHA.
+
+=== Benchmark Internets
+
+==== 38Mbps
+
+2c12b21b304178a81c9912817b782ead0286d282:
+
+* shallow clone of all submodules: 4 minutes.
+* `make source`: 2 minutes
+
+Google M-lab speed test: 36.4Mbps
 
 == Conversation
 
@@ -2960,169 +3135,11 @@ include::rootfs_overlay/README.adoc[]
 
 :leveloffset: -3
 
-=== Maintainers
-
-:leveloffset: +3
+:leveloffset: +2
 
 include::CONTRIBUTING.adoc[]
 
-:leveloffset: -3
-
-==== How to update the Linux kernel?
-
-....
-# Last point before out patches.
-last_mainline_revision=v4.14
-next_mainline_revision=v4.15
-cd linux
-
-# Create a branch before the rebase.
-git branch "lkmc-${last_mainline_revision}"
-git remote set-url origin git@github.com:cirosantilli/linux.git
-git push
-
-git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
-git fetch up
-git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
-./build -l
-# Manually fix our kernel modules if necessary.
-
-cd ..
-git branch "buildroot-2017.08-linux-${last_mainline_revision}"
-git add .
-git commit -m "Linux ${next_mainline_revision}"
-git push
-....
-
-and update the README!
-
-During update all you kernel modules may break since the kernel API is not stable.
-
-They are usually trivial breaks of things moving around headers or to sub-structs.
-
-The userland, however, should simply not break, as Linus enforces strict backwards compatibility of userland interfaces.
-
-This backwards compatibility is just awesome, it makes getting and running the latest master painless.
-
-This also makes this repo the perfect setup to develop the Linux kernel.
-
-==== How to downgrade the Linux kernel?
-
-The kernel is not forward compatible, however, so downgrading the Linux kernel requires downgrading the userland too to the latest Buildroot branch that supports it.
-
-The default Linux kernel version is bumped in Buildroot with commit messages of type:
-
-....
-linux: bump default to version 4.9.6
-....
-
-So you can try:
-
-....
-git log --grep 'linux: bump default to version'
-....
-
-Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
-
-You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
-
-==== How to add new Buildroot options?
-
-....
-cd buildroot/output.x86_64~
-make menuconfig
-....
-
-Hit `/` and search for the settings.
-
-Save and quit.
-
-....
-diff .config.olg .config
-....
-
-Copy and paste the diff additions to link:br2[].
-
-==== Benchmarking this repo
-
-In this section document how fast the build and clone are, and how to investigate them.
-
-Send a pull request if you try it out on something significantly different.
-
-===== What is making my build so slow?
-
-....
-cd buildroot/output.x86_64~
-make graph-build
-xdg-open graphs/build.pie-packages.pdf
-....
-
-Our philosophy is:
-
-* if something adds little to the build time, build it in by default
-* otherwise, make it optional
-
-The biggest time hog is always GCC, can we use a precompiled one? https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
-
-===== Benchmark machines
-
-The build times are calculated after doing link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the Internet.
-
-====== P51
-
-Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
-
-* 2500 USD in 2018 (high end)
-* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
-* 32GB(16+16) DDR4 2400MHz SODIMM
-* 512GB SSD PCIe TLC OPAL2
-* Ubuntu 17.10
-
-Build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
-
-Single file change on `./build kernel_module-reconfigure`: 7 seconds.
-
-Baseline 7d43534625ac06ae01987113e912ffaf1aec2302 commands:
-
-....
-make qemu_x86_64_defconfig
-printf 'BR2_CCACHE=y\n' >>.config
-make olddefconfig
-time make BR2_JLEVEL="$(nproc)"
-....
-
-This is the minimal build we could expect to get away with.
-
-Time: 11 minutes, 7 with full ccache hits. Breakdown: 47% GCC, 15% Linux kernel, 9% uclibc, 5% host-binutils. Conclusions:
-
-* we have bloated our kernel build 3x with all those delicious features :-)
-* GCC time increased 1.5x by our bloat, but its percentage of the total was greatly reduced, due to new packages being introduced.
-+
-`make graph-depends` shows that most new dependencies come from QEMU and GDB, which we can't get rid of anyways.
-
-A quick look at the system monitor reveals that the build switches between times when:
-
-* CPUs are at a max, memory is fine. So we must be CPU / memory speed bound. I bet that this happens during heavy compilation.
-* CPUs are not at a max, and memory is fine. So we are likely disk bound. I bet that this happens during configuration steps.
-
-This is consistent with the fact that ccache reduces the build time only partially, since ccache should only overcome the CPU bound compilation steps, but not the disk bound ones.
-
-====== T430
-
-Build time: 2 hours.
-
-TODO specs, SHA.
-
-===== Benchmark Internets
-
-====== 38Mbps
-
-2c12b21b304178a81c9912817b782ead0286d282:
-
-* shallow clone of all submodules: 4 minutes.
-* `make source`: 2 minutes
-
-Google M-lab speed test: 36.4Mbps
+:leveloffset: -2
 
 === About
 
