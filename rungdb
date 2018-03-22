@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-
-set -e
-
+set -eu
+. common
 arch='x86_64'
 bdfore=''
 gem5=false
@@ -39,17 +38,16 @@ else
   arch_dir="$arch"
   port=1234
 fi
-
-buildroot_out_dir="$(pwd)/buildroot/output.${arch_dir}~"
-gdb="${buildroot_out_dir}/host/usr/bin/${arch}-linux-gdb $before"
-cd "${buildroot_out_dir}/build/linux-custom/"
+set_common_vars "$arch" "$gem5"
+gdb="${out_dir}/host/usr/bin/${arch}-linux-gdb $before"
+cd "${out_dir}/build/linux-custom/"
 if "$kgdb"; then
     cmd="$gdb \
-      -q \
-      -ex 'add-auto-load-safe-path $(pwd)' \
-      -ex 'file vmlinux' \
-      -ex 'target remote localhost:$port'
-    "
+-q \
+-ex 'add-auto-load-safe-path $(pwd)' \
+-ex 'file vmlinux' \
+-ex 'target remote localhost:$port'
+"
 else
   case "$arch" in
     'x86_64')

@@ -1,20 +1,26 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -eu
+. common
 arch='x86_64'
-while getopts a:k OPT; do
+gem5=false
+while getopts a:g OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
+      ;;
+    g)
+      gem5=true
       ;;
   esac
 done
 shift "$(($OPTIND - 1))"
 executable="$1"
-buildroot_out_dir="$(pwd)/buildroot/output.${arch}~"
-"${buildroot_out_dir}/host/usr/bin/${arch}-linux-gdb" \
-    -q \
-    -ex "set sysroot ${buildroot_out_dir}/staging" \
-    -ex 'target remote localhost:45455' \
-    -ex 'tb main' \
-    -ex 'c' \
-    "${buildroot_out_dir}/build/${executable}" \
+set_common_vars "$arch" "$gem5"
+"${out_dir}/host/usr/bin/${arch}-linux-gdb" \
+  -q \
+  -ex "set sysroot ${out_dir}/staging" \
+  -ex 'target remote localhost:45455' \
+  -ex 'tb main' \
+  -ex 'c' \
+  "${out_dir}/build/${executable}" \
 ;

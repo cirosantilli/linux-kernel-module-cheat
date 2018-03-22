@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-set -e
+set -eu
+. common
 usage="$0 <exec-relative-path> [<brk-symbol>]"
 arch='x86_64'
-while getopts a:h OPT; do
+gem5=false
+while getopts a:gh OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
+      ;;
+    g)
+      gem5=true
       ;;
     h)
       echo "$usage"
@@ -22,9 +27,9 @@ if [ "$#" -gt 0 ]; then
 else
   brk=''
 fi
-buildroot_out_dir="$(pwd)/buildroot/output.${arch}~"
-executable="${buildroot_out_dir}/build/${executable_rel}"
-readelf="${buildroot_out_dir}/host/usr/bin/${arch}-linux-readelf"
+set_common_vars "$arch" "$gem5"
+executable="${out_dir}/build/${executable_rel}"
+readelf="${out_dir}/host/usr/bin/${arch}-linux-readelf"
 addr="$("$readelf" -h "$executable" | awk '/Entry/{ print $NF }' )"
 ex="-ex \"add-symbol-file $executable $addr\""
 # Twice because lx-symbols overrides our add-symbol-file commands.

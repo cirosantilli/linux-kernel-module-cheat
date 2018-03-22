@@ -13,6 +13,7 @@ kvm=false
 # nokaslr: https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
 #   Turned on by default since v4.12
 extra_append='nokaslr norandmaps printk.devkmsg=on printk.time=y'
+extra_append_after_dash=''
 extra_flags=''
 extra_flags_qemu=''
 gem5=false
@@ -23,7 +24,7 @@ initramfs=false
 memory=256M
 nographic=false
 root=''
-while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
+while getopts a:c:DdE:e:f:G:gIiKkm:nt:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -42,6 +43,9 @@ while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
       ;;
     e)
       extra_append="$extra_append $OPTARG"
+      ;;
+    f)
+      extra_append_after_dash="$extra_append_after_dash $OPTARG"
       ;;
     K)
       kvm=true
@@ -79,7 +83,7 @@ while getopts a:c:DdE:e:G:gIiKkm:nt:x OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
-set_common_vars "$arch"
+set_common_vars "$arch" "$gem5"
 if "$initrd" || "$initramfs"; then
   ramfs=true
 else
@@ -91,11 +95,18 @@ if [ -n "$lkmc_eval" ]; then
   else
     initarg="init"
   fi
-  extra_append="${extra_append} ${initarg}=/eval_base64.sh - lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
+  extra_append="${extra_append} ${initarg}=/eval_base64.sh"
+  extra_append_after_dash="${extra_append_after_dash} lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
 fi
 if "$nographic" && [ "$arch" = x86_64 ]; then
   extra_append="$extra_append console=ttyS0"
   extra_flags_qemu="$extra_flags_qemu -nographic"
+fi
+if "$gem5"; then
+  extra_append_after_dash="${extra_append_after_dash} lkmc_nonet=y"
+fi
+if [ -n "$extra_append_after_dash" ]; then
+  extra_append="${extra_append} - ${extra_append_after_dash}"
 fi
 
 if "$gem5"; then
@@ -125,15 +136,16 @@ ${gem5opts} \
     if "$kvm"; then
       extra_flags="$extra_flags --cpu-type=X86KvmCPU"
     fi
-    cmd="${gem5_common} \
---command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda $extra_append' \
-$extra_flags \
+    cmd="\
+${gem5_common} \
+--command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda ${extra_append}' \
+${extra_flags} \
 "
   elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
     # TODO why is it mandatory to pass mem= here? Not true for QEMU.
     # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
     cmd="${gem5_common} \
---command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda $extra_append' \
+--command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \
 --dtb-file='${gem5_dir}/system/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \
 --machine-type=VExpress_GEM5_V1 \
 ${extra_flags} \
@@ -157,19 +169,22 @@ ${debug_vm} \
   if "$initrd"; then
     extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio'"
   fi
+  if "$ramfs"; then
+    # TODO why is this needed, and why any string works.
+    root='root=/dev/anything'
+  fi
   # The base QEMU commands are found under board/qemu/*/readme.tx
   case "$arch" in
     x86_64)
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyS0,115200"
       fi
-      if "$ramfs"; then
-        root='root=/dev/anything'
-      else
+      if ! "$ramfs"; then
         root='root=/dev/vda'
         extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
       fi
-      cmd="${qemu_common} \
+      cmd="\
+${qemu_common} \
 -M pc \
 -append '${root} nopat ${extra_append}' \
 -device edu \
@@ -183,13 +198,12 @@ ${extra_flags} \
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      if "$ramfs"; then
-        root='root=/dev/anything'
-      else
+      if ! "$ramfs"; then
         extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
         root='root=/dev/sda'
       fi
-      cmd="$qemu_common \
+      cmd="\
+$qemu_common \
 -M versatilepb \
 -append '${root} ${extra_append}' \
 -device rtl8139,netdev=net0 \
@@ -203,13 +217,12 @@ $extra_flags \
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      if "$ramfs"; then
-        root='root=/dev/anything'
-      else
+      if ! "$ramfs"; then
         root='root=/dev/vda'
         extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
       fi
-      cmd="${qemu_common} \
+      cmd="\
+${qemu_common} \
 -M virt \
 -append '${root} ${extra_append}' \
 -cpu cortex-a57 \
@@ -221,13 +234,12 @@ ${extra_flags} \
 "
     ;;
     mips64)
-      if "$ramfs"; then
-        root='root=/dev/anything'
-      else
+      if ! "$ramfs"; then
         root='root=/dev/hda'
         extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
       fi
-      cmd="${qemu_common} \
+      cmd="\
+${qemu_common} \
 -M malta \
 -append '${root} ${extra_append}' \
 -cpu I6400 \
