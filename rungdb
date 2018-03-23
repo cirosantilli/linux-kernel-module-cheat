@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -eu
 . common
+after=''
 arch='x86_64'
-bdfore=''
+before=''
 gem5=false
+lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/'"
 kgdb=false
-while getopts A:a:b:gk OPT; do
+while getopts A:a:b:gkL OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -22,61 +24,65 @@ while getopts A:a:b:gk OPT; do
     k)
       kgdb=true
       ;;
+    L)
+      lx_symbols=''
+      ;;
   esac
 done
 shift "$(($OPTIND - 1))"
 if [ "$#" -gt 0 ]; then
-  brk="-ex 'break $1'"
+  brk="-ex 'break ${1}'"
   shift
 else
   brk=''
 fi
 if "$gem5"; then
-  arch_dir="${arch}-gem5"
   port=7000
 else
-  arch_dir="$arch"
   port=1234
 fi
 set_common_vars "$arch" "$gem5"
-gdb="${out_dir}/host/usr/bin/${arch}-linux-gdb $before"
+gdb="${out_dir}/host/usr/bin/${arch}-linux-gdb ${before}"
 cd "${out_dir}/build/linux-custom/"
 if "$kgdb"; then
-    cmd="$gdb \
+    cmd="\
+${gdb} \
 -q \
 -ex 'add-auto-load-safe-path $(pwd)' \
 -ex 'file vmlinux' \
--ex 'target remote localhost:$port'
+-ex 'target remote localhost:${port}'
 "
 else
-  case "$arch" in
-    'x86_64')
-      cmd="$gdb \
+  # ## lx-symbols
+  #
+  # ### lx-symbols after continue
+  #
+  # lx symbols must be run after continue.
+  #
+  # running it immediately after the connect on the bootloader leads to failure,
+  # likely because kernel structure on which it depends are not yet available.
+  #
+  # With this setup, continue runs, and lx-symbols only runs when a break happens,
+  # either by hitting the breakpoint, or by entering Ctrl + C.
+  #
+  # Sure, if the user sets a break on a raw address of the bootloader,
+  # problems will still arise, but let's think about that some other time.
+  #
+  # ### lx-symbols autoload
+  #
+  # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
+  # which gets put on the kernel build root when python debugging scripts are enabled.
+  cmd="\
+${gdb} \
 -q \
 -ex 'add-auto-load-safe-path $(pwd)' \
 -ex 'file vmlinux' \
--ex 'set arch i386:x86-64:intel' \
--ex 'target remote localhost:$port' \
-$brk \
+-ex 'target remote localhost:${port}' \
+${brk} \
 -ex 'continue' \
--ex 'disconnect' \
--ex 'set arch i386:x86-64' \
--ex 'target remote localhost:$port' \
--ex 'lx-symbols ../kernel_module-1.0/' \
+${lx_symbols} \
 "
-    ;;
-    'arm'|'aarch64'|'mips64')
-      cmd="$gdb \
--q \
--ex 'add-auto-load-safe-path $(pwd)' \
--ex 'file vmlinux' \
--ex 'target remote localhost:$port' \
--ex 'lx-symbols ../kernel_module-1.0/' \
-$brk \
-"
-    ;;
-  esac
 fi
 cmd="$cmd $after"
-echo "$cmd" | tee rungdb.log
+echo "$cmd" | tee "${root_dir}/rungdb.log"
 eval "$cmd"

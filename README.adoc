@@ -379,15 +379,17 @@ If you are feeling raw, you can insert and remove modules with our own minimal m
 which teaches you how it is done from C code.
 
 [[gdb]]
-== GDB step debugging
+== GDB step debug
 
-To GDB step debug the Linux kernel, first run:
+=== GDB step debug kernel boot
+
+`-d` makes QEMU wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
 
 ....
 ./run -d
 ....
 
-If you want to break immediately at a symbol, e.g. `start_kernel` of the boot sequence, run on another shell:
+Say you want to break at `start_kernel`. So on another shell:
 
 ....
 ./rungdb start_kernel
@@ -407,21 +409,36 @@ n
 c
 ....
 
-To skip the boot, run just:
+See also:
+
+* http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu/33203642#33203642
+* http://stackoverflow.com/questions/4943857/linux-kernel-live-debugging-how-its-done-and-what-tools-are-used/42316607#42316607
+
+`O=0` is an impossible dream, `O=2` being the default: https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0 So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
+
+=== GDB step debug kernel post-boot
+
+Let's observe the kernel as it reacts to some userland actions.
+
+Start QEMU with just:
 
 ....
-./rungdb
+./run
 ....
 
-and when you want to break, do `Ctrl + C` from GDB.
-
-To have some fun, you can first run inside QEMU:
+and after boot inside a shell run:
 
 ....
 /count.sh
 ....
 
-which counts to infinity to stdout, and then in GDB:
+which counts to infinity to stdout. Then in another shell, run:
+
+....
+./rungdb
+....
+
+and then hit:
 
 ....
 Ctrl + C
@@ -431,32 +448,44 @@ continue
 continue
 ....
 
-And you now control the counting from GDB.
+And you now control the counting on the first shell from GDB!
 
-See also:
+When you hit `Ctrl + C`, if we happen to be inside kernel code at that point, which is very likely if there are no heavy background tasks waiting, and we are just waiting on a `sleep` type system call of the command prompt, we can already see the source for the random place inside the kernel where we stopped.
 
-* http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu/33203642#33203642
-* http://stackoverflow.com/questions/4943857/linux-kernel-live-debugging-how-its-done-and-what-tools-are-used/42316607#42316607
+=== tmux multi terminal
 
-`O=0` is an impossible dream, `O=2` being the default: https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0 So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
+tmux just makes things even more fun by allowing us to see both terminals at once without dragging windows around! https://unix.stackexchange.com/questions/152738/how-to-split-a-new-window-and-run-a-command-in-this-new-window-using-tmux/432111#432111
 
-=== Kernel module debugging
+....
+./tmu ./rungdb && ./run -dn
+....
+
+=== GDB step debug kernel module
 
 Loadable kernel modules are a bit trickier since the kernel can place them at different memory locations depending on load order.
 
 So we cannot set the breakpoints before `insmod`.
 
-However, the Linux kernel GDB scripts offer the `lx-symbols` command, which takes care of that beautifully for us:
+However, the Linux kernel GDB scripts offer the `lx-symbols` command, which takes care of that beautifully for us.
+
+Shell 1:
 
 ....
-./run -d
-./rungdb
+./run
 ....
 
-In QEMU:
+Wait for the boot to end and run:
 
 ....
 insmod /timer.ko
+....
+
+This prints a message to dmesg every second.
+
+Shell 2:
+
+....
+./rungdb
 ....
 
 In GDB, hit `Ctrl + C`, and note how it says:
@@ -485,7 +514,13 @@ See also: http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-
 
 ==== Bypass lx-symbols
 
-Useless, but a good way to show how hardcore you are. From inside QEMU:
+Useless, but a good way to show how hardcore you are. Disable `lx-symbols` with:
+
+....
+./rungdb -L
+....
+
+From inside guest:
 
 ....
 insmod /fops.ko
@@ -505,7 +540,7 @@ Ctrl + C
 add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
 ....
 
-=== Debug kernel early boot
+=== GDB step debug early boot
 
 TODO: why can't we break at early startup stuff such as:
 
@@ -514,7 +549,139 @@ TODO: why can't we break at early startup stuff such as:
 ./rungdb main
 ....
 
+Maybe it is because they are being copied around at specific locations instead of being run directly from inside the main image, which is where the debug information points to?
+
 See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
+
+=== GDB step debug userland processes
+
+QEMU's `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
+
+* https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel
+* https://stackoverflow.com/questions/16273614/debug-init-on-qemu-using-gdb
+
+You will generally want to use <<gdbserver>> for this as it is more reliable, but this method can overcome the following limitations of `gdbserver`:
+
+* the emulator does not support host to guest networking. This seems to be the case for gem5: <<gem5-host-to-guest-networking>>
+* cannot see the start of the `init` process easily
+* `gdbserver` alters the working of the kernel, and makes your run less representative
+
+Known limitations of direct userland debugging:
+
+* the kernel might switch context to another process or to the kernel itself e.g. on a system call, and then TODO confirm the PIC would go to weird places and source code would be missing.
+* TODO step into shared libraries. If I attempt to load them explicitly:
++
+....
+(gdb) sharedlibrary ../../staging/lib/libc.so.0
+No loaded shared libraries match the pattern `../../staging/lib/libc.so.0'.
+....
++
+since GDB does not know that libc is loaded.
+
+==== GDB step debug userland custom init
+
+* Shell 1:
++
+....
+./run -d -e 'init=/sleep_forever.out'
+....
+* Shell 2:
++
+....
+./rungdb-user kernel_module-1.0/user/sleep_forever.out main
+....
+
+==== GDB step debug userland BusyBox init
+
+BusyBox custom init process:
+
+* Shell 1:
++
+....
+./run -d -e 'init=/bin/ls'
+....
+* Shell 2:
++
+....
+./rungdb-user busybox-1.26.2/busybox ls_main
+....
+
+This follows BusyBox' convention of calling the main for each executable as `<exec>_main` since the `busybox` executable has many "mains".
+
+BusyBox default init process:
+
+* Shell 1:
++
+....
+./run -d
+....
+* Shell 2:
++
+....
+./rungdb-user busybox-1.26.2/busybox init_main
+....
+
+This cannot be debugged in another way without modifying the source, or `/sbin/init` exits early with:
+
+....
+"must be run as PID 1"
+....
+
+==== GDB step debug userland non-init
+
+Non-init process:
+
+* Shell 1:
++
+....
+./run -d
+....
+* Shell 2:
++
+....
+./rungdb-user kernel_module-1.0/user/myinsmod.out main
+....
+* Shell 1 after the boot finishes:
++
+....
+/myinsmod.out /hello.ko
+....
+
+This is the least reliable setup as there might be other processes that use the given virtual address.
+
+===== GDB step debug userland non-init without -d
+
+TODO: it works on x86 and aarch64 but fails on arm as follows:
+
+* Shell 1:
++
+....
+./run -a arm
+....
+* Shell 2: wait for boot to finish, and run:
++
+....
+./rungdb-user -a arm kernel_module-1.0/user/myinsmod.out main
+....
+* Shell 1:
++
+....
+/myinsmod.out /hello.ko
+....
+
+The problem is that the `b main` that we do inside `./rungdb-user` says:
+
+....
+Cannot access memory at address 0x107b8
+....
+
+However, if we do a Ctrl + C, and then a direct:
+
+....
+b *0x107b8
+....
+
+it works. Why?!
 
 === GDB call
 
@@ -745,95 +912,6 @@ which automatically finds unstripped shared libraries on the host for us.
 
 See also: https://stackoverflow.com/questions/8611194/debugging-shared-libraries-with-gdbserver/45252113#45252113
 
-=== Debug userland process without gdbserver
-
-QEMU `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
-
-* https://stackoverflow.com/questions/26271901/is-it-possible-to-use-gdb-and-qemu-to-debug-linux-user-space-programs-and-kernel
-* https://stackoverflow.com/questions/16273614/debug-init-on-qemu-using-gdb
-
-The only use case I can see for this is to debug the init process (and have fun), otherwise, why wouldn't you just use `gdbserver`? Known limitations of direct userland debugging:
-
-* the kernel might switch context to another process, and you would enter "garbage"
-* TODO step into shared libraries. If I attempt to load them explicitly:
-+
-....
-(gdb) sharedlibrary ../../staging/lib/libc.so.0
-No loaded shared libraries match the pattern `../../staging/lib/libc.so.0'.
-....
-+
-since GDB does not know that libc is loaded.
-
-Custom init process:
-
-* Shell 1:
-+
-....
-./run -d -e 'init=/sleep_forever.out' -n
-....
-* Shell 2:
-+
-....
-./rungdb-user kernel_module-1.0/user/sleep_forever.out main
-....
-
-BusyBox custom init process:
-
-* Shell 1:
-+
-....
-./run -d -e 'init=/bin/ls' -n
-....
-* Shell 2:
-+
-....
-./rungdb-user -h busybox-1.26.2/busybox ls_main
-....
-
-This follows BusyBox' convention of calling the main for each executable as `<exec>_main` since the `busybox` executable has many "mains".
-
-BusyBox default init process:
-
-* Shell 1:
-+
-....
-./run -d -n
-....
-* Shell 2:
-+
-....
-./rungdb-user -h busybox-1.26.2/busybox init_main
-....
-
-This cannot be debugged in another way without modifying the source, or `/sbin/init` exits early with:
-
-....
-"must be run as PID 1"
-....
-
-Non-init process:
-
-* Shell 1
-+
-....
-./run -d -n
-....
-* Shell 2
-+
-....
-./rungdb-user kernel_module-1.0/user/sleep_forever.out
-Ctrl + C
-b main
-continue
-....
-* Shell 1
-+
-....
-/sleep_forever.out
-....
-
-This is of least reliable setup as there might be other processes that use the given virtual address.
-
 == Architectures
 
 The portability of the kernel and toolchains is amazing: change an option and most things magically work on completely different hardware.
@@ -874,25 +952,6 @@ On gem5, it is possible to use the `m5` instrumentation from guest as a good wor
 ....
 m5 exit
 ....
-* GDB step debugging of kernel modules broke at some point. This happens at 6420c31986e064c81561da8f2be0bd33483af598 on kernel v4.15, 6b0f89a8b43e8d33d3a3a436ed827f962da3008a v4.14 and 5ad68edd000685c016c45e344470f2c1867b8e39 v4.12 and also if kernel 4.9.6 is checked out. So maybe it was never working in the first place, but we never noticed?
-+
-Just after GDB connects, we get the following message from the kernel GDB Python scripts:
-....
-loading vmlinux
-Traceback (most recent call last):
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
-    self.load_all_symbols()
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
-    [self.load_module_symbols(module) for module in module_list]
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
-    module_name = module['name'].string()
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.arm~/host/lib/python2.7/encodings/utf_8.py", line 16, in decode
-    return codecs.utf_8_decode(input, errors, True)
-UnicodeDecodeError: 'utf8' codec can't decode byte 0x9f in position 2: invalid start byte
-Error occurred in Python command: 'utf8' codec can't decode byte 0x9f in position 2: invalid start byte
-....
-+
-and then after inserting the module, symbols are not found, presumably because `lx-symbols` never ran.
 
 === aarch64
 
@@ -910,16 +969,6 @@ Most of the machines QEMU supports have annoying limitations (small amount of RA
 ____
 +
 `-M virt` has some limitations, e.g. I could not pass `-drive if=scsi` as for `arm`, and so <<Snapshot>> fails.
-
-So, as long as you keep those points in mind, our `-a aarch64` offers an interesting different setup to play with.
-
-TODOs:
-
-* <<gdb>> appears to be stuck on an infinite loop:
-+
-....
-no module object found for ''
-....
 
 === mips64
 
@@ -1819,7 +1868,7 @@ Even mor awesome than `chroot` be to `pivot_root`, but I couldn't get that worki
 
 === Guest host networking
 
-==== Host to guest
+==== Host to guest networking
 
 Guest, BusyBox `nc` enabled with `CONFIG_NC=y`:
 
@@ -1851,7 +1900,11 @@ BR2_PACKAGE_OPENSSH=y
 
 Not enabled by default due to the build / runtime overhead, but it was tested and worked at the time of this commit.
 
-==== Guest to host
+===== gem5 host to guest networking
+
+Could not do port forwarding from host to guest, and therefore could not use `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
+
+==== Guest to host networking
 
 TODO. There is `guestfwd`, which sounds analogous to `hostwfd` used in the other sense, but I was not able to get it working, e.g.:
 
@@ -2373,7 +2426,7 @@ Yes, we do run the benchmarks on host just to unpack / generate inputs... and th
 
 PARSEC simply wasn't designed with non native machines in mind.
 
-Running a benchmark of a different size requires a rebuild wit:
+Running a benchmark of a different size requires a rebuild with:
 
 ....
 ./build \
@@ -2583,21 +2636,79 @@ On the second shell:
 ./rungdb -a arm -g
 ....
 
-This makes the VM stop, so from inside GDB:
-
-....
-continue
-....
-
 On a third shell:
 
 ....
 ./gem5-shell
 ....
 
+When you want to break, just do a Ctrl + C on GDB shell, and then `continue`.
+
 And we now see the boot messages, and then get a shell. Now try the `/continue.sh` procedure described for QEMU.
 
-TODO: how to stop at `start_kernel`? gem5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used?
+TODO: how to stop at `start_kernel`? gem5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used? https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
+
+==== gem5 GDB step debugging aarch64
+
+TODO: GDB fails with:
+
+....
+Reading symbols from vmlinux...done.
+Remote debugging using localhost:7000
+Remote 'g' packet reply is too long: 000000000000000090a4f90fc0ffffff4875450ec0ffffff01000000000000000100000000000000000000000000000001000000000000000000000000000000ffffffffffffffff646d60616b64fffe7f7f7f7f7f7f7f7f0101010101010101300000000000000000000000ffffffff48454422207d2c2017162f21262820160100000000000000070000000000000001000000000000004075450ec0ffffffc073450ec0ffffff82080000000000004075450ec0ffffff8060f90fc0ffffffc073450ec0fffffff040900880ffffff40ab400ec0ffffff586d900880ffffff0068a20ec0ffffff903b010880ffffffc8ff210880ffffff903b010880ffffffccff210880ffffff050000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+....
+
+and gem5 says:
+
+....
+4107766500: system.remote_gdb: remote gdb attached
+warn: Couldn't read data from debugger.
+4107767500: system.remote_gdb: remote gdb detached
+....
+
+I've also tried the fix at: https://stackoverflow.com/questions/27411621/remote-g-packet-reply-is-too-long-aarch64-arm64 by adding to the link:rungdb[] script:
+
+....
+-ex 'set tdesc filename buildroot/output.aarch64~/build/gdb-7.11.1/./gdb/features/aarch64.xml'
+....
+
+but it did not help.
+
+=== gem5 debug userland programs
+
+TODO
+
+We are unable to use `gdbserver` because of networking: <<gem5-host-to-guest-networking>>
+
+The alternative is to do as in <<gdb-step-debug-userland-processes>>.
+
+First make sure that for your arch:
+
+* the kernel debugging on the given target works for the architecture: <<gem5-gdb>>.
+* as explained at <<gdb-step-debug-userland-non-init-without--d>>, some archs require explicit `b *0x1234` addresses, `b main` didn't work
+
+On shell 1:
+
+....
+./run -a arm -d -g
+....
+
+Shell 2:
+
+....
+./rungdb-user -a arm -g kernel_module-1.0/user/myinsmod.out main
+....
+
+Gives:
+
+....
+Cannot access memory at address 0x107b8
+....
+
+This does however work for QEMU, so it must be either:
+
+* a timing sensitive thing. The address is only visible sometimes, and because QEMU runs faster, we usually saw it when it was available.
+* a protocol thing of type QEMU GDB allows addresses that are not currently present on the pagetables, but gem5 does not.
 
 === gem5 checkpoint
 
@@ -2945,11 +3056,9 @@ which is very close to the end of the boot. Increasing the memory from 256M to 5
 === gem5 limitations
 
 * networking not working. We currently just disable it from `inittab` by default to prevent waiting at startup
-* could not do port forwarding from host to guest, and therefore use `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
 
 ==== gem5 x86_64 limitations
 
-* `gdb` debugging not working. First we need to remove the initial `set arch i386:x86-64:intel` required for QEMU. Then it cannot find the symbols.
 * gets stuck for a long time at:
 +
 ....

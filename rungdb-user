@@ -4,6 +4,7 @@ set -eu
 usage="$0 <exec-relative-path> [<brk-symbol>]"
 arch='x86_64'
 gem5=false
+gem5_opt=''
 while getopts a:gh OPT; do
   case "$OPT" in
     a)
@@ -11,6 +12,7 @@ while getopts a:gh OPT; do
       ;;
     g)
       gem5=true
+      gem5_opt=-g
       ;;
     h)
       echo "$usage"
@@ -32,7 +34,11 @@ executable="${out_dir}/build/${executable_rel}"
 readelf="${out_dir}/host/usr/bin/${arch}-linux-readelf"
 addr="$("$readelf" -h "$executable" | awk '/Entry/{ print $NF }' )"
 ex="-ex \"add-symbol-file $executable $addr\""
-# Twice because lx-symbols overrides our add-symbol-file commands.
-cmd="./rungdb -b '$ex' -A '$ex' $brk"
+# -L or else lx-symbols throws for arm:
+# gdb.MemoryError: Cannot access memory at address 0xbf0040cc
+# TODO understand better.
+#
+# Also, lx-symbols overrides the add-symbol-file commands.
+cmd="./rungdb -a '${arch}' -b '${ex}' ${gem5_opt} -L ${brk}"
 echo "$cmd"
 eval "$cmd"
