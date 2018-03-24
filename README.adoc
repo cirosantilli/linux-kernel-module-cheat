@@ -651,7 +651,7 @@ This is the least reliable setup as there might be other processes that use the 
 
 ===== GDB step debug userland non-init without -d
 
-TODO: it works on x86 and aarch64 but fails on arm as follows:
+TODO: on QEMU, it works on x86 and aarch64 but fails on arm as follows:
 
 * Shell 1:
 +
@@ -681,7 +681,7 @@ However, if we do a Ctrl + C, and then a direct:
 b *0x107b8
 ....
 
-it works. Why?!
+it works. Why?! On GEM5, x86 can also give te `Cannot access memory at address`, so maybe it is also unreliable on QEMU, and works just by coincidence.
 
 === GDB call
 
@@ -2673,41 +2673,15 @@ I've also tried the fix at: https://stackoverflow.com/questions/27411621/remote-
 
 but it did not help.
 
-=== gem5 debug userland programs
-
-TODO
+=== gem5 GDB step debug userland processes
 
 We are unable to use `gdbserver` because of networking: <<gem5-host-to-guest-networking>>
 
 The alternative is to do as in <<gdb-step-debug-userland-processes>>.
 
-First make sure that for your arch:
+First make sure that for your arch the kernel debugging on the given target works for the architecture: <<gem5-gdb>>, on which we rely. When we last tested, this was not the case for aarch64: <<gem5-gdb-step-debugging-aarch64>>
 
-* the kernel debugging on the given target works for the architecture: <<gem5-gdb>>.
-* as explained at <<gdb-step-debug-userland-non-init-without--d>>, some archs require explicit `b *0x1234` addresses, `b main` didn't work
-
-On shell 1:
-
-....
-./run -a arm -d -g
-....
-
-Shell 2:
-
-....
-./rungdb-user -a arm -g kernel_module-1.0/user/myinsmod.out main
-....
-
-Gives:
-
-....
-Cannot access memory at address 0x107b8
-....
-
-This does however work for QEMU, so it must be either:
-
-* a timing sensitive thing. The address is only visible sometimes, and because QEMU runs faster, we usually saw it when it was available.
-* a protocol thing of type QEMU GDB allows addresses that are not currently present on the pagetables, but gem5 does not.
+Next, follow the exact same steps explained at <<gdb-step-debug-userland-non-init-without--d>>, but passing `-g` to every command as usual.
 
 === gem5 checkpoint
 
