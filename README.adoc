@@ -73,7 +73,7 @@ git ls-files | grep modulename
 
 === Rebuild
 
-After making changes to a package, you must explicitly tell it to be rebuilt.
+After making changes to a package, you must explicitly request it to be rebuilt.
 
 For example, you you modify the kernel modules, you must rebuild with:
 
@@ -92,16 +92,24 @@ where `kernel_module` is the name of out Buildroot package that contains the ker
 Other important targets are:
 
 ....
-./build -- linux-reconfigure host-qemu-reconfigure
+./build -l -q -G
 ....
 
-which are aliased respectively to:
+which rebuild the Linux kernel, and QEMU and gem5 respectively. They are essentially aliases for:
 
 ....
-./build -l -q
+./build -- linux-reconfigure host-qemu-reconfigure gem5-reconfigure
 ....
+
+However, some of our aliases such as `-l` also have some magic convenience properties. So generally just use the aliases instead.
 
 We don't rebuild by default because, even with `make` incremental rebuilds, the timestamp check takes a few annoying seconds.
+
+Not all packages have an alias, when they don't, just use the form:
+
+....
+./build -- <pkg>-reconfigure
+....
 
 === Clean the build
 
@@ -1417,11 +1425,10 @@ So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-in
 Try it out with:
 
 ....
-touch kernel_config_fragment
-./build -I && ./run -I
+./build -I -l && ./run -I
 ....
 
-The `touch` should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: <<force-linux-kernel-configuration-update>>. Further builds should be done simply as:
+The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
 
 ....
 ./build -I && ./run -I
@@ -1457,11 +1464,8 @@ By default, we use a `.config` that is a mixture of:
 If you want to just use your own exact `.config` instead, do:
 
 ....
-touch myconfig
-./build -K myconfig
+./build -K myconfig -l
 ....
-
-The `touch` is only need the first time you move to a new kernel configuration: <<force-linux-kernel-configuration-update>>.
 
 Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
 
@@ -1478,26 +1482,6 @@ or on host:
 ....
 cat buildroot/output.*~/build/linux-custom/.config
 ....
-
-==== Force Linux kernel configuration update
-
-https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-
-To save rebuild time, Buildroot does many things based on timestamps.
-
-This means that some operations end up not updating the Linux kernel `.config`, and we just require you to do it manually with:
-
-....
-touch kernel_config_fragment
-....
-
-When this works, you should see Buildroot run the kernel rebuild commands:
-
-The reason we don't do that automatically all the time, is that this would defeat the purpose of the timestamp, and add some overhead even when you are not modifying the config at all.
-
-Maybe we could think of smarter methods to overcome this problem more automatically, e.g. take hashes and check them whenever a suspicious operations happens.
-
-But for now we just require you to do the `touch` manually yourself, and document when this is needed.
 
 === Find the kernel version
 

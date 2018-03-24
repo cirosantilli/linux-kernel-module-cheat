@@ -9,11 +9,12 @@ config_fragments='br2'
 extra_make_args=''
 gem5=false
 j="$(($(nproc) - 2))"
+linux_reconfigure=false
 linux_kernel_custom_config_file=''
 post_script_args=''
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 v=0
-while getopts 'a:b:c:Cgj:hIiK:klp:qSv' OPT; do
+while getopts 'a:b:c:CGgj:hIiK:klp:qSv' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -26,6 +27,10 @@ while getopts 'a:b:c:Cgj:hIiK:klp:qSv' OPT; do
     ;;
     C)
       configure=false
+    ;;
+    G)
+      extra_make_args="$extra_make_args gem5-reconfigure"
+      gem5=true
     ;;
     g)
       gem5=true
@@ -58,6 +63,7 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       extra_make_args="$extra_make_args kernel_module-reconfigure"
     ;;
     l)
+      linux_reconfigure=true
       extra_make_args="$extra_make_args linux-reconfigure"
     ;;
     p)
@@ -121,16 +127,28 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
       fi
     fi
   fi
-  if [ -z "$linux_kernel_custom_config_file" ]; then
+  if [ -n "$linux_kernel_custom_config_file" ]; then
+    f="../${linux_kernel_custom_config_file}"
+    if [ -f "$f" ]; then
+      printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"${f}\"\n" >> "${config_file}"
+      if "${linux_reconfigure}"; then
+        touch "$f"
+      fi
+    else
+      echo "error: -K: file does not exist: ${linux_kernel_custom_config_file}" 1>&2
+      exit 1
+    fi
+  else
     printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"../kernel_config_fragment\"\n" >> "${config_file}"
+    if "${linux_reconfigure}"; then
+      # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+      touch "$f"
+    fi
   fi
   if [ "$arch" = 'mips64' ]; then
     # Workaround for:
     # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
     sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${config_file}"
-  fi
-  if [ -n "$linux_kernel_custom_config_file" ]; then
-    printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"../${linux_kernel_custom_config_file}\"\n" >> "${config_file}"
   fi
   make O="$out_dir" olddefconfig
 fi
