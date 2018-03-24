@@ -205,23 +205,36 @@ The superior alternative is to use text mode or a telnet connection.
 
 === Text mode
 
-Show serial console directly on the current terminal, without opening a QEMU window:
+By default, we show the serial console directly on the current terminal, without opening a QEMU window.
+
+To enable graphic mode, use:
 
 ....
-./run -n
+./run -x
 ....
 
-To quit QEMU forcefully, just use Ctrl + C as usual.
+Text mode is the default due to the following considerable advantages:
 
-This mode is very useful to:
-
-* get full panic traces when you start making the kernel crash :-) See also: https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic
 * copy and paste commands and stdout output to / from host
-* have a large scroll buffer, and be able to search it, e.g. by using GNU `screen` on host
+* get full panic traces when you start making the kernel crash :-) See also: https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic
+* have a large scroll buffer, and be able to search it, e.g. by using tmux on host
+* one less window floating around to think about in addition to your shell :-)
+* graphics mode has only been properly tested on `x86_64`.
 
-Limitations:
+Text mode has the following limitations over graphics mode:
 
-* TODO: Ctrl + C kills the emulator, and not sent to guest processes. See:
+* you can't see graphics such as those produced by <<x11>>
+* Very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
+
+Both good and bad:
+
+* Ctrl + C kills the host emulator instead of sending SIGINT to the guest process.
++
+On one hand, this provides an easy way to quit QEMU.
++
+On the other, we are unable to easily kill the foreground process, which is specially problematic when it is something like an infinite loop. and not sent to guest processes.
++
+TODO: understand why and how to change that. See:
 +
 --
 ** https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-in-qemu
@@ -244,7 +257,6 @@ Our workaround is:
 I think the problem was reversed in older QEMU versions: https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui/1211516#1211516
 +
 This is however fortunate when running QEMU with GDB, as the Ctrl + C reaches GDB and breaks.
-* Very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
 
 === Automatic startup commands
 
@@ -465,7 +477,7 @@ When you hit `Ctrl + C`, if we happen to be inside kernel code at that point, wh
 tmux just makes things even more fun by allowing us to see both terminals at once without dragging windows around! https://unix.stackexchange.com/questions/152738/how-to-split-a-new-window-and-run-a-command-in-this-new-window-using-tmux/432111#432111
 
 ....
-./tmu ./rungdb && ./run -dn
+./tmu ./rungdb && ./run -d
 ....
 
 === GDB step debug kernel module
@@ -1009,13 +1021,13 @@ To have more control over the system, you can replace BusyBox's init with your o
 The following method replaces init and evals a command from the <<kernel-command-line-parameters>>:
 
 ....
-./run -E 'echo "asdf qwer";insmod /hello.ko;/poweroff.out' -n
+./run -E 'echo "asdf qwer";insmod /hello.ko;/poweroff.out'
 ....
 
 It is basically a shortcut for:
 
 ....
-./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"' -n
+./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"'
 ....
 
 although `-E` is smarter:
@@ -1032,7 +1044,7 @@ echo '
 insmod /hello.ko
 /poweroff.out
 ' > gitignore.sh
-./run -E "$(cat gitignore.sh)" -n
+./run -E "$(cat gitignore.sh)"
 ....
 
 or add it to a file to the root filesystem guest and rebuild:
@@ -1044,7 +1056,7 @@ insmod /hello.ko
 ' > rootfs_overlay/gitignore.sh
 chmod +x rootfs_overlay/gitignore.sh
 ./build
-./run -e 'init=/gitignore.sh' -n
+./run -e 'init=/gitignore.sh'
 ....
 
 Remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
@@ -1115,7 +1127,7 @@ ____
 And you can try it out with:
 
 ....
-./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv' -n
+./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv'
 ....
 
 Also note how the annoying dash `-` also gets passed as a parameter to `init`, which makes it impossible to use this method for most executables.
@@ -1123,7 +1135,7 @@ Also note how the annoying dash `-` also gets passed as a parameter to `init`, w
 Finally, the docs are lying, arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear:
 
 ....
-./run -e 'init=/init_env_poweroff.sh - /poweroff.out' -n
+./run -e 'init=/init_env_poweroff.sh - /poweroff.out'
 ....
 
 === Disable networking
@@ -1170,10 +1182,10 @@ Build:
 
 ....
 ./build -b br2_x11
-./run
+./run -x
 ....
 
-We don't build X11 by default because it takes a considerable amount of time (~20%), and is not expected to be used by most users: you need to pass the `-x` flag to enable it.
+We don't build X11 by default because it takes a considerable amount of time (about 20%), and is not expected to be used by most users: you need to pass the `-x` flag to enable it.
 
 Inside QEMU:
 
