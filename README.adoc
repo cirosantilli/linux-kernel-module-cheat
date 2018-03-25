@@ -846,7 +846,9 @@ But TODO I don't think you can see where you are in the kernel source code and l
 
 Step debug userland processes to understand how they are talking to the kernel.
 
-In guest:
+First ensure that <<networking>> is enabled.
+
+Then in guest:
 
 ....
 /gdbserver.sh /myinsmod.out /hello.ko
@@ -1138,15 +1140,37 @@ Finally, the docs are lying, arguments with dots that come after `-` are still t
 ./run -e 'init=/init_env_poweroff.sh - /poweroff.out'
 ....
 
-=== Disable networking
+=== Networking
 
-The default BusyBox init scripts enable networking, and there is a 15 second timeout in case your network is down or if your kernel / emulator setup does not support it.
+We disable networking by default because it starts an userland process, and we want to keep the number of userland processes to a minimum to make the system more understandable.
 
-We have hacked it up so that you can disable networking with:
+To enable it run:
 
 ....
-./run -f 'lkmc_nonet=y'
+/sbin/ifup -a
 ....
+
+To disable it, run:
+
+....
+/sbin/ifdown -a
+....
+
+To test it out, try:
+
+....
+wget google.com
+....
+
+BusyBox' `ping` does not work with hostnames even when networking is working fine:
+
+....
+ping google.com
+....
+
+TODO why: https://unix.stackexchange.com/questions/124283/busybox-ping-ip-works-but-hostname-nslookup-fails-with-bad-address
+
+To enable networking by default, use the methods documented at <<automatic-startup-commands>>
 
 == KVM
 
@@ -1863,6 +1887,8 @@ Even mor awesome than `chroot` be to `pivot_root`, but I couldn't get that worki
 * https://unix.stackexchange.com/questions/179788/pivot-root-device-or-resource-busy
 
 === Guest host networking
+
+First ensure that networking is enabled before trying out anything in this section: <<networking>>
 
 ==== Host to guest networking
 
