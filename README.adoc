@@ -30,7 +30,6 @@ If you don't want to wait, you could also try to compile the examples and run th
 After QEMU opens up, you can start playing with the kernel modules:
 
 ....
-root
 insmod /hello.ko
 insmod /hello2.ko
 rmmod hello
@@ -268,7 +267,6 @@ But on the other hand maybe you are interested in observing the interrupts gener
 When debugging a module, it becomes tedious to wait for build and re-type:
 
 ....
-root
 /modulename.sh
 ....
 
@@ -850,8 +848,6 @@ But TODO I don't think you can see where you are in the kernel source code and l
 == gdbserver
 
 Step debug userland processes to understand how they are talking to the kernel.
-
-First ensure that <<networking>> is enabled.
 
 Then in guest:
 
@@ -1919,13 +1915,23 @@ We us this exact procedure to connect to <<gdbserver>>.
 
 https://unix.stackexchange.com/questions/124681/how-to-ssh-from-host-to-guest-using-qemu/307557#307557
 
-Uses OpenSSH's `sshd`, enable with the option:
+Not enabled by default due to the build / runtime overhead. To enable, build with:
 
 ....
-BR2_PACKAGE_OPENSSH=y
+./build -B 'BR2_PACKAGE_OPENSSH=y'
 ....
 
-Not enabled by default due to the build / runtime overhead, but it was tested and worked at the time of this commit.
+Then inside the guest turn on sshd:
+
+....
+/sshd.sh
+....
+
+and finally on host:
+
+....
+ssh root@localhost -p 45456
+....
 
 ===== gem5 host to guest networking
 
@@ -3177,6 +3183,34 @@ diff -u .config.olg .config
 ....
 
 Then copy and paste the diff additions to link:br2[] to make them permanent.
+
+=== Change user
+
+At startup, we login automatically as the `root` user as explained at: https://unix.stackexchange.com/questions/299408/how-to-login-automatically-without-typing-root-in-buildroot-x86-64-qemu/300152#300152
+
+If you want to switch to another user to test some permissions, we have already created an `user0` user through the link:user_table[] file, and you can just login as that user with:
+
+....
+login user0
+....
+
+and password:
+
+....
+a
+....
+
+Then test that the user changed with:
+
+....
+id
+....
+
+which gives:
+
+....
+uid=1000(user0) gid=1000(user0) groups=1000(user0)
+....
 
 === ccache
 
