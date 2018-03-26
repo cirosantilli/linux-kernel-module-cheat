@@ -33,7 +33,7 @@ endef
 
 define PARSEC_BENCHMARK_INSTALL_TARGET_CMDS
   mkdir -p '$(TARGET_DIR)/parsec/'
-  $(INSTALL) -D -m 0755 '$(D)/test.sh' '$(TARGET_DIR)/parsec/'
+  $(INSTALL) -D -m 0755 '$(@D)/test.sh' '$(TARGET_DIR)/parsec/'
   if [ '$(BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT)' = y ]; then \
     rsync -am $(if $(filter $(V),1),-v,) \
       --exclude '**/obj/' \
