@@ -2799,6 +2799,14 @@ But then TODO (I'll still go crazy one of those days): for `arm`, while debuggin
 
 I press `n`, it just runs the program until the end, instead of stopping on the next line of execution. The module does get inserted normally.
 
+TODO:
+
+....
+./rungdb-user -a arm -g gem5-1.0/gem5/util/m5/m5 main
+....
+
+breaks when `m5` is run on guest, but does not show the source code.
+
 === gem5 checkpoint
 
 Analogous to QEMU's <<snapshot>>, but better since it can be started from inside the guest, so we can easily checkpoint after a specific guest event, e.g. just before `init` is done.
@@ -2868,7 +2876,7 @@ This makes it easier to remember which checkpoint is which, especially since the
 Internals:
 
 * the checkpoints are stored under `m5out/cpts/$arch/cpt.$todo_whatisthis`
-* `m5` is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
+* <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
 
 ==== gem5 restore checkpoint with a different CPU
 
@@ -3139,6 +3147,49 @@ the following lines would be:
 ....
 
 which is very close to the end of the boot. Increasing the memory from 256M to 512M didn't help.
+
+=== m5
+
+`m5` is a guest command line utility that is installed and run on the guest.
+
+It generates magic instructions, which lead gem5 to do magic things, like `dumpstats` or `exit`.
+
+It is however under-documented, so let's document some of its capabilities here.
+
+==== m5 exit
+
+Quit gem5 with exit status 0.
+
+==== m5 fail
+
+Quit gem5 with the given exit status.
+
+....
+m5 fail 1
+....
+
+==== m5 writefile
+
+Send a guest file to the host. <<9p>> is a more advanced alternative.
+
+Guest:
+
+....
+echo mycontent > myfileguest
+m5 writefile myfileguest myfilehost
+....
+
+Host:
+
+....
+cat m5out/myfilehost
+....
+
+Does not work for subdirectories, gem5 crashes:
+
+....
+m5 writefile myfileguest mydirhost/myfilehost
+....
 
 === gem5 limitations
 
