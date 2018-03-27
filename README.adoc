@@ -189,7 +189,7 @@ dmesg -n 1
 
 See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
 
-You can scroll up a bit on the default TTY with:
+When in <<text-mode,graphical mode>>, you can scroll up a bit on the default TTY with:
 
 ....
 Shift + PgUp
@@ -254,6 +254,8 @@ Our workaround is:
 ....
 +
 I think the problem was reversed in older QEMU versions: https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui/1211516#1211516
++
+`sendkey sendkey ctrl-c` does not work on the text terminal either.
 +
 This is however fortunate when running QEMU with GDB, as the Ctrl + C reaches GDB and breaks.
 * Not everything generates interrupts, only the final enter.
@@ -1697,6 +1699,77 @@ I once got link:https://en.wikipedia.org/wiki/User-mode_Linux[UML] running on a 
 But in part because it is dying, I didn't spend much effort to integrate it into this repo, although it would be a good fit in principle, since it is essentially a virtualization method.
 
 Maybe some brave should will send a pull request one day.
+
+=== Magic keys understood by the Linux kernel
+
+Let's have some fun.
+
+Those only work in <<text-mode,graphical mode>>.
+
+I think most are implemented under:
+
+....
+drivers/tty
+....
+
+TODO find all.
+
+Scroll up / down the terminal:
+
+....
+Shift + PgDown
+Shift + PgUp
+....
+
+Or inside `./qemumonitor`:
+
+....
+sendkey shift-pgup
+sendkey shift-pgdown
+....
+
+https://en.wikipedia.org/wiki/Magic_SysRq_key Those can be tested through the monitor with:
+
+....
+sendkey alt-sysrq-c
+....
+
+or you can try the much more boring method of:
+
+....
+echo c > /proc/sysrq-trigger
+....
+
+Implemented in
+
+....
+drivers/tty/sysrq.c
+....
+
+Switch between TTYs with:
+
+....
+sendkey alt-left
+sendkey alt-right
+sendkey alt-f1
+sendkey alt-f2
+....
+
+TODO: only works after I do a `chvt 1`, but then how to put a terminal on `alt-f2`? I just get a blank screen. One day, one day:
+
+* https://stackoverflow.com/questions/16706423/two-instances-of-busybox-on-separate-serial-lines-ttysn
+* https://serverfault.com/questions/119736/how-to-enable-multiple-virtual-consoles-on-linux
+* https://superuser.com/questions/33065/console-commands-to-change-virtual-ttys-in-linux-and-openbsd
+
+Also tried to add some extra lines to `/etc/inittab` of type:
+
+....
+console::respawn:/sbin/getty -n -L -l /loginroot.sh ttyS1 0 vt100
+....
+
+but nothing changed.
+
+Note that on Ubuntu 17.10, to get to the text terminal from the GUI we first need `Ctrl + Alt + Fx`, and once in the text terminals, `Alt + Fn` works without `Ctrl`.
 
 == QEMU
 
