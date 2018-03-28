@@ -11,13 +11,13 @@ while getopts a: OPT; do
 done
 set_common_vars "$arch" false
 time ./run -a "$arch" -e 'init=/poweroff.out' -T exec_tb
-time ./qemu/scripts/simpletrace.py "${out_dir}/build/host-qemu-custom/trace-events-all" "${lkmc_out_dir}/trace.bin" >"${lkmc_out_dir}/trace.txt"
+time ./qemu/scripts/simpletrace.py "${build_dir}/host-qemu-custom/trace-events-all" "${qemu_out_dir}/trace.bin" >"${qemu_out_dir}/trace.txt"
 
 # Instruction count.
 # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
 # So let's just leave it here for now since it did not add a significant processing time.
-echo "instruction count all: $(wc -l "${lkmc_out_dir}/trace.txt" | cut -d' ' -f1)"
-entry_addr=$("${out_dir}"/host/bin/*-buildroot-*-readelf -h "${out_dir}/build/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
+echo "instruction count all: $(wc -l "${qemu_out_dir}/trace.txt" | cut -d' ' -f1)"
+entry_addr=$("${host_dir}"/bin/*-buildroot-*-readelf -h "${build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
 echo "entry address: ${entry_addr}"
-sed "/${entry_addr}/q" "${lkmc_out_dir}/trace.txt" >"${lkmc_out_dir}/trace-boot.txt"
-echo "instruction count firmware: $(wc -l "${lkmc_out_dir}/trace-boot.txt" | cut -d' ' -f1)"
+sed "/${entry_addr}/q" "${qemu_out_dir}/trace.txt" >"${qemu_out_dir}/trace-boot.txt"
+echo "instruction count firmware: $(wc -l "${qemu_out_dir}/trace-boot.txt" | cut -d' ' -f1)"

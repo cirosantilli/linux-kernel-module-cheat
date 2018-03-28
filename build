@@ -83,6 +83,7 @@ done
 shift $(($OPTIND - 1))
 extra_make_args="$extra_make_args $@"
 set_common_vars "$arch" "$gem5"
+config_file="${buildroot_out_dir}/.config"
 case "$arch" in
   x86_64)
     defconfig=qemu_x86_64_defconfig
@@ -108,7 +109,7 @@ if "$configure"; then
   for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
     patch -N -r - -p 1 <"$p" || :
   done
-  make O="$out_dir" BR2_EXTERNAL="../kernel_module:../gem5:../parsec-benchmark" "$defconfig"
+  make O="$buildroot_out_dir" BR2_EXTERNAL="../kernel_module:../gem5:../parsec-benchmark" "$defconfig"
   # TODO Can't get rid of these for now.
   # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
   for config_fragment in $config_fragments; do
@@ -116,6 +117,7 @@ if "$configure"; then
   done
   printf "
 BR2_JLEVEL=$j
+BR2_DL_DIR=\"${common_dir}/dl\"
 BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
 " >> "${config_file}"
   if "$gem5"; then
@@ -151,13 +153,14 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
     # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
     sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${config_file}"
   fi
-  make O="$out_dir" olddefconfig
+  make O="$buildroot_out_dir" olddefconfig
 fi
 
 # Build.
 mkdir -p \
+  "${gem5_out_dir}" \
+  "${qemu_out_dir}" \
   "${root_dir}/9p" \
-  "${lkmc_out_dir}" \
 ;
 cd "${buildroot_dir}"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
@@ -172,10 +175,10 @@ cmd="time \
   env \
   -u LD_LIBRARY_PATH \
   make \
-  O='${out_dir}' \
-  HOST_QEMU_OPTS='--enable-debug --extra-cflags=-DDEBUG_PL061=1 --enable-trace-backends=simple $qemu_sdl' \
+  O='${buildroot_out_dir}' \
+  HOST_QEMU_OPTS='--enable-debug --extra-cflags=-DDEBUG_PL061=1 --enable-trace-backends=simple ${qemu_sdl}' \
   V='$v' \
-  $extra_make_args \
+  ${extra_make_args} \
   all \
 "
 echo "$cmd" | tee "${root_dir}/build.log"

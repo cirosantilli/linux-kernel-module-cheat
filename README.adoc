@@ -127,13 +127,13 @@ git clean -xdf .
 To only nuke one architecture, do:
 
 ....
-rm -rf buildroot/output.x86_64~
+rm -rf out/x86_64/buildroot
 ....
 
 Only nuke one one package:
 
 ....
-rm -rf buildroot/output.x86_64~/build/host-qemu-custom
+rm -rf out/x86_64/buildroot/build/host-qemu-custom
 ./build
 ....
 
@@ -335,7 +335,7 @@ So for example when you run:
 Stdout shows a line with the full command of type:
 
 ....
-./buildroot/output.arm~/host/usr/bin/qemu-system-arm -m 128M -monitor telnet::45454,server,nowait -netdev user,hostfwd=tcp::45455-:45455,id=net0 -smp 1  -M versatilepb -append 'root=/dev/sda nokaslr norandmaps printk.devkmsg=on printk.time=y' -device rtl8139,netdev=net0 -dtb ./buildroot/output.arm~/images/versatile-pb.dtb -kernel ./buildroot/output.arm~/images/zImage -serial stdio    -drive file='./buildroot/output.arm~/images/rootfs.ext2.qcow2,if=scsi,format=qcow2'
+./out/arm/buildroot/host/usr/bin/qemu-system-arm -m 128M -monitor telnet::45454,server,nowait -netdev user,hostfwd=tcp::45455-:45455,id=net0 -smp 1  -M versatilepb -append 'root=/dev/sda nokaslr norandmaps printk.devkmsg=on printk.time=y' -device rtl8139,netdev=net0 -dtb ./out/arm/buildroot/images/versatile-pb.dtb -kernel ./out/arm/buildroot/images/zImage -serial stdio    -drive file='./out/arm/buildroot/images/rootfs.ext2.qcow2,if=scsi,format=qcow2'
 ....
 
 This line is also saved to a file for convenience:
@@ -516,7 +516,7 @@ Shell 2:
 In GDB, hit `Ctrl + C`, and note how it says:
 
 ....
-scanning for modules in /home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64~/build/linux-custom
+scanning for modules in /home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/linux-custom
 loading @0xffffffffc0000000: ../kernel_module-1.0//timer.ko
 ....
 
@@ -851,13 +851,13 @@ But TODO I don't think you can see where you are in the kernel source code and l
 
 Step debug userland processes to understand how they are talking to the kernel.
 
-Then in guest:
+Guest:
 
 ....
 /gdbserver.sh /myinsmod.out /hello.ko
 ....
 
-In host:
+Host:
 
 ....
 ./rungdbserver kernel_module-1.0/user/myinsmod.out
@@ -866,12 +866,12 @@ In host:
 You can find the executable with:
 
 ....
-find buildroot/output.x86_64~/build -name myinsmod.out
+find out/x86_64/buildroot/build -name myinsmod.out
 ....
 
 TODO: automate the path finding:
 
-* using the executable from under `buildroot/output.x86_64~/target` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. `BR2_STRIP_none=y` should disable stripping, but make the image way larger.
+* using the executable from under `out/x86_64/buildroot/target` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. `BR2_STRIP_none=y` should disable stripping, but make the image way larger.
 * `outputx86_64~/staging/` would be even better than `target/` as the docs say that this directory contains binaries before they were stripped. However, only a few binaries are pre-installed there by default, and it seems to be a manual per package thing.
 +
 E.g. `pciutils` has for `lspci`:
@@ -1158,19 +1158,19 @@ Finally, the docs are lying, arguments with dots that come after `-` are still t
 
 We disable networking by default because it starts an userland process, and we want to keep the number of userland processes to a minimum to make the system more understandable.
 
-To enable it run:
+Enable:
 
 ....
 /sbin/ifup -a
 ....
 
-To disable it, run:
+Disable:
 
 ....
 /sbin/ifdown -a
 ....
 
-To test it out, try:
+Test:
 
 ....
 wget google.com
@@ -1314,7 +1314,7 @@ This can be solved by increasing the memory with:
 
 The main ingredients to get initrd working are:
 
-* `BR2_TARGET_ROOTFS_CPIO=y`: make Buildroot generate `output/images/rootfs.cpio` in addition to the other images.
+* `BR2_TARGET_ROOTFS_CPIO=y`: make Buildroot generate `images/rootfs.cpio` in addition to the other images.
 +
 It is also possible to compress that image with other options.
 * `qemu -initrd`: make QEMU put the image into memory and tell the kernel about it.
@@ -1361,7 +1361,7 @@ The `-l` (ell) should only be used the first time you move to / from a different
 It is interesting to see how this increases the size of the kernel image if you do a:
 
 ....
-ls -lh buildroot/output.x86_64~/images/bzImage
+ls -lh out/x86_64/buildroot/images/bzImage
 ....
 
 before and after using initramfs, since the `.cpio` is now glued to the kernel image.
@@ -1404,7 +1404,7 @@ Build configuration can be observed in guest with:
 or on host:
 
 ....
-cat buildroot/output.*~/build/linux-custom/.config
+cat out/*/buildroot/build/linux-custom/.config
 ....
 
 === Find the kernel version
@@ -1614,10 +1614,10 @@ instruction count firmware: 20708
 gem5:
 
 ....
-./run -a arm -g -E 'm5 exit'
+./run -a aarch64 -g -E 'm5 exit'
 # Or:
 # ./run -a arm -g -E 'm5 exit' -- --cpu-type=HPI --caches
-grep sim_insts m5out/stats.txt
+grep sim_insts out/aarch64/gem5/m5out/stats.txt
 ....
 
 Notes:
@@ -1627,7 +1627,7 @@ Notes:
 It can be found from:
 +
 ....
-readelf -e buildroot/output.x86_64~/build/linux-*/vmlinux | grep Entry
+readelf -e out/x86_64/buildroot/build/linux-*/vmlinux | grep Entry
 ....
 +
 TODO confirm further. If I try to break there with:
@@ -2014,7 +2014,7 @@ This has nothing to do with the Linux kernel, but it is cool:
 ....
 sudo apt-get install qemu-user
 ./build -a arm
-cd buildroot/output.arm~/target
+cd out/arm/buildroot/target
 qemu-arm -L . bin/ls
 ....
 
@@ -2088,7 +2088,7 @@ To do it for the Linux kernel boot we have a helper:
 You can then inspect the instructions with:
 
 ....
-less ./buildroot/output.x86_64~/lkmc/trace.txt
+less ./out/x86_64/qemu/trace.txt
 ....
 
 This functionality relies on the following setup:
@@ -2121,7 +2121,7 @@ We can further use Binutils' `addr2line` to get the line that corresponds to eac
 ....
 ./trace-boot -a x86_64
 ./trace2line -a x86_64
-less ./buildroot/output.x86_64~/lkmc/trace-lines.txt
+less ./out/x86_64/qemu/trace-lines.txt
 ....
 
 The format is as follows:
@@ -2308,7 +2308,7 @@ Now you can play a fun little game with your friends:
 To find out why your program is slow, a good first step is to have a look at the statistics for the run:
 
 ....
-cat m5out/stats.txt
+cat out/aarch64/gem5/m5out/stats.txt
 ....
 
 Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
@@ -2463,7 +2463,7 @@ m5 resetstats && sleep 10 && m5 dumpstats
 and then:
 
 ....
-grep numCycles m5out/stats.txt
+grep numCycles out/aarch64/gem5/m5out/stats.txt
 ....
 
 TODO: why doesn't this exist:
@@ -2585,17 +2585,17 @@ Running a benchmark of a different size requires a rebuild with:
 ....
 ./build \
   -a arm \
-  -c 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
-  -c BR2_TARGET_ROOTFS_EXT2_SIZE="500M" \
-  -g \
   -b br2_parsec \
+  -c 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
+  -g \
   -- parsec-benchmark-reconfigure \
 ;
 ....
 
-and then try running the benchmarks as before.
 
-The rebuild is required because some of the input sizes
+Large input sizes will likely require tweaking <<br2_target_rootfs_ext2_size>>.
+
+The rebuild is required because we unpack input files on the host.
 
 Separating input sizes also allows to create smaller images when only running the smaller benchmarks.
 
@@ -2620,7 +2620,7 @@ Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` inste
 Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
 
 ....
-du -hsx buildroot/output.arm-gem5~/target/parsec
+du -hsx out/arm-gem5/buildroot/target/parsec
 ....
 
 https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
@@ -2693,10 +2693,10 @@ If you want to remove PARSEC later, Buildroot doesn't provide an automated packa
 ....
 rm -rf \
   ./buildroot/dl/parsec-* \
-  ./buildroot/output.arm-gem5~/build/parsec-* \
-  ./buildroot/output.arm-gem5~/build/packages-file-list.txt \
-  ./buildroot/output.arm-gem5~/images/rootfs.* \
-  ./buildroot/output.arm-gem5~/target/parsec-* \
+  ./out/arm-gem5/buildroot/build/parsec-* \
+  ./out/arm-gem5/buildroot/build/packages-file-list.txt \
+  ./out/arm-gem5/buildroot/images/rootfs.* \
+  ./out/arm-gem5/buildroot/target/parsec-* \
 ;
 ./build -a arm -g
 ....
@@ -2744,7 +2744,7 @@ This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitatio
 The pause is followed by:
 
 ....
-buildroot/output.arm~/build/parsec-benchmark-custom/.stamp_target_installed
+out/arm/buildroot/build/parsec-benchmark-custom/.stamp_target_installed
 ....
 
 so which shows that the whole delay is inside our install itself.
@@ -2824,7 +2824,7 @@ warn: Couldn't read data from debugger.
 I've also tried the fix at: https://stackoverflow.com/questions/27411621/remote-g-packet-reply-is-too-long-aarch64-arm64 by adding to the link:rungdb[] script:
 
 ....
--ex 'set tdesc filename buildroot/output.aarch64~/build/gdb-7.11.1/./gdb/features/aarch64.xml'
+-ex 'set tdesc filename out/aarch64/buildroot/build/gdb-7.11.1/./gdb/features/aarch64.xml'
 ....
 
 but it did not help.
@@ -2924,7 +2924,7 @@ This makes it easier to remember which checkpoint is which, especially since the
 
 Internals:
 
-* the checkpoints are stored under `m5out/cpts/$arch/cpt.$todo_whatisthis`
+* the checkpoints are stored under `out/$arch/gem5/m5out/cpt.$todo_whatisthis`
 * <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
 
 ==== gem5 restore checkpoint with a different CPU
@@ -2998,9 +2998,9 @@ TODO Now we just need to network them up to have some more fun! See dist-gem5: h
 
 We would like to be able to run both gem5 and QEMU with the same minimal kernel build to:
 
-* do a single Buildroot build for both. Otherwise, we have to create two full `buildroot/output*` directories, which takes up a lot of time.
+* do a single Buildroot build for both. Otherwise, we have to create two full `out/.*/buildroot/` directories, which takes up a lot of time.
 +
-Alternatively, we could try to be brave and switch between two kernel builds inside `buildroot/output.*/`, but that would be too hackish.
+Alternatively, we could try to be brave and switch between two kernel builds inside `out/.*/buildroot/`, but that would be too hackish.
 * be able to compare behaviour between QEMU and gem5 when one is doing something weird.
 +
 Note however that there are also variations which need to be controlled, e.g. kernel command line, DTB and QEMU's non-determinism.
@@ -3023,7 +3023,7 @@ but this strategy failed for the other archs for some reason.
 
 ===== QEMU with gem5 kernel configuration ARM
 
-To test this, hack up `run` to use the `buildroot/output.arm-gem5~` directory, and then run:
+To test this, hack up `run` to use the `out/arm-gem5/buildroot` directory, and then run:
 
 ....
 ./run -a arm
@@ -3084,27 +3084,27 @@ Boot fails with:
 
 ....
 --- BEGIN LIBC BACKTRACE ---
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x557f6290bc89]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x557f6291f88a]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x557f6290bc89]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x557f6291f88a]
 /lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7fbb3bd13150]
 /lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7fbb3a3450bb]
 /lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7fbb3a346f5d]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x557f626570bf]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x557f6264940a]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x557f6264bb5c]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x557f6311eace]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x557f62b63969]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x557f62b3a7f6]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x557f62b4724b]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x557f627fd12d]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x557f6280b439]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x557f6301712b]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x557f627fc054]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x557f62912f79]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x557f6292cb88]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x557f6292db7a]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x557f62aefc7b]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x557f629735ab]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x557f626570bf]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x557f6264940a]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x557f6264bb5c]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x557f6311eace]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x557f62b63969]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x557f62b3a7f6]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x557f62b4724b]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x557f627fd12d]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x557f6280b439]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x557f6301712b]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x557f627fc054]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x557f62912f79]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x557f6292cb88]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x557f6292db7a]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x557f62aefc7b]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x557f629735ab]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7fbb3bfd37e4]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
@@ -3117,7 +3117,7 @@ Boot fails with:
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
 --- END LIBC BACKTRACE ---
-./run: line 249: 21991 Aborted                 (core dumped) M5_PATH='/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/system' '/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt' '/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/configs/example/fs.py' --checkpoint-dir='./m5out/cpts/x86_64' --disk-image='/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/images/rootfs.ext2' --mem-size=256MB --num-cpus='1' --kernel=/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64~/build/linux-custom/vmlinux --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda nokaslr norandmaps printk.devkmsg=on printk.time=y init=/eval_base64.sh - lkmc_eval="bTUgZXhpdA=="'
+./run: line 249: 21991 Aborted                 (core dumped) M5_PATH='/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/system' '/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt' '/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/configs/example/fs.py' --checkpoint-dir='./m5out/cpts/x86_64' --disk-image='/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/images/rootfs.ext2' --mem-size=256MB --num-cpus='1' --kernel=/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/linux-custom/vmlinux --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda nokaslr norandmaps printk.devkmsg=on printk.time=y init=/eval_base64.sh - lkmc_eval="bTUgZXhpdA=="'
 ....
 
 dmesg stops at:
@@ -3144,27 +3144,27 @@ If I append `savedefconfig` to our `kernel_config_fragment`:
 
 ....
 --- BEGIN LIBC BACKTRACE ---
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x559636f44c89]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x559636f5888a]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x559636f44c89]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x559636f5888a]
 /lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7f855f8f3150]
 /lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7f855df250bb]
 /lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7f855df26f5d]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x559636c900bf]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x559636c8240a]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x559636c84b5c]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x559637757ace]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x55963719c969]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x5596371737f6]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x55963718024b]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x559636e3612d]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x559636e44439]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x55963765012b]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x559636e35054]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x559636f4bf79]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x559636f65b88]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x559636f66b7a]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x559637128c7b]
-/home/ciro/bak/git/linux-kernel-module-cheat/buildroot/output.x86_64-gem5~/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x559636fac5ab]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x559636c900bf]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x559636c8240a]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x559636c84b5c]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x559637757ace]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x55963719c969]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x5596371737f6]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x55963718024b]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x559636e3612d]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x559636e44439]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x55963765012b]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x559636e35054]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x559636f4bf79]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x559636f65b88]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x559636f66b7a]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x559637128c7b]
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x559636fac5ab]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7f855fbb37e4]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7f855fbb2580]
@@ -3231,7 +3231,7 @@ m5 writefile myfileguest myfilehost
 Host:
 
 ....
-cat m5out/myfilehost
+cat out/aarch64/gem5/m5out/myfilehost
 ....
 
 Does not work for subdirectories, gem5 crashes:
@@ -3247,7 +3247,7 @@ https://stackoverflow.com/questions/49516399/how-to-use-m5-readfile-and-m5-execf
 Host:
 
 ....
-date >m5out/myreadfile
+date >readfile.gitignore
 ....
 
 Guest:
@@ -3359,7 +3359,7 @@ cp br2.gitignore.example br2.gitignore
 `make menuconfig` is a convenient way to find Buildroot configurations:
 
 ....
-cd buildroot/output.x86_64~
+cd out/x86_64/buildroot
 make menuconfig
 ....
 
@@ -3432,7 +3432,7 @@ If you don't set it, the default is to use `~/.buildroot-ccache` with `5G`, whic
 I find it very relaxing to watch ccache at work with:
 
 ....
-watch -n1 'make -C buildroot/output.x86_64~/ ccache-stats'
+watch -n1 'make -C out/x86_64/buildroot/ ccache-stats'
 ....
 
 or if you have it installed on host and the environment variables exported simply with:
@@ -3452,7 +3452,7 @@ Send a pull request if you try it out on something significantly different.
 === Find which packages are making the build slow
 
 ....
-cd buildroot/output.x86_64~
+cd out/x86_64/buildroot
 make graph-build graph-depends
 xdg-open graphs/build.pie-packages.pdf
 xdg-open graphs/graph-depends.pdf
