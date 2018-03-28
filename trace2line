@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -eu
+. common
+arch=x86_64
+while getopts a: OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+      ;;
+  esac
+done
+set_common_vars "$arch" false
+kernel_dir="${out_dir}/build/linux-custom"
+sed -E 's/.*pc=//' "${lkmc_out_dir}/trace.txt" | \
+  xargs "${out_dir}/host/bin/${arch}-linux-addr2line" -e "${kernel_dir}/vmlinux" -fp | \
+  sed -E "s|at ${kernel_dir}/(\./\|)||" | \
+  uniq -c \
+> "${lkmc_out_dir}/trace-lines.txt"

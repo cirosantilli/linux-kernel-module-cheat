@@ -964,19 +964,30 @@ TODOs:
 
 * only managed to run in the terminal interface (but weirdly a blank QEMU window is still opened)
 * GDB not connecting to KGDB. Possibly linked to `-serial stdio`. See also: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
-* `/poweroff.out` does not exit QEMU nor gem5, the terminal just hangs: https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve
-+
-A blunt resolution for QEMU is on host:
-+
+
+==== arm shutdown
+
+https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve
+
+`/poweroff.out` does not exit QEMU nor gem5, the terminal just hangs after the message:
+
+....
+reboot: System halted
+....
+
+A blunt resolution for QEMU is to do a `Ctrl + c` on host, or run on a nother shell:
+
 ....
 pkill qemu
 ....
-+
+
 On gem5, it is possible to use the `m5` instrumentation from guest as a good workaround:
-+
+
 ....
 m5 exit
 ....
+
+It does work on `aarch64` however, presumably because of magic virtio functionality.
 
 === aarch64
 
@@ -1256,132 +1267,6 @@ A friend told me this but I haven't tried it yet:
 Haven't tried it, doubt it will work out of the box! :-)
 
 Maybe: https://stackoverflow.com/questions/47857023/booting-a-graphical-mips-qemu-machine
-
-== Count boot instructions
-
-* https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take
-* https://github.com/cirosantilli/chat/issues/31
-* https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/
-* `qemu/docs/tracing.txt` and `qemu/docs/replay.txt`
-* https://stackoverflow.com/questions/39149446/how-to-use-qemus-simple-trace-backend/46497873#46497873
-
-Results:
-
-[options="header"]
-|===
-|Commit |Arch |Simulator |Instruction count
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |QEMU |680k
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 AtomicSimpleCPU |160M
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 HPI |155M
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |QEMU |3M
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |gem5 AtomicSimpleCPU |528M
-|===
-
-QEMU:
-
-....
-./count-boot-instructions
-....
-
-sample output:
-
-....
-1778927 trace.txt
-26264 trace-boot.txt
-....
-
-where:
-
-* 1778927: is the total number of boot instructions
-* 26264: is the number of bootloader instructions
-
-gem5:
-
-....
-./run -a arm -g -E 'm5 exit'
-# Or:
-# ./run -a arm -g -E 'm5 exit' -- --cpu-type=HPI --caches
-grep sim_insts m5out/stats.txt
-....
-
-Notes:
-
-* `-n` is a good idea to reduce the chances that you send unwanted non-deterministic mouse or keyboard clicks to the VM.
-* `-e 'init=/poweroff.out'` is crucial as it reduces the instruction count from 40 million to 20 million, so half of the instructions were due to userland programs instead of the boot sequence.
-+
-Without it, the bulk of the time seems to be spent in setting up the network with `ifup` that gets called from `/etc/init.d/S40network` from the default Buildroot BusyBox setup.
-+
-And it becomes even worse if you try to `-net none` as recommended in the 2.7 `replay.txt` docs, because then `ifup` waits for 15 seconds before giving up as per `/etc/network/interfaces` line `wait-delay 15`.
-* `0x1000000` is the address where QEMU puts the Linux kernel at with `-kernel` in x86.
-+
-It can be found from:
-+
-....
-readelf -e buildroot/output.x86_64~/build/linux-*/vmlinux | grep Entry
-....
-+
-TODO confirm further. If I try to break there with:
-+
-....
-./rungdb *0x1000000
-....
-+
-but I have no corresponding source line. Also note that this line is not actually the first line, since the kernel messages such as `early console in extract_kernel` have already shown on screen at that point. This does not break at all:
-+
-....
-./rungdb extract_kernel
-....
-+
-It only appears once on every log I've seen so far, checked with `grep 0x1000000 trace.txt`
-+
-Then when we count the instructions that run before the kernel entry point, there is only about 100k instructions, which is insignificant compared to the kernel boot itself.
-* We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
-+
-....
-./rungdb-user kernel_module-1.0/user/poweroff.out main
-....
-+
-And get that from the traces, e.g. if the address is `4003a0`, then we search:
-+
-....
-grep -n 4003a0 trace.txt
-....
-+
-I have observed a single match for that instruction, so it must be the init, and there were only 20k instructions after it, so the impact is negligible.
-* gem5 simulates memory latencies. So I think that the CPU loops idle while waiting for memory, and counts will be higher.
-
-This works because we have already done the following with QEMU:
-
-* `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
-+
-It makes 3x execution faster than the default trace backend which logs human readable data to stdout.
-+
-This also alters the actual execution, and reduces the instruction count by 10M TODO understand exactly why, possibly due to the `All QSes seen` thing.
-* patch  QEMU source to remove the `disable` from `exec_tb` in the `trace-events`. See also: https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/
-
-Possible improvements:
-
-* to disable networking. Is replacing `init` enough?
-** https://superuser.com/questions/181254/how-do-you-boot-linux-with-networking-disabled
-** https://superuser.com/questions/684005/how-does-one-permanently-disable-gnu-linux-networking/1255015#1255015
-+
-`CONFIG_NET=n` did not significantly reduce instruction, so maybe replacing `init` is enough.
-* logging with the default backend `log` greatly slows down the CPU, and in particular leads to this during kernel boot:
-+
-....
-All QSes seen, last rcu_sched kthread activity 5252 (4294901421-4294896169), jiffies_till_next_fqs=1, root ->qsmask 0x0
-swapper/0       R  running task        0     1      0 0x00000008
- ffff880007c03ef8 ffffffff8107aa5d ffff880007c16b40 ffffffff81a3b100
- ffff880007c03f60 ffffffff810a41d1 0000000000000000 0000000007c03f20
- fffffffffffffedc 0000000000000004 fffffffffffffedc ffffffff00000000
-Call Trace:
- <IRQ>  [<ffffffff8107aa5d>] sched_show_task+0xcd/0x130
- [<ffffffff810a41d1>] rcu_check_callbacks+0x871/0x880
- [<ffffffff810a799f>] update_process_times+0x2f/0x60
-....
-+
-in which the boot appears to hang for a considerable time.
-* Confirm that the kernel enters at `0x1000000`, or where it enters. Once we have this, we can exclude what comes before in the BIOS.
 
 == initrd
 
@@ -1691,6 +1576,100 @@ Sample output:
 TODO: what do `+` and `!` mean?
 
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
+
+=== Count boot instructions
+
+* https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take
+* https://github.com/cirosantilli/chat/issues/31
+* https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/
+* `qemu/docs/tracing.txt` and `qemu/docs/replay.txt`
+* https://stackoverflow.com/questions/39149446/how-to-use-qemus-simple-trace-backend/46497873#46497873
+
+Results (boot not excluded):
+
+[options="header"]
+|===
+|Commit |Arch |Simulator |Instruction count
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |QEMU |680k
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 AtomicSimpleCPU |160M
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 HPI |155M
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |QEMU |3M
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |gem5 AtomicSimpleCPU |528M
+|===
+
+QEMU:
+
+....
+./trace-boot -a x86_64
+....
+
+sample output:
+
+....
+instruction count all: 1833863
+entry address: 0x1000000
+instruction count firmware: 20708
+....
+
+gem5:
+
+....
+./run -a arm -g -E 'm5 exit'
+# Or:
+# ./run -a arm -g -E 'm5 exit' -- --cpu-type=HPI --caches
+grep sim_insts m5out/stats.txt
+....
+
+Notes:
+
+* `0x1000000` is the address where QEMU puts the Linux kernel at with `-kernel` in x86.
++
+It can be found from:
++
+....
+readelf -e buildroot/output.x86_64~/build/linux-*/vmlinux | grep Entry
+....
++
+TODO confirm further. If I try to break there with:
++
+....
+./rungdb *0x1000000
+....
++
+but I have no corresponding source line. Also note that this line is not actually the first line, since the kernel messages such as `early console in extract_kernel` have already shown on screen at that point. This does not break at all:
++
+....
+./rungdb extract_kernel
+....
++
+It only appears once on every log I've seen so far, checked with `grep 0x1000000 trace.txt`
++
+Then when we count the instructions that run before the kernel entry point, there is only about 100k instructions, which is insignificant compared to the kernel boot itself.
++
+TODO `-a arm` and `-a aarch64` does not count firmware instructions properly because the entry point address of the ELF file does not show up on the trace at all.
+* We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
++
+....
+./rungdb-user kernel_module-1.0/user/poweroff.out main
+....
++
+And get that from the traces, e.g. if the address is `4003a0`, then we search:
++
+....
+grep -n 4003a0 trace.txt
+....
++
+I have observed a single match for that instruction, so it must be the init, and there were only 20k instructions after it, so the impact is negligible.
+* on arm, you need to hit `Ctrl + C` once after seeing the message `reboot: System halted` due to <<arm-shutdown>>
+* to disable networking. Is replacing `init` enough?
++
+--
+** https://superuser.com/questions/181254/how-do-you-boot-linux-with-networking-disabled
+** https://superuser.com/questions/684005/how-does-one-permanently-disable-gnu-linux-networking/1255015#1255015
+--
++
+`CONFIG_NET=n` did not significantly reduce instruction counts, so maybe replacing `init` is enough.
+* gem5 simulates memory latencies. So I think that the CPU loops idle while waiting for memory, and counts will be higher.
 
 === User mode Linux
 
@@ -2096,9 +2075,79 @@ Just make sure that you never click inside the QEMU window when doing that, othe
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
 
-=== QEMU record and replay
+=== Tracing
+
+QEMU has a mechanism to log all instructions executed to a file.
+
+To do it for the Linux kernel boot we have a helper:
+
+....
+./trace-boot -a x86_64
+....
+
+You can then inspect the instructions with:
+
+....
+less ./buildroot/output.x86_64~/lkmc/trace.txt
+....
+
+This functionality relies on the following setup:
+
+* `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
++
+It makes 3x execution faster than the default trace backend which logs human readable data to stdout.
++
+Logging with the default backend `log` greatly slows down the CPU, and in particular leads to this boot message:
++
+....
+All QSes seen, last rcu_sched kthread activity 5252 (4294901421-4294896169), jiffies_till_next_fqs=1, root ->qsmask 0x0
+swapper/0       R  running task        0     1      0 0x00000008
+ ffff880007c03ef8 ffffffff8107aa5d ffff880007c16b40 ffffffff81a3b100
+ ffff880007c03f60 ffffffff810a41d1 0000000000000000 0000000007c03f20
+ fffffffffffffedc 0000000000000004 fffffffffffffedc ffffffff00000000
+Call Trace:
+ <IRQ>  [<ffffffff8107aa5d>] sched_show_task+0xcd/0x130
+ [<ffffffff810a41d1>] rcu_check_callbacks+0x871/0x880
+ [<ffffffff810a799f>] update_process_times+0x2f/0x60
+....
++
+in which the boot appears to hang for a considerable time.
+* patch  QEMU source to remove the `disable` from `exec_tb` in the `trace-events` file. See also: https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/
+
+==== Trace source lines
+
+We can further use Binutils' `addr2line` to get the line that corresponds to each address:
+
+....
+./trace-boot -a x86_64
+./trace2line -a x86_64
+less ./buildroot/output.x86_64~/lkmc/trace-lines.txt
+....
+
+The format is as follows:
+
+....
+39368 _static_cpu_has arch/x86/include/asm/cpufeature.h:148
+....
+
+Where:
+
+* `39368`: number of consecutive times that a line ran. Makes the output much shorter and more meaningful
+* `_static_cpu_has`: name of the function that contains the line
+* `arch/x86/include/asm/cpufeature.h:148`: file and line
+
+This could of course all be done with GDB, but it would likely be too slow to be practical.
+
+TODO do even more awesome offline post-mortem analysis things, such as:
+
+* detect if we are in userspace or kernelspace. Should be a simple matter of reading the
+* read kernel data structures, and determine the current thread. Maybe we can reuse / extend the kernel's GDB Python scripts??
+
+==== QEMU record and replay
 
 QEMU supports deterministic record and replay by saving external inputs, which would be awesome to understand the kernel, as you would be able to examine a single run as many times as you would like.
+
+This mechanism first requires a trace to be generated on an initial record run. The trace is then used on the replay runs to make them deterministic.
 
 Unfortunately it is not working in the current QEMU: https://stackoverflow.com/questions/46970215/how-to-use-qemus-deterministic-record-and-replay-feature-for-a-linux-kernel-boo
 
