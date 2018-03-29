@@ -23,7 +23,7 @@ define PARSEC_BENCHMARK_BUILD_CMDS
     export MAKE='$(MAKE)'; \
     export OSTYPE=linux; \
     export TARGET_CROSS='$(TARGET_CROSS)'; \
-    export HOSTTYPE='$(BR2_ARCH)'; \
+    export HOSTTYPE=$(BR2_ARCH); \
     parsecmgmt -a build -p $$pkg; \
     if [ ! '$(BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT)' = y ]; then \
       parsecmgmt -a run -p $$pkg -i $(BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE); \
