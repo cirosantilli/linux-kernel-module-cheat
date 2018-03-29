@@ -2153,6 +2153,48 @@ Unfortunately it is not working in the current QEMU: https://stackoverflow.com/q
 
 Alternatively, https://github.com/mozilla/rr[`mozilla/rr`] claims it is able to run QEMU: but using it would require you to step through QEMU code itself. Likely doable, but do you really want to?
 
+==== gem5 tracing
+
+gem5 also has a tracing mechanism, as documented at: http://www.gem5.org/Trace_Based_Debugging
+
+Try it out with:
+
+....
+./run -a aarch64 -E 'm5 exit' -G '--debug-flags=Exec' -g
+....
+
+The trace file is located at:
+
+....
+less out/aarch64/gem5/m5out/trace.txt
+....
+
+but be warned, it is humongous, at 16Gb.
+
+It made the runtime about 4x slower on the <<p51>>, with or without `.gz` compression.
+
+The list of available debug flags can be found with:
+
+....
+./run -a aarch64 -G --debug-help -g
+....
+
+but for meaningful descriptions you need to look at the source code:
+
+....
+less gem5/gem5/src/cpu/SConscript
+....
+
+The default `Exec` format reads symbol names from the Linux kernel image and show them, which is pretty awesome if you ask me.
+
+TODO can we get just the executed addresses out of gem5? The following gets us closer, but not quite:
+
+....
+./run -a aarch64 -E 'm5 exit' -G '--debug-flags=ExecEnable,ExecKernel,ExecUse' -g
+....
+
+We could of course just pipe it to stdout and `awk` it up.
+
 === QEMU GUI is unresponsive
 
 Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.
@@ -2239,8 +2281,8 @@ We have benchmarked a Linux kernel boot at commit da79d6c6cde0fbe5473ce868c9be47
 ....
 # Try to manually hit Ctrl + C as soon as system shutdown message appears.
 time ./run -a arm -e 'init=/poweroff.out'
-time ./run -a arm -e 'm5 exit' -g
-time ./run -a arm -e 'm5 exit' -g -- --caches --cpu-type=HPI
+time ./run -a arm -E 'm5 exit' -g
+time ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
 time ./run -a x86_64 -e 'init=/poweroff.out'
 time ./run -a x86_64 -e 'init=/poweroff.out' -- -enable-kvm
 time ./run -a x86_64 -e 'init=/poweroff.out' -g
@@ -2250,13 +2292,14 @@ and the results were:
 
 [options="header"]
 |===
-|Emulator |Time |N times slower than QEMU
-|QEMU ARM |6 seconds |1
-|gem5 ARM AtomicSimpleCPU |1 minute 40 seconds |17
-|gem5 ARM HPI |10 minutes |100
-|QEMU X86_64 |4 seconds |1
-|QEMU X86_64 KVM |2 seconds |0.5
-|gem5 X86_64 |5 minutes 30 seconds |82
+|Emulator |Time |N times slower than QEMU |Instruction count |commit
+|QEMU ARM |6 seconds |1 | |
+|gem5 ARM AtomicSimpleCPU |1 minute 40 seconds |17 | |
+|gem5 ARM HPI |10 minutes |100 | |
+|gem5 aarch64 AtomicSimpleCPU |1 minute | |520M |b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
+|QEMU X86_64 |4 seconds |1 | |
+|QEMU X86_64 KVM |2 seconds |0.5 | |
+|gem5 X86_64 |5 minutes 30 seconds |82 | |
 |===
 
 tested on the <<p51>>.
@@ -2556,7 +2599,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-configure -gpq && ./build -a arm -b br2_parsec -g && ./run -a arm -g
+configure -gpq && ./build -a arm -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' -g && ./run -a arm -g
 ....
 
 Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
@@ -2585,13 +2628,12 @@ Running a benchmark of a different size requires a rebuild with:
 ....
 ./build \
   -a arm \
-  -b br2_parsec \
-  -c 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
+  -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  -B 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
   -g \
   -- parsec-benchmark-reconfigure \
 ;
 ....
-
 
 Large input sizes will likely require tweaking <<br2_target_rootfs_ext2_size>>.
 
@@ -2610,7 +2652,7 @@ Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
 The solution is to simply add:
 
 ....
-./build -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="500M"'
+./build -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'
 ....
 
 where 500M is "large enough".
@@ -2648,7 +2690,7 @@ If you still want to run this, try it out with:
 
 ....
 ./build -a arm \
-  -c BR2_TARGET_ROOTFS_EXT2_SIZE="3G" \
+  -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
   -g
   -b br2_parsec
   -- parsec-benchmark-reconfigure \
