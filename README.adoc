@@ -2229,7 +2229,7 @@ On another shell:
 ./gem5-shell
 ....
 
-A full rebuild is currently needed even if you already have QEMU working unfortunately, see: <<gem5-and-qemu-with-the-same-kernel-configuration>>
+A full rebuild is currently needed even if you already have QEMU working unfortunately, see: <<gem5-qemu-config>>
 
 Tested architectures:
 
@@ -2276,7 +2276,7 @@ On the other hand, the chip makers tend to upstream less, and the project become
 
 ==== gem5 vs QEMU performance
 
-We have benchmarked a Linux kernel boot at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the commands:
+We have benchmarked a Linux kernel boot with the commands:
 
 ....
 # Try to manually hit Ctrl + C as soon as system shutdown message appears.
@@ -2292,14 +2292,71 @@ and the results were:
 
 [options="header"]
 |===
-|Emulator |Time |N times slower than QEMU |Instruction count |commit
-|QEMU ARM |6 seconds |1 | |
-|gem5 ARM AtomicSimpleCPU |1 minute 40 seconds |17 | |
-|gem5 ARM HPI |10 minutes |100 | |
-|gem5 aarch64 AtomicSimpleCPU |1 minute | |520M |b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
-|QEMU X86_64 |4 seconds |1 | |
-|QEMU X86_64 KVM |2 seconds |0.5 | |
-|gem5 X86_64 |5 minutes 30 seconds |82 | |
+|Arch |Emulator |Subtype |Time |N times slower than QEMU |Instruction count |commit
+
+|arm
+|QEMU
+|
+|6 seconds
+|1
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|arm
+|gem5
+|AtomicSimpleCPU
+|1 minute 40 seconds
+|17
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|arm
+|gem5
+|HPI
+|10 minutes
+|100
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|aarch64
+|QEMU
+|
+|1.3 seconds
+|1
+|170k
+|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
+
+|aarch64
+|gem5
+|AtomicSimpleCPU
+|1 minute
+|43
+|110M
+|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
+
+|x86_64
+|QEMU
+|
+|4 seconds
+|1
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|x86_64
+|QEMU
+|KVM
+|2 seconds
+|0.5
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|x86_64
+|gem5
+|AtomicSimpleCPU
+|5 minutes 30 seconds
+|82
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
 |===
 
 tested on the <<p51>>.
@@ -2368,7 +2425,7 @@ Besides optimizing a program for a given CPU setup, chip developers can also do 
 
 The rabbit hole is likely deep, but let's scratch a bit of the surface.
 
-===== gem5 number of cores
+===== Number of cores
 
 ....
 ./run -a arm -c 2 -g
@@ -2466,7 +2523,7 @@ TODO These look promising:
 
 TODO: now to verify this with the Linux kernel? Besides raw performance benchmarks.
 
-===== gem5 memory size
+===== Memory size
 
 ....
 ./run -a arm -m 512M
@@ -2609,21 +2666,20 @@ cd /parsec/ext/splash2x/apps/fmm/run
 ../inst/arm-linux.gcc/bin/fmm 1 < input_1
 ....
 
-To find out how to run many of the benchmarks, you can either:
+To find run out how to run many of the benchmarks, have a look at the `test.sh` script of the `parse-benchmark` repo.
 
-* have a look at the `test.sh` script of the `parse-benchmark` repo
-* do a search on the build stdout on your terminal for a line of type:
-+
+From the guest, you can also run it as:
+
 ....
-Running /parsec/ext/splash2x/apps/fmm/inst/arm-linux.gcc/bin/fmm 1 < input_1:
+cd /parsec
+./test.sh
 ....
-+
-Yes, we do run the benchmarks on host just to unpack / generate inputs... and they almost always fail to run since they were build for the guest instead of host. Hopefully, since we don't want to wait for them to finish anyways.
-* have a quick peak at the package sources, usually `src/run.sh` and `parsec/*.runconf`.
 
-PARSEC simply wasn't designed with non native machines in mind.
+but this might be a bit time consuming in gem5.
 
-Running a benchmark of a different size requires a rebuild with:
+====== PARSEC change the input size
+
+Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a rebuild with:
 
 ....
 ./build \
@@ -2635,39 +2691,34 @@ Running a benchmark of a different size requires a rebuild with:
 ;
 ....
 
-Large input sizes will likely require tweaking <<br2_target_rootfs_ext2_size>>.
+Large input may also require tweaking:
+
+* <<br2_target_rootfs_ext2_size>> if the unpacked inputs are large
+* <<memory-size>>, unless you want to meet the OOM killer, which is admittedly kind of fun
+
+`test.sh` only contains the run commands for the `test` size, and cannot be used for `simsmall`.
+
+The easiest thing to do, is to link:https://superuser.com/questions/231002/how-can-i-search-within-the-output-buffer-of-a-tmux-shell/1253137#1253137[scroll up on the host shell] after the build, and look for a line of type:
+
+....
+Running /full/path/to/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800
+....
+
+and then tweak the command found in `test.sh` accordingly.
+
+Yes, we do run the benchmarks on host just to unpack / generate inputs. They are expected fail to run since they were build for the guest instead of host, including for x86_64 guest which has a different interpreter than the host's (see `file myexecutable`).
 
 The rebuild is required because we unpack input files on the host.
 
 Separating input sizes also allows to create smaller images when only running the smaller benchmarks.
 
-====== BR2_TARGET_ROOTFS_EXT2_SIZE
+This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
 
-When adding new large package to the Buildroot root filesystem, it may fail with the message:
+One option would be to do that inside the guest with QEMU, but this would required a full rebuild due to <<gem5-qemu-config>>.
 
-....
-Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
-....
+Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another...
 
-The solution is to simply add:
-
-....
-./build -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'
-....
-
-where 500M is "large enough".
-
-Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` instead.
-
-Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
-
-....
-du -hsx out/arm-gem5/buildroot/target/parsec
-....
-
-https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
-
-One way to overcome this problem is to mount benchmarks from host instead of adding them to the root filesystem, e.g. with: <<9p>>
+PARSEC simply wasn't designed with non native machines in mind...
 
 ====== PARSEC benchmark with parsecmgmt
 
@@ -2689,10 +2740,12 @@ but it simply is not feasible in gem5 because it takes too long.
 If you still want to run this, try it out with:
 
 ....
-./build -a arm \
+./build \
+  -a arm \
+  -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  -B 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
   -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
-  -g
-  -b br2_parsec
+  -g \
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -2706,35 +2759,13 @@ bash
 parsecmgmt -a run -p splash2x.fmm -i test
 ....
 
-====== PARSEC change the input size
-
-One limitation is that only one input size is available on the guest for a given build.
-
-To change that, edit link:br2_parsec[] to contain for example:
-
-....
-BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE=simsmall
-....
-
-and then rebuild with:
-
-....
-./build -a arm -g -b br2_parsec -- parsec-benchmark-reconfigure
-....
-
-This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
-
-One option would be to do that inside the guest with QEMU, but this would required a full rebuild due to <<gem5-and-qemu-with-the-same-kernel-configuration>>.
-
-Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another... Parsec clearly needs a redesign for embedded, maybe we will patch it later.
-
 ====== PARSEC uninstall
 
 If you want to remove PARSEC later, Buildroot doesn't provide an automated package removal mechanism as documented at: link:https://github.com/buildroot/buildroot/blob/2017.08/docs/manual/rebuilding-packages.txt#L90[], but the following procedure should be satisfactory:
 
 ....
 rm -rf \
-  ./buildroot/dl/parsec-* \
+  ./out/common/dl/parsec-* \
   ./out/arm-gem5/buildroot/build/parsec-* \
   ./out/arm-gem5/buildroot/build/packages-file-list.txt \
   ./out/arm-gem5/buildroot/images/rootfs.* \
@@ -2771,27 +2802,6 @@ Don't forget to explicitly rebuild PARSEC with:
 +
 You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
 * sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
-
-[[rpath]]
-====== Buildroot rebuild is slow when the root filesystem is large
-
-Buildroot is not designed for large root filesystem images, and the rebuild becomes very slow when we add a large package to it.
-
-This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`, which get stuck for a long time on the message:
-
-....
->>>   Sanitizing RPATH in target tree
-....
-
-The pause is followed by:
-
-....
-out/arm/buildroot/build/parsec-benchmark-custom/.stamp_target_installed
-....
-
-so which shows that the whole delay is inside our install itself.
-
-I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop on a particular package.
 
 === gem5 kernel command line parameters
 
@@ -3484,6 +3494,55 @@ watch -n1 'ccache -s'
 ....
 
 while a build is going on in another terminal and my cooler is humming. Especially when the hit count goes up ;-) The joys of system programming.
+
+=== BR2_TARGET_ROOTFS_EXT2_SIZE
+
+When adding new large package to the Buildroot root filesystem, it may fail with the message:
+
+....
+Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
+....
+
+The solution is to simply add:
+
+....
+./build -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'
+....
+
+where 512Mb is "large enough".
+
+Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` instead.
+
+Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
+
+....
+du -hsx out/arm-gem5/buildroot/target/
+....
+
+https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
+
+One way to overcome this problem is to mount benchmarks from host instead of adding them to the root filesystem, e.g. with: <<9p>>
+
+[[rpath]]
+=== Buildroot rebuild is slow when the root filesystem is large
+
+Buildroot is not designed for large root filesystem images, and the rebuild becomes very slow when we add a large package to it.
+
+This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`, which get stuck for a long time on the message:
+
+....
+>>>   Sanitizing RPATH in target tree
+....
+
+The pause is followed by:
+
+....
+out/arm/buildroot/build/<pkg>/.stamp_target_installed
+....
+
+so which shows that the whole delay is inside our install itself.
+
+I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop on a particular package.
 
 == Benchmark this repo
 
