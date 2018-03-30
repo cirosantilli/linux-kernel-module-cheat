@@ -110,6 +110,22 @@ Not all packages have an alias, when they don't, just use the form:
 ./build -- <pkg>-reconfigure
 ....
 
+=== Don't retype arguments all the time
+
+It gets annoying to retype `-a aarch64` for every single command, or to remember `./build -B` setups.
+
+So simplify that, do:
+
+....
+cp cli.gitignore.example cli.gitignore
+....
+
+and then edit the `cli.gitignore` file to your needs.
+
+That file is used to pass extra command line arguments to most of our utilities.
+
+Of course, you could get by with the shell history, or your own aliases, but we've felt that it was worth introducing a common mechanism for that.
+
 === Clean the build
 
 You did something crazy, and nothing seems to work anymore?
@@ -1231,11 +1247,51 @@ Inside QEMU:
 startx
 ....
 
+And then from the GUI you can start exciting graphical programs such as:
+
+....
+xcalc
+xeyes
+....
+
 image:x11.png[image]
 
 More details: https://unix.stackexchange.com/questions/70931/how-to-install-x11-on-my-own-linux-buildroot-system/306116#306116
 
 Not sure how well that graphics stack represents real systems, but if it does it would be a good way to understand how it works.
+
+=== X11 mouse not moving
+
+TODO 9076c1d9bcc13b6efdb8ef502274f846d8d4e6a1 I'm 100% sure that it was working before, but I didn't run it forever, and it stopped working at some point. Needs bisection, on whatever commit last touched x11 stuff.
+
+* https://askubuntu.com/questions/730891/how-can-i-get-a-mouse-cursor-in-qemu
+* https://stackoverflow.com/questions/19665412/mouse-and-keyboard-not-working-in-qemu-emulator
+
+`-show-cursor` did not help, I just get to see the host cursor, but the guest cursor still does not move.
+
+Doing:
+
+....
+watch -n 1 grep i8042 /proc/interrupts
+....
+
+shows that interrupts do happen when mouse and keyboard presses are done, so I expect that it is some wrong either with:
+
+* QEMU. Same behaviour if I try the host's QEMU 2.10.1 however.
+* X11 configuration. We do have `BR2_PACKAGE_XDRIVER_XF86_INPUT_MOUSE=y`.
+
+`/var/log/Xorg.0.log` contains the following interesting lines:
+
+....
+[    27.549] (II) LoadModule: "mouse"
+[    27.549] (II) Loading /usr/lib/xorg/modules/input/mouse_drv.so
+[    27.590] (EE) <default pointer>: Cannot find which device to use.
+[    27.590] (EE) <default pointer>: cannot open input device
+[    27.590] (EE) PreInit returned 2 for "<default pointer>"
+[    27.590] (II) UnloadModule: "mouse"
+....
+
+The file `/dev/inputs/mice` does not exist.
 
 === X11 ARM
 
@@ -2621,9 +2677,10 @@ External open source benchmarks. We will try to create Buildroot packages for th
 Buildroot supports it, which makes everything just trivial:
 
 ....
-printf 'BR2_PACKAGE_OPENBLAS=y\n' >> br2.gitignore
-printf 'BR2_TARGET_ROOTFS_EXT2_SIZE="128M"\n' >> br2.gitignore
-./build -a arm -g -b br2.gitignore -- kernel_module-reconfigure
+./build \
+  -a arm \
+  -B 'BR2_PACKAGE_OPENBLAS=y' \
+;
 ....
 
 and then inside the guest run our test program:
@@ -2635,7 +2692,7 @@ and then inside the guest run our test program:
 For x86, you also need:
 
 ....
-printf 'BR2_PACKAGE_OPENBLAS_TARGET="NEHALEM"\n' >> br2.gitignore
+-B 'BR2_PACKAGE_OPENBLAS_TARGET="NEHALEM"'
 ....
 
 to overcome this bug: https://bugs.busybox.net/show_bug.cgi?id=10856
@@ -2741,7 +2798,7 @@ If you still want to run this, try it out with:
 
 ....
 ./build \
-  -a arm \
+  -a aarch64 \
   -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   -B 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
   -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
@@ -3398,12 +3455,7 @@ dmesg
 
 We provide the following mechanisms:
 
-* `./build -b br2.gitignore`: append the file `br2.gitignore` to a single build. Must be passed every time you run `./build`. A good template is provided by:
-+
-....
-cp br2.gitignore.example br2.gitignore
-....
-+
+* `./build -b mybr2.gitignore`: append the file `mybr2.gitignore` to a single build. Must be passed every time you run `./build`. A good template is provided by:
 * `./build -B 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
 
 === Find Buildroot options with make menuconfig
@@ -3563,8 +3615,22 @@ Our philosophy is:
 
 * if something adds little to the build time, build it in by default
 * otherwise, make it optional
-
-The build biggest time hog is always GCC, and it does not look like we can use a precompiled one: https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
+* try to keep the toolchain (GCC, Binutils) unchanged, otherwise a full rebuild is  required.
++
+So we generally just enable all toolchain options by defaut, even though this adds a bit of time to the build.
++
+The biggest build time hog is always GCC, and it does not look like we can use a precompiled one: https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
+* if something is very vaulable, we just add it by default even if it increases the Build time, notably GDB and QEMU
+* runtime is sacred.
++
+We do our best to reduce the instruction and feature count to the bare minimum needed, to make the system:
++
+--
+** easier to understand
+** run faster, specially for <<gem5>>
+--
++
+One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
 
 === Benchmark machines
 

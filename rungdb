@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 set -eu
 . common
-after=''
+set -- ${cli_rungdb:-} "$@"
+after=
 arch='x86_64'
-before=''
+before=
 gem5=false
 lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/'"
 kgdb=false
 while getopts A:a:b:gkL OPT; do
   case "$OPT" in
-    a)
-      arch="$OPTARG"
-      ;;
     A)
       after="$OPTARG"
+      ;;
+    a)
+      arch="$OPTARG"
       ;;
     b)
       before="$OPTARG"
@@ -25,7 +26,10 @@ while getopts A:a:b:gkL OPT; do
       kgdb=true
       ;;
     L)
-      lx_symbols=''
+      lx_symbols=
+      ;;
+    ?)
+      exit 2
       ;;
   esac
 done
@@ -34,7 +38,7 @@ if [ "$#" -gt 0 ]; then
   brk="-ex 'break ${1}'"
   shift
 else
-  brk=''
+  brk=
 fi
 if "$gem5"; then
   port=7000

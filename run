@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -eu
 . common
+set -- ${cli_run:-} "$@"
 
 # CLI handling.
 arch=x86_64
 cpus=1
-debug_vm=''
+debug_vm=
 debug=false
 kgdb=false
 kvm=false
@@ -14,18 +15,20 @@ kvm=false
 # nokaslr: https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
 #   Turned on by default since v4.12
 extra_append='nokaslr norandmaps printk.devkmsg=on printk.time=y'
-extra_append_after_dash=''
-extra_flags=''
-extra_flags_qemu=''
+extra_append_after_dash=
+extra_flags=
+extra_flags_qemu=
 gem5=false
-gem5opts=''
-lkmc_eval=''
+gem5opts=
+lkmc_eval=
 initrd=false
 initramfs=false
 memory=256M
 nographic=true
-root=''
-trace_enable=''
+root=
+# A dummy value that is already turned on by default and does not produce large output,
+# just to prevent QEMU from emitting a warning that '' is not valid.
+trace_enable=pr_manager_run
 while getopts a:c:DdE:e:f:G:ghIiKkm:T:x OPT; do
   case "$OPT" in
     a)
@@ -59,7 +62,7 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:x OPT; do
     h)
       cat build-usage.adoc 1>&2
       exit
-    ;;
+      ;;
     I)
       initramfs=true
       ;;
@@ -84,6 +87,9 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:x OPT; do
       ;;
     x)
       nographic=false
+      ;;
+    ?)
+      exit 2
       ;;
   esac
 done
