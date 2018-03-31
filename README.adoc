@@ -3036,6 +3036,44 @@ Internals:
 * the checkpoints are stored under `out/$arch/gem5/m5out/cpt.$todo_whatisthis`
 * <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
 
+===== gem5 checkpoint restore and run a different script
+
+You want to automate running several tests from a single pristine post-boot state.
+
+The problem is that after the checkpoint, the memory and disk states are fixed, so you can't for example:
+
+* hack up an existing rc script
+* inject new kernel boot command line options
+
+There is however one loophole: <<m5-readfile>>, which reads whatever is present on the host, so we can do it like:
+
+....
+printf 'echo "setup run";m5 exit' >readfile.gitignore
+./run -a aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+printf 'echo "first benchmark";m5 exit' >readfile.gitignore
+./run -a aarch64 -g -- -r 1
+printf 'echo "second benchmark";m5 exit' >readfile.gitignore
+./run -a aarch64 -g -- -r 1
+....
+
+Other possibilities include:
+
+* <<9p>>
+* create multiple disk images, and mount the benchmark one
+* `expect` as mentioned at: https://stackoverflow.com/questions/7013137/automating-telnet-session-using-bash-scripts
++
+....
+#!/usr/bin/expect
+spawn telnet localhost 3456
+expect "# $"
+send "pwd\r"
+send "ls /\r"
+send "m5 exit\r"
+expect eof
+....
+
+https://www.mail-archive.com/gem5-users@gem5.org/msg15233.html
+
 ==== gem5 restore checkpoint with a different CPU
 
 gem5 can switch to a different CPU model when restoring a checkpoint.
