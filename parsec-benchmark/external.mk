@@ -23,6 +23,9 @@ define PARSEC_BENCHMARK_BUILD_CMDS
     export MAKE='$(MAKE)'; \
     export OSTYPE=linux; \
     export TARGET_CROSS='$(TARGET_CROSS)'; \
+	export CC="$(TARGET_CC)"; \
+	export CPP="$(TARGET_CPP)"; \
+	export CXX="$(TARGET_CXX)"; \
     export HOSTTYPE=$(BR2_ARCH); \
     parsecmgmt -a build -p $$pkg; \
     if [ ! '$(BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT)' = y ]; then \
