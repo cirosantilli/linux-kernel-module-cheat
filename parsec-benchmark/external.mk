@@ -15,19 +15,21 @@ define PARSEC_BENCHMARK_BUILD_CMDS
   '$(PARSEC_BENCHMARK_PKGDIR)/parsec-benchmark/get-inputs' $(if $(filter $(V),1),-v,) '$(DL_DIR)' '$(@D)/'
   # We run the benchmarks with the wrong arch here to generate the inputs on the host.
   # This is because on gem5 this takes too long to do.
-  cd $(@D) && . env.sh && for pkg in $(BR2_PACKAGE_PARSEC_BENCHMARK_BUILD_LIST); do \
-    export GNU_TARGET_NAME='$(GNU_TARGET_NAME)'; \
-    export GNU_HOST_NAME='$(GNU_HOST_NAME)'; \
-    export HOSTCC='$(HOSTCC)'; \
-    export M4='$(HOST_DIR)/usr/bin/m4'; \
-    export MAKE='$(MAKE)'; \
-    export OSTYPE=linux; \
-    export TARGET_CROSS='$(TARGET_CROSS)'; \
-	export CC="$(TARGET_CC)"; \
-	export CPP="$(TARGET_CPP)"; \
-	export CXX="$(TARGET_CXX)"; \
-    export HOSTTYPE=$(BR2_ARCH); \
-    parsecmgmt -a build -p $$pkg; \
+  export GNU_TARGET_NAME='$(GNU_TARGET_NAME)' && \
+  export GNU_HOST_NAME='$(GNU_HOST_NAME)' && \
+  export HOSTCC='$(HOSTCC)' && \
+  export M4='$(HOST_DIR)/usr/bin/m4' && \
+  export MAKE='$(MAKE)' && \
+  export OSTYPE=linux && \
+  export TARGET_CROSS='$(TARGET_CROSS)' && \
+  export CC="$(TARGET_CC)" && \
+  export CPP="$(TARGET_CPP)" && \
+  export CXX="$(TARGET_CXX)" && \
+  export HOSTTYPE=$(BR2_ARCH) && \
+  cd $(@D) && \
+  . env.sh && \
+  for pkg in $(BR2_PACKAGE_PARSEC_BENCHMARK_BUILD_LIST); do \
+    parsecmgmt -a build -p $$pkg && \
     if [ ! '$(BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT)' = y ]; then \
       parsecmgmt -a run -p $$pkg -i $(BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE); \
     fi \
