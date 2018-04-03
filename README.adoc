@@ -2576,33 +2576,65 @@ at commit da79d6c6cde0fbe5473ce868c9be4771160a003b with the following gem5 comma
 ./run -a x86_64 -g -- --caches --l1d_size=1024MB --l2cache --l2_size=1024MB --l3_size=1024MB
 ....
 
-At commit 1f5baf5371f0670f7724f53ddb7793701ed84b9e:
+At commit f3503b4cc810556df3c736d0a147cc54e05efc83:
 
 ....
+cmd='./run -a aarch64 -g'
+cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024'
+cache_large='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
+
 printf '#!/bin/sh
 m5 resetstats
 dhrystone 1000
 m5 exit
 ' >readfile.gitignore
 chmod +x readfile.gitignore
-./run -a aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 
-# 2.736.506
-./run -a aarch64 -g
-# 2.736.473
-./run -a aarch64 -g -- --caches --l2cache
-# 2.736.509
-./run -a aarch64 -g -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024
-# 2.736.473
-./run -a aarch64 -g -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+# Create the checkpoints after the kernel boot.
+# cpt 1: no caches
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+# cpt 2: small caches
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_small
+# cpt 3: large caches
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_large
+# cpt 4: no caches HPI
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_small --cpu-type=HPI
+# cpt 5: large caches HPI
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_large --cpu-type=HPI
+
+# dhrystone 1.000
+# 2.738.340
+$cmd -- -r 1
+# 2.738.343
+$cmd -- -r 2 $cache_small
+# 2.738.307
+$cmd -- -r 3 $cache_large
+
+sed -Ei 's/^dhrystone .*/dhrystone 10000' readfile.gitignore
+# 10.995.467
+$cmd -- -r 1
+# 10.995.470
+$cmd -- -r 2 $cache_small
+# 10.995.434
+$cmd -- -r 3 $cache_large
+
+sed -Ei 's/^dhrystone .*/dhrystone 100000' readfile.gitignore
+# 93.475.029
+$cmd -- -r 1
+# 93.475.032
+$cmd -- -r 2 $cache_small
+# 93.475.091
+$cmd -- -r 3 $cache_large
+
 # 50.193.186
-./run -a aarch64 -g -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_small --cpu-type=HPI
 # 5.924.610
-./run -a aarch64 -g -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_large --cpu-type=HPI
+
 # 2.736.509
-./run -a aarch64 -g -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --restore-with-cpu=HPI -r 1
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_small --restore-with-cpu=HPI -r 2
 # 2.736.949
-./run -a aarch64 -g -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --restore-with-cpu=HPI -r 2
+$cmd -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh' -- $cache_large --restore-with-cpu=HPI -r 3
 ....
 
 Cache sizes can in theory be checked with the methods described at: link:https://superuser.com/questions/55776/finding-l2-cache-size-in-linux[]:
