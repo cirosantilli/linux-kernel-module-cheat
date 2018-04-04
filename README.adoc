@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.15 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
+Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.16 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 17.10 host.
 
 toc::[]
 
@@ -1492,29 +1492,30 @@ git log | grep -E '    Linux [0-9]+\.' | head
 
 ....
 # Last point before out patches.
-last_mainline_revision=v4.14
-next_mainline_revision=v4.15
+last_mainline_revision=v4.15
+next_mainline_revision=v4.16
 cd linux
 
-# Create a branch before the rebase.
-git branch "lkmc-${last_mainline_revision}"
+# Create a branch before the rebase in case things go wrong.
+git checkout -b "lkmc-${last_mainline_revision}"
 git remote set-url origin git@github.com:cirosantilli/linux.git
 git push
 
 git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 git fetch up
 git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
-./build -l
-# Manually fix our kernel modules if necessary.
 
 cd ..
+./build -lk
+# Manually fix broken kernel modules if necessary.
 git branch "buildroot-2017.08-linux-${last_mainline_revision}"
 git add .
+# And update the README to show off.
 git commit -m "Linux ${next_mainline_revision}"
+# Test the heck out of it, especially kernel modules and GDB.
+./run
 git push
 ....
-
-and update the README!
 
 During update all you kernel modules may break since the kernel API is not stable.
 
