@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -eu
+. common
+while getopts a:hs: OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+      ;;
+    h)
+      printf "\
+usage: $0 [-a arch] [stat=system.cpu.numCycles]
+Get the value for a gem5 stat from the stats.txt file.
+" 1>&2
+      exit
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+if [ $# -gt 0 ]; then
+  stat="$1"
+else
+  stat=system.cpu.numCycles
+fi
+set_common_vars "$arch" true
+awk "/^$stat /{ print \$2 }" "${m5out_dir}/stats.txt"

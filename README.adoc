@@ -1682,11 +1682,32 @@ Results (boot not excluded):
 [options="header"]
 |===
 |Commit |Arch |Simulator |Instruction count
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |QEMU |680k
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 AtomicSimpleCPU |160M
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |arm |gem5 HPI |155M
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |QEMU |3M
-|7228f75ac74c896417fb8c5ba3d375a14ed4d36b |x86_64 |gem5 AtomicSimpleCPU |528M
+
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b
+|arm
+|QEMU
+|680k
+
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b
+|arm
+|gem5 AtomicSimpleCPU
+|160M
+
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b
+|arm
+|gem5 HPI
+|155M
+
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b
+|x86_64
+|QEMU
+|3M
+
+|7228f75ac74c896417fb8c5ba3d375a14ed4d36b
+|x86_64
+|gem5 AtomicSimpleCPU
+|528M
+
 |===
 
 QEMU:
@@ -2309,10 +2330,10 @@ Using text mode is another workaround if you don't need GUI features.
 
 gem5 is a system simulator, much <<gem5-vs-qemu,like QEMU>>: http://gem5.org/
 
-For the most part, just add the `-g` option to the QEMU commands and everything should magically work:
+For the most part, just add the `-g` option to all commands and everything should magically work:
 
 ....
-./configure -g && ./build -a arm -g && ./run -a arm -g
+./configure -g && ./build -a aarch64 -g && ./run -a aarch64 -g
 ....
 
 On another shell:
@@ -2366,95 +2387,6 @@ This suits chip makers that want to distribute forks with secret IP to their cus
 +
 On the other hand, the chip makers tend to upstream less, and the project becomes more crappy in average :-)
 
-==== gem5 vs QEMU performance
-
-We have benchmarked a Linux kernel boot with the commands:
-
-....
-# Try to manually hit Ctrl + C as soon as system shutdown message appears.
-time ./run -a arm -e 'init=/poweroff.out'
-time ./run -a arm -E 'm5 exit' -g
-time ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
-time ./run -a x86_64 -e 'init=/poweroff.out'
-time ./run -a x86_64 -e 'init=/poweroff.out' -- -enable-kvm
-time ./run -a x86_64 -e 'init=/poweroff.out' -g
-....
-
-and the results were:
-
-[options="header"]
-|===
-|Arch |Emulator |Subtype |Time |N times slower than QEMU |Instruction count |Commit
-
-|arm
-|QEMU
-|
-|6 seconds
-|1
-|
-|da79d6c6cde0fbe5473ce868c9be4771160a003b
-
-|arm
-|gem5
-|AtomicSimpleCPU
-|1 minute 40 seconds
-|17
-|
-|da79d6c6cde0fbe5473ce868c9be4771160a003b
-
-|arm
-|gem5
-|HPI
-|10 minutes
-|100
-|
-|da79d6c6cde0fbe5473ce868c9be4771160a003b
-
-|aarch64
-|QEMU
-|
-|1.3 seconds
-|1
-|170k
-|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
-
-|aarch64
-|gem5
-|AtomicSimpleCPU
-|1 minute
-|43
-|110M
-|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
-
-|x86_64
-|QEMU
-|
-|3.8 seconds
-|1
-|1.8M
-|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
-
-|x86_64
-|QEMU
-|KVM
-|1.3 seconds
-|0.3
-|
-|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
-
-|x86_64
-|gem5
-|AtomicSimpleCPU
-|6 minutes 30 seconds
-|102
-|630M
-|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
-|===
-
-tested on the <<p51>>.
-
-One methodology problem is that gem5 and QEMU were run with different kernel configs, due to <<gem5-qemu-config>>. This could have been improved if we normalized by instruction counts, but we didn't think of that previously.
-
 === gem5 run benchmark
 
 OK, this is why we used gem5 in the first place, performance measurements!
@@ -2464,24 +2396,28 @@ Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildro
 The most flexible way is to do:
 
 ....
+arch=aarch64
+
 # Generate a checkpoint after Linux boots.
 # The boot takes a while, be patient young Padawan.
 printf 'm5 exit' >readfile.gitignore
-./run -a aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run -a "$arch" -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 
 # Restore the checkpoint, and run the benchmark with parameter 1.000.
 # We skip the boot completely, saving time!
 printf 'm5 resetstats;dhrystone 1000;m5 exit' >readfile.gitignore
-./run -a aarch64 -g -- -r 1
-./gem5-ncycles -a aarch64
+./run -a "$arch" -g -- -r 1
+./gem5-stat -a "$arch"
 
 # Now with another parameter 10.000.
 printf 'm5 resetstats;dhrystone 10000;m5 exit' >readfile.gitignore
-./run -a aarch64 -g -- -r 1
-./gem5-ncycles -a aarch64
+./run -a "$arch" -g -- -r 1
+./gem5-stat -a "$arch"
 ....
 
 These commands output the approximate number of CPU cycles it took Dhrystone to run.
+
+For more serious tests, you will likely want to automate logging the commands ran and results to files, a good example is: link:gem5-bench-cache[].
 
 A more naive and simpler to understand approach would be a direct:
 
@@ -2580,6 +2516,7 @@ But keep in mind that it only affects benchmark performance of the most detailed
 |ARM
 |`HPI`
 |yes
+
 |===
 
 {empty}*: couldn't test because of:
@@ -3705,7 +3642,11 @@ I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop 
 
 In this section document how fast the build and clone are, and how to investigate them.
 
+This is to give an idea to people of what they should expect.
+
 Send a pull request if you try it out on something significantly different.
+
+Ideally, we should setup an automated build server that benchmarks those things continuously for us.
 
 === Find which packages are making the build slow
 
@@ -3737,27 +3678,135 @@ We do our best to reduce the instruction and feature count to the bare minimum n
 +
 One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
 
-=== Benchmark machines
+=== Benchmark this repo benchmarks
 
-The build times are calculated after doing link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the Internet.
+==== Benchmark Linux kernel boot
 
-https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
+....
+./bench-boot
+....
 
-==== P51
+Output:
 
-Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
+....
+cmd ./run -a arm -E '/poweroff.out'
+time 6.77
+cmd ./run -a arm -E 'm5 exit' -g
+time 146.96
+insts 230209017
+cmd ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
+time > 3600
+insts > 373227765
+cmd ./run -a aarch64 -E '/poweroff.out'
+time 1.28
+cmd ./run -a aarch64 -E 'm5 exit' -g
+time 57.77
+insts 111512915
+cmd ./run -a aarch64 -E 'm5 exit' -g -- --caches --cpu-type=HPI
+time 360.90
+insts 111655309
+cmd ./run -a x86_64 -E '/poweroff.out'
+time 3.50
+cmd ./run -a x86_64 -E '/poweroff.out' -- -enable-kvm
+time 1.30
+cmd ./run -a x86_64 -E 'm5 exit' -g
+time 376.03
+insts 634548425
+....
 
-* 2500 USD in 2018 (high end)
-* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
-* 32GB(16+16) DDR4 2400MHz SODIMM
-* 512GB SSD PCIe TLC OPAL2
-* Ubuntu 17.10
+For ARM `arm` QEMU, we just try to manually hit Ctrl + C as soon as system shutdown message appears: <<arm-shutdown>>.
+
+The results on the <<p51>> were:
+
+[options="header"]
+|===
+|Arch |Emulator |Subtype |Time |N times slower than QEMU |Instruction count |Commit
+
+|arm
+|QEMU
+|
+|6 seconds
+|1
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|arm
+|gem5
+|AtomicSimpleCPU
+|1 minute 40 seconds
+|17
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|arm
+|gem5
+|HPI
+|10 minutes
+|100
+|
+|da79d6c6cde0fbe5473ce868c9be4771160a003b
+
+|aarch64
+|QEMU
+|
+|1.3 seconds
+|1
+|170k
+|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
+
+|aarch64
+|gem5
+|AtomicSimpleCPU
+|1 minute
+|43
+|110M
+|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
+
+|aarch64
+|gem5
+|HPI
+|6 minutes 4 seconds
+|
+|534.812.447
+|f482f24f87e2b1814ea9ed74f2c87ab30a4cb019
+
+|x86_64
+|QEMU
+|
+|3.8 seconds
+|1
+|1.8M
+|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
+
+|x86_64
+|QEMU
+|KVM
+|1.3 seconds
+|0.3
+|
+|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
+
+|x86_64
+|gem5
+|AtomicSimpleCPU
+|6 minutes 30 seconds
+|102
+|630M
+|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
+
+|===
+
+One methodology problem is that some gem5 and QEMU were run with different kernel configs, due to <<gem5-qemu-config>>. This could have been improved if we normalized by instruction counts, but to do that we would have to enable tracing which makes QEMU run much slower.
+
+==== Benchmark initial build
+
+The build times are calculated after doing `./configure` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the Internet.
 
 Build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
 
 Single file change on `./build kernel_module-reconfigure`: 7 seconds.
 
-===== P51 baseline benchmarks
+==== Benchmark Buildroot build baseline
 
 This is the minimal build we could expect to get away with.
 
@@ -3786,17 +3835,23 @@ This is consistent with the fact that ccache reduces the build time only partial
 
 The instructions counts varied very little between the baseline and LKMC, so runtime overhead is not a big deal apparently.
 
-==== P51 gem5
+==== Benchmark gem5 build
 
-How long it takes to build gem5 itself:
+How long it takes to build gem5 itself on <<P51>>
 
 * x86 at 68af229490fc811aebddf68b3e2e09e63a5fa475: 9m40s
 
-==== T430
+=== Benchmark machines
 
-Build time: 2 hours.
+==== P51
 
-TODO specs, SHA.
+Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop]:
+
+* 2500 USD in 2018 (high end)
+* Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
+* 32GB(16+16) DDR4 2400MHz SODIMM
+* 512GB SSD PCIe TLC OPAL2
+* Ubuntu 17.10
 
 === Benchmark Internets
 
@@ -3808,6 +3863,15 @@ TODO specs, SHA.
 * `make source`: 2 minutes
 
 Google M-lab speed test: 36.4Mbps
+
+=== Benchmark this repo bibliography
+
+gem5:
+
+* link:https://www.mail-archive.com/gem5-users@gem5.org/msg15262.html[] which parts of the gem5 code make it slow
+* what are the minimum system requirements:
+** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
+** https://github.com/gem5/gem5/issues/25
 
 == Conversation
 
