@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -eu
+. common
+results_file="${out_dir}/bench-boot.txt"
+bench() (
+  printf 'cmd ' >> "$results_file"
+  env time --append -f 'time %e' --output="$results_file" ./eeval "./run -a $1" "$results_file"
+)
+insts() (
+  { printf 'insts '; ./gem5-stat -a "$1" sim_insts; } >> "$results_file"
+)
+rm -f "${results_file}"
+
+arch=arm
+# Manual Ctrl+C required.
+#bench "$arch -E '/poweroff.out'"
+bench "$arch -E 'm5 exit' -g"
+insts "$arch"
+# TODO didn't finish after 20 minutes? Stuck at:
+# ftrace: allocating 28852 entries in 85 pages
+#bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
+#insts "$arch"
+
+arch=aarch64
+bench "$arch -E '/poweroff.out'"
+bench "$arch -E 'm5 exit' -g"
+insts "$arch"
+bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
+insts "$arch"
+
+arch=x86_64
+bench "$arch -E '/poweroff.out'"
+bench "$arch -E '/poweroff.out' -- -enable-kvm"
+bench "$arch -E 'm5 exit' -g"
+insts "$arch"
