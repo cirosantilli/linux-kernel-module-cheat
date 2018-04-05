@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -eu
+. common
+while getopts a:gh OPT; do
+  case "$OPT" in
+    a)
+      arch="$OPTARG"
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+
+# Vars
+set_common_vars "$arch" true
+cmd="./run -a $arch -g"
+cpt="-E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'"
+cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024'
+cache_large='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
+result_file="${gem5_out_dir}/bench-cache.txt"
+
+bench() (
+  cmd="$1"
+  eeval "$cmd" "$result_file"
+  ./gem5-ncycles -a "$arch" >> "$result_file"
+)
+
+bench-all() (
+  bench "$cmd -- -r 1"
+  bench "$cmd -- -r 2 $cache_small"
+  bench "$cmd -- -r 3 $cache_large"
+  bench "$cmd -- -r 4 $cache_small --cpu-type=HPI"
+  bench "$cmd -- -r 5 $cache_large --cpu-type=HPI"
+)
+
+# Files.
+rm -rf \
+  "$result_file" \
+  "${m5out_dir}/cpt.*" \
+;
+
+# Create the checkpoints after the kernel boot.
+printf 'm5 exit' >readfile.gitignore
+eeval "$cmd $cpt"
+eeval "$cmd $cpt -- $cache_small"
+eeval "$cmd $cpt -- $cache_large"
+eeval "$cmd $cpt -- $cache_small --cpu-type=HPI"
+eeval "$cmd $cpt -- $cache_large --cpu-type=HPI"
+
+# dhrystone 1.000
+printf '#!/bin/sh
+m5 resetstats
+dhrystone 1000
+m5 exit
+' >readfile.gitignore
+bench-all
+
+# dhrystone 10.000
+sed -Ei 's/^dhrystone .*/dhrystone 10000/' readfile.gitignore
+bench-all
+
+# dhrystone 100.000
+sed -Ei 's/^dhrystone .*/dhrystone 100000/' readfile.gitignore
+bench-all
