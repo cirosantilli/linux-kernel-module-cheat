@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -eu
 . common
-while getopts a:gh OPT; do
+generate_checkpoints=true
+while getopts a:C OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
+      ;;
+    C)
+      generate_checkpoints=false
       ;;
   esac
 done
@@ -13,51 +17,80 @@ shift "$(($OPTIND - 1))"
 # Vars
 set_common_vars "$arch" true
 cmd="./run -a $arch -g"
-cpt="-E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'"
-cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024'
+cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024  '
 cache_large='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 result_file="${gem5_out_dir}/bench-cache.txt"
 
 bench() (
   cmd="$1"
+  printf 'cmd ' >> "$result_file"
   eeval "$cmd" "$result_file"
-  ./gem5-ncycles -a "$arch" >> "$result_file"
+  {
+    printf 'cycles '
+    ./gem5-stat -a "$arch"
+    # RESTORE_INVESTIGATION
+    #cycles_switch="$(./gem5-stat -a "$arch" system.switch_cpus.numCycles)"
+    #if [ -n "$cycles_switch" ]; then
+    #  printf "cycles_switch ${cycles_switch}\n"
+    #fi
+  } >> "$result_file"
 )
 
 bench-all() (
-  bench "$cmd -- -r 1"
-  bench "$cmd -- -r 2 $cache_small"
-  bench "$cmd -- -r 3 $cache_large"
-  bench "$cmd -- -r 4 $cache_small --cpu-type=HPI"
-  bench "$cmd -- -r 5 $cache_large --cpu-type=HPI"
+  bench "${cmd} -- -r 1 ${cache_small} --cpu-type=HPI --restore-with-cpu=HPI"
+  bench "${cmd} -- -r 1 ${cache_large} --cpu-type=HPI --restore-with-cpu=HPI"
+  # RESTORE_INVESTIGATION
+  # These were mostly to investigate what happens on restore:
+  # https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
+  #bench "$cmd -- -r 1"
+  #bench "$cmd -- -r 1 $cache_small"
+  #bench "$cmd -- -r 1 $cache_large"
+  #bench "$cmd -- -r 2 $cache_small"
+  #bench "$cmd -- -r 3 $cache_large"
+  #bench "$cmd -- -r 4 $cache_small --cpu-type=HPI"
+  #bench "$cmd -- -r 5 $cache_large --cpu-type=HPI"
+  ## Restore from AtomicSimpleCPU to HPI.
+  #bench "$cmd -- -r 2 $cache_small --cpu-type=HPI --restore-with-cpu=HPI"
+  #bench "$cmd -- -r 3 $cache_large --cpu-type=HPI --restore-with-cpu=HPI"
+  #bench "$cmd -- -r 2 $cache_small --restore-with-cpu=HPI"
+  #bench "$cmd -- -r 3 $cache_large --restore-with-cpu=HPI"
+  #bench "$cmd -- -r 2 $cache_small --cpu-type=HPI"
+  #bench "$cmd -- -r 3 $cache_large --cpu-type=HPI"
+  ## Restore HPI with different cache sizes and see if it is used.
+  #bench "$cmd -- -r 4 $cache_large --cpu-type=HPI"
+  #bench "$cmd -- -r 5 $cache_small --cpu-type=HPI"
+  #bench "$cmd -- -r 2 $cache_large --cpu-type=HPI"
+  #bench "$cmd -- -r 3 $cache_small --cpu-type=HPI"
 )
 
-# Files.
-rm -rf \
-  "$result_file" \
-  "${m5out_dir}/cpt.*" \
-;
 
-# Create the checkpoints after the kernel boot.
-printf 'm5 exit' >readfile.gitignore
-eeval "$cmd $cpt"
-eeval "$cmd $cpt -- $cache_small"
-eeval "$cmd $cpt -- $cache_large"
-eeval "$cmd $cpt -- $cache_small --cpu-type=HPI"
-eeval "$cmd $cpt -- $cache_large --cpu-type=HPI"
+if "$generate_checkpoints"; then
+  # Create the checkpoints after the kernel boot.
+  rm -rf "${m5out_dir}/cpt.*";
+  printf 'm5 exit' >readfile.gitignore
+  cpt_cmd="-E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'"
+  # 1
+  eeval "$cmd $cpt_cmd"
+  # RESTORE_INVESTIGATION
+  ## 2
+  #eeval "$cmd $cpt_cmd -- $cache_small"
+  ## 3
+  #eeval "$cmd $cpt_cmd -- $cache_large"
+  ## 4
+  #eeval "$cmd $cpt_cmd -- $cache_small --cpu-type=HPI"
+  ## 5
+  #eeval "$cmd $cpt_cmd -- $cache_large --cpu-type=HPI"
+fi
 
-# dhrystone 1.000
+# Restore and run benchmarks.
+rm -f "$result_file"
 printf '#!/bin/sh
 m5 resetstats
-dhrystone 1000
+dhrystone XXX
 m5 exit
 ' >readfile.gitignore
-bench-all
-
-# dhrystone 10.000
-sed -Ei 's/^dhrystone .*/dhrystone 10000/' readfile.gitignore
-bench-all
-
-# dhrystone 100.000
-sed -Ei 's/^dhrystone .*/dhrystone 100000/' readfile.gitignore
-bench-all
+for n in 1000 10000 100000; do
+  printf "n ${n}\n" >> "$result_file"
+  sed -Ei "s/^dhrystone .*/dhrystone ${n}/" readfile.gitignore
+  bench-all
+done
