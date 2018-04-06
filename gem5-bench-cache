@@ -20,7 +20,7 @@ result_file="${gem5_out_dir}/bench-cache.txt"
 
 bench() (
   cmd="$1"
-  eeval "$cmd" "$result_file"
+  ./eeval "$cmd" "$result_file"
   ./gem5-ncycles -a "$arch" >> "$result_file"
 )
 
@@ -39,25 +39,25 @@ rm -rf \
 ;
 
 # Create the checkpoints after the kernel boot.
-printf 'm5 exit' >readfile.gitignore
-eeval "$cmd $cpt"
-eeval "$cmd $cpt -- $cache_small"
-eeval "$cmd $cpt -- $cache_large"
-eeval "$cmd $cpt -- $cache_small --cpu-type=HPI"
-eeval "$cmd $cpt -- $cache_large --cpu-type=HPI"
+printf 'm5 exit' >"${readfile_file}"
+./eeval "$cmd $cpt"
+./eeval "$cmd $cpt -- $cache_small"
+./eeval "$cmd $cpt -- $cache_large"
+./eeval "$cmd $cpt -- $cache_small --cpu-type=HPI"
+./eeval "$cmd $cpt -- $cache_large --cpu-type=HPI"
 
 # dhrystone 1.000
 printf '#!/bin/sh
 m5 resetstats
 dhrystone 1000
 m5 exit
-' >readfile.gitignore
+' >"${readfile_file}"
 bench-all
 
 # dhrystone 10.000
-sed -Ei 's/^dhrystone .*/dhrystone 10000/' readfile.gitignore
+sed -Ei 's/^dhrystone .*/dhrystone 10000/' "${readfile_file}"
 bench-all
 
 # dhrystone 100.000
-sed -Ei 's/^dhrystone .*/dhrystone 100000/' readfile.gitignore
+sed -Ei 's/^dhrystone .*/dhrystone 100000/' "${readfile_file}"
 bench-all
