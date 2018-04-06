@@ -1210,7 +1210,11 @@ You can make QEMU or gem5 <<gem5-vs-qemu-performance,run faster>> by passing ena
 ./run -K
 ....
 
-but it was broken in gem5 with pending patches: https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html
+but it was broken in gem5 with pending patches: https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html It fails immediately on:
+
+....
+panic: KVM: Failed to enter virtualized mode (hw reason: 0x80000021)
+....
 
 KVM uses the link:https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine[KVM Linux kernel feature] of the host to run most instructions natively.
 
@@ -2401,17 +2405,17 @@ arch=aarch64
 
 # Generate a checkpoint after Linux boots.
 # The boot takes a while, be patient young Padawan.
-printf 'm5 exit' >data/readfile
+printf 'm5 exit' > data/readfile
 ./run -a "$arch" -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 
 # Restore the checkpoint, and run the benchmark with parameter 1.000.
 # We skip the boot completely, saving time!
-printf 'm5 resetstats;dhrystone 1000;m5 exit' >data/readfile
+printf 'm5 resetstats;dhrystone 1000;m5 exit' > data/readfile
 ./run -a "$arch" -g -- -r 1
 ./gem5-stat -a "$arch"
 
 # Now with another parameter 10.000.
-printf 'm5 resetstats;dhrystone 10000;m5 exit' >data/readfile
+printf 'm5 resetstats;dhrystone 10000;m5 exit' > data/readfile
 ./run -a "$arch" -g -- -r 1
 ./gem5-stat -a "$arch"
 ....
@@ -2550,7 +2554,39 @@ So we take a performance measurement approach instead:
 cat out/aarch64/gem5/bench-cache.txt
 ....
 
-TODO: sort out HPI, and then paste results here, why the `--cpu-type=HPI` there always generates a `switch_cpu`, even if the original run was also on HPI?
+which gives:
+
+[options="header",cols="3*>"]
+|===
+|test size
+|cache size
+|cycle count
+
+|1000
+|1k
+|52.432.956
+
+|1000
+|1M
+|6.328.325
+
+|10000
+|1k
+|141.637.834
+
+|10000
+|1M
+|16.969.057
+
+|100000
+|1k
+|1.034.500.724
+
+|100000
+|1M
+|121.728.035
+
+|===
 
 ===== gem5 memory latency
 
@@ -3024,7 +3060,7 @@ Internals:
 * <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
 
 [[gem5-restore-new-scrip]]
-===== gem5 checkpoint restore and run a different script
+==== gem5 checkpoint restore and run a different script
 
 You want to automate running several tests from a single pristine post-boot state.
 
@@ -3036,11 +3072,11 @@ The problem is that after the checkpoint, the memory and disk states are fixed, 
 There is however one loophole: <<m5-readfile>>, which reads whatever is present on the host, so we can do it like:
 
 ....
-printf 'echo "setup run";m5 exit' >data/readfile
+printf 'echo "setup run";m5 exit' > data/readfile
 ./run -a aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
-printf 'echo "first benchmark";m5 exit' >data/readfile
+printf 'echo "first benchmark";m5 exit' > data/readfile
 ./run -a aarch64 -g -- -r 1
-printf 'echo "second benchmark";m5 exit' >data/readfile
+printf 'echo "second benchmark";m5 exit' > data/readfile
 ./run -a aarch64 -g -- -r 1
 ....
 
