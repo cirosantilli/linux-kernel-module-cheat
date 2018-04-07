@@ -28,7 +28,8 @@ root=
 # A dummy value that is already turned on by default and does not produce large output,
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_enable=pr_manager_run
-while getopts a:c:DdE:e:f:G:ghIiKkm:T:x OPT; do
+vnc=
+while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -86,6 +87,9 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:x OPT; do
       ;;
     x)
       nographic=false
+      ;;
+    V)
+      vnc='-vnc :0'
       ;;
     ?)
       exit 2
@@ -180,6 +184,7 @@ ${debug_vm} \
 -trace 'enable=${trace_enable},file=${qemu_out_dir}/trace.bin' \
 -virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \
 -virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \
+$vnc \
 "
   if "$initrd"; then
     extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio'"

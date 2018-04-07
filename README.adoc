@@ -15,6 +15,10 @@ toc::[]
 
 == Getting started
 
+=== Getting started Ubuntu
+
+This is the most native setup, and therefore the best one if you are on one of the supported Ubuntu: 16.04 or 17.10. We will try to keep up with both the latest LTS and release.
+
 Reserve 12Gb of disk and run:
 
 ....
@@ -50,6 +54,113 @@ which are `printk` messages from `init` and `cleanup` methods of those modules.
 image:screenshot.png[image]
 
 All available modules can be found in the link:kernel_module/[`kernel_module` directory].
+
+[[docker]]
+=== Getting started Docker
+
+This is a good option if you are on a Linux host, but the <<getting-started-ubuntu,native build>> failed due to your weird host distribution.
+
+Note however that most things in this repository are highly Linux-portable, should just work once you have found the corresponding `apt-get` package manager commands in the link:configure[] for your distro. In theory :-)
+
+Before anything, you must get ride of any host build files on `out/` if you have any. A simple way to do this it to:
+
+....
+mv out out.host
+....
+
+A cleaner option is to make a separate clone of this repository just for Docker, although this will require another submodule update.
+
+Then install Docker, e.g. on Ubuntu:
+
+....
+sudo apt-get install docker
+....
+
+The very first time you launch Docker, create the container with:
+
+....
+./rundocker setup
+....
+
+You are now left inside a shell in the Docker guest.
+
+From there, run the exact same commands that you would on a native install: <<getting-started>>
+
+The host git top level directory is mounted inside the guest, which means for example that you can use your host's GUI text editor directly on the files.
+
+Just don't forget that if you nuke that directory on the guest, then it gets nuked on the host as well!
+
+Trying to run the output from Docker from host won't however, I think the main reason is that the absolute paths inside Docker are will be different than the host ones, but even if we fix that there will likely be other problems.
+
+TODO make files created inside Docker be owned by the current user in host instead of `root`: https://stackoverflow.com/questions/23544282/what-is-the-best-way-to-manage-permissions-for-docker-shared-volumes
+
+Quit and stop the container:
+
+....
+Ctrl-D
+....
+
+Restart the container:
+
+....
+./rundocker
+....
+
+Open a second shell in a running container:
+
+....
+./rundocker sh
+....
+
+You will need this for example to use <<gdb>>.
+
+Start a second shell, and run a command in it at the same time:
+
+....
+./rundocker sh ./rungdb start_kernel
+....
+
+Docker stops if and only if you quit the initial shell, you can quit this one without consequences.
+
+If you mistakenly run `./rundocker` twice, it opens two mirrored terminals. To quit one of them do link:https://stackoverflow.com/questions/19688314/how-do-you-attach-and-detach-from-dockers-process[]:
+
+....
+Ctrl-P Ctrl-Q
+....
+
+To use <<graphic-mode>> from Docker:
+
+....
+./run -Vx
+....
+
+and then on host:
+
+....
+sudo apt-get install vinagre
+./vnc
+....
+
+Destroy the docker container:
+
+....
+./rundocker DELETE
+....
+
+Since we mount the guest's working directory on the host git top-level, you will likely not lose data from doing this, just the `apt-get` installs.
+
+To get back to a host build, don't forget to clean up `out/` again:
+
+....
+mv out out.docker
+mv out.host out
+....
+
+After this, to start using Docker again will you need another:
+
+....
+./rundocker setup
+....
 
 === Module documentation
 
@@ -181,7 +292,7 @@ sync
 
 also saves the disk.
 
-This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl + R`.
+This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl-R`.
 
 However, when you do:
 
@@ -205,10 +316,10 @@ dmesg -n 1
 
 See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
 
-When in <<text-mode,graphical mode>>, you can scroll up a bit on the default TTY with:
+When in <<graphic-mode>>, you can scroll up a bit on the default TTY with:
 
 ....
-Shift + PgUp
+Shift-PgUp
 ....
 
 but I never managed to increase that buffer:
@@ -218,7 +329,7 @@ but I never managed to increase that buffer:
 
 The superior alternative is to use text mode or a telnet connection.
 
-=== Text mode
+=== Graphic mode
 
 By default, we show the serial console directly on the current terminal, without opening a QEMU window.
 
@@ -243,7 +354,7 @@ Text mode has the following limitations over graphics mode:
 
 Both good and bad:
 
-* Ctrl + C kills the host emulator instead of sending SIGINT to the guest process.
+* `Ctrl-C` kills the host emulator instead of sending SIGINT to the guest process.
 +
 On one hand, this provides an easy way to quit QEMU.
 +
@@ -273,7 +384,7 @@ I think the problem was reversed in older QEMU versions: https://superuser.com/q
 +
 `sendkey sendkey ctrl-c` does not work on the text terminal either.
 +
-This is however fortunate when running QEMU with GDB, as the Ctrl + C reaches GDB and breaks.
+This is however fortunate when running QEMU with GDB, as the `Ctrl-C` reaches GDB and breaks.
 * Not everything generates interrupts, only the final enter.
 +
 This makes things a bit more reproducible, since the microsecond in which you pressed a key does not matter.
@@ -482,7 +593,7 @@ which counts to infinity to stdout. Then in another shell, run:
 and then hit:
 
 ....
-Ctrl + C
+Ctrl-C
 break sys_write
 continue
 continue
@@ -491,7 +602,7 @@ continue
 
 And you now control the counting on the first shell from GDB!
 
-When you hit `Ctrl + C`, if we happen to be inside kernel code at that point, which is very likely if there are no heavy background tasks waiting, and we are just waiting on a `sleep` type system call of the command prompt, we can already see the source for the random place inside the kernel where we stopped.
+When you hit `Ctrl-C`, if we happen to be inside kernel code at that point, which is very likely if there are no heavy background tasks waiting, and we are just waiting on a `sleep` type system call of the command prompt, we can already see the source for the random place inside the kernel where we stopped.
 
 === tmux multi terminal
 
@@ -529,7 +640,7 @@ Shell 2:
 ./rungdb
 ....
 
-In GDB, hit `Ctrl + C`, and note how it says:
+In GDB, hit `Ctrl-C`, and note how it says:
 
 ....
 scanning for modules in /home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/linux-custom
@@ -577,7 +688,7 @@ fops 2327 0 - Live 0xfffffffa00000000
 And then tell GDB where the module was loaded with:
 
 ....
-Ctrl + C
+Ctrl-C
 add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
 ....
 
@@ -716,7 +827,7 @@ The problem is that the `b main` that we do inside `./rungdb-user` says:
 Cannot access memory at address 0x107b8
 ....
 
-However, if we do a Ctrl + C, and then a direct:
+However, if we do a `Ctrl-C`, and then a direct:
 
 ....
 b *0x107b8
@@ -991,7 +1102,7 @@ https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-exec
 reboot: System halted
 ....
 
-A blunt resolution for QEMU is to do a `Ctrl + c` on host, or run on a nother shell:
+A blunt resolution for QEMU is to do a `Ctrl-C` on host, or run on a nother shell:
 
 ....
 pkill qemu
@@ -1554,9 +1665,9 @@ You should then look up if there is a branch that supports that kernel. Staying 
 
 === Console fun
 
-You can also try those on the Ctrl + Alt + F3 of your Ubuntu host, but it is much more fun inside a VM!
+You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
 
-Must be run in <<text-mode,graphical mode>>.
+Must be run in <<graphic-mode>>.
 
 Stop the cursor from blinking:
 
@@ -1778,7 +1889,7 @@ grep -n 4003a0 trace.txt
 ....
 +
 I have observed a single match for that instruction, so it must be the init, and there were only 20k instructions after it, so the impact is negligible.
-* on arm, you need to hit `Ctrl + C` once after seeing the message `reboot: System halted` due to <<arm-shutdown>>
+* on arm, you need to hit `Ctrl-C` once after seeing the message `reboot: System halted` due to <<arm-shutdown>>
 * to disable networking. Is replacing `init` enough?
 +
 --
@@ -1801,7 +1912,7 @@ Maybe some brave should will send a pull request one day.
 
 Let's have some fun.
 
-Those only work in <<text-mode,graphical mode>>.
+Those only work in <<graphic-mode>>.
 
 I think most are implemented under:
 
@@ -1814,8 +1925,8 @@ TODO find all.
 Scroll up / down the terminal:
 
 ....
-Shift + PgDown
-Shift + PgUp
+Shift-PgDown
+Shift-PgUp
 ....
 
 Or inside `./qemumonitor`:
@@ -1866,7 +1977,7 @@ console::respawn:/sbin/getty -n -L -l /loginroot.sh ttyS1 0 vt100
 
 but nothing changed.
 
-Note that on Ubuntu 17.10, to get to the text terminal from the GUI we first need `Ctrl + Alt + Fx`, and once in the text terminals, `Alt + Fn` works without `Ctrl`.
+Note that on Ubuntu 17.10, to get to the text terminal from the GUI we first need `Ctrl-Alt-Fx`, and once in the text terminals, `Alt-Fn` works without `Ctrl`.
 
 == QEMU
 
@@ -2189,7 +2300,7 @@ And in QEMU:
 /pci.sh
 ....
 
-Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with Ctrl + Alt + F1 and `kill` QEMU.
+Just make sure that you never click inside the QEMU window when doing that, otherwise you mouse gets captured forever, and the only solution I can find is to go to a TTY with `Ctrl-Alt-F1` and `kill` QEMU.
 
 You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.
 
@@ -2320,8 +2431,8 @@ Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get update
 We have not managed to track this problem down yet, but the following workaround always works:
 
 ....
-Ctrl + Shift + U
-Ctrl + C
+Ctrl-Shift-U
+Ctrl-C
 root
 ....
 
@@ -2929,7 +3040,7 @@ On a third shell:
 ./gem5-shell
 ....
 
-When you want to break, just do a Ctrl + C on GDB shell, and then `continue`.
+When you want to break, just do a `Ctrl-C` on GDB shell, and then `continue`.
 
 And we now see the boot messages, and then get a shell. Now try the `/continue.sh` procedure described for QEMU.
 
@@ -3751,7 +3862,7 @@ time 376.03
 insts 634548425
 ....
 
-For ARM `arm` QEMU, we just try to manually hit Ctrl + C as soon as system shutdown message appears: <<arm-shutdown>>.
+For ARM `arm` QEMU, we just try to manually hit `Ctrl-C` as soon as system shutdown message appears: <<arm-shutdown>>.
 
 The results on the <<p51>> were:
 

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -eu
+cmd="${1:-start}"
+shift
+container_name=lkmc
+target_dir=/root/linux-kernel-module-cheat
+if [ "$cmd" = start ]; then
+  sudo docker start -ai "$container_name"
+elif [ "$cmd" = sh ]; then
+  # https://stackoverflow.com/questions/39794509/how-to-open-multiple-terminals-in-docker
+  sudo docker exec -it "$container_name" bash "$@"
+elif [ "$cmd" = setup ]; then
+  # --privileged for KVM:
+  # https://stackoverflow.com/questions/48422001/launching-qemu-kvm-from-inside-docker-container
+  sudo docker run --name "$container_name" --net host -i --privileged -t -w "${target_dir}" -v "$(pwd):${target_dir}" ubuntu:16.04 bash
+elif [ "$cmd" = DELETE ]; then
+  sudo docker rm "$container_name"
+else
+  echo "error: unknown action: ${cmd}" 1>&2
+  exit 2
+fi
