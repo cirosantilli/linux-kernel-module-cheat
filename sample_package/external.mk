@@ -10,7 +10,7 @@ SAMPLE_PACKAGE_SITE_METHOD = local
 
 define SAMPLE_PACKAGE_BUILD_CMDS
   # D contains the source code of this package.
-  $(MAKE) -C '$(@D)' CC="$(TARGET_CC)" LD="$(TARGET_LD)"
+  $(MAKE) -C '$(@D)' CC=clang CFLAGS=-static
 endef
 
 define SAMPLE_PACKAGE_INSTALL_TARGET_CMDS
