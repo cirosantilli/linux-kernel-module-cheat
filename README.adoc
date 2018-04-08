@@ -221,6 +221,7 @@ Not all packages have an alias, when they don't, just use the form:
 ./build -- <pkg>-reconfigure
 ....
 
+[[retype]]
 === Don't retype arguments all the time
 
 It gets annoying to retype `-a aarch64` for every single command, or to remember `./build -B` setups.
@@ -2792,15 +2793,7 @@ Buildroot built-in libraries, mostly under Libraries > Other:
 * libtommath
 * qhull
 
-There are not yet enabled, but it should be easy to so:
-
-* enable them in link:br2[] and rebuild
-* create a test program that uses each library under link:kernel_module/user[]
-
-External open source benchmarks. We will try to create Buildroot packages for them, add them to this repo, and potentially upstream:
-
-* http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
-* http://www.m5sim.org/Splash_benchmarks
+There are not yet enabled, but it should be easy to so, see: <<add-new-buildroot-packages>>
 
 ===== BLAS
 
@@ -3637,12 +3630,14 @@ dmesg
 
 == Buildroot
 
-=== Change Buildroot options
+=== Custom Buildroot options
 
 We provide the following mechanisms:
 
 * `./build -b mybr2.gitignore`: append the file `mybr2.gitignore` to a single build. Must be passed every time you run `./build`. A good template is provided by:
 * `./build -B 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
+
+You will then likely want to make those more permanent with: <<retype>>
 
 === Find Buildroot options with make menuconfig
 
@@ -3732,6 +3727,27 @@ watch -n1 'ccache -s'
 ....
 
 while a build is going on in another terminal and my cooler is humming. Especially when the hit count goes up ;-) The joys of system programming.
+
+=== Add new Buildroot packages
+
+First, see if you can't get away without actually adding a new package, for example:
+
+* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:kernel_module/user[] and you are done
+* if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-options>>
+
+If none of those methods are flexible enough for you, create a new package as follows:
+
+* use link:sample_package[] as a starting point
+* fork this repository, and modify that package to do what you want
+* read the comments on that package to get an idea of how to start
+* check the main manual for more complicated things: https://buildroot.org/downloads/manual/manual.html
+* don't forget to rebuild with:
++
+....
+./build -- sample_package-reconfigure
+....
++
+if you make any changes to that package after the initial build: <<rebuild>>
 
 === BR2_TARGET_ROOTFS_EXT2_SIZE
 
