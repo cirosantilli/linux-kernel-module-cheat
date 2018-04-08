@@ -442,32 +442,6 @@ Double quotes can be used to escape spaces as in `opt="a b"`, but double quotes 
 
 This even lead us to use base64 encoding with `-E`!
 
-=== What command was actually run?
-
-When asking for help on upstream repositories outside of this repository, you will need to provide the commands that you are running in detail without referencing our scripts.
-
-For example, QEMU developers will only want to see the final QEMU command that you are running.
-
-We make that easy by building commands as strings, and then echoing them before evaling.
-
-So for example when you run:
-
-....
-./run -a arm
-....
-
-Stdout shows a line with the full command of type:
-
-....
-./out/arm/buildroot/host/usr/bin/qemu-system-arm -m 128M -monitor telnet::45454,server,nowait -netdev user,hostfwd=tcp::45455-:45455,id=net0 -smp 1  -M versatilepb -append 'root=/dev/sda nokaslr norandmaps printk.devkmsg=on printk.time=y' -device rtl8139,netdev=net0 -dtb ./out/arm/buildroot/images/versatile-pb.dtb -kernel ./out/arm/buildroot/images/zImage -serial stdio    -drive file='./out/arm/buildroot/images/rootfs.ext2.qcow2,if=scsi,format=qcow2'
-....
-
-This line is also saved to a file for convenience:
-
-....
-cat ./run.log
-....
-
 === modprobe
 
 If you are feeling fancy, you can also insert modules with:
@@ -3799,6 +3773,44 @@ out/arm/buildroot/build/<pkg>/.stamp_target_installed
 so which shows that the whole delay is inside our install itself.
 
 I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop on a particular package.
+
+=== Report upstream bugs
+
+When asking for help on upstream repositories outside of this repository, you will need to provide the commands that you are running in detail without referencing our scripts.
+
+For example, QEMU developers will only want to see the final QEMU command that you are running.
+
+For the configure and build, search for the `Building` and `Configuring` parts of the build log, then try to strip down all Buildroot related paths, to keep only options that seem to matter.
+
+We make that easy by building commands as strings, and then echoing them before evaling.
+
+So for example when you run:
+
+....
+./run -a arm
+....
+
+Stdout shows a line with the full command of type:
+
+....
+./out/arm/buildroot/host/usr/bin/qemu-system-arm -m 128M -monitor telnet::45454,server,nowait -netdev user,hostfwd=tcp::45455-:45455,id=net0 -smp 1  -M versatilepb -append 'root=/dev/sda nokaslr norandmaps printk.devkmsg=on printk.time=y' -device rtl8139,netdev=net0 -dtb ./out/arm/buildroot/images/versatile-pb.dtb -kernel ./out/arm/buildroot/images/zImage -serial stdio    -drive file='./out/arm/buildroot/images/rootfs.ext2.qcow2,if=scsi,format=qcow2'
+....
+
+and this line is also saved to a file for convenience:
+
+....
+cat ./run.log
+....
+
+Next, you will also want to give the relevant images to save them time. Zip the images with:
+
+....
+zip -r images.zip out/arm/buildroot/images
+....
+
+and then upload that somewhere, e.g. GitHub release assets as in https://github.com/cirosantilli/linux-kernel-module-cheat/releases/tag/test-replay-arm
+
+Finally, do a clone of the relevant repository out of tree and reproduce the bug there, to be 100% sure that it is an actual upstream bug, and to provide developers with the cleanest possible commands. For example as was done in this QEMU bug report: https://bugs.launchpad.net/qemu/+bug/1762179
 
 == Benchmark this repo
 
