@@ -5,7 +5,7 @@ set -- ${cli_build:-} "$@"
 rm -f br2_cli.gitignore
 touch br2_cli.gitignore
 configure=true
-config_fragments='br2'
+config_fragments=br2
 extra_make_args=
 gem5=false
 j="$(nproc)"
@@ -29,7 +29,8 @@ while getopts 'a:B:b:CGgj:hIiK:klp:qSv' OPT; do
       configure=false
       ;;
     G)
-      extra_make_args="$extra_make_args gem5-reconfigure"
+      extra_make_args="${extra_make_args} gem5-reconfigure \\
+"
       gem5=true
       ;;
     g)
@@ -60,17 +61,20 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       linux_kernel_custom_config_file="$OPTARG"
       ;;
     k)
-      extra_make_args="$extra_make_args kernel_module-reconfigure"
+      extra_make_args="${extra_make_args} kernel_module-reconfigure \\
+"
       ;;
     l)
       linux_reconfigure=true
-      extra_make_args="$extra_make_args linux-reconfigure"
+      extra_make_args="${extra_make_args} linux-reconfigure \\
+"
       ;;
     p)
       post_script_args="$OPTARG"
       ;;
     q)
-      extra_make_args="$extra_make_args host-qemu-reconfigure"
+      extra_make_args="${extra_make_args} host-qemu-reconfigure \\
+"
       ;;
     S)
       qemu_sdl=
@@ -84,7 +88,7 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
   esac
 done
 shift $(($OPTIND - 1))
-extra_make_args="$extra_make_args $@"
+extra_make_args="${extra_make_args} $@"
 set_common_vars "$arch" "$gem5"
 config_file="${buildroot_out_dir}/.config"
 case "$arch" in
@@ -173,15 +177,15 @@ cd "${buildroot_dir}"
 #
 # BR2_ options may be given on the command line here, and they do have direct "define" effects.
 # But this is generally bad, as it skips the Kconfig mechanism, e.g. it does not set defaults properly.
-cmd="time \
-  env \
-  -u LD_LIBRARY_PATH \
-  make \
-  O='${buildroot_out_dir}' \
-  HOST_QEMU_OPTS='--enable-debug --extra-cflags=-DDEBUG_PL061=1 --enable-trace-backends=simple ${qemu_sdl}' \
-  V='$v' \
-  ${extra_make_args} \
-  all \
+cmd="time \\
+env \\
+-u LD_LIBRARY_PATH \\
+make \\
+O='${buildroot_out_dir}' \\
+HOST_QEMU_OPTS='--enable-debug --extra-cflags=-DDEBUG_PL061=1 --enable-trace-backends=simple ${qemu_sdl}' \\
+V='${v}' \\
+${extra_make_args} \
+all \\
 "
-echo "$cmd" | tee "${root_dir}/build.log"
+echo "$cmd" | tee "${out_arch_dir}/build.sh"
 eval "$cmd"

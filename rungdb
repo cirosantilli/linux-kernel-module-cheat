@@ -5,7 +5,8 @@ set -- ${cli_rungdb:-} "$@"
 after=
 before=
 gem5=false
-lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/'"
+lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/' \\
+"
 kgdb=false
 while getopts A:a:b:gkL OPT; do
   case "$OPT" in
@@ -34,7 +35,8 @@ while getopts A:a:b:gkL OPT; do
 done
 shift "$(($OPTIND - 1))"
 if [ "$#" -gt 0 ]; then
-  brk="-ex 'break ${1}'"
+  brk="-ex 'break ${1}' \\
+"
   shift
 else
   brk=
@@ -45,15 +47,16 @@ else
   port=1234
 fi
 set_common_vars "$arch" "$gem5"
-gdb="${host_dir}/usr/bin/${arch}-linux-gdb ${before}"
+gdb="${host_dir}/usr/bin/${arch}-linux-gdb \\
+${before}"
 cd "${build_dir}/linux-custom/"
 if "$kgdb"; then
     cmd="\
 ${gdb} \
--q \
--ex 'add-auto-load-safe-path $(pwd)' \
--ex 'file vmlinux' \
--ex 'target remote localhost:${port}'
+-q \\
+-ex 'add-auto-load-safe-path $(pwd)' \\
+-ex 'file vmlinux' \\
+-ex 'target remote localhost:${port}' \\
 "
 else
   # ## lx-symbols
@@ -77,15 +80,15 @@ else
   # which gets put on the kernel build root when python debugging scripts are enabled.
   cmd="\
 ${gdb} \
--q \
--ex 'add-auto-load-safe-path $(pwd)' \
--ex 'file vmlinux' \
--ex 'target remote localhost:${port}' \
+-q \\
+-ex 'add-auto-load-safe-path $(pwd)' \\
+-ex 'file vmlinux' \\
+-ex 'target remote localhost:${port}' \\
 ${brk} \
--ex 'continue' \
+-ex 'continue' \\
 ${lx_symbols} \
 "
 fi
 cmd="$cmd $after"
-echo "$cmd" | tee "${root_dir}/rungdb.log"
+echo "$cmd" | tee "${out_arch_dir}/rungdb.sh"
 eval "$cmd"

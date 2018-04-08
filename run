@@ -38,11 +38,13 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
       cpus="$OPTARG"
       ;;
     D)
-      debug_vm='gdb -q -ex start --args'
+      debug_vm="gdb -q -ex start --args \\
+"
       ;;
     d)
       debug=true
-      extra_flags_qemu="$extra_flags_qemu -S"
+      extra_flags_qemu="$extra_flags_qemu -S \\
+"
       ;;
     E)
       lkmc_eval="$OPTARG"
@@ -54,7 +56,8 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
       extra_append_after_dash="$extra_append_after_dash $OPTARG"
       ;;
     G)
-      gem5opts="$OPTARG"
+      gem5opts="$OPTARG \\
+"
       ;;
     g)
       gem5=true
@@ -76,7 +79,8 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
       extra_append="$extra_append kgdbwait"
       # For those who want to try KDB.
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
-      extra_flags_qemu="$extra_flags_qemu -serial tcp::1234,server,nowait"
+      extra_flags_qemu="$extra_flags_qemu -serial tcp::1234,server,nowait \\
+"
       kgdb=true
       ;;
     m)
@@ -89,7 +93,8 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
       nographic=false
       ;;
     V)
-      vnc='-vnc :0'
+      vnc="-vnc :0 \\
+"
       ;;
     ?)
       exit 2
@@ -119,8 +124,9 @@ if [ -n "$lkmc_eval" ]; then
   extra_append_after_dash="${extra_append_after_dash} lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
 fi
 if "$nographic" && [ "$arch" = x86_64 ]; then
-  extra_append="$extra_append console=ttyS0"
-  extra_flags_qemu="$extra_flags_qemu -nographic"
+  extra_append="${extra_append} console=ttyS0"
+  extra_flags_qemu="${extra_flags_qemu} -nographic \\
+"
 fi
 if [ -n "$extra_append_after_dash" ]; then
   extra_append="${extra_append} - ${extra_append_after_dash}"
@@ -136,18 +142,18 @@ if "$gem5"; then
     gem5_arch=ARM
   fi
   gem5_common="\
-M5_PATH='${gem5_build_dir}/system' \
+M5_PATH='${gem5_build_dir}/system' \\
 ${debug_vm} \
-'${gem5_src_dir}/build/${gem5_arch}/gem5.opt' \
---debug-file=trace.txt \
+'${gem5_src_dir}/build/${gem5_arch}/gem5.opt' \\
+--debug-file=trace.txt \\
 ${gem5opts} \
--d '${m5out_dir}' \
-'${gem5_src_dir}/configs/example/fs.py' \
---disk-image='${images_dir}/rootfs.ext2' \
---kernel='${buildroot_out_dir}/build/linux-custom/vmlinux' \
---mem-size=${memory} \
---num-cpus='${cpus}' \
---script='${readfile_file}' \
+-d '${m5out_dir}' \\
+'${gem5_src_dir}/configs/example/fs.py' \\
+--disk-image='${images_dir}/rootfs.ext2' \\
+--kernel='${buildroot_out_dir}/build/linux-custom/vmlinux' \\
+--mem-size='${memory}' \\
+--num-cpus='${cpus}' \\
+--script='${readfile_file}' \\
 "
   if [ "$arch" = x86_64 ]; then
     if "$kvm"; then
@@ -155,16 +161,16 @@ ${gem5opts} \
     fi
     cmd="\
 ${gem5_common} \
---command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda ${extra_append}' \
+--command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda ${extra_append}' \\
 ${extra_flags} \
 "
   elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
     # TODO why is it mandatory to pass mem= here? Not true for QEMU.
     # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
     cmd="${gem5_common} \
---command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \
---dtb-file='${gem5_src_dir}/system/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \
---machine-type=VExpress_GEM5_V1 \
+--command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
+--dtb-file='${gem5_src_dir}/system/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
+--machine-type=VExpress_GEM5_V1 \\
 ${extra_flags} \
 "
   fi
@@ -175,19 +181,19 @@ else
   extra_flags="${extra_flags_qemu} ${extra_flags}"
   qemu_common="\
 ${debug_vm} \
-'${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}' \
--gdb tcp::1234 \
--m '${memory}' \
--monitor telnet::45454,server,nowait \
--netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \
--smp '${cpus}' \
--trace 'enable=${trace_enable},file=${qemu_out_dir}/trace.bin' \
--virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \
--virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \
-$vnc \
-"
+'${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}' \\
+-gdb tcp::1234 \\
+-m '${memory}' \\
+-monitor telnet::45454,server,nowait \\
+-netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \\
+-smp '${cpus}' \\
+-trace 'enable=${trace_enable},file=${qemu_out_dir}/trace.bin' \\
+-virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
+-virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
+${vnc}"
   if "$initrd"; then
-    extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio'"
+    extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio' \\
+"
   fi
   if "$ramfs"; then
     # TODO why is this needed, and why any string works.
@@ -201,16 +207,17 @@ $vnc \
       fi
       if ! "$ramfs"; then
         root='root=/dev/vda'
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2' \\
+"
       fi
       cmd="\
 ${qemu_common} \
--M pc \
--append '${root} nopat ${extra_append}' \
--device edu \
--device lkmc_pci_min \
--device virtio-net-pci,netdev=net0 \
--kernel '${images_dir}/bzImage' \
+-M pc \\
+-append '${root} nopat ${extra_append}' \\
+-device edu \\
+-device lkmc_pci_min \\
+-device virtio-net-pci,netdev=net0 \\
+-kernel '${images_dir}/bzImage' \\
 ${extra_flags} \
 "
     ;;
@@ -219,18 +226,19 @@ ${extra_flags} \
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
       if ! "$ramfs"; then
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2'"
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2' \\
+"
         root='root=/dev/sda'
       fi
       cmd="\
-$qemu_common \
--M versatilepb \
--append '${root} ${extra_append}' \
--device rtl8139,netdev=net0 \
--dtb '${images_dir}/versatile-pb.dtb' \
--kernel '${images_dir}/zImage' \
--serial stdio \
-$extra_flags \
+${qemu_common} \
+-M versatilepb \\
+-append '${root} ${extra_append}' \\
+-device rtl8139,netdev=net0 \\
+-dtb '${images_dir}/versatile-pb.dtb' \\
+-kernel '${images_dir}/zImage' \\
+-serial stdio \\
+${extra_flags} \
 "
     ;;
     aarch64)
@@ -239,37 +247,39 @@ $extra_flags \
       fi
       if ! "$ramfs"; then
         root='root=/dev/vda'
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2'"
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2' \\
+"
       fi
       cmd="\
 ${qemu_common} \
--M virt \
--append '${root} ${extra_append}' \
--cpu cortex-a57 \
--device virtio-net-device,netdev=net0 \
--kernel '${images_dir}/Image' \
--nographic \
--serial stdio \
+-M virt \\
+-append '${root} ${extra_append}' \\
+-cpu cortex-a57 \\
+-device virtio-net-device,netdev=net0 \\
+-kernel '${images_dir}/Image' \\
+-nographic \\
+-serial stdio \\
 ${extra_flags} \
 "
     ;;
     mips64)
       if ! "$ramfs"; then
         root='root=/dev/hda'
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2'"
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,format=qcow2' \\
+"
       fi
       cmd="\
 ${qemu_common} \
--M malta \
--append '${root} ${extra_append}' \
--cpu I6400 \
--device pcnet \
--kernel '${images_dir}/vmlinux' \
--nographic \
+-M malta \\
+-append '${root} ${extra_append}' \\
+-cpu I6400 \\
+-device pcnet \\
+-kernel '${images_dir}/vmlinux' \\
+-nographic \\
 ${extra_flags} \
 "
     ;;
   esac
 fi
-echo "$cmd" | tee run.log
+echo "$cmd" | tee "${out_arch_dir}/run.sh"
 eval "$cmd"
