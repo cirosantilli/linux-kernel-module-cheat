@@ -1096,7 +1096,7 @@ https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-exec
 reboot: System halted
 ....
 
-A blunt resolution for QEMU is to do a `Ctrl-C` on host, or run on a nother shell:
+A blunt resolution for QEMU is to do a `Ctrl-C` on host, or run on another shell:
 
 ....
 pkill qemu
@@ -1109,6 +1109,50 @@ m5 exit
 ....
 
 It does work on `aarch64` however, presumably because of magic virtio functionality.
+
+===== arm shutdown automation
+
+We like to automate the detection of shutdown to have unit tests for QEMU ARM, even it is clunky to do manually.
+
+First we looked at monitoring stdout through a pipe:
+
+....
+https://superuser.com/questions/402979/kill-program-after-it-outputs-a-given-line-from-a-shell-script
+https://superuser.com/questions/372886/kill-process-depending-on-its-output
+....
+
+TODO: why doesn't this work, still hangs:
+
+....
+./run -a arm -E '/poweroff.out' |& sed '/reboot: System halted/q'
+....
+
+Trying with a message that appears earlier:
+
+....
+./run -a arm -E '/poweroff.out' |& sed '/audio/q'
+....
+
+the output stops after the message, which means that `sed` dies, and QEMU ignores SIGPIPE?
+
+Alternatively, we could `while read` on the pipe and then SIGKILL QEMU, but we can't find an easy way to get QEMU's PID:
+
+* https://stackoverflow.com/questions/1652680/how-to-get-the-pid-of-a-process-that-is-piped-to-another-process-in-bash
+* https://unix.stackexchange.com/questions/103472/obtaining-pid-of-command-earlier-in-pipeline
+
+Next, I also tried:
+
+....
+./run -a arm -E '/poweroff.out' >f & qemu_pid=$! && tail -f f | sed '/reboot: System halted/q' && kill $qemu_pid
+....
+
+but the first part:
+
+....
+./run -a arm -E '/poweroff.out' >f &
+....
+
+gets stuck without output. This only happens when on background. TODO Why?!
 
 === aarch64
 
