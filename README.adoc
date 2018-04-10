@@ -3992,9 +3992,13 @@ On the upstream Buildroot repo at 7d43534625ac06ae01987113e912ffaf1aec2302 we ru
 
 ....
 make qemu_x86_64_defconfig
-printf 'BR2_CCACHE=y\n' >>.config
+printf '
+BR2_CCACHE=y
+BR2_TARGET_ROOTFS_CPIO=y
+BR2_TARGET_ROOTFS_EXT2=n
+' >>.config
 make olddefconfig
-time make BR2_JLEVEL="$(nproc)"
+time env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(nproc)"
 ....
 
 Time: 11 minutes, 7 with full ccache hits. Breakdown: 47% GCC, 15% Linux kernel, 9% uclibc, 5% host-binutils. Conclusions:
@@ -4012,6 +4016,13 @@ A quick look at the system monitor reveals that the build switches between times
 This is consistent with the fact that ccache reduces the build time only partially, since ccache should only overcome the CPU bound compilation steps, but not the disk bound ones.
 
 The instructions counts varied very little between the baseline and LKMC, so runtime overhead is not a big deal apparently.
+
+Size:
+
+* `bzImage`: 4.4M
+* `rootfs.cpio`: 1.6M
+
+Zipped: 4.9M, `rootfs.cpio` deflates 50%, `bzImage` almost nothing.
 
 ==== Benchmark gem5 build
 
