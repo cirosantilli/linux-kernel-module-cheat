@@ -182,14 +182,17 @@ else
   qemu_common="\
 ${debug_vm} \
 '${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}' \\
+-chardev stdio,id=s1,signal=off,mux=on \\
 -gdb tcp::1234 \\
 -m '${memory}' \\
+-mon chardev=s1,mode=readline \\
 -monitor telnet::45454,server,nowait \\
 -netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \\
+-serial none \\
 -smp '${cpus}' \\
 -trace 'enable=${trace_enable},file=${qemu_out_dir}/trace.bin' \\
--virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
 -virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
+-virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
 ${vnc}"
   if "$initrd"; then
     extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio' \\
@@ -215,6 +218,7 @@ ${qemu_common} \
 -M pc \\
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
+-device isa-serial,chardev=s1 \\
 -device lkmc_pci_min \\
 -device virtio-net-pci,netdev=net0 \\
 -kernel '${images_dir}/bzImage' \\
@@ -237,7 +241,6 @@ ${qemu_common} \
 -device rtl8139,netdev=net0 \\
 -dtb '${images_dir}/versatile-pb.dtb' \\
 -kernel '${images_dir}/zImage' \\
--serial stdio \\
 ${extra_flags} \
 "
     ;;
@@ -258,7 +261,6 @@ ${qemu_common} \
 -device virtio-net-device,netdev=net0 \\
 -kernel '${images_dir}/Image' \\
 -nographic \\
--serial stdio \\
 ${extra_flags} \
 "
     ;;
