@@ -162,6 +162,124 @@ After this, to start using Docker again will you need another:
 ./rundocker setup
 ....
 
+=== Text mode
+
+By default, we show the serial console directly on the current terminal, without opening a QEMU window.
+
+Quit QEMU immediately:
+
+....
+Ctrl-A X
+....
+
+https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui
+
+Alternative methods:
+
+* `/poweroff.out`. Not immediate, and sometimes you can't do it, e.g. kernel panic. Furthermore, it does not work for ARM: <<arm-shutdown>>
+* `echo quit | ./qemumonitor`
+* `Ctrl-A C` then `quit`
+* `pkill qemu`
+
+Toggle between QEMU monitor and the shell:
+
+....
+Ctrl-A C
+....
+
+* http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses
+* https://superuser.com/questions/488263/how-to-switch-to-the-qemu-control-panel-with-nographics
+
+But doing:
+
+....
+echo quit | ./qemumonitor
+....
+
+is generally more practical since you can use host shell functionality like shell history.
+
+Getting everything to work requires careful choice of QEMU command line options:
+
+* https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to/49751144#49751144
+* https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-to-the-guest-when-running-qemu-with-nographic/436321#436321
+
+TODO: if you hit `Ctrl-C` several times while `arm` or `aarch64` are booting, after boot the userland shell does not show any updates when you type. Why?
+
+=== Graphic mode
+
+Enable graphic mode:
+
+....
+./run -x
+....
+
+Text mode is the default due to the following considerable advantages:
+
+* copy and paste commands and stdout output to / from host
+* get full panic traces when you start making the kernel crash :-) See also: https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic
+* have a large scroll buffer, and be able to search it, e.g. by using tmux on host
+* one less window floating around to think about in addition to your shell :-)
+* graphics mode has only been properly tested on `x86_64`.
+
+Text mode has the following limitations over graphics mode:
+
+* you can't see graphics such as those produced by <<x11>>
+* very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
+
+==== Graphic mode arm
+
+TODO: how to see the terminal on the graphic window, just like happens on x86?
+
+arm shows a window which contains boot messages, but the shell is only visible on the terminal.
+
+Also if we do:
+
+....
+cat /dev/urandom > /dev/fb0
+....
+
+the screen fills up with random colors, so that screen is working somehow.
+
+Using `-nographic` removes that screen, but why would we want to do that? TODO Ideally, all archs would show both the terminal and the graphical window.
+
+==== Graphic mode aarch64
+
+TODO even though we don't pass `-nographic`, `aarch64` does not get a graphic window like `arm`, why?
+
+=== Automatic startup commands
+
+When debugging a module, it becomes tedious to wait for build and re-type:
+
+....
+/modulename.sh
+....
+
+every time.
+
+To automate that, use the methods described at: <<init>>
+
+=== Message control
+
+We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
+
+....
+dmesg -n 1
+....
+
+See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
+
+When in <<graphic-mode>>, you can scroll up a bit on the default TTY with:
+
+....
+Shift-PgUp
+....
+
+but I never managed to increase that buffer:
+
+* https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
+* https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
+
+The superior alternative is to use text mode or a telnet connection.
 === Module documentation
 
 ....
@@ -306,103 +424,6 @@ the disk image gets overwritten by a fresh filesystem and you lose all changes.
 Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
 
 When booting from <<initrd>> however without a disk, persistency is lost.
-
-=== Message control
-
-We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
-
-....
-dmesg -n 1
-....
-
-See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
-
-When in <<graphic-mode>>, you can scroll up a bit on the default TTY with:
-
-....
-Shift-PgUp
-....
-
-but I never managed to increase that buffer:
-
-* https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
-* https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
-
-The superior alternative is to use text mode or a telnet connection.
-
-=== Graphic mode
-
-By default, we show the serial console directly on the current terminal, without opening a QEMU window.
-
-To enable graphic mode, use:
-
-....
-./run -x
-....
-
-Text mode is the default due to the following considerable advantages:
-
-* copy and paste commands and stdout output to / from host
-* get full panic traces when you start making the kernel crash :-) See also: https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic
-* have a large scroll buffer, and be able to search it, e.g. by using tmux on host
-* one less window floating around to think about in addition to your shell :-)
-* graphics mode has only been properly tested on `x86_64`.
-
-Text mode has the following limitations over graphics mode:
-
-* you can't see graphics such as those produced by <<x11>>
-* very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
-
-Both good and bad:
-
-* `Ctrl-C` kills the host emulator instead of sending SIGINT to the guest process.
-+
-On one hand, this provides an easy way to quit QEMU.
-+
-On the other, we are unable to easily kill the foreground process, which is specially problematic when it is something like an infinite loop. and not sent to guest processes.
-+
-It is also hard to enter the monitor for the same reason:
-+
---
-* http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses
-* https://superuser.com/questions/488263/how-to-switch-to-the-qemu-control-panel-with-nographics
-* https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui/1211516#1211516
---
-+
-This behaviour is caused by the `-monitor` option: https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-to-the-guest-when-running-qemu-with-nographic/436321#436321
-+
-TODO: find a solution, that allows us to use both `-monitor` and send `Ctrl-C`: https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to
-+
-Our workaround is:
-+
-....
-./qemumonitor
-....
-+
-`sendkey ctrl-c` does not work on the text terminal either.
-+
-This is however fortunate when running QEMU with GDB, as the `Ctrl-C` reaches GDB and breaks.
-* Not everything generates interrupts, only the final enter.
-+
-This makes things a bit more reproducible, since the microsecond in which you pressed a key does not matter.
-+
-But on the other hand maybe you are interested in observing the interrupts generated by key presses.
-
-=== arm graphic mode
-
-TODO: how to see the terminal on the graphic window, just like happens on x86?
-
-=== Automatic startup commands
-
-When debugging a module, it becomes tedious to wait for build and re-type:
-
-....
-/modulename.sh
-....
-
-every time.
-
-To automate that, use the methods described at: <<init>>
 
 === Kernel command line parameters
 
@@ -1470,14 +1491,6 @@ A friend told me this but I haven't tried it yet:
 
 * `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
 * `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
-
-Also if I do:
-
-....
-cat /dev/urandom > /dev/fb0
-....
-
-the screen fills up with random colors, so I think it can truly work.
 
 === X11 MIPS
 
