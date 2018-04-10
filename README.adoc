@@ -379,7 +379,7 @@ Our workaround is:
 ./qemumonitor
 ....
 +
-`sendkey sendkey ctrl-c` does not work on the text terminal either.
+`sendkey ctrl-c` does not work on the text terminal either.
 +
 This is however fortunate when running QEMU with GDB, as the `Ctrl-C` reaches GDB and breaks.
 * Not everything generates interrupts, only the final enter.
@@ -3925,119 +3925,56 @@ One possibility we could play with is to build loadable modules instead of built
 
 ....
 ./bench-boot
+cat out/bench-boot.txt
 ....
 
-Output:
+Output on <<p51>> fb317f4778633692b91c9174224dccc6a3a02893:
 
 ....
-cmd ./run -a arm -E '/poweroff.out'
-time 6.77
-cmd ./run -a arm -E 'm5 exit' -g
-time 146.96
-insts 230209017
-cmd ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
-time > 3600
-insts > 373227765
-cmd ./run -a aarch64 -E '/poweroff.out'
-time 1.28
-cmd ./run -a aarch64 -E 'm5 exit' -g
-time 57.77
-insts 111512915
-cmd ./run -a aarch64 -E 'm5 exit' -g -- --caches --cpu-type=HPI
-time 360.90
-insts 111655309
 cmd ./run -a x86_64 -E '/poweroff.out'
-time 3.50
+time 3.64
 cmd ./run -a x86_64 -E '/poweroff.out' -- -enable-kvm
 time 1.30
+cmd ./run -a x86_64 -E '/poweroff.out' -T exec_tb
+time 4.00
+instructions 2437556
+cmd ./run -a arm -E '/poweroff.out'
+time 6.78
+cmd ./run -a arm -E '/poweroff.out' -T exec_tb
+time 7.08
+instructions 760143
 cmd ./run -a x86_64 -E 'm5 exit' -g
-time 376.03
-insts 634548425
+time 411.16
+instructions 637326092
+cmd ./run -a arm -E 'm5 exit' -g
+time 160.96
+instructions 230209017
+cmd ./run -a aarch64 -E '/poweroff.out'
+time 1.32
+cmd ./run -a aarch64 -E '/poweroff.out' -T exec_tb
+time 1.35
+instructions 178990
+cmd ./run -a aarch64 -E 'm5 exit' -g
+time 59.69
+instructions 115759248
+cmd ./run -a aarch64 -E 'm5 exit' -g -- --caches --cpu-type=HPI
+time 371.64
+instructions 115898484
 ....
 
 For ARM `arm` QEMU, we just try to manually hit `Ctrl-C` as soon as system shutdown message appears: <<arm-shutdown>>.
 
-The results on the <<p51>> were:
+TODO the following takes more than 1 hour to finish:
 
-[options="header"]
-|===
-|Arch |Emulator |Subtype |Time |N times slower than QEMU |Instruction count |Commit
+....
+cmd ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
+....
 
-|arm
-|QEMU
-|
-|6 seconds
-|1
-|
-|da79d6c6cde0fbe5473ce868c9be4771160a003b
-
-|arm
-|gem5
-|AtomicSimpleCPU
-|1 minute 40 seconds
-|17
-|
-|da79d6c6cde0fbe5473ce868c9be4771160a003b
-
-|arm
-|gem5
-|HPI
-|10 minutes
-|100
-|
-|da79d6c6cde0fbe5473ce868c9be4771160a003b
-
-|aarch64
-|QEMU
-|
-|1.3 seconds
-|1
-|170k
-|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
-
-|aarch64
-|gem5
-|AtomicSimpleCPU
-|1 minute
-|43
-|110M
-|b6e8a7d1d1cb8a1d10d57aa92ae66cec9bfb2d01
-
-|aarch64
-|gem5
-|HPI
-|6 minutes 4 seconds
-|
-|534.812.447
-|f482f24f87e2b1814ea9ed74f2c87ab30a4cb019
-
-|x86_64
-|QEMU
-|
-|3.8 seconds
-|1
-|1.8M
-|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
-
-|x86_64
-|QEMU
-|KVM
-|1.3 seconds
-|0.3
-|
-|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
-
-|x86_64
-|gem5
-|AtomicSimpleCPU
-|6 minutes 30 seconds
-|102
-|630M
-|4cb8a543eeaf7322d2e4493f689735cb5bfd48df
-
-|===
+Why so long? I had previously documented on README 10 minutes at: fb317f4778633692b91c9174224dccc6a3a02893 to be confirmed and bisected.
 
 One methodology problem is that some gem5 and QEMU were run with different kernel configs, due to <<gem5-qemu-config>>. This could have been improved if we normalized by instruction counts, but to do that we would have to enable tracing which makes QEMU run much slower.
+
+But TODO: on aarch64 both use the same kernel build alrady, and the gem5 instruction count is much higher, why?
 
 ==== Benchmark initial build
 

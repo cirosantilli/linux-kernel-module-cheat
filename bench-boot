@@ -6,29 +6,40 @@ bench() (
   printf 'cmd ' >> "$results_file"
   env time --append -f 'time %e' --output="$results_file" ./eeval "./run -a $1" "$results_file"
 )
-insts() (
-  { printf 'instructions '; ./gem5-stat -a "$1" sim_insts; } >> "$results_file"
+gem5_insts() (
+  printf "instructions $(./gem5-stat -a "$1" sim_insts)\n" >> "$results_file"
+)
+qemu_insts() (
+  arch="$1"
+  ./qemu-trace2txt -a "$arch"
+  set_common_vars "$arch"
+  printf "instructions $(wc -l "${qemu_trace_txt_file}" | cut -d' ' -f1)\n" >> "$results_file"
 )
 rm -f "${results_file}"
-
-arch=arm
-# Manual Ctrl+C required.
-#bench "$arch -E '/poweroff.out'"
-bench "$arch -E 'm5 exit' -g"
-insts "$arch"
-# TODO takes more than 1 hours to finish. Why so long?
-#bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
-#insts "$arch"
-
-arch=aarch64
-bench "$arch -E '/poweroff.out'"
-bench "$arch -E 'm5 exit' -g"
-insts "$arch"
-bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
-insts "$arch"
 
 arch=x86_64
 bench "$arch -E '/poweroff.out'"
 bench "$arch -E '/poweroff.out' -- -enable-kvm"
+bench "$arch -E '/poweroff.out' -T exec_tb"
+qemu_insts "$arch"
 bench "$arch -E 'm5 exit' -g"
-insts "$arch"
+gem5_insts "$arch"
+
+arch=arm
+# Manual Ctrl+C required.
+#bench "$arch -E '/poweroff.out'"
+#bench "$arch -E '/poweroff.out' -T exec_tb"
+#qemu_insts "$arch"
+bench "$arch -E 'm5 exit' -g"
+gem5_insts "$arch"
+#bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
+#gem5_insts "$arch"
+
+arch=aarch64
+bench "$arch -E '/poweroff.out'"
+bench "$arch -E '/poweroff.out' -T exec_tb"
+qemu_insts "$arch"
+bench "$arch -E 'm5 exit' -g"
+gem5_insts "$arch"
+bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
+gem5_insts "$arch"
