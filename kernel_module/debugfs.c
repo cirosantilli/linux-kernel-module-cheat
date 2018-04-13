@@ -21,6 +21,8 @@ Only the more basic fops can be implemented in debugfs, e.g. mmap is never calle
 static struct dentry *dir, *toplevel_file;
 static u32 value = 42;
 
+/* This basically re-implents the write operation of debugfs_create_u32,
+ * it is just an excuse to illustrate a fop. */
 static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
 	int ret;
