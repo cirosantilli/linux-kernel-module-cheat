@@ -23,7 +23,7 @@ static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff
 		pr_info("ko = %d\n", ret);
 		return ret;
 	} else {
-		pr_info("ok  = %llu\n", res);
+		pr_info("ok = %llu\n", res);
 		*off= len;
 		return len;
 	}
