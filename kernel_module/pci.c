@@ -1,5 +1,5 @@
 /*
-Only teted for x86.
+Only tested for x86.
 
 Usage:
 
