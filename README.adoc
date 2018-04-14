@@ -819,6 +819,20 @@ Ctrl-C
 add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
 ....
 
+Alternatively, if the module panics before you can read `/proc/modules`, there is a <<pr_debug>> which shows the load address:
+
+....
+echo 8 > /proc/sys/kernel/printk
+echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
+/myinsmod.out /hello.ko
+....
+
+And then search for a line of type:
+
+....
+[   84.877482]  0xfffffffa00000000 .text
+....
+
 === GDB step debug early boot
 
 TODO: why can't we break at early startup stuff such as:
@@ -1923,11 +1937,13 @@ Kernel Offset: disabled
 ---[ end Kernel panic - not syncing: hello panic
 ....
 
-First notice how our panic message `hello panic` is visible at:
+Notice how our panic message `hello panic` is visible at:
 
 ....
 Kernel panic - not syncing: hello panic
 ....
+
+===== Kernel module stack trace to source line
 
 The log shows which module each symbol belongs to if any, e.g.:
 
@@ -1956,6 +1972,21 @@ Line 7 of "/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_module-1
 ....
 
 as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-convert-addresses-to-lines/27576029#27576029
+
+The exact same thing can be done post mortem with:
+
+....
+./out/x86_64/buildroot/host/usr/bin/x86_64-buildroot-linux-uclibc-gdb \
+  -batch \
+  -ex 'info line *(myinit+0x1d)' \
+  ./out/x86_64/buildroot/build/kernel_module-1.0/panic.ko \
+;
+....
+
+Related:
+
+* https://stackoverflow.com/questions/6151538/addr2line-on-kernel-module
+* https://stackoverflow.com/questions/13468286/how-to-read-understand-analyze-and-debug-a-linux-kernel-panic
 
 ===== BUG_ON
 
@@ -2061,13 +2092,7 @@ Error occurred in Python command: Cannot access memory at address 0xbf00010c
 so we need to either:
 
 * <<gdb-module_init>>
-* <<addr2line-kernel-module>>
-
-===== addr2line kernel module
-
-https://stackoverflow.com/questions/6151538/addr2line-on-kernel-module
-
-TODO
+* <<kernel-module-trace-to-source-line>> post-mortem method
 
 [[dump_stack]]
 ==== dump_stack kernel module
