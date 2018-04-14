@@ -280,6 +280,43 @@ but I never managed to increase that buffer:
 * https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
 
 The superior alternative is to use text mode or a telnet connection.
+
+==== pr_debug
+
+https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405
+
+Not printable by default without recompile.
+
+But the awesome `CONFIG_DYNAMIC_DEBUG=y` option allows us to do:
+
+....
+echo 8 > /proc/sys/kernel/printk
+echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
+/myinsmod.out /hello.ko
+....
+
+Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
+
+TODO: why is this not working:
+
+....
+func sys_init_module +p' > /sys/kernel/debug/dynamic_debug/control
+....
+
+For modules, we can use:
+
+....
+echo 8 > /proc/sys/kernel/printk
+echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
+insmod /myprintk.ko
+....
+
+which should now contain the `pr_debug` message:
+
+....
+printk debug
+....
+
 === Module documentation
 
 ....
@@ -584,7 +621,14 @@ See also:
 * http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu/33203642#33203642
 * http://stackoverflow.com/questions/4943857/linux-kernel-live-debugging-how-its-done-and-what-tools-are-used/42316607#42316607
 
-`O=0` is an impossible dream, `O=2` being the default: https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0 So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
+[[kernel-o0]]
+==== Disable kernel compiler optimizations
+
+https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel-to-and-compile-it-with-o0
+
+`O=0` is an impossible dream, `O=2` being the default.
+
+So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
 
 === GDB step debug kernel post-boot
 
@@ -684,7 +728,63 @@ See also: http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-
 
 ==== GDB module_init
 
-TODO
+TODO haven't managed yet, documenting failed attempts.
+
+Possibly asked at:
+
+
+* https://stackoverflow.com/questions/37059320/debug-a-kernel-module-being-loaded
+* https://stackoverflow.com/questions/11888412/debug-the-init-module-call-of-a-linux-kernel-module?rq=1
+
+===== GDB module_init break in sys_module_init
+
+One possibility would be to break on `module_init`, and step until the module is added, at which point `ls-symbols` can do its magic.
+
+Beware that there are both `module_init` and `fmodule_init`, and `insmod` uses `fmodule_init` by default. Both call `do_module_init` however (which is what `lx-symbols` currently hooks to).
+
+If we try:
+
+....
+b fmodule_init
+....
+
+then hitting:
+
+....
+n
+....
+
+does not break, and insertion happens, likely because of optimizations? <<kernel-o0>>
+
+Then we try:
+
+....
+b do_init_module
+....
+
+A naive:
+
+....
+fin
+....
+
+also fails to break!
+
+===== GDB module_init add trap instruction
+
+This is another possibility: we could modify the module source by adding a trap instruction of some kind.
+
+This appears to be described at: https://www.linuxjournal.com/article/4525
+
+But it refers to a `gdbstart` script which is not in the tree anymore and beyong my `git log` capabilities.
+
+And just adding:
+
+....
+asm( " int $3");
+....
+
+directly gives an <<oops,oops>> as I'd expect.
 
 ==== Bypass lx-symbols
 
@@ -987,7 +1087,7 @@ c
 
 and you now control the count.
 
-TODO: if I `-ex lx-symbols` to the `gdb` command, just like done for QEMU `-gdb`, the kernel oops. How to automate this step?
+TODO: if I `-ex lx-symbols` to the `gdb` command, just like done for QEMU `-gdb`, the kernel <<oops,oops>>. How to automate this step?
 
 === KDB
 
@@ -1840,7 +1940,7 @@ says that the function `myinit` is in the module `panic`.
 To find the line that panicked, do:
 
 ....
-./rungdb -a arm
+./rungdb
 ....
 
 and then:
@@ -1861,6 +1961,7 @@ as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-conver
 
 Basically just calls `panic("BUG!")` for most archs.
 
+[[oops]]
 ==== Kernel oops
 
 On oops, the shell still lives after.
@@ -1928,7 +2029,7 @@ RIP: 0010:myinit+0x18/0x30 [oops]
 and then on GDB:
 
 ....
-./rungdb -a arm
+./rungdb
 ....
 
 run
@@ -1985,6 +2086,7 @@ One extra side effect is that we can make it also panic with:
 
 ....
 echo 1 > /proc/sys/kernel/panic_on_warn
+insmod /warn_on.ko
 ....
 
 === Console fun
