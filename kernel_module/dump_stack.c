@@ -3,9 +3,9 @@
 
 static int myinit(void)
 {
-	pr_info("panic myinit\n");
-	panic("hello panic");
-	pr_info("panic after\n");
+	pr_info("dump_stack myinit\n");
+	dump_stack();
+	pr_info("dump_stack after\n");
 	return 0;
 }
 

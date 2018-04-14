@@ -24,33 +24,35 @@ typedef struct {
 
 void ring0_get_control_regs(Ring0Regs *ring0_regs)
 {
-#ifdef __x86_64__
+#if defined(__x86_64__)
     __asm__ __volatile__ (
-        "mov %%cr0, %%rax\n\t"
-        "mov %%eax, %0\n\t"
-        "mov %%cr2, %%rax\n\t"
-        "mov %%eax, %1\n\t"
-        "mov %%cr3, %%rax\n\t"
-        "mov %%eax, %2\n\t"
-    : "=m" (ring0_regs->cr0),
-      "=m" (ring0_regs->cr2),
-      "=m" (ring0_regs->cr3)
-    : /* no input */
-    : "%rax"
+        "mov %%cr0, %%rax;"
+        "mov %%eax, %0;"
+        "mov %%cr2, %%rax;"
+        "mov %%eax, %1;"
+        "mov %%cr3, %%rax;"
+        "mov %%eax, %2;"
+        : "=m" (ring0_regs->cr0),
+          "=m" (ring0_regs->cr2),
+          "=m" (ring0_regs->cr3)
+        :
+        : "%rax"
     );
 #elif defined(__i386__)
     __asm__ __volatile__ (
-        "mov %%cr0, %%eax\n\t"
-        "mov %%eax, %0\n\t"
-        "mov %%cr2, %%eax\n\t"
-        "mov %%eax, %1\n\t"
-        "mov %%cr3, %%eax\n\t"
-        "mov %%eax, %2\n\t"
-    : "=m" (ring0_regs->cr0),
-      "=m" (ring0_regs->cr2),
-      "=m" (ring0_regs->cr3)
-    : /* no input */
-    : "%eax"
+        "mov %%cr0, %%eax;"
+        "mov %%eax, %0;"
+        "mov %%cr2, %%eax;"
+        "mov %%eax, %1;"
+        "mov %%cr3, %%eax;"
+        "mov %%eax, %2;"
+        : "=m" (ring0_regs->cr0),
+          "=m" (ring0_regs->cr2),
+          "=m" (ring0_regs->cr3)
+        :
+        : "%eax"
     );
 #endif
 }
+
+#endif

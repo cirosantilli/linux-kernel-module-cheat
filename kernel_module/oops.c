@@ -3,15 +3,15 @@
 
 static int myinit(void)
 {
-	pr_info("panic myinit\n");
-	panic("hello panic");
-	pr_info("panic after\n");
+	pr_info("oops myinit\n");
+	*(int *)0 = 0;
+	pr_info("oops after\n");
 	return 0;
 }
 
 static void myexit(void)
 {
-	pr_info("panic myexit\n");
+	pr_info("oops myexit\n");
 }
 
 module_init(myinit)

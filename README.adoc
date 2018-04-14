@@ -520,11 +520,33 @@ https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-fro
 If you are feeling raw, you can insert and remove modules with our own minimal module inserter and remover!
 
 ....
+# init_module
 /myinsmod.out /hello.ko
+# finit_module
+/myinsmod.out /hello.ko "" 1
 /myrmmod.out hello
 ....
 
 which teaches you how it is done from C code.
+
+The Linux kernel offers two system calls for module insertion:
+
+* `init_module`
+* `finit_module`
+
+and:
+
+....
+man init_module
+....
+
+documents that:
+
+____
+The finit_module() system call is like init_module(), but reads the module to be loaded from the file descriptor fd.  It is useful when the authenticity of a kernel module can be determined from its location in the filesystem; in cases where that is possible, the overhead of using cryptographically signed modules to determine the authenticity of a module can be avoided.  The param_values  argument is as for init_module().
+____
+
+`finit` is newer and was added only in v3.8. More rationale: https://lwn.net/Articles/519010/
 
 [[gdb]]
 == GDB step debug
@@ -660,6 +682,10 @@ TODO: why does `break work_func` for `insmod kthread.ko` not break the first tim
 
 See also: http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-modules-with-qemu/44095831#44095831
 
+==== GDB module_init
+
+TODO
+
 ==== Bypass lx-symbols
 
 Useless, but a good way to show how hardcore you are. Disable `lx-symbols` with:
@@ -674,6 +700,11 @@ From inside guest:
 insmod /fops.ko
 cat /proc/modules
 ....
+
+as mentioned at:
+
+* https://stackoverflow.com/questions/6384605/how-to-get-address-of-a-kernel-module-loaded-using-insmod/6385818
+* https://unix.stackexchange.com/questions/194405/get-base-address-and-size-of-a-loaded-kernel-module
 
 This will give a line of form:
 
@@ -1717,6 +1748,245 @@ Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
 
+=== Kernel panic and oops
+
+To test out kernel panics and oops in controlled circumstances, try out the modules:
+
+....
+insmod /panic.ko
+insmod /oops.ko
+....
+
+A panic can also be generated with:
+
+....
+echo c > /proc/sysrq-trigger
+....
+
+Panic vs oops: https://unix.stackexchange.com/questions/91854/whats-the-difference-between-a-kernel-oops-and-a-kernel-panic
+
+How to generate them:
+
+* https://unix.stackexchange.com/questions/66197/how-to-cause-kernel-panic-with-a-single-command
+* https://stackoverflow.com/questions/23484147/generate-kernel-oops-or-crash-in-the-code
+
+When a panic happens, <<linux-kernel-magic-keys,`Shift-PgUp`>> does not work as it normally does, and it is hard to get the logs if on are on <<graphic-mode>>:
+
+* https://superuser.com/questions/848412/scrolling-up-the-failed-screen-with-kernel-panic
+* https://superuser.com/questions/269228/write-qemu-booting-virtual-machine-output-to-a-file
+* http://www.reactos.org/wiki/QEMU#Redirect_to_a_file
+
+==== Kernel panic
+
+On panic, the kernel dies, and so does our terminal.
+
+Make the kernel reboot after n seconds after panic:
+
+....
+echo 1 > /proc/sys/kernel/panic
+....
+
+`0` to disable: https://unix.stackexchange.com/questions/29567/how-to-configure-the-linux-kernel-to-reboot-on-panic/29569#29569
+
+The panic trace looks like:
+
+....
+panic: loading out-of-tree module taints kernel.
+panic myinit
+Kernel panic - not syncing: hello panic
+CPU: 0 PID: 53 Comm: insmod Tainted: G           O     4.16.0 #6
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.11.0-0-g63451fca13-prebuilt.qemu-project.org 04/01/2014
+Call Trace:
+ dump_stack+0x7d/0xba
+ ? 0xffffffffc0000000
+ panic+0xda/0x213
+ ? printk+0x43/0x4b
+ ? 0xffffffffc0000000
+ myinit+0x1d/0x20 [panic]
+ do_one_initcall+0x3e/0x170
+ do_init_module+0x5b/0x210
+ load_module+0x2035/0x29d0
+ ? kernel_read_file+0x7d/0x140
+ ? SyS_finit_module+0xa8/0xb0
+ SyS_finit_module+0xa8/0xb0
+ do_syscall_64+0x6f/0x310
+ ? trace_hardirqs_off_thunk+0x1a/0x32
+ entry_SYSCALL_64_after_hwframe+0x42/0xb7
+RIP: 0033:0x7ffff7b36206
+RSP: 002b:00007fffffffeb78 EFLAGS: 00000206 ORIG_RAX: 0000000000000139
+RAX: ffffffffffffffda RBX: 000000000000005c RCX: 00007ffff7b36206
+RDX: 0000000000000000 RSI: 000000000069e010 RDI: 0000000000000003
+RBP: 000000000069e010 R08: 00007ffff7ddd320 R09: 0000000000000000
+R10: 00007ffff7ddd320 R11: 0000000000000206 R12: 0000000000000003
+R13: 00007fffffffef4a R14: 0000000000000000 R15: 0000000000000000
+Kernel Offset: disabled
+---[ end Kernel panic - not syncing: hello panic
+....
+
+First notice how our panic message `hello panic` is visible at:
+
+....
+Kernel panic - not syncing: hello panic
+....
+
+The log shows which module each symbol belongs to if any, e.g.:
+
+....
+myinit+0x1d/0x20 [panic]
+....
+
+says that the function `myinit` is in the module `panic`.
+
+To find the line that panicked, do:
+
+....
+./rungdb -a arm
+....
+
+and then:
+
+....
+info line *(myinit+0x1d)
+....
+
+which gives us the correct line:
+
+....
+Line 7 of "/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_module-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
+....
+
+as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-convert-addresses-to-lines/27576029#27576029
+
+===== BUG_ON
+
+Basically just calls `panic("BUG!")` for most archs.
+
+==== Kernel oops
+
+On oops, the shell still lives after.
+
+However we:
+
+* leave the normal control flow, and `oops after` never gets printed: an interrupt is serviced
+* cannot `rmmod oops` afterwards
+
+It is possible to make `oops` lead to panics always with:
+
+....
+echo 1 > /proc/sys/kernel/panic_on_oops
+insmod /oops.ko
+....
+
+An oops stack trace looks like:
+
+....
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000000
+IP: myinit+0x18/0x30 [oops]
+PGD dccf067 P4D dccf067 PUD dcc1067 PMD 0
+Oops: 0002 [#1] SMP NOPTI
+Modules linked in: oops(O+)
+CPU: 0 PID: 53 Comm: insmod Tainted: G           O     4.16.0 #6
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.11.0-0-g63451fca13-prebuilt.qemu-project.org 04/01/2014
+RIP: 0010:myinit+0x18/0x30 [oops]
+RSP: 0018:ffffc900000d3cb0 EFLAGS: 00000282
+RAX: 000000000000000b RBX: ffffffffc0000000 RCX: ffffffff81e3e3a8
+RDX: 0000000000000001 RSI: 0000000000000086 RDI: ffffffffc0001033
+RBP: ffffc900000d3e30 R08: 69796d2073706f6f R09: 000000000000013b
+R10: ffffea0000373280 R11: ffffffff822d8b2d R12: 0000000000000000
+R13: ffffffffc0002050 R14: ffffffffc0002000 R15: ffff88000dc934c8
+FS:  00007ffff7ff66a0(0000) GS:ffff88000fc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000000 CR3: 000000000dcd2000 CR4: 00000000000006f0
+Call Trace:
+ do_one_initcall+0x3e/0x170
+ do_init_module+0x5b/0x210
+ load_module+0x2035/0x29d0
+ ? SyS_finit_module+0xa8/0xb0
+ SyS_finit_module+0xa8/0xb0
+ do_syscall_64+0x6f/0x310
+ ? trace_hardirqs_off_thunk+0x1a/0x32
+ entry_SYSCALL_64_after_hwframe+0x42/0xb7
+RIP: 0033:0x7ffff7b36206
+RSP: 002b:00007fffffffeb78 EFLAGS: 00000206 ORIG_RAX: 0000000000000139
+RAX: ffffffffffffffda RBX: 000000000000005c RCX: 00007ffff7b36206
+RDX: 0000000000000000 RSI: 000000000069e010 RDI: 0000000000000003
+RBP: 000000000069e010 R08: 00007ffff7ddd320 R09: 0000000000000000
+R10: 00007ffff7ddd320 R11: 0000000000000206 R12: 0000000000000003
+R13: 00007fffffffef4b R14: 0000000000000000 R15: 0000000000000000
+Code: <c7> 04 25 00 00 00 00 00 00 00 00 e8 b2 33 09 c1 31 c0 c3 0f 1f 44
+RIP: myinit+0x18/0x30 [oops] RSP: ffffc900000d3cb0
+CR2: 0000000000000000
+---[ end trace 3cdb4e9d9842b503 ]---
+....
+
+To find the line that oopsed, look at the `RIP` register:
+
+....
+RIP: 0010:myinit+0x18/0x30 [oops]
+....
+
+and then on GDB:
+
+....
+./rungdb -a arm
+....
+
+run
+
+....
+info line *(myinit+0x18)
+....
+
+which gives us the correct line:
+
+....
+Line 7 of "/linux-kernel-module-cheat/out/arm/buildroot/build/kernel_module-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
+....
+
+TODO: does not work on `arm`, `lx-symbols` cannot find the module anymore:
+
+....
+Traceback (most recent call last):
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
+    self.load_all_symbols()
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
+    [self.load_module_symbols(module) for module in module_list]
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
+    module_name = module['name'].string()
+gdb.MemoryError: Cannot access memory at address 0xbf00010c
+Error occurred in Python command: Cannot access memory at address 0xbf00010c
+....
+
+so we need to either:
+
+* <<gdb-module_init>>
+* <<addr2line-kernel-module>>
+
+===== addr2line kernel module
+
+https://stackoverflow.com/questions/6151538/addr2line-on-kernel-module
+
+TODO
+
+[[dump_stack]]
+==== dump_stack kernel module
+
+The `dump_stack` function produces a stack trace much like panic and oops, but causes no problems and we return to the normal control flow, and can cleanly remove the module afterwards:
+
+....
+insmod /dump_stack.ko
+....
+
+==== warn_on kernel module
+
+The `WARN_ON` macro basically just calls <<dump_stack,dump_stack>>.
+
+One extra side effect is that we can make it also panic with:
+
+....
+echo 1 > /proc/sys/kernel/panic_on_warn
+....
+
 === Console fun
 
 You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
@@ -1962,7 +2232,7 @@ But in part because it is dying, I didn't spend much effort to integrate it into
 
 Maybe some brave should will send a pull request one day.
 
-=== Magic keys understood by the Linux kernel
+=== Linux kernel magic keys
 
 Let's have some fun.
 
