@@ -27,11 +27,13 @@ initramfs=false
 memory=256M
 nographic=true
 root=
+tmux=false
+tmux_args=
 # A dummy value that is already turned on by default and does not produce large output,
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_enable=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
+while getopts a:c:DdE:e:f:G:ghIiKkm:T:U:uVx OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -90,6 +92,12 @@ while getopts a:c:DdE:e:f:G:ghIiKkm:T:Vx OPT; do
       ;;
     T)
       trace_enable="$OPTARG"
+      ;;
+    U)
+      tmux_args="$OPTARG"
+      ;;
+    u)
+      tmux=true
       ;;
     x)
       nographic=false
@@ -280,6 +288,13 @@ ${extra_flags} \
 "
     ;;
   esac
+fi
+if "$tmux"; then
+  if "$debug"; then
+    eval "./tmu ./rungdb -a "${arch}" ${tmux_args}"
+  elif "$gem5"; then
+    eval "./tmu 'sleep 1;./gem5-shell'"
+  fi
 fi
 echo "$cmd" | tee "${out_arch_dir}/run.sh"
 eval "$cmd"
