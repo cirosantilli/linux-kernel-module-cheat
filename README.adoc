@@ -732,6 +732,64 @@ Just don't forget to remove your breakpoints after `rmmod`, or they will point t
 
 TODO: why does `break work_func` for `insmod kthread.ko` not break the first time I `insmod`, but breaks the second time?
 
+==== GDB step debug kernel module ARM
+
+TODO on `arm` 51e31cdc2933a774c2a0dc62664ad8acec1d2dbe it does not always work, and `lx-symbols` fails with the message:
+
+....
+loading vmlinux
+Traceback (most recent call last):
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
+    self.load_all_symbols()
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
+    [self.load_module_symbols(module) for module in module_list]
+  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
+    module_name = module['name'].string()
+gdb.MemoryError: Cannot access memory at address 0xbf0000cc
+Error occurred in Python command: Cannot access memory at address 0xbf0000cc
+....
+
+Can't reproduce on `x86_64` and `aarch64` are fine.
+
+It is kind of random: if you just `insmod` manually and then immediately `./rungdb -a arm`, then it usually works.
+
+But this fails most of the time: shell 1:
+
+....
+./run -a arm -f '- lkmc_eval="insmod /hello.ko"'
+....
+
+shell 2:
+
+....
+./rungdb -a arm
+....
+
+then hit `Ctrl-C` on shell 2, and voila.
+
+Then:
+
+....
+cat /proc/modules
+....
+
+says that the load address is:
+
+....
+0xbf000000
+....
+
+so it is close to the failing `0xbf0000cc`.
+
+`readelf`:
+
+....
+./out/x86_64/buildroot/host/usr/bin/x86_64-buildroot-linux-uclibc-readelf \
+-s ./out/x86_64/buildroot/build/kernel_module-1.0/hello.ko
+....
+
+does not give any interesting hits at `cc`, no symbol was placed that far.
+
 ==== GDB module_init
 
 TODO find a convenient method.
@@ -1077,7 +1135,7 @@ However, if we do a `Ctrl-C`, and then a direct:
 b *0x107b8
 ....
 
-it works. Why?! On GEM5, x86 can also give te `Cannot access memory at address`, so maybe it is also unreliable on QEMU, and works just by coincidence.
+it works. Why?! On GEM5, x86 can also give the `Cannot access memory at address`, so maybe it is also unreliable on QEMU, and works just by coincidence.
 
 === GDB call
 
@@ -2192,21 +2250,7 @@ which gives us the correct line:
 Line 7 of "/linux-kernel-module-cheat/out/arm/buildroot/build/kernel_module-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
 ....
 
-TODO: does not work on `arm`, `lx-symbols` cannot find the module anymore:
-
-....
-Traceback (most recent call last):
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
-    self.load_all_symbols()
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
-    [self.load_module_symbols(module) for module in module_list]
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
-    module_name = module['name'].string()
-gdb.MemoryError: Cannot access memory at address 0xbf00010c
-Error occurred in Python command: Cannot access memory at address 0xbf00010c
-....
-
-so we need to either:
+This-did not work on `arm` due to <<gdb-step-debug-kernel-module-arm>> so we need to either:
 
 * <<gdb-module_init>>
 * <<kernel-module-stack-trace-to-source-line>> post-mortem method
