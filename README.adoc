@@ -295,6 +295,12 @@ echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
 /myinsmod.out /hello.ko
 ....
 
+and we have a shortcut at:
+
+....
+/pr_debug.sh
+....
+
 Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
 
 TODO: why is this not working:
@@ -728,24 +734,117 @@ See also: http://stackoverflow.com/questions/28607538/how-to-debug-linux-kernel-
 
 ==== GDB module_init
 
-TODO haven't managed yet, documenting failed attempts.
+TODO find a convenient method.
+
+This is not very easy, since by the time the module finishes loading, and `lx-symbols` can work properly, `module_init` has already finished running!
 
 Possibly asked at:
-
 
 * https://stackoverflow.com/questions/37059320/debug-a-kernel-module-being-loaded
 * https://stackoverflow.com/questions/11888412/debug-the-init-module-call-of-a-linux-kernel-module?rq=1
 
-===== GDB module_init break in sys_module_init
+===== GDB module_init step into it
 
-One possibility would be to break on `module_init`, and step until the module is added, at which point `ls-symbols` can do its magic.
+The kernel calls `module_init` synchronously, therefore it is not hard to step into that call.
 
-Beware that there are both `module_init` and `fmodule_init`, and `insmod` uses `fmodule_init` by default. Both call `do_module_init` however (which is what `lx-symbols` currently hooks to).
+As of 4.16, the call happens in `do_init_module`, so we can do in shell 1:
+
+....
+./run
+....
+
+shell 2 after boot finishes (because there are other calls to `do_init_module` at boot, presumably for the built-in modules):
+
+....
+./rungdb do_init_module
+....
+
+then step until the line:
+
+....
+833         ret = fn();
+....
+
+which does the actual call, and then step into it.
+
+For the next time, you can also put a breakpoint there directly:
+
+....
+./rungdb init/main.c:833
+....
+
+How we found this out: first we got <<gdb-module_init-calculate-entry-address>> working, and then we did a `bt`. AKA cheating :-)
+
+===== GDB module_init calculate entry address
+
+This works, but is a bit annoying.
+
+The key observation is that the load address of kernel modules is deterministic: there is a pre allocated memory region https://www.kernel.org/doc/Documentation/x86/x86_64/mm.txt "module mapping space" filled from bottom up.
+
+So once we find the address the first time, we can just reuse it afterwards, as long as we don't modify the module.
+
+Do a fresh boot and get the module:
+
+....
+./run -f '- lkmc_eval="/pr_debug.sh;insmod /fops.ko;/poweroff.out"'
+....
+
+The boot must be fresh, because the load address changes every time we insert, even after removing previous modules.
+
+The base address shows on terminal:
+
+....
+0xffffffffc0000000 .text
+....
+
+Now let's find the offset of `myinit`:
+
+....
+./out/x86_64/buildroot/host/usr/bin/x86_64-buildroot-linux-uclibc-readelf \
+  -s ./out/x86_64/buildroot/build/kernel_module-1.0/fops.ko | \
+  grep myinit
+....
+
+which gives:
+
+....
+    30: 0000000000000240    43 FUNC    LOCAL  DEFAULT    2 myinit
+....
+
+so the offset address is `0x240` and we deduce that the function will be placed at:
+
+....
+0xffffffffc0000000 + 0x240 = 0xffffffffc0000240
+....
+
+Now we can just do a fresh boot on shell 1:
+
+....
+./run -E 'insmod /fops.ko;/poweroff.out' -d
+....
+
+and on shell 2:
+
+....
+./rungdb '*0xffffffffc0000240'
+....
+
+GDB then breaks, and `lx-symbols` works.
+
+===== GDB module_init break at the end of sys_init_module
+
+TODO not working. This could be potentially very convenient.
+
+The idea here is to break at a point late enough inside `sys_init_module`, at which point `lx-symbols` can be called and do its magic.
+
+Beware that there are both `sys_init_module` and `sys_finit_module` syscalls, and `insmod` uses `fmodule_init` by default.
+
+Both call `do_module_init` however, which is what `lx-symbols` hooks to.
 
 If we try:
 
 ....
-b fmodule_init
+b sys_finit_module
 ....
 
 then hitting:
@@ -770,13 +869,17 @@ fin
 
 also fails to break!
 
+Finally, in despair we notice that <<pr_debug>> prints the kernel load address as explained at <<bypass-lx-symbols>>.
+
+So, if we set a breakpoint just after that message is printed by searching where that happens on the Linux source code, we must be able to get the correct load address before `init_module` happens.
+
 ===== GDB module_init add trap instruction
 
 This is another possibility: we could modify the module source by adding a trap instruction of some kind.
 
 This appears to be described at: https://www.linuxjournal.com/article/4525
 
-But it refers to a `gdbstart` script which is not in the tree anymore and beyong my `git log` capabilities.
+But it refers to a `gdbstart` script which is not in the tree anymore and beyond my `git log` capabilities.
 
 And just adding:
 
@@ -1007,6 +1110,20 @@ even though `fdget_pos` is the first thing `sys_write` does:
 583 {
 584     struct fd f = fdget_pos(fd);
 ....
+
+I also noticed that I get the same error:
+
+....
+Could not fetch register "orig_rax"; remote failure reply 'E14'
+....
+
+when trying to use:
+
+....
+fin
+....
+
+on many (all?) functions.
 
 See also: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/19
 
