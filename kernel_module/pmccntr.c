@@ -1,11 +1,5 @@
 /*
 ARM only.
-
-TODO not working.
-
-* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
-* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
-* https://blog.regehr.org/archives/794
 */
 
 #include <linux/debugfs.h>
@@ -16,7 +10,6 @@ TODO not working.
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
 #include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <uapi/linux/stat.h> /* S_IRUSR */
-
 
 static struct dentry *debugfs_file;
 

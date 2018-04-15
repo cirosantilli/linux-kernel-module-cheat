@@ -327,6 +327,7 @@ printk debug
 
 ....
 head kernel_module/modulename.c
+grep 'modulename\.' README.adoc
 ....
 
 Many of the modules have userland test scripts / executables with the same name as the module, e.g. form inside the guest:
@@ -3357,7 +3358,7 @@ and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
 Clock frequency: TODO how does it affect performance in benchmarks?
 
 ....
-./run -a arm -g -- --cpu-clock 10000000
+./run -a aarch64 -g -- --cpu-clock 10000000
 ....
 
 Check with:
@@ -3369,7 +3370,7 @@ m5 resetstats && sleep 10 && m5 dumpstats
 and then:
 
 ....
-grep numCycles out/aarch64/gem5/m5out/stats.txt
+./gem5-stat -a aarch64
 ....
 
 TODO: why doesn't this exist:
@@ -4162,6 +4163,39 @@ touch /tmp/execfile
 chmoe +x /tmp/execfile
 m5 execfile
 ....
+
+=== gem5 stats
+
+Lets try to understand some stats better.
+
+==== rdtsc
+
+....
+./build -kg && ./run -E '/rdtsc.out;m5 exit;' -g
+./gem5-stat
+....
+
+gives cycle counts:
+
+* `3828578153`
+* `3830832635`
+
+Which are pretty close, and serve as a nice sanity check that the cycle counter is coherent.
+
+It is also nice to see that `rdtsc` is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
+
+See also:
+
+* https://en.wikipedia.org/wiki/Time_Stamp_Counter
+* https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
+
+===== pmccntr kernel module
+
+Unfortunately-we didn't manage to find an ARM analogue: link:kernel_module/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+
+* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
+* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
+* https://blog.regehr.org/archives/794
 
 === gem5 limitations
 

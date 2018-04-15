@@ -16,11 +16,10 @@ Only works in x86_64.
 int main(void) {
 	uintmax_t val;
 #if defined(__i386__) || defined(__x86_64__)
-	/* https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979 */
 	val = __rdtsc();
 #else
 	val = 0;
 #endif
-	printf("%jx\n", val);
+	printf("%ju\n", val);
 	return EXIT_SUCCESS;
 }
