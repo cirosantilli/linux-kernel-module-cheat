@@ -2357,8 +2357,7 @@ This-did not work on `arm` due to <<gdb-step-debug-kernel-module-arm>> so we nee
 * <<gdb-module_init>>
 * <<kernel-module-stack-trace-to-source-line>> post-mortem method
 
-[[dump_stack]]
-==== dump_stack kernel module
+==== dump_stack
 
 The `dump_stack` function produces a stack trace much like panic and oops, but causes no problems and we return to the normal control flow, and can cleanly remove the module afterwards:
 
@@ -2366,7 +2365,7 @@ The `dump_stack` function produces a stack trace much like panic and oops, but c
 insmod /dump_stack.ko
 ....
 
-==== warn_on kernel module
+==== WARN_ON
 
 The `WARN_ON` macro basically just calls <<dump_stack,dump_stack>>.
 
@@ -2404,7 +2403,44 @@ TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-consol
 * https://unix.stackexchange.com/questions/177024/remap-keyboard-on-the-linux-console
 * https://superuser.com/questions/194202/remapping-keys-system-wide-in-linux-not-just-in-x
 
-=== ftrace
+=== Linux kernel tracing
+
+==== CONFIG_PROC_EVENTS
+
+Logs proc events such as process creation to a link:https://en.wikipedia.org/wiki/Netlink[netlink socket].
+
+We then have a userland program that listens to the events and prints them out:
+
+....
+# /proc_events.out &
+# set mcast listen ok
+# sleep 2 & sleep 1
+fork: parent tid=48 pid=48 -> child tid=79 pid=79
+fork: parent tid=48 pid=48 -> child tid=80 pid=80
+exec: tid=80 pid=80
+exec: tid=79 pid=79
+# exit: tid=80 pid=80 exit_code=0
+exit: tid=79 pid=79 exit_code=0
+echo a
+a
+#
+....
+
+TODO: why `exit: tid=79` shows after `exit: tid=80`?
+
+Note how `echo a` is a Bash built-in, and therefore does not spawn a new process.
+
+TODO: why does this produce no output?
+
+....
+/proc_events.out >f &
+....
+
+* https://stackoverflow.com/questions/6075013/detect-launching-of-programs-on-linux-platform/8255487#8255487
+* https://serverfault.com/questions/199654/does-anyone-know-a-simple-way-to-monitor-root-process-spawn
+* https://unix.stackexchange.com/questions/260162/how-to-track-newly-created-processes
+
+==== ftrace
 
 Trace a single function:
 
@@ -2499,7 +2535,7 @@ TODO: what do `+` and `!` mean?
 
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
 
-=== Count boot instructions
+==== Count boot instructions
 
 * https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take
 * https://github.com/cirosantilli/chat/issues/31
@@ -4290,7 +4326,7 @@ See also:
 * https://en.wikipedia.org/wiki/Time_Stamp_Counter
 * https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
 
-===== pmccntr kernel module
+===== pmccntr
 
 Unfortunately-we didn't manage to find an ARM analogue: link:kernel_module/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
 
