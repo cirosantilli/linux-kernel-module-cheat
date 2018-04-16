@@ -1181,7 +1181,7 @@ This is the least reliable setup as there might be other processes that use the 
 
 ===== GDB step debug userland non-init without -d
 
-TODO: on QEMU, it works on x86 and aarch64 but fails on arm as follows:
+TODO: on QEMU bfba11afddae2f7b2c1335b4e23133e9cd3c9126, it works on `x86_64` and `aarch64` but fails on arm as follows:
 
 * Shell 1:
 +
@@ -1191,27 +1191,53 @@ TODO: on QEMU, it works on x86 and aarch64 but fails on arm as follows:
 * Shell 2: wait for boot to finish, and run:
 +
 ....
-./rungdb-user -a arm kernel_module-1.0/user/myinsmod.out main
+./rungdb-user -a arm kernel_module-1.0/user/hello.out main
 ....
 * Shell 1:
 +
 ....
-/myinsmod.out /hello.ko
+/hello.out
 ....
 
 The problem is that the `b main` that we do inside `./rungdb-user` says:
 
 ....
-Cannot access memory at address 0x107b8
+Cannot access memory at address 0x10604
 ....
 
-However, if we do a `Ctrl-C`, and then a direct:
+We have also double checked the address with:
 
 ....
-b *0x107b8
+./out/arm/buildroot/host/bin/arm-buildroot-linux-uclibcgnueabi-readelf-s \
+  ./out/arm/buildroot/build/kernel_module-1.0/user/hello.out | \
+  grep main
 ....
 
-it works. Why?! On GEM5, x86 can also give the `Cannot access memory at address`, so maybe it is also unreliable on QEMU, and works just by coincidence.
+and from GDB:
+
+....
+info line main
+....
+
+and both give:
+
+....
+000105fc
+....
+
+which is just 8 bytes before `0x10604`.
+
+`gdbserver` also says `0x10604`.
+
+However, if do a `Ctrl-C` in GDB, and then a direct:
+
+....
+b *0x000105fc
+....
+
+it works. Why?!
+
+On GEM5, x86 can also give the `Cannot access memory at address`, so maybe it is also unreliable on QEMU, and works just by coincidence.
 
 === GDB call
 
