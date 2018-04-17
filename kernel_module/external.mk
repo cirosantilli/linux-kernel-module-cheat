@@ -13,17 +13,17 @@ ifeq ($(BR2_PACKAGE_OPENBLAS),y)
 endif
 
 define KERNEL_MODULE_BUILD_CMDS
-  $(MAKE) -C '$(@D)/user' BR2_PACKAGE_OPENBLAS="$(BR2_PACKAGE_OPENBLAS)" CC="$(TARGET_CC)" LD="$(TARGET_LD)"
+	$(MAKE) -C '$(@D)/user' $(TARGET_CONFIGURE_OPTS) BR2_PACKAGE_OPENBLAS="$(BR2_PACKAGE_OPENBLAS)"
 endef
 
 define KERNEL_MODULE_INSTALL_TARGET_CMDS
-  # The modules are already installed by the kernel-module package type
-  # under /lib/modules/**, but let's also copy the modules to the root
-  # for insmod convenience.
-  #
-  # Modules can be still be easily inserted with "modprobe module" however.
-  $(INSTALL) -D -m 0655 $(@D)/*.ko '$(TARGET_DIR)'
-  $(INSTALL) -D -m 0755 $(@D)/user/*.out '$(TARGET_DIR)'
+	# The modules are already installed by the kernel-module package type
+	# under /lib/modules/**, but let's also copy the modules to the root
+	# for insmod convenience.
+	#
+	# Modules can be still be easily inserted with "modprobe module" however.
+	$(INSTALL) -D -m 0655 $(@D)/*.ko '$(TARGET_DIR)'
+	$(INSTALL) -D -m 0755 $(@D)/user/*.out '$(TARGET_DIR)'
 endef
 
 $(eval $(kernel-module))

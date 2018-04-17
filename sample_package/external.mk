@@ -9,8 +9,9 @@ SAMPLE_PACKAGE_SITE = $(BR2_EXTERNAL_SAMPLE_PACKAGE_PATH)
 SAMPLE_PACKAGE_SITE_METHOD = local
 
 define SAMPLE_PACKAGE_BUILD_CMDS
-  # D contains the source code of this package.
-  $(MAKE) -C '$(@D)' CC="$(TARGET_CC)" LD="$(TARGET_LD)"
+	# D contains the source code of this package.
+	# TARGET_CONFIGURE_OPTS contains several common options such as CFLAGS and LDFLAGS.
+	$(MAKE) -C '$(@D)' $(TARGET_CONFIGURE_OPTS)
 endef
 
 define SAMPLE_PACKAGE_INSTALL_TARGET_CMDS

@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-CFLAGS_EXTRA ?= -ggdb3 -fopenmp -O0 -std=c99 -Wall -Werror -Wextra
+CFLAGS_EXTRA ?= -fopenmp -std=c99 -Wall -Werror -Wextra
 IN_EXT ?= .c
 LIBS :=
 OUT_EXT ?= .out
