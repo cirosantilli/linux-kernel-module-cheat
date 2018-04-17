@@ -2442,7 +2442,7 @@ TODO: why does this produce no output?
 
 ==== CONFIG_PROC_EVENTS aarch64
 
-Was failing with:
+0111ca406bdfa6fd65a2605d353583b4c4051781 was failing with:
 
 ....
 >>> kernel_module 1.0 Building
@@ -2459,8 +2459,40 @@ so we commented it out.
 
 Related threads:
 
-* https://mailman.uclibc-ng.org/pipermail/devel/2018-January/001624.html lets try to update uclibc, possibly track it as a submodule already :-)
+* https://mailman.uclibc-ng.org/pipermail/devel/2018-January/001624.html
 * https://github.com/DynamoRIO/dynamorio/issues/2356
+
+If we try to naively update uclibc to 1.0.29 with `buildroot_override`, which contains the above mentioned patch, clean `aarch64` test build fails with:
+
+....
+../utils/ldd.c: In function 'elf_find_dynamic':
+../utils/ldd.c:238:12: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
+     return (void *)byteswap_to_host(dynp->d_un.d_val);
+            ^
+/tmp/user/20321/cciGScKB.o: In function `process_line_callback':
+msgmerge.c:(.text+0x22): undefined reference to `escape'
+/tmp/user/20321/cciGScKB.o: In function `process':
+msgmerge.c:(.text+0xf6): undefined reference to `poparser_init'
+msgmerge.c:(.text+0x11e): undefined reference to `poparser_feed_line'
+msgmerge.c:(.text+0x128): undefined reference to `poparser_finish'
+collect2: error: ld returned 1 exit status
+Makefile.in:120: recipe for target '../utils/msgmerge.host' failed
+make[2]: *** [../utils/msgmerge.host] Error 1
+make[2]: *** Waiting for unfinished jobs....
+/tmp/user/20321/ccF8V8jF.o: In function `process':
+msgfmt.c:(.text+0xbf3): undefined reference to `poparser_init'
+msgfmt.c:(.text+0xc1f): undefined reference to `poparser_feed_line'
+msgfmt.c:(.text+0xc2b): undefined reference to `poparser_finish'
+collect2: error: ld returned 1 exit status
+Makefile.in:120: recipe for target '../utils/msgfmt.host' failed
+make[2]: *** [../utils/msgfmt.host] Error 1
+package/pkg-generic.mk:227: recipe for target '/data/git/linux-kernel-module-cheat/out/aarch64/buildroot/build/uclibc-custom/.stamp_built' failed                                                                  
+make[1]: *** [/data/git/linux-kernel-module-cheat/out/aarch64/buildroot/build/uclibc-custom/.stamp_built] Error 2                                                                                                  
+Makefile:79: recipe for target '_all' failed
+make: *** [_all] Error 2
+....
+
+Buildroot master has already moved to uclibc 1.0.29 at f8546e836784c17aa26970f6345db9d515411700, but it is not yet in any tag... so I'm not tempted to update it yet just for this.
 
 ==== ftrace
 
@@ -4446,7 +4478,7 @@ dmesg
 
 We provide the following mechanisms:
 
-* `./build -b data/br2`: append the buildroot configuration file `data/br2` to a single build. Must be passed every time you run `./build`. The format is the same as link:br2[].
+* `./build -b data/br2`: append the Buildroot configuration file `data/br2` to a single build. Must be passed every time you run `./build`. The format is the same as link:br2[].
 * `./build -B 'BR2_SOM_OPTION="myval"'`: append a single option to a single build.
 
 You will then likely want to make those more permanent with: <<retype>>
