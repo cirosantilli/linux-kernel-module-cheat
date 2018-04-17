@@ -4,6 +4,12 @@ This file is licensed under the GPL v2 (http://www.gnu.org/licenses/gpl2.txt) (s
 https://stackoverflow.com/questions/6075013/detect-launching-of-programs-on-linux-platform/8255487#8255487
 */
 
+#if defined(__aarch64__)
+
+int main() {}
+
+#else
+
 #define _XOPEN_SOURCE 700
 #include <sys/socket.h>
 #include <linux/netlink.h>
@@ -178,3 +184,5 @@ out:
 	close(nl_sock);
 	exit(rc);
 }
+
+#endif
