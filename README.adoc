@@ -300,17 +300,55 @@ every time.
 
 To automate that, use the methods described at: <<init>>
 
-=== Message control
+=== printk
 
-We use `printk` a lot, and it shows on the QEMU terminal by default. If that annoys you (e.g. you want to see stdout separately), do:
+We use `printk` a lot, and it shows on the terminal by default, along with stdout and what you type.
+
+Hide all `printk` messages:
 
 ....
 dmesg -n 1
 ....
 
+or equivalently:
+
+....
+echo 1 > /proc/sys/kernel/printk
+....
+
 See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
 
-When in <<graphic-mode>>, you can scroll up a bit on the default TTY with:
+Do it with a <<kernel-command-line-parameters>> to affect the boot itself:
+
+....
+./run -e 'loglevel=5'
+....
+
+and now only boot warning messages or worse show, which is useful to identify problems.
+
+Our default `printk` format is:
+
+....
+<LEVEL>[TIMESTAMP] MESSAGE
+....
+
+e.g.:
+
+....
+<6>[    2.979121] Freeing unused kernel memory: 2024K
+....
+
+where:
+
+* `LEVEL`: higher means less serious
+* `TIMESTAMP`: seconds since boot
+
+This format is selected by the following boot options:
+
+* `console_msg_format=syslog`: add the `<LEVEL>` part
+* `printk.time=y`: add the `[TIMESTAMP]` part
+
+Scroll up in <<graphic-mode>>:
 
 ....
 Shift-PgUp
@@ -321,15 +359,15 @@ but I never managed to increase that buffer:
 * https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
 * https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
 
-The superior alternative is to use text mode or a telnet connection.
+The superior alternative is to use text mode and GNU screen or tmux.
 
 ==== pr_debug
 
 https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405
 
-Not printable by default without recompile.
+Debug messages are not printable by default without recompiling.
 
-But the awesome `CONFIG_DYNAMIC_DEBUG=y` option allows us to do:
+But the awesome `CONFIG_DYNAMIC_DEBUG=y` option which we enable by default allows us to do:
 
 ....
 echo 8 > /proc/sys/kernel/printk
@@ -345,13 +383,19 @@ and we have a shortcut at:
 
 Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
 
+Wildcards are also accepted, e.g. enable all messages from all files:
+
+....
+echo 'file * +p' > /sys/kernel/debug/dynamic_debug/control
+....
+
 TODO: why is this not working:
 
 ....
-func sys_init_module +p' > /sys/kernel/debug/dynamic_debug/control
+echo 'func sys_init_module +p' > /sys/kernel/debug/dynamic_debug/control
 ....
 
-For modules, we can use:
+Enable messages in specific modules:
 
 ....
 echo 8 > /proc/sys/kernel/printk
@@ -359,11 +403,19 @@ echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
 insmod /myprintk.ko
 ....
 
-which should now contain the `pr_debug` message:
+which now outputs the `pr_debug` message:
 
 ....
 printk debug
 ....
+
+Enable `pr_debug` for boot messages as well, before we can reach userland and write to `/proc`:
+
+....
+./run -e 'dyndbg="file * +p" loglevel=8'
+....
+
+Get ready for the noisiest boot ever, I think it overflows the `printk` buffer and funny things happen.
 
 === Module documentation
 
