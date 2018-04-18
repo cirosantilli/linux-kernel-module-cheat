@@ -2440,33 +2440,6 @@ echo 1 > /proc/sys/kernel/panic_on_warn
 insmod /warn_on.ko
 ....
 
-=== Console fun
-
-You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
-
-Must be run in <<graphic-mode>>.
-
-Stop the cursor from blinking:
-
-....
-echo 0 > /sys/class/graphics/fbcon/cursor_blink
-....
-
-Rotate the console 90 degrees!
-
-....
-echo 1 > /sys/class/graphics/fbcon/rotate
-....
-
-Requires `CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y`.
-
-Documented under: `fb/`.
-
-TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-console.html and I think can be done with Busybox `loadkmap` and `loadfont`, we just have to understand their formats, related:
-
-* https://unix.stackexchange.com/questions/177024/remap-keyboard-on-the-linux-console
-* https://superuser.com/questions/194202/remapping-keys-system-wide-in-linux-not-just-in-x
-
 === Linux kernel tracing
 
 ==== CONFIG_PROC_EVENTS
@@ -2776,7 +2749,36 @@ But in part because it is dying, I didn't spend much effort to integrate it into
 
 Maybe some brave should will send a pull request one day.
 
-=== Linux kernel magic keys
+=== Linux kernel interactive stuff
+
+==== Linux kernel console fun
+
+You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
+
+Must be run in <<graphic-mode>>.
+
+Stop the cursor from blinking:
+
+....
+echo 0 > /sys/class/graphics/fbcon/cursor_blink
+....
+
+Rotate the console 90 degrees!
+
+....
+echo 1 > /sys/class/graphics/fbcon/rotate
+....
+
+Requires `CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y`.
+
+Documented under: `fb/`.
+
+TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-console.html and I think can be done with Busybox `loadkmap` and `loadfont`, we just have to understand their formats, related:
+
+* https://unix.stackexchange.com/questions/177024/remap-keyboard-on-the-linux-console
+* https://superuser.com/questions/194202/remapping-keys-system-wide-in-linux-not-just-in-x
+
+==== Linux kernel magic keys
 
 Let's have some fun.
 
@@ -2846,6 +2848,26 @@ console::respawn:/sbin/getty -n -L -l /loginroot.sh ttyS1 0 vt100
 but nothing changed.
 
 Note that on Ubuntu 17.10, to get to the text terminal from the GUI we first need `Ctrl-Alt-Fx`, and once in the text terminals, `Alt-Fn` works without `Ctrl`.
+
+==== CONFIG_LOGO
+
+If you compile the kernel with `CONFIG_LOGO=y`, and run in <<graphic-mode>>, then you get a Penguin image for <<number-of-cores,every core>> above the console! https://askubuntu.com/questions/80938/is-it-possible-to-get-the-tux-logo-on-the-text-based-boot
+
+`reset` on the terminal then kills the poor penguins.
+
+When `CONFIG_LOGO=y` is set, the logo can be disabled at boot with:
+
+....
+./run -e 'logo.nologo'
+....
+
+* https://stackoverflow.com/questions/39872463/how-can-i-disable-the-startup-penguins-and-boot-text-on-linaro-ubuntu
+* https://unix.stackexchange.com/questions/332198/centos-remove-penguin-logo-at-startup
+
+Looks like a recompile is needed to modify the image...
+
+* https://superuser.com/questions/736423/changing-kernel-bootsplash-image
+* https://unix.stackexchange.com/questions/153975/how-to-change-boot-logo-in-linux-mint
 
 === Linux kernel testing
 
