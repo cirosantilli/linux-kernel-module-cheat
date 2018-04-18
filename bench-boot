@@ -2,9 +2,9 @@
 set -eu
 . common
 results_file="${out_dir}/bench-boot.txt"
+caches='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 bench() (
-  printf 'cmd ' >> "$results_file"
-  env time --append -f 'time %e' --output="$results_file" ./eeval "./run -a $1" "$results_file"
+  common_bench_cmd "./run -a ${1}" "$results_file"
 )
 gem5_insts() (
   printf "instructions $(./gem5-stat -a "$1" sim_insts)\n" >> "$results_file"
@@ -19,11 +19,14 @@ rm -f "${results_file}"
 
 arch=x86_64
 bench "$arch -E '/poweroff.out'"
-bench "$arch -E '/poweroff.out' -- -enable-kvm"
+bench "$arch -E '/poweroff.out' -K"
 bench "$arch -E '/poweroff.out' -T exec_tb"
 qemu_insts "$arch"
 bench "$arch -E 'm5 exit' -g"
 gem5_insts "$arch"
+# Was taking more than one hour.
+#bench "$arch -E 'm5 exit' -g -- --cpu-type=DerivO3CPU ${caches}"
+#gem5_insts "$arch"
 
 arch=arm
 # Manual Ctrl+C required.
@@ -32,6 +35,7 @@ arch=arm
 #qemu_insts "$arch"
 bench "$arch -E 'm5 exit' -g"
 gem5_insts "$arch"
+# Was taking more than one hour.
 #bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
 #gem5_insts "$arch"
 
@@ -41,5 +45,5 @@ bench "$arch -E '/poweroff.out' -T exec_tb"
 qemu_insts "$arch"
 bench "$arch -E 'm5 exit' -g"
 gem5_insts "$arch"
-bench "$arch -E 'm5 exit' -g -- --caches --cpu-type=HPI"
+bench "$arch -E 'm5 exit' -g -- --cpu-type=HPI ${caches}"
 gem5_insts "$arch"

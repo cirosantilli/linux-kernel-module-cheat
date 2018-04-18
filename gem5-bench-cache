@@ -19,12 +19,10 @@ set_common_vars "$arch" true
 cmd="./run -a $arch -g"
 cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024  '
 cache_large='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
-result_file="${gem5_out_dir}/bench-cache.txt"
+results_file="${gem5_out_dir}/bench-cache.txt"
 
 bench() (
-  cmd="$1"
-  printf 'cmd ' >> "$result_file"
-  ./eeval "$cmd" "$result_file"
+  common_bench_cmd "$1" "$results_file"
   {
     printf 'cycles '
     ./gem5-stat -a "$arch"
@@ -33,7 +31,7 @@ bench() (
     #if [ -n "$cycles_switch" ]; then
     #  printf "cycles_switch ${cycles_switch}\n"
     #fi
-  } >> "$result_file"
+  } >> "$results_file"
 )
 
 bench-all() (
@@ -67,7 +65,7 @@ bench-all() (
 if "$generate_checkpoints"; then
   # Create the checkpoints after the kernel boot.
   rm -rf "${m5out_dir}"/cpt.*;
-  printf 'm5 exit' >"${readfile_file}"
+  printf 'm5 exit' > "${readfile_file}"
   cpt_cmd="-E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'"
   # 1
   ./eeval "$cmd $cpt_cmd"
@@ -83,14 +81,15 @@ if "$generate_checkpoints"; then
 fi
 
 # Restore and run benchmarks.
-rm -f "$result_file"
+rm -f "$results_file"
 printf '#!/bin/sh
 m5 resetstats
 dhrystone XXX
 m5 exit
 ' >"${readfile_file}"
 for n in 1000 10000 100000; do
-  printf "n ${n}\n" >> "$result_file"
+  printf "n ${n}\n" >> "$results_file"
   sed -Ei "s/^dhrystone .*/dhrystone ${n}/" "${readfile_file}"
   bench-all
+  printf "\n" >> "$results_file"
 done
