@@ -2,10 +2,11 @@
 set -eu
 . common
 set -- ${cli_build:-} "$@"
-rm -f br2_cli.gitignore
-touch br2_cli.gitignore
+br2_cli_file="${out_dir}/br2_cli"
+rm -f "$br2_cli_file"
+touch "$br2_cli_file"
 configure=true
-config_fragments=br2
+config_fragments="${root_dir}/br2"
 extra_make_args=
 gem5=false
 j="$(nproc)"
@@ -20,10 +21,10 @@ while getopts 'a:B:b:CGgj:hIiK:klp:qSv' OPT; do
       arch="$OPTARG"
       ;;
     b)
-      config_fragments="$config_fragments $OPTARG"
+      config_fragments="${config_fragments} $(common_abspath "${OPTARG}")"
       ;;
     B)
-      echo "$OPTARG" >> br2_cli.gitignore
+      echo "$OPTARG" >> "$br2_cli_file"
       ;;
     C)
       configure=false
@@ -45,17 +46,17 @@ while getopts 'a:B:b:CGgj:hIiK:klp:qSv' OPT; do
 BR2_TARGET_ROOTFS_CPIO=n
 BR2_TARGET_ROOTFS_EXT2=n
 BR2_TARGET_ROOTFS_INITRAMFS=y
-" >> br2_cli.gitignore
+" >> "$br2_cli_file"
       ;;
     i)
       echo "
 BR2_TARGET_ROOTFS_CPIO=y
 BR2_TARGET_ROOTFS_EXT2=n
 BR2_TARGET_ROOTFS_INITRAMFS=n
-" >> br2_cli.gitignore
+" >> "$br2_cli_file"
       ;;
     j)
-      echo "$OPTARG" >> br2_cli.gitignore
+      j="$OPTARG"
       ;;
     K)
       linux_kernel_custom_config_file="$OPTARG"
@@ -106,40 +107,40 @@ case "$arch" in
   ;;
 esac
 if ! "$gem5"; then
-  config_fragments="$config_fragments br2_qemu"
+  config_fragments="$config_fragments ${root_dir}/br2_qemu"
 fi
-config_fragments="$config_fragments br2_cli.gitignore"
+config_fragments="${config_fragments} ${br2_cli_file}"
 
 # Configure.
 if "$configure"; then
   cd "${buildroot_dir}"
   for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
-    patch -N -r - -p 1 <"$p" || :
+    patch -N -r - -p 1 < "$p" || :
   done
   make O="$buildroot_out_dir" BR2_EXTERNAL="../kernel_module:../gem5:../parsec-benchmark:../sample_package" "$defconfig"
   # TODO Can't get rid of these for now.
   # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
   for config_fragment in $config_fragments; do
-    cat "../$config_fragment" >> "${config_file}"
+    cat "$config_fragment" >> "$config_file"
   done
   printf "
-BR2_JLEVEL=$j
+BR2_JLEVEL=${j}
 BR2_DL_DIR=\"${common_dir}/dl\"
-BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
-" >> "${config_file}"
+BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
+" >> "$config_file"
   if "$gem5"; then
     printf "BR2_PACKAGE_GEM5=y\n" >> "${config_file}"
     if [ -z "$linux_kernel_custom_config_file" ] && [ ! "$arch" = aarch64 ]; then
       f="../kernel_config_${arch_dir}"
       if [ -f "$f" ]; then
-        printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"$f\"\n" >> "${config_file}"
+        printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"$f\"\n" >> "$config_file"
       fi
     fi
   fi
   if [ -n "$linux_kernel_custom_config_file" ]; then
     f="../${linux_kernel_custom_config_file}"
     if [ -f "$f" ]; then
-      printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"${f}\"\n" >> "${config_file}"
+      printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"${f}\"\n" >> "$config_file"
       if "${linux_reconfigure}"; then
         touch "$f"
       fi
@@ -149,7 +150,7 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
     fi
   else
     f=../kernel_config_fragment
-    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f}\"\n" >> "${config_file}"
+    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f}\"\n" >> "$config_file"
     if "${linux_reconfigure}"; then
       # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
       touch "$f"
@@ -158,17 +159,17 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"$post_script_args\"
   if [ "$arch" = 'mips64' ]; then
     # Workaround for:
     # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
-    sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "${config_file}"
+    sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "$config_file"
   fi
   make O="$buildroot_out_dir" olddefconfig
 fi
 
 mkdir -p \
-  "${gem5_out_dir}" \
-  "${qemu_out_dir}" \
-  "${p9_dir}" \
+  "$gem5_out_dir" \
+  "$qemu_out_dir" \
+  "$p9_dir" \
 ;
-cd "${buildroot_dir}"
+cd "$buildroot_dir"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
 #
@@ -187,4 +188,4 @@ V='${v}' \\
 ${extra_make_args} \
 all \\
 "
-./eeval "$cmd" "${out_arch_dir}/build.sh"
+"${root_dir}/eeval" "$cmd" "${out_arch_dir}/build.sh"
