@@ -18,6 +18,7 @@ extra_append='console_msg_format=syslog nokaslr norandmaps printk.devkmsg=on pri
 extra_append_after_dash=
 extra_flags=
 extra_flags_qemu=
+gem5=false
 gem5opts=
 lkmc_eval=
 initrd=false
@@ -56,7 +57,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkm:T:U:uVx OPT; do
       ;;
     F)
       extra_append_after_dash="${extra_append_after_dash} lkmc_eval_base64=\"$(printf "${OPTARG}" | base64)\""
-      ;;
+       ;;
     f)
       extra_append_after_dash="${extra_append_after_dash} ${OPTARG}"
       ;;
@@ -68,7 +69,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkm:T:U:uVx OPT; do
       gem5=true
       ;;
     h)
-      cat run-usage.adoc 1>&2
+      cat build-usage.adoc 1>&2
       exit
       ;;
     I)
@@ -134,8 +135,10 @@ if [ -n "$lkmc_eval" ]; then
   extra_append="${extra_append} ${initarg}=/eval_base64.sh"
   extra_append_after_dash="${extra_append_after_dash} lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
 fi
-if "$nographic" && [ "$arch" = x86_64 ]; then
-  extra_append="${extra_append} console=ttyS0"
+if "$nographic"; then
+  if [ "$arch" = x86_64 ]; then
+    extra_append="${extra_append} console=ttyS0"
+  fi
   extra_flags_qemu="${extra_flags_qemu} -nographic \\
 "
 fi
@@ -193,6 +196,7 @@ else
   qemu_common="\
 ${debug_vm} \
 '${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}' \\
+-device rtl8139,netdev=net0 \\
 -gdb tcp::1234 \\
 -m '${memory}' \\
 -serial mon:stdio \\
@@ -210,6 +214,12 @@ ${vnc}"
   if "$ramfs"; then
     # TODO why is this needed, and why any string works.
     root='root=/dev/anything'
+  else
+    if [ ! "$arch" = mips64 ]; then
+      extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2' \\
+"
+      root='root=/dev/vda'
+    fi
   fi
   # The base QEMU commands are found under board/qemu/*/readme.tx
   case "$arch" in
@@ -217,18 +227,12 @@ ${vnc}"
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyS0,115200"
       fi
-      if ! "$ramfs"; then
-        root='root=/dev/vda'
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2' \\
-"
-      fi
       cmd="\
 ${qemu_common} \
 -M pc \\
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
 -device lkmc_pci_min \\
--device virtio-net-pci,netdev=net0 \\
 -kernel '${images_dir}/bzImage' \\
 ${extra_flags} \
 "
@@ -237,17 +241,11 @@ ${extra_flags} \
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      if ! "$ramfs"; then
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2' \\
-"
-        root='root=/dev/sda'
-      fi
       cmd="\
 ${qemu_common} \
--M versatilepb \\
+-M virt \\
 -append '${root} ${extra_append}' \\
--device rtl8139,netdev=net0 \\
--dtb '${images_dir}/versatile-pb.dtb' \\
+-cpu cortex-a15 \\
 -kernel '${images_dir}/zImage' \\
 ${extra_flags} \
 "
@@ -256,17 +254,11 @@ ${extra_flags} \
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      if ! "$ramfs"; then
-        root='root=/dev/vda'
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2' \\
-"
-      fi
       cmd="\
 ${qemu_common} \
 -M virt \\
 -append '${root} ${extra_append}' \\
 -cpu cortex-a57 \\
--device virtio-net-device,netdev=net0 \\
 -kernel '${images_dir}/Image' \\
 ${extra_flags} \
 "
@@ -282,9 +274,7 @@ ${qemu_common} \
 -M malta \\
 -append '${root} ${extra_append}' \\
 -cpu I6400 \\
--device pcnet \\
 -kernel '${images_dir}/vmlinux' \\
--nographic \\
 ${extra_flags} \
 "
     ;;

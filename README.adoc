@@ -62,19 +62,19 @@ Once you use <<gdb>> and <<tmux>>, your terminal will look a bit like this:
 [    1.467911] Segment Routing with IPv6                                        │Continuing.
 [    1.468407] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver              │
 [    1.470859] NET: Registered protocol family 17                               │Breakpoint 1, lkmc_timer_callback (data=0xffffffffc0002000 <mytimer>)
-[    1.472017] 9pnet: Installing 9P2000 support                                 │    at /home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/
+[    1.472017] 9pnet: Installing 9P2000 support                                 │    at /linux-kernel-module-cheat//out/x86_64/buildroot/build/
 [    1.475461] sched_clock: Marking stable (1473574872, 0)->(1554017593, -80442)│kernel_module-1.0/./timer.c:28
 [    1.479419] ALSA device list:                                                │28      {
 [    1.479567]   No soundcards found.                                           │(gdb) c
 [    1.619187] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100                 │Continuing.
 [    1.622954] ata2.00: configured for MWDMA2                                   │
 [    1.644048] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ P5│Breakpoint 1, lkmc_timer_callback (data=0xffffffffc0002000 <mytimer>)
-[    1.741966] tsc: Refined TSC clocksource calibration: 2904.010 MHz           │    at /home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/
+[    1.741966] tsc: Refined TSC clocksource calibration: 2904.010 MHz           │    at /linux-kernel-module-cheat//out/x86_64/buildroot/build/
 [    1.742796] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x29dc0f4s│kernel_module-1.0/./timer.c:28
 [    1.743648] clocksource: Switched to clocksource tsc                         │28      {
 [    2.072945] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8043│(gdb) bt
 [    2.078641] EXT4-fs (vda): couldn't mount as ext3 due to feature incompatibis│#0  lkmc_timer_callback (data=0xffffffffc0002000 <mytimer>)
-[    2.080350] EXT4-fs (vda): mounting ext2 file system using the ext4 subsystem│    at /home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/
+[    2.080350] EXT4-fs (vda): mounting ext2 file system using the ext4 subsystem│    at /linux-kernel-module-cheat//out/x86_64/buildroot/build/
 [    2.088978] EXT4-fs (vda): mounted filesystem without journal. Opts: (null)  │kernel_module-1.0/./timer.c:28
 [    2.089872] VFS: Mounted root (ext2 filesystem) readonly on device 254:0.    │#1  0xffffffff810ab494 in call_timer_fn (timer=0xffffffffc0002000 <mytimer>,
 [    2.097168] devtmpfs: mounted                                                │    fn=0xffffffffc0000000 <lkmc_timer_callback>) at kernel/time/timer.c:1326
@@ -218,7 +218,6 @@ https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-us
 
 Alternative methods:
 
-* `/poweroff.out`. Not immediate, and sometimes you can't do it, e.g. kernel panic. Furthermore, it does not work for ARM: <<arm-shutdown>>
 * `echo quit | ./qemumonitor`
 * `Ctrl-A C` then `quit`
 * `pkill qemu`
@@ -245,7 +244,7 @@ Getting everything to work requires careful choice of QEMU command line options:
 * https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to/49751144#49751144
 * https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-to-the-guest-when-running-qemu-with-nographic/436321#436321
 
-TODO: if you hit `Ctrl-C` several times while `arm` or `aarch64` are booting, after boot the userland shell does not show any updates when you type. Why?
+TODO: if you hit `Ctrl-C` several times while `arm` or `aarch64` are booting, after boot the userland shell does not show any updates when you type, this seems to be a bug on the Linux kernel v4.16: http://lists.nongnu.org/archive/html/qemu-discuss/2018-04/msg00027.html
 
 === Graphic mode
 
@@ -270,23 +269,24 @@ Text mode has the following limitations over graphics mode:
 
 ==== Graphic mode arm
 
-TODO: how to see the terminal on the graphic window, just like happens on x86?
+We currently use `-M virt` for both `arm` and `aarch64`, and according to https://wiki.qemu.org/Documentation/Platforms/ARM they don't support graphics:
 
-arm shows a window which contains boot messages, but the shell is only visible on the terminal.
+____
+Most of the machines QEMU supports have annoying limitations (small amount of RAM, no PCI or other hard disk, etc) which are there because that's what the real hardware is like. If you don't care about reproducing the idiosyncrasies of a particular bit of hardware, the best choice today is the "virt" machine. This is a platform which doesn't correspond to any real hardware and is designed for use in virtual machines. It supports PCI, virtio, recent CPUs and large amounts of RAM. The only thing it doesn't have is graphics.
+____
 
-Also if we do:
+We feel that this is a worthwhile tradeoff, since we expect most users don't care about graphics on typically embedded archs, and `virt` machines bring greater simplicity to this repo.
 
+If someone submits a well tested and documented graphics patch, we will consider it however. A good starting point, would be to:
+
+* hack up `./run` to use `-M vexpress-a15`. We chose this board to match our QEMU build of `qemu_arm_vexpress_defconfig`
+* remove all extra options that are not compatible with that `-M`, and later try to find equivalent options if you care
+* a graphical window should open, but we never managed to get a shell there yet. But this does have some effect:
++
 ....
 cat /dev/urandom > /dev/fb0
 ....
-
-the screen fills up with random colors, so that screen is working somehow.
-
-Using `-nographic` removes that screen, but why would we want to do that? TODO Ideally, all archs would show both the terminal and the graphical window.
-
-==== Graphic mode aarch64
-
-TODO even though we don't pass `-nographic`, `aarch64` does not get a graphic window like `arm`, why?
+* have a look at `./run -a arm` at 2852fe1989a6f1ab546e9a4fa88724423b3949f5 which is before we moved to `-M virt`
 
 === Automatic startup commands
 
@@ -853,7 +853,7 @@ Shell 2:
 In GDB, hit `Ctrl-C`, and note how it says:
 
 ....
-scanning for modules in /home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/linux-custom
+scanning for modules in /linux-kernel-module-cheat//out/x86_64/buildroot/build/linux-custom
 loading @0xffffffffc0000000: ../kernel_module-1.0//timer.ko
 ....
 
@@ -879,11 +879,11 @@ TODO on `arm` 51e31cdc2933a774c2a0dc62664ad8acec1d2dbe it does not always work, 
 ....
 loading vmlinux
 Traceback (most recent call last):
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
+  File "/linux-kernel-module-cheat//out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 163, in invoke
     self.load_all_symbols()
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
+  File "/linux-kernel-module-cheat//out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 150, in load_all_symbols
     [self.load_module_symbols(module) for module in module_list]
-  File "/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
+  File "/linux-kernel-module-cheat//out/arm/buildroot/build/linux-custom/scripts/gdb/linux/symbols.py", line 110, in load_module_symbols
     module_name = module['name'].string()
 gdb.MemoryError: Cannot access memory at address 0xbf0000cc
 Error occurred in Python command: Cannot access memory at address 0xbf0000cc
@@ -931,7 +931,7 @@ does not give any interesting hits at `cc`, no symbol was placed that far.
 
 ==== GDB module_init
 
-TODO find a convenient method.
+TODO find a convenient method. We have working methods, but they are not convenient.
 
 This is not very easy, since by the time the module finishes loading, and `lx-symbols` can work properly, `module_init` has already finished running!
 
@@ -1629,93 +1629,6 @@ Debug:
 
 Known quirks of the supported architectures are documented in this section.
 
-=== arm
-
-==== arm shutdown
-
-https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve
-
-`/poweroff.out` does not exit QEMU nor gem5, the terminal just hangs after the message:
-
-....
-reboot: System halted
-....
-
-A blunt resolution for QEMU is to do a `Ctrl-C` on host, or run on another shell:
-
-....
-pkill qemu
-....
-
-On gem5, it is possible to use the `m5` instrumentation from guest as a good workaround:
-
-....
-m5 exit
-....
-
-It does work on `aarch64` however, presumably because of magic virtio functionality.
-
-===== arm shutdown automation
-
-We like to automate the detection of shutdown to have unit tests for QEMU ARM, even it is clunky to do manually.
-
-First we looked at monitoring stdout through a pipe:
-
-....
-https://superuser.com/questions/402979/kill-program-after-it-outputs-a-given-line-from-a-shell-script
-https://superuser.com/questions/372886/kill-process-depending-on-its-output
-....
-
-TODO: why doesn't this work, still hangs:
-
-....
-./run -a arm -E '/poweroff.out' |& sed '/reboot: System halted/q'
-....
-
-Trying with a message that appears earlier:
-
-....
-./run -a arm -E '/poweroff.out' |& sed '/audio/q'
-....
-
-the output stops after the message, which means that `sed` dies, and QEMU ignores SIGPIPE?
-
-Alternatively, we could `while read` on the pipe and then SIGKILL QEMU, but we can't find an easy way to get QEMU's PID:
-
-* https://stackoverflow.com/questions/1652680/how-to-get-the-pid-of-a-process-that-is-piped-to-another-process-in-bash
-* https://unix.stackexchange.com/questions/103472/obtaining-pid-of-command-earlier-in-pipeline
-
-Next, I also tried:
-
-....
-./run -a arm -E '/poweroff.out' >f & qemu_pid=$! && tail -f f | sed '/reboot: System halted/q' && kill $qemu_pid
-....
-
-but the first part:
-
-....
-./run -a arm -E '/poweroff.out' >f &
-....
-
-gets stuck without output. This only happens when on background. TODO Why?!
-
-=== aarch64
-
-As usual, we use Buildroot's recommended QEMU setup QEMU `aarch64` setup:
-
-* https://github.com/buildroot/buildroot/blob/2017.08/board/qemu/aarch64-virt/readme.txt
-* https://github.com/buildroot/buildroot/blob/2017.08/configs/qemu_aarch64_virt_defconfig
-
-This makes aarch64 a bit different from `arm`:
-
-* uses `-M virt`. https://wiki.qemu.org/Documentation/Platforms/ARM explains:
-+
-____
-Most of the machines QEMU supports have annoying limitations (small amount of RAM, no PCI or other hard disk, etc) which are there because that's what the real hardware is like. If you don't care about reproducing the idiosyncrasies of a particular bit of hardware, the best choice today is the "virt" machine.
-____
-+
-`-M virt` has some limitations, e.g. I could not pass `-drive if=scsi` as for `arm`, and so <<Snapshot>> fails.
-
 === mips64
 
 Keep in mind that MIPS has the worst support compared to our other architectures due to the smaller community. Patches welcome as usual.
@@ -1727,6 +1640,16 @@ TODOs:
 ** https://unix.stackexchange.com/questions/208266/setting-up-qemu-and-mipsel-networking-trouble
 ** https://unix.stackexchange.com/questions/354127/qemu-mips-and-debian
 * <<gdb>> does not work properly, does not find `start_kernel`
+
+==== mips64 X11
+
+Haven't tried it, doubt it will work out of the box! :-)
+
+Maybe: https://stackoverflow.com/questions/47857023/booting-a-graphical-mips-qemu-machine
+
+==== mips64 gem5
+
+Haven't tried.
 
 == init
 
@@ -2041,12 +1964,6 @@ A friend told me this but I haven't tried it yet:
 
 * `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
 * `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
-
-=== X11 MIPS
-
-Haven't tried it, doubt it will work out of the box! :-)
-
-Maybe: https://stackoverflow.com/questions/47857023/booting-a-graphical-mips-qemu-machine
 
 == initrd
 
@@ -2561,11 +2478,11 @@ TODO: why does this produce no output?
 
 ....
 >>> kernel_module 1.0 Building
-/usr/bin/make -j8 -C '/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/build/kernel_module-1.0/user' BR2_PACKAGE_OPENBLAS="" CC="/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc" LD="/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-ld"
-/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc  -ggdb3 -fopenmp -O0 -std=c99 -Wall -Werror -Wextra -o 'proc_events.out' 'proc_events.c'
-In file included from /home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/host/aarch64-buildroot-linux-uclibc/sysroot/usr/include/signal.h:329:0,
+/usr/bin/make -j8 -C '/linux-kernel-module-cheat//out/aarch64/buildroot/build/kernel_module-1.0/user' BR2_PACKAGE_OPENBLAS="" CC="/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc" LD="/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-ld"
+/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc  -ggdb3 -fopenmp -O0 -std=c99 -Wall -Werror -Wextra -o 'proc_events.out' 'proc_events.c'
+In file included from /linux-kernel-module-cheat//out/aarch64/buildroot/host/aarch64-buildroot-linux-uclibc/sysroot/usr/include/signal.h:329:0,
                  from proc_events.c:12:
-/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/host/aarch64-buildroot-linux-uclibc/sysroot/usr/include/sys/ucontext.h:50:16: error: field ‘uc_mcontext’ has incomplete type
+/linux-kernel-module-cheat//out/aarch64/buildroot/host/aarch64-buildroot-linux-uclibc/sysroot/usr/include/sys/ucontext.h:50:16: error: field ‘uc_mcontext’ has incomplete type
      mcontext_t uc_mcontext;
                 ^~~~~~~~~~~
 ....
@@ -2808,7 +2725,6 @@ grep -n 4003a0 trace.txt
 ....
 +
 I have observed a single match for that instruction, so it must be the init, and there were only 20k instructions after it, so the impact is negligible.
-* on arm, you need to hit `Ctrl-C` once after seeing the message `reboot: System halted` due to <<arm-shutdown>>
 * to disable networking. Is replacing `init` enough?
 +
 --
@@ -2831,9 +2747,9 @@ Maybe some brave should will send a pull request one day.
 
 ==== Linux kernel console fun
 
-You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
+Requires <<graphic-mode>>.
 
-Must be run in <<graphic-mode>>.
+You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
 
 Stop the cursor from blinking:
 
@@ -2858,9 +2774,9 @@ TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-consol
 
 ==== Linux kernel magic keys
 
-Let's have some fun.
+Requires <<graphic-mode>>.
 
-Those only work in <<graphic-mode>>.
+Let's have some fun.
 
 I think most are implemented under:
 
@@ -2929,7 +2845,9 @@ Note that on Ubuntu 17.10, to get to the text terminal from the GUI we first nee
 
 ==== CONFIG_LOGO
 
-If you compile the kernel with `CONFIG_LOGO=y`, and run in <<graphic-mode>>, then you get a Penguin image for <<number-of-cores,every core>> above the console! https://askubuntu.com/questions/80938/is-it-possible-to-get-the-tux-logo-on-the-text-based-boot
+Must be run in <<graphic-mode>>.
+
+If you compile the kernel with `CONFIG_LOGO=y`,  then you get a Penguin image for <<number-of-cores,every core>> above the console! https://askubuntu.com/questions/80938/is-it-possible-to-get-the-tux-logo-on-the-text-based-boot
 
 `reset` on the terminal then kills the poor penguins.
 
@@ -3025,6 +2943,12 @@ qcow2 filesystems must be used for that to work.
 To test it out, login into the VM with and run:
 
 ....
+./run -F 'umount /mnt/9p /mnt/out'
+....
+
+and run:
+
+....
 /count.sh
 ....
 
@@ -3043,6 +2967,12 @@ echo 'loadvm  my_snap_id' | ./qemumonitor
 ....
 
 and the counting goes back to where we saved. This shows that CPU and memory states were reverted.
+
+The `umount` is needed because snapshotting conflicts with <<9p>>, which we felt is a more valuable default. If you forget to unmount, the following error appears on the QEMU monitor:
+
+.....
+Migration is disabled when VirtFS export path '/linux-kernel-module-cheat/out/x86_64/buildroot/build' is mounted in the guest using mount_tag 'host_out'
+.....
 
 We can also verify that the disk state is also reversed. Guest:
 
@@ -3088,6 +3018,38 @@ This is useful to learn:
 * how the Linux kernel interacts with hardware
 
 To get started, have a look at the "Hardware device drivers" section under link:kernel_module/README.adoc[], and try to run those modules, and then grep the QEMU source code.
+
+==== platform_device
+
+This is an example of hardware coded into an ARM `-M versatilepb` SoC.
+
+Using this device now requires checking out to: https://github.com/cirosantilli/linux-kernel-module-cheat/tree/platform-device before building, it does not work on master.
+
+The module itself can be found at: https://github.com/cirosantilli/linux-kernel-module-cheat/blob/platform-device/kernel_module/platform_device.c
+
+Rationale: we found out that the kernels that build for `qemu -M versatilepb` don't work on gem5 because `versatilepb` is an old pre-v7 platform, and gem5 requires armv7.
+
+At the same time, we also found out that Versatile Express (`vexpress`) does support armv7, so maybe we could port it over, but I had lost interest at that point, and decided to just go with the simpler `-M virt` machine instead.
+
+https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code/44612957#44612957
+
+Uses:
+
+* `hw/misc/lkmc_platform_device.c` minimal device added in our QEMU fork to `-M versatilepb`
+* the device tree entry we added to our Linux kernel fork: https://github.com/cirosantilli/linux/blob/361bb623671a52a36a077a6dd45843389a687a33/arch/arm/boot/dts/versatile-pb.dts#L42
+
+Expected outcome after insmod:
+
+* QEMU reports MMIO with printfs
+* IRQs are generated and handled by this module, which logs to dmesg
+
+Also without insmodding this module, try:
+
+....
+devmem 0x101e9000 w 0x12345678
+....
+
+which touches the register from userland through `/dev/mem`.
 
 === 9P
 
@@ -4292,7 +4254,10 @@ Alternatively, we could try to be brave and switch between two kernel builds ins
 +
 Note however that there are also variations which need to be controlled, e.g. kernel command line, DTB and QEMU's non-determinism.
 
-Unfortunately, we have only managed to find a working config for aarch64, which just works transparently.
+So far, the following build are unified for QEMU and gem5:
+
+* arm
+* aarch64
 
 The others use the Buildroot config for QEMU, and magic huge post-olddefconfig config files floating around the web for GEM5.
 
@@ -4306,123 +4271,33 @@ This is the strategy that we used to make it work for aarch64:
 
 but this strategy failed for the other archs for some reason.
 
-==== gem5 and QEMU with the same kernel configuration ARM
-
-===== QEMU with gem5 kernel configuration ARM
-
-....
-cp kernel_config_arm-gem5 kernel_config_fragment
-....
-
-First, we note that gem5 still boots.
-
-So we proceed to bisect the configs until QEMU boots, which leads to the three options:
-
-....
-sed -Ei \
-  -e '/^CONFIG_ARCH_MULTI_V7=y/d' \
-  -e '/^CONFIG_CMDLINE="console=ttyAMA0"/d' \
-  -e '/^# CONFIG_SCSI_SYM53C8XX_2 is not set/d' \
-  kernel_config_fragment \
-;
-....
-
-Then we try to boot GEM5 again, but removing just `CONFIG_ARCH_MULTI_V7=y` leads to:
-
-....
-Error: unrecognized/unsupported processor variant (0x410fc0f0).
-....
-
-which looks really bad! Arghh, so that option blocks either one.
-
-From QEMU, doing;
-
-....
-cat /proc/cpuinfo
-....
-
-leads to:
-
-....
-model name      : ARM926EJ-S rev 5 (v5l)
-CPU architecture: 5TEJ
-....
-
-which wiki says is pre-ARMv7 (ARMv5)
-
-gem5 on the other hand says:
-
-....
-model name      : ARMv7
-CPU architecture: 7
-....
-
-We also tried to use `-- --cpu a15`, found with `-- --cpu help`, but not changes.
-
-===== gem5 with QEMU kernel configuration ARM
-
-Test it out with:
-
-....
-./run -a arm -g
-....
-
-TODO hangs at:
-
-....
-**** REAL SIMULATION ****
-warn: Existing EnergyCtrl, but no enabled DVFSHandler found.
-info: Entering event queue @ 0.  Starting simulation...
-1614868500: system.terminal: attach terminal 0
-....
-
-and the `telnet` remains empty even after 20 minutes:
-
-....
-$ ./gem5-shell
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-==== m5 slave terminal: Terminal 0 ====
-....
-
-Finally, it is not just an output problem, since running:
-
-....
-./run -a arm -g -E 'm5 exit'
-....
-
-never finishes, so boot never really finished.
-
-I have also tried to do `make savedefconfig` on the gem5 kernel, and then paste that on `kernel_config_fragment`, but the boot still fails... so the only option I see left is to bisect the huge unclean `kernel_config_arm-gem5` itself...
-
 ==== gem5 and QEMU with the same kernel configuration x86_64
 
 Boot fails with:
 
 ....
 --- BEGIN LIBC BACKTRACE ---
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x557f6290bc89]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x557f6291f88a]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x557f6290bc89]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x557f6291f88a]
 /lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7fbb3bd13150]
 /lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7fbb3a3450bb]
 /lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7fbb3a346f5d]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x557f626570bf]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x557f6264940a]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x557f6264bb5c]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x557f6311eace]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x557f62b63969]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x557f62b3a7f6]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x557f62b4724b]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x557f627fd12d]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x557f6280b439]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x557f6301712b]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x557f627fc054]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x557f62912f79]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x557f6292cb88]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x557f6292db7a]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x557f62aefc7b]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x557f629735ab]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x557f626570bf]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x557f6264940a]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x557f6264bb5c]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x557f6311eace]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x557f62b63969]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x557f62b3a7f6]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x557f62b4724b]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x557f627fd12d]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x557f6280b439]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x557f6301712b]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x557f627fc054]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x557f62912f79]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x557f6292cb88]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x557f6292db7a]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x557f62aefc7b]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x557f629735ab]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7fbb3bfd37e4]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
@@ -4435,7 +4310,7 @@ Boot fails with:
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
 --- END LIBC BACKTRACE ---
-./run: line 249: 21991 Aborted                 (core dumped) M5_PATH='/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/system' '/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt' '/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/configs/example/fs.py' --checkpoint-dir='./m5out/cpts/x86_64' --disk-image='/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/images/rootfs.ext2' --mem-size=256MB --num-cpus='1' --kernel=/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/build/linux-custom/vmlinux --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda nokaslr norandmaps printk.devkmsg=on printk.time=y init=/eval_base64.sh - lkmc_eval="bTUgZXhpdA=="'
+./run: line 249: 21991 Aborted                 (core dumped) M5_PATH='/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/system' '/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt' '/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/configs/example/fs.py' --checkpoint-dir='./m5out/cpts/x86_64' --disk-image='/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/images/rootfs.ext2' --mem-size=256MB --num-cpus='1' --kernel=/linux-kernel-module-cheat//out/x86_64/buildroot/build/linux-custom/vmlinux --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda nokaslr norandmaps printk.devkmsg=on printk.time=y init=/eval_base64.sh - lkmc_eval="bTUgZXhpdA=="'
 ....
 
 dmesg stops at:
@@ -4462,27 +4337,27 @@ If I append `savedefconfig` to our `kernel_config_fragment`:
 
 ....
 --- BEGIN LIBC BACKTRACE ---
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x559636f44c89]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x559636f5888a]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x559636f44c89]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x559636f5888a]
 /lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7f855f8f3150]
 /lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7f855df250bb]
 /lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7f855df26f5d]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x559636c900bf]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x559636c8240a]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x559636c84b5c]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x559637757ace]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x55963719c969]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x5596371737f6]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x55963718024b]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x559636e3612d]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x559636e44439]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x55963765012b]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x559636e35054]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x559636f4bf79]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x559636f65b88]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x559636f66b7a]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x559637128c7b]
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x559636fac5ab]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x559636c900bf]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x559636c8240a]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x559636c84b5c]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x559637757ace]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x55963719c969]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x5596371737f6]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x55963718024b]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x559636e3612d]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x559636e44439]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x55963765012b]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x559636e35054]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x559636f4bf79]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x559636f65b88]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x559636f66b7a]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x559637128c7b]
+/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x559636fac5ab]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7f855fbb37e4]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
 /usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7f855fbb2580]
@@ -4982,10 +4857,10 @@ Our philosophy is:
 * otherwise, make it optional
 * try to keep the toolchain (GCC, Binutils) unchanged, otherwise a full rebuild is  required.
 +
-So we generally just enable all toolchain options by defaut, even though this adds a bit of time to the build.
+So we generally just enable all toolchain options by default, even though this adds a bit of time to the build.
 +
 The biggest build time hog is always GCC, and it does not look like we can use a precompiled one: https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
-* if something is very vaulable, we just add it by default even if it increases the Build time, notably GDB and QEMU
+* if something is very valuable, we just add it by default even if it increases the Build time, notably GDB and QEMU
 * runtime is sacred.
 +
 We do our best to reduce the instruction and feature count to the bare minimum needed, to make the system:
@@ -5010,37 +4885,46 @@ Output on <<p51>> fb317f4778633692b91c9174224dccc6a3a02893:
 
 ....
 cmd ./run -a x86_64 -E '/poweroff.out'
-time 3.64
-cmd ./run -a x86_64 -E '/poweroff.out' -- -enable-kvm
-time 1.30
-cmd ./run -a x86_64 -E '/poweroff.out' -T exec_tb
 time 4.00
-instructions 2437556
-cmd ./run -a arm -E '/poweroff.out'
-time 6.78
-cmd ./run -a arm -E '/poweroff.out' -T exec_tb
-time 7.08
-instructions 760143
-cmd ./run -a x86_64 -E 'm5 exit' -g
-time 411.16
-instructions 637326092
-cmd ./run -a arm -E 'm5 exit' -g
-time 160.96
-instructions 230209017
-cmd ./run -a aarch64 -E '/poweroff.out'
+status 0
+cmd ./run -a x86_64 -E '/poweroff.out' -K
 time 1.32
+status 0
+cmd ./run -a x86_64 -E '/poweroff.out' -T exec_tb
+time 5.00
+status 0
+instructions 7014180
+cmd ./run -a x86_64 -E 'm5 exit' -g
+time 389.39
+status 0
+instructions 645396324
+cmd ./run -a arm -E '/poweroff.out'
+time 1.82
+status 0
+cmd ./run -a arm -E '/poweroff.out' -T exec_tb
+time 2.11
+status 0
+instructions 687532
+cmd ./run -a arm -E 'm5 exit' -g
+time 88.59
+status 0
+instructions 142359498
+cmd ./run -a aarch64 -E '/poweroff.out'
+time 1.34
+status 0
 cmd ./run -a aarch64 -E '/poweroff.out' -T exec_tb
 time 1.35
-instructions 178990
+status 0
+instructions 179564
 cmd ./run -a aarch64 -E 'm5 exit' -g
-time 59.69
-instructions 115759248
-cmd ./run -a aarch64 -E 'm5 exit' -g -- --caches --cpu-type=HPI
-time 371.64
-instructions 115898484
+time 58.18
+status 0
+instructions 116389714
+cmd ./run -a aarch64 -E 'm5 exit' -g -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+time 355.81
+status 0
+instructions 116508439
 ....
-
-For ARM `arm` QEMU, we just try to manually hit `Ctrl-C` as soon as system shutdown message appears: <<arm-shutdown>>.
 
 TODO the following takes more than 1 hour to finish:
 
@@ -5194,7 +5078,7 @@ sudo modprobe vmhgfs -o vm_hgfs
 
 === Device tree
 
-`platform_device.c` together with its kernel and QEMU forks contains a minimal runnable example.
+<<platform_device>> contains a minimal runnable example.
 
 Good format descriptions:
 
