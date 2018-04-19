@@ -1169,6 +1169,22 @@ and break there:
 
 but TODO: it does not show the source assembly under `arch/arm`: https://stackoverflow.com/questions/11423784/qemu-arm-linux-kernel-boot-debug-no-source-code
 
+I also tried to hack `rungdb` with:
+
+....
+@@ -81,7 +81,7 @@ else
+ ${gdb} \
+ -q \\
+ -ex 'add-auto-load-safe-path $(pwd)' \\
+--ex 'file vmlinux' \\
++-ex 'file arch/arm/boot/compressed/vmlinux' \\
+ -ex 'target remote localhost:${port}' \\
+ ${brk} \
+ -ex 'continue' \\
+....
+
+and no I do have the symbols from `arch/arm/boot/compressed/vmlinux'`, but the breaks still don't work.
+
 === GDB step debug userland processes
 
 QEMU's `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
@@ -1728,7 +1744,7 @@ BusyBox provides its own minimalistic init implementation which Buildroot, and t
 
 To have more control over the system, you can replace BusyBox's init with your own.
 
-The following method replaces init and evals a command from the <<kernel-command-line-parameters>>:
+The `-E` option replaces init and evals a command from the <<kernel-command-line-parameters>>:
 
 ....
 ./run -E 'echo "asdf qwer";insmod /hello.ko;/poweroff.out'
@@ -1812,7 +1828,7 @@ but why not just use your super simple and effective `/poweroff.out` and be done
 [[init-busybox]]
 === Run command at the end of BusyBox init
 
-If you rely on something that BusyBox' init set up for you like `/etc/fstab`, this is the method you should use:
+Use the `-F` option is for you rely on something that BusyBox' init set up for you like `/etc/fstab`:
 
 ....
 ./run -F 'echo asdf;ls /proc;ls /sys;echo qwer'
