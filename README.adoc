@@ -2681,8 +2681,8 @@ gem5:
 ....
 ./run -a aarch64 -g -E 'm5 exit'
 # Or:
-# ./run -a arm -g -E 'm5 exit' -- --cpu-type=HPI --caches
-grep sim_insts out/aarch64/gem5/m5out/stats.txt
+# ./run -a aarch64 -g -E 'm5 exit' -- --cpu-type=HPI --caches
+./gem5-stat -a aarch64 sim_insts
 ....
 
 Notes:
@@ -3662,37 +3662,48 @@ cat out/aarch64/gem5/bench-cache.txt
 
 which gives:
 
-[options="header",cols="3*>"]
-|===
-|test size
-|cache size
-|cycle count
+....
+n 1000
+cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+time 24.71
+exit_status 0
+cycles 52386455
+instructions 4555081
+cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+time 17.44
+exit_status 0
+cycles 6683355
+instructions 4466051
 
-|1000
-|1k
-|52.432.956
+n 10000
+cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+time 52.90
+exit_status 0
+cycles 165704397
+instructions 11531136
+cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+time 36.19
+exit_status 0
+cycles 16182925
+instructions 11422585
 
-|1000
-|1M
-|6.328.325
+n 100000
+cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+time 325.09
+exit_status 0
+cycles 1295703657
+instructions 81189411
+cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+time 250.74
+exit_status 0
+cycles 110585681
+instructions 80899588
+....
 
-|10000
-|1k
-|141.637.834
+We make the following conclusions:
 
-|10000
-|1M
-|16.969.057
-
-|100000
-|1k
-|1.034.500.724
-
-|100000
-|1M
-|121.728.035
-
-|===
+* the number of instructions almost does not change: the CPU is waiting for memory all the extra time. TODO: why does it change at all?
+* the wall clock execution time is not directionally proportional to the number of cycles: here we had a 10x cycle increase, but only 2x time increase
 
 ===== gem5 memory latency
 
@@ -4892,43 +4903,43 @@ Output on <<p51>> fb317f4778633692b91c9174224dccc6a3a02893:
 ....
 cmd ./run -a x86_64 -E '/poweroff.out'
 time 4.00
-status 0
+exit_status 0
 cmd ./run -a x86_64 -E '/poweroff.out' -K
 time 1.32
-status 0
+exit_status 0
 cmd ./run -a x86_64 -E '/poweroff.out' -T exec_tb
 time 5.00
-status 0
+exit_status 0
 instructions 7014180
 cmd ./run -a x86_64 -E 'm5 exit' -g
 time 389.39
-status 0
+exit_status 0
 instructions 645396324
 cmd ./run -a arm -E '/poweroff.out'
 time 1.82
-status 0
+exit_status 0
 cmd ./run -a arm -E '/poweroff.out' -T exec_tb
 time 2.11
-status 0
+exit_status 0
 instructions 687532
 cmd ./run -a arm -E 'm5 exit' -g
 time 88.59
-status 0
+exit_status 0
 instructions 142359498
 cmd ./run -a aarch64 -E '/poweroff.out'
 time 1.34
-status 0
+exit_status 0
 cmd ./run -a aarch64 -E '/poweroff.out' -T exec_tb
 time 1.35
-status 0
+exit_status 0
 instructions 179564
 cmd ./run -a aarch64 -E 'm5 exit' -g
 time 58.18
-status 0
+exit_status 0
 instructions 116389714
 cmd ./run -a aarch64 -E 'm5 exit' -g -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
 time 355.81
-status 0
+exit_status 0
 instructions 116508439
 ....
 
