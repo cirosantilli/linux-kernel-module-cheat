@@ -1147,6 +1147,29 @@ Maybe it is because they are being copied around at specific locations instead o
 
 See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
 
+==== GDB step debug early boot by address
+
+One possibility is to run:
+
+....
+./trace-boot -a arm
+....
+
+and then find the second address (the first one does not work, already too late maybe):
+
+....
+less ./out/arm/qemu/trace.txt
+....
+
+and break there:
+
+....
+./run -a arm -d
+./rungdb -a arm '*0x1000'
+....
+
+but TODO: it does not show the source assembly under `arch/arm`: https://stackoverflow.com/questions/11423784/qemu-arm-linux-kernel-boot-debug-no-source-code
+
 === GDB step debug userland processes
 
 QEMU's `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
@@ -2254,6 +2277,8 @@ Make the kernel reboot after n seconds after panic:
 echo 1 > /proc/sys/kernel/panic
 ....
 
+Can also be controlled with the `panic` kernel boot parameter.
+
 `0` to disable: https://unix.stackexchange.com/questions/29567/how-to-configure-the-linux-kernel-to-reboot-on-panic/29569#29569
 
 The panic trace looks like:
@@ -2452,6 +2477,8 @@ One extra side effect is that we can make it also panic with:
 echo 1 > /proc/sys/kernel/panic_on_warn
 insmod /warn_on.ko
 ....
+
+Can also be activated with the `panic_on_warn` boot parameter.
 
 === Linux kernel tracing
 
@@ -4245,23 +4272,54 @@ but this strategy failed for the other archs for some reason.
 
 ===== QEMU with gem5 kernel configuration ARM
 
-To test this, hack up `run` to use the `out/arm-gem5/buildroot` directory, and then run:
-
 ....
-./run -a arm
+cp kernel_config_arm-gem5 kernel_config_fragment
 ....
 
-Now QEMU hangs at:
+First, we note that gem5 still boots.
+
+So we proceed to bisect the configs until QEMU boots, which leads to the three options:
 
 ....
-audio: Could not init `oss' audio driver
+sed -Ei \
+  -e '/^CONFIG_ARCH_MULTI_V7=y/d' \
+  -e '/^CONFIG_CMDLINE="console=ttyAMA0"/d' \
+  -e '/^# CONFIG_SCSI_SYM53C8XX_2 is not set/d' \
+  kernel_config_fragment \
+;
 ....
 
-and the display shows:
+Then we try to boot GEM5 again, but removing just `CONFIG_ARCH_MULTI_V7=y` leads to:
 
 ....
-Guest has not initialized the display (yet).
+Error: unrecognized/unsupported processor variant (0x410fc0f0).
 ....
+
+which looks really bad! Arghh, so that option blocks either one.
+
+From QEMU, doing;
+
+....
+cat /proc/cpuinfo
+....
+
+leads to:
+
+....
+model name      : ARM926EJ-S rev 5 (v5l)
+CPU architecture: 5TEJ
+....
+
+which wiki says is pre-ARMv7 (ARMv5)
+
+gem5 on the other hand says:
+
+....
+model name      : ARMv7
+CPU architecture: 7
+....
+
+We also tried to use `-- --cpu a15`, found with `-- --cpu help`, but not changes.
 
 ===== gem5 with QEMU kernel configuration ARM
 
