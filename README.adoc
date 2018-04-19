@@ -896,7 +896,7 @@ It is kind of random: if you just `insmod` manually and then immediately `./rung
 But this fails most of the time: shell 1:
 
 ....
-./run -a arm -f 'lkmc_eval="insmod /hello.ko"'
+./run -a arm -F 'insmod /hello.ko'
 ....
 
 shell 2:
@@ -983,7 +983,7 @@ So once we find the address the first time, we can just reuse it afterwards, as 
 Do a fresh boot and get the module:
 
 ....
-./run -f 'lkmc_eval="/pr_debug.sh;insmod /fops.ko;/poweroff.out"'
+./run -F '/pr_debug.sh;insmod /fops.ko;/poweroff.out'
 ....
 
 The boot must be fresh, because the load address changes every time we insert, even after removing previous modules.
@@ -1747,7 +1747,20 @@ although `-E` is smarter:
 
 so you should almost always use it, unless you are really counting each cycle ;-)
 
-This method prevents the BusyBox' init from launching a shell, so you cannot interact with the system afterwards. If you also want that, use: <<init-busybox>>.
+This method replaces BusyBox' init completely, which makes things more minimal, but also has has the following consequences:
+
+* `/etc/fstab` mounts are not done, notably `/proc` and `/sys`, test it out with:
++
+....
+./run -E 'echo asdf;ls /proc;ls /sys;echo qwer'
+....
+* no shell is launched at the end of boot for you to interact with the system. You could explicitly add a `sh` at the end of your commands however:
++
+....
+./run -E 'echo hello;sh'
+....
+
+The best way to overcome those limitations is to use: <<init-busybox>>
 
 If the script is large, you can add it to a gitignored file and pass that to `-E` as in:
 
@@ -1799,13 +1812,23 @@ but why not just use your super simple and effective `/poweroff.out` and be done
 [[init-busybox]]
 === Run command at the end of BusyBox init
 
-If you rely on something that BusyBox' init set up for you like networking, you could do:
+If you rely on something that BusyBox' init set up for you like `/etc/fstab`, this is the method you should use:
 
 ....
-./run -f 'lkmc_eval="insmod /hello.ko;wget -S google.com;poweroff.out;"'
+./run -F 'echo asdf;ls /proc;ls /sys;echo qwer'
 ....
 
-The `lkmc_eval` option gets evaled by our default `S98` startup script if present.
+After the commands run, you are left on an interactive shell.
+
+The above command is basically equivalent to:
+
+....
+./run -f 'lkmc_eval="insmod /hello.ko;poweroff.out;"'
+....
+
+where the `lkmc_eval` option gets evaled by our default `S98` startup script if present.
+
+However, `-F` is smarter and uses `base64` encoding, much like `-E` vs `-e`, so you will just use `-F` most of the time.
 
 Alternatively, add them to a new `init.d` entry to run at the end o the BusyBox init:
 
