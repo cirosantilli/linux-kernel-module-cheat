@@ -198,8 +198,8 @@ ${debug_vm} \
 -netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \\
 -smp '${cpus}' \\
 -trace 'enable=${trace_enable},file=${qemu_out_dir}/trace.bin' \\
--virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
--virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
+--virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
+--virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
 ${vnc}"
   if "$initrd"; then
     extra_flags="${extra_flags} -initrd '${images_dir}/rootfs.cpio' \\
@@ -226,7 +226,7 @@ ${qemu_common} \
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
 -device lkmc_pci_min \\
--device virtio-net-pci,netdev=net0 \\
+-device rtl8139,netdev=net0 \\
 -kernel '${images_dir}/bzImage' \\
 ${extra_flags} \
 "
@@ -236,16 +236,16 @@ ${extra_flags} \
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
       if ! "$ramfs"; then
-        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=scsi,format=qcow2' \\
+        extra_flags="${extra_flags} -drive file='${images_dir}/rootfs.ext2.qcow2,if=virtio,format=qcow2' \\
 "
-        root='root=/dev/sda'
+        root='root=/dev/vda'
       fi
       cmd="\
 ${qemu_common} \
--M versatilepb \\
+-M virt \\
 -append '${root} ${extra_append}' \\
+-cpu cortex-a15 \\
 -device rtl8139,netdev=net0 \\
--dtb '${images_dir}/versatile-pb.dtb' \\
 -kernel '${images_dir}/zImage' \\
 ${extra_flags} \
 "
@@ -264,7 +264,7 @@ ${qemu_common} \
 -M virt \\
 -append '${root} ${extra_append}' \\
 -cpu cortex-a57 \\
--device virtio-net-device,netdev=net0 \\
+-device rtl8139,netdev=net0 \\
 -kernel '${images_dir}/Image' \\
 ${extra_flags} \
 "
