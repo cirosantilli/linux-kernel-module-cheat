@@ -29,12 +29,9 @@ while getopts 'a:B:b:CGgj:hIiK:klp:qSv' OPT; do
     C)
       configure=false
       ;;
-    G)
+    g)
       extra_make_args="${extra_make_args} gem5-reconfigure \\
 "
-      gem5=true
-      ;;
-    g)
       gem5=true
       ;;
     h)
@@ -106,10 +103,7 @@ case "$arch" in
     defconfig=qemu_mips64r6_malta_defconfig
   ;;
 esac
-if ! "$gem5"; then
-  config_fragments="$config_fragments ${root_dir}/br2_qemu"
-fi
-config_fragments="${config_fragments} ${br2_cli_file}"
+config_fragments="${config_fragments} ${root_dir}/br2_qemu ${br2_cli_file}"
 
 # Configure.
 if "$configure"; then
@@ -130,12 +124,6 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
 " >> "$config_file"
   if "$gem5"; then
     printf "BR2_PACKAGE_GEM5=y\n" >> "${config_file}"
-    if [ -z "$linux_kernel_custom_config_file" ] && [ "$arch" = x86_64 ]; then
-      f="../kernel_config_${arch_dir}"
-      if [ -f "$f" ]; then
-        printf "BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"$f\"\n" >> "$config_file"
-      fi
-    fi
   fi
   if [ -n "$linux_kernel_custom_config_file" ]; then
     f="../${linux_kernel_custom_config_file}"
@@ -149,8 +137,9 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
       exit 1
     fi
   else
-    f=../kernel_config_fragment
-    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f}\"\n" >> "$config_file"
+    d=../kernel_config_fragment
+    f="${d}/min"
+    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f} ${d}/default\"\n" >> "$config_file"
     if "${linux_reconfigure}"; then
       # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
       touch "$f"

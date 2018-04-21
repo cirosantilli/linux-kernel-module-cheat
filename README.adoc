@@ -458,7 +458,7 @@ where `kernel_module` is the name of out Buildroot package that contains the ker
 Other important targets are:
 
 ....
-./build -l -q -G
+./build -l -q -g
 ....
 
 which rebuild the Linux kernel, and QEMU and gem5 respectively. They are essentially aliases for:
@@ -1940,6 +1940,15 @@ shows that interrupts do happen when mouse and keyboard presses are done, so I e
 
 The file `/dev/inputs/mice` does not exist.
 
+Note that our current link:kernel_confi_fragment sets:
+
+....
+# CONFIG_INPUT_MOUSE is not set
+# CONFIG_INPUT_MOUSEDEV_PSAUX is not set
+....
+
+for gem5, so you might want to remove those lines to debug this.
+
 === X11 ARM
 
 On ARM, `startx` hangs at a message:
@@ -2080,7 +2089,7 @@ TODO we were not able to get it working yet: https://stackoverflow.com/questions
 By default, we use a `.config` that is a mixture of:
 
 * Buildroot's minimal per machine `.config`, which has the minimal options needed to boot
-* our link:kernel_config_fragment[] which enables options we want to play with
+* our <<kernel-configs-about,kernel configs>> which enables options we want to play with
 
 If you want to just use your own exact `.config` instead, do:
 
@@ -2232,7 +2241,7 @@ Make the kernel reboot after n seconds after panic:
 echo 1 > /proc/sys/kernel/panic
 ....
 
-Can also be controlled with the `panic` kernel boot parameter.
+Can also be controlled with the `panic=` kernel boot parameter.
 
 `0` to disable: https://unix.stackexchange.com/questions/29567/how-to-configure-the-linux-kernel-to-reboot-on-panic/29569#29569
 
@@ -2325,6 +2334,18 @@ Related:
 ===== BUG_ON
 
 Basically just calls `panic("BUG!")` for most archs.
+
+===== Shutdown VM on panic
+
+Useful to automate bisections.
+
+QEMU:
+
+....
+./run -E 'insmod /panic.ko' -e 'panic=1' -- -no-reboot
+....
+
+gem5: TODO gem5's `config.ini` has a `system.panic_on_panic` param which I bet will work, but it does not seem to be exposed to `fs.py`.
 
 [[oops]]
 ==== Kernel oops
@@ -2926,6 +2947,31 @@ It just runs forever, so kill it when you get tired:
 kill %1
 ....
 
+[[kernel-configs-about]]
+=== About our Linux kernel configs
+
+We have managed to come up with minimalistic kernel configs that work for both QEMU and gem5 (oh, the hours of bisection).
+
+Our configs are all based on Buildroot's configs, which were designed for QEMU, and then on top of those we also add:
+
+* link:kernel_config_fragment/min[]: minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot
+* link:kernel_config_fragment/default[]: optional configs that we add by default to our kernel build because they increase visibility, and don't significantly increase build time nor add significant runtime overhead
+
+Changes to those files automatically trigger kernel reconfigures even without using the linux-reconfigure target, since timestamps are used to decide if changes happened or not.
+
+Having the same config working for both QEMU and gem5 means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.
+
+To see Buildroot's base configs, have a look at `buildroot/configs/qemu_x86_64_defconfig`, which our `./build` script uses.
+
+That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux-4.11.config"`, which points to the base config file used.
+
+`arm`, on the other hand, uses `buildroot/configs/qemu_arm_vexpress_defconfig`, which contains `BR2_LINUX_KERNEL_DEFCONFIG="vexpress"`, and therefore just does a `make vexpress_defconfig`.
+
+Other configs which we had previously tested at 4e0d9af81fcce2ce4e777cb82a1990d7c2ca7c1e are:
+
+* Jason's magic `x86_64` config: http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config which is referenced at: link:http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html[]. QEMU boots with that by removing `# CONFIG_VIRTIO_PCI is not set`
+* `arm` and `aarch64` configs present in the official ARM gem5 Linux kernel fork: https://gem5.googlesource.com/arm/linux, e.g. for arm v4.9: link:https://gem5.googlesource.com/arm/linux/+/917e007a4150d26a0aa95e4f5353ba72753669c7/arch/arm/configs/gem5_defconfig[]. The patches there are just simple optimizations and instrumentation, but they are not needed to boot.
+
 == QEMU
 
 Some QEMU specific features to play with and limitations to cry over.
@@ -3051,6 +3097,12 @@ devmem 0x101e9000 w 0x12345678
 
 which touches the register from userland through `/dev/mem`.
 
+==== Educational hardware models gem5
+
+TODO
+
+http://gedare-csphd.blogspot.co.uk/2013/02/adding-simple-io-device-to-gem5.html
+
 === 9P
 
 This protocol allows sharing a mountable filesystem between guest and host.
@@ -3086,7 +3138,7 @@ cat guest
 
 The main ingredients for this are:
 
-* `9P` settings in our link:kernel_config_fragment[]
+* `9P` settings in our <<kernel-configs-about,kernel configs>>
 * `9p` entry on our link:rootfs_overlay/etc/fstab[]
 +
 Alternatively, you could also mount your own with:
@@ -3450,8 +3502,6 @@ On another shell:
 ....
 ./gem5-shell
 ....
-
-A full rebuild is currently needed even if you already have QEMU working unfortunately, see: <<gem5-qemu-config>>
 
 Tested architectures:
 
@@ -3883,7 +3933,7 @@ Separating input sizes also allows to create smaller images when only running th
 
 This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
 
-One option would be to do that inside the guest with QEMU, but this would required a full rebuild due to <<gem5-qemu-config>>.
+One option would be to do that inside the guest with QEMU.
 
 Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another...
 
@@ -4253,161 +4303,17 @@ And a second instance:
 
 TODO Now we just need to network them up to have some more fun! See dist-gem5: http://publish.illinois.edu/icsl-pdgem5/
 
-[[gem5-qemu-config]]
-=== gem5 and QEMU with the same kernel configuration
-
-We would like to be able to run both gem5 and QEMU with the same minimal kernel build to:
-
-* do a single Buildroot build for both. Otherwise, we have to create two full `out/.*/buildroot/` directories, which takes up a lot of time.
-+
-Alternatively, we could try to be brave and switch between two kernel builds inside `out/.*/buildroot/`, but that would be too hackish.
-* be able to compare behaviour between QEMU and gem5 when one is doing something weird.
-+
-Note however that there are also variations which need to be controlled, e.g. kernel command line, DTB and QEMU's non-determinism.
-
-So far, the following build are unified for QEMU and gem5:
-
-* arm
-* aarch64
-
-The others use the Buildroot config for QEMU, and magic huge post-olddefconfig config files floating around the web for GEM5.
-
-Subsections of this section document our failed attempts so far.
-
-This is the strategy that we used to make it work for aarch64:
-
-* `make savedefconfig` on the working gem5 kernel tree
-* paste the result on `kernel_config_fragment`
-* bisect it up
-
-but this strategy failed for the other archs for some reason.
-
-==== gem5 and QEMU with the same kernel configuration x86_64
-
-Boot fails with:
-
-....
---- BEGIN LIBC BACKTRACE ---
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x557f6290bc89]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x557f6291f88a]
-/lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7fbb3bd13150]
-/lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7fbb3a3450bb]
-/lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7fbb3a346f5d]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x557f626570bf]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x557f6264940a]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x557f6264bb5c]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x557f6311eace]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x557f62b63969]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x557f62b3a7f6]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x557f62b4724b]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x557f627fd12d]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x557f6280b439]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x557f6301712b]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x557f627fc054]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x557f62912f79]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x557f6292cb88]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x557f6292db7a]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x557f62aefc7b]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x557f629735ab]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7fbb3bfd37e4]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7fbb3bfd583a]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7fbb3bfd583a]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCode+0x19)[0x7fbb3bfcc7f9]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x63a3)[0x7fbb3bfd2d33]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7fbb3bfd2580]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7fbb3c0fdb88]
---- END LIBC BACKTRACE ---
-./run: line 249: 21991 Aborted                 (core dumped) M5_PATH='/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/system' '/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt' '/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/configs/example/fs.py' --checkpoint-dir='./m5out/cpts/x86_64' --disk-image='/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/images/rootfs.ext2' --mem-size=256MB --num-cpus='1' --kernel=/linux-kernel-module-cheat//out/x86_64/buildroot/build/linux-custom/vmlinux --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda nokaslr norandmaps printk.devkmsg=on printk.time=y init=/eval_base64.sh - lkmc_eval="bTUgZXhpdA=="'
-....
-
-dmesg stops at:
-
-....
-[    0.420680] ALSA device list:
-[    0.420687]   No soundcards found.
-....
-
-The following lines of a normal boot would be:
-
-....
-[    0.684720] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100
-[    0.686057] ata2.00: configured for MWDMA2
-[    0.697741] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
-[    0.699565] scsi 1:0:0:0: Attached scsi generic sg0 type 5
-[    1.229087] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input3
-[    1.234371] EXT4-fs (vda): couldn't mount as ext3 due to feature incompatibilities
-[    1.243156] EXT4-fs (vda): mounted filesystem without journal. Opts: (null)
-[    1.244443] VFS: Mounted root (ext4 filesystem) readonly on device 254:0.
-....
-
-If I append `savedefconfig` to our `kernel_config_fragment`:
-
-....
---- BEGIN LIBC BACKTRACE ---
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z15print_backtracev+0x29)[0x559636f44c89]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z12abortHandleri+0x4a)[0x559636f5888a]
-/lib/x86_64-linux-gnu/libpthread.so.0(+0x13150)[0x7f855f8f3150]
-/lib/x86_64-linux-gnu/libc.so.6(gsignal+0xcb)[0x7f855df250bb]
-/lib/x86_64-linux-gnu/libc.so.6(abort+0x16d)[0x7f855df26f5d]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x4110bf)[0x559636c900bf]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA8PS2Mouse11processDataEh+0x12a)[0x559636c8240a]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6X86ISA5I80425writeEP6Packet+0xa2c)[0x559636c84b5c]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN7PioPort10recvAtomicEP6Packet+0x6e)[0x559637757ace]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15NoncoherentXBar10recvAtomicEP6Packets+0x279)[0x55963719c969]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN6Bridge15BridgeSlavePort10recvAtomicEP6Packet+0x36)[0x5596371737f6]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN12CoherentXBar10recvAtomicEP6Packets+0x57b)[0x55963718024b]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU8writeMemEPhjm5FlagsImEPm+0x49d)[0x559636e3612d]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN17SimpleExecContext8writeMemEPhjm5FlagsImEPm+0x29)[0x559636e44439]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZNK10X86ISAInst2St7executeEP11ExecContextPN5Trace10InstRecordE+0x29b)[0x55963765012b]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN15AtomicSimpleCPU4tickEv+0x3b4)[0x559636e35054]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_ZN10EventQueue10serviceOneEv+0xd9)[0x559636f4bf79]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z9doSimLoopP10EventQueue+0x58)[0x559636f65b88]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(_Z8simulatem+0xc1a)[0x559636f66b7a]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x8a9c7b)[0x559637128c7b]
-/linux-kernel-module-cheat//out/x86_64-gem5/buildroot/build/gem5-1.0/gem5/build/X86/gem5.opt(+0x72d5ab)[0x559636fac5ab]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x6e54)[0x7f855fbb37e4]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7f855fbb2580]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7f855fbb583a]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x8eaa)[0x7f855fbb583a]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCode+0x19)[0x7f855fbac7f9]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x63a3)[0x7f855fbb2d33]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalFrameEx+0x5bf0)[0x7f855fbb2580]
-/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0(PyEval_EvalCodeEx+0x7d8)[0x7f855fcddb88]
---- END LIBC BACKTRACE ---
-....
-
-and dmesg stops at:
-
-....
-[    2.803252] devtmpfs: mounted
-[    2.803885] Freeing unused kernel memory: 1024K
-....
-
-the following lines would be:
-
-....
-[    2.827254] Freeing unused kernel memory: 2016K
-[    2.828949] Freeing unused kernel memory: 836K
-[    2.829561] rodata_test: all tests were successful
-[    2.841871] EXT4-fs (vda): re-mounted. Opts: block_validity,delalloc,barrier,user_xattr,acl
-....
-
-which is very close to the end of the boot. Increasing the memory from 256M to 512M didn't help.
-
 === m5
 
 `m5` is a guest command line utility that is installed and run on the guest.
 
+Its source is present under the gem5 main tree.
+
 It generates magic instructions, which lead gem5 to do magic things, like `dumpstats` or `exit`.
 
 It is however under-documented, so let's document some of its capabilities here.
+
+Part of those explanations could be deduced from the documentation of the magic instructions themselves: http://gem5.org/M5ops
 
 ==== m5 exit
 
@@ -4509,18 +4415,6 @@ Unfortunately-we didn't manage to find an ARM analogue: link:kernel_module/pmccn
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
 * https://blog.regehr.org/archives/794
-
-=== gem5 limitations
-
-* networking not working. We currently just disable it from `inittab` by default to prevent waiting at startup
-
-==== gem5 x86_64 limitations
-
-* gets stuck for a long time at:
-+
-....
-[    0.000000] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645519600211568 ns
-....
 
 == Insane action
 
@@ -4954,8 +4848,6 @@ Why so long? I had previously documented on README 10 minutes at: 2eff007f7c3458
 * update gem5 to master 2a9573f5942b5416fb0570cf5cb6cdecba733392
 * larger caches: `--l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB`
 
-One methodology problem is that some gem5 and QEMU were run with different kernel configs, due to <<gem5-qemu-config>>. This could have been improved if we normalized by instruction counts, but to do that we would have to enable tracing which makes QEMU run much slower.
-
 But TODO: on aarch64 both use the same kernel build already, and the gem5 instruction count is much higher, why?
 
 ==== Benchmark initial build
@@ -5222,7 +5114,7 @@ ____
 Runnable stuff:
 
 * https://lwn.net/Kernel/LDD3/ the best book, but outdated. Updated source: https://github.com/martinezjavier/ldd3 But examples non-minimal and take too much brain power to understand.
-* https://github.com/satoru-takeuchi/elkdat manual build process without Buildroot, very few and simple kernel modules
+* https://github.com/satoru-takeuchi/elkdat manual build process without Buildroot, very few and simple kernel modules. But it seem ktest + QEMU working, which is awesome. `./test` there patches ktest config dynamically based on CLI! Maybe we should just steal it since GPL licensed.
 * https://github.com/tinyclub/linux-lab Buildroot based, no kernel modules?
 * https://github.com/agelastic/eudyptula
 * https://github.com/linux-kernel-labs Yocto based, source inside a kernel fork subdir: https://github.com/linux-kernel-labs/linux/tree/f08b9e4238dfc612a9d019e3705bd906930057fc/tools/labs which the author would like to upstream https://www.reddit.com/r/programming/comments/79w2q9/linux_device_driver_labs_the_linux_kernel/dp6of43/
