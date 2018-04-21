@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Run all benchmarks for this repo, and save the results to the
+# benchmark repo, which should be cloned at ../linux-kernel-module-cheat-benchmarks.
+#
+# We will only include here things which are likely to change due to Buildroot / Linux
+# kernel configuration changes. This excludes for example:
+#
+# * ./gem5-bench-caches: basically only benchmarks gem5 itself,
+#   since it makes no syscalls on the main loop (checked with strace).
+# * gem5 built time
+set -eu
+. common
+#./build-all
+#./bench-boot
+sha="$(git log -1 --format="%H")"
+benchmark_repo=../linux-kernel-module-cheat-regression
+last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
+if [ -n "$last_dir" ]; then
+  seq_id="$(("$(echo "$last_dir" | sed -E 's/_.*//')" + 1))"
+else
+  seq_id=0
+fi
+seq_id="$(printf '%0.4d' "$seq_id")"
+sha="$(git log -1 --format="%H")"
+new_dir="${benchmark_repo}/${seq_id}_${sha}"
+mkdir "$new_dir"
+cp "$common_bench_boot" "$new_dir"
+cd "$benchmark_repo"
+git add .
+git commit -m "$new_dir"
+git push

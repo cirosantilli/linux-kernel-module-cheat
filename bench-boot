@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 set -eu
 . common
-results_file="${out_dir}/bench-boot.txt"
 caches='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 bench() (
-  common_bench_cmd "./run -a ${1}" "$results_file"
+  common_bench_cmd "./run -a ${1}" "$common_bench_boot"
 )
 gem5_insts() (
-  printf "instructions $(./gem5-stat -a "$1" sim_insts)\n" >> "$results_file"
+  printf "instructions $(./gem5-stat -a "$1" sim_insts)\n" >> "$common_bench_boot"
 )
 qemu_insts() (
   arch="$1"
   ./qemu-trace2txt -a "$arch"
   set_common_vars "$arch"
-  printf "instructions $(wc -l "${qemu_trace_txt_file}" | cut -d' ' -f1)\n" >> "$results_file"
+  printf "instructions $(wc -l "${qemu_trace_txt_file}" | cut -d' ' -f1)\n" >> "$common_bench_boot"
 )
-rm -f "${results_file}"
+rm -f "${common_bench_boot}"
 
 arch=x86_64
 bench "$arch -E '/poweroff.out'"
