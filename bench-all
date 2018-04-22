@@ -1,19 +1,54 @@
 #!/usr/bin/env bash
 # Run all benchmarks for this repo, and save the results to the
 # benchmark repo, which should be cloned at ../linux-kernel-module-cheat-benchmarks.
-#
-# We will only include here things which are likely to change due to Buildroot / Linux
-# kernel configuration changes. This excludes for example:
-#
-# * ./gem5-bench-caches: basically only benchmarks gem5 itself,
-#   since it makes no syscalls on the main loop (checked with strace).
-# * gem5 built time
 set -eu
 . common
-./build-all
-./bench-boot
+
+bench_build=false
+bench_buildroot_baseline=false
+bench_gem5_build=false
+bench_linux_boot=false
+default_arch=x86_64
+update_repo=true
+set -- ${cli_bench_all:-} "$@"
+while getopts Aa:Bbglu OPT; do
+  case "$OPT" in
+    A)
+      bench_build=true
+      bench_buildroot_baseline=true
+      bench_gem5_build=true
+      bench_linux_boot=true
+      ;;
+    a)
+      default_arch="$OPTARG"
+      ;;
+    b)
+      bench_build=true
+      ;;
+    B)
+      bench_buildroot_baseline=true
+      ;;
+    g)
+      bench_gem5_build=true
+      ;;
+    l)
+      bench_linux_boot=true
+      ;;
+    u)
+      update_repo=false
+      ;;
+    ?)
+      exit 2
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+comment="${1:-}"
+
+# Create output directory.
 sha="$(git log -1 --format="%H")"
-benchmark_repo=../linux-kernel-module-cheat-regression
+benchmark_repo="${root_dir}/../linux-kernel-module-cheat-regression"
+mkdir -p "$benchmark_repo"
 last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
 if [ -n "$last_dir" ]; then
   seq_id="$(("$(echo "$last_dir" | sed -E 's/_.*//')" + 1))"
@@ -22,10 +57,67 @@ else
 fi
 seq_id="$(printf '%0.4d' "$seq_id")"
 sha="$(git log -1 --format="%H")"
-new_dir="${benchmark_repo}/${seq_id}_${sha}"
+dir_basename="${seq_id}_${sha}"
+new_dir="${benchmark_repo}/${dir_basename}"
 mkdir "$new_dir"
-cp "$common_bench_boot" "$new_dir"
-cd "$benchmark_repo"
-git add .
-git commit -m "$new_dir"
-git push
+
+if "$bench_build"; then
+  arch="$default_arch"
+  suffix=bench
+  set_common_vars "$arch" false "$suffix"
+  rm -rf "$out_arch_dir"
+  ./build -a "$arch" -B 'BR2_CCACHE=n' -s "$suffix"
+  cp "${build_dir}/build-time.log" "${new_dir}/build-time-${arch}.log"
+  rm -rf "$out_arch_dir"
+fi
+
+if "$bench_buildroot_baseline"; then
+  cd "${root_dir}/buildroot"
+  git clean -xdf
+  make "qemu_${default_arch}_defconfig"
+  printf '
+BR2_CCACHE=y
+BR2_TARGET_ROOTFS_CPIO=y
+BR2_TARGET_ROOTFS_EXT2=n
+' >>.config
+  make olddefconfig
+  make source
+  time env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(nproc)"
+  cp output/build/build-time.log "${new_dir}/baseline-build-time-${default_arch}.log"
+  wc -c output/images/* > "${new_dir}/baseline-image-size-${default_arch}.log"
+  git clean -xdf
+fi
+
+if "$bench_gem5_build"; then
+  arches='x86_64 arm'
+  for arch in $arches; do
+    set_common_vars "$arch"
+    cd "${root_dir}/gem5/gem5"
+    git clean -xdf
+    cd "${root_dir}/gem5"
+    results_file="${gem5_out_dir}/bench-build.txt"
+    rm "$results_file"
+    common_bench_cmd "timeout 900 ./build -a '$arch'" "$results_file"
+    cp "$results_file" "${new_dir}/gem5-bench-build-${arch}.txt"
+    cd "${root_dir}/gem5/gem5"
+    git clean -xdf
+  done
+fi
+
+if "$bench_linux_boot"; then
+  cd "${root_dir}"
+  ./build-all
+  ./bench-boot
+  cp "$common_bench_boot" "$new_dir"
+fi
+
+if "$update_repo"; then
+  if [ -n "$comment" ]; then
+    echo "$comment" > "${new_dir}/README.adoc"
+  fi
+  echo ""
+  cd "$benchmark_repo"
+  git add .
+  git commit -m "$dir_basename"
+  git push
+fi

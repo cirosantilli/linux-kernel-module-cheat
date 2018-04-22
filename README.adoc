@@ -27,7 +27,7 @@ cd linux-kernel-module-cheat
 ./configure && ./build && ./run
 ....
 
-The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-initial-build>> for more details.
+The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
 If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
 
@@ -818,7 +818,19 @@ If you are using gem5 instead of QEMU, `-u` has a different effect: it opens the
 ./run -gu
 ....
 
-If you also want to use the debugger with gem5, you will need to create your own panes or windows.
+If you also want to use the debugger with gem5, you will need to create your own panes or windows, or to see the debugger instead of the terminal:
+
+....
+./tmu ./rungdb;./run -dg
+....
+
+TODO: there is a problem with our method however: if you do something like:
+
+....
+./build && ./run -du
+....
+
+and the build takes a while, and you move to another tmux window, then the split happens on the current window, not where you ran the command: https://unix.stackexchange.com/questions/439031/how-to-split-the-window-that-ran-the-tmux-split-window-command-instead-of-the
 
 === GDB step debug kernel module
 
@@ -3683,7 +3695,6 @@ But keep in mind that it only affects benchmark performance of the most detailed
 {empty}*: couldn't test because of:
 
 * https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
-* https://github.com/gem5/gem5/issues/16
 
 Cache sizes can in theory be checked with the methods described at: link:https://superuser.com/questions/55776/finding-l2-cache-size-in-linux[]:
 
@@ -3753,7 +3764,7 @@ instructions 80899588
 We make the following conclusions:
 
 * the number of instructions almost does not change: the CPU is waiting for memory all the extra time. TODO: why does it change at all?
-* the wall clock execution time is not directionally proportional to the number of cycles: here we had a 10x cycle increase, but only 2x time increase
+* the wall clock execution time is not directionally proportional to the number of cycles: here we had a 10x cycle increase, but only 2x time increase. This suggests that the simulation of cycles in which the CPU is waiting for memory to come back is faster.
 
 ===== gem5 memory latency
 
@@ -4745,15 +4756,126 @@ Finally, do a clone of the relevant repository out of tree and reproduce the bug
 
 == Benchmark this repo
 
-In this section document how fast the build and clone are, and how to investigate them.
-
-This is to give an idea to people of what they should expect.
-
-Send a pull request if you try it out on something significantly different.
+In this section document how benchmark builds and runs of this repo, and how to investigate what the bottleneck is.
 
 Ideally, we should setup an automated build server that benchmarks those things continuously for us.
 
-=== Find which packages are making the build slow
+We tried to automate it on Travis with link:.travis.yml[] but it hits the current 50 minute job timeout: https://travis-ci.org/cirosantilli/linux-kernel-module-cheat/builds/296454523 And I bet it would likely hit a disk maxout either way if it went on.
+
+So currently, we are running benchmarks manually when it seems reasonable and uploading them to: https://github.com/cirosantilli/linux-kernel-module-cheat-regression
+
+All benchmarks were run on the <<p51>> machine, unless stated otherwise.
+
+Run all benchmarks and upload the results:
+
+....
+./bench-all -A
+....
+
+=== Benchmark this repo benchmarks
+
+==== Benchmark Linux kernel boot
+
+....
+./bench-boot
+cat out/bench-boot.txt
+....
+
+Sample results at 2bddcc2891b7e5ac38c10d509bdfc1c8fe347b94:
+
+....
+cmd ./run -a x86_64 -E '/poweroff.out'
+time 3.58
+exit_status 0
+cmd ./run -a x86_64 -E '/poweroff.out' -K
+time 0.89
+exit_status 0
+cmd ./run -a x86_64 -E '/poweroff.out' -T exec_tb
+time 4.12
+exit_status 0
+instructions 2343768
+cmd ./run -a x86_64 -E 'm5 exit' -g
+time 451.10
+exit_status 0
+instructions 706187020
+cmd ./run -a arm -E '/poweroff.out'
+time 1.85
+exit_status 0
+cmd ./run -a arm -E '/poweroff.out' -T exec_tb
+time 1.92
+exit_status 0
+instructions 681000
+cmd ./run -a arm -E 'm5 exit' -g
+time 94.85
+exit_status 0
+instructions 139895210
+cmd ./run -a aarch64 -E '/poweroff.out'
+time 1.36
+exit_status 0
+cmd ./run -a aarch64 -E '/poweroff.out' -T exec_tb
+time 1.37
+exit_status 0
+instructions 178879
+cmd ./run -a aarch64 -E 'm5 exit' -g
+time 72.50
+exit_status 0
+instructions 115754212
+cmd ./run -a aarch64 -E 'm5 exit' -g -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+time 369.13
+exit_status 0
+instructions 115774177
+....
+
+TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction count so much much higher?
+
+===== gem5 arm HPI boot takes much longer than aarch64
+
+TODO 62f6870e4e0b384c4bd2d514116247e81b241251 takes 33 minutes to finish at 62f6870e4e0b384c4bd2d514116247e81b241251:
+
+....
+cmd ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
+....
+
+while aarch64 only 7 minutes.
+
+I had previously documented on README 10 minutes at: 2eff007f7c3458be240c673c32bb33892a45d3a0 found with `git log` search for `10 minutes`. But then I checked out there, run it, and kernel panics before any messages come out. Lol?
+
+Logs of the runs can be found at: https://github.com/cirosantilli-work/gem5-issues/tree/0df13e862b50ae20fcd10bae1a9a53e55d01caac/arm-hpi-slow
+
+The cycle count is higher for `arm`, 350M vs 250M for `aarch64`, not nowhere near the 5x runtime time increase.
+
+A quick look at the boot logs show that they are basically identical in structure: the same operations appear more ore less on both, and there isn't one specific huge time pit in arm: it is just that every individual operation seems to be taking a lot longer.
+
+===== gem5 x86_64 DerivO3CPU boot panics
+
+https://github.com/cirosantilli-work/gem5-issues/issues/2
+
+....
+Kernel panic - not syncing: Attempted to kill the idle task!
+....
+
+==== Benchmark builds
+
+The build times are calculated after doing `./configure` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the <<benchmark-internets,Internet>>.
+
+Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
+
+Single file change on `./build kernel_module-reconfigure`: 7 seconds.
+
+Buildroot automatically stores build timestamps as milliseconds since Epoch. Convert to minutes:
+
+....
+awk -F: 'NR==1{start=$1}; END{print ($1 - start)/(60000.0)}' out/x86_64/buildroot/build/build-time.log
+....
+
+Or to conveniently do a clean build without affecting your current one:
+
+....
+./bench-all -b
+cat ../linux-kernel-module-cheat-regression/*/build-time.log
+....
+
+===== Find which packages are making the build slow
 
 ....
 cd out/x86_64/buildroot
@@ -4783,59 +4905,19 @@ We do our best to reduce the instruction and feature count to the bare minimum n
 +
 One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
 
-=== Benchmark this repo benchmarks
-
-==== Benchmark Linux kernel boot
-
-....
-./bench-boot
-cat out/bench-boot.txt
-....
-
-Benchmark results will be kept at: https://github.com/cirosantilli/linux-kernel-module-cheat-regression
-
-Output  fb317f4778633692b91c9174224dccc6a3a02893:
-
-TODO the following takes more than 1 hour to finish on the <<p51>>:
-
-....
-cmd ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
-....
-
-Why so long? I had previously documented on README 10 minutes at: 2eff007f7c3458be240c673c32bb33892a45d3a0 found with `git log` search for `10 minutes`. But then I checked out there, run it, and kernel panics before any messages come out. Lol? Things that did not happen:
-
-* update gem5 to master 2a9573f5942b5416fb0570cf5cb6cdecba733392
-* larger caches: `--l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB`
-
-But TODO: on aarch64 both use the same kernel build already, and the gem5 instruction count is much higher, why?
-
-==== Benchmark initial build
-
-The build times are calculated after doing `./configure` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the Internet.
-
-Build time on <<p51>> at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
-
-Single file change on `./build kernel_module-reconfigure`: 7 seconds.
-
-==== Benchmark Buildroot build baseline
+===== Benchmark Buildroot build baseline
 
 This is the minimal build we could expect to get away with.
 
-On the upstream Buildroot repo at 7d43534625ac06ae01987113e912ffaf1aec2302 we run:
+We will run this whenever the Buildroot submodule is updated.
+
+On the upstream Buildroot repo at :
 
 ....
-make qemu_x86_64_defconfig
-printf '
-BR2_CCACHE=y
-BR2_TARGET_ROOTFS_CPIO=y
-BR2_TARGET_ROOTFS_EXT2=n
-' >>.config
-make olddefconfig
-time env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(nproc)"
-ls -l output/images
+./bench-all -B
 ....
 
-Time: 11 minutes, 7 with full ccache hits. Breakdown: 47% GCC, 15% Linux kernel, 9% uclibc, 5% host-binutils. Conclusions:
+Sample time on 2017.08: 11 minutes, 7 with full ccache hits. Breakdown: 47% GCC, 15% Linux kernel, 9% uclibc, 5% host-binutils. Conclusions:
 
 * we have bloated our kernel build 3x with all those delicious features :-)
 * GCC time increased 1.5x by our bloat, but its percentage of the total was greatly reduced, due to new packages being introduced.
@@ -4858,11 +4940,20 @@ Size:
 
 Zipped: 4.9M, `rootfs.cpio` deflates 50%, `bzImage` almost nothing.
 
-==== Benchmark gem5 build
+===== Benchmark gem5 build
 
-How long it takes to build gem5 itself on <<P51>>
+How long it takes to build gem5 itself.
 
-* x86 at 68af229490fc811aebddf68b3e2e09e63a5fa475: 9m40s
+We will update this whenever the gem5 submoule is updated.
+
+Sample results at gem5 2a9573f5942b5416fb0570cf5cb6cdecba733392: 10 to 12 minutes.
+
+Get results with:
+
+....
+./bench-all -g
+tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt
+....
 
 === Benchmark machines
 
