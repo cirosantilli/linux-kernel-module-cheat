@@ -2,22 +2,31 @@
 set -eu
 . common
 set -- ${cli_trace_boot:-} "$@"
-while getopts a: OPT; do
+while getopts a:g OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
       ;;
+    g)
+      gem5=true
+      ;;
   esac
 done
-set_common_vars "$arch" false
-time ./run -a "$arch" -e 'init=/poweroff.out' -T exec_tb
-time ./qemu-trace2txt -a "$arch"
-
-# Instruction count.
-# We could put this on a separate script, but it just adds more arch boilerplate to a new script.
-# So let's just leave it here for now since it did not add a significant processing time.
-echo "instructions $(wc -l "${qemu_trace_txt_file}" | cut -d' ' -f1)"
-entry_addr=$("${root_dir}/runtc" readelf -h "${build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
-echo "entry_address ${entry_addr}"
-sed "/${entry_addr}/q" "${qemu_trace_txt_file}" >"${qemu_out_dir}/trace-boot.txt"
-echo "instructions_firmware $(wc -l "${qemu_out_dir}/trace-boot.txt" | cut -d' ' -f1)"
+shift "$(($OPTIND - 1))"
+set_common_vars "$arch" "$gem5"
+if "$gem5"; then
+  # Exactly what Exec enabled, but without ExecSymbol,
+  # to get raw addresses instead of symbol+offset.
+  time ./run -a aarch64 -E 'm5 exit' -G '--debug-flags=ExecEnable,ExecTicks,ExecOpClass,ExecThread,ExecEffAddr,ExecResult,ExecMicro,ExecMacro,ExecFaulting,ExecUser,ExecKernel' -g "$@"
+else
+  time ./run -a "$arch" -e 'init=/poweroff.out' -T exec_tb "$@"
+  time ./qemu-trace2txt -a "$arch"
+  # Instruction count.
+  # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
+  # So let's just leave it here for now since it did not add a significant processing time.
+  echo "instructions $(wc -l "${common_trace_txt_file}" | cut -d' ' -f1)"
+  entry_addr=$("${root_dir}/runtc" readelf -h "${build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
+  echo "entry_address ${entry_addr}"
+  sed "/${entry_addr}/q" "${common_trace_txt_file}" >"${qemu_out_dir}/trace-boot.txt"
+  echo "instructions_firmware $(wc -l "${qemu_out_dir}/trace-boot.txt" | cut -d' ' -f1)"
+fi

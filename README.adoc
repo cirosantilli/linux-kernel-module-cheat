@@ -1150,6 +1150,8 @@ Maybe it is because they are being copied around at specific locations instead o
 
 See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
 
+<<gem5-tracing>> with `--debug-flags=Exec` does show the right symbols however! So in the worst case, we can just read their source. Amazing.
+
 ==== GDB step debug early boot by address
 
 One possibility is to run:
@@ -3395,8 +3397,7 @@ in which the boot appears to hang for a considerable time.
 We can further use Binutils' `addr2line` to get the line that corresponds to each address:
 
 ....
-./trace-boot -a x86_64
-./trace2line -a x86_64
+./trace-boot -a x86_64 && ./trace2line -a x86_64
 less ./out/x86_64/qemu/trace-lines.txt
 ....
 
@@ -3449,29 +3450,47 @@ less out/aarch64/gem5/m5out/trace.txt
 
 but be warned, it is humongous, at 16Gb.
 
-It made the runtime about 4x slower on the <<p51>>, with or without `.gz` compression.
+We can the trace smaller by naming the trace file as `trace.txt.gz`, which enables GZIP compression, but that is not currently exposed on our scripts, since you usually just need something human readable to work on.
 
-The list of available debug flags can be found with:
+Enabling traceing made the runtime about 4x slower on the <<p51>>, with or without `.gz` compression.
+
+The output format is of type:
+
+....
+25007500: system.cpu T0 : @start_kernel.1  :   strxi_uop   x29, [ureg0] : MemWrite :  D=0x0000000000000000 A=0xffffff8008913f90
+....
+
+where:
+
+* `25007500`:
+* `system.cpu`: distinguishes between CPUs when there are more than one
+* `T0`: thread number. TODO: hyperthread? How to play with it?
+* `@start_kernel.1`: we are in the `start_kernel` function. Awesome feature! Imlemented with libelf https://sourceforge.net/projects/elftoolchain/ copy pasted in-tree `ext/libelf`. To get raw addresses, remove the `ExecSymbol`, which is enabled by `Exec`.
+* `.1`: TODO
+* `strxi_uop   x29, [ureg0]`: instruction disassembly. Seems to use `.isa` files dispersed per arch. Seems developed in house: http://gem5.org/ISA_description_system
+* `MemWrite :  D=0x0000000000000000 A=0xffffff8008913f90`: TODO
+
+The list of all available debug flags can be found with:
 
 ....
 ./run -a aarch64 -G --debug-help -g
 ....
 
-but for meaningful descriptions you need to look at the source code:
+but to understand most of tnem you need to look at the source code:
 
 ....
 less gem5/gem5/src/cpu/SConscript
+less gem5/gem5/src/cpu/exetrace.cc
 ....
 
-The default `Exec` format reads symbol names from the Linux kernel image and show them, which is pretty awesome if you ask me.
+As can be seen on the `Sconstruct`, `Exec` is just an alias that enables a set of flags.
 
-TODO can we get just the executed addresses out of gem5? The following gets us closer, but not quite:
+Finally, you can also trace the source lines just like <<trace-source-lines,for QEMU>> with:
 
 ....
-./run -a aarch64 -E 'm5 exit' -G '--debug-flags=ExecEnable,ExecKernel,ExecUse' -g
+./trace-boot -a aarch64 -g && ./trace2line -a aarch64 -g
+less ./out/aarch64/gem5/trace-lines.txt
 ....
-
-We could of course just pipe it to stdout and `awk` it up.
 
 === QEMU GUI is unresponsive
 
@@ -4286,6 +4305,24 @@ Pass options to the `gem5` executable itself:
 ....
 ./run -G '-h' -g
 ....
+
+=== gem5 limit the number of instructions
+
+Quit the simulation after `1024` instructions:
+
+....
+./run -g -- -I 1024
+....
+
+Can be nicely checked with <<gem5-tracing>>.
+
+Cycles instead of instructions:
+
+....
+./run -g -- -m 1024
+....
+
+Otherwise the simulation runs forever.
 
 === Run multiple gem5 instances at once
 
