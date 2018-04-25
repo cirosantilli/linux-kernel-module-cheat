@@ -1150,6 +1150,8 @@ Maybe it is because they are being copied around at specific locations instead o
 
 See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
 
+<<gem5-tracing>> with `--debug-flags=Exec` does show the right symbols however! So in the worst case, we can just read their source. Amazing.
+
 ==== GDB step debug early boot by address
 
 One possibility is to run:
@@ -3353,9 +3355,9 @@ You can still send key presses to QEMU however even without the mouse capture, j
 
 === Tracing
 
-QEMU has a mechanism to log all instructions executed to a file.
+QEMU can log several different events.
 
-To do it for the Linux kernel boot we have a helper:
+The most interesting are events which show instructions that QEMU ran, for which we have a helper:
 
 ....
 ./trace-boot -a x86_64
@@ -3365,6 +3367,20 @@ You can then inspect the instructions with:
 
 ....
 less ./out/x86_64/qemu/trace.txt
+....
+
+Enable other specific trace events:
+
+....
+./run -T trace1,trace2
+./qemu-trace2txt -a "$arch"
+less ./out/x86_64/qemu/trace.txt
+....
+
+Get the list of available trace events:
+
+....
+./run -T help
 ....
 
 This functionality relies on the following setup:
@@ -3395,8 +3411,7 @@ in which the boot appears to hang for a considerable time.
 We can further use Binutils' `addr2line` to get the line that corresponds to each address:
 
 ....
-./trace-boot -a x86_64
-./trace2line -a x86_64
+./trace-boot -a x86_64 && ./trace2line -a x86_64
 less ./out/x86_64/qemu/trace-lines.txt
 ....
 
@@ -3435,43 +3450,66 @@ Alternatively, https://github.com/mozilla/rr[`mozilla/rr`] claims it is able to 
 
 gem5 also has a tracing mechanism, as documented at: http://www.gem5.org/Trace_Based_Debugging
 
-Try it out with:
-
 ....
-./run -a aarch64 -E 'm5 exit' -G '--debug-flags=Exec' -g
-....
-
-The trace file is located at:
-
-....
+./run -a aarch64 -E 'm5 exit' -g -T Exec
 less out/aarch64/gem5/m5out/trace.txt
 ....
 
-but be warned, it is humongous, at 16Gb.
-
-It made the runtime about 4x slower on the <<p51>>, with or without `.gz` compression.
-
-The list of available debug flags can be found with:
+List all available debug flags:
 
 ....
 ./run -a aarch64 -G --debug-help -g
 ....
 
-but for meaningful descriptions you need to look at the source code:
+but to understand most of them you have to look at the source code:
 
 ....
 less gem5/gem5/src/cpu/SConscript
+less gem5/gem5/src/cpu/exetrace.cc
 ....
 
-The default `Exec` format reads symbol names from the Linux kernel image and show them, which is pretty awesome if you ask me.
+As can be seen on the `Sconstruct`, `Exec` is just an alias that enables a set of flags.
 
-TODO can we get just the executed addresses out of gem5? The following gets us closer, but not quite:
+Be warned, the trace is humongous, at 16Gb.
+
+We can make the trace smaller by naming the trace file as `trace.txt.gz`, which enables GZIP compression, but that is not currently exposed on our scripts, since you usually just need something human readable to work on.
+
+Enabling tracing made the runtime about 4x slower on the <<p51>>, with or without `.gz` compression.
+
+The output format is of type:
 
 ....
-./run -a aarch64 -E 'm5 exit' -G '--debug-flags=ExecEnable,ExecKernel,ExecUse' -g
+25007000: system.cpu T0 : @start_kernel    : stp
+25007000: system.cpu T0 : @start_kernel.0  :   addxi_uop   ureg0, sp, #-112 : IntAlu :  D=0xffffff8008913f90
+25007500: system.cpu T0 : @start_kernel.1  :   strxi_uop   x29, [ureg0] : MemWrite :  D=0x0000000000000000 A=0xffffff8008913f90
+25008000: system.cpu T0 : @start_kernel.2  :   strxi_uop   x30, [ureg0, #8] : MemWrite :  D=0x0000000000000000 A=0xffffff8008913f98
+25008500: system.cpu T0 : @start_kernel.3  :   addxi_uop   sp, ureg0, #0 : IntAlu :  D=0xffffff8008913f90
 ....
 
-We could of course just pipe it to stdout and `awk` it up.
+There are two types of lines:
+
+* full instructions, as the first line. Only shown if the `ExecMacro` flag is given.
+* micro ops that constitute the instruction, the lines that follow. Yes, `aarch64` also has microops: link:https://superuser.com/questions/934752/do-arm-processors-like-cortex-a9-use-microcode/934755#934755[]. Only shown if the `ExecMicro` flag is given.
+
+Breakdown:
+
+* `25007500`: time count in some unit. Note how the microops execute at further timestamps.
+* `system.cpu`: distinguishes between CPUs when there are more than one
+* `T0`: thread number. TODO: link:https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858[hyperthread]? How to play with it?
+* `@start_kernel`: we are in the `start_kernel` function. Awesome feature! Implemented with libelf https://sourceforge.net/projects/elftoolchain/ copy pasted in-tree `ext/libelf`. To get raw addresses, remove the `ExecSymbol`, which is enabled by `Exec`.
+* `.1` as in `@start_kernel.1`: index of the microop
+* `stp`: instruction disassembly. Seems to use `.isa` files dispersed per arch, which is an in house format: http://gem5.org/ISA_description_system
+* `strxi_uop   x29, [ureg0]`: microop disassembly.
+* `MemWrite :  D=0x0000000000000000 A=0xffffff8008913f90`: TODO. Further description of the microops.
+
+Trace the source lines just like <<trace-source-lines,for QEMU>> with:
+
+....
+./trace-boot -a aarch64 -g && ./trace2line -a aarch64 -g
+less ./out/aarch64/gem5/trace-lines.txt
+....
+
+TODO: 7452d399290c9c1fc6366cdad129ef442f323564 `./trace2line` this is too slow and takes hours. QEMU's processing of 170k events takes 7 seconds. gem5's processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up... The workaround is to just use gem5's `ExecSymbol` to get function granularity, and then GDB individually if line detail is needed?
 
 === QEMU GUI is unresponsive
 
@@ -4286,6 +4324,24 @@ Pass options to the `gem5` executable itself:
 ....
 ./run -G '-h' -g
 ....
+
+=== gem5 exit after a number of instructions
+
+Quit the simulation after `1024` instructions:
+
+....
+./run -g -- -I 1024
+....
+
+Can be nicely checked with <<gem5-tracing>>.
+
+Cycles instead of instructions:
+
+....
+./run -g -- -m 1024
+....
+
+Otherwise the simulation runs forever by default.
 
 === Run multiple gem5 instances at once
 

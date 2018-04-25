@@ -28,9 +28,10 @@ nographic=true
 root=
 tmux=false
 tmux_args=
+trace_enabled=false
 # A dummy value that is already turned on by default and does not produce large output,
 # just to prevent QEMU from emitting a warning that '' is not valid.
-trace_enable=pr_manager_run
+trace_type=pr_manager_run
 vnc=
 while getopts a:c:DdE:e:F:f:G:ghIiKkm:T:U:uVx OPT; do
   case "$OPT" in
@@ -93,7 +94,8 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkm:T:U:uVx OPT; do
       memory="$OPTARG"
       ;;
     T)
-      trace_enable="$OPTARG"
+      trace_enabled=true
+      trace_type="$OPTARG"
       ;;
     U)
       tmux_args="$OPTARG"
@@ -155,6 +157,10 @@ if "$gem5"; then
   else
     gem5_arch=ARM
   fi
+  if "$trace_enabled"; then
+    gem5opts="${gem5opts} --debug-flags='${trace_type}' \\
+"
+  fi
   gem5_common="\
 M5_PATH='${gem5_build_dir}/system' \\
 ${debug_vm} \
@@ -203,7 +209,7 @@ ${debug_vm} \
 -monitor telnet::45454,server,nowait \\
 -netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \\
 -smp '${cpus}' \\
--trace 'enable=${trace_enable},file=${qemu_out_dir}/trace.bin' \\
+-trace 'enable=${trace_type},file=${qemu_out_dir}/trace.bin' \\
 -virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
 -virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
 ${vnc}"
