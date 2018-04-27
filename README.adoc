@@ -573,6 +573,8 @@ the disk image gets overwritten by a fresh filesystem and you lose all changes.
 
 Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
 
+Persistency can be turned off by passing the `snapshot` option to `-drive` (not exposed on our scripts).
+
 When booting from <<initrd>> however without a disk, persistency is lost.
 
 === Kernel command line parameters
@@ -1792,8 +1794,8 @@ Scripts under `/etc/init.d` are run by `/etc/init.d/rcS`, which gets called by t
 
 The init is selected at:
 
-- initrd or initramfs system: `/init`, a custom one can be set with the `rdinit=` <<kernel-command-line-parameters,kernel command line parameter>>
-- otherwise: default is `/sbin/init`, followed by some other paths, a custom one can be set with `init=`
+* initrd or initramfs system: `/init`, a custom one can be set with the `rdinit=` <<kernel-command-line-parameters,kernel command line parameter>>
+* otherwise: default is `/sbin/init`, followed by some other paths, a custom one can be set with `init=`
 
 More details: https://unix.stackexchange.com/questions/30414/what-can-make-passing-init-path-to-program-to-the-kernel-not-start-program-as-i/430614#430614
 
@@ -3015,7 +3017,7 @@ The counting continues.
 Restore the snapshot:
 
 ....
-echo 'loadvm  my_snap_id' | ./qemumonitor
+echo 'loadvm my_snap_id' | ./qemumonitor
 ....
 
 and the counting goes back to where we saved. This shows that CPU and memory states were reverted.
@@ -3059,6 +3061,40 @@ cat f
 And the output is `0`.
 
 Our setup does not allow for snapshotting while using <<initrd>>.
+
+==== Snapshot internals
+
+Snapshots are stored inside the `.qcow2` images themselves.
+
+They can be observed with:
+
+....
+./out/x86_64/buildroot/host/bin/qemu-img info out/x86_64/buildroot/images/rootfs.ext2.qcow2
+....
+
+which after `savevm my_snap_id` and `savevm asdf` contains an output of type:
+
+....
+image: out/x86_64/buildroot/images/rootfs.ext2.qcow2
+file format: qcow2
+virtual size: 512M (536870912 bytes)
+disk size: 180M
+cluster_size: 65536
+Snapshot list:
+ID        TAG                 VM SIZE                DATE       VM CLOCK
+1         my_snap_id              47M 2018-04-27 21:17:50   00:00:15.251
+2         asdf                    47M 2018-04-27 21:20:39   00:00:18.583
+Format specific information:
+    compat: 1.1
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+....
+
+As a consequence:
+
+* it is possible to restore snapshots across boots, since they stay on the same image the entire time
+* it is not possible to use snapshots with <<initrd>> in our setup, since we don't pass `-drive` at all when initrd is enabled
 
 === Educational hardware models
 
