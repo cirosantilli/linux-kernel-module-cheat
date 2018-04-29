@@ -2134,6 +2134,14 @@ From host:
 cat out/*/buildroot/build/linux-custom/.config
 ....
 
+Just for fun link:https://stackoverflow.com/a/14958263/895245[]:
+
+....
+./linux/scripts/extract-ikconfig out/*/buildroot/build/linux-custom/vmlinux
+....
+
+although this can be useful when someone gives you a random image.
+
 [[kernel-configs-about]]
 ==== About our Linux kernel configs
 
@@ -4545,6 +4553,55 @@ But then we have to deal specially with the `m5` tool, which has to be cross com
 ** https://stackoverflow.com/questions/3720142/how-to-force-scons-output-exe-obj-lib-dll-to-specific-build-directory
 ** https://stackoverflow.com/questions/1762044/how-to-do-an-out-of-source-build-with-scons
 
+=== gem5 fs_bitLITTLE
+
+This system is more representative of ARM, which almost always has the big little cluster.
+
+If we try `fs_bigLITTLE.py` with our images:
+
+....
+./out/aarch64/buildroot/build/gem5-1.0/gem5/build/ARM/gem5.opt \
+  --debug-flags=Exec \
+  --debug-file=trace.txt \
+  ./out/aarch64/buildroot/build/gem5-1.0/gem5/configs/example/arm/fs_bigLITTLE.py \
+  --disk='/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/images/rootfs.ext2' \
+  --kernel='/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/build/linux-custom/vmlinux' \
+  --big-cpus=2 \
+  --little-cpus=2 \
+  --caches \
+;
+....
+
+nothing shows on screen, but `m5out/trace.txt` does go through `start_kernel` and `printk`, so it must also be an output configuration problem. It seems to loop around `memmap_init_zone`.
+
+First we check that the magic images work:
+
+....
+./out/aarch64/buildroot/build/gem5-1.0/gem5/build/ARM/gem5.opt \
+  ./out/aarch64/buildroot/build/gem5-1.0/gem5/configs/example/arm/fs_bigLITTLE.py \
+  --big-cpus=2 \
+  --little-cpus=2 \
+  --disk "$(pwd)/data/aarch-system-20170616/disks/linaro-minimal-aarch64.img" \
+  --kernel "$(pwd)/data/aarch-system-20170616/binaries/vmlinux.vexpress_gem5_v1_64.20170616" \
+  --caches \
+  | ts -s
+;
+....
+
+The first terminal message appears at 4 minutes, and boot finishes at 7 minutes, but then I wait forever and no shell. Looks like it runs a big init, lol?
+
+Trying to boot `aarch64` QEMU with the magic image shows nothing on screen, but it must be a simple output problem, because `trace2lines` says that `start_kernel` and `kernel_init` are reached, but `init=/poweroff.out` does not turn off the machine.
+
+We then extract the kernel config from the image with: https://stackoverflow.com/questions/14958192/how-to-get-the-config-from-a-linux-kernel-image/14958263#14958263
+
+....
+./linux/scripts/extract-ikconfig "$(pwd)/data/aarch-system-20170616/binaries/vmlinux.vexpress_gem5_v1_64.20170616"
+....
+
+But QEMU works fine if the kernel is compiled with that config, so I am confused, how are the two kernels different? The only missing difference is the kernel version.
+
+/home/ciro/bak/git/linux-kernel-module-cheat/armv8_gem5_v1_big_little_2_2.20170616.dtb
+
 == Insane action
 
 === Run on host
@@ -5201,6 +5258,51 @@ then `dtc a.dts` gives:
         b;
 };
 ....
+
+==== Get device tree from running kernel
+
+https://unix.stackexchange.com/questions/265890/is-it-possible-to-get-the-information-for-a-device-tree-using-sys-of-a-running/330926#330926
+
+This is specially interesting because QEMU and gem5 are capable of generating DTBs that match the selected machine depending on dynamic command line parameters for some types of machines.
+
+QEMU's `-M virt` for example, which we use by default for `aarch64`, boots just fine without the `-dtb` option:
+
+....
+./run -a aarch64
+....
+
+Then, from inside the guest:
+
+....
+dtc -I fs -O dts /sys/firmware/devicetree/base
+....
+
+contains:
+
+....
+        cpus {
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+
+                cpu@0 {
+                        compatible = "arm,cortex-a57";
+                        device_type = "cpu";
+                        reg = <0x0>;
+                };
+        };
+....
+
+However, if we increase the <<number-of-cores,number of cores>>:
+
+....
+./run -a aarch64 -c 2
+....
+
+QEMU automatically adds a second CPU to the DTB!
+
+The action seems to be happening at: `hw/arm/virt.c`.
+
+<<gem5-fs-biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
 
 === Directory structure
 
