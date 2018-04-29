@@ -4565,8 +4565,8 @@ If we try `fs_bigLITTLE.py` with our images:
   --debug-flags=Exec \
   --debug-file=trace.txt \
   ./out/aarch64/buildroot/build/gem5-1.0/gem5/configs/example/arm/fs_bigLITTLE.py \
-  --disk='/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/images/rootfs.ext2' \
-  --kernel='/home/ciro/bak/git/linux-kernel-module-cheat/out/aarch64/buildroot/build/linux-custom/vmlinux' \
+  --disk="$(pwd)/out/aarch64/buildroot/images/rootfs.ext2" \
+  --kernel="$(pwd)/out/aarch64/buildroot/build/linux-custom/vmlinux" \
   --big-cpus=2 \
   --little-cpus=2 \
   --caches \
@@ -4574,6 +4574,8 @@ If we try `fs_bigLITTLE.py` with our images:
 ....
 
 nothing shows on screen, but `m5out/trace.txt` does go through `start_kernel` and `printk`, so it must also be an output configuration problem. It seems to loop around `memmap_init_zone`.
+
+After 7 minutes, gem5 exits with `simulate() limit reached  @  18446744073709551615`.
 
 First we check that the magic images work:
 
@@ -4601,7 +4603,9 @@ We then extract the kernel config from the image with: https://stackoverflow.com
 
 But QEMU works fine if the kernel is compiled with that config, so I am confused, how are the two kernels different? The only missing difference is the kernel version.
 
-/home/ciro/bak/git/linux-kernel-module-cheat/armv8_gem5_v1_big_little_2_2.20170616.dtb
+We then try to boot gem5 with our kernel built with the extracted config, but no change.
+
+I then checked out to https://gem5.googlesource.com/arm/linux didn't help. And finally when I add `--dtb out/aarch64/buildroot/build/gem5-1.0/gem5/system/arm/dt/armv8_gem5_v1_big_little_2_2.dtb` on top, it started showing boot messages!
 
 == Insane action
 
