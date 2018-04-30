@@ -4556,56 +4556,19 @@ But then we have to deal specially with the `m5` tool, which has to be cross com
 
 === gem5 fs_bitLITTLE
 
+TODO integrate into `run`.
+
 This system is more representative of ARM, which almost always has the big little cluster.
 
-If we try `fs_bigLITTLE.py` with our images:
+Working from source setup: first hack `fs_bigLITTLE.py` to use `root=vda` insead of `root=vda1`. Then:
 
 ....
-./out/aarch64/buildroot/build/gem5-1.0/gem5/build/ARM/gem5.opt \
-  --debug-flags=Exec \
-  --debug-file=trace.txt \
-  ./out/aarch64/buildroot/build/gem5-1.0/gem5/configs/example/arm/fs_bigLITTLE.py \
-  --disk="$(pwd)/out/aarch64/buildroot/images/rootfs.ext2" \
-  --kernel="$(pwd)/out/aarch64/buildroot/build/linux-custom/vmlinux" \
-  --big-cpus=2 \
-  --little-cpus=2 \
-  --caches \
-;
+./fs-biglittle
 ....
 
-nothing shows on screen, but `m5out/trace.txt` does go through `start_kernel` and `printk`, so it must also be an output configuration problem. It seems to loop around `memmap_init_zone`.
+Boot messages start at 5 minutes, boot finishes at 13 minutes and gives a shell.
 
-After 7 minutes, gem5 exits with `simulate() limit reached  @  18446744073709551615`.
-
-First we check that the magic images work:
-
-....
-./out/aarch64/buildroot/build/gem5-1.0/gem5/build/ARM/gem5.opt \
-  ./out/aarch64/buildroot/build/gem5-1.0/gem5/configs/example/arm/fs_bigLITTLE.py \
-  --big-cpus=2 \
-  --little-cpus=2 \
-  --disk "$(pwd)/data/aarch-system-20170616/disks/linaro-minimal-aarch64.img" \
-  --kernel "$(pwd)/data/aarch-system-20170616/binaries/vmlinux.vexpress_gem5_v1_64.20170616" \
-  --caches \
-  | ts -s
-;
-....
-
-The first terminal message appears at 4 minutes, and boot finishes at 7 minutes, but then I wait forever and no shell. Looks like it runs a big init, lol?
-
-Trying to boot `aarch64` QEMU with the magic image shows nothing on screen, but it must be a simple output problem, because `trace2lines` says that `start_kernel` and `kernel_init` are reached, but `init=/poweroff.out` does not turn off the machine.
-
-We then extract the kernel config from the image with: https://stackoverflow.com/questions/14958192/how-to-get-the-config-from-a-linux-kernel-image/14958263#14958263
-
-....
-./linux/scripts/extract-ikconfig "$(pwd)/data/aarch-system-20170616/binaries/vmlinux.vexpress_gem5_v1_64.20170616"
-....
-
-But QEMU works fine if the kernel is compiled with that config, so I am confused, how are the two kernels different? The only missing difference is the kernel version.
-
-We then try to boot gem5 with our kernel built with the extracted config, but no change.
-
-I then checked out to https://gem5.googlesource.com/arm/linux didn't help. And finally when I add `--dtb out/aarch64/buildroot/build/gem5-1.0/gem5/system/arm/dt/armv8_gem5_v1_big_little_2_2.dtb` on top, it started showing boot messages!
+`cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two differnt types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html `config.ini` does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
 
 == Insane action
 
