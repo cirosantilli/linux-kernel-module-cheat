@@ -4554,21 +4554,44 @@ But then we have to deal specially with the `m5` tool, which has to be cross com
 ** https://stackoverflow.com/questions/3720142/how-to-force-scons-output-exe-obj-lib-dll-to-specific-build-directory
 ** https://stackoverflow.com/questions/1762044/how-to-do-an-out-of-source-build-with-scons
 
-=== gem5 fs_bitLITTLE
+=== gem5 fs_bigLITTLE
 
-TODO integrate into `run`.
+TODO integrate into `run`. There is no way to pass command line arguments except by hacking the script, this is a pre-requisite for good integration.
 
 This system is more representative of ARM, which almost always has the big little cluster.
 
-Working from source setup: first hack `fs_bigLITTLE.py` to use `root=vda` insead of `root=vda1`. Then:
+First apply:
+
+....
+cd gem5/gem5
+echo '
+diff --git a/configs/example/arm/fs_bigLITTLE.py b/configs/example/arm/fs_bigLITTLE.py
+index 7d66c03a6..d71e714fe 100644
+--- a/configs/example/arm/fs_bigLITTLE.py
++++ b/configs/example/arm/fs_bigLITTLE.py
+@@ -194,7 +194,7 @@ def build(options):
+         "norandmaps",
+         "loglevel=8",
+         "mem=%s" % default_mem_size,
+-        "root=/dev/vda1",
++        "root=/dev/vda",
+         "rw",
+         "init=%s" % options.kernel_init,
+         "vmalloc=768MB",
+' | patch -p1
+....
+
+then:
 
 ....
 ./fs-biglittle
 ....
 
-Boot messages start at 5 minutes, boot finishes at 13 minutes and gives a shell.
+Boot messages start at 5 minutes, boot finishes at 10 minutes and gives a shell.
 
-`cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two differnt types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html `config.ini` does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
+`cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html `config.ini` does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
+
+TODO: why is the `--dtb` required despite `fs_bigLITTLE.py` having a DTB generation capability? Without it, nothing shows on terminal, and the simulation terminates with `simulate() limit reached  @  18446744073709551615`.
 
 == Insane action
 
