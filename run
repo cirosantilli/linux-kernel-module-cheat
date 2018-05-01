@@ -150,7 +150,8 @@ fi
 
 if "$gem5"; then
   gem5_build_dir="${buildroot_out_dir}/build/gem5-1.0"
-  gem5_src_dir="${gem5_build_dir}/gem5"
+  gem5_src_dir="${root_dir}/gem5/gem5"
+  gem5_system_dir="${gem5_out_dir}/system"
   memory="${memory}B"
   if [ "$arch" = x86_64 ]; then
     gem5_arch=X86
@@ -162,9 +163,9 @@ if "$gem5"; then
 "
   fi
   gem5_common="\
-M5_PATH='${gem5_build_dir}/system' \\
+M5_PATH='${gem5_system_dir}' \\
 ${debug_vm} \
-'${gem5_src_dir}/build/${gem5_arch}/gem5.opt' \\
+'${gem5_out_dir}/build/${gem5_arch}/gem5.opt' \\
 --debug-file=trace.txt \\
 ${gem5opts} \
 -d '${m5out_dir}' \\
@@ -189,7 +190,7 @@ ${extra_flags} \
     # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
     cmd="${gem5_common} \
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
---dtb-file='${gem5_src_dir}/system/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
+--dtb-file='${gem5_system_dir}/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
 --machine-type=VExpress_GEM5_V1 \\
 ${extra_flags} \
 "
@@ -294,7 +295,7 @@ ${extra_flags} \
 fi
 if "$tmux"; then
   if "$gem5"; then
-    eval "./tmu 'sleep 2;./gem5-shell'"
+    eval "./tmu 'sleep 2;./gem5-shell ${tmux_args};'"
   elif  "$debug"; then
     eval "./tmu ./rungdb -a '${arch}' ${tmux_args}"
   fi

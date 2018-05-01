@@ -3,7 +3,8 @@ set -eu
 arch=x86_64
 cross_compile=
 j=
-while getopts a:c:j: OPT; do
+outdir=./
+while getopts a:c:j:o: OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -14,20 +15,22 @@ while getopts a:c:j: OPT; do
     j)
       j="$OPTARG"
       ;;
+    o)
+      outdir="$OPTARG"
+      ;;
   esac
 done
 shift "$(($OPTIND - 1))"
 if [ -z "$j" ]; then
   j="$(nproc)"
 fi
-top="$(cd $(dirname "$0") && pwd)"
-system_dir="${top}/system"
+system_dir="${outdir}/system"
 binaries_dir="${system_dir}/binaries"
 disks_dir="${system_dir}/disks"
 mkdir -p "$binaries_dir" "$disks_dir"
-cd "${top}/gem5"
+cd "gem5"
 if [ "$arch" = x86_64 ]; then
-  scons -j "$j" --ignore-style build/X86/gem5.opt
+  scons -j "$j" --ignore-style "${outdir}/build/X86/gem5.opt"
   f="${disks_dir}/linux-bigswap2.img"
   dd if=/dev/zero of="$f" bs=1024 count=65536
   mkswap "$f"
@@ -35,8 +38,10 @@ if [ "$arch" = x86_64 ]; then
   # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
   touch "${binaries_dir}/x86_64-vmlinux-2.6.22.9"
 elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
-  scons -j "$j" --ignore-style build/ARM/gem5.opt
+  scons -j "$j" --ignore-style "${outdir}/build/ARM/gem5.opt"
   make -C ./system/arm/dt/
+  mkdir -p "${outdir}/system/arm/dt"
+  cp ./system/arm/dt/*.dtb "${outdir}/system/arm/dt"
   # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
   make -C ./system/arm/simple_bootloader/ $cross_compile
   cp ./system/arm/simple_bootloader/boot_emm.arm "$binaries_dir"

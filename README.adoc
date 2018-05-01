@@ -2993,6 +2993,8 @@ It just runs forever, so kill it when you get tired:
 kill %1
 ....
 
+`stress -c 1 -t 1` makes gem5 irresponsive for a very long time.
+
 == QEMU
 
 Some QEMU specific features to play with and limitations to cry over.
@@ -4544,19 +4546,22 @@ Unfortunately-we didn't manage to find an ARM analogue: link:kernel_module/pmccn
 
 === gem5 Python scripts without rebuild
 
-TODO
+We have made a crazy setup that allows you to just `cd` into `gem5/gem5`, and edit Python scripts directly there.
 
-Currently, when you modify the python scripts under `gem5/gem5`, you still have to run `./build` to copy the updated scripts to the `out/<arch>/buildroot` directory, which kind of defeats the purpose of having an interpreted language as Python.
+This is not normally possible with Buildroot, since normal Buildroot packages first copy files to the output directory (`out/<arch>/buildroot/build/<pkg>`), and then build there.
 
-We would like to solve that, but are blocked on either of the following:
+So if you modified the Python scripts with this setup, you would still need to `./build` to copy the modified files over.
 
-* build in-tree and skip the Buildroot sync step. If sync is not skipped, it would copy all builds to all archs, which is huge.
-+
-But then we have to deal specially with the `m5` tool, which has to be cross compiled
-* gem5 out of tree build. Is there support? Looks like SCons does not have anything generic as usual and leaves the burden on project developers:
-** https://www.mail-archive.com/gem5-users@gem5.org/msg15421.html
-** https://stackoverflow.com/questions/3720142/how-to-force-scons-output-exe-obj-lib-dll-to-specific-build-directory
-** https://stackoverflow.com/questions/1762044/how-to-do-an-out-of-source-build-with-scons
+For gem5 specifically however, we have hacked up the build so that we `cd` into the `gem5/gem5` tree, and then do an link:https://www.mail-archive.com/gem5-users@gem5.org/msg15421.html[out of tree] build to `out/common/gem5`.
+
+Another advantage of this method is the we factor out the `arm` and `aarch64` gem5 builds which are identical and large, as well as the smaller arch generic pieces.
+
+Using Buildroot for gem5 is still convenient because we use it to:
+
+* to cross build `m5` for us
+* check timestamps and skip the gem5 build when it is not requested
+
+The out of build tree is required, because otherwise Buildroot would copy the output build of all archs to each arch directory, resulting in `arch^2` build copies, which is significant.
 
 === gem5 fs_bigLITTLE
 
@@ -5124,6 +5129,8 @@ Get results with:
 ./bench-all -g
 tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt
 ....
+
+However, I have noticed that for some builds, with the exact same commands, it just take way longer sometimes, but I haven't been able to pin it down: https://github.com/cirosantilli-work/gem5-issues/issues/10
 
 === Benchmark machines
 

@@ -16,7 +16,10 @@ endif
 
 define GEM5_BUILD_CMDS
 	# Cannot pass "-c '$(TARGET_CROSS)'" here because the ARM build uses aarch64 for the bootloader...
-	cd '$(@D)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)'
+	cd '$(GEM5_SITE)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)' -o '$(GEM5_SITE)/../out/common/gem5'
+	# This would build inside the buildroot directory as a more normal package.
+	#cd '$(@D)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)'
+
 	# TODO cannot use TARGET_CONFIGURE_OPTS here because it overrides the CFLAGS on m5,
 	# which have an include. We should patch gem5 to add a += instead of = there.
 	cd '$(@D)/gem5/util/m5' && $(MAKE) -f 'Makefile.$(ARCH_MAKE)' CC='$(TARGET_CC)' LD='$(TARGET_LD)'
