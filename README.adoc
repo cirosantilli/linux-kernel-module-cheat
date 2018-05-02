@@ -29,7 +29,7 @@ cd linux-kernel-module-cheat
 
 The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
-If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
+If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-kernel-modules-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
 
 After QEMU opens up, you can start playing with the kernel modules:
 
@@ -613,13 +613,15 @@ When dealing with real boards, extra command line options are provided on some m
 * GRUB configuration files: https://askubuntu.com/questions/19486/how-do-i-add-a-kernel-boot-parameter
 * Raspberry pi `/boot/cmdline.txt` on a magic partition: https://raspberrypi.stackexchange.com/questions/14839/how-to-change-the-kernel-commandline-for-archlinuxarm-on-raspberry-pi-effectly
 
-=== Kernel command line parameters escaping
+==== Kernel command line parameters escaping
 
 Double quotes can be used to escape spaces as in `opt="a b"`, but double quotes themselves cannot be escaped, e.g. `opt"a\"b"`
 
 This even lead us to use base64 encoding with `-E`!
 
-=== modprobe
+=== insmod alternatives
+
+==== modprobe
 
 If you are feeling fancy, you can also insert modules with:
 
@@ -665,7 +667,7 @@ Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are 
 modprobe dummy-irq
 ....
 
-=== myinsmod
+==== myinsmod
 
 https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
 
@@ -2504,6 +2506,13 @@ Can also be activated with the `panic_on_warn` boot parameter.
 
 === Linux kernel tracing
 
+Good overviews:
+
+* http://www.brendangregg.com/blog/2015-07-08/choosing-a-linux-tracer.html by Brendan Greg, AKA the master of tracing. Also: https://github.com/brendangregg/perf-tools
+* https://jvns.ca/blog/2017/07/05/linux-tracing-systems/
+
+I hope to have examples of all methods some day, since I'm obsessed with visibility.
+
 ==== CONFIG_PROC_EVENTS
 
 Logs proc events such as process creation to a link:kernel_module/netlink.c[netlink socket].
@@ -3154,7 +3163,7 @@ devmem 0x101e9000 w 0x12345678
 
 which touches the register from userland through `/dev/mem`.
 
-==== Educational hardware models gem5
+==== gem5 educational hardware models
 
 TODO
 
@@ -4619,78 +4628,6 @@ Boot messages start at 5 minutes, boot finishes at 10 minutes and gives a shell.
 
 TODO: why is the `--dtb` required despite `fs_bigLITTLE.py` having a DTB generation capability? Without it, nothing shows on terminal, and the simulation terminates with `simulate() limit reached  @  18446744073709551615`. The magic `vmlinux.vexpress_gem5_v1.20170616` works however without a DTB.
 
-== Insane action
-
-=== Run on host
-
-This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
-
-It has however severe limitations, and you will soon see that the compilation time and disk usage are well worth it:
-
-* can't control which kernel version and build options to use. So some of the modules will likely not compile because of kernel API changes, since https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681[the Linux kernel does not have a stable kernel module API].
-* bugs can easily break you system. E.g.:
-** segfaults can trivially lead to a kernel crash, and require a reboot
-** your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`
-** even more subtle system corruption such as https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r[not being able to rmmod]
-* can't control which hardware is used, notably the CPU architecture
-* can't step debug it with GDB easily
-
-Still interested?
-
-....
-cd kernel_module
-./make-host.sh
-....
-
-If the compilation of any of the C files fails because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
-
-....
-mv broken.c broken.c~
-./build_host
-....
-
-Once you manage to compile, and have come to terms with the fact that this may blow up your host, try it out with:
-
-....
-sudo insmod hello.ko
-
-# Our module is there.
-sudo lsmod | grep hello
-
-# Last message should be: hello init
-dmest -T
-
-sudo rmmod hello
-
-# Last message should be: hello exit
-dmesg -T
-
-# Not present anymore
-sudo lsmod | grep hello
-....
-
-Once you are done with this method, you must clean up the in-tree build objects before you decide to do the right thing and move on to the superior `./build` Buildroot method:
-
-....
-cd "kernel_module"
-./make-host.sh clean
-....
-
-otherwise they will cause problems.
-
-=== Hello host
-
-Minimal host build system sanity check example.
-
-....
-cd hello_host
-make
-insmod hello.ko
-dmesg
-rmmod hello.ko
-dmesg
-....
-
 == Buildroot
 
 === Custom Buildroot options
@@ -5181,6 +5118,76 @@ gem5:
 ** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
 ** https://github.com/gem5/gem5/issues/25
 
+== Run kernel modules on host
+
+This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
+
+It has however severe limitations, and you will soon see that the compilation time and disk usage are well worth it:
+
+* can't control which kernel version and build options to use. So some of the modules will likely not compile because of kernel API changes, since https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681[the Linux kernel does not have a stable kernel module API].
+* bugs can easily break you system. E.g.:
+** segfaults can trivially lead to a kernel crash, and require a reboot
+** your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`.
+** even more subtle system corruption such as https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r[not being able to rmmod]
+* can't control which hardware is used, notably the CPU architecture
+* can't step debug it with <<gdb,GDB>> easily. The alternatives are JTAG or <<kgdb>>, but those are less reliable, and JTAG requires extra hardware.
+
+Still interested?
+
+....
+cd kernel_module
+./make-host.sh
+....
+
+If the compilation of any of the C files fails because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
+
+....
+mv broken.c broken.c~
+./build_host
+....
+
+Once you manage to compile, and have come to terms with the fact that this may blow up your host, try it out with:
+
+....
+sudo insmod hello.ko
+
+# Our module is there.
+sudo lsmod | grep hello
+
+# Last message should be: hello init
+dmest -T
+
+sudo rmmod hello
+
+# Last message should be: hello exit
+dmesg -T
+
+# Not present anymore
+sudo lsmod | grep hello
+....
+
+Once you are done with this method, you must clean up the in-tree build objects before you decide to do the right thing and move on to the superior `./build` Buildroot method:
+
+....
+cd "kernel_module"
+./make-host.sh clean
+....
+
+otherwise they will cause problems.
+
+=== Hello host
+
+Minimal host build system sanity check example.
+
+....
+cd hello_host
+make
+insmod hello.ko
+dmesg
+rmmod hello.ko
+dmesg
+....
+
 == Conversation
 
 === kmod
@@ -5321,7 +5328,7 @@ QEMU automatically adds a second CPU to the DTB!
 
 The action seems to be happening at: `hw/arm/virt.c`.
 
-<<gem5-fs-biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
+<<gem5-fs_biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
 
 === Directory structure
 
