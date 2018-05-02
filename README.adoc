@@ -2407,6 +2407,35 @@ QEMU:
 
 gem5: TODO gem5's `config.ini` has a `system.panic_on_panic` param which I bet will work, but it does not seem to be exposed to `fs.py`.
 
+===== Panic trace show addresses instead of symbols
+
+If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plus offset.
+
+In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
+
+....
+./run -F 'insmod /dump_stack.ko' -du -U dump_stack
+....
+
+shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
+
+....
+static void printk_stack_address(unsigned long address, int reliable,
+                 char *log_lvl)
+{
+    touch_nmi_watchdog();
+    printk("%s %s%pB\n", log_lvl, reliable ? "" : "? ", (void *)address);
+}
+....
+
+and `%pB` is documented at `Documentation/core-api/printk-formats.rst`:
+
+....
+If KALLSYMS are disabled then the symbol address is printed instead.
+....
+
+I wasn't able do disable `CONFIG_KALLSYMS` to test this this out however, it is being selected by some other option TODO which? How to find that out?
+
 [[oops]]
 ==== Kernel oops
 
