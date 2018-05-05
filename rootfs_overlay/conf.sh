@@ -1,2 +1,2 @@
 #!/bin/sh
-zcat /proc/config.gz
+zcat /proc/config.gz | grep "${1:-}"
