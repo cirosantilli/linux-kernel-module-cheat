@@ -409,6 +409,20 @@ which now outputs the `pr_debug` message:
 printk debug
 ....
 
+but TODO: it also shows debug messages even without enabling them explicitly:
+
+....
+echo 8 > /proc/sys/kernel/printk
+insmod /myprintk.ko
+....
+
+and it shows as enabled:
+
+....
+# grep myprintk /sys/kernel/debug/dynamic_debug/control
+/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_module-1.0/./myprintk.c:12 [myprintk]myinit =p "pr_debug\012"
+....
+
 Enable `pr_debug` for boot messages as well, before we can reach userland and write to `/proc`:
 
 ....
@@ -416,6 +430,58 @@ Enable `pr_debug` for boot messages as well, before we can reach userland and wr
 ....
 
 Get ready for the noisiest boot ever, I think it overflows the `printk` buffer and funny things happen.
+
+===== pr_debug != printk(KERN_DEBUG
+
+When `CONFIG_DYNAMIC_DEBUG` is set,  `printk(KERN_DEBUG` is not the exact same as `pr_debug(` since `printk(KERN_DEBUG` messages are visible with:
+
+....
+./run -e 'initcall_debug logleve=8'
+....
+
+which outputs lines of type:
+
+....
+<7>[    1.756680] calling  clk_disable_unused+0x0/0x130 @ 1
+<7>[    1.757003] initcall clk_disable_unused+0x0/0x130 returned 0 after 111 usecs
+....
+
+which are `printk(KERN_DEBUG` inside `init/main.c` in v4.16.
+
+Mentioned at: https://stackoverflow.com/questions/37272109/how-to-get-details-of-all-modules-drivers-got-initialized-probed-during-kernel-b
+
+This likely comes from the ifdef split at `init/main.c`:
+
+....
+/* If you are writing a driver, please use dev_dbg instead */
+#if defined(CONFIG_DYNAMIC_DEBUG)
+#include <linux/dynamic_debug.h>
+
+/* dynamic_pr_debug() uses pr_fmt() internally so we don't need it here */
+#define pr_debug(fmt, ...) \
+	dynamic_pr_debug(fmt, ##__VA_ARGS__)
+#elif defined(DEBUG)
+#define pr_debug(fmt, ...) \
+	printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+#else
+#define pr_debug(fmt, ...) \
+	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+#endif
+....
+
+==== ignore_loglevel
+
+....
+./run -e 'ignore_loglevel'
+....
+
+enables all log levels, and is basically the same as:
+
+....
+./run -e 'loglevel=8'
+....
+
+except that you don't need to know what is the maximum level.
 
 === Module documentation
 
