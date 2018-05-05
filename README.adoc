@@ -2682,7 +2682,7 @@ TODO: why does this produce no output?
 * https://serverfault.com/questions/199654/does-anyone-know-a-simple-way-to-monitor-root-process-spawn
 * https://unix.stackexchange.com/questions/260162/how-to-track-newly-created-processes
 
-==== CONFIG_PROC_EVENTS aarch64
+===== CONFIG_PROC_EVENTS aarch64
 
 0111ca406bdfa6fd65a2605d353583b4c4051781 was failing with:
 
@@ -2830,6 +2830,26 @@ Sample output:
 TODO: what do `+` and `!` mean?
 
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
+
+==== Kprobes
+
+Inject arbitrary code at a given address in a trap instruction. Oh the good old kernel. :-)
+
+....
+./build -c 'CONFIG_KPROBES=y'
+./run -F 'insmod /kprobe_example.ko && sleep 4 & sleep 4 &'
+....
+
+Outcome: every fork spits out some extra printks of type:
+
+....
+<6>[    2.011117] <_do_fork> pre_handler: p->addr = 0x00000000e1360063, ip = ffffffff810531d1, flags = 0x246
+<6>[    2.011622] <_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
+<6>[    2.021860] <_do_fork> pre_handler: p->addr = 0x00000000e1360063, ip = ffffffff810531d1, flags = 0x246
+<6>[    2.022331] <_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
+....
+
+Docs: https://github.com/torvalds/linux/blob/v4.16/Documentation/kprobes.txt
 
 ==== Count boot instructions
 
