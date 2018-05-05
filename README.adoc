@@ -5419,6 +5419,49 @@ include::run-usage.adoc[]
 
 :leveloffset: -3
 
+=== CONTRIBUTING
+
+==== Testing
+
+Testing that should be done for every functional patch.
+
+===== Guest testing
+
+....
+./run -a x86_64 -e '- lkmc_eval="/insrm.sh hello 5;/sbin/ifup -a;wget -S google.com;poweroff;"'
+./run -a arm    -e '- lkmc_eval="/insrm.sh hello 5;/sbin/ifup -a;wget -S google.com;poweroff;"'
+....
+
+Should:
+
+* boot
+* show `hello.ko` `init` and `exit` messages
+* make a network request
+* shutdown gracefully
+
+TODO automate all of this with a `/test-all.sh` script in guest which outputs to stdout `LKMC_TEST_PASS` or `LKMC_TEST_FAIL` and grep that from host.
+
+===== Host testing
+
+Shell 1:
+
+....
+./run -d
+....
+
+Shell 2:
+
+....
+./rungdb start_kernel
+....
+
+Should break GDB at `start_kernel`.
+
+Then proceed to do the following tests:
+
+* `/count.sh` and `b sys_write`
+* `insmod /timer.ko` and `b lkmc_timer_callback`
+
 :leveloffset: +2
 
 include::CONTRIBUTING.adoc[]
