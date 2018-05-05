@@ -2134,6 +2134,14 @@ If you want to just use your own exact `.config` instead, do:
 
 Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
 
+==== Modify a config option
+
+Only effective for the current build:
+
+....
+./build -c 'CONFIG_FORTIFY_SOURCE=y' -l
+....
+
 ==== Find the kernel config
 
 Ge the build config in guest:
@@ -2887,15 +2895,15 @@ Stop the cursor from blinking:
 echo 0 > /sys/class/graphics/fbcon/cursor_blink
 ....
 
-Rotate the console 90 degrees!
+Rotate the console 90 degrees! https://askubuntu.com/questions/237963/how-do-i-rotate-my-display-when-not-using-an-x-server
 
 ....
 echo 1 > /sys/class/graphics/fbcon/rotate
 ....
 
-Requires `CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y`.
+Relies on: `CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y`.
 
-Documented under: `fb/`.
+Documented under: `Documentation/fb/`.
 
 TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-console.html and I think can be done with Busybox `loadkmap` and `loadfont`, we just have to understand their formats, related:
 
@@ -2995,17 +3003,25 @@ Looks like a recompile is needed to modify the image...
 * https://superuser.com/questions/736423/changing-kernel-bootsplash-image
 * https://unix.stackexchange.com/questions/153975/how-to-change-boot-logo-in-linux-mint
 
-=== Hardening
+=== LInux kernel hardening
 
 Make it harder to get hacked and easier to notice that you were, at the cost of some (small?) runtime overhead.
 
 ==== CONFIG_FORTIFY_SOURCE
 
+Enable:
+
 ....
-insmod /strlen_overflow.ko
+./build -c 'CONFIG_FORTIFY_SOURCE=y'
 ....
 
-detects the overflow:
+Test it out:
+
+....
+./run -F 'insmod /strlen_overflow.ko'
+....
+
+Detects the overflow:
 
 ....
 <4>[    3.136382] strlen_overflow: loading out-of-tree module taints kernel.

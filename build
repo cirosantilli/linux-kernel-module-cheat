@@ -2,10 +2,13 @@
 set -eu
 . common
 set -- ${cli_build:-} "$@"
-br2_cli_file="${out_dir}/br2_cli"
 mkdir -p "${out_dir}"
+br2_cli_file="${out_dir}/br2_cli"
 rm -f "$br2_cli_file"
 touch "$br2_cli_file"
+kernel_config_fragment_cli_file="${out_dir}/kernel_config_fragment_cli"
+rm -f "$kernel_config_fragment_cli_file"
+touch "$kernel_config_fragment_cli_file"
 configure=true
 config_fragments="${root_dir}/br2"
 extra_make_args=
@@ -16,19 +19,22 @@ post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 suffix=
 v=0
-while getopts 'a:B:b:CGgj:hIiK:klp:qSs:v' OPT; do
+while getopts 'a:B:b:Cc:Ggj:hIiK:klp:qSs:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
       ;;
-    b)
-      config_fragments="${config_fragments} $(common_abspath "${OPTARG}")"
-      ;;
     B)
       echo "$OPTARG" >> "$br2_cli_file"
       ;;
+    b)
+      config_fragments="${config_fragments} $(common_abspath "${OPTARG}")"
+      ;;
     C)
       configure=false
+      ;;
+    c)
+      echo "$OPTARG" >> "$kernel_config_fragment_cli_file"
       ;;
     g)
       extra_make_args="${extra_make_args} gem5-reconfigure \\
@@ -142,7 +148,7 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
   else
     d=../kernel_config_fragment
     f="${d}/min"
-    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f} ${d}/default\"\n" >> "$config_file"
+    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f} ${d}/default ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
     if "${linux_reconfigure}"; then
       # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
       touch "$f"
