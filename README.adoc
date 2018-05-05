@@ -952,7 +952,7 @@ Possibly asked at:
 
 The kernel calls `module_init` synchronously, therefore it is not hard to step into that call.
 
-As of 4.16, the call happens in `do_init_module`, so we can do in shell 1:
+As of 4.16, the call happens in `do_one_initcall`, so we can do in shell 1:
 
 ....
 ./run
@@ -961,7 +961,7 @@ As of 4.16, the call happens in `do_init_module`, so we can do in shell 1:
 shell 2 after boot finishes (because there are other calls to `do_init_module` at boot, presumably for the built-in modules):
 
 ....
-./rungdb do_init_module
+./rungdb do_one_initcall
 ....
 
 then step until the line:
@@ -2994,6 +2994,26 @@ Looks like a recompile is needed to modify the image...
 
 * https://superuser.com/questions/736423/changing-kernel-bootsplash-image
 * https://unix.stackexchange.com/questions/153975/how-to-change-boot-logo-in-linux-mint
+
+=== Hardening
+
+Make it harder to get hacked and easier to notice that you were, at the cost of some (small?) runtime overhead.
+
+==== CONFIG_FORTIFY_SOURCE
+
+....
+insmod /strlen_overflow.ko
+....
+
+detects the overflow:
+
+....
+<4>[    3.136382] strlen_overflow: loading out-of-tree module taints kernel.
+<0>[    3.139534] detected buffer overflow in strlen
+<4>[    3.141318] ------------[ cut here ]------------
+....
+
+followed by a trace.
 
 === Linux kernel testing
 
