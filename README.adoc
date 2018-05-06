@@ -2222,10 +2222,10 @@ or with our shortcut:
 /conf.sh
 ....
 
-or to conveniently grep for a specific option:
+or to conveniently grep for a specific option case insensitively:
 
 ....
-/conf.sh CONFIG_IKCONFIG
+/conf.sh ikconfig
 ....
 
 This is enabled by:
@@ -2761,7 +2761,7 @@ echo function > current_tracer
 # List all functions that can be traced
 # cat available_filter_functions
 # Choose one.
-echo __kmalloc >set_ftrace_filter
+echo __kmalloc > set_ftrace_filter
 # Confirm that only __kmalloc is enabled.
 cat enabled_functions
 
@@ -2840,12 +2840,6 @@ TODO: can you get function arguments? https://stackoverflow.com/questions/276087
 
 ==== Kprobes
 
-Inject arbitrary code at a given address in a trap instruction, much like GDB. Oh the good old kernel. :-)
-
-I don't think your code can refer to the surrounding kernel code however: the only visible thing is the value of the registers.
-
-Maybe you can then hack it up to read the stack and read argument values, but do you really want to?
-
 ....
 ./build -c 'CONFIG_KPROBES=y'
 ./run -F 'insmod /kprobe_example.ko && sleep 4 & sleep 4 &'
@@ -2861,6 +2855,14 @@ Outcome: every fork spits out some extra printks of type:
 ....
 
 Docs: https://github.com/torvalds/linux/blob/v4.16/Documentation/kprobes.txt
+
+Injects arbitrary code at a given address in a trap instruction, much like GDB. Oh the good old kernel. :-)
+
+I don't think your code can refer to the surrounding kernel code however: the only visible thing is the value of the registers.
+
+You can then hack it up to read the stack and read argument values, but do you really want to?
+
+There is also a kprobes + ftrace based mechanism with `CONFIG_KPROBE_EVENTS=y` which does read the memory for us based on format strings that indicate type... https://github.com/torvalds/linux/blob/v4.16/Documentation/trace/kprobetrace.txt Horrendous. Used by: https://github.com/brendangregg/perf-tools/blob/98d42a2a1493d2d1c651a5c396e015d4f082eb20/execsnoop
 
 ==== Count boot instructions
 
