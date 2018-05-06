@@ -11,24 +11,20 @@ int main() {}
 #else
 
 #define _XOPEN_SOURCE 700
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/connector.h>
-#include <linux/cn_proc.h>
-#include <signal.h>
 #include <errno.h>
+#include <linux/cn_proc.h>
+#include <linux/connector.h>
+#include <linux/netlink.h>
+#include <signal.h>
 #include <stdbool.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 static volatile bool need_exit = false;
 
-/*
-* connect to netlink
-* returns netlink socket, or -1 on error
-*/
 static int nl_connect()
 {
 	int rc;
@@ -52,9 +48,6 @@ static int nl_connect()
 	return nl_sock;
 }
 
-/*
-* subscribe on proc events (process notifications)
-*/
 static int set_proc_ev_listen(int nl_sock, bool enable)
 {
 	int rc;
@@ -86,9 +79,6 @@ static int set_proc_ev_listen(int nl_sock, bool enable)
 	return 0;
 }
 
-/*
-* handle a single process event
-*/
 static int handle_proc_ev(int nl_sock)
 {
 	int rc;
@@ -102,7 +92,6 @@ static int handle_proc_ev(int nl_sock)
 	while (!need_exit) {
 		rc = recv(nl_sock, &nlcn_msg, sizeof(nlcn_msg), 0);
 		if (rc == 0) {
-			/* shutdown? */
 			return 0;
 		} else if (rc == -1) {
 			if (errno == EINTR) continue;
