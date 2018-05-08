@@ -10,7 +10,13 @@ OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(bas
 ifeq ($(BR2_PACKAGE_OPENBLAS),y)
 	LIBS += -lopenblas
 else
-	OUTS := $(filter-out openblas.out,$(OUTS))
+	OUTS := $(filter-out openblas$(OUT_EXT),$(OUTS))
+endif
+ifeq ($(BR2_PACKAGE_EIGEN),y)
+	# Header only.
+	#LIBS += -leigen
+else
+	OUTS := $(filter-out eigen%$(OUT_EXT),$(OUTS))
 endif
 
 all: $(OUTS)
