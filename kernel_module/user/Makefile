@@ -15,6 +15,7 @@ endif
 ifeq ($(BR2_PACKAGE_EIGEN),y)
 	# Header only.
 	#LIBS += -leigen
+	CXXFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags --libs eigen3)
 else
 	OUTS := $(filter-out eigen%$(OUT_EXT),$(OUTS))
 endif
