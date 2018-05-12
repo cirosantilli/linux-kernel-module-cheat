@@ -487,7 +487,7 @@ except that you don't need to know what is the maximum level.
 
 ....
 head kernel_module/modulename.c
-grep 'modulename\.' README.adoc
+grep 'insmod /modulename\.ko' README.adoc
 ....
 
 Many of the modules have userland test scripts / executables with the same name as the module, e.g. form inside the guest:
@@ -730,7 +730,7 @@ ls /lib/modules/*/extra/
 Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
 
 ....
-modprobe dummy-irq
+modprobe dummy-irq irq=1
 ....
 
 ==== myinsmod
@@ -2638,6 +2638,129 @@ insmod /warn_on.ko
 
 Can also be activated with the `panic_on_warn` boot parameter.
 
+=== IRQ
+
+==== irq.ko
+
+Brute force monitor every shared interrupt that will accept us:
+
+....
+./run -F 'insmod /irq.ko' -x
+....
+
+Now try the following:
+
+* press a keyboard key and then release it after a few seconds
+* press a mouse key, and release it after a few seconds
+* move the mouse around
+
+Outcome: dmesg shows which IRQ was fired for each action throug messages of type:
+
+....
+handler irq = 1 dev = 250
+....
+
+`dev` is the character device for the module and never changes, as can be confirmed by:
+
+....
+cat /proc/devices | grep lkmc_irq
+....
+
+The IRQs that we observe are:
+
+* `1` for keyboard press and release.
++
+If you hold the key down for a while, it starts firing at a constant rate. So this happens at the hardware level!
+* `12` mouse actions
+
+This only works if for IRQs for which the other handlers are registered as `IRQF_SHARED`.
+
+We can see which ones are those, either via dmesg messages of type:
+
+....
+genirq: Flags mismatch irq 0. 00000080 (myirqhandler0) vs. 00015a00 (timer)
+request_irq irq = 0 ret = -16
+request_irq irq = 1 ret = 0
+....
+
+which indicate that `0` is not, but `1` is, or with:
+
+....
+cat /proc/interrupts
+....
+
+which shows:
+
+....
+  0:         31   IO-APIC   2-edge      timer
+  1:          9   IO-APIC   1-edge      i8042, myirqhandler0
+....
+
+so only `1` has `myirqhandler0` attached but not `0`.
+
+TODO: properly understand how each IRQ maps to what number.
+
+==== dummy-irq
+
+The Linux kernel v4.16 mainline also has a `dummy-irq` module at `drivers/misc/dummy-irq.c` for monitoring a single IRQ.
+
+We build it by default with:
+
+....
+CONFIG_DUMMY_IRQ=m
+....
+
+And then you can do
+
+....
+./run -x
+....
+
+and in guest:
+
+....
+modprobe dummy-irq irq=1
+....
+
+Outcome: when you click a key on the keyboard, dmesg shows:
+
+....
+dummy-irq: interrupt occurred on IRQ 1
+....
+
+However, this module is intended to fire only once as can be seen from its source:
+
+....
+	static int count = 0;
+
+	if (count == 0) {
+		printk(KERN_INFO "dummy-irq: interrupt occurred on IRQ %d\n",
+				irq);
+		count++;
+	}
+....
+
+and furthermore interrupt `1` and `12` happen immediately TODO why, were they somehow pending?
+
+So so see something interesting, you need to monitor an interrupt that is more rare than the keyboard, e.g. <<platform_device>>.
+
+==== /proc/interrupts
+
+In the guest on <<graphic-mode>>:
+
+....
+watch -n 1 cat /proc/interrupts
+....
+
+Then see how clicking the mouse and keyboard affect the interrupt counts.
+
+This confirms that:
+
+* 1: keyboard
+* 12: mouse click and drags
+
+The module also shows which handlers are registered for each IRQ, as we have observed at <<irq-ko>>
+
 === Linux kernel tracing
 
 Good overviews:
@@ -3360,6 +3483,19 @@ devmem 0x101e9000 w 0x12345678
 ....
 
 which touches the register from userland through `/dev/mem`.
+
+We can also observe the interrupt with <<dummy-irq>>:
+
+....
+modprobe dummy-irq irq=34
+insmod /platform_device.ko
+....
+
+The IRQ number `34` was found by on the dmesg after:
+
+....
+insmod /platform_device.ko
+....
 
 ==== gem5 educational hardware models
 
@@ -5684,6 +5820,7 @@ Theory:
 * https://rwmj.wordpress.com/ awesome red hatter
 * https://lwn.net
 * http://www.makelinux.net
+* https://notes.shichao.io/lkd/
 
 Awesome lists:
 
