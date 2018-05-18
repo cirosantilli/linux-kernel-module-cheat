@@ -145,14 +145,15 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
       echo "error: -K: file does not exist: ${linux_kernel_custom_config_file}" 1>&2
       exit 1
     fi
+    default_config_fragments=
   else
-    d=../kernel_config_fragment
-    f="${d}/min"
-    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f} ${d}/default ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
-    if "${linux_reconfigure}"; then
-      # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-      touch "$f"
-    fi
+    default_config_fragments="${d}/min ${d}/default"
+  fi
+  d=../kernel_config_fragment
+  printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${default_config_fragments} ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
+  if "${linux_reconfigure}"; then
+    # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+    touch "${d}/min"
   fi
   if [ "$arch" = 'mips64' ]; then
     # Workaround for:
