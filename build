@@ -139,6 +139,7 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
   if "$gem5"; then
     printf "BR2_PACKAGE_GEM5=y\n" >> "${config_file}"
   fi
+  kernel_config_fragment_dir=../kernel_config_fragment
   if [ -n "$linux_kernel_custom_config_file" ]; then
     if [ -f "$linux_kernel_custom_config_file" ]; then
       printf "BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y\nBR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"${linux_kernel_custom_config_file}\"\n" >> "$config_file"
@@ -151,13 +152,12 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
     fi
     default_config_fragments=
   else
-    default_config_fragments="${d}/min ${d}/default"
+    default_config_fragments="${kernel_config_fragment_dir}/min ${kernel_config_fragment_dir}/default"
   fi
-  d=../kernel_config_fragment
   printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${default_config_fragments} ${kernel_config_fragments} ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
   if "${linux_reconfigure}"; then
     # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-    touch "${d}/min"
+    touch "${kernel_config_fragment_dir}/min"
   fi
   if [ "$arch" = 'mips64' ]; then
     # Workaround for:
