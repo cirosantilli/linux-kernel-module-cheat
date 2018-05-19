@@ -297,6 +297,7 @@ More concretely:
 ....
 git checkout gem5-arm
 ./build -aa -lg -K linux/arch/arm/configs/gem5_defconfig
+./run -aa -gu
 ....
 
 and then on another shell:
@@ -305,15 +306,30 @@ and then on another shell:
 vinagre localhost:5900
 ....
 
-TODO: without the `-K` it fails even though we have added to link:kernel_config_fragment/default[] on the branch:
+The port `5900` is incremented by one if you already have something running on that port: `gem5` stdout tells us the right port on stdout as:
 
 ....
-CONFIG_DRM=y
-CONFIG_DRM_HDLCD=y
-CONFIG_DRM_VIRT_ENCODER=y
+system.vncserver: Listening for connections on port 5900
 ....
 
-so what other options are missing from `gem5_defconfig`? The failing dmesg is:
+aarch64:
+
+....
+./build -aA -lg -K linux/arch/arm64/configs/gem5_defconfig -c kernel_config_fragment/gem5-aarch64-hdlcd
+./run -aA -gu
+....
+
+We need the extra config fragment because the gem5 aarch64 defconfig does not enable HDLCD like the 32 bit one for some reason.
+
+TODO: without the `-K`:
+
+....
+git checkout gem5-arm
+./build -aa -lg -c kernel_config_fragment/gem5-aarch64-hdlcd
+./run -aa -gu
+....
+
+it does not work with a failing dmesg:
 
 ....
 [    0.121078] [drm] found ARM HDLCD version r0p0
@@ -324,6 +340,8 @@ so what other options are missing from `gem5_defconfig`? The failing dmesg is:
 [    0.121190] hdlcd 2b000000.hdlcd: master bind failed: -12
 [    0.121197] hdlcd: probe of 2b000000.hdlcd failed with error -12
 ....
+
+So what other options are missing from `gem5_defconfig`? It would be cool to minimize it out to better understand the options.
 
 === Automatic startup commands
 
@@ -2222,7 +2240,7 @@ TODO we were not able to get it working yet: https://stackoverflow.com/questions
 
 === Linux kernel configuration
 
-==== Use your own kernel config
+==== Modify kernel config options
 
 By default, we use a `.config` that is a mixture of:
 
@@ -2237,13 +2255,23 @@ If you want to just use your own exact `.config` instead, do:
 
 Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
 
-==== Modify a config option
-
-Only effective for the current build:
+Modify a single option:
 
 ....
-./build -c 'CONFIG_FORTIFY_SOURCE=y' -l
+./build -C 'CONFIG_FORTIFY_SOURCE=y' -l
 ....
+
+Use an extra kernel config fragment file:
+
+....
+printf '
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+' > myconfig
+./build -c 'myconfig' -l
+....
+
+`-K`, `-c`, `-C` can all be used at the same time. Options passed via `-C` take precedence over `-c`, which takes precedence over `-K`.
 
 ==== Find the kernel config
 
@@ -3003,7 +3031,7 @@ TODO: can you get function arguments? https://stackoverflow.com/questions/276087
 ==== Kprobes
 
 ....
-./build -c 'CONFIG_KPROBES=y'
+./build -C 'CONFIG_KPROBES=y'
 ./run -F 'insmod /kprobe_example.ko && sleep 4 & sleep 4 &'
 ....
 
@@ -3282,7 +3310,7 @@ Make it harder to get hacked and easier to notice that you were, at the cost of 
 Enable:
 
 ....
-./build -c 'CONFIG_FORTIFY_SOURCE=y'
+./build -C 'CONFIG_FORTIFY_SOURCE=y'
 ....
 
 Test it out:

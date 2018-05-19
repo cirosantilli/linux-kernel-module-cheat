@@ -15,11 +15,12 @@ extra_make_args=
 j="$(nproc)"
 linux_reconfigure=false
 linux_kernel_custom_config_file=
+kernel_config_fragments=
 post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 suffix=
 v=0
-while getopts 'a:B:b:Cc:Ggj:hIiK:klp:qSs:v' OPT; do
+while getopts 'a:B:b:C:c:fGgj:hIiK:klp:qSs:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -31,10 +32,13 @@ while getopts 'a:B:b:Cc:Ggj:hIiK:klp:qSs:v' OPT; do
       config_fragments="${config_fragments} $(common_abspath "${OPTARG}")"
       ;;
     C)
-      configure=false
+      echo "$OPTARG" >> "$kernel_config_fragment_cli_file"
       ;;
     c)
-      echo "$OPTARG" >> "$kernel_config_fragment_cli_file"
+      kernel_config_fragments="${kernel_config_fragments} $(common_abspath "${OPTARG}")"
+      ;;
+    f)
+      configure=false
       ;;
     g)
       extra_make_args="${extra_make_args} gem5-reconfigure \\
@@ -145,15 +149,22 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
       echo "error: -K: file does not exist: ${linux_kernel_custom_config_file}" 1>&2
       exit 1
     fi
+    default_config_fragments=
   else
-    d=../kernel_config_fragment
-    f="${d}/min"
-    printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${f} ${d}/default ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
-    if "${linux_reconfigure}"; then
-      # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-      touch "$f"
-    fi
+    default_config_fragments="${d}/min ${d}/default"
   fi
+  d=../kernel_config_fragment
+  printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${default_config_fragments} ${kernel_config_fragments} ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
+  if "${linux_reconfigure}"; then
+    # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+    touch "${d}/min"
+  fi
+  if [ "$arch" = 'mips64' ]; then
+    # Workaround for:
+    # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
+    sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "$config_file"
+  fi
+  make O="$buildroot_out_dir" olddefconfig
   if [ "$arch" = 'mips64' ]; then
     # Workaround for:
     # http://lists.busybox.net/pipermail/buildroot/2017-August/201053.html
