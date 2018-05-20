@@ -749,6 +749,36 @@ Double quotes can be used to escape spaces as in `opt="a b"`, but double quotes 
 
 This even lead us to use base64 encoding with `-E`!
 
+==== Kernel command line parameters definition points
+
+There are two methods:
+
+* `__setup` as in:
++
+....
+__setup("console=", console_setup);
+....
+* `core_param` as in:
++
+....
+core_param(panic, panic_timeout, int, 0644);
+....
+
+`core_param` suggests how they are different:
+
+....
+/**
+ * core_param - define a historical core kernel parameter.
+
+...
+
+ * core_param is just like module_param(), but cannot be modular and
+ * doesn't add a prefix (such as "printk.").  This is for compatibility
+ * with __setup(), and it makes sense as truly core parameters aren't
+ * tied to the particular file they're in.
+ */
+....
+
 === insmod alternatives
 
 ==== modprobe
@@ -3383,33 +3413,123 @@ The bitmask is documented at:
 less linux/Documentation/admin-guide/sysrq.rst
 ....
 
-===== Multiple TTYs
+==== TTY
 
-Switch between TTYs with:
+In order to play with TTYs, do this:
 
 ....
-sendkey alt-left
-sendkey alt-right
-sendkey alt-f1
-sendkey alt-f2
+printf '
+tty2::respawn:/sbin/getty -n -L -l /loginroot.sh tty2 0 vt100
+tty3::respawn:-/bin/sh
+tty4::respawn:/sbin/getty 0 tty4
+tty63::respawn:-/bin/sh
+::respawn:/sbin/getty -L ttyS0 0 vt100
+::respawn:/sbin/getty -L ttyS1 0 vt100
+::respawn:/sbin/getty -L ttyS2 0 vt100
+# Leave one serial empty.
+#::respawn:/sbin/getty -L ttyS3 0 vt100
+' >> rootfs_overlay/etc/inittab
+./build
+./run -x -- \
+  -serial telnet::1235,server,nowait \
+  -serial telnet::1236,server,nowait \
+  -serial telnet::1237,server,nowait \
+;
 ....
 
-TODO: only works after I do a `chvt 1`, but then how to put a terminal on `alt-f2`? I just get a blank screen. One day, one day:
+and on a second shell:
 
-* https://stackoverflow.com/questions/16706423/two-instances-of-busybox-on-separate-serial-lines-ttysn
+....
+telnet localhost 1235
+....
+
+We don't add more TTYs by default because it would spawn more processes, even if we use `askfirst` instead of `respawn`.
+
+On the GUI, switch TTYs with:
+
+* `Alt-Left` or `Alt-Right:` go to previous / next populated TTY. Skips over empty TTYs.
+* `Alt-Fn`: go to the nth TTY. If it is  not populated, don't go there.
+* `chvt <n>`: go to the n-th virtual TTY, even if it is empty: https://superuser.com/questions/33065/console-commands-to-change-virtual-ttys-in-linux-and-openbsd
+
+You can also test this on most hosts such as Ubuntu 18.04, except that when in the GUI, you must use `Ctrl-Alt-Fx` to switch to another terminal.
+
+Then, go to the text shells we opened previously, and press enter, and you will see that we have:
+
+* one shell on the shell that was used to run QEMU
+* one shell on the second shell running `telnet`
+
+although we cannot change between terminals from there.
+
+Each populated TTY contains a "shell":
+
+* `-/bin/sh`: goes directly into an `sh` without a login prompt. Don't forget the dash `-`: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using
++
+TODO: does not work for the `ttyS*` terminals. Why?
+* `/sbin/getty` asks for password, and then gives you an `sh`
++
+We can overcome the password prompt with the `-l /loginroot.sh` technique explained at: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using but I don't see any advantage over `-/bin/sh` currently.
+
+Identify the current TTY with the command:
+
+....
+tty
+....
+
+* https://unix.stackexchange.com/questions/270272/how-to-get-the-tty-in-which-bash-is-running/270372
+* https://unix.stackexchange.com/questions/187319/how-to-get-the-real-name-of-the-controlling-terminal
+* https://unix.stackexchange.com/questions/77796/how-to-get-the-current-terminal-name
+* https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using
+
+This outputs:
+
+* `/dev/console` for the initial GUI terminal. But I think it is the same as `/dev/tty1`, because if I try to do
++
+....
+tty1::respawn:-/bin/sh
+....
++
+it makes the terminal go crazy, as if multiple processes are randomly eating up the characters.
+* `/dev/ttyN` for the other graphic TTYs. Note that there are only 63 available ones, from `/dev/tty1` to `/dev/tty63` (`/dev/tty0` is the current one): link:https://superuser.com/questions/449781/why-is-there-so-many-linux-dev-tty[]. I think this is determined by:
++
+....
+#define MAX_NR_CONSOLES	63
+....
++
+in `linux/include/uapi/linux/vt.h`.
+* `/dev/ttySN` for the text shells.
++
+These are Serial ports, see this to understand what those represent physically: https://unix.stackexchange.com/questions/307390/what-is-the-difference-between-ttys0-ttyusb0-and-ttyama0-in-linux/367882#367882
++
+There are only 4 serial ports, I think this is determined by QEMU. TODO check.
++
+See also: https://stackoverflow.com/questions/16706423/two-instances-of-busybox-on-separate-serial-lines-ttysn
+
+Next try:
+
+....
+insmod /kthread.ko
+....
+
+and switch between virtual terminals, to understand that the dmesg goes to whatever current virtual terminal you are on, but not the others, and not to the serial terminals.
+
+See also:
+
 * https://serverfault.com/questions/119736/how-to-enable-multiple-virtual-consoles-on-linux
-* https://superuser.com/questions/33065/console-commands-to-change-virtual-ttys-in-linux-and-openbsd
-* https://stackoverflow.com/questions/39373236/redirect-multiple-uarts-in-qemu
+* https://github.com/mirror/busybox/blob/1_28_3/examples/inittab#L60
+* http://web.archive.org/web/20180117124612/http://nairobi-embedded.org/qemu_serial_port_system_console.html
 
-Also tried to add some extra lines to `/etc/inittab` of type:
+===== console kernel boot parameter
 
-....
-console::respawn:/sbin/getty -n -L -l /loginroot.sh ttyS1 0 vt100
-....
+Take the command described at <<tty>> and try adding the following:
 
-but nothing changed.
-
-Note that on Ubuntu 17.10, to get to the text terminal from the GUI we first need `Ctrl-Alt-Fx`, and once in the text terminals, `Alt-Fn` works without `Ctrl`.
+* `-e 'console=tty7'`: boot messages still show on `/dev/tty1` (TODO how to change that?), but we don't get a shell at the end of boot there.
++
+Instead, the shell appears on `/dev/tty7`.
+* `-e 'console=tty2'` like `/dev/tty7`, but `/dev/tty2` is broken, because we have two shells there:
+** one due to the `::respawn:-/bin/sh` entry which uses whatever `console` points to
+** another one due to the `tty2::respawn:/sbin/getty` entry we added
+* `-e 'console=ttyS0'` much like `tty2`, but messages show only on serial, and the terminal is broken due to having multiple shells on it
+* `-e 'console=tty1 console=ttyS0'`: boot messages show on both `tty1` and `ttyS0`, but only `S0` gets a shell because it came last
 
 ==== CONFIG_LOGO
 
@@ -5262,7 +5382,7 @@ Then copy and paste the diff additions to link:br2[] to make them permanent.
 
 === Change user
 
-At startup, we login automatically as the `root` user as explained at: https://unix.stackexchange.com/questions/299408/how-to-login-automatically-without-typing-root-in-buildroot-x86-64-qemu/300152#300152
+At startup, we login automatically as the `root` user.
 
 If you want to switch to another user to test some permissions, we have already created an `user0` user through the link:user_table[] file, and you can just login as that user with:
 
