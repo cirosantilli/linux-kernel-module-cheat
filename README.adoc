@@ -3242,22 +3242,142 @@ sendkey shift-pgup
 sendkey shift-pgdown
 ....
 
-https://en.wikipedia.org/wiki/Magic_SysRq_key Those can be tested through the monitor with:
+===== Ctrl Alt Del
+
+Reboot guest:
+
+....
+Ctrl-Alt-Del
+....
+
+Enabled from our link:rootfs_overlay/etc/inittab[]:
+
+....
+::ctrlaltdel:/sbin/reboot
+....
+
+Under the hood, behaviour is controlled by the `reboot` syscall:
+
+....
+man 2 reboot
+....
+
+`reboot` calls can set either of the these behaviours for `Ctrl-Alt-Del`:
+
+* do a hard shutdown syscall. Set in ublibc C code with:
++
+....
+reboot(RB_ENABLE_CAD)
+....
++
+or from procfs with:
++
+....
+echo 1 > /proc/sys/kernel/ctrl-alt-del
+....
+* send a SIGINT to the init process. This is what BusyBox' init does, and it then execs the string set in `inittab`.
++
+Set in uclibc C code with:
++
+....
+reboot(RB_DISABLE_CAD)
+....
++
+or from procfs with:
++
+....
+echo 0 > /proc/sys/kernel/ctrl-alt-del
+....
+
+Minimal example:
+
+....
+./run -e 'init=/ctrl_alt_del.out' -x
+....
+
+When you hit `Ctrl-Alt-Del` in the guest, our tiny init handles a `SIGINT` sent by the kernel and outputs to stdout:
+
+....
+cad
+....
+
+To map between `man 2 reboot` and the uclibc `RB_*` magic constants see:
+
+....
+less out/x86_64/buildroot/build/uclibc-*/include/sys/reboot.h
+....
+
+The procfs mechanism is documented at:
+
+....
+less linux/Documentation/sysctl/kernel.txt
+....
+
+which says:
+
+....
+When the value in this file is 0, ctrl-alt-del is trapped and
+sent to the init(1) program to handle a graceful restart.
+When, however, the value is > 0, Linux's reaction to a Vulcan
+Nerve Pinch (tm) will be an immediate reboot, without even
+syncing its dirty buffers.
+
+Note: when a program (like dosemu) has the keyboard in 'raw'
+mode, the ctrl-alt-del is intercepted by the program before it
+ever reaches the kernel tty layer, and it's up to the program
+to decide what to do with it.
+....
+
+===== SysRq
+
+https://en.wikipedia.org/wiki/Magic_SysRq_key
+
+We cannot test these actual shortcuts on QEMU since the host captures them at a lower level, but from:
+
+....
+./qemumonitor
+....
+
+we can for example crash the system with:
 
 ....
 sendkey alt-sysrq-c
 ....
 
-or you can try the much more boring method of:
+Same but boring because no magic key:
 
 ....
 echo c > /proc/sysrq-trigger
 ....
 
-Implemented in
+Implemented in:
 
 ....
 drivers/tty/sysrq.c
+....
+
+On your host, on modern systems that don't have the `SysRq` key you can do:
+
+....
+Alt-PrtSc-space
+....
+
+which prints a message to `dmesg` of type:
+
+....
+sysrq: SysRq : HELP : loglevel(0-9) reboot(b) crash(c) terminate-all-tasks(e) memory-full-oom-kill(f) kill-all-tasks(i) thaw-filesystems(j) sak(k) show-backtrace-all-active-cpus(l) show-memory-usage(m) nice-all-RT-tasks(n) poweroff(o) show-registers(p) show-all-timers(q) unraw(r) sync(s) show-task-states(t) unmount(u) show-blocked-tasks(w) dump-ftrace-buffer(z)
+....
+
+Individual SysRq can be enabled or disabled with the bitmask:
+
+....
+/proc/sys/kernel/sysrq
+....
+
+The bitmask is documented at:
+
+....
+less linux/Documentation/admin-guide/sysrq.rst
 ....
 
 ===== Multiple TTYs

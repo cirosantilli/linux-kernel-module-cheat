@@ -2,6 +2,7 @@
  * https://stackoverflow.com/questions/28812514/how-to-shutdown-linux-using-c-or-qt-without-call-to-system
  **/
 
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <sys/reboot.h>
 #include <unistd.h>
