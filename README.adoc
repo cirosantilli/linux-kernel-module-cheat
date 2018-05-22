@@ -3555,6 +3555,36 @@ Looks like a recompile is needed to modify the image...
 * https://superuser.com/questions/736423/changing-kernel-bootsplash-image
 * https://unix.stackexchange.com/questions/153975/how-to-change-boot-logo-in-linux-mint
 
+=== GPIO
+
+TODO: this was working before we moved `arm` from `-M versatilepb` to `-M virt` around af210a76711b7fa4554dcc2abd0ddacfc810dfd4. Either make it work on `-M virt` if that is possible, or document precisely how to make it work with `versatilepb`, or hopefully `vexpress` which is newer.
+
+QEMU does not have a very nice mechanism to observe GPIO activity: https://raspberrypi.stackexchange.com/questions/56373/is-it-possible-to-get-the-state-of-the-leds-and-gpios-in-a-qemu-emulation-like-t/69267#69267
+
+The best you can do is to hack our link:build[] script to add:
+
+....
+HOST_QEMU_OPTS='--extra-cflags=-DDEBUG_PL061=1'
+....
+
+where link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0190b/index.html[PL061] is the dominating ARM Holdings hardware that handles GPIO.
+
+Then compile with:
+
+....
+./build -aa -b br2_gpio -c kernel_config_fragment/gpio -l
+....
+
+then test it out with:
+
+....
+/gpio.sh
+....
+
+Buildroot's Linux tools package provides some GPIO CLI tools: `lsgpio`, `gpio-event-mon`, `gpio-hammer`, TODO document them here.
+
+Those broke MIPS build in 2017-02: https://bugs.busybox.net/show_bug.cgi?id=10276 and so we force disable them in our MIPS build currently.
+
 === Linux kernel hardening
 
 Make it harder to get hacked and easier to notice that you were, at the cost of some (small?) runtime overhead.

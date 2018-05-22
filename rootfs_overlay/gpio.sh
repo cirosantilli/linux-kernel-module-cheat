@@ -1,6 +1,4 @@
 #!/bin/sh
-# ARM only.
-# https://raspberrypi.stackexchange.com/questions/56373/is-it-possible-to-get-the-state-of-the-leds-and-gpios-in-a-qemu-emulation-like-t/69267#69267
 set -e
 cd /sys/class/gpio
 echo 480 > export
