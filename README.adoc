@@ -3766,6 +3766,25 @@ PCI driver for our minimal `pci_min.c` QEMU fork device:
 insmod /pci_min.ko
 ....
 
+Outcome:
+
+....
+<4>[   10.608241] pci_min: loading out-of-tree module taints kernel.
+<6>[   10.609935] probe
+<6>[   10.651881] dev->irq = 11
+lkmc_pci_min mmio_write addr = 0 val = 12345678 size = 4
+<6>[   10.668515] irq_handler irq = 11 dev = 251
+lkmc_pci_min mmio_write addr = 4 val = 0 size = 4
+....
+
+What happened:
+
+* right at probe time, we write to a register
+* our hardware model is coded such that it generates an interrupt when written to
+* the Linux kernel interrupt handler write to another register, which tells the hardware to stop sending interrupts
+
+Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<graphic-mode>> instead.
+
 Source:
 
 * Kernel module: link:kernel_module/pci_min.c[].
@@ -3788,12 +3807,12 @@ Small upstream educational PCI device:
 /pci.sh
 ....
 
-Source:
+This tests a lot of features of the edu device, to understand the results, compare the inputs with the documentation of the hardware: https://github.com/qemu/qemu/blob/v2.12.0/docs/specs/edu.txt
+
+Sources:
 
 * kernel module: link:kernel_module/pci.c[]
-* QEMU device:
-** source: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
-** documentation: https://github.com/qemu/qemu/blob/v2.12.0/docs/specs/edu.txt
+* QEMU device: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
 * test script: link:rootfs_overlay/pci.sh[]
 
 Works because we add to our default QEMU CLI:
@@ -3814,31 +3833,41 @@ TODO exercise DMA on the kernel module. The `edu` hardware model has that featur
 * https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
 * https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
 
-===== setpci
+===== Manipulate PCI registers directly
 
-There are two versions of `setpci` and `lspci`:
+In this section we will try to interact with PCI devices directly from userland without kernel modules.
 
-* a simple one from BusyBox
-* a more complete one from link:https://github.com/pciutils/pciutils[pciutils] which Buildroot has a package for. This is the one we enable by default.
-
-`setpci` can read and write to PCI configuration registers.
-
-Read is possible from Linux with:
+First identify the PCI device with:
 
 ....
-hexdump /sys/bus/pci/devices/0000:00:05.0/config
+lspci
 ....
 
-and `/dev/mem` can of course do both reads and writes, but `setpci` provides nice human readable register names, e.g.:
+In our case for example, we see:
+
+....
+00:06.0 Unclassified device [00ff]: Device 1234:11e8 (rev 10)
+00:07.0 Unclassified device [00ff]: Device 1234:11e9
+....
+
+which we identify as being `edu` and `pci_min` by the magic numbers: `1234:11e?`
+
+Read the configuration registers as binary:
+
+....
+hexdump /sys/bus/pci/devices/0000:00:06.0/config
+....
+
+Get those values with nice disassembled human readable names:
 
 ....
 setpci --dumpregs
 ....
 
-then and then get the values with either bus or device id:
+Then and then get the values with either bus or device id:
 
 ....
-setpci -s 0000:00:05.0 BASE_ADDRESS_0
+setpci -s 0000:00:06.0 BASE_ADDRESS_0
 setpci -d 1234:11e9 BASE_ADDRESS_0
 ....
 
@@ -3855,6 +3884,13 @@ devmem 0xfeb52000 w 0x12345678
 ....
 
 which for our <<pci_min>> device fires interrupts.
+
+There are two versions of `setpci` and `lspci`:
+
+* a simple one from BusyBox
+* a more complete one from link:https://github.com/pciutils/pciutils[pciutils] which Buildroot has a package for. This is the one we enable by default.
+
+`setpci` can read and write to PCI configuration registers.
 
 ===== Introduction to PCI
 
