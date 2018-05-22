@@ -1,71 +1,3 @@
-/*
-Only tested for x86.
-
-Usage:
-
-	/pci.sh
-
-The standard is non-free, obviously: https://pcisig.com/specifications
-but Google gives several illegal PDF hits :-)
-
-And of course: http://wiki.osdev.org/PCI
-
-Like every other hardware, we could interact with PCI on x86
-using only IO instructions and memory operations.
-
-But PCI is a complex communication protocol that the Linux kernel
-implements beautifully for us, so let's use the kernel API.
-
-This example relies on the QEMU "edu" educational device.
-Grep QEMU source for the device description, and keep it open at all times!
-
--   edu device source and spec in QEMU tree:
-	- https://github.com/qemu/qemu/blob/v2.7.0/hw/misc/edu.c
-	- https://github.com/qemu/qemu/blob/v2.7.0/docs/specs/edu.txt
--   http://www.zarb.org/~trem/kernel/pci/pci-driver.c inb outb runnable example (no device)
--   LDD3 PCI chapter
--   another QEMU device + module, but using a custom QEMU device:
-	- https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/module/levpci.c
-	- https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/qemu/hw/char/lev-pci.c
--   https://is.muni.cz/el/1433/podzim2016/PB173/um/65218991/ course given by the creator of the edu device.
-	In Czech, and only describes API
--   http://nairobi-embedded.org/linux_pci_device_driver.html
-
-DMA:
-
-- 	https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
-- 	https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
-
-lspci -k shows something like:
-
-	00:04.0 Class 00ff: 1234:11e8 lkmc_pci
-
-Meaning of the first numbers:
-
-	<8:bus>:<5:device>.<3:function>
-
-Often abbreviated to BDF.
-
-- bus: groups PCI slots
-- device: maps to one slot
-- function: https://stackoverflow.com/questions/19223394/what-is-the-function-number-in-pci/44735372#44735372
-
-Sometimes a fourth number is also added, e.g.:
-
-    0000:00:04.0
-
-TODO is that the domain?
-
-Class: pure magic: https://www-s.acm.illinois.edu/sigops/2007/roll_your_own/7.c.1.html
-TODO: does it have any side effects? Set in the edu device at:
-
-	k->class_id = PCI_CLASS_OTHERS
-
-## Play with registers from the CLI
-
-Use setpci, devmem and /sys.
-*/
-
 #include <linux/cdev.h> /* cdev_ */
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -75,29 +7,6 @@ Use setpci, devmem and /sys.
 #include <linux/pci.h>
 #include <linux/uaccess.h> /* put_user */
 
-/* https://stackoverflow.com/questions/30190050/what-is-base-address-register-bar-in-pcie/44716618#44716618
- *
- * Each PCI device has 6 BAR IOs (base address register) as per the PCI spec.
- *
- * Each BAR corresponds to an address range that can be used to communicate with the PCI.
- *
- * Eech BAR is of one of the two types:
- *
- * - IORESOURCE_IO: must be accessed with inX and outX
- * - IORESOURCE_MEM: must be accessed with ioreadX and iowriteX
- *   This is the saner method apparently, and what the edu device uses.
- *
- * The length of each region is defined BY THE HARDWARE, and communicated to software
- * via the configuration registers.
- *
- * The Linux kernel automatically parses the 64 bytes of standardized configuration registers for us.
- *
- * QEMU devices register those regions with:
- *
- *     memory_region_init_io(&edu->mmio, OBJECT(edu), &edu_mmio_ops, edu,
- *                     "edu-mmio", 1 << 20);
- *     pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &edu->mmio);
- **/
 #define BAR 0
 #define CDEV_NAME "lkmc_pci"
 #define EDU_DEVICE_ID 0x11e8

@@ -1,11 +1,3 @@
-/*
-Only tested in x86.
-
-PCI driver for our minimal pci_min.c QEMU fork device.
-
-probe already does a mmio write, which generates an IRQ and tests everything.
-*/
-
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/init.h>

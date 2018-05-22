@@ -523,13 +523,13 @@ This likely comes from the ifdef split at `init/main.c`:
 
 /* dynamic_pr_debug() uses pr_fmt() internally so we don't need it here */
 #define pr_debug(fmt, ...) \
-	dynamic_pr_debug(fmt, ##__VA_ARGS__)
+    dynamic_pr_debug(fmt, ##__VA_ARGS__)
 #elif defined(DEBUG)
 #define pr_debug(fmt, ...) \
-	printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+    printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #else
 #define pr_debug(fmt, ...) \
-	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+    no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
 ....
 
@@ -2837,13 +2837,13 @@ dummy-irq: interrupt occurred on IRQ 1
 However, this module is intended to fire only once as can be seen from its source:
 
 ....
-	static int count = 0;
+    static int count = 0;
 
-	if (count == 0) {
-		printk(KERN_INFO "dummy-irq: interrupt occurred on IRQ %d\n",
-				irq);
-		count++;
-	}
+    if (count == 0) {
+        printk(KERN_INFO "dummy-irq: interrupt occurred on IRQ %d\n",
+            irq);
+        count++;
+    }
 ....
 
 and furthermore interrupt `1` and `12` happen immediately TODO why, were they somehow pending?
@@ -3494,7 +3494,7 @@ it makes the terminal go crazy, as if multiple processes are randomly eating up 
 * `/dev/ttyN` for the other graphic TTYs. Note that there are only 63 available ones, from `/dev/tty1` to `/dev/tty63` (`/dev/tty0` is the current one): link:https://superuser.com/questions/449781/why-is-there-so-many-linux-dev-tty[]. I think this is determined by:
 +
 ....
-#define MAX_NR_CONSOLES	63
+#define MAX_NR_CONSOLES 63
 ....
 +
 in `linux/include/uapi/linux/vt.h`.
@@ -3745,11 +3745,200 @@ Studying them can teach you:
 
 To get started, have a look at the "Hardware device drivers" section under link:kernel_module/README.adoc[], and try to run those modules, and then grep the QEMU source code.
 
-==== Mainline hardware models
+The hardware models can be either:
 
-This section documents hardware models present in the QEMU upstream.
+* present in the QEMU upstream
+* added in on link:https://github.com/cirosantilli/qemu[our fork of QEMU].
++
+These have been explicitly designed to be educational rather than model real existing hardware.
++
+But note that upstream [[edu]] device is also purely educational.
 
-===== GPIO
+==== PCI
+
+Only tested in x86.
+
+===== pci_min
+
+PCI driver for our minimal `pci_min.c` QEMU fork device:
+
+....
+insmod /pci_min.ko
+....
+
+Source:
+
+* Kernel module: link:kernel_module/pci_min.c[].
+* QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
+
+Works because we add to our default QEMU CLI:
+
+....
+-device lkmc_pci_min
+....
+
+Probe already does a MMIO write, which generates an IRQ and tests everything.
+
+[[edu]]
+===== QEMU edu PCI device
+
+Small upstream educational PCI device:
+
+....
+/pci.sh
+....
+
+Source:
+
+* kernel module: link:kernel_module/pci.c[]
+* QEMU device:
+** source: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
+** documentation: https://github.com/qemu/qemu/blob/v2.12.0/docs/specs/edu.txt
+* test script: link:rootfs_overlay/pci.sh[]
+
+Works because we add to our default QEMU CLI:
+
+....
+-device edu
+....
+
+This example uses:
+
+* the QEMU `edu` educational device, which is a minimal educational in-tree PCI example
+* out `/pci.ko` kernel module, which exercises the `edu` hardware.
++
+I've contacted the awesome original author author of `edu` link:https://github.com/jirislaby[Jiri Slaby], and he told there is no official kernel module example because this was created for a kernel module university course that he gives, and he didn't want to give away answers. link:https://github.com/cirosantilli/how-to-teach-efficiently[I don't agree with that philosophy], so students, cheat away with this repo and go make startups instead.
+
+TODO exercise DMA on the kernel module. The `edu` hardware model has that feature:
+
+* https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
+* https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
+
+===== setpci
+
+There are two versions of `setpci` and `lspci`:
+
+* a simple one from BusyBox
+* a more complete one from link:https://github.com/pciutils/pciutils[pciutils] which Buildroot has a package for. This is the one we enable by default.
+
+`setpci` can read and write to PCI configuration registers.
+
+Read is possible from Linux with:
+
+....
+hexdump /sys/bus/pci/devices/0000:00:05.0/config
+....
+
+and `/dev/mem` can of course do both reads and writes, but `setpci` provides nice human readable register names, e.g.:
+
+....
+setpci --dumpregs
+....
+
+then and then get the values with either bus or device id:
+
+....
+setpci -s 0000:00:05.0 BASE_ADDRESS_0
+setpci -d 1234:11e9 BASE_ADDRESS_0
+....
+
+Note however that `BASE_ADDRESS_0` also appears when you do:
+
+....
+lspci -v
+....
+
+Then you can try messing with that address with:
+
+....
+devmem 0xfeb52000 w 0x12345678
+....
+
+which for our <<pci_min>> device fires interrupts.
+
+===== Introduction to PCI
+
+The PCI standard is non-free, obviously like everything in low level: https://pcisig.com/specifications but Google gives several illegal PDF hits :-)
+
+And of course, the best documentation available is: http://wiki.osdev.org/PCI
+
+Like every other hardware, we could interact with PCI on x86 using only IO instructions and memory operations.
+
+But PCI is a complex communication protocol that the Linux kernel implements beautifully for us, so let's use the kernel API.
+
+Bibliography:
+
+* edu device source and spec in QEMU tree:
+** https://github.com/qemu/qemu/blob/v2.7.0/hw/misc/edu.c
+** https://github.com/qemu/qemu/blob/v2.7.0/docs/specs/edu.txt
+* http://www.zarb.org/~trem/kernel/pci/pci-driver.c inb outb runnable example (no device)
+* LDD3 PCI chapter
+* another QEMU device + module, but using a custom QEMU device:
+** https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/module/levpci.c
+** https://github.com/levex/kernel-qemu-pci/blob/31fc9355161b87cea8946b49857447ddd34c7aa6/qemu/hw/char/lev-pci.c
+* https://is.muni.cz/el/1433/podzim2016/PB173/um/65218991/ course given by the creator of the edu device. In Czech, and only describes API
+* http://nairobi-embedded.org/linux_pci_device_driver.html
+
+===== PCI BFD
+
+`lspci -k` shows something like:
+
+....
+00:04.0 Class 00ff: 1234:11e8 lkmc_pci
+....
+
+Meaning of the first numbers:
+
+....
+<8:bus>:<5:device>.<3:function>
+....
+
+Often abbreviated to BDF.
+
+* bus: groups PCI slots
+* device: maps to one slot
+* function: https://stackoverflow.com/questions/19223394/what-is-the-function-number-in-pci/44735372#44735372
+
+Sometimes a fourth number is also added, e.g.:
+
+....
+0000:00:04.0
+....
+
+TODO is that the domain?
+
+Class: pure magic: https://www-s.acm.illinois.edu/sigops/2007/roll_your_own/7.c.1.html TODO: does it have any side effects? Set in the edu device at:
+
+....
+k->class_id = PCI_CLASS_OTHERS
+....
+
+===== PCI BAR
+
+https://stackoverflow.com/questions/30190050/what-is-base-address-register-bar-in-pcie/44716618#44716618
+
+Each PCI device has 6 BAR IOs (base address register) as per the PCI spec.
+
+Each BAR corresponds to an address range that can be used to communicate with the PCI.
+
+Each BAR is of one of the two types:
+
+* `IORESOURCE_IO`: must be accessed with `inX` and `outX`
+* `IORESOURCE_MEM`: must be accessed with `ioreadX` and `iowriteX`. This is the saner method apparently, and what the edu device uses.
+
+The length of each region is defined by the hardware, and communicated to software via the configuration registers.
+
+The Linux kernel automatically parses the 64 bytes of standardized configuration registers for us.
+
+QEMU devices register those regions with:
+
+....
+memory_region_init_io(&edu->mmio, OBJECT(edu), &edu_mmio_ops, edu,
+                "edu-mmio", 1 << 20);
+pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &edu->mmio);
+....
+
+==== GPIO
 
 TODO: broken. Was working before we moved `arm` from `-M versatilepb` to `-M virt` around af210a76711b7fa4554dcc2abd0ddacfc810dfd4. Either make it work on `-M virt` if that is possible, or document precisely how to make it work with `versatilepb`, or hopefully `vexpress` which is newer.
 
@@ -3775,11 +3964,13 @@ then test it out with:
 /gpio.sh
 ....
 
+Source: link:rootfs_overlay/gpio.sh[].
+
 Buildroot's Linux tools package provides some GPIO CLI tools: `lsgpio`, `gpio-event-mon`, `gpio-hammer`, TODO document them here.
 
 Those broke MIPS build in 2017-02: https://bugs.busybox.net/show_bug.cgi?id=10276 and so we force disable them in our MIPS build currently.
 
-===== LEDs
+==== LEDs
 
 TODO: broken when `arm`  moved to `-M virt`, same as <<gpio>>.
 
@@ -3823,15 +4014,9 @@ Relevant kernel files:
 * `drivers/leds/led-class.c`
 * `drivers/leds/leds-sysctl.c`
 
-==== Fork hardware models
+==== platform_device
 
-This section documents hardware models added on link:https://github.com/cirosantilli/qemu[our fork of QEMU].
-
-These have been explicitly designed to be educational rather than model real existing hardware.
-
-===== platform_device
-
-This is an example of hardware coded into an ARM `-M versatilepb` SoC.
+Minimal platform device example coded into the `-M versatilepb` SoC of our QEMU fork.
 
 Using this device now requires checking out to the branch:
 
@@ -3859,7 +4044,7 @@ Expected outcome after insmod:
 * QEMU reports MMIO with printfs
 * IRQs are generated and handled by this module, which logs to dmesg
 
-Also without insmodding this module, try:
+Also without insmoding this module, try:
 
 ....
 devmem 0x101e9000 w 0x12345678
@@ -6247,7 +6432,9 @@ Runnable stuff:
 
 Theory:
 
-* http://nairobi-embedded.org you will fall here a lot when the hard Google queries start popping. They have covered everything we do here basically, but with a more manual approach, while this repo automates everything.
+* http://nairobi-embedded.org you will fall here a lot when you start popping the hard QEMU Google queries. They have covered everything we do here basically, but with a more manual approach, while this repo automates everything.
++
+I couldn't find the markup source code for the tutorials, and as a result when the domain went down in May 2018, you have to use http://web.archive.org/ to see the pages...
 * https://balau82.wordpress.com awesome low level resource
 * https://rwmj.wordpress.com/ awesome red hatter
 * https://lwn.net
