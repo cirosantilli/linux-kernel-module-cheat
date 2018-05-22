@@ -3557,7 +3557,7 @@ Looks like a recompile is needed to modify the image...
 
 === GPIO
 
-TODO: this was working before we moved `arm` from `-M versatilepb` to `-M virt` around af210a76711b7fa4554dcc2abd0ddacfc810dfd4. Either make it work on `-M virt` if that is possible, or document precisely how to make it work with `versatilepb`, or hopefully `vexpress` which is newer.
+TODO: broken. Was working before we moved `arm` from `-M versatilepb` to `-M virt` around af210a76711b7fa4554dcc2abd0ddacfc810dfd4. Either make it work on `-M virt` if that is possible, or document precisely how to make it work with `versatilepb`, or hopefully `vexpress` which is newer.
 
 QEMU does not have a very nice mechanism to observe GPIO activity: https://raspberrypi.stackexchange.com/questions/56373/is-it-possible-to-get-the-state-of-the-leds-and-gpios-in-a-qemu-emulation-like-t/69267#69267
 
@@ -3584,6 +3584,50 @@ then test it out with:
 Buildroot's Linux tools package provides some GPIO CLI tools: `lsgpio`, `gpio-event-mon`, `gpio-hammer`, TODO document them here.
 
 Those broke MIPS build in 2017-02: https://bugs.busybox.net/show_bug.cgi?id=10276 and so we force disable them in our MIPS build currently.
+
+=== LEDs
+
+TODO: broken when `arm`  moved to `-M virt`, same as <<gpio>>.
+
+Try hacking QEMU's `hw/misc/arm_sysctl.c` with a printf:
+
+....
+static void arm_sysctl_write(void *opaque, hwaddr offset,
+                            uint64_t val, unsigned size)
+{
+    arm_sysctl_state *s = (arm_sysctl_state *)opaque;
+
+    switch (offset) {
+    case 0x08: /* LED */
+        printf("LED val = %llx\n", (unsigned long long)val);
+....
+
+and then rebuild with:
+
+....
+./build -aa -c kernel_config_fragment/leds -lq
+....
+
+But beware that one of the LEDs has a heartbeat trigger by default (specified on dts), so it will produce a lot of output.
+
+And then activate it with:
+
+....
+cd /sys/class/leds/versatile:0
+cat max_brightness
+echo 255 >brightness
+....
+
+Relevant QEMU files:
+
+* `hw/arm/versatilepb.c`
+* `hw/misc/arm_sysctl.c`
+
+Relevant kernel files:
+
+* `arch/arm/boot/dts/versatile-pb.dts`
+* `drivers/leds/led-class.c`
+* `drivers/leds/leds-sysctl.c`
 
 === Linux kernel hardening
 
