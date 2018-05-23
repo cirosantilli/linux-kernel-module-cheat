@@ -3434,8 +3434,8 @@ tty63::respawn:-/bin/sh
 ./build
 ./run -x -- \
   -serial telnet::1235,server,nowait \
+  -serial vc:800x600 \
   -serial telnet::1236,server,nowait \
-  -serial telnet::1237,server,nowait \
 ;
 ....
 
@@ -3449,16 +3449,26 @@ We don't add more TTYs by default because it would spawn more processes, even if
 
 On the GUI, switch TTYs with:
 
-* `Alt-Left` or `Alt-Right:` go to previous / next populated TTY. Skips over empty TTYs.
+* `Alt-Left` or `Alt-Right:` go to previous / next populated `/dev/ttyN` TTY. Skips over empty TTYs.
 * `Alt-Fn`: go to the nth TTY. If it is  not populated, don't go there.
 * `chvt <n>`: go to the n-th virtual TTY, even if it is empty: https://superuser.com/questions/33065/console-commands-to-change-virtual-ttys-in-linux-and-openbsd
 
 You can also test this on most hosts such as Ubuntu 18.04, except that when in the GUI, you must use `Ctrl-Alt-Fx` to switch to another terminal.
 
-Then, go to the text shells we opened previously, and press enter, and you will see that we have:
+Next, we also have the following shells running on the serial ports, hit enter to activate them:
 
-* one shell on the shell that was used to run QEMU
-* one shell on the second shell running `telnet`
+* `/dev/ttyS0`: first shell that was used to run QEMU, corresponds to QEMU's `-serial mon:stdio`.
++
+It would also work if we used `-serial stdio`, but:
++
+--
+** `Ctrl-C` would kill QEMU instead of going to the guest
+** `Ctrl-A C` wouldn't open the QEMU console there
+--
++
+see also: https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to
+* `/dev/ttyS1`: second shell running `telnet`
+* `/dev/ttyS2`: go on the GUI and enter `Ctrl-Alt-2`, corresponds to QEMU's `-serial vc`. Go back to the main console with `Ctrl-Alt-1`.
 
 although we cannot change between terminals from there.
 
