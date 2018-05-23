@@ -51,6 +51,11 @@ hello2 cleanup
 
 which are `printk` messages from `init` and `cleanup` methods of those modules.
 
+Source:
+
+* link:kernel_module/hello.c[]
+* link:kernel_module/hello2.c[]
+
 Once you use <<gdb>> and <<tmux>>, your terminal will look a bit like this:
 
 ....
@@ -445,6 +450,8 @@ and we have a shortcut at:
 /pr_debug.sh
 ....
 
+Source: link:rootfs_overlay/pr_debug.sh[].
+
 Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
 
 Wildcards are also accepted, e.g. enable all messages from all files:
@@ -467,7 +474,9 @@ echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
 insmod /myprintk.ko
 ....
 
-which now outputs the `pr_debug` message:
+Source: link:kernel_module/myprintk.c[]
+
+This outputs the `pr_debug` message:
 
 ....
 printk debug
@@ -843,6 +852,11 @@ If you are feeling raw, you can insert and remove modules with our own minimal m
 
 which teaches you how it is done from C code.
 
+Source:
+
+* link:kernel_module/user/myinsmod.c[]
+* link:kernel_module/user/myrmmod.c[]
+
 The Linux kernel offers two system calls for module insertion:
 
 * `init_module`
@@ -923,7 +937,9 @@ and after boot inside a shell run:
 /count.sh
 ....
 
-which counts to infinity to stdout. Then in another shell, run:
+which counts to infinity to stdout. Source: link:rootfs_overlay/count.sh[].
+
+Then in another shell, run:
 
 ....
 ./rungdb
@@ -1009,6 +1025,8 @@ Wait for the boot to end and run:
 ....
 insmod /timer.ko
 ....
+
+Source: link:kernel_module/timer.c[].
 
 This prints a message to dmesg every second.
 
@@ -1650,6 +1668,8 @@ In QEMU:
 /kgdb-mod.sh
 ....
 
+Source: link:rootfs_overlay/kgdb-mod.sh[].
+
 In GDB:
 
 ....
@@ -1686,6 +1706,8 @@ Boot finishes, then:
 /kgdb.sh
 ....
 
+Source: link:rootfs_overlay/kgdb-mod.sh[].
+
 And you are back in KDB. Now you can:
 
 ....
@@ -1709,6 +1731,8 @@ Guest:
 ....
 /gdbserver.sh /myinsmod.out /hello.ko
 ....
+
+Source: link:rootfs_overlay/gdbserver.sh[].
 
 Host:
 
@@ -1874,7 +1898,9 @@ It is basically a shortcut for:
 ./run -e 'init=/eval.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"'
 ....
 
-although `-E` is smarter:
+Source: link:rootfs_overlay/eval.sh[].
+
+However, `-E` is smarter:
 
 * allows quoting and newlines by using base64 encoding, see: <<kernel-command-line-parameters-escaping>>
 * automatically chooses between `init=` and `rcinit=` for you, see: <<path-to-init>>
@@ -1999,6 +2025,8 @@ And you can try it out with:
 ....
 ./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv'
 ....
+
+Source: link:rootfs_overlay/init_env_poweroff.sh[].
 
 Also note how the annoying dash `-` also gets passed as a parameter to `init`, which makes it impossible to use this method for most executables.
 
@@ -2332,6 +2360,8 @@ or to conveniently grep for a specific option case insensitively:
 /conf.sh ikconfig
 ....
 
+Source: link:rootfs_overlay/conf.sh[].
+
 This is enabled by:
 
 ....
@@ -2470,6 +2500,11 @@ To test out kernel panics and oops in controlled circumstances, try out the modu
 insmod /panic.ko
 insmod /oops.ko
 ....
+
+Source:
+
+* link:kernel_module/panic.c[]
+* link:kernel_module/oops.c[]
 
 A panic can also be generated with:
 
@@ -2731,6 +2766,8 @@ The `dump_stack` function produces a stack trace much like panic and oops, but c
 insmod /dump_stack.ko
 ....
 
+Source: link:kernel_module/dump_stack.c[]
+
 ==== WARN_ON
 
 The `WARN_ON` macro basically just calls <<dump_stack,dump_stack>>.
@@ -2741,6 +2778,8 @@ One extra side effect is that we can make it also panic with:
 echo 1 > /proc/sys/kernel/panic_on_warn
 insmod /warn_on.ko
 ....
+
+Source: link:kernel_module/warn_on.c[]
 
 Can also be activated with the `panic_on_warn` boot parameter.
 
@@ -2753,6 +2792,8 @@ Brute force monitor every shared interrupt that will accept us:
 ....
 ./run -F 'insmod /irq.ko' -x
 ....
+
+Source: link:kernel_module/irq.c[].
 
 Now try the following:
 
@@ -2898,6 +2939,8 @@ echo a
 a
 #
 ....
+
+Source: link:kernel_module/user/proc_events.c[]
 
 TODO: why `exit: tid=79` shows after `exit: tid=80`?
 
@@ -3075,6 +3118,8 @@ TODO: can you get function arguments? https://stackoverflow.com/questions/276087
 ./build -C 'CONFIG_KPROBES=y'
 ./run -F 'insmod /kprobe_example.ko && sleep 4 & sleep 4 &'
 ....
+
+Source: link:kernel_module/kprobe_example.c[]
 
 Outcome: every fork spits out some extra printks of type:
 
@@ -3329,6 +3374,8 @@ Minimal example:
 ....
 ./run -e 'init=/ctrl_alt_del.out' -x
 ....
+
+Source: link:kernel_module/user/ctrl_alt_del.c[]
 
 When you hit `Ctrl-Alt-Del` in the guest, our tiny init handles a `SIGINT` sent by the kernel and outputs to stdout:
 
@@ -3776,6 +3823,11 @@ PCI driver for our minimal `pci_min.c` QEMU fork device:
 insmod /pci_min.ko
 ....
 
+Source:
+
+* Kernel module: link:kernel_module/pci_min.c[].
+* QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
+
 Outcome:
 
 ....
@@ -3794,11 +3846,6 @@ What happened:
 * the Linux kernel interrupt handler write to another register, which tells the hardware to stop sending interrupts
 
 Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<graphic-mode>> instead.
-
-Source:
-
-* Kernel module: link:kernel_module/pci_min.c[].
-* QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
 
 Works because we add to our default QEMU CLI:
 
@@ -4039,7 +4086,7 @@ then test it out with:
 /gpio.sh
 ....
 
-Source: link:rootfs_overlay/gpio.sh[].
+Source: link:rootfs_overlay/gpio.sh[]
 
 Buildroot's Linux tools package provides some GPIO CLI tools: `lsgpio`, `gpio-event-mon`, `gpio-hammer`, TODO document them here.
 
@@ -4232,6 +4279,8 @@ Test with the script:
 /overlayfs.sh
 ....
 
+Source: link:rootfs_overlay/overlayfs.sh[]
+
 It shows that files from the `upper/` does not show on the root.
 
 Furthermore, if you try to mount the root elsewhere to prepare for a chroot:
@@ -4294,7 +4343,9 @@ Then inside the guest turn on sshd:
 /sshd.sh
 ....
 
-and finally on host:
+Source: link:rootfs_overlay/sshd.sh[]
+
+And finally on host:
 
 ....
 ssh root@localhost -p 45456
@@ -4964,6 +5015,8 @@ Implemented by GCC itself, so just a toolchain configuration, no external libs, 
 /openmp.out
 ....
 
+Source: link:kernel_module/user/openmp.c[]
+
 ===== BLAS
 
 Buildroot supports it, which makes everything just trivial:
@@ -4972,6 +5025,8 @@ Buildroot supports it, which makes everything just trivial:
 ./build -a arm -B 'BR2_PACKAGE_OPENBLAS=y' -k
 ./run -F '/openblas.out'
 ....
+
+Source: link:kernel_module/user/openblas.c[]
 
 For x86, you also need:
 
@@ -4993,6 +5048,11 @@ Header only linear algebra library supported by Buildroot:
 ./build -B 'BR2_PACKAGE_EIGEN=y' -k
 ./run -F '/eigen.out;/eigen_svd.out'
 ....
+
+Source:
+
+* link:kernel_module/user/eigen.cpp[]
+* link:kernel_module/user/eigen_svd.cpp[]
 
 ===== PARSEC benchmark
 
@@ -5201,7 +5261,7 @@ On a third shell:
 
 When you want to break, just do a `Ctrl-C` on GDB shell, and then `continue`.
 
-And we now see the boot messages, and then get a shell. Now try the `/continue.sh` procedure described for QEMU.
+And we now see the boot messages, and then get a shell. Now try the `/count.sh` procedure described for QEMU: <<gdb-step-debug-kernel-post-boot>>.
 
 TODO: how to stop at `start_kernel`? gem5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used? https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
 
@@ -5554,12 +5614,14 @@ Lets try to understand some stats better.
 ./gem5-stat
 ....
 
-gives cycle counts:
+Source: link:kernel_module/user/rdtsc.c[]
 
-* `3828578153`
-* `3830832635`
+`rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
 
-Which are pretty close, and serve as a nice sanity check that the cycle counter is coherent.
+* `3828578153`: `rdtsc`
+* `3830832635`: `gem5-stat`
+
+which gives pretty close results, and serve as a nice sanity check that the cycle counter is coherent.
 
 It is also nice to see that `rdtsc` is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
 
@@ -6427,7 +6489,7 @@ Testing that should be done for every functional patch.
 Should:
 
 * boot
-* show `hello.ko` `init` and `exit` messages
+* show `hello.ko`, `init` and `exit` messages
 * make a network request
 * shutdown gracefully
 
