@@ -25,6 +25,7 @@ initrd=false
 initramfs=false
 memory=256M
 nographic=true
+prebuilt=false
 root=
 tmux=false
 tmux_args=
@@ -33,7 +34,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkm:T:U:uVx OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkm:PT:U:uVx OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -92,6 +93,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkm:T:U:uVx OPT; do
       ;;
     m)
       memory="$OPTARG"
+      ;;
+    P)
+      prebuilt=true
       ;;
     T)
       trace_enabled=true
@@ -205,10 +209,16 @@ else
   if "$kvm"; then
     extra_flags="${extra_flags} -enable-kvm"
   fi
+  if "$prebuilt"; then
+    common_mkdir
+    qemu_executable="qemu-system-${arch}"
+  else
+    qemu_executable="${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}"
+  fi
   extra_flags="${extra_flags_qemu} ${extra_flags}"
   qemu_common="\
 ${debug_vm} \
-'${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}' \\
+${qemu_executable} \\
 -device rtl8139,netdev=net0 \\
 -gdb tcp::1234 \\
 -m '${memory}' \\
@@ -234,18 +244,23 @@ ${vnc}"
       root='root=/dev/vda'
     fi
   fi
-  # The base QEMU commands are found under board/qemu/*/readme.tx
   case "$arch" in
     x86_64)
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyS0,115200"
+      fi
+      if "$prebuilt"; then
+        custom_devices=
+      else
+        custom_devices="-device lkmc_pci_min \\
+"
       fi
       cmd="\
 ${qemu_common} \
 -M pc \\
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
--device lkmc_pci_min \\
+${custom_devices} \\
 -kernel '${images_dir}/bzImage' \\
 ${extra_flags} \
 "
