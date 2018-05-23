@@ -15,7 +15,7 @@ toc::[]
 
 == Getting started
 
-=== Getting started Ubuntu
+=== Getting started with Ubuntu
 
 This is the most native setup, and therefore the best one if you are on one of the supported Ubuntu: 16.04 or 18.04.
 
@@ -29,7 +29,12 @@ cd linux-kernel-module-cheat
 
 The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
-If you don't want to wait, you could also try to compile the examples and run them on your host computer as explained on at <<run-kernel-modules-on-host>>, but as explained on that section, that is dangerous, limited, and will likely not work.
+If you don't want to wait, you could also try the following faster but much more limited methods:
+
+* <<prebuilt>>
+* <<host>>
+
+but you will soon find that they are simply not enough if you anywhere near serious about systems programming.
 
 After QEMU opens up, you can start playing with the kernel modules:
 
@@ -103,7 +108,7 @@ We will try to support the following Ubuntu versions at least:
 * otherwise, support both latest LTS and the latest non-LTS
 
 [[docker]]
-=== Getting started Docker
+=== Getting started with Docker
 
 This is a good option if you are on a Linux host, but the <<getting-started-ubuntu,native build>> failed due to your weird host distribution.
 
@@ -207,6 +212,103 @@ After this, to start using Docker again will you need another:
 
 ....
 ./rundocker setup
+....
+
+[[prebuilt]]
+=== Getting started with prebuilts
+
+We don't currently provide a full prebuilt because it would be too big to host freely.
+
+However, if you just want to quickly try out running our kernel modules, try this:
+
+.
++
+....
+sudo apt-get install qemu-system-x86
+git clone https://github.com/cirosantilli/linux-kernel-module-cheat
+cd linux-kernel-module-cheat
+....
+. go to the latest release https://github.com/cirosantilli/linux-kernel-module-cheat/releases 
+. download the `images-*.zip` file
+
+Limitations of this method:
+
+* can't GDB step debug the kernel, since the source is not available, and no cross toolchain, and Buildroot cannot easily use a host one: <<prebuilt-toolchain>>.
++
+Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
+* can't create new modules or modify the existing ones, since no cross toolchain
+* can't use things that rely on our QEMU fork, e.g. in-fork <<hardware-models>> or <<tracing>>
+* you won't get the latest version of this repository. Our <<travis>> attempt failed.
+
+[[host]]
+=== Getting started with host
+
+This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
+
+It has however severe limitations, and you will soon see that the compilation time and disk usage are well worth it:
+
+* can't control which kernel version and build options to use. So some of the modules will likely not compile because of kernel API changes, since https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681[the Linux kernel does not have a stable kernel module API].
+* bugs can easily break you system. E.g.:
+** segfaults can trivially lead to a kernel crash, and require a reboot
+** your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`.
+** even more subtle system corruption such as https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r[not being able to rmmod]
+* can't control which hardware is used, notably the CPU architecture
+* can't step debug it with <<gdb,GDB>> easily. The alternatives are JTAG or <<kgdb>>, but those are less reliable, and JTAG requires extra hardware.
+
+Still interested?
+
+....
+cd kernel_module
+./make-host.sh
+....
+
+If the compilation of any of the C files fails because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
+
+....
+mv broken.c broken.c~
+./build_host
+....
+
+Once you manage to compile, and have come to terms with the fact that this may blow up your host, try it out with:
+
+....
+sudo insmod hello.ko
+
+# Our module is there.
+sudo lsmod | grep hello
+
+# Last message should be: hello init
+dmest -T
+
+sudo rmmod hello
+
+# Last message should be: hello exit
+dmesg -T
+
+# Not present anymore
+sudo lsmod | grep hello
+....
+
+Once you are done with this method, you must clean up the in-tree build objects before you decide to do the right thing and move on to the superior `./build` Buildroot method:
+
+....
+cd "kernel_module"
+./make-host.sh clean
+....
+
+otherwise they will cause problems.
+
+==== Hello host
+
+Minimal host build system example:
+
+....
+cd hello_host
+make
+insmod hello.ko
+dmesg
+rmmod hello.ko
+dmesg
 ....
 
 === Text mode
@@ -5864,9 +5966,7 @@ Finally, do a clone of the relevant repository out of tree and reproduce the bug
 
 In this section document how benchmark builds and runs of this repo, and how to investigate what the bottleneck is.
 
-Ideally, we should setup an automated build server that benchmarks those things continuously for us.
-
-We tried to automate it on Travis with link:.travis.yml[] but it hits the current 50 minute job timeout: https://travis-ci.org/cirosantilli/linux-kernel-module-cheat/builds/296454523 And I bet it would likely hit a disk maxout either way if it went on.
+Ideally, we should setup an automated build server that benchmarks those things continuously for us, but our <<travis>> attempt failed.
 
 So currently, we are running benchmarks manually when it seems reasonable and uploading them to: https://github.com/cirosantilli/linux-kernel-module-cheat-regression
 
@@ -5877,6 +5977,10 @@ Run all benchmarks and upload the results:
 ....
 ./bench-all -A
 ....
+
+=== Travis
+
+We tried to automate it on Travis with link:.travis.yml[] but it hits the current 50 minute job timeout: https://travis-ci.org/cirosantilli/linux-kernel-module-cheat/builds/296454523 And I bet it would likely hit a disk maxout either way if it went on.
 
 === Benchmark this repo benchmarks
 
@@ -5997,8 +6101,6 @@ Our philosophy is:
 * try to keep the toolchain (GCC, Binutils) unchanged, otherwise a full rebuild is  required.
 +
 So we generally just enable all toolchain options by default, even though this adds a bit of time to the build.
-+
-The biggest build time hog is always GCC, and it does not look like we can use a precompiled one: https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
 * if something is very valuable, we just add it by default even if it increases the Build time, notably GDB and QEMU
 * runtime is sacred.
 +
@@ -6010,6 +6112,11 @@ We do our best to reduce the instruction and feature count to the bare minimum n
 --
 +
 One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
+
+[[prebuilt-toolchain]]
+====== Buildroot use prebuilt host toolchain
+
+The biggest build time hog is always GCC, and it does not look like we can use a precompiled one: https://stackoverflow.com/questions/10833672/buildroot-environment-with-host-toolchain
 
 ===== Benchmark Buildroot build baseline
 
@@ -6094,76 +6201,6 @@ gem5:
 * what are the minimum system requirements:
 ** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
 ** https://github.com/gem5/gem5/issues/25
-
-== Run kernel modules on host
-
-This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
-
-It has however severe limitations, and you will soon see that the compilation time and disk usage are well worth it:
-
-* can't control which kernel version and build options to use. So some of the modules will likely not compile because of kernel API changes, since https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681[the Linux kernel does not have a stable kernel module API].
-* bugs can easily break you system. E.g.:
-** segfaults can trivially lead to a kernel crash, and require a reboot
-** your disk could get erased. Yes, this can also happen with `sudo` from userland. But you should not use `sudo` when developing newbie programs. And for the kernel you don't have the choice not to use `sudo`.
-** even more subtle system corruption such as https://unix.stackexchange.com/questions/78858/cannot-remove-or-reinsert-kernel-module-after-error-while-inserting-it-without-r[not being able to rmmod]
-* can't control which hardware is used, notably the CPU architecture
-* can't step debug it with <<gdb,GDB>> easily. The alternatives are JTAG or <<kgdb>>, but those are less reliable, and JTAG requires extra hardware.
-
-Still interested?
-
-....
-cd kernel_module
-./make-host.sh
-....
-
-If the compilation of any of the C files fails because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
-
-....
-mv broken.c broken.c~
-./build_host
-....
-
-Once you manage to compile, and have come to terms with the fact that this may blow up your host, try it out with:
-
-....
-sudo insmod hello.ko
-
-# Our module is there.
-sudo lsmod | grep hello
-
-# Last message should be: hello init
-dmest -T
-
-sudo rmmod hello
-
-# Last message should be: hello exit
-dmesg -T
-
-# Not present anymore
-sudo lsmod | grep hello
-....
-
-Once you are done with this method, you must clean up the in-tree build objects before you decide to do the right thing and move on to the superior `./build` Buildroot method:
-
-....
-cd "kernel_module"
-./make-host.sh clean
-....
-
-otherwise they will cause problems.
-
-=== Hello host
-
-Minimal host build system sanity check example.
-
-....
-cd hello_host
-make
-insmod hello.ko
-dmesg
-rmmod hello.ko
-dmesg
-....
 
 == Conversation
 
