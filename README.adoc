@@ -277,30 +277,75 @@ Text mode has the following limitations over graphics mode:
 * you can't see graphics such as those produced by <<x11>>
 * very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
 
-==== Graphic mode arm
+`x86_64` has a VGA device enabled by default, as can be seen as:
 
-We currently use `-M virt` for both `arm` and `aarch64`, and according to https://wiki.qemu.org/Documentation/Platforms/ARM they don't support graphics:
+....
+echo 'info qtree' | ./qemumonitor
+....
 
-____
-Most of the machines QEMU supports have annoying limitations (small amount of RAM, no PCI or other hard disk, etc) which are there because that's what the real hardware is like. If you don't care about reproducing the idiosyncrasies of a particular bit of hardware, the best choice today is the "virt" machine. This is a platform which doesn't correspond to any real hardware and is designed for use in virtual machines. It supports PCI, virtio, recent CPUs and large amounts of RAM. The only thing it doesn't have is graphics.
-____
+and the Linux kernel picks it up through the link:https://en.wikipedia.org/wiki/Linux_framebuffer[fbdev] graphics system as can be seen from:
 
-Me asking why: https://lists.gnu.org/archive/html/qemu-discuss/2018-05/msg00037.html
-
-We feel that this is a worthwhile tradeoff, since we expect most users don't care about graphics on typically embedded archs, and `virt` machines bring greater simplicity to this repo.
-
-If someone submits a well tested and documented graphics patch, we will consider it however. A good starting point, would be to:
-
-* hack up `./run` to use `-M vexpress-a15`. We chose this board to match our QEMU build of `qemu_arm_vexpress_defconfig`
-* remove all extra options that are not compatible with that `-M`, and later try to find equivalent options if you care
-* a graphical window should open, but we never managed to get a shell there yet. But this does have some effect:
-+
 ....
 cat /dev/urandom > /dev/fb0
 ....
-* have a look at `./run -a arm` at 2852fe1989a6f1ab546e9a4fa88724423b3949f5 which is before we moved to `-M virt`
 
-Related: https://stackoverflow.com/questions/20811203/how-can-i-output-to-vga-through-qemu-arm
+flooding the screen with colors. See also: https://superuser.com/questions/223094/how-do-i-know-if-i-have-kms-enabled
+
+fbdev is an older alternative to the newer and more powerful DRM system.
+
+==== Graphic mode arm
+
+....
+./run -aa -x -- -vnc :0
+....
+
+and on another shell:
+
+....
+vinagre :5900
+....
+
+Outcome: you see the penguin, and some boot messages, but don't get a shell.
+
+TODO:
+
+* why is the SDL window not opening, which forces us to use VNC? https://lists.gnu.org/archive/html/qemu-discuss/2018-05/msg00037.html
+* how to get a shell on that graphic window? I don't think `CONFIG_FB_CONSOLE` works since we are not using fbdev but `DRM`. Maybe try: https://github.com/dvdhrm/kmscon and then obviously: https://github.com/robclark/kmscube
+
+This relies on the QEMU CLI option:
+
+....
+-device virtio-gpu-pci
+....
+
+and the kernel config options:
+
+....
+CONFIG_DRM=y
+CONFIG_DRM_VIRTIO_GPU=y
+....
+
+Unlike x86, `arm` and `aarch64` don't have a display device attached by default, thus the need for `virtio-gpu-pci`.
+
+See also https://wiki.qemu.org/Documentation/Platforms/ARM (recently edited and corrected by yours truly... :-)).
+
+===== Graphic mode arm VGA
+
+TODO: how to use VGA on ARM? https://stackoverflow.com/questions/20811203/how-can-i-output-to-vga-through-qemu-arm Tried:
+
+....
+-device VGA
+....
+
+But https://github.com/qemu/qemu/blob/v2.12.0/docs/config/mach-virt-graphical.cfg#L264 says:
+
+....
+# We use virtio-gpu because the legacy VGA framebuffer is
+# very troublesome on aarch64, and virtio-gpu is the only
+# video device that doesn't implement it.
+....
+
+so maybe it is not possible?
 
 ==== Graphic mode gem5
 
@@ -329,8 +374,16 @@ system.vncserver: Listening for connections on port 5900
 aarch64:
 
 ....
-./build -aA -lg -K linux/arch/arm64/configs/gem5_defconfig -c kernel_config_fragment/gem5-aarch64-hdlcd
+./build -aA -lg -K linux/arch/arm64/configs/gem5_defconfig
 ./run -aA -gu
+....
+
+gem5 implements the HDLCD ARM hardware, the required kernel configs are:
+
+....
+CONFIG_DRM=y
+CONFIG_DRM_HDLCD=y
+CONFIG_DRM_VIRT_ENCODER=y
 ....
 
 We need the extra config fragment because the gem5 aarch64 defconfig does not enable HDLCD like the 32 bit one for some reason.
@@ -3939,6 +3992,8 @@ which gives:
         class Class 00ff, addr 00:06.0, pci id 1234:11e8 (sub 1af4:1100)
         bar 0: mem at 0xfea00000 [0xfeafffff]
 ....
+
+See also: https://serverfault.com/questions/587189/list-all-devices-emulated-for-a-vm/913622#913622
 
 Read the configuration registers as binary:
 
