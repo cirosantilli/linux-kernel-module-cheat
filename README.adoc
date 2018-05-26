@@ -4485,8 +4485,8 @@ The reason this is cool, is that `ls` is not statically compiled, but since we h
 In other words, much cooler than:
 
 ....
-arm-linux-gnueabi-gcc -o hello -static hello.c
-qemu-arm hello
+./out/arm/buildroot/host/bin/arm-linux-gcc -static ./kernel_module/user/hello.c
+qemu-arm a.out
 ....
 
 It is also possible to compile QEMU user mode from source with `BR2_PACKAGE_HOST_QEMU_LINUX_USER_MODE=y`, but then your compilation will likely fail with:
@@ -4507,6 +4507,60 @@ qemu-arm -g 1234 -L . bin/ls
 ....
 
 TODO: find source. Lazy now.
+
+link:https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m[crosstool-ng] tests show that QEMU also has a runtime check for the kernel version which can fail as:
+
+....
+FATAL: kernel too old
+....
+
+but it must be using the kernel version given by glibc, since we didn't hit that error on uclibc.
+
+==== gem5 syscall emulation mode
+
+Analogous to QEMU's user mode, but less usable.
+
+https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
+
+First we try some `-static` sanity checks.
+
+Works and prints `hello`:
+
+....
+./out/arm/buildroot/host/bin/arm-linux-gcc -static ./kernel_module/user/hello.c
+./out/common/gem5/build/X86/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
+
+./out/arm/buildroot/host/bin/arm-linux-gcc -static ./kernel_module/user/hello.c
+./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
+
+./out/aarch64/buildroot/host/bin/aarch64-linux-gcc -static ./kernel_module/user/hello.c
+./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
+....
+
+But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
+
+Ignoring the insanity, we then try it with dynamically linked executables:
+
+....
+./out/common/gem5/build/X86/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/x86_64/buildroot/target/hello.out
+./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/arm/buildroot/target/hello.out
+./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/aarch64/buildroot/target/hello.out
+....
+
+But they fail with:
+
+....
+fatal: Unable to open dynamic executable's interpreter.
+....
+
+and `cd ./out/aarch64/buildroot/target` did not help.
+
+The current FAQ says it is not possible to use dynamic executables: http://gem5.org/Frequently_Asked_Questions but I don't trust it, and then these presentations mention it:
+
+* http://www.gem5.org/wiki/images/0/0c/2015_ws_08_dynamic-linker.pdf
+* http://research.cs.wisc.edu/multifacet/papers/learning_gem5_tutorial.pdf
+
+but I could not find how to actually use it.
 
 === Debug the emulator
 
