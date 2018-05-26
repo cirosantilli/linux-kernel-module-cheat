@@ -1,5 +1,24 @@
-#!/usr/bin/env bash
-# We could also use Ctrl + Alt + 2 on the SDL GUI,
-# but that opens up a tiny window which can't scroll up or be searched.
-# And this is the only way when running in -noscreen.
-telnet localhost 45454
+#!/usr/bin/env expect
+# Ee have to use expect since QEMU 2.12: just piping commands
+# into telnet stopped working at that version.
+spawn telnet localhost 45454
+set prompt "\n(qemu) "
+expect $prompt
+if {$argc > 0} {
+  send "[concat [join $argv " "]]\r"
+  expect $prompt
+} else {
+  interact
+}
+
+# In order to treat input from stdin, we would need to differentiate between input from pipe vs terminal.
+# For bash we can do it as:
+# https://stackoverflow.com/questions/911168/how-to-detect-if-my-shell-script-is-running-through-a-pipe
+# but no one knows for Tcl:
+# https://stackoverflow.com/questions/43660612/how-to-check-if-stdin-stdout-are-connected-to-a-terminal-in-tcl
+# One option would also be to have a bash wrapper that calls this tcl script.
+# Related: https://stackoverflow.com/questions/10237872/expect-redirect-stdin
+#while {[gets stdin line] > 0} {
+  #expect $prompt
+  #send "$line\r"
+#}

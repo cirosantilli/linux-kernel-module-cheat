@@ -228,31 +228,8 @@ https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-us
 
 Alternative methods:
 
-* `echo quit | ./qemumonitor`
-* `Ctrl-A C` then `quit`
+* `quit` command on the <<qemu-monitor>>
 * `pkill qemu`
-
-Toggle between QEMU monitor and the shell:
-
-....
-Ctrl-A C
-....
-
-* http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses
-* https://superuser.com/questions/488263/how-to-switch-to-the-qemu-control-panel-with-nographics
-
-But doing:
-
-....
-echo quit | ./qemumonitor
-....
-
-is generally more practical since you can use host shell functionality like shell history.
-
-Getting everything to work requires careful choice of QEMU command line options:
-
-* https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to/49751144#49751144
-* https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-to-the-guest-when-running-qemu-with-nographic/436321#436321
 
 TODO: if you hit `Ctrl-C` several times while `arm` or `aarch64` are booting, after boot the userland shell does not show any updates when you type, this seems to be a bug on the Linux kernel v4.16: http://lists.nongnu.org/archive/html/qemu-discuss/2018-04/msg00027.html
 
@@ -280,7 +257,7 @@ Text mode has the following limitations over graphics mode:
 `x86_64` has a VGA device enabled by default, as can be seen as:
 
 ....
-echo 'info qtree' | ./qemumonitor
+./qemumonitor info qtree
 ....
 
 and the Linux kernel picks it up through the link:https://en.wikipedia.org/wiki/Linux_framebuffer[fbdev] graphics system as can be seen from:
@@ -2898,6 +2875,12 @@ which shows:
 
 so only `1` has `myirqhandler0` attached but not `0`.
 
+The <<qemu-monitor>> also has some interrupt statistics for x86_64:
+
+....
+./qemumonitor info irq
+....
+
 TODO: properly understand how each IRQ maps to what number.
 
 ==== dummy-irq
@@ -3757,7 +3740,7 @@ and run:
 On another shell, take a snapshot:
 
 ....
-echo 'savevm my_snap_id' | ./qemumonitor
+./qemumonitor savevm my_snap_id
 ....
 
 The counting continues.
@@ -3765,7 +3748,7 @@ The counting continues.
 Restore the snapshot:
 
 ....
-echo 'loadvm my_snap_id' | ./qemumonitor
+./qemumonitor loadvm my_snap_id
 ....
 
 and the counting goes back to where we saved. This shows that CPU and memory states were reverted.
@@ -3785,7 +3768,7 @@ echo 0 >f
 Monitor:
 
 ....
-echo 'savevm my_snap_id' | ./qemumonitor
+./qemumonitor savevm my_snap_id
 ....
 
 Guest:
@@ -3797,7 +3780,7 @@ echo 1 >f
 Monitor:
 
 ....
-echo 'loadvm my_snap_id' | ./qemumonitor
+./qemumonitor loadvm my_snap_id
 ....
 
 Guest:
@@ -3965,7 +3948,7 @@ which we identify as being `edu` and `pci_min` respectively by the magic numbers
 Alternatively, we can also do use the QEMU monitor:
 
 ....
-echo 'info qtree' | ./qemumonitor
+./qemumonitor info qtree
 ....
 
 which gives:
@@ -4561,6 +4544,62 @@ The current FAQ says it is not possible to use dynamic executables: http://gem5.
 * http://research.cs.wisc.edu/multifacet/papers/learning_gem5_tutorial.pdf
 
 but I could not find how to actually use it.
+
+=== QEMU monitor
+
+The QEMU monitor is a terminal that allows you to send text commands to the QEMU VM: https://en.wikibooks.org/wiki/QEMU/Monitor
+
+Accessed it in either <<text-mode>> and <<graphic-mode>>:
+
+....
+./qemumonitor
+....
+
+or send one command such as `info qtree` and quit the monitor:
+
+....
+./qemumonitor info qtree
+....
+
+Source: link:qemumonitor[]
+
+`qemumonitor` uses the `-monitor` QEMU command line option, which makes the monitor listen from a socket.
+
+`qemumonitor` does not support input from an stdin pipe currently, see comments on the source for rationale.
+
+Alternatively, from text mode:
+
+....
+Ctrl-A C
+....
+
+and go back to the terminal with:
+
+....
+Ctrl-A C
+....
+
+* http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses
+* https://superuser.com/questions/488263/how-to-switch-to-the-qemu-control-panel-with-nographics
+
+And in graphic mode from the GUI:
+
+....
+Ctrl-Alt ?
+....
+
+where `?` is a digit `1`, or `2`, or, `3`, etc. depending on what else is available on the GUI: serial, parallel and frame buffer.
+
+In general, `./qemumonitor` is the best option, as it:
+
+* works on both modes
+* allows to use the host Bash history to re-run one off commands
+* allows you to search the output of commands on your host shell even when in graphic mode
+
+Getting everything to work required careful choice of QEMU command line options:
+
+* https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to/49751144#49751144
+* https://unix.stackexchange.com/questions/167165/how-to-pass-ctrl-c-to-the-guest-when-running-qemu-with-nographic/436321#436321
 
 === Debug the emulator
 
