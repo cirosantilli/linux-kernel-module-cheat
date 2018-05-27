@@ -4501,7 +4501,7 @@ but it must be using the kernel version given by glibc, since we didn't hit that
 
 ==== gem5 syscall emulation mode
 
-Analogous to QEMU's user mode, but less usable.
+Analogous to <<qemu-user-mode>>, but less usable.
 
 https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
 
@@ -4520,9 +4520,9 @@ Works and prints `hello`:
 ./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
 ....
 
-But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
+But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m/50542301#50542301
 
-Ignoring the insanity, we then try it with dynamically linked executables:
+Ignoring that insanity, we then try it with dynamically linked executables:
 
 ....
 ./out/common/gem5/build/X86/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/x86_64/buildroot/target/hello.out
@@ -4536,7 +4536,7 @@ But they fail with:
 fatal: Unable to open dynamic executable's interpreter.
 ....
 
-and `cd ./out/aarch64/buildroot/target` did not help.
+and `cd ./out/aarch64/buildroot/target` did not help: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
 
 The current FAQ says it is not possible to use dynamic executables: http://gem5.org/Frequently_Asked_Questions but I don't trust it, and then these presentations mention it:
 
@@ -4544,6 +4544,53 @@ The current FAQ says it is not possible to use dynamic executables: http://gem5.
 * http://research.cs.wisc.edu/multifacet/papers/learning_gem5_tutorial.pdf
 
 but I could not find how to actually use it.
+
+==== User mode vs full system benchmark
+
+Let's see if user mode runs considerably faster than full system or not.
+
+gem5 user mode:
+
+....
+make \
+  -C out/arm/buildroot/build/dhrystone-2 \
+  CC="$(pwd)/out/arm/buildroot/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc" \
+  CFLAGS=-static \
+;
+time ./out/common/gem5/build/ARM/gem5.opt \
+  ./gem5/gem5/configs/example/se.py \
+  -c out/arm/buildroot/build/dhrystone-2/dhrystone \
+  -o 100000 \
+;
+....
+
+gem5 full system:
+
+....
+printf 'm5 exit' > data/readfile
+./run -aa -g -F 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+printf 'm5 resetstats;dhrystone 100000;m5 exit' > data/readfile
+time ./run -aa -gu -- -r 1
+....
+
+QEMU user mode:
+
+....
+time qemu-arm out/arm/buildroot/build/dhrystone-2/dhrystone 100000000
+....
+
+QEMU full system:
+
+....
+time ./run -aa -F 'time dhrystone 100000000;/poweroff.out'
+....
+
+Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
+
+* gem5 user: 33 seconds
+* gem5 full system: 51 seconds
+* QEMU user: 45 seconds
+* QEMU full system: 223 seconds
 
 === QEMU monitor
 
