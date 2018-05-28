@@ -6127,23 +6127,34 @@ And a second instance:
 
 TODO Now we just need to network them up to have some more fun! See dist-gem5: http://publish.illinois.edu/icsl-pdgem5/
 
-=== m5
+=== m5ops
 
-`m5` is a guest command line utility that is installed and run on the guest.
+m5ops are magic instructions which lead gem5 to do magic things, like quitting or dumping stats.
 
-Its source is present under the gem5 main tree.
+Documentation: http://gem5.org/M5ops
 
-It generates magic instructions, which lead gem5 to do magic things, like `dumpstats` or `exit`.
+There are two main ways to use m5ops:
 
-It is however under-documented, so let's document some of its capabilities here.
+* <<m5>>
+* <<m5ops-instructions>>
 
-Part of those explanations could be deduced from the documentation of the magic instructions themselves: http://gem5.org/M5ops
+`m5` is an officially supported tool, and requires zero integration work for you, and no recompilation of your benchmarks of interest.
 
-==== m5 exit
+However it is more intrusive that hardcoding the m5ops instructions into the benchmark itself, since it requires a system call on the guest.
+
+==== m5
+
+`m5` is a guest command line utility that is installed and run on the guest, that serves as a CLI front-end for the <<m5ops>>
+
+Its source is present in the gem5 tree: https://github.com/gem5/gem5/blob/6925bf55005c118dc2580ba83e0fa10b31839ef9/util/m5/m5.c
+
+It is possible to guess what most tools do from the corresponding <<m5ops>>, but let's at least document the less obvious ones here.
+
+===== m5 exit
 
 Quit gem5 with exit status 0.
 
-==== m5 fail
+===== m5 fail
 
 Quit gem5 with the given exit status.
 
@@ -6151,7 +6162,7 @@ Quit gem5 with the given exit status.
 m5 fail 1
 ....
 
-==== m5 writefile
+===== m5 writefile
 
 Send a guest file to the host. <<9p>> is a more advanced alternative.
 
@@ -6174,7 +6185,7 @@ Does not work for subdirectories, gem5 crashes:
 m5 writefile myfileguest mydirhost/myfilehost
 ....
 
-==== m5 readfile
+===== m5 readfile
 
 https://stackoverflow.com/questions/49516399/how-to-use-m5-readfile-and-m5-execfile-in-gem5/49538051#49538051
 
@@ -6190,7 +6201,7 @@ Guest:
 m5 readfile
 ....
 
-==== m5 execfile
+===== m5 execfile
 
 Host:
 
@@ -6206,6 +6217,32 @@ touch /tmp/execfile
 chmod +x /tmp/execfile
 m5 execfile
 ....
+
+==== m5ops instructions
+
+The executable m5ops illustrates how to hard code inline assembly the most useful m5ops that you are most likely to hack into the benchmark you are analysing:
+
+....
+# checkpoint
+/m5ops.out c
+# dumpstats
+/m5ops.out d
+# dump exit
+/m5ops.out e
+# dump resetstats
+/m5ops.out r
+....
+
+That executable is of course a subset of <<m5>> and useless by itself: its goal is only illustrate how to hardcode some <<m5ops>> yourself.
+
+In theory, the cleanest way to add m5ops to your benchmarks would be to do exactly what the `m5` tool does:
+
+* include `include/gem5/m5ops.h`
+* link with the `.o` file under `util/m5` for the correct arch, e.g. `m5op_arm_A64.o` for aarch64.
+
+However, I think it is usually not worth the trouble of hacking up the build system of the benchmark to do this, and I recommend just hardcoding in a few raw instructions here and there, and managing it with version control + `sed`.
+
+Related: https://www.mail-archive.com/gem5-users@gem5.org/msg15418.html
 
 === gem5 arm Linux kernel patches
 
