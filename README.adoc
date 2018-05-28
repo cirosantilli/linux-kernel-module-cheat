@@ -268,8 +268,6 @@ cat /dev/urandom > /dev/fb0
 
 flooding the screen with colors. See also: https://superuser.com/questions/223094/how-do-i-know-if-i-have-kms-enabled
 
-fbdev is an older alternative to the newer and more powerful DRM system.
-
 ==== Graphic mode arm
 
 ....
@@ -287,7 +285,7 @@ Outcome: you see the penguin, and some boot messages, but don't get a shell.
 TODO:
 
 * why is the SDL window not opening, which forces us to use VNC? https://lists.gnu.org/archive/html/qemu-discuss/2018-05/msg00037.html
-* how to get a shell on that graphic window? I don't think `CONFIG_FB_CONSOLE` works since we are not using fbdev but `DRM`. Maybe try: https://github.com/dvdhrm/kmscon and then obviously: https://github.com/robclark/kmscube
+* how to get a shell on that graphic window? I don't think `CONFIG_FB_CONSOLE` works since we are not using fbdev but <<drm>>. Maybe try: https://github.com/dvdhrm/kmscon and then obviously: https://github.com/robclark/kmscube
 
 This relies on the QEMU CLI option:
 
@@ -3647,6 +3645,69 @@ Looks like a recompile is needed to modify the image...
 
 * https://superuser.com/questions/736423/changing-kernel-bootsplash-image
 * https://unix.stackexchange.com/questions/153975/how-to-change-boot-logo-in-linux-mint
+
+=== DRM
+
+TODO: get something working. Anything. How can an interface be so under-documented and under-exemplified? It boggles my mind.
+
+DRM / DRI is the new interface that supersedes `fbdev`.
+
+We set `CONFIG_DRM=y` on our default kernel configuration, and it creates:
+
+....
+# ls -l /dev/dri
+total 0
+crw-------    1 root     root      226,   0 May 28 09:41 card0
+# grep 226 /proc/devices
+226 drm
+# ls /sys/module/drm /sys/module/drm_kms_helper/
+....
+
+Some failed attempts: libdrm:
+
+....
+./build -B 'BR2_PACKAGE_LIBDRM=y'
+wget -O kernel_module/user/modeset.c https://raw.githubusercontent.com/dvdhrm/docs/fad7c3203b14e67053e0fc41d8490138b8ff47dd/drm-howto/modeset.c
+./build -k
+....
+
+fails with:
+
+....
+In file included from modeset.c:40:0:
+/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/host/x86_64-buildroot-linux-uclibc/sysroot/usr/include/xf86drm.h:40:17: fatal error: drm.h: No such file or directory
+ #include <drm.h>
+                 ^
+....
+
+libdri2 attempt:
+
+....
+./build -B 'BR2_PACKABE_LIBDRI2=y'
+wget -O kernel_module/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
+./build -k
+....
+
+but then I noticed that that example requires multiple files, and I don't feel like integrating it into our build. And when I build it on Ubuntu 18.04 host, it does not generate any executable, so I'm confused.
+
+Ubuntu 18.04 host attempts:
+
+* https://github.com/dvdhrm/kmscon/issues/113 `driver does not support dumb buffers`
+* https://github.com/Aetf/kmscon/issues/2#issuecomment-392484043 kmscon attempt
+* `sudo apt-get instll kmscube && kmscube` fails with:
++
+....
+drmModeGetResources failed: Invalid argument
+failed to initialize legacy DRM
+....
+
+Bibliography:
+
+* https://dri.freedesktop.org/wiki/DRM/
+* https://en.wikipedia.org/wiki/Direct_Rendering_Infrastructure
+* https://en.wikipedia.org/wiki/Direct_Rendering_Manager
+* https://en.wikipedia.org/wiki/Mode_setting KMS
+* https://github.com/dvdhrm/docs
 
 === Linux kernel testing
 
