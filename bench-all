@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run all benchmarks for this repo, and save the results to the
 # benchmark repo, which should be cloned at ../linux-kernel-module-cheat-benchmarks.
-set -eu
+set -eux
 . common
 
 bench_build=false
@@ -9,7 +9,7 @@ bench_buildroot_baseline=false
 bench_gem5_build=false
 bench_linux_boot=false
 default_arch=x86_64
-update_repo=true
+update_repo=false
 set -- ${cli_bench_all:-} "$@"
 while getopts Aa:Bbglu OPT; do
   case "$OPT" in
@@ -35,7 +35,7 @@ while getopts Aa:Bbglu OPT; do
       bench_linux_boot=true
       ;;
     u)
-      update_repo=false
+      update_repo=true
       ;;
     ?)
       exit 2
@@ -51,7 +51,7 @@ benchmark_repo="${root_dir}/../linux-kernel-module-cheat-regression"
 mkdir -p "$benchmark_repo"
 last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
 if [ -n "$last_dir" ]; then
-  seq_id="$(("$(echo "$last_dir" | sed -E 's/_.*//')" + 1))"
+  seq_id="$(("$(echo "$last_dir" | sed -E -e 's/_.*//' -e 's/^0*//')" + 1))"
 else
   seq_id=0
 fi
@@ -96,11 +96,16 @@ if "$bench_gem5_build"; then
     git clean -xdf
     cd "${root_dir}/gem5"
     results_file="${gem5_run_out_dir}/bench-build.txt"
-    rm "$results_file"
-    common_bench_cmd "timeout 900 ./build -a '$arch'" "$results_file"
+    gem5_outdir="${out_dir}/bench_build"
+    rm -fr "$results_file" "${gem5_outdir}"
+    # TODO understand better: --foreground required otherwise we cannot
+    # kill the build with Ctrl+C if something goes wrong, can be minimized to:
+    # bash -c "eval 'timeout 5 sleep 3'"
+    common_bench_cmd "timeout --foreground 900 ./build -a '$arch' -o '${gem5_outdir}'" "$results_file"
     cp "$results_file" "${new_dir}/gem5-bench-build-${arch}.txt"
     cd "${root_dir}/gem5/gem5"
     git clean -xdf
+    rm -fr "${gem5_outdir}"
   done
 fi
 
@@ -115,7 +120,7 @@ if "$update_repo"; then
   if [ -n "$comment" ]; then
     echo "$comment" > "${new_dir}/README.adoc"
   fi
-  echo ""
+  echo
   cd "$benchmark_repo"
   git add .
   git commit -m "$dir_basename"
