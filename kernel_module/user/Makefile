@@ -7,17 +7,21 @@ LIBS :=
 OUT_EXT ?= .out
 
 OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
+ifeq ($(BR2_PACKAGE_EIGEN),y)
+	CXXFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags --libs eigen3)
+else
+	OUTS := $(filter-out eigen_%$(OUT_EXT),$(OUTS))
+endif
+ifeq ($(BR2_PACKAGE_LIBDRM),y)
+	LIBS += $(shell $(PKG_CONFIG) --libs libdrm)
+	CFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags libdrm)
+else
+	OUTS := $(filter-out libdrm_%$(OUT_EXT),$(OUTS))
+endif
 ifeq ($(BR2_PACKAGE_OPENBLAS),y)
 	LIBS += -lopenblas
 else
 	OUTS := $(filter-out openblas$(OUT_EXT),$(OUTS))
-endif
-ifeq ($(BR2_PACKAGE_EIGEN),y)
-	# Header only.
-	#LIBS += -leigen
-	CXXFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags --libs eigen3)
-else
-	OUTS := $(filter-out eigen%$(OUT_EXT),$(OUTS))
 endif
 
 all: $(OUTS)

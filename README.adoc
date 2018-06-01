@@ -388,20 +388,14 @@ flooding the screen with colors. See also: https://superuser.com/questions/22309
 ==== Graphic mode arm
 
 ....
-./run -aa -x -- -vnc :0
+./run -aa -x
 ....
 
-and on another shell:
-
-....
-vinagre :5900
-....
-
-Outcome: you see the penguin, and some boot messages, but don't get a shell.
+Outcome: a window opens, and you see the penguin, and some boot messages there, but don't get a shell there, only on the host terminal.
 
 TODO:
 
-* why is the SDL window not opening, which forces us to use VNC? https://lists.gnu.org/archive/html/qemu-discuss/2018-05/msg00037.html
+* sometimes the SDL window was not opening, a workaround was to use VNC: https://lists.gnu.org/archive/html/qemu-discuss/2018-05/msg00037.html
 * how to get a shell on that graphic window? I don't think `CONFIG_FB_CONSOLE` works since we are not using fbdev but <<drm>>. Maybe try: https://github.com/dvdhrm/kmscon and then obviously: https://github.com/robclark/kmscube
 
 This relies on the QEMU CLI option:
@@ -425,7 +419,7 @@ It is also fun to pass the `-device` multiple times and see that multiple screen
 ./run -aA -x -- -device virtio-gpu-pci
 ....
 
-Multiple `/dev/dri/cardN` are also created accordingly.
+Multiple `/dev/dri/cardN` are also created accordingly. More details at: <<drm>>.
 
 See also https://wiki.qemu.org/Documentation/Platforms/ARM (recently edited and corrected by yours truly... :-)).
 
@@ -3776,11 +3770,25 @@ Looks like a recompile is needed to modify the image...
 
 === DRM
 
-TODO: get something working. Anything. How can an interface be so under-documented and under-exemplified? It boggles my mind.
+DRM / DRI is the new interface that supersedes `fbdev`:
 
-DRM / DRI is the new interface that supersedes `fbdev`.
+....
+./build -B 'BR2_PACKAGE_LIBDRM=y' -k
+./run -F '/libdrm_modeset.out' -x
+....
 
-We set `CONFIG_DRM=y` on our default kernel configuration, and it creates:
+Source: link:kernel_module/user/libdrm_modeset.c[]
+
+Outcome: for a few seconds, the screen that contains the terminal gets taken over by changing colors of the rainbow.
+
+TODO not working for `aarch64`, it takes over the screen for a few seconds and the kernel messages disappear, but the screen stays black all the time.
+
+....
+./build -B 'BR2_PACKAGE_LIBDRM=y' -k
+./run -F '/libdrm_modeset.out' -x
+....
+
+We set `CONFIG_DRM=y` on our default kernel configuration, and it creates one device file for each display:
 
 ....
 # ls -l /dev/dri
@@ -3791,44 +3799,19 @@ crw-------    1 root     root      226,   0 May 28 09:41 card0
 # ls /sys/module/drm /sys/module/drm_kms_helper/
 ....
 
-Some failed attempts: libdrm:
+Try creating new displays:
 
 ....
-./build -B 'BR2_PACKAGE_LIBDRM=y'
-wget -O kernel_module/user/modeset.c https://raw.githubusercontent.com/dvdhrm/docs/fad7c3203b14e67053e0fc41d8490138b8ff47dd/drm-howto/modeset.c
-./build -k
+./run -aA -x -- -device virtio-gpu-pci
 ....
 
-fails with:
+to see multiple `/dev/dri/cardN`, and then use a different display with:
 
 ....
-In file included from modeset.c:40:0:
-/home/ciro/bak/git/linux-kernel-module-cheat/out/x86_64/buildroot/host/x86_64-buildroot-linux-uclibc/sysroot/usr/include/xf86drm.h:40:17: fatal error: drm.h: No such file or directory
- #include <drm.h>
-                 ^
+./run -F '/libdrm_modeset.out' -x
 ....
 
-Report: https://bugs.busybox.net/show_bug.cgi?id=11056
-
-This file appears to come from the Linux kernel tree:
-
-....
-linux/include/uapi/drm/drm.h
-....
-
-e.g. for `drm_context_t`. It does appear under `out/*/build/linux-headers`, but does not show up on `target/`.
-
-libdri2 attempt:
-
-....
-./build -B 'BR2_PACKABE_LIBDRI2=y'
-wget -O kernel_module/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
-./build -k
-....
-
-but then I noticed that that example requires multiple files, and I don't feel like integrating it into our build. And when I build it on Ubuntu 18.04 host, it does not generate any executable, so I'm confused.
-
-Ubuntu 18.04 host attempts:
+Ubuntu 18.04 host attempts with an NVIDIA graphics cards failed, it seems that NVIDIA takes over:
 
 * https://github.com/dvdhrm/kmscon/issues/113 `driver does not support dumb buffers`
 * https://github.com/Aetf/kmscon/issues/2#issuecomment-392484043 kmscon attempt
@@ -3846,6 +3829,22 @@ Bibliography:
 * https://en.wikipedia.org/wiki/Direct_Rendering_Manager
 * https://en.wikipedia.org/wiki/Mode_setting KMS
 * https://github.com/dvdhrm/docs
+
+==== libdri2
+
+TODO get working.
+
+Looks like a more raw alternative to libdrm:
+
+....
+./build -B 'BR2_PACKABE_LIBDRI2=y'
+wget -O kernel_module/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
+./build -k
+....
+
+but then I noticed that that example requires multiple files, and I don't feel like integrating it into our build.
+
+When I build it on Ubuntu 18.04 host, it does not generate any executable, so I'm confused.
 
 === Linux kernel testing
 
@@ -5479,7 +5478,7 @@ Header only linear algebra library supported by Buildroot:
 
 ....
 ./build -B 'BR2_PACKAGE_EIGEN=y' -k
-./run -F '/eigen.out;/eigen_svd.out'
+./run -F '/eigen_hello.out;/eigen_svd.out'
 ....
 
 Source:
