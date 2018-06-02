@@ -394,12 +394,9 @@ flooding the screen with colors. See also: https://superuser.com/questions/22309
 
 Outcome: a window opens, and you see the penguin, and some boot messages there, but don't get a shell there, only on the host terminal.
 
-TODO:
+TODO: how to get a shell on that graphic window?
 
-* sometimes the SDL window was not opening, a workaround was to use VNC: https://lists.gnu.org/archive/html/qemu-discuss/2018-05/msg00037.html
-* how to get a shell on that graphic window? I don't think `CONFIG_FB_CONSOLE` works since we are not using fbdev but <<drm>>. Maybe try: https://github.com/dvdhrm/kmscon and then obviously: https://github.com/robclark/kmscube
-
-This relies on the QEMU CLI option:
+`arm` and `aarch64` rely on the QEMU CLI option:
 
 ....
 -device virtio-gpu-pci
@@ -413,14 +410,6 @@ CONFIG_DRM_VIRTIO_GPU=y
 ....
 
 Unlike x86, `arm` and `aarch64` don't have a display device attached by default, thus the need for `virtio-gpu-pci`.
-
-It is also fun to pass the `-device` multiple times and see that multiple screens show up:
-
-....
-./run -aA -x -- -device virtio-gpu-pci
-....
-
-Multiple `/dev/dri/cardN` are also created accordingly. More details at: <<drm>>.
 
 See also https://wiki.qemu.org/Documentation/Platforms/ARM (recently edited and corrected by yours truly... :-)).
 
@@ -3812,10 +3801,10 @@ to see multiple `/dev/dri/cardN`, and then use a different display with:
 ./run -F '/libdrm_modeset.out' -x
 ....
 
-Ubuntu 18.04 host attempts with an NVIDIA graphics cards failed, it seems that NVIDIA takes over:
+Ubuntu 18.04 host attempts:
 
-* https://github.com/dvdhrm/kmscon/issues/113 `driver does not support dumb buffers`
-* https://github.com/Aetf/kmscon/issues/2#issuecomment-392484043 kmscon attempt
+* https://github.com/dvdhrm/kmscon/issues/113 `driver does not support dumb buffers`. Same for: https://github.com/dvdhrm/docs/blob/fad7c3203b14e67053e0fc41d8490138b8ff47dd/drm-howto/modeset.c It seems that the NVIDIA graphic card takes over.
+* https://github.com/Aetf/kmscon/issues/2#issuecomment-392484043
 
 Bibliography:
 
@@ -3823,7 +3812,6 @@ Bibliography:
 * https://en.wikipedia.org/wiki/Direct_Rendering_Infrastructure
 * https://en.wikipedia.org/wiki/Direct_Rendering_Manager
 * https://en.wikipedia.org/wiki/Mode_setting KMS
-* https://github.com/dvdhrm/docs
 
 Tested on: 93e383902ebcc03d8a7ac0d65961c0e62af9612b
 
@@ -3835,9 +3823,12 @@ TODO get working:
 ./build -b br2/kmscube
 ....
 
-build fails with:
+Expected outcome: a couloured spinning cube coded in OpenGL + EGL takes over your display and spins forever.
+
+Actual outcome: build fails with:
 
 ....
+checking for EGL... no
 configure: error: Package requirements (egl) were not met:
 
 Package egl was not found in the pkg-config search path.
@@ -3859,7 +3850,26 @@ make: *** [_all] Error 2
 
 Tested on: 07b9ae39d7ae863ff2a9f5a8183d60cb6ce37d46
 
-TODO: minimize on master and bug report.
+TODO: tried to minimize on Buildroot master ad684c20d146b220dd04a85dbf2533c69ec8ee52 with:
+
+....
+make qemu_x86_64_defconfig
+printf "
+BR2_CCACHE=y
+BR2_PACKAGE_HOST_QEMU=y
+BR2_PACKAGE_HOST_QEMU_LINUX_USER_MODE=n
+BR2_PACKAGE_HOST_QEMU_SYSTEM_MODE=y
+BR2_PACKAGE_HOST_QEMU_VDE2=y
+BR2_PACKAGE_KMSCUBE=y
+BR2_PACKAGE_MESA3D=y
+BR2_PACKAGE_MESA3D_DRI_DRIVER_SWRAST=y
+BR2_PACKAGE_MESA3D_OPENGL_EGL=y
+BR2_PACKAGE_MESA3D_OPENGL_ES=y
+BR2_TOOLCHAIN_BUILDROOT_CXX=y
+" >> .config
+....
+
+but it worked perfectly! I saw the spinning cube...
 
 On Ubuntu 18.04 with NVIDIA proprietary drivers:
 
