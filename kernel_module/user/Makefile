@@ -12,6 +12,7 @@ ifeq ($(BR2_PACKAGE_EIGEN),y)
 	# TODO: was failing with:
 	# fatal error: Eigen/Dense: No such file or directory as of
 	# 975ce0723ee3fa1fea1766e6683e2f3acb8558d6
+	# http://lists.busybox.net/pipermail/buildroot/2018-June/222914.html
 	#CXXFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags eigen3)
 else
 	OUTS := $(filter-out eigen_%$(OUT_EXT),$(OUTS))
