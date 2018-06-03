@@ -8,7 +8,11 @@ OUT_EXT ?= .out
 
 OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
 ifeq ($(BR2_PACKAGE_EIGEN),y)
-	CXXFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags --libs eigen3)
+	CXXFLAGS_EXTRA += -I$(STAGING_DIR)/usr/include/eigen3
+	# TODO: was failing with:
+	# fatal error: Eigen/Dense: No such file or directory as of
+	# 975ce0723ee3fa1fea1766e6683e2f3acb8558d6
+	#CXXFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags eigen3)
 else
 	OUTS := $(filter-out eigen_%$(OUT_EXT),$(OUTS))
 endif
