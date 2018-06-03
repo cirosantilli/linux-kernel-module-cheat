@@ -388,13 +388,31 @@ flooding the screen with colors. See also: https://superuser.com/questions/22309
 
 ==== Graphic mode arm
 
+===== Graphic mode arm terminal
+
+TODO: on arm, we see the penguin and some boot messages, but don't get a shell at then end:
+
 ....
-./run -aa -x
+./run -a aarch64 -x
 ....
 
-Outcome: a window opens, and you see the penguin, and some boot messages there, but don't get a shell there, only on the host terminal.
+I think it does not work because the graphic window is <<drm>> only, i.e.:
 
-TODO: how to get a shell on that graphic window?
+....
+cat /dev/urandom > /dev/fb0
+....
+
+fails with:
+
+....
+cat: write error: No space left on device
+....
+
+and has no effect, and the Linux kernel does not appear to have a built-in DRM console as it does for fbdev with <<fbcon,fbcon>>.
+
+There is however one out-of-tree implementation: <<kmscon>>.
+
+===== Graphic mode arm terminal implementation
 
 `arm` and `aarch64` rely on the QEMU CLI option:
 
@@ -3410,6 +3428,7 @@ Maybe some brave soul will send a pull request one day.
 
 === Linux kernel interactive stuff
 
+[[fbcon]]
 ==== Linux kernel console fun
 
 Requires <<graphic-mode>>.
@@ -3432,7 +3451,7 @@ Relies on: `CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y`.
 
 Documented under: `Documentation/fb/`.
 
-TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-console.html and I think can be done with Busybox `loadkmap` and `loadfont`, we just have to understand their formats, related:
+TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-console.html and I think can be done with BusyBox `loadkmap` and `loadfont`, we just have to understand their formats, related:
 
 * https://unix.stackexchange.com/questions/177024/remap-keyboard-on-the-linux-console
 * https://superuser.com/questions/194202/remapping-keys-system-wide-in-linux-not-just-in-x
@@ -3803,11 +3822,6 @@ to see multiple `/dev/dri/cardN`, and then use a different display with:
 ./run -F '/libdrm_modeset.out' -x
 ....
 
-Ubuntu 18.04 host attempts:
-
-* https://github.com/dvdhrm/kmscon/issues/113 `driver does not support dumb buffers`. Same for: https://github.com/dvdhrm/docs/blob/fad7c3203b14e67053e0fc41d8490138b8ff47dd/drm-howto/modeset.c It seems that the NVIDIA graphic card takes over.
-* https://github.com/Aetf/kmscon/issues/2#issuecomment-392484043
-
 Bibliography:
 
 * https://dri.freedesktop.org/wiki/DRM/
@@ -3863,6 +3877,20 @@ failed to initialize legacy DRM
 ....
 
 Tested on: 2903771275372ccfecc2b025edbb0d04c4016930
+
+==== kmscon
+
+TODO get working.
+
+Implements a console for <<drm>>.
+
+The Linux kernel has a built-in fbdev console: <<fbcon,fbcon>> but not for <<drm>> it seems.
+
+The upstream project seems dead with last commit in 2014: https://www.freedesktop.org/wiki/Software/kmscon/
+
+Build failed in Ubuntu 18.04 with: https://github.com/dvdhrm/kmscon/issues/131 but this fork compiled but didn't run on host: https://github.com/Aetf/kmscon/issues/2#issuecomment-392484043
+
+Haven't tested the fork on QEMU too much insanity.
 
 ==== libdri2
 
@@ -6686,7 +6714,8 @@ Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51
 * Intel Core i7-7820HQ Processor (8MB Cache, up to 3.90GHz) (4 cores 8 threads)
 * 32GB(16+16) DDR4 2400MHz SODIMM
 * 512GB SSD PCIe TLC OPAL2
-* Ubuntu 17.10
+* NVIDIA Quadro M1200 Mobile, latest Ubuntu supported proprietary driver
+* Latest Ubuntu
 
 === Benchmark Internets
 
