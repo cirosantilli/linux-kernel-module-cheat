@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.16 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 18.04 host.
+Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.17 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 18.04 host.
 
 toc::[]
 
@@ -1107,13 +1107,15 @@ and then hit:
 
 ....
 Ctrl-C
-break sys_write
+break __x64_sys_write
 continue
 continue
 continue
 ....
 
 And you now control the counting on the first shell from GDB!
+
+Before v4.17, the symbol name was just `sys_write`, the change happened at link:https://github.com/torvalds/linux/commit/d5a00528b58cdb2c71206e18bd021e34c4eab878[d5a00528b58cdb2c71206e18bd021e34c4eab878]. aarch64 still uses just `sys_write`.
 
 When you hit `Ctrl-C`, if we happen to be inside kernel code at that point, which is very likely if there are no heavy background tasks waiting, and we are just waiting on a `sleep` type system call of the command prompt, we can already see the source for the random place inside the kernel where we stopped.
 
@@ -1696,7 +1698,7 @@ However this is failing for us:
 * some symbols are not visible to `call` even though `b` sees them
 * for those that are, `call` fails with an E14 error
 
-E.g.: if we break on `sys_write` on `/count.sh`:
+E.g.: if we break on `__x64_sys_write` on `/count.sh`:
 
 ....
 >>> call printk(0, "asdf")
@@ -1710,7 +1712,7 @@ Breakpoint 3 at 0xffffffff811615e3: fdget_pos. (9 locations)
 >>>
 ....
 
-even though `fdget_pos` is the first thing `sys_write` does:
+even though `fdget_pos` is the first thing `__x64_sys_write` does:
 
 ....
 581 SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
@@ -1780,7 +1782,7 @@ In QEMU:
 In GDB:
 
 ....
-b sys_write
+b __x64_sys_write
 c
 c
 c
@@ -1789,7 +1791,7 @@ c
 
 And now you can count from GDB!
 
-If you do: `b sys_write` immediately after `./rungdb -k`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
+If you do: `b __x64_sys_write` immediately after `./rungdb -k`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
 
 See also:
 
@@ -1870,11 +1872,11 @@ And you are back in KDB. Now you can:
 
 ....
 [0]kdb> help
-[0]kdb> bp sys_write
+[0]kdb> bp __x64_sys_write
 [0]kdb> go
 ....
 
-And you will break whenever `sys_write` is hit.
+And you will break whenever `__x64_sys_write` is hit.
 
 The other KDB commands allow you to instruction steps, view memory, registers and some higher level kernel runtime data.
 
@@ -2643,6 +2645,8 @@ git commit -m "linux: update to ${next_mainline_revision}"
 ./run
 git push
 ....
+
+But we have since moved to running just mainline, which makes the update simpler.
 
 ==== Downgrade the Linux kernel
 
@@ -6968,7 +6972,7 @@ Should break GDB at `start_kernel`.
 
 Then proceed to do the following tests:
 
-* `/count.sh` and `b sys_write`
+* `/count.sh` and `b __x64_sys_write`
 * `insmod /timer.ko` and `b lkmc_timer_callback`
 
 === About
