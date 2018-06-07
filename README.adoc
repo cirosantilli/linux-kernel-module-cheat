@@ -451,14 +451,17 @@ so maybe it is not possible?
 
 ==== Graphic mode gem5
 
-https://stackoverflow.com/questions/50364863/how-to-get-graphical-gui-output-and-user-touch-keyboard-mouse-input-in-a-ful/50364864#50364864
+TODO could not get it working on `x86_64`, only ARM.
+
+Overview: https://stackoverflow.com/questions/50364863/how-to-get-graphical-gui-output-and-user-touch-keyboard-mouse-input-in-a-ful/50364864#50364864
 
 More concretely:
 
 ....
-git checkout gem5-arm
-./build -aa -lg -K linux/arch/arm/configs/gem5_defconfig
-./run -aa -gu
+git -C linux checkout gem5/v4.15
+./build -gl -aa -K linux/arch/arm/configs/gem5_defconfig -L gem5-v4.15
+git -C linux checkout -
+./run -aa -g -L gem5-v4.15
 ....
 
 and then on another shell:
@@ -467,47 +470,101 @@ and then on another shell:
 vinagre localhost:5900
 ....
 
-The port `5900` is incremented by one if you already have something running on that port: `gem5` stdout tells us the right port on stdout as:
+The <<config_logo>> penguin only appears after several seconds, together with kernel messages of type:
+
+....
+[    0.152755] [drm] found ARM HDLCD version r0p0
+[    0.152790] hdlcd 2b000000.hdlcd: bound virt-encoder (ops 0x80935f94)
+[    0.152795] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[    0.152799] [drm] No driver support for vblank timestamp query.
+[    0.215179] Console: switching to colour frame buffer device 240x67
+[    0.230389] hdlcd 2b000000.hdlcd: fb0:  frame buffer device
+[    0.230509] [drm] Initialized hdlcd 1.0.0 20151021 for 2b000000.hdlcd on minor 0
+....
+
+The port `5900` is incremented by one if you already have something running on that port, `gem5` stdout tells us the right port on stdout as:
 
 ....
 system.vncserver: Listening for connections on port 5900
 ....
 
-aarch64:
+and when we connect it shows a message:
 
 ....
-./build -aA -lg -K linux/arch/arm64/configs/gem5_defconfig
-./run -aA -gu
+info: VNC client attached
 ....
 
-gem5 implements the HDLCD ARM hardware, the required kernel configs are:
+For `aarch64` we also need `-c kernel_config_fragment/display`:
 
 ....
-CONFIG_DRM=y
-CONFIG_DRM_HDLCD=y
-CONFIG_DRM_VIRT_ENCODER=y
+git -C linux checkout gem5/v4.15
+./build -gl -aA \
+  -c kernel_config_fragment/display \
+  -K linux/arch/arm64/configs/gem5_defconfig \
+  -L gem5-v4.15 \
+;
+git -C linux checkout -
+./run -aA -gu -L gem5-v4.15
 ....
 
-We need the extra config fragment because the gem5 aarch64 defconfig does not enable HDLCD like the 32 bit one for some reason.
+This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
 
-TODO: without the `-K`:
+We cannot use mainline Linux because the <<gem5-arm-Linux-kernel-patches>> are required at least to provide the `CONFIG_DRM_VIRT_ENCODER` option.
 
-....
-git checkout gem5-arm
-./build -aa -lg -c kernel_config_fragment/gem5-aarch64-hdlcd
-./run -aa -gu
-....
+gem5 emulates the link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0541c/CHDBAIDI.html[HDLCD] ARM Holdings hardware for `arm` and `aarch64`.
 
-it does not work with a failing dmesg:
+The kernel uses HDLCD to implement the <<drm>> interface, the required kernel config options are present at: link:kernel_config_fragment/display[].
+
+TODO <<kmscube>> failed on `aarch64` with:
 
 ....
-[    0.121078] [drm] found ARM HDLCD version r0p0
-[    0.121117] hdlcd 2b000000.hdlcd: bound virt-encoder (ops drm_vencoder_ops)
-[    0.121122] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
-[    0.121126] [drm] No driver support for vblank timestamp query.
-[    0.121156] hdlcd 2b000000.hdlcd: Failed to set initial hw configuration.
-[    0.121190] hdlcd 2b000000.hdlcd: master bind failed: -12
-[    0.121197] hdlcd: probe of 2b000000.hdlcd failed with error -12
+kmscube[706]: unhandled level 2 translation fault (11) at 0x00000000, esr 0x92000006, in libgbm.so.1.0.0[7fbf6a6000+e000]
+....
+
+TODO: minimize out the `-K`. If we just remove it on `arm`: it does not work with a failing dmesg:
+
+....
+[    0.066208] [drm] found ARM HDLCD version r0p0
+[    0.066241] hdlcd 2b000000.hdlcd: bound virt-encoder (ops drm_vencoder_ops)
+[    0.066247] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[    0.066252] [drm] No driver support for vblank timestamp query.
+[    0.066276] hdlcd 2b000000.hdlcd: Cannot do DMA to address 0x0000000000000000
+[    0.066281] swiotlb: coherent allocation failed for device 2b000000.hdlcd size=8294400
+[    0.066288] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.15.0 #1
+[    0.066293] Hardware name: V2P-AARCH64 (DT)
+[    0.066296] Call trace:
+[    0.066301]  dump_backtrace+0x0/0x1b0
+[    0.066306]  show_stack+0x24/0x30
+[    0.066311]  dump_stack+0xb8/0xf0
+[    0.066316]  swiotlb_alloc_coherent+0x17c/0x190
+[    0.066321]  __dma_alloc+0x68/0x160
+[    0.066325]  drm_gem_cma_create+0x98/0x120
+[    0.066330]  drm_fbdev_cma_create+0x74/0x2e0
+[    0.066335]  __drm_fb_helper_initial_config_and_unlock+0x1d8/0x3a0
+[    0.066341]  drm_fb_helper_initial_config+0x4c/0x58
+[    0.066347]  drm_fbdev_cma_init_with_funcs+0x98/0x148
+[    0.066352]  drm_fbdev_cma_init+0x40/0x50
+[    0.066357]  hdlcd_drm_bind+0x220/0x428
+[    0.066362]  try_to_bring_up_master+0x21c/0x2b8
+[    0.066367]  component_master_add_with_match+0xa8/0xf0
+[    0.066372]  hdlcd_probe+0x60/0x78
+[    0.066377]  platform_drv_probe+0x60/0xc8
+[    0.066382]  driver_probe_device+0x30c/0x478
+[    0.066388]  __driver_attach+0x10c/0x128
+[    0.066393]  bus_for_each_dev+0x70/0xb0
+[    0.066398]  driver_attach+0x30/0x40
+[    0.066402]  bus_add_driver+0x1d0/0x298
+[    0.066408]  driver_register+0x68/0x100
+[    0.066413]  __platform_driver_register+0x54/0x60
+[    0.066418]  hdlcd_platform_driver_init+0x20/0x28
+[    0.066424]  do_one_initcall+0x44/0x130
+[    0.066428]  kernel_init_freeable+0x13c/0x1d8
+[    0.066433]  kernel_init+0x18/0x108
+[    0.066438]  ret_from_fork+0x10/0x1c
+[    0.066444] hdlcd 2b000000.hdlcd: Failed to set initial hw configuration.
+[    0.066470] hdlcd 2b000000.hdlcd: master bind failed: -12
+[    0.066477] hdlcd: probe of 2b000000.hdlcd failed with error -12
+[
 ....
 
 So what other options are missing from `gem5_defconfig`? It would be cool to minimize it out to better understand the options.
@@ -5169,11 +5226,24 @@ gem5 is a system simulator, much <<gem5-vs-qemu,like QEMU>>: http://gem5.org/
 For the most part, just add the `-g` option to all commands and everything should magically work:
 
 ....
-git -C linux checkout v4.16
-./configure -g && ./build -a aarch64 -g && ./run -a aarch64 -g
+./configure -g && ./build -a arm -g && ./run -a arm -g
 ....
 
-On another shell:
+TODO `aarch64` boot is failing on kernel v4.17 with:
+
+....
+panic: Tried to write Gic cpu at offset 0xd0
+....
+
+Work around it for now by using v4.16:
+
+....
+git -C linux checkout v4.16
+./configure -g && ./build -a arm -g -L v4.16 && ./run -a aarch64 -g -L v4.16
+git -C linux checkout -
+....
+
+To get a terminal, open a new shell and run:
 
 ....
 ./gem5-shell
@@ -5186,12 +5256,6 @@ Tested architectures:
 * `x86_64`
 
 Like QEMU, gem5 also has a syscall emulation mode (SE), but in this tutorial we focus on the full system emulation mode (FS). For a comparison see: https://stackoverflow.com/questions/48986597/when-should-you-use-full-system-fs-vs-syscall-emulation-se-with-userland-program
-
-TODO `aarch64` boot failed on v4.17 with:
-
-....
-panic: Tried to write Gic cpu at offset 0xd0
-....
 
 === gem5 vs QEMU
 
