@@ -7,7 +7,7 @@ before=
 lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/' \\
 "
 kgdb=false
-while getopts A:a:b:gkL OPT; do
+while getopts A:a:b:gkL:X OPT; do
   case "$OPT" in
     A)
       after="$OPTARG"
@@ -25,6 +25,9 @@ while getopts A:a:b:gkL OPT; do
       kgdb=true
       ;;
     L)
+      common_linux_variant="$OPTARG"
+      ;;
+    X)
       lx_symbols=
       ;;
     ?)
@@ -45,7 +48,7 @@ if "$gem5"; then
 else
   port=1234
 fi
-set_common_vars "$arch" "$gem5"
+set_common_vars -L "$common_linux_variant" "$arch" "$gem5"
 gdb="${host_dir}/usr/bin/${arch}-linux-gdb \\
 ${before}"
 if "$kgdb"; then
@@ -87,5 +90,5 @@ ${brk} \
 ${lx_symbols} \
 "
 fi
-"${root_dir}/eeval" "cd '${build_dir}/linux-custom/' && \\
+"${root_dir}/eeval" "cd '${common_linux_variant_dir}' && \\
 $cmd $after" "${common_out_run_dir}/rungdb.sh"

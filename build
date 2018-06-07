@@ -20,7 +20,7 @@ post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 suffix=
 v=0
-while getopts 'a:B:b:C:c:fGgj:hIiK:klp:qSs:v' OPT; do
+while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lp:qSs:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -73,6 +73,9 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       extra_make_args="${extra_make_args} kernel_module-reconfigure \\
 "
       ;;
+    L)
+      common_linux_variant="$OPTARG"
+      ;;
     l)
       linux_reconfigure=true
       extra_make_args="${extra_make_args} linux-reconfigure \\
@@ -101,7 +104,7 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
 done
 shift $(($OPTIND - 1))
 extra_make_args="${extra_make_args} $@"
-set_common_vars "$arch" "$gem5" "$suffix"
+set_common_vars -L "$common_linux_variant" "$arch" "$gem5" "$suffix"
 config_file="${buildroot_out_dir}/.config"
 case "$arch" in
   x86_64)
@@ -167,6 +170,14 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
 fi
 
 common_mkdir
+if [ -h "$common_linux_custom_dir" ]; then
+  rm "$common_linux_custom_dir"
+elif [ -d "$common_linux_custom_dir" ]; then
+  # Migration for existing builds.
+  mv "$common_linux_custom_dir" "$common_linux_variant_dir"
+fi
+mkdir -p "$common_linux_variant_dir"
+ln -s "$common_linux_variant_dir" "$common_linux_custom_dir"
 cd "$buildroot_dir"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936

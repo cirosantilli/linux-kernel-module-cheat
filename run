@@ -34,7 +34,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkm:PT:U:uVx OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:m:PT:U:uVx OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -91,6 +91,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkm:PT:U:uVx OPT; do
 "
       kgdb=true
       ;;
+    L)
+      common_linux_variant="$OPTARG"
+      ;;
     m)
       memory="$OPTARG"
       ;;
@@ -121,7 +124,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkm:PT:U:uVx OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
-set_common_vars "$arch" "$gem5"
+set_common_vars -L "$common_linux_variant" "$arch" "$gem5"
 images_dir="${buildroot_out_dir}/images"
 if "$debug" && "$kvm"; then
   echo 'error: -d and -K are incompatible' 1>&2
@@ -175,7 +178,7 @@ ${gem5opts} \
 -d '${m5out_dir}' \\
 '${gem5_src_dir}/configs/example/fs.py' \\
 --disk-image='${images_dir}/rootfs.ext2' \\
---kernel='${buildroot_out_dir}/build/linux-custom/vmlinux' \\
+--kernel='${common_vmlinux}' \\
 --mem-size='${memory}' \\
 --num-cpus='${cpus}' \\
 --script='${readfile_file}' \\
@@ -221,6 +224,7 @@ ${debug_vm} \
 ${qemu_executable} \\
 -device rtl8139,netdev=net0 \\
 -gdb tcp::1234 \\
+-kernel '${common_linux_image}' \\
 -m '${memory}' \\
 -monitor telnet::45454,server,nowait \\
 -netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \\
@@ -261,7 +265,6 @@ ${qemu_common} \
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
 ${custom_devices} \\
--kernel '${images_dir}/bzImage' \\
 ${extra_flags} \
 "
     ;;
@@ -275,7 +278,6 @@ ${qemu_common} \
 -append '${root} ${extra_append}' \\
 -cpu cortex-a15 \\
 -device virtio-gpu-pci \\
--kernel '${images_dir}/zImage' \\
 ${extra_flags} \
 "
     ;;
@@ -304,7 +306,7 @@ ${qemu_common} \
 -M malta \\
 -append '${root} ${extra_append}' \\
 -cpu I6400 \\
--kernel '${images_dir}/vmlinux' \\
+-kernel '${common_vmlinux}' \\
 ${extra_flags} \
 "
     ;;
@@ -314,7 +316,7 @@ if "$tmux"; then
   if "$gem5"; then
     eval "./tmu 'sleep 2;./gem5-shell ${tmux_args};'"
   elif  "$debug"; then
-    eval "./tmu ./rungdb -a '${arch}' ${tmux_args}"
+    eval "./tmu ./rungdb -a '${arch} -L ${common_linux_variant}' ${tmux_args}"
   fi
 fi
 "${root_dir}/eeval" "$cmd" "${common_out_run_dir}/run.sh"

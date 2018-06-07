@@ -6384,19 +6384,56 @@ If none of those methods are flexible enough for you, create a new package as fo
 +
 if you make any changes to that package after the initial build: <<rebuild>>
 
-=== Build multiple versions of the same package
+=== Build variants
 
-If you are comparing two versions of have a package that takes considerable time to build, one on each branch, you may want to keep two builds around to make things even faster.
+It often happens that you are comparing two versions of the build, a good and a bad one, and trying to figure out why the bad one is bad.
 
-One simple approach is to simply use two checkouts of this repository, or to use the `-s` option:
+This section describes some techniques that can help to reduce the build time and disk usage in those situations.
+
+==== Full builds variants
+
+The most coarse thing you can do is to keep two full checkouts of this repository, possibly with `git subtree`.
+
+This approach has the advantage of being simple and robust, but it wastes a lot of space and time for the full rebuild, since <<ccache>> does not make compilation instantaneous due to configuration file reading.
+
+The next less coarse approach, is to use the `-s` option:
 
 ....
 ./build -s mybranch
 ....
 
-While <<ccache>> does help to speed up the full rebuild, it still does not necessarily make compilation instantaneous due to configuration file reading.
+which generates a full new build under `out/` named for example as `out/x86_64-mybranch`, but at least avoids copying up the source.
 
-One alternative is to do:
+TODO: only `-s` works for `./build`, e.g. if you want to `./run` afterwards you need to manually `mv` build around. This should be easy to patch however.
+
+==== Linux kernel build variants
+
+Since the Linux kernel is so important to us, we have created a convenient dedicated mechanism for it.
+
+For example, if you want to keep two builds around, one for the latest Linux version, and the other for Linux `v4.16`:
+
+....
+./build
+git -C linux checkout v4.16
+./build -L v4.16
+git -C linux checkout -
+./run
+./run -L v4.16
+....
+
+The `-L` option should be passed to all scripts that support it, much like `-a` for the <<cpu-architecture>>, e.g. to step debug:
+
+.....
+./rungdb -L v4.16
+.....
+
+It should also be easy to extend this method to all `-custom` `_OVERRIDE_SRCDIR` packages, which luckily tend to be the ones that we care the most about.
+
+This technique is implemented semi-hackishly by moving symlinks around inside the Buildroot build dir at build time, and selecting the right build directory at runtime.
+
+==== Generic package build variants
+
+This hack-ish technique allows us to rebuild just one package at a time:
 
 ....
 ./build KERNEL_MODULE_VERSION=mybranch
@@ -6407,6 +6444,8 @@ and now you can see that a new version of `kernel_module` was built and put insi
 ....
 ls out/x86_64/buildroot/build/kernel_module-mybranch
 ....
+
+Unfortunately we don't have a nice runtime selection with `./run` implemented currently, you have to manually move packages around.
 
 TODO: is there a way to do it nicely for `*_OVERRIDE_SRCDIR` packages from link:buildroot_override[]? I tried:
 
@@ -6426,7 +6465,7 @@ and theI tried:
 ./build -l LINUX_VERSION=mybranch LINUX_SITE="$(pwd)/linux"
 ....
 
-but it feels hack-ish, and the build was slower than normal, looks like the build was single threaded?
+but it feels hackish, and the build was slower than normal, looks like the build was single threaded?
 
 === BR2_TARGET_ROOTFS_EXT2_SIZE
 

@@ -20,6 +20,17 @@ common_bench_cmd() (
   printf "exit_status $?\n" >> "$results_file"
 )
 set_common_vars() {
+  linux_variant=
+  OPTIND=1
+  while getopts L: OPT; do
+    case "$OPT" in
+      L)
+        linux_variant="$OPTARG"
+        ;;
+    esac
+  done
+  echo $OPTIND
+  shift "$(($OPTIND - 1))"
   arch="$1"
   gem5="${2:-false}"
   case "$arch" in
@@ -61,6 +72,24 @@ set_common_vars() {
     common_out_run_dir="$qemu_out_dir"
     common_trace_txt_file="${common_out_run_dir}/trace.txt"
   fi
+  common_linux_custom_dir="${build_dir}/linux-custom"
+  common_linux_variant_dir="${common_linux_custom_dir}.${linux_variant}"
+  common_vmlinux="${common_linux_variant_dir}/vmlinux"
+  case "$arch" in
+    arm)
+      common_linux_image=arch/arm/boot/zImage
+      ;;
+    aarch64)
+      common_linux_image=arch/arm64/boot/Image
+      ;;
+    mips64)
+      common_linux_image=vmlinux
+      ;;
+    x86_64)
+      common_linux_image=arch/x86/boot/bzImage
+      ;;
+  esac
+  common_linux_image="${common_linux_variant_dir}/${common_linux_image}"
 }
 common_mkdir() (
   mkdir -p \
@@ -70,6 +99,7 @@ common_mkdir() (
     "$p9_dir" \
   ;
 )
+common_linux_variant=default
 root_dir="$(pwd)"
 out_dir="${root_dir}/out"
 common_bench_boot="${out_dir}/bench-boot.txt"
