@@ -494,6 +494,26 @@ and when we connect it shows a message:
 info: VNC client attached
 ....
 
+Alternatively, you can also view the frames with `--frame-capture`:
+
+....
+./run -aa -g -L gem5-v4.15 -- --frame-capture
+....
+
+This option dumps one compressed PNG whenever the screen image changes inside `m5out`, indexed by the cycle ID. This allows for more controlled experiments.
+
+It is fun to see how we get one new frame whenever the white underscore cursor appears and reappears under the penguin.
+
+TODO <<kmscube>> failed on `aarch64` with:
+
+....
+kmscube[706]: unhandled level 2 translation fault (11) at 0x00000000, esr 0x92000006, in libgbm.so.1.0.0[7fbf6a6000+e000]
+....
+
+Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/38fd6153d965ba20145f53dc1bb3ba34b336bde9[38fd6153d965ba20145f53dc1bb3ba34b336bde9]
+
+==== Graphic mode gem5 aarch64
+
 For `aarch64` we also need `-c kernel_config_fragment/display`:
 
 ....
@@ -509,17 +529,13 @@ git -C linux checkout -
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
 
+===== Graphic mode gem5 internals
+
 We cannot use mainline Linux because the <<gem5-arm-linux-kernel-patches>> are required at least to provide the `CONFIG_DRM_VIRT_ENCODER` option.
 
 gem5 emulates the link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0541c/CHDBAIDI.html[HDLCD] ARM Holdings hardware for `arm` and `aarch64`.
 
 The kernel uses HDLCD to implement the <<drm>> interface, the required kernel config options are present at: link:kernel_config_fragment/display[].
-
-TODO <<kmscube>> failed on `aarch64` with:
-
-....
-kmscube[706]: unhandled level 2 translation fault (11) at 0x00000000, esr 0x92000006, in libgbm.so.1.0.0[7fbf6a6000+e000]
-....
 
 TODO: minimize out the `-K`. If we just remove it on `arm`: it does not work with a failing dmesg:
 
@@ -568,8 +584,6 @@ TODO: minimize out the `-K`. If we just remove it on `arm`: it does not work wit
 ....
 
 So what other options are missing from `gem5_defconfig`? It would be cool to minimize it out to better understand the options.
-
-Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/38fd6153d965ba20145f53dc1bb3ba34b336bde9[38fd6153d965ba20145f53dc1bb3ba34b336bde9]
 
 === Automatic startup commands
 
