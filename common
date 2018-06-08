@@ -21,15 +21,18 @@ common_bench_cmd() (
 )
 set_common_vars() {
   linux_variant=
+  gem5_variant=
   OPTIND=1
-  while getopts L: OPT; do
+  while getopts L:M: OPT; do
     case "$OPT" in
       L)
         linux_variant="$OPTARG"
         ;;
+      M)
+        gem5_variant="$OPTARG"
+        ;;
     esac
   done
-  echo $OPTIND
   shift "$(($OPTIND - 1))"
   arch="$1"
   gem5="${2:-false}"
@@ -60,21 +63,28 @@ set_common_vars() {
   out_arch_dir="${out_dir}/${arch_dir}"
   buildroot_out_dir="${out_arch_dir}/buildroot"
   build_dir="${buildroot_out_dir}/build"
-  images_dir="${buildroot_out_dir}/images"
+  common_images_dir="${buildroot_out_dir}/images"
   host_dir="${buildroot_out_dir}/host"
   qemu_out_dir="${out_arch_dir}/qemu"
-  gem5_run_out_dir="${out_arch_dir}/gem5"
-  m5out_dir="${gem5_run_out_dir}/m5out"
+  common_linux_custom_dir="${build_dir}/linux-custom"
+  common_linux_variant_dir="${common_linux_custom_dir}.${linux_variant}"
+  common_vmlinux="${common_linux_variant_dir}/vmlinux"
+  if [ "$gem5_variant" = default ]; then
+    common_gem5_src_dir="${root_dir}/gem5/gem5"
+  else
+    common_gem5_src_dir="${common_gem5_non_default_src_root_dir}/${gem5_variant}"
+  fi
+  common_gem5_out_dir="${common_dir}/gem5/${gem5_variant}"
+  common_gem5_build_dir="${common_gem5_out_dir}/build"
+  common_gem5_system_dir="${common_gem5_out_dir}/system"
+  common_m5out_dir="${common_gem5_out_dir}/m5out"
   if "$gem5"; then
-    common_out_run_dir="$gem5_run_out_dir"
-    common_trace_txt_file="${m5out_dir}/trace.txt"
+    common_out_run_dir="$common_gem5_out_dir"
+    common_trace_txt_file="${common_m5out_dir}/trace.txt"
   else
     common_out_run_dir="$qemu_out_dir"
     common_trace_txt_file="${common_out_run_dir}/trace.txt"
   fi
-  common_linux_custom_dir="${build_dir}/linux-custom"
-  common_linux_variant_dir="${common_linux_custom_dir}.${linux_variant}"
-  common_vmlinux="${common_linux_variant_dir}/vmlinux"
   case "$arch" in
     arm)
       common_linux_image=arch/arm/boot/zImage
@@ -94,7 +104,7 @@ set_common_vars() {
 common_mkdir() (
   mkdir -p \
     "$build_dir" \
-    "$gem5_out_dir" \
+    "$common_gem5_out_dir" \
     "$qemu_out_dir" \
     "$p9_dir" \
   ;
@@ -107,7 +117,9 @@ data_dir="${root_dir}/data"
 p9_dir="${data_dir}/9p"
 readfile_file="${data_dir}/readfile"
 common_dir="${out_dir}/common"
-gem5_out_dir="${common_dir}/gem5"
+common_gem5_default_src_dir="${root_dir}/gem5/gem5"
+common_gem5_non_default_src_root_dir="${data_dir}/gem5"
+common_gem5_variant=default
 f="${data_dir}/cli"
 if [ -f "$f" ]; then
   . "$f"

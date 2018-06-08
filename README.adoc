@@ -6517,9 +6517,35 @@ The `-L` option should be passed to all scripts that support it, much like `-a` 
 ./rungdb -L v4.16
 .....
 
-It should also be easy to extend this method to all `-custom` `_OVERRIDE_SRCDIR` packages, which luckily tend to be the ones that we care the most about.
-
 This technique is implemented semi-hackishly by moving symlinks around inside the Buildroot build dir at build time, and selecting the right build directory at runtime.
+
+==== gem5 build variants
+
+Analogous to the <<linux-kernel-build-variants>> but with the `-M` option instead:
+
+....
+./build -g
+git -C gem5/gem5 checkout some-branch
+./build -M some-branch -g
+git -C gem5/gem5 checkout -
+./run -g
+./run -M some-branch -g
+....
+
+Since we control the gem5 build however, unlike Linux which uses Buildroot, we make it awesomer, and use `git worktree` instead of a mere `rsync` for the copy.
+
+It works like this:
+
+* when you don't pass the `-M` option, which is the same as the `-M default` variant, we use the source code from under the `gem5/gem5` submodule for the build
+* otherwise, if you pass `-M some-branch`, we generate a git worktree checkout under `data/gem5/some-branch`.
++
+The initial revision for that worktree is whatever `gem5/gem5` is currently points to.
++
+However, if the worktree already exists, we leave it untouched.
++
+Therefore, you can safely go to that directory and edit the source there without fear that it will get deleted.
+
+All build outputs end up at: `out/common/gem5/<variant>` regardless.
 
 ==== Generic package build variants
 
@@ -7044,12 +7070,22 @@ The action seems to be happening at: `hw/arm/virt.c`.
 === Directory structure
 
 * `data`: gitignored user created data. Deleting this might lead to loss of data. Of course, if something there becomes is important enough to you, git track it.
+** `data/readfile`: see <<m5-readfile>>
+** `data/9p`: see <<9p>>
+** `data/gem5/<variant>`: see: <<gem5-build-variants>>
 * `out`: gitignored Build outputs. You won't lose data by deleting this folder since everything there can be re-generated, only time.
-* `out/<arch>`: arch specific outputs
-* `out/<arch>/buildroot`: Buildroot output
-* `out/<arch>/qemu`: QEMU runtime outputs
-* `out/<arch>/gem5`: GEM5 runtime outputs
-* `out/common`: cross arch outputs. Notably gem5, which has the same build for `arm` and `aarch64`.
+** `out/<arch>`: arch specific outputs
+*** `out/<arch>/buildroot`: standard Buildroot output
+**** `out/<arch>/buildroot/build/linux-custom`: symlink to a variant, custom madness that we do on top of Buildroot: <<linux-kernel-build-variants>>
+**** `out/<arch>/buildroot/build/linux-custom.<variant>`: what `linux-custom` points to
+*** `out/<arch>/qemu`: QEMU runtime outputs
+** `out/common`: cross arch outputs, for when we can gain a lot of time and space by sharing things that are common across different archs.
+*** `out/common/dl/`: Buildroot caches downloaded source there due to `BR2_DL_DIR`
+*** `out/common/gem5/`: `arm` and `aarch64` have the same build.
+**** `out/common/gem5/<variant>/`
+***** `out/common/gem5/<variant>/build/`
+***** `out/common/gem5/<variant>/m5out`
+***** `out/common/gem5/<variant>/system`
 
 :leveloffset: +3
 
