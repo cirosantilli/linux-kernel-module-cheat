@@ -20,7 +20,7 @@ post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 suffix=
 v=0
-while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lp:qSs:v' OPT; do
+while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:qSs:v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -81,6 +81,9 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       extra_make_args="${extra_make_args} linux-reconfigure \\
 "
       ;;
+    M)
+      common_gem5_variant="$OPTARG"
+      ;;
     p)
       post_script_args="$OPTARG"
       ;;
@@ -104,7 +107,7 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
 done
 shift $(($OPTIND - 1))
 extra_make_args="${extra_make_args} $@"
-set_common_vars -L "$common_linux_variant" "$arch" "$gem5" "$suffix"
+set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" "$arch" "$gem5" "$suffix"
 config_file="${buildroot_out_dir}/.config"
 case "$arch" in
   x86_64)
@@ -170,6 +173,8 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
 fi
 
 common_mkdir
+
+# Manage Linux kernel variants.
 if [ -h "$common_linux_custom_dir" ]; then
   rm "$common_linux_custom_dir"
 elif [ -d "$common_linux_custom_dir" ]; then
@@ -178,6 +183,16 @@ elif [ -d "$common_linux_custom_dir" ]; then
 fi
 mkdir -p "$common_linux_variant_dir"
 ln -s "$common_linux_variant_dir" "$common_linux_custom_dir"
+
+# Manage gem5 variants.
+if "$gem5"; then
+  if [ -e "${gem5_out_dir}/.git" ]; then
+    git -C "$gem5_out_dir" checkout "$(git -C "$common_gem5_src_dir" log -n 1 --format='%H')"
+  else
+    git -C "$common_gem5_src_dir" worktree add -b "${common_gem5_variant}" "${gem5_out_dir}"
+  fi
+fi
+
 cd "$buildroot_dir"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
@@ -193,6 +208,7 @@ env \\
 make \\
 O='${buildroot_out_dir}' \\
 HOST_QEMU_OPTS='--enable-debug --enable-trace-backends=simple ${qemu_sdl}' \\
+GEM5_LKMC_OUTDIR="$gem5_out_dir" \\
 V='${v}' \\
 ${extra_make_args} \
 all \\

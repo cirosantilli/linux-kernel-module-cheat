@@ -16,7 +16,13 @@ endif
 
 define GEM5_BUILD_CMDS
 	# Cannot pass "-c '$(TARGET_CROSS)'" here because the ARM build uses aarch64 for the bootloader...
-	cd '$(GEM5_SITE)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)' -o '$(GEM5_SITE)/../out/common/gem5'
+	cd '$(GEM5_LKMC_OUTDIR)' && '$(GEM5_SITE)/build' -a '$(ARCH)' -j '$(BR2_JLEVEL)'
+
+	# This would build using the submodule source out of tree.
+	# We gave up on it because in the end we still need the python scripts to match:
+	# we need to have an entire copy of the tree somwhere to switch between them.
+	#cd '$(GEM5_SITE)/gem5' && ../build -a '$(ARCH)' -j '$(BR2_JLEVEL)' -o '$(GEM5_SITE)/../out/common/gem5'
+
 	# This would build inside the buildroot directory as a more normal package.
 	#cd '$(@D)' && ./build -a '$(ARCH)' -j '$(BR2_JLEVEL)'
 

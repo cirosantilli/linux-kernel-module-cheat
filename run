@@ -34,7 +34,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkL:m:PT:U:uVx OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:PT:U:uVx OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -94,6 +94,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:m:PT:U:uVx OPT; do
     L)
       common_linux_variant="$OPTARG"
       ;;
+    M)
+      common_gem5_variant="$OPTARG"
+      ;;
     m)
       memory="$OPTARG"
       ;;
@@ -124,7 +127,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:m:PT:U:uVx OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
-set_common_vars -L "$common_linux_variant" "$arch" "$gem5"
+set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" "$arch" "$gem5"
 images_dir="${buildroot_out_dir}/images"
 if "$debug" && "$kvm"; then
   echo 'error: -d and -K are incompatible' 1>&2
@@ -156,8 +159,6 @@ if [ -n "$extra_append_after_dash" ]; then
 fi
 
 if "$gem5"; then
-  gem5_build_dir="${buildroot_out_dir}/build/gem5-1.0"
-  gem5_src_dir="${root_dir}/gem5/gem5"
   gem5_system_dir="${gem5_out_dir}/system"
   memory="${memory}B"
   if [ "$arch" = x86_64 ]; then
@@ -176,7 +177,7 @@ ${debug_vm} \
 --debug-file=trace.txt \\
 ${gem5opts} \
 -d '${m5out_dir}' \\
-'${gem5_src_dir}/configs/example/fs.py' \\
+'${gem5_out_dir}/configs/example/fs.py' \\
 --disk-image='${images_dir}/rootfs.ext2' \\
 --kernel='${common_vmlinux}' \\
 --mem-size='${memory}' \\
