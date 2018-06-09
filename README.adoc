@@ -904,33 +904,32 @@ This is sometimes necessary when changing the version of the submodules, and the
 
 === Filesystem persistency
 
-The root filesystem is persistent across:
+We disable filesystem persistency for both QEMU and gem5 by default, to prevent the emulator from putting the image in an unknown state.
+
+For QEMU, this is done by passing the `snapshot` option to `-drive`, and for gem5 it is the default behaviour.
+
+If you hack up our link:run[] script to remove that option, then:
 
 ....
-./run
-date >f
-# poweroff syncs by default without -n.
-poweroff
-....
-
-then:
+./run -F 'date >f;poweroff'
 
 ....
-./run
-cat f
+
+followed by:
+
+....
+./run -F 'cat f'
 ....
 
-The command:
+gives the date, because `poweroff` without `-n` syncs before shutdown.
+
+The `sync` command also saves the disk:
 
 ....
 sync
 ....
 
-also saves the disk.
-
-This is particularly useful to re-run shell commands from the history of a previous session with `Ctrl-R`.
-
-However, when you do:
+When you do:
 
 ....
 ./build
@@ -940,12 +939,35 @@ the disk image gets overwritten by a fresh filesystem and you lose all changes.
 
 Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
 
-Persistency can be turned off by:
+Persistency is also turned off when booting from <<initrd>> with a CPIO instead of with a disk.
 
-* passing the `snapshot` option to `-drive` (not exposed on our scripts)
-* booting from <<initrd>> with a CPIO instead of with a disk
+Disk persistency is useful to re-run shell commands from the history of a previous session with `Ctrl-R`, but we felt that the loss of determinism was not worth it.
 
-gem5 does not write back to the disk image, which is a good thing to keep its reboots deterministic.
+==== gem5 disk persistency
+
+TODO how to make gem5 disk writes persistent?
+
+As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the `config.ini` under cow sections, but hacking them to true did not work:
+
+....
+diff --git a/configs/common/FSConfig.py b/configs/common/FSConfig.py
+index 17498c42b..76b8b351d 100644
+--- a/configs/common/FSConfig.py
++++ b/configs/common/FSConfig.py
+@@ -60,7 +60,7 @@ os_types = { 'alpha' : [ 'linux' ],
+            }
+
+ class CowIdeDisk(IdeDisk):
+-    image = CowDiskImage(child=RawDiskImage(read_only=True),
++    image = CowDiskImage(child=RawDiskImage(read_only=False),
+                          read_only=False)
+
+     def childImage(self, ci):
+....
+
+The directory of interest is `src/dev/storage`.
+
+qcow2 does not appear supported, there are not hits in the source tree, and there is a mention on Nate's 2009 wishlist: http://gem5.org/Nate%27s_Wish_List
 
 === Kernel command line parameters
 
