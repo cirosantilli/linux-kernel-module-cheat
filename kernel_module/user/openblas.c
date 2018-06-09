@@ -1,7 +1,4 @@
-/*
-OpenBLAS hello world, initially adapted from:
-https://stackoverflow.com/questions/49227682/gem5-can-not-simulate-my-program-that-calls-openblas-functions-with-an-fatal-err
-*/
+/* Adapted from: https://github.com/xianyi/OpenBLAS/wiki/User-Manual/59b62f98e7400270fb03ad1d85fba5b64ebbff2b#call-cblas-interface */
 
 #include <cblas.h>
 #include <stdio.h>
