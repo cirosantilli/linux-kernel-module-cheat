@@ -6,19 +6,19 @@
 #if defined(__aarch64__)
 static void m5_checkpoint(uint64_t x, uint64_t y)
 {
-	__asm__ __volatile__ (".inst 0xff430110;":: "r" (x), "r" (y));
+	__asm__ __volatile__ (".inst 0xff430110;":: "x0" (x), "x1" (y));
 };
 static void m5_dump_stats(uint64_t x, uint64_t y)
 {
-	__asm__ __volatile__ (".inst 0xff410110;":: "r" (x), "r" (y));
+	__asm__ __volatile__ (".inst 0xff410110;":: "x0" (x), "x1" (y));
 };
 static void m5_exit(uint64_t x)
 {
-	__asm__ __volatile__ (".inst 0xff210110;":: "r" (x));
+	__asm__ __volatile__ (".inst 0xff210110;":: "x0" (x));
 };
 static void m5_reset_stats(uint64_t x, uint64_t y)
 {
-	__asm__ __volatile__ (".inst 0xff400110;":: "r" (x), "r" (y));
+	__asm__ __volatile__ (".inst 0xff400110;":: "x0" (x), "x1" (y));
 };
 #else
 #undef ENABLED
