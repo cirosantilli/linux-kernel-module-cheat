@@ -137,7 +137,12 @@ if "$configure"; then
   for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
     patch -N -r - -p 1 < "$p" || :
   done
-  make O="$buildroot_out_dir" BR2_EXTERNAL="../kernel_module:../gem5:../parsec-benchmark:../sample_package" "$defconfig"
+  br2_external='../kernel_module:../gem5:../parsec-benchmark'
+  packages_dir="${root_dir}/packages"
+  for package_dir in "${packages_dir}"/*/; do
+    br2_external="${br2_external}:../packages/$(basename "${package_dir}")"
+  done
+  make O="$buildroot_out_dir" BR2_EXTERNAL="$br2_external" "$defconfig"
   # TODO Can't get rid of these for now.
   # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
   for config_fragment in $config_fragments; do
