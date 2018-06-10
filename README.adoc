@@ -6616,23 +6616,15 @@ One way to overcome this problem is to mount benchmarks from host instead of add
 
 Buildroot is not designed for large root filesystem images, and the rebuild becomes very slow when we add a large package to it.
 
-This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`, which get stuck for a long time on the message:
+This is due mainly to the `pkg-generic` `GLOBAL_INSTRUMENTATION_HOOKS` sanitation which go over the entire tree doing complex operations... I no like, in particular `check_bin_arch` and `check_host_rpath`
+
+We have applied link:https://github.com/cirosantilli/buildroot/commit/983fe7910a73923a4331e7d576a1e93841d53812[983fe7910a73923a4331e7d576a1e93841d53812] to out Buildroot fork which removes part of the pain by not running:
 
 ....
 >>>   Sanitizing RPATH in target tree
 ....
 
-The pause is followed by:
-
-....
-out/arm/buildroot/build/<pkg>/.stamp_target_installed
-....
-
-so which shows that the whole delay is inside our install itself.
-
-I put an `echo f` in `check_bin_arch`, and it just loops forever, does not stop on a particular package.
-
-Ignored / declined patch at: http://lists.busybox.net/pipermail/buildroot/2018-May/220662.html I might just fork Buildroot on the submodule if this keeps annoying me.
+which contributed to a large part of the slowness.
 
 === Report upstream bugs
 
@@ -7087,9 +7079,13 @@ The action seems to be happening at: `hw/arm/virt.c`.
 ***** `out/common/gem5/<variant>/m5out`
 ***** `out/common/gem5/<variant>/system`
 
-:leveloffset: +3
+==== buildroot_patches
 
-include::buildroot_patches/README.adoc[]
+Every `.patch` file in this directory gets applied to Buildroot before anything else is done.
+
+This directory has been made kind of useless when we decided to use our own Buildroot fork, but we've kept the functionality just in case we someday go back to upstream Buildroot.
+
+:leveloffset: +3
 
 include::global_patch_dir/README.adoc[]
 
