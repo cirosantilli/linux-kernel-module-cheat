@@ -7,8 +7,9 @@ br2_cli_file="${out_dir}/br2_cli"
 rm -f "$br2_cli_file"
 touch "$br2_cli_file"
 kernel_config_fragment_cli_file="${out_dir}/kernel_config_fragment_cli"
-rm -f "$kernel_config_fragment_cli_file"
-touch "$kernel_config_fragment_cli_file"
+kernel_config_fragment_cli_file_tmp="${kernel_config_fragment_cli_file}_tmp"
+rm -f "$kernel_config_fragment_cli_file_tmp"
+touch "$kernel_config_fragment_cli_file_tmp"
 configure=true
 config_fragments="${root_dir}/br2/default"
 extra_make_args=
@@ -32,7 +33,7 @@ while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:qSs:v' OPT; do
       config_fragments="${config_fragments} $(common_abspath "${OPTARG}")"
       ;;
     C)
-      echo "$OPTARG" >> "$kernel_config_fragment_cli_file"
+      echo "$OPTARG" >> "$kernel_config_fragment_cli_file_tmp"
       ;;
     c)
       kernel_config_fragments="${kernel_config_fragments} $(common_abspath "${OPTARG}")"
@@ -125,8 +126,13 @@ case "$arch" in
 esac
 config_fragments="${config_fragments} ${root_dir}/br2/qemu ${br2_cli_file}"
 
+time {
 # Configure.
 if "$configure"; then
+  if ! cmp "${kernel_config_fragment_cli_file}" "${kernel_config_fragment_cli_file_tmp}"; then
+    # Only copy if modified, otherwise the kernel always rebuilds.
+    cp "${kernel_config_fragment_cli_file_tmp}" "${kernel_config_fragment_cli_file}" 
+  fi
   cd "${buildroot_dir}"
   for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
     patch -N -r - -p 1 < "$p" || :
@@ -171,6 +177,9 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
   fi
   make O="$buildroot_out_dir" olddefconfig
 fi
+  echo 'config time:'
+}
+echo
 
 common_mkdir
 
