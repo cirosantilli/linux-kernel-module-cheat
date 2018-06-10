@@ -6462,7 +6462,7 @@ First, see if you can't get away without actually adding a new package, for exam
 
 If none of those methods are flexible enough for you, create a new package as follows:
 
-* use link:sample_package[] as a starting point
+* use link:packages/sample_package[] as a starting point
 * fork this repository, and modify that package to do what you want
 * read the comments on that package to get an idea of how to start
 * check the main manual for more complicated things: https://buildroot.org/downloads/manual/manual.html
@@ -6470,6 +6470,7 @@ If none of those methods are flexible enough for you, create a new package as fo
 +
 ....
 ./build -- sample_package-reconfigure
+./run -F '/sample_package.out'
 ....
 +
 if you make any changes to that package after the initial build: <<rebuild>>
@@ -6625,6 +6626,15 @@ We have applied link:https://github.com/cirosantilli/buildroot/commit/983fe7910a
 ....
 
 which contributed to a large part of the slowness.
+
+Test how Buildroot deals with many files with:
+
+....
+./build -B BR2_PACKAGE_LKMC_MANY_FILES=y -- lkmc_many_files-reconfigure |& ts -i '%.s'
+./build |& ts -i '%.s'
+....
+
+and notice how the second build, which does not rebuilt the package at all, still gets stuck in the `RPATH` check forever without our Buildroot patch.
 
 === Report upstream bugs
 
@@ -7085,19 +7095,54 @@ Every `.patch` file in this directory gets applied to Buildroot before anything 
 
 This directory has been made kind of useless when we decided to use our own Buildroot fork, but we've kept the functionality just in case we someday go back to upstream Buildroot.
 
-:leveloffset: +3
+==== gem5 directory
 
-include::global_patch_dir/README.adoc[]
+We Build the gem5 emulator through Buildroot basically just to reuse its timestamping system to avoid rebuilds.
+
+There is also the `m5` tool that we must build through Buildroot ans install on the root filesystem, but we could just make two separate builds.
+
+This directory has the following structure:
+
+==== global_patch_dir
+
+Has the following structure:
+
+....
+package-name/00001-do-something.patch
+....
+
+The patches are then applied to the corresponding packages before build.
+
+Uses `BR2_GLOBAL_PATCH_DIR`.
+
+==== packages directory
+
+Any directory in that subdirectory is added to `BR2_EXTERNAL` and become available to the build.
+
+==== rootfs_overlay
+
+Copied into the target filesystem.
+
+We use it for:
+
+* customized configuration files
+* userland module test scripts that don't need to be compiled.
++
+C files for example need compilation, and must go through the regular package system, e.g. through link:kernel_module/user[].
+
+:leveloffset: +3
 
 include::kernel_module/README.adoc[]
 
 include::kernel_module/user/README.adoc[]
 
-include::rootfs_overlay/README.adoc[]
-
 :leveloffset: -3
 
 === Script man pages
+
+These appear when you do `./some-script -h`.
+
+We have to keep them as separate files from the README for that to be possible.
 
 :leveloffset: +3
 
