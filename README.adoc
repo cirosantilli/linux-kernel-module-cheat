@@ -1129,6 +1129,74 @@ ____
 
 `finit` is newer and was added only in v3.8. More rationale: https://lwn.net/Articles/519010/
 
+=== Simultaneous runs
+
+When doing long simulations, it becomes fundamental to do multiple simulations in parallel.
+
+This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: https://github.com/cirosantilli-work/gem5-issues/issues/15
+
+First shell:
+
+....
+./run
+....
+
+Another shell:
+
+....
+./run -n 1
+....
+
+The default run id is `0`.
+
+This method also allows us to keep run outputs in separate directories for later inspection, e.g.:
+
+....
+./run -aA -g -n 0
+./run -aA -g -n 1
+....
+
+produces two separate `m5out` directories:
+
+....
+less out/aarch64/gem5/default/0/m5out
+less out/aarch64/gem5/default/1/m5out
+....
+
+You can also add a prefix to the build ID before a period:
+
+....
+./run -aA -g -n some-experiment.1
+....
+
+which then uses the output directory:
+
+....
+less out/aarch64/gem5/default/some-experiment.1/m5out
+....
+
+and makes it easier to remember afterwards which directory contains what.
+
+However this still takes up the same ports as:
+
+....
+./run -aA -g -n 1
+....
+
+so you cannot run both at the same time.
+
+Like <<cpu-architecture>>, you will need to pass the `-n` option to anything that needs to know runtime information, e.g. <<gdb>>:
+
+....
+./run -n 1
+./rungdb -n 1
+....
+
+Implementation note: we create multiple namespaces for two things:
+
+* ports: gem5 automatically increments ports until it finds a free one, but QEMU does not, and just crashes
+* run output directory
+
 [[gdb]]
 == GDB step debug
 
@@ -1600,7 +1668,7 @@ One possibility is to run:
 and then find the second address (the first one does not work, already too late maybe):
 
 ....
-less ./out/arm/qemu/trace.txt
+less ./out/arm/qemu/0/trace.txt
 ....
 
 and break there:
@@ -2482,7 +2550,7 @@ To enable initrd instead of the default ext2 disk image, do:
 Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
 
 ....
-cat ./out/x86_64/qemu/run.sh
+cat ./out/x86_64/qemu/0/run.sh
 ....
 
 Also as expected, there is no filesystem persistency, since we are doing everything in memory:
@@ -5069,7 +5137,13 @@ The most interesting are events which show instructions that QEMU ran, for which
 You can then inspect the instructions with:
 
 ....
-less ./out/x86_64/qemu/trace.txt
+less ./out/x86_64/qemu/0/trace.txt
+....
+
+Get the list of available trace events:
+
+....
+./run -T help
 ....
 
 Enable other specific trace events:
@@ -5077,13 +5151,7 @@ Enable other specific trace events:
 ....
 ./run -T trace1,trace2
 ./qemu-trace2txt -a "$arch"
-less ./out/x86_64/qemu/trace.txt
-....
-
-Get the list of available trace events:
-
-....
-./run -T help
+less ./out/x86_64/qemu/0/trace.txt
 ....
 
 This functionality relies on the following setup:
@@ -5115,7 +5183,7 @@ We can further use Binutils' `addr2line` to get the line that corresponds to eac
 
 ....
 ./trace-boot -a x86_64 && ./trace2line -a x86_64
-less ./out/x86_64/qemu/trace-lines.txt
+less ./out/x86_64/qemu/0/trace-lines.txt
 ....
 
 The format is as follows:
@@ -5180,7 +5248,7 @@ But it also provides a tracing mechanism documented at: link:http://www.gem5.org
 
 ....
 ./run -a aarch64 -E 'm5 exit' -g -T Exec
-less out/aarch64/gem5/m5out/trace.txt
+less out/aarch64/gem5/default/0/m5out/trace.txt
 ....
 
 List all available debug flags:
@@ -5405,7 +5473,7 @@ Now you can play a fun little game with your friends:
 To find out why your program is slow, a good first step is to have a look at the statistics for the run:
 
 ....
-cat out/aarch64/gem5/m5out/stats.txt
+cat out/aarch64/gem5/default/0/m5out/stats.txt
 ....
 
 Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
@@ -5949,6 +6017,8 @@ In the guest, wait for the boot to end and run:
 m5 checkpoint
 ....
 
+where <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest.
+
 To restore the checkpoint, kill the VM and run:
 
 ....
@@ -5990,19 +6060,11 @@ Then there is no need to pass the kernel command line again to gem5 for replay:
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
 
-Our scripts "namespace" with the checkpoint by architecture with `--checkpoint-dir`, so if you make two checkpoints:
+Checkpoints are stored inside the `m5out` directory at:
 
-* one in x86
-* the other in arm
-
-Then you would still restore both of them with `-- -r 1`.
-
-This makes it easier to remember which checkpoint is which, especially since there appears to be no runtime way to set the checkpoint names.
-
-Internals:
-
-* the checkpoints are stored under `out/$arch/gem5/m5out/cpt.$todo_whatisthis`
-* <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest
+....
+out/<arch>/gem5/<gem5-variant>/<run-id>/m5out/cpt.<checkpoint-time>
+....
 
 [[gem5-restore-new-scrip]]
 ==== gem5 checkpoint restore and run a different script
@@ -6108,25 +6170,6 @@ Cycles instead of instructions:
 
 Otherwise the simulation runs forever by default.
 
-=== Run multiple gem5 instances at once
-
-gem5 just assigns new ports if some ports are occupied, so we can do:
-
-....
-./run -g
-# Same as ./gem5-shell 0
-./gem5-shell
-....
-
-And a second instance:
-
-....
-./run -g
-./gem5-shell 1
-....
-
-TODO Now we just need to network them up to have some more fun! See dist-gem5: http://publish.illinois.edu/icsl-pdgem5/
-
 === m5
 
 `m5` is a guest command line utility that is installed and run on the guest.
@@ -6165,7 +6208,7 @@ m5 writefile myfileguest myfilehost
 Host:
 
 ....
-cat out/aarch64/gem5/m5out/myfilehost
+cat out/aarch64/gem5/default/0/m5out/myfilehost
 ....
 
 Does not work for subdirectories, gem5 crashes:
@@ -6545,7 +6588,7 @@ However, if the worktree already exists, we leave it untouched.
 +
 Therefore, you can safely go to that directory and edit the source there without fear that it will get deleted.
 +
-The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `gem5/gem5` and still use `-M some-branch`, without a conflict for the worktree branch.
+The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `gem5/gem5` and still use `-M some-branch`, without aconflict for the worktree branch.
 
 All build outputs end up at: `out/common/gem5/<variant>` regardless.
 
@@ -6653,13 +6696,13 @@ Stdout shows a line with the full command of type:
 and this line is also saved to a file for convenience:
 
 ....
-cat ./out/arm/qemu/run.sh
+cat ./out/arm/qemu/0/run.sh
 ....
 
 or for gem5:
 
 ....
-cat ./out/arm/gem5/run.sh
+cat ./out/arm/gem5/default/0/run.sh
 ....
 
 Next, you will also want to give the relevant images to save them time. Zip the images with:
@@ -7073,13 +7116,16 @@ The action seems to be happening at: `hw/arm/virt.c`.
 **** `out/<arch>/buildroot/build/linux-custom`: symlink to a variant, custom madness that we do on top of Buildroot: <<linux-kernel-build-variants>>
 **** `out/<arch>/buildroot/build/linux-custom.<variant>`: what `linux-custom` points to
 *** `out/<arch>/qemu`: QEMU runtime outputs
+*** `out/<arch>/qemu/<run-id>/run.sh`: full CLI used to run QEMU. See: <<report-upstream-bugs>>
+*** `out/<arch>/gem5/<gem5-variant>/<run-id>/`: gem5 runtime outputs
+**** `out/<arch>/gem5/<gem5-variant>/<run-id>/m5out`
+**** `out/<arch>/gem5/<gem5-variant>/<run-id>/run.sh`: full CLI used to run gem5. See: <<report-upstream-bugs>>
 ** `out/common`: cross arch outputs, for when we can gain a lot of time and space by sharing things that are common across different archs.
 *** `out/common/dl/`: Buildroot caches downloaded source there due to `BR2_DL_DIR`
 *** `out/common/gem5/`: `arm` and `aarch64` have the same build.
-**** `out/common/gem5/<variant>/`
-***** `out/common/gem5/<variant>/build/`
-***** `out/common/gem5/<variant>/m5out`
-***** `out/common/gem5/<variant>/system`
+**** `out/common/gem5/<gem5-variant>/`: gem5 build output. In common to share the ARM and aarch64 builds.
+***** `out/common/gem5/<gem5-variant>/build/`: main build outputs, including the `gem5.opt` executable and object files
+***** `out/common/gem5/<gem5-variant>/system/`: `M5_PATH` directory, with DTBs and bootloaders
 
 ==== buildroot_patches
 

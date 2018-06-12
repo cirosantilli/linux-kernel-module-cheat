@@ -34,7 +34,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:PT:U:uVx OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVx OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -87,8 +87,6 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:PT:U:uVx OPT; do
       extra_append="$extra_append kgdbwait"
       # For those who want to try KDB.
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
-      extra_flags_qemu="$extra_flags_qemu -serial tcp::1234,server,nowait \\
-"
       kgdb=true
       ;;
     L)
@@ -99,6 +97,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:PT:U:uVx OPT; do
       ;;
     m)
       memory="$OPTARG"
+      ;;
+    n)
+      common_run_id="$OPTARG"
       ;;
     P)
       prebuilt=true
@@ -127,7 +128,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:PT:U:uVx OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
-set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" "$arch" "$gem5"
+set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" -n "$common_run_id" "$arch" "$gem5"
 if "$debug" && "$kvm"; then
   echo 'error: -d and -K are incompatible' 1>&2
   exit 1
@@ -202,6 +203,7 @@ ${extra_flags} \
 "
   fi
 else
+  mkdir -p "$common_qemu_run_dir"
   if [ -z "$debug_vm" ]; then
     serial_monitor='-serial mon:stdio \
 '
@@ -210,6 +212,10 @@ else
   fi
   if "$kvm"; then
     extra_flags="${extra_flags} -enable-kvm"
+  fi
+  if "$kgdb"; then
+    extra_flags_qemu="$extra_flags_qemu -serial 'tcp::${common_gdb_port},server,nowait' \\
+"
   fi
   if "$prebuilt"; then
     common_mkdir
@@ -222,14 +228,14 @@ else
 ${debug_vm} \
 ${qemu_executable} \\
 -device rtl8139,netdev=net0 \\
--gdb tcp::1234 \\
+-gdb 'tcp::${common_gdb_port}' \\
 -kernel '${common_linux_image}' \\
 -m '${memory}' \\
--monitor telnet::45454,server,nowait \\
--netdev user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0 \\
+-monitor 'telnet::${common_qemu_monitor_port},server,nowait' \\
+-netdev 'user,hostfwd=tcp::${common_qemu_hostfwd_generic_port}-:${common_qemu_hostfwd_generic_port},hostfwd=tcp::${common_qemu_hostfwd_ssh_port}-:22,id=net0' \\
 ${serial_monitor} \
 -smp '${cpus}' \\
--trace 'enable=${trace_type},file=${qemu_out_dir}/trace.bin' \\
+-trace 'enable=${trace_type},file=${common_qemu_run_dir}/trace.bin' \\
 -virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
 -virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
 ${vnc}"
@@ -318,4 +324,4 @@ if "$tmux"; then
     eval "./tmu ./rungdb -a '${arch} -L ${common_linux_variant}' ${tmux_args}"
   fi
 fi
-"${root_dir}/eeval" "$cmd" "${common_out_run_dir}/run.sh"
+"${root_dir}/eeval" "$cmd" "${common_gem5_run_dir}/run.sh"

@@ -7,7 +7,7 @@ before=
 lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/' \\
 "
 kgdb=false
-while getopts A:a:b:gkL:X OPT; do
+while getopts A:a:b:gkL:n:X OPT; do
   case "$OPT" in
     A)
       after="$OPTARG"
@@ -27,6 +27,9 @@ while getopts A:a:b:gkL:X OPT; do
     L)
       common_linux_variant="$OPTARG"
       ;;
+    n)
+      common_run_id="$OPTARG"
+      ;;
     X)
       lx_symbols=
       ;;
@@ -43,12 +46,7 @@ if [ "$#" -gt 0 ]; then
 else
   brk=
 fi
-if "$gem5"; then
-  port=7000
-else
-  port=1234
-fi
-set_common_vars -L "$common_linux_variant" "$arch" "$gem5"
+set_common_vars -L "$common_linux_variant" -n "$common_run_id" "$arch" "$gem5"
 gdb="${host_dir}/usr/bin/${arch}-linux-gdb \\
 ${before}"
 if "$kgdb"; then
@@ -57,7 +55,7 @@ ${gdb} \
 -q \\
 -ex 'add-auto-load-safe-path $(pwd)' \\
 -ex 'file vmlinux' \\
--ex 'target remote localhost:${port}' \\
+-ex 'target remote localhost:${common_gdb_port}' \\
 "
 else
   # ## lx-symbols
@@ -84,11 +82,11 @@ ${gdb} \
 -q \\
 -ex 'add-auto-load-safe-path $(pwd)' \\
 -ex 'file vmlinux' \\
--ex 'target remote localhost:${port}' \\
+-ex 'target remote localhost:${common_gdb_port}' \\
 ${brk} \
 -ex 'continue' \\
 ${lx_symbols} \
 "
 fi
 "${root_dir}/eeval" "cd '${common_linux_variant_dir}' && \\
-$cmd $after" "${common_out_run_dir}/rungdb.sh"
+$cmd $after" "${common_run_dir}/rungdb.sh"

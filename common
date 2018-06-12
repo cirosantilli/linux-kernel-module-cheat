@@ -23,13 +23,16 @@ set_common_vars() {
   linux_variant=
   gem5_variant=
   OPTIND=1
-  while getopts L:M: OPT; do
+  while getopts L:M:n: OPT; do
     case "$OPT" in
       L)
         linux_variant="$OPTARG"
         ;;
       M)
         gem5_variant="$OPTARG"
+        ;;
+      n)
+        common_run_id="$OPTARG"
         ;;
     esac
   done
@@ -65,7 +68,7 @@ set_common_vars() {
   build_dir="${buildroot_out_dir}/build"
   common_images_dir="${buildroot_out_dir}/images"
   host_dir="${buildroot_out_dir}/host"
-  qemu_out_dir="${out_arch_dir}/qemu"
+  common_qemu_run_dir="${out_arch_dir}/qemu/${common_run_id}"
   common_linux_custom_dir="${build_dir}/linux-custom"
   common_linux_variant_dir="${common_linux_custom_dir}.${linux_variant}"
   common_vmlinux="${common_linux_variant_dir}/vmlinux"
@@ -77,14 +80,14 @@ set_common_vars() {
   common_gem5_out_dir="${common_dir}/gem5/${gem5_variant}"
   common_gem5_build_dir="${common_gem5_out_dir}/build"
   common_gem5_system_dir="${common_gem5_out_dir}/system"
-  common_m5out_dir="${common_gem5_out_dir}/m5out"
+  common_gem5_run_dir="${out_arch_dir}/gem5/${gem5_variant}/${common_run_id}"
+  common_m5out_dir="${common_gem5_run_dir}/m5out"
   if "$gem5"; then
-    common_out_run_dir="$common_gem5_out_dir"
-    common_trace_txt_file="${common_m5out_dir}/trace.txt"
+    common_run_dir="$common_gem5_run_dir"
   else
-    common_out_run_dir="$qemu_out_dir"
-    common_trace_txt_file="${common_out_run_dir}/trace.txt"
+    common_run_dir="$common_qemu_run_dir"
   fi
+  common_trace_txt_file="${common_run_dir}/trace.txt"
   case "$arch" in
     arm)
       common_linux_image=arch/arm/boot/zImage
@@ -100,12 +103,27 @@ set_common_vars() {
       ;;
   esac
   common_linux_image="${common_linux_variant_dir}/${common_linux_image}"
+
+  # Ports.
+  common_run_id_number="$(echo "$common_run_id" | cut -d . -f 2)"
+  if "$gem5"; then
+    common_gem5_telnet_port="$((3456 + $common_run_id_number))"
+    common_gdb_port="$((7000 + $common_run_id_number))"
+  else
+    common_qemu_base_port="$((45454 + 10 * $common_run_id_number))"
+    common_qemu_monitor_port="$(($common_qemu_base_port + 0))"
+    common_qemu_hostfwd_generic_port="$(($common_qemu_base_port + 1))"
+    common_qemu_hostfwd_ssh_port="$(($common_qemu_base_port + 2))"
+    common_qemu_gdb_port="$(($common_qemu_base_port + 3))"
+    common_gdb_port="$common_qemu_gdb_port"
+  fi
 }
 common_mkdir() (
   mkdir -p \
     "$build_dir" \
     "$common_gem5_out_dir" \
-    "$qemu_out_dir" \
+    "$common_gem5_run_dir" \
+    "$common_qemu_run_dir" \
     "$p9_dir" \
   ;
 )
@@ -120,6 +138,7 @@ common_dir="${out_dir}/common"
 common_gem5_default_src_dir="${root_dir}/gem5/gem5"
 common_gem5_non_default_src_root_dir="${data_dir}/gem5"
 common_gem5_variant=default
+common_run_id=0
 f="${data_dir}/cli"
 if [ -f "$f" ]; then
   . "$f"
