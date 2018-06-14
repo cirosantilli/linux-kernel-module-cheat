@@ -3921,6 +3921,26 @@ There are only 4 serial ports, I think this is determined by QEMU. TODO check.
 +
 See also: https://stackoverflow.com/questions/16706423/two-instances-of-busybox-on-separate-serial-lines-ttysn
 
+Get the TTY in bulk for all processes:
+
+....
+/psa.sh
+....
+
+Source: link:rootfs_overlay/psa.sh[].
+
+The TTY appears under the `TT` section, which is enabled by `-o tty`. This shows the TTY device number, e.g.:
+
+....
+4,1
+....
+
+and we can then confirm it with:
+
+....
+ls -l /dev/tty1
+....
+
 Next try:
 
 ....
@@ -3939,7 +3959,9 @@ See also:
 
 TODO: https://unix.stackexchange.com/questions/196704/getty-start-from-command-line
 
-If I try the exact same command that the `inittab` is doing from a regular shell:
+TODO: how to place an `sh` directly on a TTY as well without `getty`?
+
+If I try the exact same command that the `inittab` is doing from a regular shell after boot:
 
 ....
 /sbin/getty 0 tty1
@@ -3949,6 +3971,29 @@ it fails with:
 
 ....
 getty: setsid: Operation not permitted
+....
+
+The following however works:
+
+....
+./run -E 'getty 0 tty1 & getty 0 tty2 & getty 0 tty3 & sleep 99999999' -x
+....
+
+presumably because it is being called from `init` directly?
+
+Outcome: `Alt-Right` cycles between three TTYs, `tty1` being the default one that appears under the boot messages.
+
+`man 2 setsid` says that there is only one failure possibility:
+
+____
+
+EPERM  The process group ID of any process equals the PID of the calling process.  Thus, in particular, setsid() fails if the calling process is already a process group leader.
+____
+
+We can get some visibility into it to try and solve the problem with:
+
+....
+/psa.sh
 ....
 
 ===== console kernel boot parameter
