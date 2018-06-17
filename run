@@ -18,8 +18,10 @@ extra_append='console_msg_format=syslog nokaslr norandmaps printk.devkmsg=on pri
 extra_append_after_dash=
 extra_flags=
 extra_flags_qemu=
+extra_opts=
 gem5=false
 gem5opts=
+gem5_fsbiglittle=false
 lkmc_eval=
 initrd=false
 initramfs=false
@@ -34,7 +36,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVx OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVX:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -114,6 +116,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVx OPT; do
     u)
       tmux=true
       ;;
+    X)
+      extra_opts="${extra_opts} ${OPTARG}"
+      ;;
     x)
       nographic=false
       ;;
@@ -128,6 +133,17 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVx OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_flags="$extra_flags $@"
+OPTIND=1
+while getopts b OPT "$extra_opts"; do
+  case "$OPT" in
+    b)
+      gem5_fsbiglittle=true
+      ;;
+    ?)
+      exit 2
+      ;;
+  esac
+done
 set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" -n "$common_run_id" "$arch" "$gem5"
 if "$debug" && "$kvm"; then
   echo 'error: -d and -K are incompatible' 1>&2
@@ -176,6 +192,21 @@ ${debug_vm} \
 --debug-file=trace.txt \\
 ${gem5opts} \
 -d '${common_m5out_dir}' \\
+"
+  if "$gem5_fsbiglittle"; then
+      cmd="${gem5_common} \
+"${common_gem5_default_src_dir}/configs/example/arm/fs_bigLITTLE.py" \
+--big-cpus=2 \\
+--cpu-type=atomic \\
+--disk="${common_images_dir}/rootfs.ext2" \\
+--dtb "${common_gem5_system_dir}/arm/dt/armv8_gem5_v1_big_little_2_2.dtb" \\
+--kernel="${common_vmlinux}" \\
+--little-cpus=2 \\
+${extra_flags} \\
+"
+  else
+    gem5_common="\
+${gem5_common} \
 '${common_gem5_src_dir}/configs/example/fs.py' \\
 --disk-image='${common_images_dir}/rootfs.ext2' \\
 --kernel='${common_vmlinux}' \\
@@ -183,24 +214,25 @@ ${gem5opts} \
 --num-cpus='${cpus}' \\
 --script='${readfile_file}' \\
 "
-  if [ "$arch" = x86_64 ]; then
-    if "$kvm"; then
-      extra_flags="$extra_flags --cpu-type=X86KvmCPU"
-    fi
-    cmd="\
+    if [ "$arch" = x86_64 ]; then
+      if "$kvm"; then
+        extra_flags="$extra_flags --cpu-type=X86KvmCPU"
+      fi
+      cmd="\
 ${gem5_common} \
 --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda ${extra_append}' \\
 ${extra_flags} \
 "
-  elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
-    # TODO why is it mandatory to pass mem= here? Not true for QEMU.
-    # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
-    cmd="${gem5_common} \
+    elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
+      # TODO why is it mandatory to pass mem= here? Not true for QEMU.
+      # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
+      cmd="${gem5_common} \
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
 --dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
 --machine-type=VExpress_GEM5_V1 \\
 ${extra_flags} \
 "
+    fi
   fi
 else
   mkdir -p "$common_qemu_run_dir"

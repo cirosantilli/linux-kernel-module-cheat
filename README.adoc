@@ -6390,9 +6390,9 @@ The out of build tree is required, because otherwise Buildroot would copy the ou
 
 === gem5 fs_bigLITTLE
 
-TODO integrate into `run`. There is no way to pass command line arguments except by hacking the script, this is a pre-requisite for good integration.
+By default, we use `configs/example/fs.py` script.
 
-This system is more representative of ARM, which almost always has the big little cluster.
+The `-X-b` option enables the alternative `configs/example/arm/fs_bigLITTLE.py` script instead.
 
 First apply:
 
@@ -6418,14 +6418,20 @@ index 7d66c03a6..d71e714fe 100644
 then:
 
 ....
-./fs-biglittle
+./run -aA -g -X-b
 ....
 
-Source: link:fs-biglittle[]
+Advantages over `fs.py`:
 
-Boot messages start at 5 minutes, boot finishes at 10 minutes and gives a shell.
+* more representative of mobile ARM SoCs, which almost always have  big little cluster
+* simpler than `fs.py`, and therefore easier to understand and modify
 
-`cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html `config.ini` does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
+Disadvantages over `fs.py`:
+
+* only works for ARM, not other archs
+* not as many configuration options as `fs.py`, many things are hardcoded
+
+We setup 2 big and 2 small CPUs, but `cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html `config.ini` does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
 
 TODO: why is the `--dtb` required despite `fs_bigLITTLE.py` having a DTB generation capability? Without it, nothing shows on terminal, and the simulation terminates with `simulate() limit reached  @  18446744073709551615`. The magic `vmlinux.vexpress_gem5_v1.20170616` works however without a DTB.
 
