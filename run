@@ -36,7 +36,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVX:x OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PT:t:U:uVX:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -100,6 +100,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVX:x OPT; do
     m)
       memory="$OPTARG"
       ;;
+    N)
+      common_gem5_worktree="$OPTARG"
+      ;;
     n)
       common_run_id="$OPTARG"
       ;;
@@ -109,6 +112,9 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:n:PT:U:uVX:x OPT; do
     T)
       trace_enabled=true
       trace_type="$OPTARG"
+      ;;
+    t)
+      common_gem5_build_type="$OPTARG"
       ;;
     U)
       tmux_args="$OPTARG"
@@ -188,7 +194,7 @@ if "$gem5"; then
   gem5_common="\
 M5_PATH='${common_gem5_system_dir}' \\
 ${debug_vm} \
-'${common_gem5_build_dir}/${gem5_arch}/gem5.opt' \\
+'${common_gem5_build_dir}/${gem5_arch}/gem5.${common_gem5_build_type}' \\
 --debug-file=trace.txt \\
 ${gem5opts} \
 -d '${common_m5out_dir}' \\
@@ -356,4 +362,7 @@ if "$tmux"; then
     eval "./tmu ./rungdb -a '${arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
   fi
 fi
+cmd="${cmd} \\
+|& tee ${common_termout_file} \
+"
 "${root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"

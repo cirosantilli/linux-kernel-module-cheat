@@ -1154,8 +1154,8 @@ The default run id is `0`.
 This method also allows us to keep run outputs in separate directories for later inspection, e.g.:
 
 ....
-./run -aA -g -n 0
-./run -aA -g -n 1
+./run -aA -g -n 0 &>/dev/null &
+./run -aA -g -n 1 &>/dev/null &
 ....
 
 produces two separate `m5out` directories:
@@ -1163,6 +1163,13 @@ produces two separate `m5out` directories:
 ....
 less out/aarch64/gem5/default/0/m5out
 less out/aarch64/gem5/default/1/m5out
+....
+
+and the gem5 host executable stdout and stderr can be found at:
+
+....
+less out/aarch64/gem5/default/0/termout.txt
+less out/aarch64/gem5/default/1/termout.txt
 ....
 
 You can also add a prefix to the build ID before a period:
@@ -1193,6 +1200,8 @@ Like <<cpu-architecture>>, you will need to pass the `-n` option to anything tha
 ./run -n 1
 ./rungdb -n 1
 ....
+
+To run multiple gem5 checkouts, see: <<gem5-simultaneous-runs-with-build-variants>>.
 
 Implementation note: we create multiple namespaces for two things:
 
@@ -5108,7 +5117,7 @@ gem5 full system:
 
 ....
 printf 'm5 exit' > data/readfile
-./run -aa -g -F 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run -aa -g -F '/gem5.sh'
 printf 'm5 resetstats;dhrystone 100000;m5 exit' > data/readfile
 time ./run -aa -gu -- -r 1
 ....
@@ -5517,7 +5526,7 @@ arch=aarch64
 # Generate a checkpoint after Linux boots.
 # The boot takes a while, be patient young Padawan.
 printf 'm5 exit' > data/readfile
-./run -a "$arch" -g -F '/5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run -a "$arch" -g -F '/gem5.sh'
 
 # Restore the checkpoint, and run the benchmark with parameter 1.000.
 # We skip the boot completely, saving time!
@@ -6172,7 +6181,7 @@ This integer value is just pure `fs.py` sugar, the backend at `m5.instantiate` j
 
 You want to automate running several tests from a single pristine post-boot state.
 
-The problem is that after the checkpoint, the memory and disk states are fixed, so you can't for example:
+The problem is that boot takes forever, and after the checkpoint, the memory and disk states are fixed, so you can't for example:
 
 * hack up an existing rc script, since the disk is fixed
 * inject new kernel boot command line options, since those have already been put into memory by the bootloader
@@ -6188,10 +6197,12 @@ printf 'echo "second benchmark";m5 exit' > data/readfile
 ./run -a aarch64 -g -- -r 1
 ....
 
-Other possibilities include:
+Since this is such a common setup, we provide helper for it at: link:rootfs_overlay/gem5.sh[rootfs_overlay/gem5.sh].
+
+Other loophole possibilities include:
 
 * <<9p>>
-* create multiple disk images, and mount the benchmark one
+* link:https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661[create multiple disk images], and mount the benchmark from on one of them
 * `expect` as mentioned at: https://stackoverflow.com/questions/7013137/automating-telnet-session-using-bash-scripts
 +
 ....
@@ -6798,28 +6809,69 @@ Analogous to the <<linux-kernel-build-variants>> but with the `-M` option instea
 ....
 ./build -g
 git -C gem5/gem5 checkout some-branch
-./build -M some-branch -g
+./build -g -M some-branch
 git -C gem5/gem5 checkout -
 ./run -g
+git -C gem5/gem5 checkout some-branch
 ./run -M some-branch -g
 ....
 
-Since we control the gem5 build however, unlike Linux which uses Buildroot, we make it awesomer, and use `git worktree` instead of a mere `rsync` for the copy.
+Don't forget however that gem5 has Python scripts in its source code tree, and that those must match the source code of a given build.
 
-It works like this:
+Therefore, you can't forget to checkout to the sources to that of the corresponding build before running, unless you explicitly tell gem5 to use a non-default source tree with `-N`.
 
-* when you don't pass the `-M` option, which is the same as the `-M default` variant, we use the source code from under the `gem5/gem5` submodule for the build
-* otherwise, if you pass `-M some-branch`, we generate a git worktree checkout under `data/gem5/some-branch`, with branch name `wt/some-branch`.
-+
-The initial revision for that worktree is whatever `gem5/gem5` is currently points to.
-+
-However, if the worktree already exists, we leave it untouched.
-+
-Therefore, you can safely go to that directory and edit the source there without fear that it will get deleted.
-+
-The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `gem5/gem5` and still use `-M some-branch`, without aconflict for the worktree branch.
+This becomes inevitable when you want to launch <<gem5-simultaneous-runs-with-build-variants>>.
 
-All build outputs end up at: `out/common/gem5/<variant>` regardless.
+===== gem5 simultaneous runs with build variants
+
+In order to checkout multiple gem5 builds and run them simultaneously, you also need to use the `-N`:
+
+....
+./build -g
+git -C gem5/gem5 checkout some-branch
+./build -g -M some-branch -N some-branch
+git -C gem5/gem5 checkout -
+./run -g -n 0 &>/dev/null &
+./run -g -M some-branch -N some-branch -n 1 &>/dev/null &
+....
+
+The `-N <woktree-id>` determines the location of the gem5 tree to be used for both:
+
+* the input C files of the build at build time
+* the Python scripts to be used at runtime
+
+The difference between `-M` and `-N` is that `-M` specifies the gem5 build output directory, while `-N` specifies the source input directory.
+
+When `-N` is not given, source tree under `gem5/gem5` is used.
+
+If `-N <worktree-id>` is given, the directory used is `data/gem5/<worktree-id>`, and:
+
+* if that directory does not exist, create a `git worktree` at a branch `wt/<worktree-id>` on current commit of `gem5/gem5` there.
++
+The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `gem5/gem5` and still use `-N some-branch`, without conflict for the worktree branch, which can only be checked out once.
+* otherwise, leave that worktree untouched, without updating it
+
+`-N` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
+
+===== gem5 debug build
+
+Built and run `gem5.debug`, which has optimizations turned off unlike the default `gem5.opt`:
+
+....
+./build -aA -g -M debug -t debug
+./run -aA -g -M debug -t debug
+....
+
+`-M` is optional just to prevent it from overwriting the `opt` build.
+
+A Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
+
+....
+./run -aA -E 'm5 exit' -g -L v4.16
+./run -aA -E 'm5 exit' -g -M debug -t debug -L v4.16
+....
+
+Therefore the performance different is very big, making debug mode almost unusable.
 
 ==== Generic package build variants
 
