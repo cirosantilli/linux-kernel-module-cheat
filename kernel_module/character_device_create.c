@@ -1,9 +1,3 @@
-/*
-Automatically create the device under /dev on insmod, and remove on rmmod.
-
-https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
-*/
-
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h> /* register_chrdev, unregister_chrdev */
