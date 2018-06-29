@@ -59,7 +59,8 @@ static int myinit(void)
 	}
 
 	/* Created on the toplevel of the debugfs mount,
-	 * and with explicit fops instead of a fixed integer value. */
+	 * and with explicit fops instead of a fixed integer value.
+	 */
 	toplevel_file = debugfs_create_file(
 		"lkmc_debugfs_file", S_IWUSR, NULL, NULL, &fops);
 	if (!toplevel_file) {

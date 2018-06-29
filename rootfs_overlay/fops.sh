@@ -1,43 +1,30 @@
 #!/bin/sh
+set -e
 
-set -x
+# Setup
+f=/sys/kernel/debug/lkmc_fops
 insmod /fops.ko
-cd /sys/kernel/debug/lkmc_fops
 
-## Basic read.
-cat f
-# => abcd
-# dmesg => open
-# dmesg => read
-# dmesg => len = [0-9]+
-# dmesg => close
+# read
+[ "$(cat "$f")" = abcd ]
 
-## Basic write
+# write
+printf 01 > "$f"
+[ "$(cat "$f")" = 01cd ]
 
-printf '01' >f
-# dmesg => open
-# dmesg => write
-# dmesg => len = 1
-# dmesg => buf = a
-# dmesg => close
+# ENOSPC
+printf abcd > "$f"
+set +e
+printf 12345 > "$f"
+exit_status="$?"
+set -e
+[ "$exit_status" -eq 8 ]
+[ "$(cat "$f")" = abcd ]
 
-cat f
-# => 01cd
-# dmesg => open
-# dmesg => read
-# dmesg => len = [0-9]+
-# dmesg => close
+# seek
+printf 1234 > "$f"
+printf z | dd bs=1 of="$f" seek=2
+[ "$(cat "$f")" = 12z4 ]
 
-## ENOSPC
-printf '1234' >f
-printf '12345' >f
-echo "$?"
-# => 8
-cat f
-# => 1234
-
-## seek
-printf '1234' >f
-printf 'z' | dd bs=1 of=f seek=2
-cat f
-# => 12z4
+# Teardown
+rmmod fops

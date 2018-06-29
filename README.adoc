@@ -2877,7 +2877,51 @@ You should then look up if there is a branch that supports that kernel. Staying 
 
 === Pseudo filesystems
 
+Pseudo filesystems are filesystems that don't represent actual files in a hard disk, but rather allow us to do special operations on filesystem-related system calls.
+
+Some notable examples include:
+
+* procfs, often mounted at: `/proc`
+* sysfs, often mounted at: `/sys`
+* devtmpfs, often mounted at: `/dev`
+* debugfs, often mounted at: `/sys/kernel/debug/`
+
+What each pseudo-file does for each related system call does is defined by its <<file-operations>>.
+
+Bibliography:
+
+* https://superuser.com/questions/1198292/what-is-a-pseudo-file-system-in-linux
+* https://en.wikipedia.org/wiki/Synthetic_file_system
+
+==== File operations
+
+In guest:
+
+....
+/fops.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/fops.c[]
+* link:rootfs_overlay/fops.sh[]
+
+File operations is the main method of userland driver communication.
+
+`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
+
+No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
+
 ==== Character device
+
+In guest:
 
 ....
 /character_device.sh
@@ -7579,7 +7623,15 @@ Should:
 * make a network request
 * shutdown gracefully
 
-TODO automate all of this with a `/test-all.sh` script in guest which outputs to stdout `LKMC_TEST_PASS` or `LKMC_TEST_FAIL` and grep that from host.
+We are slowly automating testable guest tests with:
+
+....
+./run -F '/test_all.sh;/poweroff.out' | grep lkmc_test
+....
+
+which outputs to stdout `lkmc_test_pass` or `lkmc_test_fail` to stdout, which we can grep from host to automate testing.
+
+Source: link:rootfs_overlay/test_all.sh[].
 
 ===== Host testing
 

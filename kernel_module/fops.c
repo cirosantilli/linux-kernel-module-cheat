@@ -1,22 +1,3 @@
-/*
-Basic fops example, with a fixed size static data buffer.
-
-Usage:
-
-	/fops.sh
-
-The buffer can be written and read from. If data overflows, data is thrown away.
-
-No, there ain't no official docs:
-http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
-
-fops define what the kernel will do on filesystem system calls on all of
-/dev, /proc, /sys, and consistute the main method of userland communication
-in drivers (syscalls being the other one).
-
-Here we use debugfs.
-*/
-
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h> /* file_operations */
@@ -39,7 +20,7 @@ static int open(struct inode *inode, struct file *filp)
  *      We must increment this by the ammount of bytes read.
  *      Then when userland reads the same file descriptor again,
  *      we start from that point instead.
- * */
+ */
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
@@ -65,7 +46,8 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 /* Similar to read, but with one notable difference:
  * we must return ENOSPC if the user tries to write more
  * than the size of our buffer. Otherwise, Bash > just
- * keeps trying to write to it infinitely. */
+ * keeps trying to write to it infinitely.
+ */
 static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
 	ssize_t ret;
@@ -92,10 +74,9 @@ static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff
 	return ret;
 }
 
-/*
-Called on the last close:
-http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-release-in-struct-file-operations-in-the-l
-*/
+/* Called on the last close:
+ * http://stackoverflow.com/questions/11393674/why-is-the-close-function-is-called-release-in-struct-file-operations-in-the-l
+ */
 static int release(struct inode *inode, struct file *filp)
 {
 	pr_info("release\n");
