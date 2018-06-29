@@ -1,11 +1,11 @@
 #!/bin/sh
-
-set -x
+set -e
 insmod /sysfs.ko
-cd /sys/kernel/lkmc_sysfs
-printf 12345 >foo
-cat foo
-# => 1234
-dd if=foo bs=1 count=2 skip=1 status=none
-# => 23
+f=/sys/kernel/lkmc_sysfs/foo
+# write
+printf 12345 > "$f"
+# read
+[ "$(cat "$f")" = 1234 ]
+# seek
+[ "$(dd if="$f" bs=1 count=2 skip=1 status=none)" = 23 ]
 rmmod sysfs

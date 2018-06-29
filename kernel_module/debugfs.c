@@ -1,17 +1,4 @@
-/*
-Adapted from: https://github.com/chadversary/debugfs-tutorial/blob/47b3cf7ca47208c61ccb51b27aac6f9f932bfe0b/example1/debugfs_example1.c
-
-Usage:
-
-	/debugfs.sh
-
-Requires `CONFIG_DEBUG_FS=y`.
-
-Only the more basic fops can be implemented in debugfs, e.g. mmap is never called:
-
-- https://patchwork.kernel.org/patch/9252557/
-- https://github.com/torvalds/linux/blob/v4.9/fs/debugfs/file.c#L212
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#debugfs */
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>

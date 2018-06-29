@@ -1,15 +1,4 @@
-/*
-Yet another fops entrypoint.
-
-https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module
-
-	insmod /procfs.ko
-	cat /proc/lkmc_procfs
-
-Output:
-
-	abcd
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#procfs */
 
 #include <linux/debugfs.h>
 #include <linux/module.h>

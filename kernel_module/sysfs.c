@@ -1,24 +1,4 @@
-/*
-Adapted from: https://github.com/t3rm1n4l/kern-dev-tutorial/blob/1f036ef40fc4378f5c8d2842e55bcea7c6f8894a/05-sysfs/sysfs.c
-
-Vs procfs:
-
-- https://unix.stackexchange.com/questions/4884/what-is-the-difference-between-procfs-and-sysfs
-- https://stackoverflow.com/questions/37237835/how-to-attach-file-operations-to-sysfs-attribute-in-platform-driver
-
-This example shows how sysfs is more restricted, as it does not take a file_operations.
-
-So you basically can only do open, close, read, write, and lseek on sysfs files.
-
-It is kind of similar to a seq_file file_operations, except that write is also implemented.
-
-TODO: what are those kobject structs? Make a more complex example that shows what they can do.
-
-- https://www.kernel.org/doc/Documentation/kobject.txt
-- https://www.quora.com/What-are-kernel-objects-Kobj
-- http://www.makelinux.net/ldd3/chp-14-sect-1
-- https://www.win.tue.nl/~aeb/linux/lk/lk-13.html
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#sysfs */
 
 #include <linux/init.h>
 #include <linux/kobject.h>

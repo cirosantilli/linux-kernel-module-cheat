@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#automatically-create-character-device-file-on-insmod */
+
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h> /* register_chrdev, unregister_chrdev */

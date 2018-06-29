@@ -2879,19 +2879,116 @@ You should then look up if there is a branch that supports that kernel. Staying 
 
 Pseudo filesystems are filesystems that don't represent actual files in a hard disk, but rather allow us to do special operations on filesystem-related system calls.
 
-Some notable examples include:
-
-* procfs, often mounted at: `/proc`
-* sysfs, often mounted at: `/sys`
-* devtmpfs, often mounted at: `/dev`
-* debugfs, often mounted at: `/sys/kernel/debug/`
-
 What each pseudo-file does for each related system call does is defined by its <<file-operations>>.
 
 Bibliography:
 
 * https://superuser.com/questions/1198292/what-is-a-pseudo-file-system-in-linux
 * https://en.wikipedia.org/wiki/Synthetic_file_system
+
+==== debugfs
+
+In guest:
+
+....
+/debugfs.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/debugfs.c[]
+* link:rootfs_overlay/debugfs.sh[]
+
+Debugfs is the simplest pseudo filesystem to play around with, as it is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
+
+For this reason, it is the filesystem that we use whenever possible in our tests.
+
+`debugfs.sh` explicitly mounts a debugfs at a custom location, but the most common mount point is `/sys/kernel/debug`.
+
+This mount not done automatically by the kernel however: we, like most distros, do it from userland with our link:rootfs_overlay/etc/fstab[fstab].
+
+Debugfs support requires the kernel to be compiled with `CONFIG_DEBUG_FS=y`.
+
+Only the more basic file operations can be implemented in debugfs, e.g. `mmap` never gets called:
+
+* https://patchwork.kernel.org/patch/9252557/
+* https://github.com/torvalds/linux/blob/v4.9/fs/debugfs/file.c#L212
+
+Bibliography: https://github.com/chadversary/debugfs-tutorial
+
+==== procfs
+
+In guest:
+
+....
+/procfs.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/procfs.c[]
+* link:rootfs_overlay/procfs.sh[]
+
+Just another fops entry point.
+
+Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
+
+==== sysfs
+
+In guest:
+
+....
+/sysfs.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/sysfs.c[]
+* link:rootfs_overlay/sysfs.sh[]
+
+Vs procfs:
+
+* https://unix.stackexchange.com/questions/4884/what-is-the-difference-between-procfs-and-sysfs
+* https://stackoverflow.com/questions/37237835/how-to-attach-file-operations-to-sysfs-attribute-in-platform-driver
+
+This example shows how sysfs is more restricted, as it does not take an arbitrary `file_operations`.
+
+So you basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
+
+It is similar to a `seq_file` file operation, except that write is also implemented.
+
+TODO: what are those `kobject` structs? Make a more complex example that shows what they can do.
+
+Bibliography:
+
+* https://github.com/t3rm1n4l/kern-dev-tutorial/blob/1f036ef40fc4378f5c8d2842e55bcea7c6f8894a/05-sysfs/sysfs.c
+* https://www.kernel.org/doc/Documentation/kobject.txt
+* https://www.quora.com/What-are-kernel-objects-Kobj
+* http://www.makelinux.net/ldd3/chp-14-sect-1
+* https://www.win.tue.nl/~aeb/linux/lk/lk-13.html
+
+=== Pseudo files
 
 ==== File operations
 
@@ -2919,7 +3016,7 @@ File operations is the main method of userland driver communication.
 
 No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
 
-==== Character device
+==== Character devices
 
 In guest:
 
@@ -2940,7 +3037,7 @@ Sources:
 * link:rootfs_overlay/mknoddev.sh[]
 * link:kernel_module/character_device.c[]
 
-Charcter device files are created with:
+Character device files are created with:
 
 ....
 mknod </dev/path_to_dev> c <major> <minor>
@@ -2967,7 +3064,7 @@ which means:
 * `c` (first letter): this is a character device. Would be `b` for a block device.
 * `1,   9`: the major number is `1`, and the minor `9`
 
-To avoid device number conflicts when registring the driver we:
+To avoid device number conflicts when registering the driver we:
 
 * ask the kernel to allocate a free major number for us with: `register_chrdev(0`
 * find ouf which number was assigned by grepping `/proc/devices` for the kernel module name

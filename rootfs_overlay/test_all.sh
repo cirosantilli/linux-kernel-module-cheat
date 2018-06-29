@@ -1,14 +1,15 @@
 #!/bin/sh
-(
-  set -ex
-  /character_device.sh
-  /character_device_create.sh
-  /fops.sh
-)
-if [ "$?" -eq 0 ]; then
-  echo lkmc_test_pass
-  exit 0
-else
-  echo lkmc_test_fail
-  exit 1
-fi
+for test in \
+  /character_device.sh \
+  /character_device_create.sh \
+  /debugfs.sh \
+  /fops.sh \
+  /procfs.sh \
+  /sysfs.sh
+do
+  if ! "$test"; then
+    echo "lkmc_test_fail: ${test}"
+    exit 1
+  fi
+done
+echo lkmc_test_pass

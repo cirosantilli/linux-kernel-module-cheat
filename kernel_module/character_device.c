@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#character-devices */
+
 #include <linux/fs.h> /* register_chrdev, unregister_chrdev */
 #include <linux/module.h>
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
