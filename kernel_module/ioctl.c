@@ -1,23 +1,4 @@
-/*
-Input: an integer (with some annoying restrictions) and a pointer
-
-Output:
-
-- positive integer return value, which for sanity should only be used with negative values for success
-- the input pointer data may be overwritten to contain output
-
-Feels like an archaic API... so many weird restrictions and types for something that could be so simple!
-
-Documentation/ioctl/ioctl-number.txt has some info:
-
-    _IO    an ioctl with no parameters
-    _IOW   an ioctl with write parameters (copy_from_user)
-    _IOR   an ioctl with read parameters  (copy_to_user)
-    _IOWR  an ioctl with both write and read parameters.
-
-- https://stackoverflow.com/questions/2264384/how-do-i-use-ioctl-to-manipulate-my-kernel-module/44613896#44613896
-- https://askubuntu.com/questions/54239/problem-with-ioctl-in-a-simple-kernel-module/926675#926675
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#ioctl */
 
 #include <linux/debugfs.h>
 #include <linux/module.h>

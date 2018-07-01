@@ -3094,6 +3094,57 @@ ab
 cd
 ....
 
+==== ioctl
+
+In guest:
+
+....
+/ioctl.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/ioctl.c[]
+* link:kernel_module/ioctl.h[]
+* link:kernel_module/user/ioctl.c[]
+* link:rootfs_overlay/ioctl.sh[]
+
+The `ioctl` system call is the best ways to provide an arbitrary number of parameters to the kernel in a single go.
+
+It is therefore one of the most important methods of communication with real device drivers, which often take several fields as input.
+
+`ioctl` takes as input:
+
+* an integer `request` : it usually identifies what type of operation we want to do on this call
+* an untyped pointer to memory: can be anything, but is typically a pointer to a `struct`
++
+The type of the `struct` often depends on the `request` input
++
+This `struct` is defined on a uapi-style C header that is used both to compile the kernel module and the userland executable.
++
+The fields of this `struct` can be thought of as arbitrary input parameters.
+
+And the output is:
+
+* an integer return value. `man ioctl` documents:
++
+____
+Usually, on success zero is returned. A few `ioctl()` requests use the return value as an output parameter and return a nonnegative value on success. On error, -1 is returned, and errno is set appropriately.
+____
+* the input pointer data may be overwritten to contain arbitrary output
+
+Bibliography:
+
+* https://stackoverflow.com/questions/2264384/how-do-i-use-ioctl-to-manipulate-my-kernel-module/44613896#44613896
+* https://askubuntu.com/questions/54239/problem-with-ioctl-in-a-simple-kernel-module/926675#926675
+
 ==== Character devices
 
 In guest:
@@ -3193,7 +3244,7 @@ Sources:
 * link:kernel_module/user/anonymous_inode.c[]
 * link:rootfs_overlay/anonymous_inode.sh[]
 
-This example gets an anonymous inode via `ioctl` from a debugfs entry by using `anon_inode_getfd`.
+This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
 
 Reads to that inode return the sequence: `1`, `10`, `100`, ... `10000000`, `1`, `100`, ...
 

@@ -5,6 +5,7 @@ for test in \
   /character_device_create.sh \
   /debugfs.sh \
   /fops.sh \
+  /ioctl.sh \
   /procfs.sh \
   /seq_file.sh \
   /seq_file_single_open.sh \
