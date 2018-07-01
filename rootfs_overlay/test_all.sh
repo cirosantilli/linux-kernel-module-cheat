@@ -6,6 +6,7 @@ for test in \
   /debugfs.sh \
   /fops.sh \
   /ioctl.sh \
+  /mmap.sh \
   /procfs.sh \
   /seq_file.sh \
   /seq_file_single_open.sh \
