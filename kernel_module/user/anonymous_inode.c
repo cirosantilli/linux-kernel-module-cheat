@@ -14,10 +14,15 @@ int main(int argc, char **argv)
 {
 	char buf[1024];
 	int fd_ioctl, fd_ioctl_anon, ret;
+	size_t i, nreads;
 
 	if (argc < 2) {
-		puts("Usage: ./prog <ioctl-file>");
+		puts("Usage: ./prog <ioctl-file> [<nreads>]");
 		return EXIT_FAILURE;
+	} else if (argc > 2) {
+		nreads = strtol(argv[2], NULL, 10);
+	} else {
+		nreads = 3;
 	}
 	fd_ioctl = open(argv[1], O_RDONLY);
 	if (fd_ioctl == -1) {
@@ -29,11 +34,10 @@ int main(int argc, char **argv)
 		perror("ioctl");
 		return EXIT_FAILURE;
 	}
-	ret = read(fd_ioctl_anon, buf, sizeof(buf));
-	printf("%.*s\n", ret, buf);
-	sleep(1);
-	ret = read(fd_ioctl_anon, buf, sizeof(buf));
-	printf("%.*s\n", ret, buf);
+	for (i = 0; i < nreads; ++i) {
+		ret = read(fd_ioctl_anon, buf, sizeof(buf));
+		printf("%.*s\n", ret, buf);
+	}
 	close(fd_ioctl_anon);
 	close(fd_ioctl);
 	return EXIT_SUCCESS;

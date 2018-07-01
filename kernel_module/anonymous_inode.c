@@ -1,20 +1,9 @@
-/*
-https://stackoverflow.com/questions/4508998/what-is-anonymous-inode
-
-anon_inode_getfd example:
-
-- get an anonymous inode via ioctl from a debugfs entry
-- read jiffies from that inode
-
-This method allows getting multiple file descriptors from a single filesystem,
-which reduces namespace pollution.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#anonymous-inode */
 
 #include <linux/anon_inodes.h>
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h>
-#include <linux/jiffies.h>
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
@@ -23,16 +12,18 @@ which reduces namespace pollution.
 #include "anonymous_inode.h"
 
 static struct dentry *debugfs_file;
+static u32 myval = 1;
 
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
-	char kbuf[1024];
+	char kbuf[8];
 	size_t ret;
 
-	ret = snprintf(kbuf, sizeof(kbuf), "%llu", (unsigned long long)jiffies);
+	ret = snprintf(kbuf, sizeof(kbuf), "%x", myval);
 	if (copy_to_user(buf, kbuf, ret)) {
 		ret = -EFAULT;
 	}
+	myval <<= 4;
 	return ret;
 }
 
@@ -47,7 +38,7 @@ static long unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	switch (cmd) {
 		case LKMC_ANONYMOUS_INODE_GET_FD:
 			fd = anon_inode_getfd(
-				"random",
+				"todo_what_is_this_for",
 				&fops_anon,
 				NULL,
 				O_RDONLY | O_CLOEXEC

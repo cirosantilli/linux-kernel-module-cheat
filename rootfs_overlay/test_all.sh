@@ -1,5 +1,6 @@
 #!/bin/sh
 for test in \
+  /anonymous_inode.sh \
   /character_device.sh \
   /character_device_create.sh \
   /debugfs.sh \
