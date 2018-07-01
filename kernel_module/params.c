@@ -1,33 +1,4 @@
-/*
-Allows passing parameters at insertion time.
-
-Those parameters can also be read and modified at runtime from /sys.
-
-	insmod /params.ko
-	# dmesg => 0 0
-	cd /sys/module/params/parameters
-	cat i
-	# => 1 0
-	printf 1 >i
-	# dmesg => 1 0
-	rmmod params
-
-	insmod /params.ko i=1 j=1
-	# dmesg => 1 1
-	rmmod params
-
-	modinfo
-	/params.ko
-	# Output contains MODULE_PARAM_DESC descriptions.
-
-modprobe insertion can also set default parameters via the /etc/modprobe.conf file. So:
-
-	modprobe params
-
-Outputs:
-
-	12 34
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-module-parameters */
 
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>

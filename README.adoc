@@ -2855,6 +2855,56 @@ Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
 
+=== Kernel modules APIs
+
+==== Kernel module parameters
+
+The Linux kernel allows passing module parameters at insertion time:
+
+....
+/params.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/params.c[]
+* link:rootfs_overlay/params.sh[]
+
+modinfo /params.ko
+
+# Output contains MODULE_PARAM_DESC descriptions.
+
+Module parameters can also be read and modified at runtime from <<sysfs>>.
+
+`modprobe` insertion can also set default parameters via the `/etc/modprobe.conf` file.
+
+So:
+
+....
+modprobe params
+....
+
+Outputs:
+
+....
+12 34
+....
+
+.. link:vermagic.c[]
+.. link:vermagic_fail.c[]
+.. link:module_init.c[]
+.. link:module_info.c[]
+.. Module dependencies
+... link:dep.c[]
+... link:dep2.c[]
+
 === Kernel panic and oops
 
 To test out kernel panics and oops in controlled circumstances, try out the modules:
@@ -3159,7 +3209,7 @@ Bibliography:
 
 ==== debugfs
 
-In guest:
+Debugfs is the simplest pseudo filesystem to play around with:
 
 ....
 /debugfs.sh
@@ -3177,7 +3227,7 @@ Sources:
 * link:kernel_module/debugfs.c[]
 * link:rootfs_overlay/debugfs.sh[]
 
-Debugfs is the simplest pseudo filesystem to play around with, as it is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
+Debugfs is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
 
 For this reason, it is the filesystem that we use whenever possible in our tests.
 
@@ -3196,7 +3246,7 @@ Bibliography: https://github.com/chadversary/debugfs-tutorial
 
 ==== procfs
 
-In guest:
+Procfs is just another fops entry point:
 
 ....
 /procfs.sh
@@ -3209,18 +3259,20 @@ Outcome: the test passes:
 0
 ....
 
+Procfs is a little less convenient than <<debugfs>>, but is more used in serious applications.
+
+Procfs can run all system calls, including ones that debugfs can't, e.g. <<mmap>>.
+
 Sources:
 
 * link:kernel_module/procfs.c[]
 * link:rootfs_overlay/procfs.sh[]
 
-Just another fops entry point.
-
 Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
 
 ==== sysfs
 
-In guest:
+Sysfs is more restricted than <<procfs>>, as it does not take an arbitrary `file_operations`:
 
 ....
 /sysfs.sh
@@ -3243,9 +3295,7 @@ Vs procfs:
 * https://unix.stackexchange.com/questions/4884/what-is-the-difference-between-procfs-and-sysfs
 * https://stackoverflow.com/questions/37237835/how-to-attach-file-operations-to-sysfs-attribute-in-platform-driver
 
-This example shows how sysfs is more restricted, as it does not take an arbitrary `file_operations`.
-
-So you basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
+You basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
 
 It is similar to a <<seq_file>> file operation, except that write is also implemented.
 
@@ -3263,7 +3313,7 @@ Bibliography:
 
 ==== File operations
 
-In guest:
+File operations are the main method of userland driver communication. `struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>:
 
 ....
 /fops.sh
@@ -3289,15 +3339,11 @@ sh -x /fops.sh
 
 We have put printks on each fop, so this allows you to see which system calls are being made for each command.
 
-File operations is the main method of userland driver communication.
-
-`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
-
 No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
 
 ==== seq_file
 
-In guest:
+Writing trivial read <<file-operations>> is repetitive and error prone. The `seq_file` API makes the process much easier for those trivial cases:
 
 ....
 /seq_file.sh
@@ -3314,10 +3360,6 @@ Sources:
 
 * link:kernel_module/seq_file.c[]
 * link:rootfs_overlay/seq_file.sh[]
-
-Writing trivial read <<file-operations>> is repetitive and error prone.
-
-The `seq_file` API makes the process much easier for those trivial cases.
 
 In this example we create a debugfs file that behaves just like a file that contains:
 
@@ -3338,7 +3380,7 @@ Bibliography:
 
 ===== seq_file single_open
 
-In guest:
+If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>:
 
 ....
 /seq_file.sh
@@ -3356,8 +3398,6 @@ Sources:
 * link:kernel_module/seq_file_single_open.c[]
 * link:rootfs_overlay/seq_file_single_open.sh[]
 
-If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>.
-
 This example produces a debugfs file that behaves like a file that contains:
 
 ....
@@ -3367,7 +3407,7 @@ cd
 
 ==== poll
 
-In guest:
+The poll system call allows an user process to do a non-busy wait on a kernel event:
 
 ....
 /poll.sh
@@ -3381,8 +3421,6 @@ Sources:
 * link:kernel_module/poll.c[]
 * link:rootfs_overlay/poll.sh[]
 
-The poll system call allows an user process to do a non busy wait on a kernel event.
-
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
 
 The hardware notifies the kernel that the data is ready with an interrupt.
@@ -3393,7 +3431,7 @@ Bibliography: https://stackoverflow.com/questions/30035776/how-to-add-poll-funct
 
 ==== ioctl
 
-In guest:
+The `ioctl` system call is the best way to pass an arbitrary number of parameters to the kernel in a single go:
 
 ....
 /ioctl.sh
@@ -3413,9 +3451,7 @@ Sources:
 * link:kernel_module/user/ioctl.c[]
 * link:rootfs_overlay/ioctl.sh[]
 
-The `ioctl` system call is the best ways to provide an arbitrary number of parameters to the kernel in a single go.
-
-It is therefore one of the most important methods of communication with real device drivers, which often take several fields as input.
+`ioctl` is one of the most important methods of communication with real device drivers, which often take several fields as input.
 
 `ioctl` takes as input:
 
@@ -3444,7 +3480,7 @@ Bibliography:
 
 ==== mmap
 
-In guest:
+The `mmap` system call allows us to share memory between user and kernel space without copying:
 
 ....
 /mmap.sh
@@ -3463,8 +3499,6 @@ Sources:
 * link:kernel_module/user/mmap.c[]
 * link:rootfs_overlay/mmap.sh[]
 
-The `mmap` system call allows us to share memory between user and kernel space without copying.
-
 In this example, we make a tiny 4 byte kernel buffer available to user-space, and we then modify it on userspace, and check that the kernel can see the modification.
 
 `mmap`, like most more complex <<file-operations>>, does not work with <<debugfs>> as of 4.9, so we use a <<procfs>> file for it.
@@ -3482,7 +3516,7 @@ Bibliography:
 
 ==== Character devices
 
-In guest:
+Character devices can have arbitrary <<file-operations>> associated to them:
 
 ....
 /character_device.sh
@@ -3501,7 +3535,7 @@ Sources:
 * link:rootfs_overlay/mknoddev.sh[]
 * link:kernel_module/character_device.c[]
 
-Character device files are created with:
+Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
 
 ....
 mknod </dev/path_to_dev> c <major> <minor>
@@ -3559,7 +3593,7 @@ Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device
 
 ==== Anonymous inode
 
-In guest:
+Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files:
 
 ....
 /anonymous_inode.sh
@@ -3583,8 +3617,6 @@ This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using
 
 Reads to that inode return the sequence: `1`, `10`, `100`, ... `10000000`, `1`, `100`, ...
 
-Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files.
-
 Bibliography: https://stackoverflow.com/questions/4508998/what-is-an-anonymous-inode-in-linux
 
 === Linux kernel asynchronous APIs
@@ -3593,7 +3625,7 @@ In this section we will document asynchronous APIs of Linux kernel, especially k
 
 ==== kthread
 
-In guest:
+Kernel threads are managed exactly like userland threads; they also have a backing `task_struct`, and are scheduled with the same mechanism:
 
 ....
 insmod /kthread.ko
@@ -3622,8 +3654,6 @@ The count stops when we `rmmod`:
 rmmod kthread
 ....
 
-Kernel threads are managed exactly like userland threads. They also have a backing `task_struct`, and are scheduled with the same mechanism.
-
 Bibliography:
 
 * http://stackoverflow.com/questions/10177641/proper-way-of-handling-threads-in-kernel
@@ -3631,7 +3661,7 @@ Bibliography:
 
 ===== kthreads
 
-In guest:
+Let's launch two threads and see if they actually run in parallel:
 
 ....
 insmod /kthreads.ko

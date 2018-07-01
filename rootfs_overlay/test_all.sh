@@ -7,6 +7,7 @@ for test in \
   /fops.sh \
   /ioctl.sh \
   /mmap.sh \
+  /params.sh \
   /procfs.sh \
   /seq_file.sh \
   /seq_file_single_open.sh \
