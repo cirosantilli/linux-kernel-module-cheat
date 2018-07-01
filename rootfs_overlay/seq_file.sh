@@ -1,29 +1,10 @@
 #!/bin/sh
-
-set -ex
-
+set -e
+f=/sys/kernel/debug/lkmc_seq_file
 insmod /seq_file.ko
-cd /sys/kernel/debug
-
-cat 'lkmc_seq_file'
-# => 0
-# => 1
-# => 2
-
-cat 'lkmc_seq_file'
-# => 0
-# => 1
-# => 2
-
-dd if='lkmc_seq_file' bs=1 count=2 skip=0 status=none
-# => 0
-dd if='lkmc_seq_file' bs=1 count=4 skip=0 status=none
-# => 0
-# => 1
-dd if='lkmc_seq_file' bs=1 count=2 skip=2 status=none
-# => 1
-dd if='lkmc_seq_file' bs=4 count=1 skip=0 status=none
-# => 0
-# => 1
-
+[ "$(cat "$f")" = "$(printf '0\n1\n2\n')" ]
+[ "$(cat "$f")" = "$(printf '0\n1\n2\n')" ]
+[ "$(dd if="$f" bs=1 count=2 skip=0 status=none)" = "$(printf '0\n')" ]
+[ "$(dd if="$f" bs=1 count=2 skip=2 status=none)" = "$(printf '1\n')" ]
+[ "$(dd if="$f" bs=4 count=1 skip=0 status=none)" = "$(printf '0\n1\n')" ]
 rmmod seq_file

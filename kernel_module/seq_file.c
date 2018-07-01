@@ -1,28 +1,4 @@
-/*
-Adapted from: Documentation/filesystems/seq_file.txt
-but we limit the count to the max module parameter.
-
-Writting trivial read fops is repetitive and error prone.
-
-The seq_file API makes the process much easier for those trivial cases.
-
-This example is behaves just like a file that contains:
-
-	0
-	1
-	2
-
-However, we only store a single integer in memory
-and calculate the file on the fly in an iterator fashion.
-
-There is not write version, as writes are more complex:
-https://stackoverflow.com/questions/30710517/how-to-implement-a-writable-proc-file-by-using-seq-file-in-a-driver-module
-
-Bibliography:
-
-- Documentation/filesystems/seq_file.txt
-- https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-modules
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#seq_file */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */

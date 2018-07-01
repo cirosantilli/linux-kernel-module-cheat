@@ -1,12 +1,4 @@
-/*
-If you have the entire read output upfront, single_open
-is an even more convenient version of seq_file.
-
-This example behaves like a file that contains:
-
-	ab
-	cd
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#seq_file-single_open */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
@@ -40,8 +32,7 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
-	debugfs_file = debugfs_create_file(
-		"lkmc_seq_file_single", S_IRUSR, NULL, NULL, &fops);
+	debugfs_file = debugfs_create_file("lkmc_seq_file_single_open", S_IRUSR, NULL, NULL, &fops);
 	return 0;
 }
 

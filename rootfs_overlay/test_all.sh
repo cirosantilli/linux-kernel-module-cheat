@@ -6,8 +6,10 @@ for test in \
   /debugfs.sh \
   /fops.sh \
   /procfs.sh \
-  /sysfs.sh
-do
+  /seq_file.sh \
+  /seq_file_single_open.sh \
+  /sysfs.sh \
+; do
   if ! "$test"; then
     echo "lkmc_test_fail: ${test}"
     exit 1

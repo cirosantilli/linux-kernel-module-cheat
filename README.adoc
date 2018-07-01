@@ -2976,7 +2976,7 @@ This example shows how sysfs is more restricted, as it does not take an arbitrar
 
 So you basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
 
-It is similar to a `seq_file` file operation, except that write is also implemented.
+It is similar to a <<seq_file>> file operation, except that write is also implemented.
 
 TODO: what are those `kobject` structs? Make a more complex example that shows what they can do.
 
@@ -3023,6 +3023,76 @@ File operations is the main method of userland driver communication.
 `struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
 
 No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
+
+==== seq_file
+
+In guest:
+
+....
+/seq_file.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/seq_file.c[]
+* link:rootfs_overlay/seq_file.sh[]
+
+Writing trivial read <<file-operations>> is repetitive and error prone.
+
+The `seq_file` API makes the process much easier for those trivial cases.
+
+In this example we create a debugfs file that behaves just like a file that contains:
+
+....
+0
+1
+2
+....
+
+However, we only store a single integer in memory and calculate the file on the fly in an iterator fashion.
+
+`seq_file` does not provide `write`: https://stackoverflow.com/questions/30710517/how-to-implement-a-writable-proc-file-by-using-seq-file-in-a-driver-module
+
+Bibliography:
+
+* link:https://github.com/torvalds/linux/blob/v4.17/Documentation/filesystems/seq_file.txt[Documentation/filesystems/seq_file.txt]
+* https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-modules
+
+===== seq_file single_open
+
+In guest:
+
+....
+/seq_file.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/seq_file_single_open.c[]
+* link:rootfs_overlay/seq_file_single_open.sh[]
+
+If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>.
+
+This example produces a debugfs file that behaves like a file that contains:
+
+....
+ab
+cd
+....
 
 ==== Character devices
 
@@ -3123,10 +3193,9 @@ Sources:
 * link:kernel_module/user/anonymous_inode.c[]
 * link:rootfs_overlay/anonymous_inode.sh[]
 
-This example:
+This example gets an anonymous inode via `ioctl` from a debugfs entry by using `anon_inode_getfd`.
 
-* gets an anonymous inode via `ioctl` from a debugfs entry `anon_inode_getfd` from a debugfs file
-* read jiffies from that inode
+Reads to that inode return the sequence: `1`, `10`, `100`, ... `10000000`, `1`, `100`, ...
 
 Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files.
 

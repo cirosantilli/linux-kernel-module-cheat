@@ -24,6 +24,9 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 		ret = -EFAULT;
 	}
 	myval <<= 4;
+	if (myval == 0) {
+		myval = 1;
+	}
 	return ret;
 }
 
