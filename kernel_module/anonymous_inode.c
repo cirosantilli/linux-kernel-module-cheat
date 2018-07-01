@@ -16,7 +16,7 @@ static u32 myval = 1;
 
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
-	char kbuf[8];
+	char kbuf[9];
 	size_t ret;
 
 	ret = snprintf(kbuf, sizeof(kbuf), "%x", myval);
