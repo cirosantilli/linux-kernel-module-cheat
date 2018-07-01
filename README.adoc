@@ -2875,383 +2875,6 @@ Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
 
-=== Pseudo filesystems
-
-Pseudo filesystems are filesystems that don't represent actual files in a hard disk, but rather allow us to do special operations on filesystem-related system calls.
-
-What each pseudo-file does for each related system call does is defined by its <<file-operations>>.
-
-Bibliography:
-
-* https://superuser.com/questions/1198292/what-is-a-pseudo-file-system-in-linux
-* https://en.wikipedia.org/wiki/Synthetic_file_system
-
-==== debugfs
-
-In guest:
-
-....
-/debugfs.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/debugfs.c[]
-* link:rootfs_overlay/debugfs.sh[]
-
-Debugfs is the simplest pseudo filesystem to play around with, as it is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
-
-For this reason, it is the filesystem that we use whenever possible in our tests.
-
-`debugfs.sh` explicitly mounts a debugfs at a custom location, but the most common mount point is `/sys/kernel/debug`.
-
-This mount not done automatically by the kernel however: we, like most distros, do it from userland with our link:rootfs_overlay/etc/fstab[fstab].
-
-Debugfs support requires the kernel to be compiled with `CONFIG_DEBUG_FS=y`.
-
-Only the more basic file operations can be implemented in debugfs, e.g. `mmap` never gets called:
-
-* https://patchwork.kernel.org/patch/9252557/
-* https://github.com/torvalds/linux/blob/v4.9/fs/debugfs/file.c#L212
-
-Bibliography: https://github.com/chadversary/debugfs-tutorial
-
-==== procfs
-
-In guest:
-
-....
-/procfs.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/procfs.c[]
-* link:rootfs_overlay/procfs.sh[]
-
-Just another fops entry point.
-
-Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
-
-==== sysfs
-
-In guest:
-
-....
-/sysfs.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/sysfs.c[]
-* link:rootfs_overlay/sysfs.sh[]
-
-Vs procfs:
-
-* https://unix.stackexchange.com/questions/4884/what-is-the-difference-between-procfs-and-sysfs
-* https://stackoverflow.com/questions/37237835/how-to-attach-file-operations-to-sysfs-attribute-in-platform-driver
-
-This example shows how sysfs is more restricted, as it does not take an arbitrary `file_operations`.
-
-So you basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
-
-It is similar to a <<seq_file>> file operation, except that write is also implemented.
-
-TODO: what are those `kobject` structs? Make a more complex example that shows what they can do.
-
-Bibliography:
-
-* https://github.com/t3rm1n4l/kern-dev-tutorial/blob/1f036ef40fc4378f5c8d2842e55bcea7c6f8894a/05-sysfs/sysfs.c
-* https://www.kernel.org/doc/Documentation/kobject.txt
-* https://www.quora.com/What-are-kernel-objects-Kobj
-* http://www.makelinux.net/ldd3/chp-14-sect-1
-* https://www.win.tue.nl/~aeb/linux/lk/lk-13.html
-
-=== Pseudo files
-
-==== File operations
-
-In guest:
-
-....
-/fops.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/fops.c[]
-* link:rootfs_overlay/fops.sh[]
-
-Then give this a try:
-
-....
-sh -x /fops.sh
-....
-
-We have put printks on each fop, so this allows you to see which system calls are being made for each command.
-
-File operations is the main method of userland driver communication.
-
-`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
-
-No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
-
-==== seq_file
-
-In guest:
-
-....
-/seq_file.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/seq_file.c[]
-* link:rootfs_overlay/seq_file.sh[]
-
-Writing trivial read <<file-operations>> is repetitive and error prone.
-
-The `seq_file` API makes the process much easier for those trivial cases.
-
-In this example we create a debugfs file that behaves just like a file that contains:
-
-....
-0
-1
-2
-....
-
-However, we only store a single integer in memory and calculate the file on the fly in an iterator fashion.
-
-`seq_file` does not provide `write`: https://stackoverflow.com/questions/30710517/how-to-implement-a-writable-proc-file-by-using-seq-file-in-a-driver-module
-
-Bibliography:
-
-* link:https://github.com/torvalds/linux/blob/v4.17/Documentation/filesystems/seq_file.txt[Documentation/filesystems/seq_file.txt]
-* https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-modules
-
-===== seq_file single_open
-
-In guest:
-
-....
-/seq_file.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/seq_file_single_open.c[]
-* link:rootfs_overlay/seq_file_single_open.sh[]
-
-If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>.
-
-This example produces a debugfs file that behaves like a file that contains:
-
-....
-ab
-cd
-....
-
-==== ioctl
-
-In guest:
-
-....
-/ioctl.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/ioctl.c[]
-* link:kernel_module/ioctl.h[]
-* link:kernel_module/user/ioctl.c[]
-* link:rootfs_overlay/ioctl.sh[]
-
-The `ioctl` system call is the best ways to provide an arbitrary number of parameters to the kernel in a single go.
-
-It is therefore one of the most important methods of communication with real device drivers, which often take several fields as input.
-
-`ioctl` takes as input:
-
-* an integer `request` : it usually identifies what type of operation we want to do on this call
-* an untyped pointer to memory: can be anything, but is typically a pointer to a `struct`
-+
-The type of the `struct` often depends on the `request` input
-+
-This `struct` is defined on a uapi-style C header that is used both to compile the kernel module and the userland executable.
-+
-The fields of this `struct` can be thought of as arbitrary input parameters.
-
-And the output is:
-
-* an integer return value. `man ioctl` documents:
-+
-____
-Usually, on success zero is returned. A few `ioctl()` requests use the return value as an output parameter and return a nonnegative value on success. On error, -1 is returned, and errno is set appropriately.
-____
-* the input pointer data may be overwritten to contain arbitrary output
-
-Bibliography:
-
-* https://stackoverflow.com/questions/2264384/how-do-i-use-ioctl-to-manipulate-my-kernel-module/44613896#44613896
-* https://askubuntu.com/questions/54239/problem-with-ioctl-in-a-simple-kernel-module/926675#926675
-
-==== Character devices
-
-In guest:
-
-....
-/character_device.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:rootfs_overlay/character_device.sh[]
-* link:rootfs_overlay/mknoddev.sh[]
-* link:kernel_module/character_device.c[]
-
-Character device files are created with:
-
-....
-mknod </dev/path_to_dev> c <major> <minor>
-....
-
-Intuitively, for physical devices like keyboards, the major number maps to which driver, and the minor number maps to which device it is.
-
-A single driver can drive multiple compatible devices.
-
-The major and minor numbers can be observed with:
-
-....
-ls -l /dev/urandom
-....
-
-Output:
-
-....
-crw-rw-rw-    1 root     root        1,   9 Jun 29 05:45 /dev/urandom
-....
-
-which means:
-
-* `c` (first letter): this is a character device. Would be `b` for a block device.
-* `1,   9`: the major number is `1`, and the minor `9`
-
-To avoid device number conflicts when registering the driver we:
-
-* ask the kernel to allocate a free major number for us with: `register_chrdev(0`
-* find ouf which number was assigned by grepping `/proc/devices` for the kernel module name
-
-Bibliography: https://unix.stackexchange.com/questions/37829/understanding-character-device-or-character-special-files/371758#371758
-
-===== Automatically create character device file on insmod
-
-And also destroy it on `rmmod`:
-
-....
-/character_device_create.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/character_device_create.c[]
-* link:rootfs_overlay/character_device_create.sh[]
-
-Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
-
-==== Anonymous inode
-
-In guest:
-
-....
-/anonymous_inode.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/anonymous_inode.c[]
-* link:kernel_module/anonymous_inode.h[]
-* link:kernel_module/user/anonymous_inode.c[]
-* link:rootfs_overlay/anonymous_inode.sh[]
-
-This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
-
-Reads to that inode return the sequence: `1`, `10`, `100`, ... `10000000`, `1`, `100`, ...
-
-Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files.
-
-Bibliography: https://stackoverflow.com/questions/4508998/what-is-an-anonymous-inode-in-linux
-
 === Kernel panic and oops
 
 To test out kernel panics and oops in controlled circumstances, try out the modules:
@@ -3542,6 +3165,485 @@ insmod /warn_on.ko
 Source: link:kernel_module/warn_on.c[]
 
 Can also be activated with the `panic_on_warn` boot parameter.
+
+=== Pseudo filesystems
+
+Pseudo filesystems are filesystems that don't represent actual files in a hard disk, but rather allow us to do special operations on filesystem-related system calls.
+
+What each pseudo-file does for each related system call does is defined by its <<file-operations>>.
+
+Bibliography:
+
+* https://superuser.com/questions/1198292/what-is-a-pseudo-file-system-in-linux
+* https://en.wikipedia.org/wiki/Synthetic_file_system
+
+==== debugfs
+
+In guest:
+
+....
+/debugfs.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/debugfs.c[]
+* link:rootfs_overlay/debugfs.sh[]
+
+Debugfs is the simplest pseudo filesystem to play around with, as it is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
+
+For this reason, it is the filesystem that we use whenever possible in our tests.
+
+`debugfs.sh` explicitly mounts a debugfs at a custom location, but the most common mount point is `/sys/kernel/debug`.
+
+This mount not done automatically by the kernel however: we, like most distros, do it from userland with our link:rootfs_overlay/etc/fstab[fstab].
+
+Debugfs support requires the kernel to be compiled with `CONFIG_DEBUG_FS=y`.
+
+Only the more basic file operations can be implemented in debugfs, e.g. `mmap` never gets called:
+
+* https://patchwork.kernel.org/patch/9252557/
+* https://github.com/torvalds/linux/blob/v4.9/fs/debugfs/file.c#L212
+
+Bibliography: https://github.com/chadversary/debugfs-tutorial
+
+==== procfs
+
+In guest:
+
+....
+/procfs.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/procfs.c[]
+* link:rootfs_overlay/procfs.sh[]
+
+Just another fops entry point.
+
+Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
+
+==== sysfs
+
+In guest:
+
+....
+/sysfs.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/sysfs.c[]
+* link:rootfs_overlay/sysfs.sh[]
+
+Vs procfs:
+
+* https://unix.stackexchange.com/questions/4884/what-is-the-difference-between-procfs-and-sysfs
+* https://stackoverflow.com/questions/37237835/how-to-attach-file-operations-to-sysfs-attribute-in-platform-driver
+
+This example shows how sysfs is more restricted, as it does not take an arbitrary `file_operations`.
+
+So you basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
+
+It is similar to a <<seq_file>> file operation, except that write is also implemented.
+
+TODO: what are those `kobject` structs? Make a more complex example that shows what they can do.
+
+Bibliography:
+
+* https://github.com/t3rm1n4l/kern-dev-tutorial/blob/1f036ef40fc4378f5c8d2842e55bcea7c6f8894a/05-sysfs/sysfs.c
+* https://www.kernel.org/doc/Documentation/kobject.txt
+* https://www.quora.com/What-are-kernel-objects-Kobj
+* http://www.makelinux.net/ldd3/chp-14-sect-1
+* https://www.win.tue.nl/~aeb/linux/lk/lk-13.html
+
+=== Pseudo files
+
+==== File operations
+
+In guest:
+
+....
+/fops.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/fops.c[]
+* link:rootfs_overlay/fops.sh[]
+
+Then give this a try:
+
+....
+sh -x /fops.sh
+....
+
+We have put printks on each fop, so this allows you to see which system calls are being made for each command.
+
+File operations is the main method of userland driver communication.
+
+`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
+
+No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
+
+==== seq_file
+
+In guest:
+
+....
+/seq_file.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/seq_file.c[]
+* link:rootfs_overlay/seq_file.sh[]
+
+Writing trivial read <<file-operations>> is repetitive and error prone.
+
+The `seq_file` API makes the process much easier for those trivial cases.
+
+In this example we create a debugfs file that behaves just like a file that contains:
+
+....
+0
+1
+2
+....
+
+However, we only store a single integer in memory and calculate the file on the fly in an iterator fashion.
+
+`seq_file` does not provide `write`: https://stackoverflow.com/questions/30710517/how-to-implement-a-writable-proc-file-by-using-seq-file-in-a-driver-module
+
+Bibliography:
+
+* link:https://github.com/torvalds/linux/blob/v4.17/Documentation/filesystems/seq_file.txt[Documentation/filesystems/seq_file.txt]
+* https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-modules
+
+===== seq_file single_open
+
+In guest:
+
+....
+/seq_file.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/seq_file_single_open.c[]
+* link:rootfs_overlay/seq_file_single_open.sh[]
+
+If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>.
+
+This example produces a debugfs file that behaves like a file that contains:
+
+....
+ab
+cd
+....
+
+==== poll
+
+In guest:
+
+....
+/poll.sh
+....
+
+Outcome: `jiffies` gets printed to stdout every second from userland.
+
+Sources:
+
+* link:kernel_module/poll.c[]
+* link:kernel_module/poll.c[]
+* link:rootfs_overlay/poll.sh[]
+
+The poll system call allows an user process to do a non busy wait on a kernel event.
+
+Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
+
+The hardware notifies the kernel that the data is ready with an interrupt.
+
+To simplify this example, we just fake the hardware interrupts with a <<kthread>> that sleeps for a second in an infinite loop.
+
+Bibliography: https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-kernel-module-code/44645336#44645336
+
+==== ioctl
+
+In guest:
+
+....
+/ioctl.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/ioctl.c[]
+* link:kernel_module/ioctl.h[]
+* link:kernel_module/user/ioctl.c[]
+* link:rootfs_overlay/ioctl.sh[]
+
+The `ioctl` system call is the best ways to provide an arbitrary number of parameters to the kernel in a single go.
+
+It is therefore one of the most important methods of communication with real device drivers, which often take several fields as input.
+
+`ioctl` takes as input:
+
+* an integer `request` : it usually identifies what type of operation we want to do on this call
+* an untyped pointer to memory: can be anything, but is typically a pointer to a `struct`
++
+The type of the `struct` often depends on the `request` input
++
+This `struct` is defined on a uapi-style C header that is used both to compile the kernel module and the userland executable.
++
+The fields of this `struct` can be thought of as arbitrary input parameters.
+
+And the output is:
+
+* an integer return value. `man ioctl` documents:
++
+____
+Usually, on success zero is returned. A few `ioctl()` requests use the return value as an output parameter and return a nonnegative value on success. On error, -1 is returned, and errno is set appropriately.
+____
+* the input pointer data may be overwritten to contain arbitrary output
+
+Bibliography:
+
+* https://stackoverflow.com/questions/2264384/how-do-i-use-ioctl-to-manipulate-my-kernel-module/44613896#44613896
+* https://askubuntu.com/questions/54239/problem-with-ioctl-in-a-simple-kernel-module/926675#926675
+
+==== Character devices
+
+In guest:
+
+....
+/character_device.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:rootfs_overlay/character_device.sh[]
+* link:rootfs_overlay/mknoddev.sh[]
+* link:kernel_module/character_device.c[]
+
+Character device files are created with:
+
+....
+mknod </dev/path_to_dev> c <major> <minor>
+....
+
+Intuitively, for physical devices like keyboards, the major number maps to which driver, and the minor number maps to which device it is.
+
+A single driver can drive multiple compatible devices.
+
+The major and minor numbers can be observed with:
+
+....
+ls -l /dev/urandom
+....
+
+Output:
+
+....
+crw-rw-rw-    1 root     root        1,   9 Jun 29 05:45 /dev/urandom
+....
+
+which means:
+
+* `c` (first letter): this is a character device. Would be `b` for a block device.
+* `1,   9`: the major number is `1`, and the minor `9`
+
+To avoid device number conflicts when registering the driver we:
+
+* ask the kernel to allocate a free major number for us with: `register_chrdev(0`
+* find ouf which number was assigned by grepping `/proc/devices` for the kernel module name
+
+Bibliography: https://unix.stackexchange.com/questions/37829/understanding-character-device-or-character-special-files/371758#371758
+
+===== Automatically create character device file on insmod
+
+And also destroy it on `rmmod`:
+
+....
+/character_device_create.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/character_device_create.c[]
+* link:rootfs_overlay/character_device_create.sh[]
+
+Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
+
+==== Anonymous inode
+
+In guest:
+
+....
+/anonymous_inode.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/anonymous_inode.c[]
+* link:kernel_module/anonymous_inode.h[]
+* link:kernel_module/user/anonymous_inode.c[]
+* link:rootfs_overlay/anonymous_inode.sh[]
+
+This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
+
+Reads to that inode return the sequence: `1`, `10`, `100`, ... `10000000`, `1`, `100`, ...
+
+Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files.
+
+Bibliography: https://stackoverflow.com/questions/4508998/what-is-an-anonymous-inode-in-linux
+
+=== Linux kernel asynchronous
+
+In this section we will document asynchronous APIs of Linux kernel, especially kthread-related scheduled events.
+
+==== kthread
+
+In guest:
+
+....
+insmod /kthread.ko
+....
+
+Source: link:kernel_module/kthread.c[]
+
+Outcome: dmesg counts from `0` to `9` once every second infinitely many times:
+
+....
+0
+1
+2
+...
+8
+9
+0
+1
+2
+...
+....
+
+The count stops when we `rmmod`:
+
+....
+rmmod kthread
+....
+
+Kernel threads are managed exactly like userland threads. They also have a backing `task_struct`, and are scheduled with the same mechanism.
+
+Bibliography:
+
+* http://stackoverflow.com/questions/10177641/proper-way-of-handling-threads-in-kernel
+* http://stackoverflow.com/questions/4084708/how-to-wait-for-a-linux-kernel-thread-kthreadto-exit
+
+===== kthreads
+
+In guest:
+
+....
+insmod /kthreads.ko
+....
+
+Source: link:kernel_module/kthreads.c[]
+
+Outcome: two threads count to dmesg from `0` to `9` in parallel.
+
+Each line has output of form:
+
+....
+<thread_id> <count>
+....
+
+Possible very likely outcome:
+
+....
+
+1 0
+2 0
+1 1
+2 1
+1 2
+2 2
+1 3
+2 3
+....
+
+The threads almost always interleaved nicely, thus confirming that they are actually running in parallel.
 
 === IRQ
 

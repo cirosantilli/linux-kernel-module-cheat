@@ -1,10 +1,4 @@
-/*
-	/poll.sh
-
-Outcome: user echoes jiffies every second.
-
-https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-kernel-module-code/44645336#44645336
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#poll */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h> /* usleep_range */
@@ -40,11 +34,10 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 	return ret;
 }
 
-/*
-If you return 0 here, then the kernel will sleep until an event happens in the queue.
-
-This gets called again every time an event happens in the wait queue.
-*/
+/* If you return 0 here, then the kernel will sleep until an event happens in the queue.
+ *
+ * This gets called again every time an event happens in the wait queue.
+ */
 unsigned int poll(struct file *filp, struct poll_table_struct *wait)
 {
 	poll_wait(filp, &waitqueue, wait);

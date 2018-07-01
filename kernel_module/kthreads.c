@@ -1,6 +1,4 @@
-/*
-2 kthreads!!! Will they interleave??? Yup.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kthreads */
 
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>

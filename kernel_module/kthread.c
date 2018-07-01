@@ -1,13 +1,4 @@
-/*
-Kernel threads are managed exactly like userland threads.
-
-They also have a backing task_struct, and are scheduled with the same mechanism.
-
-See also:
-
-- http://stackoverflow.com/questions/10177641/proper-way-of-handling-threads-in-kernel
-- http://stackoverflow.com/questions/4084708/how-to-wait-for-a-linux-kernel-thread-kthreadto-exit
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kthread */
 
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>
@@ -18,9 +9,9 @@ static struct task_struct *kthread;
 
 static int work_func(void *data)
 {
-	int i = 0;
+	u32 i = 0;
 	while (!kthread_should_stop()) {
-		pr_info("%d\n", i);
+		pr_info("%u\n", i);
 		usleep_range(1000000, 1000001);
 		i++;
 		if (i == 10)
