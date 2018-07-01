@@ -1,8 +1,4 @@
-/*
-Hello world module 2.
-
-Mostly to check that our build infrastructure can handle more than one module!
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#getting-started-natively */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

@@ -1,12 +1,4 @@
-/*
-Hello world module.
-
-	dmesg -c
-	insmod hello.ko
-	dmesg -c | grep 'hello init'
-	rmmod hello.ko
-	dmesg -c | grep 'hello exit'
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#getting-started-natively */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

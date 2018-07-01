@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#pr_debug */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 
