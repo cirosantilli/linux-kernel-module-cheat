@@ -1,30 +1,21 @@
-#include <linux/delay.h> /* usleep_range */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-module-dependencies */
+
+#include <linux/debugfs.h>
 #include <linux/kernel.h>
-#include <linux/kthread.h>
 #include <linux/module.h>
 
-extern int lkmc_dep;
-static struct task_struct *kthread;
-
-static int work_func(void *data)
-{
-	while (!kthread_should_stop()) {
-		usleep_range(1000000, 1000001);
-		lkmc_dep++;
-	}
-	return 0;
-}
+extern u32 lkmc_dep;
+static struct dentry *debugfs_file;
 
 static int myinit(void)
 {
-	kthread = kthread_create(work_func, NULL, "mykthread");
-	wake_up_process(kthread);
+	debugfs_file = debugfs_create_u32("lkmc_dep2", S_IRUSR | S_IWUSR, NULL, &lkmc_dep);
 	return 0;
 }
 
 static void myexit(void)
 {
-	kthread_stop(kthread);
+	debugfs_remove(debugfs_file);
 }
 
 module_init(myinit)

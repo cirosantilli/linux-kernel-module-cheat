@@ -1,76 +1,22 @@
-/*
-Exports the lkmc_dep which dep2.ko uses.
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-module-dependencies */
 
-	insmod /dep.ko
-	# dmesg => 0
-	# dmesg => 0
-	# dmesg => ...
-	insmod /dep2.ko
-	# dmesg => 1
-	# dmesg => 2
-	# dmesg => ...
-	rmmod dep
-	# Fails because dep2 uses it.
-	rmmod dep2
-	# Dmesg stops incrementing.
-	rmmod dep
-
-sys visibility:
-
-	dmesg -n 1
-	insmod /dep.ko
-	insmod /dep2.ko
-	ls -l /sys/module/dep/holders
-	# => ../../dep2
-	cat refcnt
-	# => 1
-
-proc visibility:
-
-	grep lkmc_dep /proc/kallsyms
-
-Requires "CONFIG_KALLSYMS_ALL=y".
-
-depmod:
-
-	grep dep "/lib/module/"*"/depmod"
-	# extra/dep2.ko: extra/dep.ko
-	# extra/dep.ko:
-	modprobe dep
-	# lsmod
-	# Both dep and dep2 were loaded.
-
-TODO: at what point does buildroot / busybox generate that file?
-*/
-
-#include <linux/delay.h> /* usleep_range */
+#include <linux/debugfs.h>
 #include <linux/kernel.h>
-#include <linux/kthread.h>
 #include <linux/module.h>
 
-int lkmc_dep = 0;
+u32 lkmc_dep = 0;
 EXPORT_SYMBOL(lkmc_dep);
-static struct task_struct *kthread;
-
-static int work_func(void *data)
-{
-	while (!kthread_should_stop()) {
-		pr_info("%d\n", lkmc_dep);
-		usleep_range(1000000, 1000001);
-	}
-	return 0;
-}
+static struct dentry *debugfs_file;
 
 static int myinit(void)
 {
-	kthread = kthread_create(work_func, NULL, "mykthread");
-	wake_up_process(kthread);
+	debugfs_file = debugfs_create_u32("lkmc_dep", S_IRUSR | S_IWUSR, NULL, &lkmc_dep);
 	return 0;
 }
 
 static void myexit(void)
 {
-	kthread_stop(kthread);
+	debugfs_remove(debugfs_file);
 }
 
 module_init(myinit)

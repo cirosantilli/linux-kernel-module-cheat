@@ -1,17 +1,4 @@
-/*
-    insmod /vermagic_fail.ko
-    # => insmod: can't insert '/vermagic_fail.ko': invalid module format
-
-    modinfo /vermagic_fail.ko | grep vermagic
-    # => vermagic:       asdfqwer
-    # => vermagic:       4.9.6 SMP mod_unload modversions
-
-kmod `modprobe` has a flag to skip the check:
-
-	--force-modversion
-
-Looks like it just strips `modversion` information from the module before loading, and then the kernel skips the check.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#vermagic */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

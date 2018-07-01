@@ -1,68 +1,53 @@
-/*
-Allows passing parameters at insertion time.
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-module-parameters */
 
-Those parameters can also be read and modified at runtime from /sys.
-
-	insmod /params.ko
-	# dmesg => 0 0
-	cd /sys/module/params/parameters
-	cat i
-	# => 1 0
-	printf 1 >i
-	# dmesg => 1 0
-	rmmod params
-
-	insmod /params.ko i=1 j=1
-	# dmesg => 1 1
-	rmmod params
-
-	modinfo
-	/params.ko
-	# Output contains MODULE_PARAM_DESC descriptions.
-
-modprobe insertion can also set default parameters via the /etc/modprobe.conf file. So:
-
-	modprobe params
-
-Outputs:
-
-	12 34
-*/
-
+#include <linux/debugfs.h>
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>
-#include <linux/kthread.h>
 #include <linux/module.h>
+#include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
 #include <uapi/linux/stat.h> /* S_IRUSR | S_IWUSR */
 
-static int i = 0;
-static int j = 0;
+static u32 i = 0;
+static u32 j = 0;
 module_param(i, int, S_IRUSR | S_IWUSR);
 module_param(j, int, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(i, "my favorite int");
 MODULE_PARM_DESC(j, "my second favorite int");
 
-static struct task_struct *kthread;
+static struct dentry *debugfs_file;
 
-static int work_func(void *data)
+static int show(struct seq_file *m, void *v)
 {
-	while (!kthread_should_stop()) {
-		pr_info("%d %d\n", i, j);
-		usleep_range(1000000, 1000001);
-	}
+	char kbuf[18];
+	int ret;
+
+	ret = snprintf(kbuf, sizeof(kbuf), "%d %d", i, j);
+	seq_printf(m, kbuf);
 	return 0;
 }
 
+static int open(struct inode *inode, struct file *file)
+{
+	return single_open(file, show, NULL);
+}
+
+static const struct file_operations fops = {
+	.llseek = seq_lseek,
+	.open = open,
+	.owner = THIS_MODULE,
+	.read = seq_read,
+	.release = single_release,
+};
+
 static int myinit(void)
 {
-	kthread = kthread_create(work_func, NULL, "mykthread");
-	wake_up_process(kthread);
+	debugfs_file = debugfs_create_file("lkmc_params", S_IRUSR, NULL, NULL, &fops);
 	return 0;
 }
 
 static void myexit(void)
 {
-	kthread_stop(kthread);
+	debugfs_remove(debugfs_file);
 }
 
 module_init(myinit)

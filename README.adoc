@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.17 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware models. "Tested" in x86, ARM and MIPS guests, Ubuntu 18.04 host.
+Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.17 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware device models. "Tested" in x86, ARM and MIPS guests, Ubuntu 18.04 host.
 
 toc::[]
 
@@ -257,7 +257,7 @@ Limitations of this method:
 +
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
 * can't create new modules or modify the existing ones, since no cross toolchain
-* can't use things that rely on our QEMU fork, e.g. in-fork <<hardware-models>> or <<tracing>>
+* can't use things that rely on our QEMU fork, e.g. in-fork <<device-models>> or <<tracing>>
 * you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us.
 * <<gem5>> is not currently supported, although it should not be too hard to do. One annoyance is that there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself.
 
@@ -1028,34 +1028,10 @@ core_param(panic, panic_timeout, int, 0644);
 If you are feeling fancy, you can also insert modules with:
 
 ....
-modprobe dep2
-lsmod
-# dep and dep2
+modprobe hello
 ....
 
-This method also deals with module dependencies, which we almost don't use to make examples simpler:
-
-* https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe
-* https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe
-
-Removal also removes required modules that have zero usage count:
-
-....
-modprobe -r dep2
-lsmod
-# Nothing.
-....
-
-but it can't know if you actually insmodded them separately or not:
-
-....
-modprobe dep
-modprobe dep2
-modprobe -r dep2
-# Nothing.
-....
-
-so it is a bit risky.
+which insmods link:kernel_module/hello.c[].
 
 `modprobe` searches for modules under:
 
@@ -1070,8 +1046,6 @@ modprobe dummy-irq irq=1
 ....
 
 ==== myinsmod
-
-https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
 
 If you are feeling raw, you can insert and remove modules with our own minimal module inserter and remover!
 
@@ -1108,6 +1082,8 @@ The finit_module() system call is like init_module(), but reads the module to be
 ____
 
 `finit` is newer and was added only in v3.8. More rationale: https://lwn.net/Articles/519010/
+
+Bibliography: https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
 
 === Simultaneous runs
 
@@ -2855,6 +2831,330 @@ Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
 
+=== Kernel module APIs
+
+==== Kernel module parameters
+
+The Linux kernel allows passing module parameters at insertion time <<myinsmod,through the `init_module` and `finit_module` system calls>>:
+
+....
+/params.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/params.c[]
+* link:rootfs_overlay/params.sh[]
+
+As shown in the example, module parameters can also be read and modified at runtime from <<sysfs>>.
+
+We can obtain the help text of the parameters with:
+
+....
+modinfo /params.ko
+....
+
+The output contains:
+
+....
+parm:           j:my second favorite int
+parm:           i:my favorite int
+....
+
+===== modprobe.conf
+
+<<modprobe>> insertion can also set default parameters via the link:rootfs_overlay/etc/modprobe.conf[`/etc/modprobe.conf`] file:
+
+....
+modprobe params
+cat /sys/kernel/debug/lkmc_params
+....
+
+Output:
+
+....
+12 34
+....
+
+This is specially important when loading modules with <<kernel-module-dependencies>> or else we would have no opportunity of passing those.
+
+`modprobe.conf` doesn't actually insmod anything for us: https://superuser.com/questions/397842/automatically-load-kernel-module-at-boot-angstrom/1267464#1267464
+
+==== Kernel module dependencies
+
+One module can depend on symbols of another module that are exported with `EXPORT_SYMBOL`:
+
+....
+/dep.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/dep.c[]
+* link:kernel_module/dep2.c[]
+* link:rootfs_overlay/dep.sh[]
+
+The kernel deduces dependencies based on the `EXPORT_SYMBOL` that each module uses.
+
+Symbols exported by `EXPORT_SYMBOL` can be seen with:
+
+....
+insmod /dep.ko
+grep lkmc_dep /proc/kallsyms
+....
+
+sample output:
+
+....
+ffffffffc0001030 r __ksymtab_lkmc_dep   [dep]
+ffffffffc000104d r __kstrtab_lkmc_dep   [dep]
+ffffffffc0002300 B lkmc_dep     [dep]
+....
+
+This requires `CONFIG_KALLSYMS_ALL=y`.
+
+Dependency information is stored by the kernel module build system in the `.ko` files' <<modinfo>>, e.g.:
+
+....
+modinfo /dep2.ko
+....
+
+contains:
+
+....
+depends:        dep
+....
+
+We can double check with:
+
+....
+strings 3 /dep2.ko  | grep -E 'depends'
+....
+
+The output contains:
+
+....
+depends=dep
+....
+
+Module dependencies are also stored at:
+
+....
+cd /lib/module/*
+grep dep modules.dep
+....
+
+Output:
+
+....
+extra/dep2.ko: extra/dep.ko
+extra/dep.ko:
+....
+
+TODO: what for, and at which point point does Buildroot / BusyBox generate that file?
+
+===== Kernel module dependencies with modprobe
+
+Unlike `insmod`, `modprobe` deals with kernel module dependencies for us:
+
+....
+modprobe dep2
+....
+
+Removal also removes required modules that have zero usage count:
+
+....
+modprobe -r dep2
+....
+
+Bibliography:
+
+* https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe
+* https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe
+
+`modprobe` seems to use information contained in the kernel module itself for the dependencies since `modprobe dep2` still works even if we modify `modules.dep` to remove the dependency.
+
+==== modinfo
+
+Module metadata is stored on module files at compile time. Some of the fields can be retrieved through the `THIS_MODULE` `struct module`:
+
+....
+insmod /module_info.ko
+....
+
+Dmesg output:
+
+....
+name = module_info
+version = 1.0
+....
+
+Source: link:kernel_module/module_info.c[]
+
+Some of those are also present on sysfs:
+
+....
+cat /sys/module/module_info/version
+....
+
+Output:
+
+....
+1.0
+....
+
+And we can also observe them with the `modinfo` command line utility:
+
+....
+modinfo /module_info.ko
+....
+
+sample output:
+
+....
+filename:       /module_info.ko
+license:        GPL
+version:        1.0
+srcversion:     AF3DE8A8CFCDEB6B00E35B6
+depends:
+vermagic:       4.17.0 SMP mod_unload modversions
+....
+
+Module information is stored in a special `.modinfo` section of the ELF file:
+
+....
+./runtc readelf -SW ./out/x86_64/buildroot/target/module_info.ko
+....
+
+contains:
+
+....
+  [ 5] .modinfo          PROGBITS        0000000000000000 0000d8 000096 00   A  0   0  8
+....
+
+and:
+
+....
+./runtc readelf -x .modinfo ./out/x86_64/buildroot/target/module_info.ko
+....
+
+gives:
+
+....
+  0x00000000 6c696365 6e73653d 47504c00 76657273 license=GPL.vers
+  0x00000010 696f6e3d 312e3000 61736466 3d717765 ion=1.0.asdf=qwe
+  0x00000020 72000000 00000000 73726376 65727369 r.......srcversi
+  0x00000030 6f6e3d41 46334445 38413843 46434445 on=AF3DE8A8CFCDE
+  0x00000040 42364230 30453335 42360000 00000000 B6B00E35B6......
+  0x00000050 64657065 6e64733d 006e616d 653d6d6f depends=.name=mo
+  0x00000060 64756c65 5f696e66 6f007665 726d6167 dule_info.vermag
+  0x00000070 69633d34 2e31372e 3020534d 50206d6f ic=4.17.0 SMP mo
+  0x00000080 645f756e 6c6f6164 206d6f64 76657273 d_unload modvers
+  0x00000090 696f6e73 2000                       ions .
+....
+
+I think a dedicated section is used to allow the Linux kernel and command line tools to easily parse that information from the ELF file as we've done with `readelf`.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/19467150/significance-of-this-module-in-linux-driver/49812248#49812248
+* https://stackoverflow.com/questions/4839024/how-to-find-the-version-of-a-compiled-kernel-module/42556565#42556565
+* https://unix.stackexchange.com/questions/238167/how-to-understand-the-modinfo-output
+
+==== vermagic
+
+Vermagic is a magic string present in the kernel and on <<modinfo>> of kernel modules. It is used to verify that the kernel module was compiled against a compatible kernel version and relevant configuration:
+
+....
+insmod /vermagic.ko
+....
+
+Possible dmesg output:
+
+....
+VERMAGIC_STRING = 4.17.0 SMP mod_unload modversions
+....
+
+Source: link:kernel_module/vermagic.c[]
+
+If we artificially create a mismatch with `MODULE_INFO(vermagic`, the insmod fails with:
+
+....
+insmod: can't insert '/vermagic_fail.ko': invalid module format
+....
+
+and `dmesg` says the expected and found vermagic found:
+
+....
+vermagic_fail: version magic 'asdfqwer' should be '4.17.0 SMP mod_unload modversions '
+....
+
+Source: link:kernel_module/vermagic_fail.c[]
+
+The kernel's vermagic is defined based on compile time configurations at link:https://github.com/torvalds/linux/blob/v4.17/include/linux/vermagic.h#L35[include/linux/vermagic.h]:
+
+....
+#define VERMAGIC_STRING                                                 \
+        UTS_RELEASE " "                                                 \
+        MODULE_VERMAGIC_SMP MODULE_VERMAGIC_PREEMPT                     \
+        MODULE_VERMAGIC_MODULE_UNLOAD MODULE_VERMAGIC_MODVERSIONS       \
+        MODULE_ARCH_VERMAGIC                                            \
+        MODULE_RANDSTRUCT_PLUGIN
+....
+
+The `SMP` part of the string for example is defined on the same file based on the value of `CONFIG_SMP`:
+
+....
+#ifdef CONFIG_SMP
+#define MODULE_VERMAGIC_SMP "SMP "
+#else
+#define MODULE_VERMAGIC_SMP ""
+....
+
+TODO how to get the vermagic from running kernel from userland? https://lists.kernelnewbies.org/pipermail/kernelnewbies/2012-October/006306.html
+
+<<kmod-modprobe>> has a flag to skip the vermagic check:
+
+....
+--force-modversion
+....
+
+This option just strips `modversion` information from the module before loading, so it is not a kernel feature.
+
+==== module_init
+
+`init_module` and `cleantup_module` are an older alternative to the `module_init` and `module_exit` macros:
+
+....
+insmod /init_module.ko
+rmmod init_module
+....
+
+Dmesg output:
+
+....
+init_module
+cleanup_module
+....
+
+Source: link:kernel_module/module_init.c[]
+
+TODO why were `module_init` and `module_exit` created? https://stackoverflow.com/questions/3218320/what-is-the-difference-between-module-init-and-init-module-in-a-linux-kernel-mod
+
 === Kernel panic and oops
 
 To test out kernel panics and oops in controlled circumstances, try out the modules:
@@ -3159,7 +3459,7 @@ Bibliography:
 
 ==== debugfs
 
-In guest:
+Debugfs is the simplest pseudo filesystem to play around with:
 
 ....
 /debugfs.sh
@@ -3177,7 +3477,7 @@ Sources:
 * link:kernel_module/debugfs.c[]
 * link:rootfs_overlay/debugfs.sh[]
 
-Debugfs is the simplest pseudo filesystem to play around with, as it is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
+Debugfs is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
 
 For this reason, it is the filesystem that we use whenever possible in our tests.
 
@@ -3196,7 +3496,7 @@ Bibliography: https://github.com/chadversary/debugfs-tutorial
 
 ==== procfs
 
-In guest:
+Procfs is just another fops entry point:
 
 ....
 /procfs.sh
@@ -3209,18 +3509,20 @@ Outcome: the test passes:
 0
 ....
 
+Procfs is a little less convenient than <<debugfs>>, but is more used in serious applications.
+
+Procfs can run all system calls, including ones that debugfs can't, e.g. <<mmap>>.
+
 Sources:
 
 * link:kernel_module/procfs.c[]
 * link:rootfs_overlay/procfs.sh[]
 
-Just another fops entry point.
-
 Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
 
 ==== sysfs
 
-In guest:
+Sysfs is more restricted than <<procfs>>, as it does not take an arbitrary `file_operations`:
 
 ....
 /sysfs.sh
@@ -3243,9 +3545,7 @@ Vs procfs:
 * https://unix.stackexchange.com/questions/4884/what-is-the-difference-between-procfs-and-sysfs
 * https://stackoverflow.com/questions/37237835/how-to-attach-file-operations-to-sysfs-attribute-in-platform-driver
 
-This example shows how sysfs is more restricted, as it does not take an arbitrary `file_operations`.
-
-So you basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
+You basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
 
 It is similar to a <<seq_file>> file operation, except that write is also implemented.
 
@@ -3263,7 +3563,7 @@ Bibliography:
 
 ==== File operations
 
-In guest:
+File operations are the main method of userland driver communication. `struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>:
 
 ....
 /fops.sh
@@ -3289,15 +3589,11 @@ sh -x /fops.sh
 
 We have put printks on each fop, so this allows you to see which system calls are being made for each command.
 
-File operations is the main method of userland driver communication.
-
-`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
-
 No, there no official documentation: http://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
 
 ==== seq_file
 
-In guest:
+Writing trivial read <<file-operations>> is repetitive and error prone. The `seq_file` API makes the process much easier for those trivial cases:
 
 ....
 /seq_file.sh
@@ -3314,10 +3610,6 @@ Sources:
 
 * link:kernel_module/seq_file.c[]
 * link:rootfs_overlay/seq_file.sh[]
-
-Writing trivial read <<file-operations>> is repetitive and error prone.
-
-The `seq_file` API makes the process much easier for those trivial cases.
 
 In this example we create a debugfs file that behaves just like a file that contains:
 
@@ -3338,7 +3630,7 @@ Bibliography:
 
 ===== seq_file single_open
 
-In guest:
+If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>:
 
 ....
 /seq_file.sh
@@ -3356,8 +3648,6 @@ Sources:
 * link:kernel_module/seq_file_single_open.c[]
 * link:rootfs_overlay/seq_file_single_open.sh[]
 
-If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>.
-
 This example produces a debugfs file that behaves like a file that contains:
 
 ....
@@ -3367,7 +3657,7 @@ cd
 
 ==== poll
 
-In guest:
+The poll system call allows an user process to do a non-busy wait on a kernel event:
 
 ....
 /poll.sh
@@ -3381,8 +3671,6 @@ Sources:
 * link:kernel_module/poll.c[]
 * link:rootfs_overlay/poll.sh[]
 
-The poll system call allows an user process to do a non busy wait on a kernel event.
-
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
 
 The hardware notifies the kernel that the data is ready with an interrupt.
@@ -3393,7 +3681,7 @@ Bibliography: https://stackoverflow.com/questions/30035776/how-to-add-poll-funct
 
 ==== ioctl
 
-In guest:
+The `ioctl` system call is the best way to pass an arbitrary number of parameters to the kernel in a single go:
 
 ....
 /ioctl.sh
@@ -3413,9 +3701,7 @@ Sources:
 * link:kernel_module/user/ioctl.c[]
 * link:rootfs_overlay/ioctl.sh[]
 
-The `ioctl` system call is the best ways to provide an arbitrary number of parameters to the kernel in a single go.
-
-It is therefore one of the most important methods of communication with real device drivers, which often take several fields as input.
+`ioctl` is one of the most important methods of communication with real device drivers, which often take several fields as input.
 
 `ioctl` takes as input:
 
@@ -3444,7 +3730,7 @@ Bibliography:
 
 ==== mmap
 
-In guest:
+The `mmap` system call allows us to share memory between user and kernel space without copying:
 
 ....
 /mmap.sh
@@ -3463,8 +3749,6 @@ Sources:
 * link:kernel_module/user/mmap.c[]
 * link:rootfs_overlay/mmap.sh[]
 
-The `mmap` system call allows us to share memory between user and kernel space without copying.
-
 In this example, we make a tiny 4 byte kernel buffer available to user-space, and we then modify it on userspace, and check that the kernel can see the modification.
 
 `mmap`, like most more complex <<file-operations>>, does not work with <<debugfs>> as of 4.9, so we use a <<procfs>> file for it.
@@ -3482,7 +3766,7 @@ Bibliography:
 
 ==== Character devices
 
-In guest:
+Character devices can have arbitrary <<file-operations>> associated to them:
 
 ....
 /character_device.sh
@@ -3501,7 +3785,7 @@ Sources:
 * link:rootfs_overlay/mknoddev.sh[]
 * link:kernel_module/character_device.c[]
 
-Character device files are created with:
+Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
 
 ....
 mknod </dev/path_to_dev> c <major> <minor>
@@ -3559,7 +3843,7 @@ Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device
 
 ==== Anonymous inode
 
-In guest:
+Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files:
 
 ....
 /anonymous_inode.sh
@@ -3583,8 +3867,6 @@ This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using
 
 Reads to that inode return the sequence: `1`, `10`, `100`, ... `10000000`, `1`, `100`, ...
 
-Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files.
-
 Bibliography: https://stackoverflow.com/questions/4508998/what-is-an-anonymous-inode-in-linux
 
 === Linux kernel asynchronous APIs
@@ -3593,7 +3875,7 @@ In this section we will document asynchronous APIs of Linux kernel, especially k
 
 ==== kthread
 
-In guest:
+Kernel threads are managed exactly like userland threads; they also have a backing `task_struct`, and are scheduled with the same mechanism:
 
 ....
 insmod /kthread.ko
@@ -3622,8 +3904,6 @@ The count stops when we `rmmod`:
 rmmod kthread
 ....
 
-Kernel threads are managed exactly like userland threads. They also have a backing `task_struct`, and are scheduled with the same mechanism.
-
 Bibliography:
 
 * http://stackoverflow.com/questions/10177641/proper-way-of-handling-threads-in-kernel
@@ -3631,7 +3911,7 @@ Bibliography:
 
 ===== kthreads
 
-In guest:
+Let's launch two threads and see if they actually run in parallel:
 
 ....
 insmod /kthreads.ko
@@ -4872,25 +5152,20 @@ As a consequence:
 * it is possible to restore snapshots across boots, since they stay on the same image the entire time
 * it is not possible to use snapshots with <<initrd>> in our setup, since we don't pass `-drive` at all when initrd is enabled
 
-=== Hardware models
+=== Device models
 
-This section documents some interesting peripheral hardware models, specially simpler ones that are fun to learn.
+This section documents:
 
-Studying them can teach you:
+* how to interact with peripheral hardware device models through device drivers
+* how to write your own hardware device models for our emulators, see also: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code
 
-* how to create new hardware models for QEMU. Overview: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code
-* how the Linux kernel interacts with hardware
+For the more complex interfaces, we focus on simplified educational devices, either:
 
-To get started, have a look at the "Hardware device drivers" section under link:kernel_module/README.adoc[], and try to run those modules, and then grep the QEMU source code.
-
-The hardware models can be either:
-
-* present in the QEMU upstream
-* added in on link:https://github.com/cirosantilli/qemu[our fork of QEMU].
-+
-These have been explicitly designed to be educational rather than model real existing hardware.
-+
-But note that upstream <<edu>> device is also purely educational.
+* present in the QEMU upstream:
+** <<edu>>
+* added in link:https://github.com/cirosantilli/qemu[our fork of QEMU]:
+** <<pci_min>>
+** <<platform_device>>
 
 ==== PCI
 
@@ -7899,6 +8174,7 @@ The action seems to be happening at: `hw/arm/virt.c`.
 ** `data/readfile`: see <<m5-readfile>>
 ** `data/9p`: see <<9p>>
 ** `data/gem5/<variant>`: see: <<gem5-build-variants>>
+* `kernel_module`: Buildroot package that contains our kernel modules and userland C tests
 * `out`: gitignored Build outputs. You won't lose data by deleting this folder since everything there can be re-generated, only time.
 ** `out/<arch>`: arch specific outputs
 *** `out/<arch>/buildroot`: standard Buildroot output
@@ -7956,14 +8232,6 @@ We use it for:
 * userland module test scripts that don't need to be compiled.
 +
 C files for example need compilation, and must go through the regular package system, e.g. through link:kernel_module/user[].
-
-:leveloffset: +3
-
-include::kernel_module/README.adoc[]
-
-include::kernel_module/user/README.adoc[]
-
-:leveloffset: -3
 
 === Script man pages
 

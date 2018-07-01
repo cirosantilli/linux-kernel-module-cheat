@@ -4,9 +4,12 @@ for test in \
   /character_device.sh \
   /character_device_create.sh \
   /debugfs.sh \
+  /dep.sh \
   /fops.sh \
+  /init_module.sh \
   /ioctl.sh \
   /mmap.sh \
+  /params.sh \
   /procfs.sh \
   /seq_file.sh \
   /seq_file_single_open.sh \
