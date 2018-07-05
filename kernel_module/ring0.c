@@ -1,13 +1,4 @@
-/*
-This illustrates operations which are only possible in ring 0.
-https://stackoverflow.com/questions/7415515/how-to-access-the-control-registers-cr0-cr2-cr3-from-a-program-getting-segmenta/7419306#7419306
-
-It only works for x86_64.
-
-Then try to run this on userland and see the process be killed:
-
-    /ring0.out
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#ring0 */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

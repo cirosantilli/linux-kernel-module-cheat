@@ -2171,6 +2171,57 @@ We also have one letter shorthand names for the architectures:
 
 Known quirks of the supported architectures are documented in this section.
 
+=== x86_64
+
+==== ring0
+
+This example illustrates how reading from the x86 control registers with `mov crX, rax` can only be done from kernel land on ring0.
+
+From kernel land:
+
+....
+insmod ring0.ko
+....
+
+works and output the registers, for example:
+
+....
+cr0 = 0xFFFF880080050033
+cr2 = 0xFFFFFFFF006A0008
+cr3 = 0xFFFFF0DCDC000
+....
+
+However if we try to do it from userland:
+
+....
+/ring0.out
+....
+
+stdout gives:
+
+....
+Segmentation fault
+....
+
+and dmesg outputs:
+
+....
+traps: ring0.out[55] general protection ip:40054c sp:7fffffffec20 error:0 in ring0.out[400000+1000]
+....
+
+Sources:
+
+* link:kernel_module/ring0.c[]
+* link:kernel_module/ring0.h[]
+* link:kernel_module/user/ring0.c[]
+
+In both cases, we attempt to run the exact same code which is shared on the `ring0.h` header file.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/7415515/how-to-access-the-control-registers-cr0-cr2-cr3-from-a-program-getting-segmenta/7419306#7419306
+* https://stackoverflow.com/questions/18717016/what-are-ring-0-and-ring-3-in-the-context-of-operating-systems/44483439#44483439
+
 === mips64
 
 Keep in mind that MIPS has the worst support compared to our other architectures due to the smaller community. Patches welcome as usual.

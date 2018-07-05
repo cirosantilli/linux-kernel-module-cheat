@@ -1,8 +1,4 @@
-/*
-See ../ring0.c
-
-This executable is expected to segfault.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#ring0 */
 
 #include <stdio.h>
 #include <stdlib.h>
