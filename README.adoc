@@ -4405,25 +4405,37 @@ TODO: can you get function arguments? https://stackoverflow.com/questions/276087
 
 ==== Kprobes
 
+kprobes is an instrumentation mechanism that injects arbitrary code at a given address in a trap instruction, much like GDB. Oh, the good old kernel. :-)
+
 ....
 ./build -C 'CONFIG_KPROBES=y'
-./run -F 'insmod /kprobe_example.ko && sleep 4 & sleep 4 &'
+....
+
+Then on guest:
+
+....
+insmod /kprobe_example.ko
+sleep 4 & sleep 4 &'
+....
+
+Outcome: dmesg outputs on every fork:
+
+....
+<_do_fork> pre_handler: p->addr = 0x00000000e1360063, ip = ffffffff810531d1, flags = 0x246
+<_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
+<_do_fork> pre_handler: p->addr = 0x00000000e1360063, ip = ffffffff810531d1, flags = 0x246
+<_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
 ....
 
 Source: link:kernel_module/kprobe_example.c[]
 
-Outcome: every fork spits out some extra printks of type:
+TODO: it does not work if I try to immediately launch `sleep`, why?
 
 ....
-<6>[    2.011117] <_do_fork> pre_handler: p->addr = 0x00000000e1360063, ip = ffffffff810531d1, flags = 0x246
-<6>[    2.011622] <_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
-<6>[    2.021860] <_do_fork> pre_handler: p->addr = 0x00000000e1360063, ip = ffffffff810531d1, flags = 0x246
-<6>[    2.022331] <_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
+insmod /kprobe_example.ko && sleep 4 & sleep 4 &
 ....
 
 Docs: https://github.com/torvalds/linux/blob/v4.16/Documentation/kprobes.txt
-
-Injects arbitrary code at a given address in a trap instruction, much like GDB. Oh the good old kernel. :-)
 
 I don't think your code can refer to the surrounding kernel code however: the only visible thing is the value of the registers.
 

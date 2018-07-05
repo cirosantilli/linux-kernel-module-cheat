@@ -207,7 +207,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
 			/* RAM -> device. */
 			vaddr_from = dma_alloc_coherent(&(dev->dev), 4, &dma_handle_from, GFP_ATOMIC);
-			dev_info(&(dev->dev), "vaddr_from = %p\n", vaddr_from);
+			dev_info(&(dev->dev), "vaddr_from = %px\n", vaddr_from);
 			dev_info(&(dev->dev), "dma_handle_from = %llx\n", (unsigned long long)dma_handle_from);
 			*((volatile u32*)vaddr_from) = 0x12345678;
 			iowrite32((u32)dma_handle_from, mmio + IO_DMA_SRC);
@@ -217,7 +217,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
 			/* device -> RAM. */
 			vaddr_to = dma_alloc_coherent(&(dev->dev), 4, &dma_handle_to, GFP_ATOMIC);
-			dev_info(&(dev->dev), "vaddr_to = %p\n", vaddr_to);
+			dev_info(&(dev->dev), "vaddr_to = %px\n", vaddr_to);
 			dev_info(&(dev->dev), "dma_handle_to = %llx\n", (unsigned long long)dma_handle_to);
 			/*
 			iowrite32(DMA_BASE, mmio + IO_DMA_SRC);
