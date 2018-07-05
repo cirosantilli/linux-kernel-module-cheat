@@ -1,16 +1,4 @@
-/*
-Also try on QEMU monitor:
-
-	xp 0x<vaddr>
-
-Only works for kmalloc.
-
-static inline phys_addr_t virt_to_phys(volatile void *address)
-
-- https://stackoverflow.com/questions/5748492/is-there-any-api-for-determining-the-physical-address-from-virtual-address-in-li
-- https://stackoverflow.com/questions/43325205/can-we-use-virt-to-phys-for-user-space-memory-in-kernel-module
-- https://stackoverflow.com/questions/39134990/mmap-of-dev-mem-fails-with-invalid-argument-but-address-is-page-aligned
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#virt_to_phys */
 
 #include <asm/io.h> /* virt_to_phys */
 #include <linux/debugfs.h>
@@ -21,26 +9,26 @@ static inline phys_addr_t virt_to_phys(volatile void *address)
 #include <linux/seq_file.h> /* single_open, single_release */
 #include <linux/slab.h> /* kmalloc, kfree */
 
-static volatile u32 *k;
-static volatile u32 i;
+static volatile u32 *kmalloc_ptr;
+static volatile u32 static_var;
 
 static struct dentry *debugfs_file;
 
 static int show(struct seq_file *m, void *v)
 {
 	seq_printf(m,
-		"k 0x%llx\n"
-		"addr_k %p\n"
-		"virt_to_phys_k 0x%llx\n"
-		"i 0x%llx\n"
-		"addr_i %p\n"
-		"virt_to_phys_i 0x%llx\n",
-		(unsigned long long)*k,
-		k,
-		(unsigned long long)virt_to_phys((void *)k),
-		(unsigned long long)i,
-		&i,
-		(unsigned long long)virt_to_phys((void *)&i)
+		"*kmalloc_ptr = 0x%llx\n"
+		"kmalloc_ptr = %px\n"
+		"virt_to_phys(kmalloc_ptr) = 0x%llx\n"
+		"static_var = 0x%llx\n"
+		"&static_var = %px\n"
+		"virt_to_phys(&static_var) = 0x%llx\n",
+		(unsigned long long)*kmalloc_ptr,
+		kmalloc_ptr,
+		(unsigned long long)virt_to_phys((void *)kmalloc_ptr),
+		(unsigned long long)static_var,
+		&static_var,
+		(unsigned long long)virt_to_phys((void *)&static_var)
 	);
 	return 0;
 }
@@ -60,18 +48,17 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
- 	k = kmalloc(sizeof(k), GFP_KERNEL);
- 	*k = 0x12345678;
- 	i = 0x12345678;
-	debugfs_file = debugfs_create_file(
-		"lkmc_virt_to_phys", S_IRUSR, NULL, NULL, &fops);
+	kmalloc_ptr = kmalloc(sizeof(kmalloc_ptr), GFP_KERNEL);
+	*kmalloc_ptr = 0x12345678;
+	static_var = 0x12345678;
+	debugfs_file = debugfs_create_file("lkmc_virt_to_phys", S_IRUSR, NULL, NULL, &fops);
 	return 0;
 }
 
 static void myexit(void)
 {
 	debugfs_remove(debugfs_file);
-	kfree((void *)k);
+	kfree((void *)kmalloc_ptr);
 }
 
 module_init(myinit)
