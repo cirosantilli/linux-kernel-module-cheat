@@ -8,6 +8,7 @@ for test in \
   /fops.sh \
   /init_module.sh \
   /ioctl.sh \
+  /kstrto.sh \
   /mmap.sh \
   /params.sh \
   /procfs.sh \

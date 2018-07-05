@@ -1,7 +1,8 @@
 #!/bin/sh
+set -e
+f=/sys/kernel/debug/lkmc_kstrto
 insmod /kstrto.ko
-cd /sys/kernel/debug
-echo 1234 > lkmc_kstrto
-# 1234
-echo foobar > lkmc_kstrto
-# -22
+printf 123 > "$f"
+[ "$(cat "$f")" = 124 ]
+echo foobar > "$f" && exit 1
+rmmod kstrto
