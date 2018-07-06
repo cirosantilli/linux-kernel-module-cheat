@@ -1,3 +1,8 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kprobes
+ *
+ * Adapted from: https://github.com/torvalds/linux/blob/v4.17/samples/kprobes/kprobe_example.c
+ */
+
 /*
  * NOTE: This example is works on x86 and powerpc.
  * Here's a sample kernel module showing the use of kprobes to dump a

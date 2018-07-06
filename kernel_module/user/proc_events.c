@@ -1,8 +1,7 @@
-/*
-This file is licensed under the GPL v2 (http://www.gnu.org/licenses/gpl2.txt) (some parts was originally borrowed from proc events example)
-
-https://stackoverflow.com/questions/6075013/detect-launching-of-programs-on-linux-platform/8255487#8255487
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#config_proc_events
+ *
+ * Adapted from: https://stackoverflow.com/questions/6075013/detect-launching-of-programs-on-linux-platform/8255487#8255487
+ */
 
 #if defined(__aarch64__)
 

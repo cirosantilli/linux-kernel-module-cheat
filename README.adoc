@@ -4473,13 +4473,16 @@ TODO: it does not work if I try to immediately launch `sleep`, why?
 insmod /kprobe_example.ko && sleep 4 & sleep 4 &
 ....
 
-Docs: https://github.com/torvalds/linux/blob/v4.16/Documentation/kprobes.txt
-
 I don't think your code can refer to the surrounding kernel code however: the only visible thing is the value of the registers.
 
 You can then hack it up to read the stack and read argument values, but do you really want to?
 
 There is also a kprobes + ftrace based mechanism with `CONFIG_KPROBE_EVENTS=y` which does read the memory for us based on format strings that indicate type... https://github.com/torvalds/linux/blob/v4.16/Documentation/trace/kprobetrace.txt Horrendous. Used by: https://github.com/brendangregg/perf-tools/blob/98d42a2a1493d2d1c651a5c396e015d4f082eb20/execsnoop
+
+Bibliography:
+
+* https://github.com/torvalds/linux/blob/v4.16/Documentation/kprobes.txt
+* https://github.com/torvalds/linux/blob/v4.17/samples/kprobes/kprobe_example.c
 
 ==== Count boot instructions
 
@@ -4594,6 +4597,37 @@ I have observed a single match for that instruction, so it must be the init, and
 +
 `CONFIG_NET=n` did not significantly reduce instruction counts, so maybe replacing `init` is enough.
 * gem5 simulates memory latencies. So I think that the CPU loops idle while waiting for memory, and counts will be higher.
+
+=== Linux kernel hardening
+
+Make it harder to get hacked and easier to notice that you were, at the cost of some (small?) runtime overhead.
+
+==== CONFIG_FORTIFY_SOURCE
+
+Detects buffer overflows for us:
+
+....
+./build -C 'CONFIG_FORTIFY_SOURCE=y' -L fortify
+./run -F 'insmod /strlen_overflow.ko' -L fortify
+....
+
+Possible dmesg output:
+
+....
+strlen_overflow: loading out-of-tree module taints kernel.
+detected buffer overflow in strlen
+------------[ cut here ]------------
+....
+
+followed by a trace.
+
+You may not get this error because this depends on `strlen` overflowing at least until the next page: if a random `\0` appears soon enough, it won't blow up as desired.
+
+I did observe this at link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/1b451a70d46a5c4619992ad4dd2e4b8f5a84c252[1b451a70d46a5c4619992ad4dd2e4b8f5a84c252] but not at link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/9b4c1984fc2cb04de0b4d62749cc1f8eabf26c6f[9b4c1984fc2cb04de0b4d62749cc1f8eabf26c6f] TODO: find a more reproducible failure.
+
+Source: link:kernel_module/strlen_overflow.c[]
+
+Bibliography: https://www.reddit.com/r/hacking/comments/8h4qxk/what_a_buffer_overflow_in_the_linux_kernel_looks/
 
 === User mode Linux
 
@@ -5337,7 +5371,7 @@ This section documents:
 For the more complex interfaces, we focus on simplified educational devices, either:
 
 * present in the QEMU upstream:
-** <<edu>>
+** <<qemu-edu>>
 * added in link:https://github.com/cirosantilli/qemu[our fork of QEMU]:
 ** <<pci_min>>
 ** <<platform_device>>
@@ -5386,22 +5420,22 @@ Works because we add to our default QEMU CLI:
 
 Probe already does a MMIO write, which generates an IRQ and tests everything.
 
-[[edu]]
+[[qemu-edu]]
 ===== QEMU edu PCI device
 
 Small upstream educational PCI device:
 
 ....
-/pci.sh
+/qemu_edu.sh
 ....
 
 This tests a lot of features of the edu device, to understand the results, compare the inputs with the documentation of the hardware: https://github.com/qemu/qemu/blob/v2.12.0/docs/specs/edu.txt
 
 Sources:
 
-* kernel module: link:kernel_module/pci.c[]
+* kernel module: link:kernel_module/qemu_edu.c[]
 * QEMU device: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
-* test script: link:rootfs_overlay/pci.sh[]
+* test script: link:rootfs_overlay/qemu_edu.sh[]
 
 Works because we add to our default QEMU CLI:
 
@@ -6164,7 +6198,7 @@ c
 And in QEMU:
 
 ....
-/pci.sh
+/qemu_edu.sh
 ....
 
 When in <<graphic-mode,non graphic mode>>, using `-D` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest progra like:
@@ -7440,6 +7474,8 @@ Lets try to understand some stats better.
 
 ==== rdtsc
 
+link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 instruction] that returns the cycle count since reset:
+
 ....
 ./build -kg && ./run -E '/rdtsc.out;m5 exit;' -g
 ./gem5-stat
@@ -7463,7 +7499,7 @@ See also:
 
 ===== pmccntr
 
-Unfortunately-we didn't manage to find an ARM analogue: link:kernel_module/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_module/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
 
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
@@ -8349,7 +8385,7 @@ The action seems to be happening at: `hw/arm/virt.c`.
 ** `data/readfile`: see <<m5-readfile>>
 ** `data/9p`: see <<9p>>
 ** `data/gem5/<variant>`: see: <<gem5-build-variants>>
-* `kernel_module`: Buildroot package that contains our kernel modules and userland C tests
+* link:kernel_module[]: Buildroot package that contains our kernel modules and userland C tests
 * `out`: gitignored Build outputs. You won't lose data by deleting this folder since everything there can be re-generated, only time.
 ** `out/<arch>`: arch specific outputs
 *** `out/<arch>/buildroot`: standard Buildroot output

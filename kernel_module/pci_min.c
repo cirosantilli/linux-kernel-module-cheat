@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#pci_min */
+
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/init.h>

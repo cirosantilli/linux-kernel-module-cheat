@@ -1,6 +1,4 @@
-/*
-https://www.reddit.com/r/hacking/comments/8h4qxk/what_a_buffer_overflow_in_the_linux_kernel_looks/
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#config_fortify_source */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -8,6 +6,7 @@ https://www.reddit.com/r/hacking/comments/8h4qxk/what_a_buffer_overflow_in_the_l
 
 static int myinit(void)
 {
+	/* Missing terminaing NUL '\0'. */
 	char buf[] = {'p', 'w', 'n'};
 	pr_info("%llu\n", (long long unsigned)strlen(buf));
 	return 0;
