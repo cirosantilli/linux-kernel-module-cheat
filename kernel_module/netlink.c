@@ -1,46 +1,34 @@
-/*
-https://en.wikipedia.org/wiki/Netlink
-
-https://stackoverflow.com/questions/3299386/how-to-use-netlink-socket-to-communicate-with-a-kernel-module
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets */
 
 #include <linux/delay.h> /* usleep_range */
-#include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/netlink.h>
 #include <linux/skbuff.h>
 #include <net/sock.h>
 
-/* Socket identifier, matches userland. TODO can be anything?
- * Is there a more scalable way to do it? E.g. ioctl device,
- * kernel generates one on the fly, then give it back and connect?
- * https://stackoverflow.com/questions/32898173/can-i-have-more-than-32-netlink-sockets-in-kernelspace */
-#define NETLINK_USER 31
+#include "netlink.h"
 
 struct sock *nl_sk = NULL;
 
+static u32 count;
+static u32 sleep;
+module_param(sleep, int, S_IRUSR | S_IWUSR);
+
 static void callback(struct sk_buff *skb)
 {
-	char readbuf[1024];
+	char readbuf[9];
 	size_t readbuflen;
     int pid;
     int res;
     struct nlmsghdr *nlh;
     struct sk_buff *skb_out;
 
-	/* Read user message. */
     nlh = (struct nlmsghdr *)skb->data;
     pr_info("kernel received: %s\n", (char *)nlmsg_data(nlh));
-
-	/* Add an artificial sleep to see what happens when
-	 * multiple requests come in at the same time.
-	 *
-	 * Try this out (it works):
-	 * for i in `seq 16`; do /netlink.out & done */
-	usleep_range(1000000, 1000001);
-
-	/* Reply with jiffies. */
-	readbuflen = snprintf(readbuf, sizeof(readbuf), "%llu", (unsigned long long)jiffies);
+	if (sleep)
+		usleep_range(1000000, 1000001);
+	readbuflen = snprintf(readbuf, sizeof(readbuf), "%x", count);
+    count++;
     pid = nlh->nlmsg_pid;
     skb_out = nlmsg_new(readbuflen, 0);
     if (!skb_out) {

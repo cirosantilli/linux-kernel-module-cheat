@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets */
+
 #include <linux/netlink.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,8 +7,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../netlink.h"
+
 #define MAX_PAYLOAD 1024
-#define NETLINK_USER 31
 
 /* Some of these structs fields must be zeroed.
  * We could brute force memset them, but
@@ -40,10 +43,10 @@ int main()
 	msg.msg_namelen = sizeof(dest_addr);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
-	printf("before sendmsg\n");
+	fprintf(stderr, "before sendmsg\n");
 	sendmsg(sock_fd, &msg, 0);
-	printf("after sendmsg\n");
+	fprintf(stderr, "after sendmsg\n");
 	recvmsg(sock_fd, &msg, 0);
-	printf("userland received: %s\n", (char *)NLMSG_DATA(nlh));
+	printf("%s\n", (char *)NLMSG_DATA(nlh));
 	close(sock_fd);
 }

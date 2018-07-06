@@ -10,6 +10,7 @@ for test in \
   /ioctl.sh \
   /kstrto.sh \
   /mmap.sh \
+  /netlink.sh \
   /params.sh \
   /procfs.sh \
   /seq_file.sh \
