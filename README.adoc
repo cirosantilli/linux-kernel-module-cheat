@@ -3610,6 +3610,84 @@ Bibliography:
 * http://www.makelinux.net/ldd3/chp-14-sect-1
 * https://www.win.tue.nl/~aeb/linux/lk/lk-13.html
 
+==== Character devices
+
+Character devices can have arbitrary <<file-operations>> associated to them:
+
+....
+/character_device.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:rootfs_overlay/character_device.sh[]
+* link:rootfs_overlay/mknoddev.sh[]
+* link:kernel_module/character_device.c[]
+
+Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
+
+....
+mknod </dev/path_to_dev> c <major> <minor>
+....
+
+Intuitively, for physical devices like keyboards, the major number maps to which driver, and the minor number maps to which device it is.
+
+A single driver can drive multiple compatible devices.
+
+The major and minor numbers can be observed with:
+
+....
+ls -l /dev/urandom
+....
+
+Output:
+
+....
+crw-rw-rw-    1 root     root        1,   9 Jun 29 05:45 /dev/urandom
+....
+
+which means:
+
+* `c` (first letter): this is a character device. Would be `b` for a block device.
+* `1,   9`: the major number is `1`, and the minor `9`
+
+To avoid device number conflicts when registering the driver we:
+
+* ask the kernel to allocate a free major number for us with: `register_chrdev(0`
+* find ouf which number was assigned by grepping `/proc/devices` for the kernel module name
+
+Bibliography: https://unix.stackexchange.com/questions/37829/understanding-character-device-or-character-special-files/371758#371758
+
+===== Automatically create character device file on insmod
+
+And also destroy it on `rmmod`:
+
+....
+/character_device_create.sh
+echo $?
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Sources:
+
+* link:kernel_module/character_device_create.c[]
+* link:rootfs_overlay/character_device_create.sh[]
+
+Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
+
+
 === Pseudo files
 
 ==== File operations
@@ -3814,83 +3892,6 @@ Bibliography:
 * https://github.com/jeremytrimble/ezdma
 * https://github.com/simonjhall/dma
 * https://github.com/ikwzm/udmabuf
-
-==== Character devices
-
-Character devices can have arbitrary <<file-operations>> associated to them:
-
-....
-/character_device.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:rootfs_overlay/character_device.sh[]
-* link:rootfs_overlay/mknoddev.sh[]
-* link:kernel_module/character_device.c[]
-
-Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
-
-....
-mknod </dev/path_to_dev> c <major> <minor>
-....
-
-Intuitively, for physical devices like keyboards, the major number maps to which driver, and the minor number maps to which device it is.
-
-A single driver can drive multiple compatible devices.
-
-The major and minor numbers can be observed with:
-
-....
-ls -l /dev/urandom
-....
-
-Output:
-
-....
-crw-rw-rw-    1 root     root        1,   9 Jun 29 05:45 /dev/urandom
-....
-
-which means:
-
-* `c` (first letter): this is a character device. Would be `b` for a block device.
-* `1,   9`: the major number is `1`, and the minor `9`
-
-To avoid device number conflicts when registering the driver we:
-
-* ask the kernel to allocate a free major number for us with: `register_chrdev(0`
-* find ouf which number was assigned by grepping `/proc/devices` for the kernel module name
-
-Bibliography: https://unix.stackexchange.com/questions/37829/understanding-character-device-or-character-special-files/371758#371758
-
-===== Automatically create character device file on insmod
-
-And also destroy it on `rmmod`:
-
-....
-/character_device_create.sh
-echo $?
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Sources:
-
-* link:kernel_module/character_device_create.c[]
-* link:rootfs_overlay/character_device_create.sh[]
-
-Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
 
 ==== Anonymous inode
 
