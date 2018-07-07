@@ -4032,6 +4032,41 @@ Possible very likely outcome:
 
 The threads almost always interleaved nicely, thus confirming that they are actually running in parallel.
 
+===== schedule
+
+Let's block the entire kernel! Yay:
+
+.....
+./run -F 'dmesg -n 1;insmod /schedule.ko schedule=0'
+.....
+
+Outcome: the system hangs, the only way out is to kill the VM.
+
+Source: link:kernel_module/schedule.c[]
+
+kthreads only allow interrupting if you call `schedule()`, and the `schedule=0` <<kernel-module-parameters,kernel module parameter>> turns it off.
+
+Sleep functions like `usleep_range` also end up calling schedule.
+
+If we allow `schedule()` to be called, then the system becomes responsive:
+
+.....
+./run -F 'dmesg -n 1;insmod /schedule.ko schedule=1'
+.....
+
+
+and we can observe the counting with:
+
+....
+dmesg -w
+....
+
+The system also responds if we <<number-of-cores,add another core>>:
+
+....
+./run -c 2 -F 'dmesg -n 1;insmod /schedule.ko schedule=0'
+....
+
 === IRQ
 
 ==== irq.ko

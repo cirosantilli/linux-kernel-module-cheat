@@ -1,34 +1,12 @@
-/*
-Let's block the entire kernel! Yay!
-
-kthreads only allow interrupting if you call schedule.
-
-If you don't, they just run forever, and you have to kill the VM.
-
-Sleep functions like usleep_range also end up calling schedule.
-
-Test with:
-
-	dmesg -n 1
-	insmod /schedule.ko yn=[01]
-	dmesg | tail
-
-Then:
-
-- 	yn=0:
-	- `qemu -smp 1`: everything blocks!
-	- `qemu -smp 2`: you can still use the board, but is it noticeably slow
-- 	yn=1: all good
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#schedule */
 
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <uapi/linux/stat.h> /* S_IRUSR | S_IWUSR */
 
-static int yn = 1;
-module_param(yn, int,  S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(yn, "A short integer");
+static int do_schedule = 1;
+module_param_named(schedule, do_schedule, int,  S_IRUSR | S_IWUSR);
 
 static struct task_struct *kthread;
 
@@ -38,7 +16,7 @@ static int work_func(void *data)
 	while (!kthread_should_stop()) {
 		pr_info("%u\n", i);
 		i++;
-		if (yn)
+		if (do_schedule)
 			schedule();
 	}
 	return 0;
