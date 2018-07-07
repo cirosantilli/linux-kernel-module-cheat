@@ -1,12 +1,10 @@
-/*
-Declare more work from a workqueue.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#workqueue-from-workqueue */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/workqueue.h>
 
-static int i = 0;
+static int i;
 static struct workqueue_struct *queue;
 
 static void work_func(struct work_struct *work);
@@ -18,6 +16,8 @@ static void work_func(struct work_struct *work)
 {
 	pr_info("%d\n", i);
 	i++;
+	if (i == 10)
+		i = 0;
 	queue_delayed_work(queue, &next_work, HZ);
 }
 

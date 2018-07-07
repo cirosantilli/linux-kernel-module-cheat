@@ -1440,7 +1440,7 @@ does not give any interesting hits at `cc`, no symbol was placed that far.
 
 ==== GDB module_init
 
-TODO find a convenient method. We have working methods, but they are not convenient.
+TODO find a more convenient method. We have working methods, but they are not ideal.
 
 This is not very easy, since by the time the module finishes loading, and `lx-symbols` can work properly, `module_init` has already finished running!
 
@@ -3993,6 +3993,8 @@ The count stops when we `rmmod`:
 rmmod kthread
 ....
 
+The sleep is done with `usleep_range`, see: <<sleep>>.
+
 Bibliography:
 
 * http://stackoverflow.com/questions/10177641/proper-way-of-handling-threads-in-kernel
@@ -4031,6 +4033,65 @@ Possible very likely outcome:
 ....
 
 The threads almost always interleaved nicely, thus confirming that they are actually running in parallel.
+
+===== sleep
+
+Count to dmesg every one second from `0` up to `n - 1`:
+
+....
+insmod /sleep.ko n=5
+....
+
+Source: link:kernel_module/sleep.c[]
+
+The sleep is done with a call to `usleep_range` directly inside `module_init` for simplicity.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/15994603/how-to-sleep-in-the-linux-kernel/44153288#44153288
+* https://github.com/torvalds/linux/blob/v4.17/Documentation/timers/timers-howto.txt
+
+===== Workqueue
+
+A more convenient front-end for <<kthread>>:
+
+....
+insmod /workqueue_cheat.ko
+....
+
+Outcome: count from `0` to `9` infinitely many times
+
+Stop counting:
+
+....
+rmmod workqueue_cheat
+....
+
+Source: link:kernel_module/workqueue_cheat.c[]
+
+The workqueue thread is killed after the worker function returns.
+
+We can't call the module just `workqueue.c` because there is already a built-in with that name: https://unix.stackexchange.com/questions/364956/how-can-insmod-fail-with-kernel-module-is-already-loaded-even-is-lsmod-does-not
+
+Bibliography: https://github.com/torvalds/linux/blob/v4.17/Documentation/core-api/workqueue.rst
+
+===== Workqueue from workqueue
+
+Count from `0` to `9` every second infinitely many times by scheduling a new work item from a work item:
+
+....
+insmod /work_from_work.ko
+....
+
+Stop:
+
+....
+rmmod work_from_work
+....
+
+The sleep is done indirectly through: `queue_delayed_work`, which waits the specified time before scheduling the work.
+
+Source: link:kernel_module/work_from_work.c[]
 
 ===== schedule
 
