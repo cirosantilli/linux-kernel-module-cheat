@@ -1,22 +1,11 @@
-/*
-Print the jiffies every second.
-
-Timers are callbacks that run when an interrupt happens, from the interrupt context itself.
-
-Therefore they produce more accurate timing than thread scheduling, which is more complex,
-but you can't do too much work inside of them.
-
-See also:
-
-- http://stackoverflow.com/questions/10812858/timers-in-linux-device-drivers
-- https://gist.github.com/yagihiro/310149
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#timers */
 
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/timer.h>
 
+static int i;
 /* We would normally mark this as static and give it a more generic name.
  * But let's do it like this this time for the sake of our GDB kernel module step debugging example. */
 void lkmc_timer_callback(struct timer_list *data);
@@ -26,7 +15,10 @@ DEFINE_TIMER(mytimer, lkmc_timer_callback);
 
 void lkmc_timer_callback(struct timer_list *data)
 {
-	pr_info("%u\n", (unsigned)jiffies);
+	pr_info("%d\n", i);
+	i++;
+	if (i == 10)
+		i = 0;
 	mod_timer(&mytimer, jiffies + onesec);
 }
 

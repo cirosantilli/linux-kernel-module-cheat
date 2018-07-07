@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#workqueue */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#workqueues */
 
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>

@@ -3958,11 +3958,7 @@ Bibliography:
 * https://stackoverflow.com/questions/3299386/how-to-use-netlink-socket-to-communicate-with-a-kernel-module
 * https://en.wikipedia.org/wiki/Netlink
 
-=== Linux kernel asynchronous APIs
-
-In this section we will document asynchronous APIs of Linux kernel, especially kthread-related scheduled events.
-
-==== kthread
+=== kthread
 
 Kernel threads are managed exactly like userland threads; they also have a backing `task_struct`, and are scheduled with the same mechanism:
 
@@ -4000,7 +3996,7 @@ Bibliography:
 * http://stackoverflow.com/questions/10177641/proper-way-of-handling-threads-in-kernel
 * http://stackoverflow.com/questions/4084708/how-to-wait-for-a-linux-kernel-thread-kthreadto-exit
 
-===== kthreads
+==== kthreads
 
 Let's launch two threads and see if they actually run in parallel:
 
@@ -4034,7 +4030,7 @@ Possible very likely outcome:
 
 The threads almost always interleaved nicely, thus confirming that they are actually running in parallel.
 
-===== sleep
+==== sleep
 
 Count to dmesg every one second from `0` up to `n - 1`:
 
@@ -4044,14 +4040,14 @@ insmod /sleep.ko n=5
 
 Source: link:kernel_module/sleep.c[]
 
-The sleep is done with a call to `usleep_range` directly inside `module_init` for simplicity.
+The sleep is done with a call to link:https://github.com/torvalds/linux/blob/v4.17/kernel/time/timer.c#L1984[`usleep_range`] directly inside `module_init` for simplicity.
 
 Bibliography:
 
 * https://stackoverflow.com/questions/15994603/how-to-sleep-in-the-linux-kernel/44153288#44153288
 * https://github.com/torvalds/linux/blob/v4.17/Documentation/timers/timers-howto.txt
 
-===== Workqueue
+==== Workqueues
 
 A more convenient front-end for <<kthread>>:
 
@@ -4089,11 +4085,11 @@ Stop:
 rmmod work_from_work
 ....
 
-The sleep is done indirectly through: `queue_delayed_work`, which waits the specified time before scheduling the work.
+The sleep is done indirectly through: link:https://github.com/torvalds/linux/blob/v4.17/include/linux/workqueue.h#L522[`queue_delayed_work`], which waits the specified time before scheduling the work.
 
 Source: link:kernel_module/work_from_work.c[]
 
-===== schedule
+==== schedule
 
 Let's block the entire kernel! Yay:
 
@@ -4127,6 +4123,31 @@ The system also responds if we <<number-of-cores,add another core>>:
 ....
 ./run -c 2 -F 'dmesg -n 1;insmod /schedule.ko schedule=0'
 ....
+
+=== Timers
+
+Count from `0` to `9` infinitely many times in 1 second intervals using timers:
+
+....
+insmod /timer.ko
+....
+
+Stop counting:
+
+....
+rmmod timer
+....
+
+Source: link:kernel_module/timer.c[]
+
+Timers are callbacks that run when an interrupt happens, from the interrupt context itself.
+
+Therefore they produce more accurate timing than thread scheduling, which is more complex, but you can't do too much work inside of them.
+
+Bibliography:
+
+* http://stackoverflow.com/questions/10812858/timers-in-linux-device-drivers
+* https://gist.github.com/yagihiro/310149
 
 === IRQ
 
