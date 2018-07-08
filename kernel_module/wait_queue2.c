@@ -1,6 +1,4 @@
-/*
-Two threads waiting on a single event.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#wait-queues */
 
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>
@@ -29,7 +27,7 @@ static int kthread_wake_func(void *data)
 	return 0;
 }
 
-static int kthread_sleep1_func(void *data)
+static int kthread_sleep_func_1(void *data)
 {
 	unsigned int i = 0;
 	while (!kthread_should_stop()) {
@@ -42,7 +40,7 @@ static int kthread_sleep1_func(void *data)
 	return 0;
 }
 
-static int kthread_sleep2_func(void *data)
+static int kthread_sleep_func_2(void *data)
 {
 	unsigned int i = 0;
 	while (!kthread_should_stop()) {
@@ -59,8 +57,8 @@ int init_module(void)
 {
 	init_waitqueue_head(&queue);
 	kthread_wake = kthread_create(kthread_wake_func, NULL, "wake");
-	kthread_sleep1 = kthread_create(kthread_sleep1_func, NULL, "sleep1");
-	kthread_sleep2 = kthread_create(kthread_sleep2_func, NULL, "sleep2");
+	kthread_sleep1 = kthread_create(kthread_sleep_func_1, NULL, "sleep1");
+	kthread_sleep2 = kthread_create(kthread_sleep_func_2, NULL, "sleep2");
 	wake_up_process(kthread_wake);
 	wake_up_process(kthread_sleep1);
 	wake_up_process(kthread_sleep2);

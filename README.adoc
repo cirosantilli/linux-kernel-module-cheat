@@ -4124,6 +4124,51 @@ The system also responds if we <<number-of-cores,add another core>>:
 ./run -c 2 -F 'dmesg -n 1;insmod /schedule.ko schedule=0'
 ....
 
+==== Wait queues
+
+Wait queues are a way to make a thread sleep until an event happens on the queue:
+
+....
+insmod /wait_queue.c
+....
+
+Dmesg output:
+
+....
+0 0
+1 0
+2 0
+# Wait one second.
+0 1
+1 1
+2 1
+# Wait one second.
+0 2
+1 2
+2 2
+...
+....
+
+Stop the count:
+
+....
+rmmod wait_queue
+....
+
+Source: link:kernel_module/wait_queue.c[]
+
+This example launches three threads:
+
+* one thread generates events every with link:https://github.com/torvalds/linux/blob/v4.17/include/linux/wait.h#L195[`wake_up`]
+* the other two threads wait for that with link:https://github.com/torvalds/linux/blob/v4.17/include/linux/wait.h#L286[`wait_event`], and print a dmesg when it happens.
++
+The `wait_event` macro works a bit like:
++
+....
+while (!cond)
+    sleep_until_event
+....
+
 === Timers
 
 Count from `0` to `9` infinitely many times in 1 second intervals using timers:
