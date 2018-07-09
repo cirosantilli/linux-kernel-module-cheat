@@ -1,10 +1,4 @@
-/* Check if we were able to remove certain sources of randomness
- * across boots using different techniques:
- *
- * - QEMU icount record replay
- * - norandmaps boot parameter
- *
- * You might want to run this as the init process to further remove undeterminism. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#rand_check-out */
 
 #include <inttypes.h>
 #include <signal.h>

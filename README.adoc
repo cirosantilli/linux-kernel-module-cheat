@@ -1021,6 +1021,23 @@ core_param(panic, panic_timeout, int, 0644);
  */
 ....
 
+==== norandmaps
+
+Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
+
+....
+./run -F '/rand_check.out;/poweroff.out'
+./run -F '/rand_check.out;/poweroff.out'
+....
+
+If we remove it from our link:run[] script by hacking it up, the addresses shown by `rand_check.out` vary across boots.
+
+Equivalent to:
+
+....
+echo 0 > /proc/sys/kernel/randomize_va_space
+....
+
 === insmod alternatives
 
 ==== modprobe
@@ -6509,6 +6526,10 @@ Unfortunately it is not working in the current QEMU: https://stackoverflow.com/q
 
 Patches were merged in post v2.12.0-rc2 but it crashed for me and I opened a minimized bug report: https://bugs.launchpad.net/qemu/+bug/1762179
 
+We don't expose record and replay on our scripts yet since it was was not very stable, but we will do so when it stabilizes.
+
+<<rand_check-out>> is a good way to test out if record and replay is actually deterministic.
+
 Alternatively, https://github.com/mozilla/rr[`mozilla/rr`] claims it is able to run QEMU: but using it would require you to step through QEMU code itself. Likely doable, but do you really want to?
 
 ==== QEMU trace multicore
@@ -8749,7 +8770,7 @@ Then proceed to do the following tests:
 * `/count.sh` and `b __x64_sys_write`
 * `insmod /timer.ko` and `b lkmc_timer_callback`
 
-===== Sanity checks
+==== Sanity checks
 
 Basic C and C++ hello worlds:
 
@@ -8769,6 +8790,21 @@ Sources:
 
 * link:kernel_module/user/hello.c[]
 * link:kernel_module/user/hello_cpp.c[]
+
+===== rand_check.out
+
+Print out several parameters that normally change randomly from boot to boot:
+
+....
+./run -F '/rand_check.out;/poweroff.out'
+....
+
+Source: link:kernel_module/user/rand_check.c[]
+
+This can be used to check the determinism of:
+
+* <<norandmaps>>
+* <<qemu-record-and-replay>>
 
 === About
 
