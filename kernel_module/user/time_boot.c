@@ -1,4 +1,4 @@
-/* https://stackoverflow.com/questions/12683169/measure-time-taken-for-linux-kernel-from-bootup-to-userpace/46517014#46517014 */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#time_boot-out */
 
 #include <stdio.h>
 #include <unistd.h>
