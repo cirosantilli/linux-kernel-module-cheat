@@ -1,4 +1,6 @@
-/* Adapted from: https://eigen.tuxfamily.org/dox/GettingStarted.html */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#eigen
+ * Adapted from: https://eigen.tuxfamily.org/dox/GettingStarted.html
+ */
 #include <iostream>
 #include <Eigen/Dense>
 int main() {

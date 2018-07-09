@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#anonymous-inode */
+
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>

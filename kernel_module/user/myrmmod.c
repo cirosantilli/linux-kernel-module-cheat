@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#myinsmod */
+
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <stdio.h>

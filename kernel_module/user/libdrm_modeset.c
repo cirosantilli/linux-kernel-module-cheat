@@ -1,4 +1,5 @@
-/* Adapted from: https://github.com/dvdhrm/docs/blob/fad7c3203b14e67053e0fc41d8490138b8ff47dd/drm-howto/modeset.c */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#drm
+ * Adapted from: https://github.com/dvdhrm/docs/blob/fad7c3203b14e67053e0fc41d8490138b8ff47dd/drm-howto/modeset.c */
 
 /*
  * modeset - DRM Modesetting Example

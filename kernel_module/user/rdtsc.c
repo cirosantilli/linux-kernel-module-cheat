@@ -1,9 +1,4 @@
-/*
-Only works in x86_64.
-
-- https://en.wikipedia.org/wiki/Time_Stamp_Counter
-- https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#rdtsc */
 
 #include <stdint.h>
 #include <stdio.h>

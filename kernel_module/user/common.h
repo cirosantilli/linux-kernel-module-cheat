@@ -3,13 +3,17 @@
 
 #define _XOPEN_SOURCE 700
 #include <fcntl.h> /* open */
+#include <math.h> /* fabs */
 #include <stdint.h> /* uint64_t  */
 #include <stdlib.h> /* size_t */
+#include <stdio.h> /* snprintf */
+#include <sys/types.h>
 #include <unistd.h> /* pread, sysconf */
+#include <stdbool.h>
 
 /* Format documented at:
  * https://github.com/torvalds/linux/blob/v4.9/Documentation/vm/pagemap.txt
- **/
+ */
 typedef struct {
 	uint64_t pfn : 54;
 	unsigned int soft_dirty : 1;
@@ -33,8 +37,12 @@ int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
 
 	nread = 0;
 	while (nread < sizeof(data)) {
-		ret = pread(pagemap_fd, &data, sizeof(data),
-				(vaddr / sysconf(_SC_PAGE_SIZE)) * sizeof(data) + nread);
+		ret = pread(
+			pagemap_fd,
+			&data,
+			sizeof(data),
+			(vaddr / sysconf(_SC_PAGE_SIZE)) * sizeof(data) + nread
+		);
 		nread += ret;
 		if (ret <= 0) {
 			return 1;
@@ -72,6 +80,20 @@ int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr)
 	close(pagemap_fd);
 	*paddr = (entry.pfn * sysconf(_SC_PAGE_SIZE)) + (vaddr % sysconf(_SC_PAGE_SIZE));
 	return 0;
+}
+
+bool common_vector_equal(size_t n, double * v1, double * v2, double max_err)
+{
+	double sum = 0.0;
+	double diff;
+	size_t i;
+	for (i = 0; i < n; ++i) {
+		diff = v1[i] - v2[i];
+		sum += diff * diff;
+	}
+	if (sqrt(sum)/n > max_err)
+		return false;
+	return true;
 }
 
 #endif

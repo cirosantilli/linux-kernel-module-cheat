@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#m5ops-instructions */
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
