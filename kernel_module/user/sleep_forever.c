@@ -1,4 +1,4 @@
-/* Sleeping beauty, your prince is called Ctrl + C. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#sleep_forever-out */
 
 #include <stdio.h>
 #include <unistd.h>

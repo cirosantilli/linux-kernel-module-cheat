@@ -1,6 +1,4 @@
-/* Userspace is for the weak. Die.
- * https://stackoverflow.com/questions/28812514/how-to-shutdown-linux-using-c-or-qt-without-call-to-system
- **/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#poweroff-out */
 
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
