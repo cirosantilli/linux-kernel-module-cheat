@@ -1,32 +1,4 @@
-/*
-TODO get working. Currently I don't understand the behaviour.
-
-TODO how to ACK interrupts? How to ensure that every interrupt gets handled separately?
-
-TODO write to registers. Currently using /dev/mem and lspci.
-
-Handle interrupts from userland and print a message to stdout.
-
-- Userland driver
-- https://stackoverflow.com/questions/15286772/userspace-vs-kernel-space-driver
-- https://01.org/linuxgraphics/gfx-docs/drm/driver-api/uio-howto.html
-- https://stackoverflow.com/questions/7986260/linux-interrupt-handling-in-user-space
-- https://yurovsky.github.io/2014/10/10/linux-uio-gpio-interrupt/
-- https://github.com/bmartini/zynq-axis/blob/65a3a448fda1f0ea4977adfba899eb487201853d/dev/axis.c
-- https://yurovsky.github.io/2014/10/10/linux-uio-gpio-interrupt/
-- http://nairobi-embedded.org/uio_example.html that website has QEMU examples for everything as usual. The example has a kernel-side which creates the memory mappings and is used by the user.
-- https://stackoverflow.com/questions/49309162/interfacing-with-qemu-edu-device-via-userspace-i-o-uio-linux-driver
-
-Userland driver stability questions:
-
-- https://stackoverflow.com/questions/8030758/getting-kernel-version-from-linux-kernel-module-at-runtime/45430233#45430233
-- https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681
-- https://liquidat.wordpress.com/2007/07/21/linux-kernel-2623-to-have-stable-userspace-driver-api/
-
-VFIO looks like the newer UIO replacement, but there are no examples out there anywhere:
-
-- https://stackoverflow.com/questions/49309162/interfacing-with-qemu-edu-device-via-userspace-i-o-uio-linux-driver
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#uio */
 
 #if 1
 

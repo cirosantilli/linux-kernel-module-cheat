@@ -1,5 +1,6 @@
 #!/bin/sh
-set -ex
+# https://github.com/cirosantilli/linux-kernel-module-cheat#uio
+set -e
 modprobe uio_pci_generic
 # pci_min device
 echo '1234 11e9' > /sys/bus/pci/drivers/uio_pci_generic/new_id
@@ -13,3 +14,4 @@ devmem "0x${base}" w 0x12345678
 devmem "0x$(($base + 4))" w 0x12345678
 devmem "0x${base}" w 0x12345678
 devmem "0x$(($base + 4))" w 0x12345678
+modprobe -r uio_pci_generic
