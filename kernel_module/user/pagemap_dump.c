@@ -1,29 +1,4 @@
-/*
-Only tested in x86_64.
-
-Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c
-
-- https://stackoverflow.com/questions/17021214/how-to-decode-proc-pid-pagemap-entries-in-linux/45126141#45126141
-- https://stackoverflow.com/questions/5748492/is-there-any-api-for-determining-the-physical-address-from-virtual-address-in-li
-- https://stackoverflow.com/questions/6284810/proc-pid-pagemaps-and-proc-pid-maps-linux/45500208#45500208
-
-Dump the page map of a given process PID.
-
-Data sources: /proc/PIC/{map,pagemap}
-
-This program works in two steps:
-
--   parse the human readable lines lines from `/proc/<pid>/maps`. This files contains lines of form:
-
-        7ffff7b6d000-7ffff7bdd000 r-xp 00000000 fe:00 658                        /lib/libuClibc-1.0.22.so
-
-    which gives us:
-
-    - `7f8af99f8000-7f8af99ff000`: a virtual address range that belong to the process, possibly containing multiple pages.
-    - `/lib/libuClibc-1.0.22.so` the name of the library that owns that memory.
-
--   loop over each page of each address range, and ask `/proc/<pid>/pagemap` for more information about that page, including the physical address.
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#pagemap_dump-out */
 
 #define _XOPEN_SOURCE 700
 #include <errno.h>
@@ -63,7 +38,7 @@ int main(int argc, char **argv)
 		perror("open pagemap");
 		return EXIT_FAILURE;
 	}
-	printf("addr pfn soft-dirty file/shared swapped present library\n");
+	printf("vaddr pfn soft-dirty file/shared swapped present library\n");
 	for (;;) {
 		ssize_t length = read(maps_fd, buffer + offset, sizeof buffer - offset);
 		if (length <= 0) break;
@@ -116,11 +91,11 @@ int main(int argc, char **argv)
 				/* Get info about all pages in this page range with pagemap. */
 				{
 					PagemapEntry entry;
-					for (uintptr_t addr = low; addr < high; addr += sysconf(_SC_PAGE_SIZE)) {
+					for (uintptr_t vaddr = low; vaddr < high; vaddr += sysconf(_SC_PAGE_SIZE)) {
 						/* TODO always fails for the last page (vsyscall), why? pread returns 0. */
-						if (!pagemap_get_entry(&entry, pagemap_fd, addr)) {
+						if (!pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
 							printf("%jx %jx %u %u %u %u %s\n",
-								(uintmax_t)addr,
+								(uintmax_t)vaddr,
 								(uintmax_t)entry.pfn,
 								entry.soft_dirty,
 								entry.file_page,

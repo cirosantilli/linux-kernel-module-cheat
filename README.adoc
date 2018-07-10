@@ -4456,6 +4456,233 @@ Bibliography:
 * https://stackoverflow.com/questions/39134990/mmap-of-dev-mem-fails-with-invalid-argument-for-virt-to-phys-address-but-addre/45127582#45127582
 * https://stackoverflow.com/questions/43325205/can-we-use-virt-to-phys-for-user-space-memory-in-kernel-module
 
+===== Userland physical address experiments
+
+Only tested in x86_64.
+
+The Linux kernel exposes physical addresses to userland through:
+
+* `/proc/<pid>/maps`
+* `/proc/<pid>/pagemap`
+* `/dev/mem`
+
+In this section we will play with them.
+
+First get a virtual address to play with:
+
+....
+/virt_to_phys_test.out &
+....
+
+Source: link:kernel_module/user/virt_to_phys_test.c[]
+
+Sample output:
+
+....
+vaddr 0x600800
+pid 110
+....
+
+The program:
+
+* allocates a `volatile` variable and sets is value to `0x12345678`
+* prints the virtual address of the variable, and the program PID
+* runs a while loop until until the value of the variable gets mysteriously changed somehow, e.g. by nasty tinkerers like us
+
+Then, translate the virtual address to physical using `/proc/<pid>/maps` and `/proc/<pid>/pagemap`:
+
+....
+/virt_to_phys_user.out 110 0x600800
+....
+
+Sample output physical address:
+
+....
+0x7c7b800
+....
+
+Source: link:kernel_module/user/virt_to_phys_user.c[]
+
+Now we can verify that `virt_to_phys_user.out` gave the correct physical address in the following ways:
+
+* <<qemu-xp>>
+* <<dev-mem>>
+
+Bibliography:
+
+* https://stackoverflow.com/questions/17021214/decode-proc-pid-pagemap-entry/45126141#45126141
+* https://stackoverflow.com/questions/6284810/proc-pid-pagemaps-and-proc-pid-maps-linux/45500208#45500208
+
+====== QEMU xp
+
+The `xp` <<qemu-monitor>> command reads memory at a given physical address.
+
+First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>.
+
+On a second terminal, use QEMU to read the physical address:
+
+....
+./qemumonitor 'xp 0x7c7b800'
+....
+
+Output:
+
+....
+0000000007c7b800: 0x12345678
+....
+
+Yes!!! We read the correct value from the physical address.
+
+We could not find however to write to memory from the QEMU monitor, boring.
+
+====== /dev/mem
+
+`/dev/mem` exposes access to physical addresses, and we use it through the convenient `devmem` BusyBox utility.
+
+First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>.
+
+Next, read from the physical address:
+
+....
+devmem 0x7c7b800
+....
+
+Possible output:
+
+....
+Memory mapped at address 0x7ff7dbe01000.
+Value at address 0X7C7B800 (0x7ff7dbe01800): 0x12345678
+....
+
+which shows that the physical memory contains the expected value `0x12345678`.
+
+`0x7ff7dbe01000` is a new virtual address that `devmem` maps to the physical address to be able to read from it.
+
+Modify the physical memory:
+
+....
+devmem 0x7c7b800 w 0x9abcdef0
+....
+
+After one second, we see on the screen:
+
+....
+i 9abcdef0
+[1]+  Done                       /virt_to_phys_test.out
+....
+
+so the value changed, and the `while` loop exited!
+
+This example requires:
+
+* `CONFIG_STRICT_DEVMEM=n`, otherwise `devmem` fails with:
++
+....
+devmem: mmap: Operation not permitted
+....
+* `nopat` kernel parameter
+
+which we set by default.
+
+Bibliography: https://stackoverflow.com/questions/11891979/how-to-access-mmaped-dev-mem-without-crashing-the-linux-kernel
+
+====== pagemap_dump.out
+
+Dump the physical address of all pages mapped to a given process using `/proc/<pid>/maps` and `/proc/<pid>/pagemap`.
+
+First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>. Suppose that the output was:
+
+....
+# /virt_to_phys_test.out &
+vaddr 0x601048
+pid 63
+# /virt_to_phys_user.out 63 0x601048
+0x1a61048
+....
+
+Now obtain the page map for the process:
+
+....
+/pagemap_dump.out 63
+....
+
+Sample output excerpt:
+
+....
+vaddr pfn soft-dirty file/shared swapped present library
+400000 1ede 0 1 0 1 /virt_to_phys_test.out
+600000 1a6f 0 0 0 1 /virt_to_phys_test.out
+601000 1a61 0 0 0 1 /virt_to_phys_test.out
+602000 2208 0 0 0 1 [heap]
+603000 220b 0 0 0 1 [heap]
+7ffff78ec000 1fd4 0 1 0 1 /lib/libuClibc-1.0.30.so
+....
+
+Source: link:kernel_module/user/pagemap_dump.c[]
+
+Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c
+
+Meaning of the flags:
+
+* `vaddr`: first virtual address of a page the belongs to the process. Notably:
++
+....
+./runtc readelf -l out/x86_64/buildroot/build/kernel_module-1.0/user/virt_to_phys_test.out
+....
++
+contains:
++
+....
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+...
+  LOAD           0x0000000000000000 0x0000000000400000 0x0000000000400000
+                 0x000000000000075c 0x000000000000075c  R E    0x200000
+  LOAD           0x0000000000000e98 0x0000000000600e98 0x0000000000600e98
+                 0x00000000000001b4 0x0000000000000218  RW     0x200000
+
+ Section to Segment mapping:
+  Segment Sections...
+...
+   02     .interp .hash .dynsym .dynstr .rela.plt .init .plt .text .fini .rodata .eh_frame_hdr .eh_frame
+   03     .ctors .dtors .jcr .dynamic .got.plt .data .bss
+....
++
+from which we deduce that:
++
+** `400000` is the text segment
+** `600000` is the data segment
+* `pfn`: add three zeroes to it, and you have the physical address.
++
+Three zeroes is 12 bits which is 4kB, which is the size of a page.
++
+For example, the virtual address `0x601000` has `pfn` of `0x1a61`, which means that its physical address is `0x1a61000`
++
+This is consistent with what `virt_to_phys_user.out` told us: the virtual address `0x601048` has physical address `0x1a61048`.
++
+`048` corresponds to the three last zeroes, and is the offset within the page.
++
+Also, this value falls inside `0x601000`, which as previously analyzed is the data section, which is the normal location for global variables such as ours.
+* `soft-dirty`: TODO
+* `file/shared`: TODO. `1` seems to indicate that the page can be shared across processes, possibly for read-only pages? E.g. the text segment has `1`, but the data has `0`.
+* `swapped`: TODO swapped to disk?
+* `present`: TODO vs swapped?
+* `library`: which executable owns that page
+
+This program works in two steps:
+
+* parse the human readable lines lines from `/proc/<pid>/maps`. This files contains lines of form:
++
+....
+7ffff7b6d000-7ffff7bdd000 r-xp 00000000 fe:00 658                        /lib/libuClibc-1.0.22.so
+....
++
+which tells us that:
++
+** `7f8af99f8000-7f8af99ff000` is a virtual address range that belong to the process, possibly containing multiple pages.
+** `/lib/libuClibc-1.0.22.so` is the name of the library that owns that memory
+* loop over each page of each address range, and ask `/proc/<pid>/pagemap` for more information about that page, including the physical address
+
 === Linux kernel tracing
 
 Good overviews:
@@ -4879,6 +5106,12 @@ This example should handle interrupts from userland and print a message to stdou
 ....
 
 TODO: what is the expected behaviour? I should have documented this when I wrote this stuff, and I'm that lazy right now that I'm in the middle of a refactor :-)
+
+UIO interface in a nutshell:
+
+* blocking read / poll: waits until interrupts
+* `write`: call `irqcontrol` callback. Default: 0 or 1 to enable / disable interrupts.
+* `mmap`: access device memory
 
 Sources:
 
@@ -5805,7 +6038,7 @@ as:
 Memory at feb54000
 ....
 
-Then you can try messing with that address with:
+Then you can try messing with that address with <<dev-mem>>:
 
 ....
 devmem 0xfeb54000 w 0x12345678
@@ -6029,13 +6262,11 @@ Expected outcome after insmod:
 * QEMU reports MMIO with printfs
 * IRQs are generated and handled by this module, which logs to dmesg
 
-Also without insmoding this module, try:
+Without insmoding this module, try writing to the register with <<dev-mem>>:
 
 ....
 devmem 0x101e9000 w 0x12345678
 ....
-
-which touches the register from userland through `/dev/mem`.
 
 We can also observe the interrupt with <<dummy-irq>>:
 
