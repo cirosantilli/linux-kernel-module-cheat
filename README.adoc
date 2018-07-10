@@ -1919,15 +1919,84 @@ See also: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/19
 
 === GDB step debug multicore
 
-https://stackoverflow.com/questions/42800801/how-to-use-gdb-to-debug-qemu-with-smp-symmetric-multiple-processors
+We can set and get which cores the Linux kernel allows a program to run on with `sched_getaffinity` and `sched_setaffinity`:
 
-Modify the number of cores: <<number-of-cores>>
+....
+./run -c2 -F '/sched_getaffinity.out'
+....
 
-TODO: how to do something cool to see that in action?
+Source: link:kernel_module/user/sched_getaffinity.c[]
 
-I tried to play around with `taskset`, but when I have two CPUs the <<gdb-step-debug-userland-non-init,userland breakpoints>> don't work... Why?
+Sample output:
+
+....
+sched_getaffinity = 1 1
+sched_getcpu = 1
+sched_getaffinity = 1 0
+sched_getcpu = 0
+....
+
+Which shows us that:
+
+* initially:
+** all 2 cores were enabled as shown by `sched_getaffinity = 1 1`
+** the process was randomly assigned to run on core 1 (the second one) as shown by `sched_getcpu = 1`. If we run this several times, it will also run on core 0 sometimes.
+* then we restrict the affinity to just core 0, and we see that the program was actually moved to core 0
+
+The number of cores is modified as explained at: <<number-of-cores>>
+
+`taskset` from the util-linux package sets the initial core affinity of a program:
+
+....
+taskset -c 1,1 /sched_getaffinity.out
+....
+
+output:
+
+....
+sched_getaffinity = 0 1
+sched_getcpu = 1
+sched_getaffinity = 1 0
+sched_getcpu = 0
+....
+
+so we see that the affinity was restricted to the second core from the start.
+
+Let's do a QEMU observation to justify this example being in the repository with <<gdb-step-debug-userland-non-init,userland breakpoints>>:
+
+....
+./run -c2 -d -F 'i=0; while true; do taskset -c $i,$i /sched_getaffinity.out; i=$((! $i)); done'
+....
+
+on another shell:
+
+....
+./rungdb-user kernel_module-1.0/user/sched_getaffinity.out main
+....
+
+Then, inside GDB:
+
+....
+(gdb) info threads
+  Id   Target Id         Frame
+* 1    Thread 1 (CPU#0 [running]) main () at sched_getaffinity.c:30
+  2    Thread 2 (CPU#1 [halted ]) native_safe_halt () at ./arch/x86/include/asm/irqflags.h:55
+(gdb) c
+(gdb) info threads
+  Id   Target Id         Frame
+  1    Thread 1 (CPU#0 [halted ]) native_safe_halt () at ./arch/x86/include/asm/irqflags.h:55
+* 2    Thread 2 (CPU#1 [running]) main () at sched_getaffinity.c:30
+(gdb) c
+....
+
+So we observe that `info threads` shows the actual correct core on which the process was restricted to run by `taskset`!
 
 We should also try it out with kernel modules: https://stackoverflow.com/questions/28347876/set-cpu-affinity-on-a-loadable-linux-kernel-module
+
+Bibliography:
+
+* https://stackoverflow.com/questions/10490756/how-to-use-sched-getaffinity-and-sched-setaffinity-in-linux-from-c/50117787#50117787
+* https://stackoverflow.com/questions/42800801/how-to-use-gdb-to-debug-qemu-with-smp-symmetric-multiple-processors
 
 == KGDB
 

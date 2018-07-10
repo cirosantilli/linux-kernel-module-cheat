@@ -1,6 +1,4 @@
-/*
-upstream; https://stackoverflow.com/questions/10490756/how-to-use-sched-getaffinity-and-sched-setaffinity-in-linux-from-c/50117787#50117787
-*/
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-multicore */
 
 #define _GNU_SOURCE
 #include <assert.h>
