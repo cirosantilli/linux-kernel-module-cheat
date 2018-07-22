@@ -1964,7 +1964,9 @@ sched_getcpu = 0
 
 so we see that the affinity was restricted to the second core from the start.
 
-Let's do a QEMU observation to justify this example being in the repository with <<gdb-step-debug-userland-non-init,userland breakpoints>>:
+Let's do a QEMU observation to justify this example being in the repository with <<gdb-step-debug-userland-non-init,userland breakpoints>>.
+
+We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and core 1 alternatively:
 
 ....
 ./run -c2 -d -F 'i=0; while true; do taskset -c $i,$i /sched_getaffinity.out; i=$((! $i)); done'
@@ -1991,7 +1993,7 @@ Then, inside GDB:
 (gdb) c
 ....
 
-So we observe that `info threads` shows the actual correct core on which the process was restricted to run by `taskset`!
+and we observe that `info threads` shows the actual correct core on which the process was restricted to run by `taskset`!
 
 We should also try it out with kernel modules: https://stackoverflow.com/questions/28347876/set-cpu-affinity-on-a-loadable-linux-kernel-module
 
@@ -2315,6 +2317,25 @@ Bibliography:
 
 * https://stackoverflow.com/questions/7415515/how-to-access-the-control-registers-cr0-cr2-cr3-from-a-program-getting-segmenta/7419306#7419306
 * https://stackoverflow.com/questions/18717016/what-are-ring-0-and-ring-3-in-the-context-of-operating-systems/44483439#44483439
+
+=== arm
+
+==== Run arm executable in aarch64
+
+TODO Can you run arm executables in the aarch64 guest? https://stackoverflow.com/questions/22460589/armv8-running-legacy-32-bit-applications-on-64-bit-os/51466709#51466709
+
+I've tried:
+
+....
+./out/aarch64/buildroot/host/bin/aarch64-linux-gcc -static ~/test/hello_world.c -o data/9p/a.out
+./run -aA -F '/mnt/9p/a.out'
+....
+
+but it fails with:
+
+....
+a.out: line 1: syntax error: unexpected word (expecting ")")
+....
 
 === mips64
 
