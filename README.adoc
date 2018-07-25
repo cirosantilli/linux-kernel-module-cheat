@@ -2020,6 +2020,100 @@ Bibliography:
 * https://stackoverflow.com/questions/10490756/how-to-use-sched-getaffinity-and-sched-setaffinity-in-linux-from-c/50117787#50117787
 * https://stackoverflow.com/questions/42800801/how-to-use-gdb-to-debug-qemu-with-smp-symmetric-multiple-processors
 
+=== Linux kernel GDB scripts
+
+We source the Linux kernel GDB scripts by default for `lx-symbols`, but they also contains some other goodies worth looking into.
+
+Those scripts basically parse some in-kernel datastructures to offer greater visibility with GDB.
+
+All defined commands are prefixed by `lx-`, so to get a full list just try to tab complete that.
+
+There aren't as many as I'd like, and the ones that do exist are pretty self explanatory, but let's give a few examples.
+
+Show dmesg:
+
+....
+lx-dmesg
+....
+
+Show the <<kernel-command-line-parameters>>:
+
+....
+lx-cmdline
+....
+
+Dump the device tree to a `fdtdump.dtb` file in the current directory:
+
+....
+lx-fdtdump
+pwd
+....
+
+List inserted kernel modules:
+
+....
+lx-lsmod
+....
+
+Sample output:
+
+....
+Address            Module                  Size  Used by
+0xffffff80006d0000 hello                  16384  0
+....
+
+Bibliography:
+
+* https://events.static.linuxfound.org/sites/events/files/slides/Debugging%20the%20Linux%20Kernel%20with%20GDB.pdf
+* https://wiki.linaro.org/LandingTeams/ST/GDB
+
+==== lx-ps
+
+List all processes:
+
+....
+lx-ps
+....
+
+Sample output:
+
+....
+0xffff88000ed08000 1 init
+0xffff88000ed08ac0 2 kthreadd
+....
+
+The second and third fields are obviously PID and process name.
+
+The first one is more interesting, and contains the address of the `task_struct` in memory.
+
+This can be confirmed with:
+
+....
+p ((struct task_struct)*0xffff88000ed08000
+....
+
+which contains the correct PID for all threads I've tried:
+
+....
+pid = 1,
+....
+
+TODO get the PC of the kthreads: https://stackoverflow.com/questions/26030910/find-program-counter-of-process-in-kernel Then we would be able to see where the threads are stopped in the code!
+
+On ARM, I tried:
+
+....
+task_pt_regs((struct thread_info *)((struct task_struct)*0xffffffc00e8f8000))->uregs[ARM_pc]
+....
+
+but `task_pt_regs` is a `#define` and GDB cannot see defines without `-ggdb3`: https://stackoverflow.com/questions/2934006/how-do-i-print-a-defined-constant-in-gdb which are apparently not set?
+
+Bibliography:
+
+* https://stackoverflow.com/questions/9561546/thread-aware-gdb-for-kernel
+* https://wiki.linaro.org/LandingTeams/ST/GDB
+* https://events.static.linuxfound.org/sites/events/files/slides/Debugging%20the%20Linux%20Kernel%20with%20GDB.pdf presentation: https://www.youtube.com/watch?v=pqn5hIrz3A8
+
 == KGDB
 
 TODO: only working with <<graphic-mode>>. Without it, nothing shows on the terminal. So likely something linked to the option `console=ttyS0`.
