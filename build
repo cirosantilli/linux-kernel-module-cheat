@@ -21,7 +21,7 @@ post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 suffix=
 v=0
-while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:qSst::v' OPT; do
+while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:Q:qSst::v' OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -87,6 +87,9 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       ;;
     p)
       post_script_args="$OPTARG"
+      ;;
+    Q)
+      common_qemu_variant="$OPTARG"
       ;;
     q)
       extra_make_args="${extra_make_args} host-qemu-reconfigure \\
@@ -191,15 +194,22 @@ echo
 
 common_mkdir
 
-# Manage Linux kernel variants.
-if [ -h "$common_linux_custom_dir" ]; then
-  rm "$common_linux_custom_dir"
-elif [ -d "$common_linux_custom_dir" ]; then
-  # Migration for existing builds.
-  mv "$common_linux_custom_dir" "$common_linux_variant_dir"
-fi
-mkdir -p "$common_linux_variant_dir"
-ln -s "$common_linux_variant_dir" "$common_linux_custom_dir"
+# Manage Linux kernel and QEMU variants.
+symlink_buildroot_variant() (
+  custom_dir="$1"
+  variant_dir="$2"
+  if [ -h "$custom_dir" ]; then
+    rm "$custom_dir"
+  elif [ -d "$custom_dir" ]; then
+    # Migration for existing builds.
+    mv "$custom_dir" "$variant_dir"
+  fi
+  mkdir -p "$variant_dir"
+  ln -s "$variant_dir" "$custom_dir"
+)
+symlink_buildroot_variant "$common_linux_custom_dir" "$common_linux_variant_dir"
+symlink_buildroot_variant "$common_qemu_custom_dir" "$common_qemu_variant_dir"
+symlink_buildroot_variant "$common_qemu_guest_custom_dir" "$common_qemu_guest_variant_dir"
 
 # Manage gem5 variants.
 if "$gem5"; then
