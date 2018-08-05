@@ -26,7 +26,6 @@ initrd=false
 initramfs=false
 memory=256M
 nographic=true
-prebuilt=false
 root=
 tmux=false
 tmux_args=
@@ -35,7 +34,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PT:t:U:uVX:x OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:T:t:U:uVX:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -106,7 +105,10 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PT:t:U:uVX:x OPT; do
       common_run_id="$OPTARG"
       ;;
     P)
-      prebuilt=true
+      common_prebuilt=true
+      ;;
+    Q)
+      common_qemu_variant="$OPTARG"
       ;;
     T)
       trace_enabled=true
@@ -256,16 +258,10 @@ else
     extra_flags_qemu="$extra_flags_qemu -serial 'tcp::${common_gdb_port},server,nowait' \\
 "
   fi
-  if "$prebuilt"; then
-    common_mkdir
-    qemu_executable="qemu-system-${arch}"
-  else
-    qemu_executable="${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}"
-  fi
   extra_flags="${extra_flags_qemu} ${extra_flags}"
   qemu_common="\
 ${debug_vm} \
-${qemu_executable} \\
+${common_qemu_executable} \\
 -device rtl8139,netdev=net0 \\
 -gdb 'tcp::${common_gdb_port}' \\
 -kernel '${common_linux_image}' \\
@@ -297,7 +293,7 @@ ${vnc}"
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyS0,115200"
       fi
-      if "$prebuilt"; then
+      if "$common_prebuilt"; then
         custom_devices=
       else
         custom_devices="-device lkmc_pci_min \\
