@@ -27,6 +27,7 @@ initramfs=false
 memory=256M
 nographic=true
 prebuilt=false
+rr=
 root=
 tmux=false
 tmux_args=
@@ -35,7 +36,7 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PT:t:U:uVX:x OPT; do
+while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:RrT:t:U:uVX:x OPT; do
   case "$OPT" in
     a)
       arch="$OPTARG"
@@ -107,6 +108,15 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PT:t:U:uVX:x OPT; do
       ;;
     P)
       prebuilt=true
+      ;;
+    Q)
+      common_qemu_variant="$OPTARG"
+      ;;
+    R)
+      rr=replay
+      ;;
+    r)
+      rr=record
       ;;
     T)
       trace_enabled=true
@@ -209,7 +219,7 @@ ${gem5opts} \
 --dtb "${common_gem5_system_dir}/arm/dt/armv8_gem5_v1_big_little_2_2.dtb" \\
 --kernel="${common_vmlinux}" \\
 --little-cpus=2 \\
-${extra_flags} \\
+${extra_flags} \
 "
   else
     gem5_common="\
@@ -282,15 +292,38 @@ ${vnc}"
     extra_flags="${extra_flags} -initrd '${common_images_dir}/rootfs.cpio' \\
 "
   fi
+
+  # Disk related options.
   if "$ramfs"; then
     # TODO why is this needed, and why any string works.
     root='root=/dev/anything'
   else
     if [ ! "$arch" = mips64 ]; then
-      extra_flags="${extra_flags} -drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,if=virtio,snapshot' \\
+      if [ -n "$rr" ]; then
+        driveif=none
+        rrid=',id=img-direct'
+        root='root=/dev/sda'
+      else
+        driveif=virtio
+        root='root=/dev/vda'
+        rrid=
+      fi
+      extra_flags="${extra_flags} -drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,if=${driveif},snapshot${rrid}' \\
 "
-      root='root=/dev/vda'
+      if [ -n "$rr" ]; then
+        extra_flags="${extra_flags} \\
+-drive driver=blkreplay,if=none,image=img-direct,id=img-blkreplay \\
+-device ide-hd,drive=img-blkreplay \\
+"
+      fi
     fi
+  fi
+
+  if [ -n "$rr" ]; then
+    extra_flags="${extra_flags} \
+-object filter-replay,id=replay,netdev=net0 \\
+-icount 'shift=7,rr=${rr},rrfile=${common_qemu_rrfile}' \\
+"
   fi
   case "$arch" in
     x86_64)
@@ -342,7 +375,8 @@ ${extra_flags} \
     mips64)
       if ! "$ramfs"; then
         root='root=/dev/hda'
-        extra_flags="${extra_flags} -drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,snapshot' \\
+        extra_flags="${extra_flags} \
+-drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,snapshot' \\
 "
       fi
       cmd="\
@@ -359,7 +393,7 @@ fi
 if "$tmux"; then
   if "$gem5"; then
     eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
-  elif  "$debug"; then
+  elif "$debug"; then
     eval "./tmu ./rungdb -a '${arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
   fi
 fi

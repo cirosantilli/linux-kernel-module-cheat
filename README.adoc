@@ -7011,19 +7011,70 @@ TODO do even more awesome offline post-mortem analysis things, such as:
 
 ==== QEMU record and replay
 
-QEMU supports deterministic record and replay by saving external inputs, which would be awesome to understand the kernel, as you would be able to examine a single run as many times as you would like.
+QEMU runs are not deterministic by default, however it does support a record and replay mechanism that allows you to replay a previous run deterministically:
 
-This mechanism first requires a trace to be generated on an initial record run. The trace is then used on the replay runs to make them deterministic.
+This awesome feature allows you to examine a single run as many times as you would like until you understand everything:
 
-Unfortunately it is not working in the current QEMU: https://stackoverflow.com/questions/46970215/how-to-use-qemus-deterministic-record-and-replay-feature-for-a-linux-kernel-boo
+....
+# Record a run.
+./run -F '/rand_check.out;/poweroff.out;' -r
+# Replay the run.
+./run -F '/rand_check.out;/poweroff.out;' -R
+....
 
-Patches were merged in post v2.12.0-rc2 but it crashed for me and I opened a minimized bug report: https://bugs.launchpad.net/qemu/+bug/1762179
+By comparing the terminal output of both runs, we can see that they are the exact same, including things which normally differ across runs:
 
-We don't expose record and replay on our scripts yet since it was was not very stable, but we will do so when it stabilizes.
+* timestamps of dmesg output
+* <<rand_check-out>> output
 
-<<rand_check-out>> is a good way to test out if record and replay is actually deterministic.
+The record and replay feature was revived around QEMU v3.0.0. It existed earlier but it rot completely. As of v3.0.0 it is still flaky: sometimes we get deadlocks, and only a limited number of command line arguments are supported.
 
-Alternatively, https://github.com/mozilla/rr[`mozilla/rr`] claims it is able to run QEMU: but using it would require you to step through QEMU code itself. Likely doable, but do you really want to?
+Documented at: https://github.com/qemu/qemu/blob/v2.12.0/docs/replay.txt
+
+TODO: using `-r` as above leads to a kernel warning:
+
+....
+rcu_sched detected stalls on CPUs/tasks
+....
+
+TODO: replay deadlocks intermittently at disk operations, last kernel message:
+
+....
+EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
+....
+
+TODO replay with network gets stuck:
+
+....
+./run -F '/sbin/ifup -a;wget -S google.com;/poweroff.out;' -r
+./run -F '/sbin/ifup -a;wget -S google.com;/poweroff.out;' -R
+....
+
+after the message:
+
+....
+adding dns 10.0.2.3
+....
+
+There is explicit network support on the QEMU patches, but either it is buggy or we are not using the correct magic options.
+
+TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a working IDE disk device? See also: https://lists.gnu.org/archive/html/qemu-devel/2018-02/msg05245.html
+
+Then, when I tried with <<initrd>> and no disk:
+
+....
+./build -aA -i
+./run -aA -F '/rand_check.out;/poweroff.out;' -i -r
+./run -aA -F '/rand_check.out;/poweroff.out;' -i -R
+....
+
+QEMU crashes with:
+
+....
+ERROR:replay/replay-time.c:49:replay_read_clock: assertion failed: (replay_file && replay_mutex_locked())
+....
+
+I had the same error previously on x86-64, but it was fixed: https://bugs.launchpad.net/qemu/+bug/1762179 so maybe the forgot to fix it for `aarch64`?
 
 ==== QEMU trace multicore
 
