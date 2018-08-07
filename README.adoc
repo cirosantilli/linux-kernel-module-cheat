@@ -1665,7 +1665,13 @@ And then search for a line of type:
 
 === GDB step debug early boot
 
-TODO: why can't we break at early startup stuff such as:
+Break at the very first instruction executed by QEMU:
+
+....
+./rungdb -C
+....
+
+TODO why can't we break at early startup stuff such as:
 
 ....
 ./rungdb extract_kernel
@@ -6097,10 +6103,16 @@ Only tested in x86.
 PCI driver for our minimal `pci_min.c` QEMU fork device:
 
 ....
+./run -- -device lkmc_pci_min
+....
+
+then:
+
+....
 insmod /pci_min.ko
 ....
 
-Source:
+Sources:
 
 * Kernel module: link:kernel_module/pci_min.c[].
 * QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
@@ -6124,11 +6136,7 @@ What happened:
 
 Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<graphic-mode>> instead.
 
-Works because we add to our default QEMU CLI:
-
-....
--device lkmc_pci_min
-....
+We don't enable the device by default because it does not work for vanilla QEMU, which we often want to test with this repository.
 
 Probe already does a MMIO write, which generates an IRQ and tests everything.
 
@@ -7022,6 +7030,12 @@ This awesome feature allows you to examine a single run as many times as you wou
 ./run -F '/rand_check.out;/poweroff.out;' -R
 ....
 
+A convenient shortcut to do both at once to test the feature is:
+
+....
+./qemurr -F '/rand_check.out;/poweroff.out;'
+....
+
 By comparing the terminal output of both runs, we can see that they are the exact same, including things which normally differ across runs:
 
 * timestamps of dmesg output
@@ -7046,8 +7060,7 @@ EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
 TODO replay with network gets stuck:
 
 ....
-./run -F '/sbin/ifup -a;wget -S google.com;/poweroff.out;' -r
-./run -F '/sbin/ifup -a;wget -S google.com;/poweroff.out;' -R
+./qemurr -F '/sbin/ifup -a;wget -S google.com;/poweroff.out;'
 ....
 
 after the message:
@@ -7058,14 +7071,15 @@ adding dns 10.0.2.3
 
 There is explicit network support on the QEMU patches, but either it is buggy or we are not using the correct magic options.
 
+Solved on unmerged c42634d8e3428cfa60672c3ba89cabefc720cde9 from https://github.com/ispras/qemu/tree/rr-180725
+
 TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a working IDE disk device? See also: https://lists.gnu.org/archive/html/qemu-devel/2018-02/msg05245.html
 
 Then, when I tried with <<initrd>> and no disk:
 
 ....
 ./build -aA -i
-./run -aA -F '/rand_check.out;/poweroff.out;' -i -r
-./run -aA -F '/rand_check.out;/poweroff.out;' -i -R
+./qemurr -aA -F '/rand_check.out;/poweroff.out;' -i
 ....
 
 QEMU crashes with:
@@ -7075,6 +7089,37 @@ ERROR:replay/replay-time.c:49:replay_read_clock: assertion failed: (replay_file 
 ....
 
 I had the same error previously on x86-64, but it was fixed: https://bugs.launchpad.net/qemu/+bug/1762179 so maybe the forgot to fix it for `aarch64`?
+
+Solved on unmerged c42634d8e3428cfa60672c3ba89cabefc720cde9 from https://github.com/ispras/qemu/tree/rr-180725
+
+===== QEMU reverse debugging
+
+TODO get working.
+
+QEMU replays support checkpointing, and this allows for a simplistic "reverse debugging" implementation proposed at https://lists.gnu.org/archive/html/qemu-devel/2018-06/msg00478.html on the unmerged link:https://github.com/ispras/qemu/tree/rr-180725[]:
+
+....
+./run -F '/rand_check.out;/poweroff.out;' -r
+./run -F '/rand_check.out;/poweroff.out;' -R -d
+....
+
+On another shell:
+
+....
+./rungdb start_kernel
+....
+
+In GDB:
+
+....
+n
+n
+n
+n
+reverse-continue
+....
+
+and we are back at `start_kernel`
 
 ==== QEMU trace multicore
 

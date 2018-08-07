@@ -270,7 +270,7 @@ else
     common_mkdir
     qemu_executable="qemu-system-${arch}"
   else
-    qemu_executable="${buildroot_out_dir}/host/usr/bin/qemu-system-${arch}"
+    qemu_executable="${common_qemu_variant_dir}/${arch}-softmmu/qemu-system-${arch}"
   fi
   extra_flags="${extra_flags_qemu} ${extra_flags}"
   qemu_common="\
@@ -303,12 +303,14 @@ ${vnc}"
         driveif=none
         rrid=',id=img-direct'
         root='root=/dev/sda'
+        snapshot=
       else
         driveif=virtio
         root='root=/dev/vda'
         rrid=
+        snapshot=,snapshot
       fi
-      extra_flags="${extra_flags} -drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,if=${driveif},snapshot${rrid}' \\
+      extra_flags="${extra_flags} -drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,if=${driveif}${snapshot}${rrid}' \\
 "
       if [ -n "$rr" ]; then
         extra_flags="${extra_flags} \\
@@ -324,24 +326,21 @@ ${vnc}"
 -object filter-replay,id=replay,netdev=net0 \\
 -icount 'shift=7,rr=${rr},rrfile=${common_qemu_rrfile}' \\
 "
+    virtio_gpu_pci=
+  else
+    virtio_gpu_pci="-device virtio-gpu-pci \\
+"
   fi
   case "$arch" in
     x86_64)
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyS0,115200"
       fi
-      if "$prebuilt"; then
-        custom_devices=
-      else
-        custom_devices="-device lkmc_pci_min \\
-"
-      fi
       cmd="\
 ${qemu_common} \
 -M pc \\
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
-${custom_devices} \\
 ${extra_flags} \
 "
     ;;
@@ -354,7 +353,7 @@ ${qemu_common} \
 -M virt \\
 -append '${root} ${extra_append}' \\
 -cpu cortex-a15 \\
--device virtio-gpu-pci \\
+${virtio_gpu_pci} \
 ${extra_flags} \
 "
     ;;
@@ -367,7 +366,7 @@ ${qemu_common} \
 -M virt \\
 -append '${root} ${extra_append}' \\
 -cpu cortex-a57 \\
--device virtio-gpu-pci \\
+${virtio_gpu_pci} \
 -kernel '${common_images_dir}/Image' \\
 ${extra_flags} \
 "
@@ -376,7 +375,7 @@ ${extra_flags} \
       if ! "$ramfs"; then
         root='root=/dev/hda'
         extra_flags="${extra_flags} \
--drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2,snapshot' \\
+-drive 'file=${common_images_dir}/rootfs.ext2.qcow2,format=qcow2${snapshot}' \\
 "
       fi
       cmd="\
