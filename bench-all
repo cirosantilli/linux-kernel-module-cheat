@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Run all benchmarks for this repo, and save the results to the
-# benchmark repo, which should be cloned at ../linux-kernel-module-cheat-benchmarks.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
 set -x
 bench_build=false
@@ -44,7 +42,6 @@ shift "$(($OPTIND - 1))"
 comment="${1:-}"
 
 # Create output directory.
-sha="$(git log -1 --format="%H")"
 benchmark_repo="${common_root_dir}/../linux-kernel-module-cheat-regression"
 mkdir -p "$benchmark_repo"
 last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
@@ -54,8 +51,7 @@ else
   seq_id=0
 fi
 seq_id="$(printf '%0.4d' "$seq_id")"
-sha="$(git log -1 --format="%H")"
-dir_basename="${seq_id}_${sha}"
+dir_basename="${seq_id}_${common_sha}"
 new_dir="${benchmark_repo}/${dir_basename}"
 mkdir "$new_dir"
 
@@ -64,7 +60,7 @@ if "$bench_build"; then
   common_suffix=bench
   common_setup
   rm -rf "$common_out_arch_dir"
-  ./build -a "$common_arch" -B 'BR2_CCACHE=n' -s "$suffix"
+  ./build -a "$common_arch" -B 'BR2_CCACHE=n' -s "$common_suffix"
   cp "${common_build_dir}/build-time.log" "${new_dir}/build-time-${common_arch}.log"
   rm -rf "$common_out_arch_dir"
 fi
@@ -90,16 +86,15 @@ if "$bench_gem5_build"; then
   arches='x86_64 arm'
   for common_arch in $arches; do
     common_setup
-    cd "${common_root_dir}/gem5/gem5"
+    cd "${common_gem5_src_dir}"
     git clean -xdf
-    cd "${common_root_dir}/gem5"
     results_file="${common_gem5_out_dir}/bench-build.txt"
     gem5_outdir="${common_out_dir}/bench_build"
     rm -fr "$results_file" "${gem5_outdir}"
     # TODO understand better: --foreground required otherwise we cannot
     # kill the build with Ctrl+C if something goes wrong, can be minimized to:
     # bash -c "eval 'timeout 5 sleep 3'"
-    common_bench_cmd "timeout --foreground 900 ./build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
+    common_bench_cmd "timeout --foreground 900 ../build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
     cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
     cd "${common_root_dir}/gem5/gem5"
     git clean -xdf
