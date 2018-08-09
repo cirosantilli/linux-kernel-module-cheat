@@ -5,23 +5,23 @@ set -- ${cli_trace2line:-} "$@"
 while getopts a:g OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     g)
-      gem5=true
+      common_gem5=true
       ;;
   esac
 done
-set_common_vars "$arch" "$gem5"
-kernel_dir="${build_dir}/linux-custom"
+common_setup
+kernel_dir="${common_build_dir}/linux-custom"
 (
-  if "$gem5"; then
+  if "$common_gem5"; then
     sed -r 's/^.* (0x[^. ]*)[. ].*/\1/' "$common_trace_txt_file"
   else
     sed -r 's/.*pc=//' "$common_trace_txt_file"
   fi
 ) | \
-  xargs "${host_dir}/bin/${arch}-linux-addr2line" -e "${kernel_dir}/vmlinux" -fp | \
+  xargs "${common_host_dir}/bin/${common_arch}-linux-addr2line" -e "${common_vmlinux}" -fp | \
   sed -E "s|at ${kernel_dir}/(\./\|)||" | \
   uniq -c \
 > "${common_run_dir}/trace-lines.txt"

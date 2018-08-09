@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -eu
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
+common_gem5=true
 generate_checkpoints=true
 while getopts a:C OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     C)
       generate_checkpoints=false
@@ -15,8 +16,8 @@ done
 shift "$(($OPTIND - 1))"
 
 # Vars
-set_common_vars "$arch" true
-cmd="./run -a $arch -g"
+common_setup
+cmd="./run -a ${common_arch} -g"
 cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024  '
 cache_large='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 results_file="${common_gem5_run_dir}/bench-cache.txt"
@@ -25,11 +26,11 @@ bench() (
   common_bench_cmd "$1" "$results_file"
   {
     printf 'cycles '
-    ./gem5-stat -a "$arch"
+    ./gem5-stat -a "$common_arch"
     printf 'instructions '
-    ./gem5-stat -a "$arch" sim_insts
+    ./gem5-stat -a "$common_arch" sim_insts
     # RESTORE_INVESTIGATION
-    #cycles_switch="$(./gem5-stat -a "$arch" system.switch_cpus.numCycles)"
+    #cycles_switch="$(./gem5-stat -a "$common_arch" system.switch_cpus.numCycles)"
     #if [ -n "$cycles_switch" ]; then
     #  printf "cycles_switch ${cycles_switch}\n"
     #fi
@@ -67,7 +68,7 @@ bench-all() (
 if "$generate_checkpoints"; then
   # Create the checkpoints after the kernel boot.
   rm -rf "${common_m5out_dir}"/cpt.*;
-  printf 'm5 exit' > "${readfile_file}"
+  printf 'm5 exit' > "${common_gem5_readfile_file}"
   cpt_cmd="-E '/gem5.sh'"
   # 1
   ./eeval "$cmd $cpt_cmd"
@@ -88,10 +89,10 @@ printf '#!/bin/sh
 m5 resetstats
 dhrystone XXX
 m5 exit
-' >"${readfile_file}"
+' >"${common_gem5_readfile_file}"
 for n in 1000 10000 100000; do
   printf "n ${n}\n" >> "$results_file"
-  sed -Ei "s/^dhrystone .*/dhrystone ${n}/" "${readfile_file}"
+  sed -Ei "s/^dhrystone .*/dhrystone ${n}/" "${common_gem5_readfile_file}"
   bench-all
   printf "\n" >> "$results_file"
 done

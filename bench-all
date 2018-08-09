@@ -47,7 +47,7 @@ comment="${1:-}"
 
 # Create output directory.
 sha="$(git log -1 --format="%H")"
-benchmark_repo="${root_dir}/../linux-kernel-module-cheat-regression"
+benchmark_repo="${common_root_dir}/../linux-kernel-module-cheat-regression"
 mkdir -p "$benchmark_repo"
 last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
 if [ -n "$last_dir" ]; then
@@ -62,17 +62,17 @@ new_dir="${benchmark_repo}/${dir_basename}"
 mkdir "$new_dir"
 
 if "$bench_build"; then
-  arch="$default_arch"
-  suffix=bench
-  set_common_vars "$arch" false "$suffix"
-  rm -rf "$out_arch_dir"
-  ./build -a "$arch" -B 'BR2_CCACHE=n' -s "$suffix"
-  cp "${build_dir}/build-time.log" "${new_dir}/build-time-${arch}.log"
-  rm -rf "$out_arch_dir"
+  common_arch="$default_arch"
+  common_suffix=bench
+  common_setup
+  rm -rf "$common_out_arch_dir"
+  ./build -a "$common_arch" -B 'BR2_CCACHE=n' -s "$suffix"
+  cp "${common_build_dir}/build-time.log" "${new_dir}/build-time-${common_arch}.log"
+  rm -rf "$common_out_arch_dir"
 fi
 
 if "$bench_buildroot_baseline"; then
-  cd "${root_dir}/buildroot"
+  cd "${common_root_dir}/buildroot"
   git clean -xdf
   make "qemu_${default_arch}_defconfig"
   printf '
@@ -90,27 +90,27 @@ fi
 
 if "$bench_gem5_build"; then
   arches='x86_64 arm'
-  for arch in $arches; do
-    set_common_vars "$arch"
-    cd "${root_dir}/gem5/gem5"
+  for common_arch in $arches; do
+    common_setup
+    cd "${common_root_dir}/gem5/gem5"
     git clean -xdf
-    cd "${root_dir}/gem5"
+    cd "${common_root_dir}/gem5"
     results_file="${common_gem5_out_dir}/bench-build.txt"
-    gem5_outdir="${out_dir}/bench_build"
+    gem5_outdir="${common_out_dir}/bench_build"
     rm -fr "$results_file" "${gem5_outdir}"
     # TODO understand better: --foreground required otherwise we cannot
     # kill the build with Ctrl+C if something goes wrong, can be minimized to:
     # bash -c "eval 'timeout 5 sleep 3'"
-    common_bench_cmd "timeout --foreground 900 ./build -a '$arch' -o '${gem5_outdir}'" "$results_file"
-    cp "$results_file" "${new_dir}/gem5-bench-build-${arch}.txt"
-    cd "${root_dir}/gem5/gem5"
+    common_bench_cmd "timeout --foreground 900 ./build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
+    cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
+    cd "${common_root_dir}/gem5/gem5"
     git clean -xdf
     rm -fr "${gem5_outdir}"
   done
 fi
 
 if "$bench_linux_boot"; then
-  cd "${root_dir}"
+  cd "${common_root_dir}"
   ./build-all
   ./bench-boot
   cp "$common_bench_boot" "$new_dir"

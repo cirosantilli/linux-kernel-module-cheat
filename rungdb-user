@@ -7,10 +7,10 @@ gem5_opt=
 while getopts a:gh OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     g)
-      gem5=true
+      common_gem5=true
       gem5_opt=-g
       ;;
     h)
@@ -31,15 +31,15 @@ if [ "$#" -gt 0 ]; then
 else
   brk=
 fi
-set_common_vars "$arch" "$gem5"
-executable="${build_dir}/${executable_rel}"
-addr="$("${root_dir}/runtc" readelf -h "$executable" | awk '/Entry/{ print $NF }' )"
+common_setup
+executable="${common_build_dir}/${executable_rel}"
+addr="$("${common_root_dir}/runtc" readelf -h "$executable" | awk '/Entry/{ print $NF }' )"
 ex="-ex \"add-symbol-file $executable $addr\""
 # -X or else lx-symbols throws for arm:
 # gdb.MemoryError: Cannot access memory at address 0xbf0040cc
 # TODO understand better.
 #
 # Also, lx-symbols overrides the add-symbol-file commands.
-cmd="./rungdb -a '${arch}' -b '${ex}' ${gem5_opt} -X ${brk}"
+cmd="./rungdb -a '${common_arch}' -b '${ex}' ${gem5_opt} -X ${brk}"
 echo "$cmd"
 eval "$cmd"

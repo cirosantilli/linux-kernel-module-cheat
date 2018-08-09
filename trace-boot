@@ -5,25 +5,25 @@ set -- ${cli_trace_boot:-} "$@"
 while getopts a:g OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     g)
-      gem5=true
+      common_gem5=true
       ;;
   esac
 done
 shift "$(($OPTIND - 1))"
-set_common_vars "$arch" "$gem5"
-if "$gem5"; then
-  time ./run -a "$arch" -E 'm5 exit' -g -T 'Exec,-ExecSymbol,-ExecMicro' "$@"
+common_setup
+if "$common_gem5"; then
+  time ./run -a "$common_arch" -E 'm5 exit' -g -T 'Exec,-ExecSymbol,-ExecMicro' "$@"
 else
-  time ./run -a "$arch" -e 'init=/poweroff.out' -T exec_tb "$@"
-  time ./qemu-trace2txt -a "$arch"
+  time ./run -a "$common_arch" -e 'init=/poweroff.out' -T exec_tb "$@"
+  time ./qemu-trace2txt -a "$common_arch"
   # Instruction count.
   # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
   # So let's just leave it here for now since it did not add a significant processing time.
   echo "instructions $(wc -l "${common_trace_txt_file}" | cut -d' ' -f1)"
-  entry_addr=$("${root_dir}/runtc" readelf -h "${build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
+  entry_addr=$("${common_root_dir}/runtc" readelf -h "${common_build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
   echo "entry_address ${entry_addr}"
   sed "/${entry_addr}/q" "${common_trace_txt_file}" >"${common_qemu_run_dir}/trace-boot.txt"
   echo "instructions_firmware $(wc -l "${common_qemu_run_dir}/trace-boot.txt" | cut -d' ' -f1)"

@@ -5,21 +5,21 @@ set -- ${cli_rungdbserver:-} "$@"
 while getopts a:g OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     g)
-      gem5=true
+      common_gem5=true
       ;;
   esac
 done
 shift "$(($OPTIND - 1))"
 executable="$1"
-set_common_vars "$arch" "$gem5"
-"${host_dir}/usr/bin/${arch}-linux-gdb" \
+common_setup
+"${common_host_dir}/usr/bin/${common_arch}-linux-gdb" \
   -q \
-  -ex "set sysroot ${buildroot_out_dir}/staging" \
+  -ex "set sysroot ${common_buildroot_out_dir}/staging" \
   -ex "target remote localhost:${common_qemu_hostfwd_generic_port}" \
   -ex 'tb main' \
   -ex 'c' \
-  "${build_dir}/${executable}" \
+  "${common_build_dir}/${executable}" \
 ;

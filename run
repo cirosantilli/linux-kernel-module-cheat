@@ -18,7 +18,6 @@ extra_append_after_dash=
 extra_flags=
 extra_flags_qemu=
 extra_opts=
-gem5=false
 gem5opts=
 gem5_fsbiglittle=false
 lkmc_eval=
@@ -39,7 +38,7 @@ vnc=
 while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:RrT:t:U:uVX:x OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     c)
       cpus="$OPTARG"
@@ -70,7 +69,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:RrT:t:U:uVX:x OPT; do
 "
       ;;
     g)
-      gem5=true
+      common_gem5=true
       ;;
     h)
       cat build-usage.adoc 1>&2
@@ -161,7 +160,7 @@ if [ -n "$extra_opts" ]; then
     esac
   done
 fi
-set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" -n "$common_run_id" "$arch" "$gem5"
+common_setup
 if "$debug" && "$kvm"; then
   echo 'error: -d and -K are incompatible' 1>&2
   exit 1
@@ -181,7 +180,7 @@ if [ -n "$lkmc_eval" ]; then
   extra_append_after_dash="${extra_append_after_dash} lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
 fi
 if "$nographic"; then
-  if [ "$arch" = x86_64 ]; then
+  if [ "$common_arch" = x86_64 ]; then
     extra_append="${extra_append} console=ttyS0"
   fi
   extra_flags_qemu="${extra_flags_qemu} -nographic \\
@@ -191,9 +190,9 @@ if [ -n "$extra_append_after_dash" ]; then
   extra_append="${extra_append} - ${extra_append_after_dash}"
 fi
 
-if "$gem5"; then
+if "$common_gem5"; then
   memory="${memory}B"
-  if [ "$arch" = x86_64 ]; then
+  if [ "$common_arch" = x86_64 ]; then
     gem5_arch=X86
   else
     gem5_arch=ARM
@@ -229,9 +228,9 @@ ${gem5_common} \
 --kernel='${common_vmlinux}' \\
 --mem-size='${memory}' \\
 --num-cpus='${cpus}' \\
---script='${readfile_file}' \\
+--script='${common_gem5_readfile_file}' \\
 "
-    if [ "$arch" = x86_64 ]; then
+    if [ "$common_arch" = x86_64 ]; then
       if "$kvm"; then
         extra_flags="$extra_flags --cpu-type=X86KvmCPU"
       fi
@@ -240,12 +239,12 @@ ${gem5_common} \
 --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda ${extra_append}' \\
 ${extra_flags} \
 "
-    elif [ "$arch" = arm ] || [ "$arch" = aarch64 ]; then
+    elif [ "$common_arch" = arm ] || [ "$common_arch" = aarch64 ]; then
       # TODO why is it mandatory to pass mem= here? Not true for QEMU.
       # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
       cmd="${gem5_common} \
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
---dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
+--dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$common_arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
 --machine-type=VExpress_GEM5_V1 \\
 ${extra_flags} \
 "
@@ -268,9 +267,9 @@ else
   fi
   if "$prebuilt"; then
     common_mkdir
-    qemu_executable="qemu-system-${arch}"
+    qemu_executable="qemu-system-${common_arch}"
   else
-    qemu_executable="${common_qemu_variant_dir}/${arch}-softmmu/qemu-system-${arch}"
+    qemu_executable="${common_qemu_variant_dir}/${common_arch}-softmmu/qemu-system-${common_arch}"
   fi
   extra_flags="${extra_flags_qemu} ${extra_flags}"
   qemu_common="\
@@ -285,8 +284,8 @@ ${qemu_executable} \\
 ${serial_monitor} \
 -smp '${cpus}' \\
 -trace 'enable=${trace_type},file=${common_qemu_run_dir}/trace.bin' \\
--virtfs 'local,path=${p9_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
--virtfs 'local,path=${buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
+-virtfs 'local,path=${common_9p_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
+-virtfs 'local,path=${common_buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
 ${vnc}"
   if "$initrd"; then
     extra_flags="${extra_flags} -initrd '${common_images_dir}/rootfs.cpio' \\
@@ -298,7 +297,7 @@ ${vnc}"
     # TODO why is this needed, and why any string works.
     root='root=/dev/anything'
   else
-    if [ ! "$arch" = mips64 ]; then
+    if [ ! "$common_arch" = mips64 ]; then
       if [ -n "$rr" ]; then
         driveif=none
         rrid=',id=img-direct'
@@ -331,7 +330,7 @@ ${vnc}"
     virtio_gpu_pci="-device virtio-gpu-pci \\
 "
   fi
-  case "$arch" in
+  case "$common_arch" in
     x86_64)
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyS0,115200"
@@ -390,10 +389,10 @@ ${extra_flags} \
   esac
 fi
 if "$tmux"; then
-  if "$gem5"; then
+  if "$common_gem5"; then
     eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
   elif "$debug"; then
-    eval "./tmu ./rungdb -a '${arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
+    eval "./tmu ./rungdb -a '${common_arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
   fi
 fi
 cmd="time ${cmd}"
@@ -402,4 +401,4 @@ if [ -z "$debug_vm" ]; then
 |& tee >(ts -s %.s > ${common_termout_file}) \
 "
 fi
-"${root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"
+"${common_root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"

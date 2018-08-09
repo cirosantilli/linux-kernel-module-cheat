@@ -2,16 +2,16 @@
 set -eu
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
 set -- ${cli_build:-} "$@"
-mkdir -p "${out_dir}"
-br2_cli_file="${out_dir}/br2_cli"
+mkdir -p "${common_out_dir}"
+br2_cli_file="${common_out_dir}/br2_cli"
 rm -f "$br2_cli_file"
 touch "$br2_cli_file"
-kernel_config_fragment_cli_file="${out_dir}/kernel_config_fragment_cli"
+kernel_config_fragment_cli_file="${common_out_dir}/kernel_config_fragment_cli"
 kernel_config_fragment_cli_file_tmp="${kernel_config_fragment_cli_file}_tmp"
 rm -f "$kernel_config_fragment_cli_file_tmp"
 touch "$kernel_config_fragment_cli_file_tmp"
 configure=true
-config_fragments="${root_dir}/br2/default"
+config_fragments="${common_root_dir}/br2/default"
 extra_make_args=
 j="$(nproc)"
 linux_reconfigure=false
@@ -19,12 +19,11 @@ linux_kernel_custom_config_file=
 kernel_config_fragments=
 post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
-suffix=
 v=0
 while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:Q:qSst::v' OPT; do
   case "$OPT" in
     a)
-      arch="$OPTARG"
+      common_arch="$OPTARG"
       ;;
     B)
       echo "$OPTARG" >> "$br2_cli_file"
@@ -44,7 +43,7 @@ while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:Q:qSst::v' OPT; do
     g)
       extra_make_args="${extra_make_args} gem5-reconfigure \\
 "
-      gem5=true
+      common_gem5=true
       ;;
     h)
       cat build-usage.adoc 1>&2
@@ -99,7 +98,7 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       qemu_sdl=
       ;;
     s)
-      suffix="$OPTARG"
+      common_suffix="$OPTARG"
       ;;
     t)
       common_gem5_build_type="$OPTARG"
@@ -114,9 +113,9 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
 done
 shift $(($OPTIND - 1))
 extra_make_args="${extra_make_args} $@"
-set_common_vars -L "$common_linux_variant" -M "$common_gem5_variant" "$arch" "$gem5" "$suffix"
-config_file="${buildroot_out_dir}/.config"
-case "$arch" in
+common_setup
+config_file="${common_buildroot_out_dir}/.config"
+case "$common_arch" in
   x86_64)
     defconfig=qemu_x86_64_defconfig
   ;;
@@ -130,7 +129,7 @@ case "$arch" in
     defconfig=qemu_mips64r6_malta_defconfig
   ;;
 esac
-config_fragments="${config_fragments} ${root_dir}/br2/qemu ${br2_cli_file}"
+config_fragments="${config_fragments} ${common_root_dir}/br2/qemu ${br2_cli_file}"
 
 time {
 # Configure.
@@ -139,16 +138,16 @@ if "$configure"; then
     # Only copy if modified, otherwise the kernel always rebuilds.
     cp "${kernel_config_fragment_cli_file_tmp}" "${kernel_config_fragment_cli_file}" 
   fi
-  cd "${buildroot_dir}"
-  for p in $(find "${root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
+  cd "${common_buildroot_dir}"
+  for p in $(find "${common_root_dir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -print); do
     patch -N -r - -p 1 < "$p" || :
   done
   br2_external='../kernel_module:../gem5:../parsec-benchmark'
-  packages_dir="${root_dir}/packages"
+  packages_dir="${common_root_dir}/packages"
   for package_dir in "${packages_dir}"/*/; do
     br2_external="${br2_external}:../packages/$(basename "${package_dir}")"
   done
-  make O="$buildroot_out_dir" BR2_EXTERNAL="$br2_external" "$defconfig"
+  make O="$common_buildroot_out_dir" BR2_EXTERNAL="$br2_external" "$defconfig"
   # TODO Can't get rid of these for now.
   # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
   for config_fragment in $config_fragments; do
@@ -159,7 +158,7 @@ BR2_JLEVEL=${j}
 BR2_DL_DIR=\"${common_dir}/dl\"
 BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
 " >> "$config_file"
-  if "$gem5"; then
+  if "$common_gem5"; then
     printf "BR2_PACKAGE_GEM5=y\n" >> "${config_file}"
   fi
   kernel_config_fragment_dir=../kernel_config_fragment
@@ -182,11 +181,11 @@ BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
     # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
     touch "${kernel_config_fragment_dir}/min"
   fi
-  if [ "$arch" = 'mips64' ]; then
+  if [ "$common_arch" = 'mips64' ]; then
     # Workaround for: https://bugs.busybox.net/show_bug.cgi?id=10276
     sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "$config_file"
   fi
-  make O="$buildroot_out_dir" olddefconfig
+  make O="$common_buildroot_out_dir" olddefconfig
 fi
   echo 'config time:'
 }
@@ -214,13 +213,13 @@ symlink_buildroot_variant "$common_qemu_custom_dir" "$common_qemu_variant_dir"
 #symlink_buildroot_variant "$common_qemu_guest_custom_dir" "$common_qemu_guest_variant_dir"
 
 # Manage gem5 variants.
-if "$gem5"; then
+if "$common_gem5"; then
   if [ ! -e "${common_gem5_src_dir}/.git" ]; then
     git -C "$common_gem5_default_src_dir" worktree add -b "wt/${common_gem5_variant}" "${common_gem5_src_dir}"
   fi
 fi
 
-cd "$buildroot_dir"
+cd "$common_buildroot_dir"
 # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
 # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
 #
@@ -233,7 +232,7 @@ cmd="time \\
 env \\
 -u LD_LIBRARY_PATH \\
 make \\
-O='${buildroot_out_dir}' \\
+O='${common_buildroot_out_dir}' \\
 HOST_QEMU_OPTS='--enable-debug --enable-trace-backends=simple ${qemu_sdl}' \\
 GEM5_LKMC_GEM5_BUILD_TYPE="$common_gem5_build_type" \\
 GEM5_LKMC_OUTDIR="$common_gem5_out_dir" \\
@@ -242,4 +241,4 @@ V='${v}' \\
 ${extra_make_args} \
 all \\
 "
-"${root_dir}/eeval" "$cmd" "${out_arch_dir}/build.sh"
+"${common_root_dir}/eeval" "$cmd" "${common_out_arch_dir}/build.sh"
