@@ -3625,9 +3625,24 @@ In QEMU, we enable it by default with:
 
 Also asked at https://unix.stackexchange.com/questions/443017/can-i-make-qemu-exit-with-failure-on-kernel-panic which also mentions the x86_64 `-device pvpanic`, but I don't see much advantage to it.
 
-TODO neither method exits with exit status different from 0, so the only thing I can do for now is to grep the logs, which sucks.
+TODO neither method exits with exit status different from 0, so for now we are just grepping the logs for panic messages, which sucks.
 
-gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `config.ini` has a `system.panic_on_panic` and `system.panic_on_oops` params which I bet will work, but it does not seem to be exposed to `fs.py`, so we don't enable it by default, although we want to.
+gem5 actually detects panics and outputs:
+
+....
+warn: Kernel panic in simulated kernel
+....
+
+before hanging. gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `config.ini` has a `system.panic_on_panic` and `system.panic_on_oops` params which I bet will work, but it does not seem to be exposed to `fs.py`, so we don't enable it by default, although we want to.
+
+Detection seems to be symbol based: it parses the kernel image, and trigers when the PC reaches the address of a symbol: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
+
+....
+        kernelPanicEvent = addKernelFuncEventOrPanic<Linux::KernelPanicEvent>(
+            "panic", "Kernel panic in simulated kernel", dmesg_output);
+....
+
+Here we see that the symbol `"panic"` for the `panic()` function is the one being tracked.
 
 ===== Reboot on panic
 
@@ -7263,13 +7278,22 @@ For the most part, just add the `-g` option to all commands and everything shoul
 ./configure -g && ./build -a arm -g && ./run -a arm -g
 ....
 
-TODO `aarch64` boot is failing on kernel v4.17, gem5 60600f09c25255b3c8f72da7fb49100e2682093a with:
+To get a terminal, either open a new shell and run:
 
 ....
-panic: Tried to write Gic cpu at offset 0xd0
+./gem5-shell
 ....
 
-Work around it for now by using v4.16:
+or use `./run -u` if you are using tmux, which I highly recommend: <<tmux-gem5>>.
+
+TODO `arm` and  `aarch64` boot are failing at b585590fc089ec8918fc7853be8cef3de77e9c6a on kernel v4.17 with:
+
+....
+gem5.opt: /home/ciro/bak/git/linux-kernel-module-cheat/out/common/gem5/default/build/ARM/cpu/simple/atomic.cc:377: virtual Fault AtomicSimpleCPU::readMem(Addr, uint8_t*, unsigned int, Request::Flags): Assertion
+`!pkt.isError()' failed.
+....
+
+Work around it for now by using v4.16 with <<gem5-build-variants>>:
 
 ....
 git -C linux checkout v4.16
@@ -7277,19 +7301,13 @@ git -C linux checkout v4.16
 git -C linux checkout -
 ....
 
-To get a terminal, open a new shell and run:
+If we check out gem5 to a previous revision 60600f09c25255b3c8f72da7fb49100e2682093a, which is when I first noticed that v4.17 was not working, then there is another error instead:
 
 ....
-./gem5-shell
+panic: Tried to write GIC CPU at offset 0xd0
 ....
 
-Tested architectures:
-
-* `arm`
-* `aarch64`
-* `x86_64`
-
-Like QEMU, gem5 also has an user mode called syscall emulation mode (SE): <<gem5-syscall-emulation-mode>>
+This is also fixed by using the Linux kernel v4.16, I'm not sure if it is the same error for both or not.
 
 === gem5 vs QEMU
 
