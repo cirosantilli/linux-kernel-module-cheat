@@ -3627,6 +3627,8 @@ Also asked at https://unix.stackexchange.com/questions/443017/can-i-make-qemu-ex
 
 TODO neither method exits with exit status different from 0, so for now we are just grepping the logs for panic messages, which sucks.
 
+One possibility that gets close would be to use <<gdb>> to break at the `panic` function, and then send a <<qemu-monitor-from-gdb>> `quit` command if that happens, but I don't see a way to exit with non-zero status to indicate error.
+
 gem5 actually detects panics and outputs:
 
 ....
@@ -3635,7 +3637,7 @@ warn: Kernel panic in simulated kernel
 
 before hanging. gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `config.ini` has a `system.panic_on_panic` and `system.panic_on_oops` params which I bet will work, but it does not seem to be exposed to `fs.py`, so we don't enable it by default, although we want to.
 
-Detection seems to be symbol based: it parses the kernel image, and trigers when the PC reaches the address of a symbol: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
+Detection seems to be symbol based: it parses the kernel image, and triggers when the PC reaches the address of a symbol: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
 
 ....
         kernelPanicEvent = addKernelFuncEventOrPanic<Linux::KernelPanicEvent>(
@@ -6941,6 +6943,17 @@ Getting everything to work required careful choice of QEMU command line options:
 ==== QEMU monitor from guest
 
 Peter Maydell said potentially not possible nicely as of August 2018: https://stackoverflow.com/questions/51747744/how-to-run-a-qemu-monitor-command-from-inside-the-guest/51764110#51764110
+
+==== QEMU monitor from GDB
+
+When doing <<gdb-step-debug>> it is possible to send QEMU monitor commands through the GDB `monitor` command, which saves you the trouble of opening yet another shell.
+
+Try for example:
+
+....
+monitor help
+monitor info qtree
+....
 
 === Debug the emulator
 
