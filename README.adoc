@@ -3516,16 +3516,6 @@ When a panic happens, <<linux-kernel-magic-keys,`Shift-PgUp`>> does not work as 
 
 On panic, the kernel dies, and so does our terminal.
 
-Make the kernel reboot after n seconds after panic:
-
-....
-echo 1 > /proc/sys/kernel/panic
-....
-
-Can also be controlled with the `panic=` kernel boot parameter.
-
-`0` to disable: https://unix.stackexchange.com/questions/29567/how-to-configure-the-linux-kernel-to-reboot-on-panic/29569#29569
-
 The panic trace looks like:
 
 ....
@@ -3616,17 +3606,37 @@ Related:
 
 Basically just calls `panic("BUG!")` for most archs.
 
-===== Shutdown VM on panic
+===== Exit emulator on panic
 
-Useful to automate bisections.
+For testing purposes, it is very useful to quit the emulator automatically in case of kernel panic, instead of just hanging forever.
 
-QEMU:
+In QEMU, we enable it by default with:
+
+* `panic=-1` command line option which reboots the kernel immediately on panic, see: <<reboot-on-panic>>
+* QEMU `-no-reboot`, which makes QEMU exit when the guest tries to reboot
+
+Also asked at https://unix.stackexchange.com/questions/443017/can-i-make-qemu-exit-with-failure-on-kernel-panic which also mentions the x86_64 `-device pvpanic`, but I don't see much advantage to it.
+
+TODO neither method exits with exit status different from 0, so the only thing I can do for now is to grep the logs, which sucks.
+
+gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `config.ini` has a `system.panic_on_panic` and `system.panic_on_oops` params which I bet will work, but it does not seem to be exposed to `fs.py`, so we don't enable it by default, although we want to.
+
+===== Reboot on panic
+
+Make the kernel reboot after n seconds after panic:
 
 ....
-./run -E 'insmod /panic.ko' -e 'panic=1' -- -no-reboot
+echo 1 > /proc/sys/kernel/panic
 ....
 
-gem5: TODO gem5's `config.ini` has a `system.panic_on_panic` param which I bet will work, but it does not seem to be exposed to `fs.py`.
+Can also be controlled with the `panic=` kernel boot parameter.
+
+`0` to disable, `-1` to reboot immediately.
+
+Bibliography:
+
+* https://github.com/torvalds/linux/blob/v4.17/Documentation/admin-guide/kernel-parameters.txt#L2931
+* https://unix.stackexchange.com/questions/29567/how-to-configure-the-linux-kernel-to-reboot-on-panic/29569#29569
 
 ===== Panic trace show addresses instead of symbols
 
@@ -5411,7 +5421,7 @@ sendkey shift-pgdown
 
 ===== Ctrl Alt Del
 
-Reboot guest:
+Run `/sbin/reboot` on guest:
 
 ....
 Ctrl-Alt-Del
@@ -5422,6 +5432,8 @@ Enabled from our link:rootfs_overlay/etc/inittab[]:
 ....
 ::ctrlaltdel:/sbin/reboot
 ....
+
+Linux tries to reboot, and QEMU shutdowns due to the `-no-reboot` option which we set by default for: <<exit-emulator-on-panic>>.
 
 Under the hood, behaviour is controlled by the `reboot` syscall:
 
