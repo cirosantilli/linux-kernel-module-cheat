@@ -3143,6 +3143,8 @@ git push
 
 But we have since moved to running just mainline, which makes the update simpler.
 
+In case something breaks while updating the Linux kernel, you can try to bisect it to understand the root cause: <<bisection>>.
+
 ==== Downgrade the Linux kernel
 
 The kernel is not forward compatible, however, so downgrading the Linux kernel requires downgrading the userland too to the latest Buildroot branch that supports it.
@@ -9423,6 +9425,43 @@ Then proceed to do the following tests:
 
 * `/count.sh` and `b __x64_sys_write`
 * `insmod /timer.ko` and `b lkmc_timer_callback`
+
+==== Bisection
+
+When updating the Linux kernel, QEMU and gem5, things sometimes break.
+
+However, for many types of crashes, it is trivial to bisect down to the offending commit, in particular because we can make QEMU and gem5 exit with status 1 on kernel panic: <<exit-emulator-on-panic>>.
+
+For example, when updating from QEMU `v2.12.0` to `v3.0.0-rc3`, the Linux kernel boot started to panic for `arm`.
+
+We then bisected it as explained at: https://stackoverflow.com/questions/4713088/how-to-use-git-bisect with the link:qemu-bisect-boot[] script:
+
+....
+cd qemu
+git bisect start
+
+# Check that our test script fails on v3.0.0-rc3 as expected, and mark it as bad.
+../qemu-bisect-boot
+# Should output 1.
+echo #?
+git bisect bad
+
+# Same for the good end.
+git checkout v2.12.0
+../qemu-bisect-boot
+# Should output 0.
+echo #?
+git bisect good
+
+# This leaves us at the offending commit.
+git bisect run ../qemu-bisect-boot
+
+# Clean up after the bisection.
+git bisect reset
+cd ..
+git submodule update
+rm -rf out/arm/buildroot/build/host-qemu-custom.bisect/
+....
 
 ==== Sanity checks
 
