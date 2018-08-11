@@ -3618,6 +3618,8 @@ Basically just calls `panic("BUG!")` for most archs.
 
 ===== Exit emulator on panic
 
+====== Exit QEMU on panic
+
 For testing purposes, it is very useful to quit the emulator automatically in case of kernel panic, instead of just hanging forever.
 
 In QEMU, we enable it by default with:
@@ -3631,13 +3633,28 @@ TODO neither method exits with exit status different from 0, so for now we are j
 
 One possibility that gets close would be to use <<gdb>> to break at the `panic` function, and then send a <<qemu-monitor-from-gdb>> `quit` command if that happens, but I don't see a way to exit with non-zero status to indicate error.
 
+====== Exit gem5 on panic
+
 gem5 actually detects panics and outputs:
 
 ....
 warn: Kernel panic in simulated kernel
 ....
 
-before hanging. gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `config.ini` has a `system.panic_on_panic` and `system.panic_on_oops` params which I bet will work, but it does not seem to be exposed to `fs.py`, so we don't enable it by default, although we want to.
+before hanging forever.
+
+We can make gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `fs.py` quit instead of hang with:
+
+....
+patch -d gem5/gem5 -p1 < patches/manual/gem5-panic.patch
+./run -aa -F 'echo c > /proc/sysrq-trigger' -g
+....
+
+Source: link:patches/manual/gem5-panic.patch[].
+
+It does not seem to be exposed to `fs.py`.
+
+However TODO it still exits with status 0... so we are just parsing the logs for now, like QEMU does.
 
 Detection seems to be symbol based: it parses the kernel image, and triggers when the PC reaches the address of a symbol: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
 
@@ -8434,21 +8451,7 @@ The `-X-b` option enables the alternative `configs/example/arm/fs_bigLITTLE.py` 
 First apply:
 
 ....
-echo '
-diff --git a/configs/example/arm/fs_bigLITTLE.py b/configs/example/arm/fs_bigLITTLE.py
-index 7d66c03a6..d71e714fe 100644
---- a/configs/example/arm/fs_bigLITTLE.py
-+++ b/configs/example/arm/fs_bigLITTLE.py
-@@ -194,7 +194,7 @@ def build(options):
-         "norandmaps",
-         "loglevel=8",
-         "mem=%s" % default_mem_size,
--        "root=/dev/vda1",
-+        "root=/dev/vda",
-         "rw",
-         "init=%s" % options.kernel_init,
-         "vmalloc=768MB",
-' | patch -d gem5/gem5 -p1
+patch -d gem5/gem5 -p1 < patches/manual/gem5-biglittle.patch
 ....
 
 then:
@@ -9320,12 +9323,6 @@ The action seems to be happening at: `hw/arm/virt.c`.
 ***** `out/common/gem5/<gem5-variant>/build/`: main build outputs, including the `gem5.opt` executable and object files
 ***** `out/common/gem5/<gem5-variant>/system/`: `M5_PATH` directory, with DTBs and bootloaders
 
-==== buildroot_patches
-
-Every `.patch` file in this directory gets applied to Buildroot before anything else is done.
-
-This directory has been made kind of useless when we decided to use our own Buildroot fork, but we've kept the functionality just in case we someday go back to upstream Buildroot.
-
 ==== gem5 directory
 
 We Build the gem5 emulator through Buildroot basically just to reuse its timestamping system to avoid rebuilds.
@@ -9334,7 +9331,19 @@ There is also the `m5` tool that we must build through Buildroot ans install on 
 
 This directory has the following structure:
 
-==== global_patch_dir
+==== packages directory
+
+Any directory in that subdirectory is added to `BR2_EXTERNAL` and become available to the build.
+
+==== patches
+
+===== patches/buildroot
+
+Every `.patch` file in this directory gets applied to Buildroot before anything else is done.
+
+This directory has been made kind of useless when we decided to use our own Buildroot fork, but we've kept the functionality just in case we someday go back to upstream Buildroot.
+
+===== patches/global
 
 Has the following structure:
 
@@ -9346,9 +9355,11 @@ The patches are then applied to the corresponding packages before build.
 
 Uses `BR2_GLOBAL_PATCH_DIR`.
 
-==== packages directory
+===== patches/manual
 
-Any directory in that subdirectory is added to `BR2_EXTERNAL` and become available to the build.
+Patches in this directory are never applied automatically: it is up to users to manually apply them before usage following the instructions in this documentation.
+
+These are typically patches that don't contain fundamental functionality, so we don't feel like forking the target repos.
 
 ==== rootfs_overlay
 
