@@ -144,7 +144,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:RrT:t:U:uVX:x OPT; do
   esac
 done
 shift "$(($OPTIND - 1))"
-extra_flags="$extra_flags $@"
+extra_flags="${extra_flags}${@}"
 OPTIND=1
 if [ -n "$extra_opts" ]; then
   while getopts b OPT $extra_opts; do
@@ -181,7 +181,7 @@ if "$nographic"; then
   if [ "$common_arch" = x86_64 ]; then
     extra_append="${extra_append} console=ttyS0"
   fi
-  extra_flags_qemu="${extra_flags_qemu} -nographic \\
+  extra_flags_qemu="${extra_flags_qemu}-nographic \\
 "
 fi
 if [ -n "$extra_append_after_dash" ]; then
@@ -201,26 +201,26 @@ if "$common_gem5"; then
   fi
   gem5_common="\
 M5_PATH='${common_gem5_system_dir}' \\
-${debug_vm} \
+${debug_vm}\
 '${common_gem5_build_dir}/${gem5_arch}/gem5.${common_gem5_build_type}' \\
 --debug-file=trace.txt \\
-${gem5opts} \
+${gem5opts}\
 -d '${common_m5out_dir}' \\
 "
   if "$gem5_fsbiglittle"; then
-      cmd="${gem5_common} \
-"${common_gem5_default_src_dir}/configs/example/arm/fs_bigLITTLE.py" \
+      cmd="${gem5_common}\
+"${common_gem5_default_src_dir}/configs/example/arm/fs_bigLITTLE.py" \\
 --big-cpus=2 \\
 --cpu-type=atomic \\
 --disk="${common_images_dir}/rootfs.ext2" \\
 --dtb "${common_gem5_system_dir}/arm/dt/armv8_gem5_v1_big_little_2_2.dtb" \\
 --kernel="${common_vmlinux}" \\
 --little-cpus=2 \\
-${extra_flags} \
+${extra_flags}\
 "
   else
     gem5_common="\
-${gem5_common} \
+${gem5_common}\
 '${common_gem5_src_dir}/configs/example/fs.py' \\
 --disk-image='${common_images_dir}/rootfs.ext2' \\
 --kernel='${common_vmlinux}' \\
@@ -233,26 +233,26 @@ ${gem5_common} \
         extra_flags="$extra_flags --cpu-type=X86KvmCPU"
       fi
       cmd="\
-${gem5_common} \
+${gem5_common}\
 --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda ${extra_append}' \\
-${extra_flags} \
+${extra_flags}\
 "
     elif [ "$common_arch" = arm ] || [ "$common_arch" = aarch64 ]; then
       # TODO why is it mandatory to pass mem= here? Not true for QEMU.
       # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
-      cmd="${gem5_common} \
+      cmd="${gem5_common}\
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
 --dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$common_arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
 --machine-type=VExpress_GEM5_V1 \\
-${extra_flags} \
+${extra_flags}\
 "
     fi
   fi
 else
   mkdir -p "$common_qemu_run_dir"
   if [ -z "$debug_vm" ]; then
-    serial_monitor='-serial mon:stdio \
-'
+    serial_monitor="-serial mon:stdio \\
+"
   else
     serial_monitor=
   fi
@@ -260,7 +260,7 @@ else
     extra_flags="${extra_flags} -enable-kvm"
   fi
   if "$kgdb"; then
-    extra_flags_qemu="$extra_flags_qemu -serial 'tcp::${common_gdb_port},server,nowait' \\
+    extra_flags_qemu="${extra_flags_qemu}-serial 'tcp::${common_gdb_port},server,nowait' \\
 "
   fi
   if "$prebuilt"; then
@@ -269,9 +269,9 @@ else
   else
     qemu_executable="${common_qemu_variant_dir}/${common_arch}-softmmu/qemu-system-${common_arch}"
   fi
-  extra_flags="${extra_flags_qemu} ${extra_flags}"
+  extra_flags="${extra_flags_qemu}${extra_flags}"
   qemu_common="\
-${debug_vm} \
+${debug_vm}\
 ${qemu_executable} \\
 -device rtl8139,netdev=net0 \\
 -gdb 'tcp::${common_gdb_port}' \\
@@ -280,7 +280,7 @@ ${qemu_executable} \\
 -monitor 'telnet::${common_qemu_monitor_port},server,nowait' \\
 -netdev 'user,hostfwd=tcp::${common_qemu_hostfwd_generic_port}-:${common_qemu_hostfwd_generic_port},hostfwd=tcp::${common_qemu_hostfwd_ssh_port}-:22,id=net0' \\
 -no-reboot \\
-${serial_monitor} \
+${serial_monitor}\
 -smp '${cpus}' \\
 -trace 'enable=${trace_type},file=${common_qemu_run_dir}/trace.bin' \\
 -virtfs 'local,path=${common_9p_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
@@ -308,10 +308,10 @@ ${vnc}"
         rrid=
         snapshot=,snapshot
       fi
-      extra_flags="${extra_flags} -drive 'file=${common_qcow2_file},format=qcow2,if=${driveif}${snapshot}${rrid}' \\
+      extra_flags="${extra_flags}-drive 'file=${common_qcow2_file},format=qcow2,if=${driveif}${snapshot}${rrid}' \\
 "
       if [ -n "$rr" ]; then
-        extra_flags="${extra_flags} \\
+        extra_flags="${extra_flags}\
 -drive driver=blkreplay,if=none,image=img-direct,id=img-blkreplay \\
 -device ide-hd,drive=img-blkreplay \\
 "
@@ -320,7 +320,7 @@ ${vnc}"
   fi
 
   if [ -n "$rr" ]; then
-    extra_flags="${extra_flags} \
+    extra_flags="${extra_flags}\
 -object filter-replay,id=replay,netdev=net0 \\
 -icount 'shift=7,rr=${rr},rrfile=${common_qemu_rrfile}' \\
 "
@@ -335,52 +335,40 @@ ${vnc}"
         extra_append="${extra_append} kgdboc=ttyS0,115200"
       fi
       cmd="\
-${qemu_common} \
+${qemu_common}\
 -M pc \\
 -append '${root} nopat ${extra_append}' \\
 -device edu \\
-${extra_flags} \
 "
     ;;
-    arm)
+    arm|aarch64)
       if "$kgdb"; then
         extra_append="${extra_append} kgdboc=ttyAMA0,115200"
       fi
-      cmd="\
-${qemu_common} \
--M virt \\
--append '${root} ${extra_append}' \\
--cpu cortex-a15 \\
-${virtio_gpu_pci} \
-${extra_flags} \
-"
-    ;;
-    aarch64)
-      if "$kgdb"; then
-        extra_append="${extra_append} kgdboc=ttyAMA0,115200"
+      if [  "$common_arch" = arm ]; then
+        cpu=cortex-a15
+      else
+        cpu=cortex-a57
       fi
       cmd="\
-${qemu_common} \
+${qemu_common}\
 -M virt \\
 -append '${root} ${extra_append}' \\
--cpu cortex-a57 \\
-${virtio_gpu_pci} \
-${extra_flags} \
+-cpu "$cpu" \\
+${virtio_gpu_pci}\
 "
     ;;
     mips64)
       if ! "$ramfs"; then
         root='root=/dev/hda'
-        extra_flags="${extra_flags} \
--drive 'file=${common_qcow2_file},format=qcow2${snapshot}' \\
+        extra_flags="${extra_flags}-drive 'file=${common_qcow2_file},format=qcow2${snapshot}' \\
 "
       fi
       cmd="\
-${qemu_common} \
+${qemu_common}\
 -M malta \\
 -append '${root} ${extra_append}' \\
 -cpu I6400 \\
-${extra_flags} \
 "
     ;;
   esac
@@ -392,10 +380,12 @@ if "$tmux"; then
     eval "./tmu ./rungdb -a '${common_arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
   fi
 fi
-cmd="time ${cmd}"
+cmd="time \\
+${cmd}"
 if [ -z "$debug_vm" ]; then
-  cmd="${cmd} \
-|& tee >(ts -s %.s > ${common_termout_file}) \
+  cmd="${cmd}\
+${extra_flags}\
+|& tee >(ts -s %.s > ${common_termout_file})\
 "
 fi
 "${common_root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"
