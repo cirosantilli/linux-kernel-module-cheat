@@ -3654,7 +3654,30 @@ Source: link:patches/manual/gem5-panic.patch[].
 
 It does not seem to be exposed to `fs.py`.
 
-However TODO it still exits with status 0... so we are just parsing the logs for now, as for QEMU.
+However TODO it still exits with status 0... so we are just parsing the logs for now, as for QEMU. This seems to happen because the abort that is used to quit at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/base/logging.hh#L124[src/base/logging.hh]:
+
+....
+    void exit_helper() M5_ATTR_NORETURN { exit(); ::abort(); }
+....
+
+gets handled by an abort handler at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/sim/init_signals.cc#L147[src/sim/init_signals.cc] which prints the backtrace and still exits 0 despite `raiseFatalSignal`?
+
+....
+/// Abort signal handler.
+void
+abortHandler(int sigtype)
+{
+    const EventQueue *const eq(curEventQueue());
+    if (eq) {
+        ccprintf(cerr, "Program aborted at tick %llu\n", eq->getCurTick());
+    } else {
+        STATIC_ERR("Program aborted\n\n");
+    }
+
+    print_backtrace();
+    raiseFatalSignal(sigtype);
+}
+....
 
 Detection seems to be symbol based: it parses the kernel image, and triggers when the PC reaches the address of a symbol: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
 
