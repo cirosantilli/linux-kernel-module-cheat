@@ -389,7 +389,19 @@ ${extra_flags}\
 "
 fi
 "${common_root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"
-if grep 'Kernel panic - not syncing' "$common_termout_file"; then
-  echo 'Kernel panic detected by parsing the terminal output. Exiting with status 1.'
+cmd_out=$?
+
+# Check if guest panicked.
+if "$common_gem5"; then
+  # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
+  #
+  # Grepping for '^panic: ' does not work because some errors don't show that message
+  panic_msg='--- BEGIN LIBC BACKTRACE ---$'
+else
+  panic_msg='Kernel panic - not syncing'
+fi
+if grep -E -e "$panic_msg" -q "$common_termout_file"; then
+  echo 'Simulation error detected by parsing logs. Exiting with status 1.'
   exit 1
 fi
+exit "$cmd_out"
