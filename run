@@ -198,13 +198,6 @@ if "$common_gem5"; then
   else
     gem5_arch=ARM
   fi
-  if [ -n "$gem5_restore_last_checkpoint" ]; then
-    cpt_pref='^cpt\.'
-    latest_cpt_basename="$(ls -crt "$common_m5out_dir" | grep -E "$cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)"
-    n="$(ls -1 "$common_m5out_dir" | grep -E "$cpt_pref" | sort -k 2 -n -t . | grep -n "$latest_cpt_basename" | cut -d : -f 1)"
-    extra_flags="${extra_flags}-r ${n} \\
-"
-  fi
   if "$trace_enabled"; then
     gem5opts="${gem5opts} --debug-flags='${trace_type}' \\
 "
@@ -218,7 +211,12 @@ ${gem5opts}\
 -d '${common_m5out_dir}' \\
 "
   if "$gem5_fsbiglittle"; then
-      cmd="${gem5_common}\
+    if [ -n "$gem5_restore_last_checkpoint" ]; then
+      extra_flags="${extra_flags}\
+--restore-from='${common_m5out_dir}/$(ls -crt "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)' \\
+"
+    fi
+    cmd="${gem5_common}\
 "${common_gem5_default_src_dir}/configs/example/arm/fs_bigLITTLE.py" \\
 --big-cpus=2 \\
 --cpu-type=atomic \\
@@ -228,6 +226,12 @@ ${gem5opts}\
 --little-cpus=2 \\
 "
   else
+    if [ -n "$gem5_restore_last_checkpoint" ]; then
+      latest_cpt_basename="$(ls -crt "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)"
+      n="$(ls -1 "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | sort -k 2 -n -t . | grep -n "$latest_cpt_basename" | cut -d : -f 1)"
+      extra_flags="${extra_flags}-r ${n} \\
+"
+    fi
     gem5_common="\
 ${gem5_common}\
 '${common_gem5_src_dir}/configs/example/fs.py' \\
