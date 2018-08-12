@@ -30,15 +30,18 @@ common_setup() {
   case "$common_arch" in
     a|arm)
       common_arch=arm
+      common_gem5_arch=ARM
       ;;
     A|aarch64)
       common_arch=aarch64
+      common_gem5_arch=ARM
       ;;
     m|mips64)
       common_arch=mips64
       ;;
     x|x86_64)
       common_arch=x86_64
+      common_gem5_arch=X86
       ;;
     *)
       printf "unknown arch: ${common_arch}\n" 1>&2
@@ -59,10 +62,13 @@ common_setup() {
         common_qemu_custom_dir="${common_build_dir}/host-qemu-custom"
           common_qemu_guest_variant_dir="${common_qemu_custom_dir}.${common_qemu_variant}"
           common_qemu_variant_dir="${common_qemu_custom_dir}.${common_qemu_variant}"
+            common_qemu_exec="${common_qemu_variant_dir}/${common_arch}-softmmu/qemu-system-${common_arch}"
         common_qemu_guest_custom_dir="${common_build_dir}/qemu-custom"
       common_host_dir="${common_buildroot_out_dir}/host"
       common_images_dir="${common_buildroot_out_dir}/images"
         common_qcow2_file="${common_images_dir}/rootfs.ext2.qcow2"
+      common_staging_dir="${common_buildroot_out_dir}/staging"
+      common_target_dir="${common_buildroot_out_dir}/target"
     common_gem5_run_dir="${common_out_arch_dir}/gem5/${common_run_id}"
       common_m5out_dir="${common_gem5_run_dir}/m5out"
         common_trace_txt_file="${common_m5out_dir}/trace.txt"
@@ -73,6 +79,7 @@ common_setup() {
   common_gem5_out_dir="${common_dir}/gem5/${common_gem5_variant}"
     common_gem5_m5term="${common_gem5_out_dir}/m5term"
     common_gem5_build_dir="${common_gem5_out_dir}/build"
+      common_gem5_exec="${common_gem5_build_dir}/${common_gem5_arch}/gem5.${common_gem5_build_type}"
     common_gem5_system_dir="${common_gem5_out_dir}/system"
   if [ -n "$common_gem5_worktree" ]; then
     common_gem5_src_dir="${common_gem5_non_default_src_root_dir}/${common_gem5_worktree}"
@@ -80,9 +87,11 @@ common_setup() {
     common_gem5_src_dir="${common_root_dir}/gem5/gem5"
   fi
   if "$common_gem5"; then
+    common_exec="$common_gem5_exec"
     common_run_dir="$common_gem5_run_dir"
     common_termout_file="$common_gem5_termout_file"
   else
+    common_exec="$common_qemu_exec"
     common_run_dir="$common_qemu_run_dir"
     common_termout_file="$common_qemu_termout_file"
   fi

@@ -868,13 +868,13 @@ git clean -xdf .
 To only nuke one architecture, do:
 
 ....
-rm -rf out/x86_64/buildroot
+rm -rf "$(./getvar buildroot_out_dir)"
 ....
 
 Only nuke one one package:
 
 ....
-rm -rf out/x86_64/buildroot/build/host-qemu-custom
+rm -rf "$(./getvar buildroot_out_dir)/build/host-qemu-custom"
 ./build
 ....
 
@@ -1132,15 +1132,15 @@ This method also allows us to keep run outputs in separate directories for later
 produces two separate `m5out` directories:
 
 ....
-less out/aarch64/gem5/0/m5out
-less out/aarch64/gem5/1/m5out
+ls "$(./getvar -a A -g -n 0 m5out_dir)"
+ls "$(./getvar -a A -g -n 1 m5out_dir)"
 ....
 
 and the gem5 host executable stdout and stderr can be found at:
 
 ....
-less out/aarch64/gem5/0/termout.txt
-less out/aarch64/gem5/1/termout.txt
+less "$(./getvar -a A -g -n 0 termout_file)"
+less "$(./getvar -a A -g -n 1 termout_file)"
 ....
 
 Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
@@ -1149,12 +1149,6 @@ You can also add a prefix to the build ID before a period:
 
 ....
 ./run -a A -g -n some-experiment.1
-....
-
-which then uses the output directory:
-
-....
-less out/aarch64/gem5/some-experiment.1/m5out
 ....
 
 and makes it easier to remember afterwards which directory contains what.
@@ -1450,7 +1444,7 @@ so it is close to the failing `0xbf0000cc`.
 `readelf`:
 
 ....
-./runtc readelf -s ./out/x86_64/buildroot/build/kernel_module-1.0/hello.ko
+./runtc readelf -s "$(./getvar build_dir)/kernel_module-1.0/hello.ko"
 ....
 
 does not give any interesting hits at `cc`, no symbol was placed that far.
@@ -1464,7 +1458,7 @@ This is not very easy, since by the time the module finishes loading, and `lx-sy
 Possibly asked at:
 
 * https://stackoverflow.com/questions/37059320/debug-a-kernel-module-being-loaded
-* https://stackoverflow.com/questions/11888412/debug-the-init-module-call-of-a-linux-kernel-module?rq=1
+* https://stackoverflow.com/questions/11888412/debug-the-init-module-call-of-a-linux-kernel-module
 
 ===== GDB module_init step into it
 
@@ -1524,7 +1518,7 @@ Now let's find the offset of `myinit`:
 
 ....
 ./runtc readelf \
-  -s ./out/x86_64/buildroot/build/kernel_module-1.0/fops.ko | \
+  -s "$(./getvar build_dir)/kernel_module-1.0/fops.ko" | \
   grep myinit
 ....
 
@@ -1691,7 +1685,7 @@ One possibility is to run:
 and then find the second address (the first one does not work, already too late maybe):
 
 ....
-less ./out/arm/qemu/0/trace.txt
+less "$(./getvar -a arm trace_txt_file)"
 ....
 
 and break there:
@@ -1845,7 +1839,7 @@ We have also double checked the address with:
 
 ....
 ./runtc -a arm readelf \
-  -s ./out/arm/buildroot/build/kernel_module-1.0/user/hello.out | \
+  -s "$(./getvar -a arm build_dir)/kernel_module-1.0/fops.ko" | \
   grep main
 ....
 
@@ -2276,13 +2270,13 @@ Host:
 You can find the executable with:
 
 ....
-find out/x86_64/buildroot/build -name myinsmod.out
+find "$(./getvar build_dir)" -name myinsmod.out
 ....
 
 TODO: automate the path finding:
 
-* using the executable from under `out/x86_64/buildroot/target` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. `BR2_STRIP_none=y` should disable stripping, but make the image way larger.
-* `outputx86_64~/staging/` would be even better than `target/` as the docs say that this directory contains binaries before they were stripped. However, only a few binaries are pre-installed there by default, and it seems to be a manual per package thing.
+* using the executable from under `$(./getvar target_dir)` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. `BR2_STRIP_none=y` should disable stripping, but make the image way larger.
+* `$(./getvar staging_dir)` would be even better than the target dir as Buildroot docs say that this directory contains binaries before they were stripped. However, only a few binaries are pre-installed there by default, and it seems to be a manual per package thing.
 +
 E.g. `pciutils` has for `lspci`:
 +
@@ -2447,7 +2441,7 @@ TODO Can you run arm executables in the aarch64 guest? https://stackoverflow.com
 I've tried:
 
 ....
-./out/aarch64/buildroot/host/bin/aarch64-linux-gcc -static ~/test/hello_world.c -o data/9p/a.out
+./runtc -a aarch64 gcc|cg -static ~/test/hello_world.c -o data/9p/a.out
 ./run -a A -F '/mnt/9p/a.out'
 ....
 
@@ -2781,7 +2775,7 @@ To x11 packages have an `xserver` prefix as in:
 ./build -b br2/x11 -- xserver_xorg-server-reconfigure
 ....
 
-the easiest way to find them out is to just list `out/x86_64/buildroot/build/x*`.
+the easiest way to find them out is to just list `"$(./getvar build_dir)/x*`.
 
 TODO as of: c2696c978d6ca88e8b8599c92b1beeda80eb62b2 I noticed that `startx` leads to a <<bug_on>>:
 
@@ -2874,7 +2868,7 @@ To enable initrd instead of the default ext2 disk image, do:
 Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
 
 ....
-cat ./out/x86_64/qemu/0/run.sh
+cat "$(./getvar run_dir)/run.sh"
 ....
 
 Also as expected, there is no filesystem persistency, since we are doing everything in memory:
@@ -2949,7 +2943,7 @@ The `-l` (ell) should only be used the first time you move to / from a different
 It is interesting to see how this increases the size of the kernel image if you do a:
 
 ....
-ls -lh out/x86_64/buildroot/images/bzImage
+ls -lh "$(./getvar linux_image)"
 ....
 
 before and after using initramfs, since the `.cpio` is now glued to the kernel image.
@@ -3031,13 +3025,13 @@ CONFIG_IKCONFIG_PROC=y
 From host:
 
 ....
-cat out/*/buildroot/build/linux-custom/.config
+cat "$(./getvar linux_custom_dir)/.config"
 ....
 
 Just for fun link:https://stackoverflow.com/a/14958263/895245[]:
 
 ....
-./linux/scripts/extract-ikconfig out/*/buildroot/build/linux-custom/vmlinux
+./linux/scripts/extract-ikconfig "$(./getvar vmlinux)"
 ....
 
 although this can be useful when someone gives you a random image.
@@ -3363,7 +3357,7 @@ vermagic:       4.17.0 SMP mod_unload modversions
 Module information is stored in a special `.modinfo` section of the ELF file:
 
 ....
-./runtc readelf -SW ./out/x86_64/buildroot/target/module_info.ko
+./runtc readelf -SW "$(./getvar target_dir)/module_info.ko"
 ....
 
 contains:
@@ -3375,7 +3369,7 @@ contains:
 and:
 
 ....
-./runtc readelf -x .modinfo ./out/x86_64/buildroot/target/module_info.ko
+./runtc readelf -x .modinfo "$(./getvar build_dir)/module_info.ko"
 ....
 
 gives:
@@ -3592,10 +3586,10 @@ as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-conver
 The exact same thing can be done post mortem with:
 
 ....
-./out/x86_64/buildroot/host/usr/bin/x86_64-buildroot-linux-uclibc-gdb \
+./runtc gdb \
   -batch \
   -ex 'info line *(myinit+0x1d)' \
-  ./out/x86_64/buildroot/build/kernel_module-1.0/panic.ko \
+  "$(./getvar build_dir)/kernel_module-1.0/panic.ko" \
 ;
 ....
 
@@ -4916,7 +4910,7 @@ Meaning of the flags:
 * `vaddr`: first virtual address of a page the belongs to the process. Notably:
 +
 ....
-./runtc readelf -l out/x86_64/buildroot/build/kernel_module-1.0/user/virt_to_phys_test.out
+./runtc readelf -l "$(./getvar build_dir)/kernel_module-1.0/user/virt_to_phys_test.out"
 ....
 +
 contains:
@@ -5288,7 +5282,7 @@ Notes:
 It can be found from:
 +
 ....
-./runtc readelf -e out/x86_64/buildroot/build/linux-*/vmlinux | grep Entry
+./runtc readelf -e "$(./getvar build_dir)"/linux-*/vmlinux | grep Entry
 ....
 +
 TODO confirm further. If I try to break there with:
@@ -5546,7 +5540,7 @@ cad
 To map between `man 2 reboot` and the uclibc `RB_*` magic constants see:
 
 ....
-less out/x86_64/buildroot/build/uclibc-*/include/sys/reboot.h
+less "$(./getvar build_dir)"/uclibc-*/include/sys/reboot.h"
 ....
 
 The procfs mechanism is documented at:
@@ -6119,7 +6113,7 @@ Snapshots are stored inside the `.qcow2` images themselves.
 They can be observed with:
 
 ....
-./out/x86_64/buildroot/host/bin/qemu-img info out/x86_64/buildroot/images/rootfs.ext2.qcow2
+"$(./getvar host_dir)/bin/qemu-img" info "$(./getvar qcow2_file)"
 ....
 
 which after `savevm my_snap_id` and `savevm asdf` contains an output of type:
@@ -6770,7 +6764,7 @@ This has nothing to do with the Linux kernel, but it is cool:
 ....
 sudo apt-get install qemu-user
 ./build -a arm
-cd out/arm/buildroot/target
+cd "$(./getvar target_dir)"
 qemu-arm -L . bin/ls
 ....
 
@@ -6781,7 +6775,7 @@ The reason this is cool, is that `ls` is not statically compiled, but since we h
 In other words, much cooler than:
 
 ....
-./out/arm/buildroot/host/bin/arm-linux-gcc -static ./kernel_module/user/hello.c
+./runtc -a arm gcc -static ./kernel_module/user/hello.c
 qemu-arm a.out
 ....
 
@@ -6798,7 +6792,7 @@ Anyways, this warns us that the userland emulation will likely not be reliable, 
 GDB step debugging is also possible with:
 
 ....
-cd out/arm/buildroot/target
+cd "$(./getvar -a arm target_dir)"
 qemu-arm -g 1234 -L . ../build/kernel_module-1.0/user/myinsmod.out
 ../host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gdb \
   --nh \
@@ -6832,14 +6826,12 @@ First we try some `-static` sanity checks.
 Works and prints `hello`:
 
 ....
-./out/arm/buildroot/host/bin/arm-linux-gcc -static ./kernel_module/user/hello.c
-./out/common/gem5/build/X86/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
-
-./out/arm/buildroot/host/bin/arm-linux-gcc -static ./kernel_module/user/hello.c
-./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
-
-./out/aarch64/buildroot/host/bin/aarch64-linux-gcc -static ./kernel_module/user/hello.c
-./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./a.out
+./runtc -a x86_64  gcc -static -o x86_64.out  ./kernel_module/user/hello.c
+./runtc -a arm     gcc -static -o arm.out     ./kernel_module/user/hello.c
+./runtc -a aarch64 gcc -static -o aarch64.out ./kernel_module/user/hello.c
+"$(./getvar -a x86_64 -g exec)"  ./gem5/gem5/configs/example/se.py -c ./x86_64.out
+"$(./getvar -a arm -g exec)"     ./gem5/gem5/configs/example/se.py -c ./arm.out
+"$(./getvar -a aarch64 -g exec)" ./gem5/gem5/configs/example/se.py -c ./aarch64.out
 ....
 
 But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m/50542301#50542301
@@ -6847,18 +6839,18 @@ But I think this is unreliable, and only works because we are using uclibc which
 Ignoring that insanity, we then try it with dynamically linked executables:
 
 ....
-./out/common/gem5/build/X86/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/x86_64/buildroot/target/hello.out
-./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/arm/buildroot/target/hello.out
-./out/common/gem5/build/ARM/gem5.opt ./gem5/gem5/configs/example/se.py -c ./out/aarch64/buildroot/target/hello.out
+"$(./getvar -a x86_64  -g exec)" ./gem5/gem5/configs/example/se.py -c "$(./getvar -a x86_64  -g target_dir)/hello.out"
+"$(./getvar -a arm     -g exec)" ./gem5/gem5/configs/example/se.py -c "$(./getvar -a arm     -g target_dir)/hello.out"
+"$(./getvar -a aarch64 -g exec)" ./gem5/gem5/configs/example/se.py -c "$(./getvar -a aarch64 -g target_dir)/hello.out"
 ....
 
-But they fail with:
+But at 185c2730cc78d5adda683d76c0e3b35e7cb534f0 they fail with:
 
 ....
 fatal: Unable to open dynamic executable's interpreter.
 ....
 
-and `cd ./out/aarch64/buildroot/target` did not help: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
+and `cd "$(./getvar -a aarch64 target_dir)` did not help: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
 
 The current FAQ says it is not possible to use dynamic executables: http://gem5.org/Frequently_Asked_Questions but I don't trust it, and then these presentations mention it:
 
@@ -6875,13 +6867,13 @@ gem5 user mode:
 
 ....
 make \
-  -C out/arm/buildroot/build/dhrystone-2 \
-  CC="$(pwd)/out/arm/buildroot/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc" \
+  -C "$(./getvar -a arm build_dir)/dhrystone-2" \
+  CC=""$(./getvar buildroot_out_dir)/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc" \
   CFLAGS=-static \
 ;
-time ./out/common/gem5/build/ARM/gem5.opt \
+time "$(./getvar -a arm -g exec)" \
   ./gem5/gem5/configs/example/se.py \
-  -c out/arm/buildroot/build/dhrystone-2/dhrystone \
+  -c "$(./getvar -a arm build_dir)/dhrystone-2/dhrystone" \
   -o 100000 \
 ;
 ....
@@ -6898,7 +6890,7 @@ time ./run -a a -l 1 -g
 QEMU user mode:
 
 ....
-time qemu-arm out/arm/buildroot/build/dhrystone-2/dhrystone 100000000
+time qemu-arm "$(./getvar -a arm build_dir)/dhrystone-2/dhrystone" 100000000
 ....
 
 QEMU full system:
@@ -7031,7 +7023,7 @@ The most interesting are events which show instructions that QEMU ran, for which
 You can then inspect the instructions with:
 
 ....
-less ./out/x86_64/qemu/0/trace.txt
+less "$(./getvar -a x86_64 run_dir)/trace.txt"
 ....
 
 Get the list of available trace events:
@@ -7045,7 +7037,7 @@ Enable other specific trace events:
 ....
 ./run -T trace1,trace2
 ./qemu-trace2txt -a "$arch"
-less ./out/x86_64/qemu/0/trace.txt
+less "$(./getvar -a "$arch" run_dir)/trace.txt"
 ....
 
 This functionality relies on the following setup:
@@ -7077,7 +7069,7 @@ We can further use Binutils' `addr2line` to get the line that corresponds to eac
 
 ....
 ./trace-boot -a x86_64 && ./trace2line -a x86_64
-less ./out/x86_64/qemu/0/trace-lines.txt
+less "$(./getvar -a x86_64 run_dir)/trace-lines.txt"
 ....
 
 The format is as follows:
@@ -7234,7 +7226,7 @@ But it also provides a tracing mechanism documented at: link:http://www.gem5.org
 
 ....
 ./run -a aarch64 -E 'm5 exit' -g -T Exec
-less out/aarch64/gem5/0/m5out/trace.txt
+less "$(./getvar -a aarch64 run_dir)/trace.txt"
 ....
 
 List all available debug flags:
@@ -7288,7 +7280,7 @@ Trace the source lines just like <<trace-source-lines,for QEMU>> with:
 
 ....
 ./trace-boot -a aarch64 -g && ./trace2line -a aarch64 -g
-less ./out/aarch64/gem5/0/trace-lines.txt
+less "$(./getvar -a aarch64 run_dir)/trace-lines.txt"
 ....
 
 TODO: 7452d399290c9c1fc6366cdad129ef442f323564 `./trace2line` this is too slow and takes hours. QEMU's processing of 170k events takes 7 seconds. gem5's processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up... The workaround is to just use gem5's `ExecSymbol` to get function granularity, and then GDB individually if line detail is needed?
@@ -7465,7 +7457,7 @@ Now you can play a fun little game with your friends:
 To find out why your program is slow, a good first step is to have a look at the statistics for the run:
 
 ....
-cat out/aarch64/gem5/0/m5out/stats.txt
+cat "$(./getvar -a aarch64 m5out_dir)/stats.txt"
 ....
 
 Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
@@ -7564,7 +7556,7 @@ So we take a performance measurement approach instead:
 
 ....
 ./gem5-bench-cache -a aarch64
-cat out/aarch64/gem5/0/bench-cache.txt
+cat "$(./getvar -a aarch64 run_dir)bench-cache.txt"
 ....
 
 which gives:
@@ -7725,7 +7717,13 @@ The test performs a general matrix multiplication:
     |  1.0 -1.0 |                            |  0.5  0.5  0.5 |   |   5.0 - 1.0  3.0 |
 ....
 
-This can be deduced from the Fortran interfaces at: `out/x86_64/buildroot/build/openblas-*/reference/dgemmf.f`, which we can map to our call as:
+This can be deduced from the Fortran interfaces at
+
+....
+less "$(./getvar build_dir)"/openblas-*/reference/dgemmf.f
+....
+
+which we can map to our call as:
 
 ....
 C := alpha*op( A )*op( B ) + beta*C,
@@ -7882,10 +7880,10 @@ If you want to remove PARSEC later, Buildroot doesn't provide an automated packa
 ....
 rm -rf \
   ./out/common/dl/parsec-* \
-  ./out/arm-gem5/buildroot/build/parsec-* \
-  ./out/arm-gem5/buildroot/build/packages-file-list.txt \
-  ./out/arm-gem5/buildroot/images/rootfs.* \
-  ./out/arm-gem5/buildroot/target/parsec-* \
+  "$(./getvar buildroot_out_dir)"/build/parsec-* \
+  "$(./getvar buildroot_out_dir)"/build/packages-file-list.txt \
+  "$(./getvar buildroot_out_dir)"/images/rootfs.* \
+  "$(./getvar buildroot_out_dir)"/target/parsec-* \
 ;
 ./build -a arm -g
 ....
@@ -8094,7 +8092,7 @@ since boot has already happened, and the parameters are already in the RAM of th
 Checkpoints are stored inside the `m5out` directory at:
 
 ....
-out/<arch>/gem5/<run-id>/m5out/cpt.<checkpoint-time>
+"$(./getvar -g run_dir)/m5out/cpt.<checkpoint-time>"
 ....
 
 where `<checkpoint-time>` is the cycle number at which the checkpoint was taken.
@@ -8267,7 +8265,7 @@ m5 writefile myfileguest myfilehost
 Host:
 
 ....
-cat out/aarch64/gem5/0/m5out/myfilehost
+cat "$(./getvar -a aarch64 -g m5out_dir)/myfilehost"
 ....
 
 Does not work for subdirectories, gem5 crashes:
@@ -8459,7 +8457,7 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_m
 
 We have made a crazy setup that allows you to just `cd` into `gem5/gem5`, and edit Python scripts directly there.
 
-This is not normally possible with Buildroot, since normal Buildroot packages first copy files to the output directory (`out/<arch>/buildroot/build/<pkg>`), and then build there.
+This is not normally possible with Buildroot, since normal Buildroot packages first copy files to the output directory (`$(./getvar -a <arch> build_dir)/<pkg>`), and then build there.
 
 So if you modified the Python scripts with this setup, you would still need to `./build` to copy the modified files over.
 
@@ -8564,7 +8562,7 @@ mv out out~
 `make menuconfig` is a convenient way to find Buildroot configurations:
 
 ....
-cd out/x86_64/buildroot
+cd "$(./getvar buildroot_out_dir)"
 make menuconfig
 ....
 
@@ -8637,7 +8635,7 @@ If you don't set it, the default is to use `~/.buildroot-ccache` with `5G`, whic
 I find it very relaxing to watch ccache at work with:
 
 ....
-watch -n1 'make -C out/x86_64/buildroot/ ccache-stats'
+watch -n1 'make -C "$(./getvar buildroot_out_dir)" ccache-stats'
 ....
 
 or if you have it installed on host and the environment variables exported simply with:
@@ -8810,7 +8808,7 @@ This hack-ish technique allows us to rebuild just one package at a time:
 and now you can see that a new version of `kernel_module` was built and put inside the image:
 
 ....
-ls out/x86_64/buildroot/build/kernel_module-mybranch
+ls "$(./getvar build_dir)/kernel_module-mybranch"
 ....
 
 Unfortunately we don't have a nice runtime selection with `./run` implemented currently, you have to manually move packages around.
@@ -8856,7 +8854,7 @@ Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` inste
 Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
 
 ....
-du -hsx out/arm-gem5/buildroot/target/
+du -hsx "$(./getvar -a arm target_dir)"
 ....
 
 https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
@@ -8908,19 +8906,39 @@ So for example when you run:
 Stdout shows a line with the full command of type:
 
 ....
-./out/arm/buildroot/host/usr/bin/qemu-system-arm -m 128M -monitor telnet::45454,server,nowait -netdev user,hostfwd=tcp::45455-:45455,id=net0 -smp 1  -M versatilepb -append 'root=/dev/sda nokaslr norandmaps printk.devkmsg=on printk.time=y' -device rtl8139,netdev=net0 -dtb ./out/arm/buildroot/images/versatile-pb.dtb -kernel ./out/arm/buildroot/images/zImage -serial stdio    -drive file='./out/arm/buildroot/images/rootfs.ext2.qcow2,if=scsi,format=qcow2'
+time \
+/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/host-qemu-custom.default/arm-softmmu/qemu-system-arm \
+-device rtl8139,netdev=net0 \
+-gdb 'tcp::45457' \
+-kernel '/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom.default/arch/arm/boot/zImage' \
+-m '256M' \
+-monitor 'telnet::45454,server,nowait' \
+-netdev 'user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0' \
+-no-reboot \
+-serial mon:stdio \
+-smp '1' \
+-trace 'enable=pr_manager_run,file=/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/qemu/0/trace.bin' \
+-virtfs 'local,path=/home/ciro/bak/git/linux-kernel-module-cheat/data/9p,mount_tag=host_scratch,security_model=mapped,id=host_scratch' \
+-virtfs 'local,path=/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build,mount_tag=host_out,security_model=mapped,id=host_out' \
+-M virt,highmem=off \
+-append 'root=/dev/vda console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y' \
+-cpu cortex-a15 \
+-device virtio-gpu-pci \
+-nographic \
+-drive 'file=/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/images/rootfs.ext2.qcow2,format=qcow2,if=virtio,snapshot' \
+|& tee >(ts -s %.s > /home/ciro/bak/git/linux-kernel-module-cheat/out/arm/qemu/0/termout.txt)
 ....
 
 and this line is also saved to a file for convenience:
 
 ....
-cat ./out/arm/qemu/0/run.sh
+cat "$(./getvar -a arm run_dir)/run.sh"
 ....
 
 or for gem5:
 
 ....
-cat ./out/arm/gem5/0/run.sh
+cat "$(./getvar -a arm -g run_dir)/run.sh"
 ....
 
 Next, you will also want to give the relevant images to save them time. Zip the images with:
@@ -8968,7 +8986,7 @@ We tried to automate it on Travis with link:.travis.yml[] but it hits the curren
 
 ....
 ./bench-boot
-cat out/bench-boot.txt
+cat "$(./getvar bench_boot)"
 ....
 
 Sample results at 2bddcc2891b7e5ac38c10d509bdfc1c8fe347b94:
@@ -9055,7 +9073,7 @@ Single file change on `./build kernel_module-reconfigure`: 7 seconds.
 Buildroot automatically stores build timestamps as milliseconds since Epoch. Convert to minutes:
 
 ....
-awk -F: 'NR==1{start=$1}; END{print ($1 - start)/(60000.0)}' out/x86_64/buildroot/build/build-time.log
+awk -F: 'NR==1{start=$1}; END{print ($1 - start)/(60000.0)}' "$(./getvar build_dir)/build-time.log"
 ....
 
 Or to conveniently do a clean build without affecting your current one:
@@ -9068,7 +9086,7 @@ cat ../linux-kernel-module-cheat-regression/*/build-time.log
 ===== Find which packages are making the build slow
 
 ....
-cd out/x86_64/buildroot
+cd "$(./getvar buildroot_out_dir)
 make graph-build graph-depends
 xdg-open graphs/build.pie-packages.pdf
 xdg-open graphs/graph-depends.pdf
@@ -9412,6 +9430,30 @@ include::run-usage.adoc[]
 
 :leveloffset: -3
 
+==== getvar
+
+The link:getvar[] helper script prints the value of a variable from the link:common[] file.
+
+For example, to get the Buildroot output directory for an ARM build, you can use:
+
+....
+./getvar -a arm buildroot_out_dir
+....
+
+This script exists mostly to factor out instructions given on the README which users are expected to copy paste into the terminal.
+
+Otherwise, it becomes very difficult to keep everything working across path refactors, since README snippets cannot be tested automatically.
+
+==== runtc
+
+The link:runtc[] helper script runs a Tool Chain executable built by Buildroot.
+
+For example, to run `readelf -h` for the `arm` architecture, use:
+
+....
+./runtc -a arm readelf -h
+....
+
 === CONTRIBUTING
 
 ==== Testing
@@ -9497,7 +9539,7 @@ git bisect run ../qemu-bisect-boot
 git bisect reset
 cd ..
 git submodule update
-rm -rf out/arm/buildroot/build/host-qemu-custom.bisect/
+rm -rf "$(./getvar -a arm build_dir)/host-qemu-custom.bisect"
 ....
 
 An example of Linux kernel commit bisection on gem5 boots can be found at: link:linux-bisect-boot-gem5[].
