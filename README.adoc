@@ -520,13 +520,13 @@ For `aarch64` we also need `-c kernel_config_fragment/display`:
 
 ....
 git -C linux checkout gem5/v4.15
-./build -gl -aA \
+./build -gl -a A \
   -c kernel_config_fragment/display \
   -K linux/arch/arm64/configs/gem5_defconfig \
   -L gem5-v4.15 \
 ;
 git -C linux checkout -
-./run -aA -gu -L gem5-v4.15
+./run -a A -gu -L gem5-v4.15
 ....
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
@@ -1125,8 +1125,8 @@ The default run id is `0`.
 This method also allows us to keep run outputs in separate directories for later inspection, e.g.:
 
 ....
-./run -aA -g -n 0 &>/dev/null &
-./run -aA -g -n 1 &>/dev/null &
+./run -a A -g -n 0 &>/dev/null &
+./run -a A -g -n 1 &>/dev/null &
 ....
 
 produces two separate `m5out` directories:
@@ -1148,7 +1148,7 @@ Each line is prepended with the timestamp in seconds since the start of the prog
 You can also add a prefix to the build ID before a period:
 
 ....
-./run -aA -g -n some-experiment.1
+./run -a A -g -n some-experiment.1
 ....
 
 which then uses the output directory:
@@ -1162,7 +1162,7 @@ and makes it easier to remember afterwards which directory contains what.
 However this still takes up the same ports as:
 
 ....
-./run -aA -g -n 1
+./run -a A -g -n 1
 ....
 
 so you cannot run both at the same time.
@@ -2448,7 +2448,7 @@ I've tried:
 
 ....
 ./out/aarch64/buildroot/host/bin/aarch64-linux-gcc -static ~/test/hello_world.c -o data/9p/a.out
-./run -aA -F '/mnt/9p/a.out'
+./run -a A -F '/mnt/9p/a.out'
 ....
 
 but it fails with:
@@ -5876,7 +5876,7 @@ crw-------    1 root     root      226,   0 May 28 09:41 card0
 Try creating new displays:
 
 ....
-./run -aA -x -- -device virtio-gpu-pci
+./run -a A -x -- -device virtio-gpu-pci
 ....
 
 to see multiple `/dev/dri/cardN`, and then use a different display with:
@@ -6890,9 +6890,9 @@ gem5 full system:
 
 ....
 printf 'm5 exit' > data/readfile
-./run -aa -g -F '/gem5.sh'
+./run -a a -g -F '/gem5.sh'
 printf 'm5 resetstats;dhrystone 100000;m5 exit' > data/readfile
-time ./run -aa -gu -- -r 1
+time ./run -a a -l 1 -g
 ....
 
 QEMU user mode:
@@ -6904,7 +6904,7 @@ time qemu-arm out/arm/buildroot/build/dhrystone-2/dhrystone 100000000
 QEMU full system:
 
 ....
-time ./run -aa -F 'time dhrystone 100000000;/poweroff.out'
+time ./run -a a -F 'time dhrystone 100000000;/poweroff.out'
 ....
 
 Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
@@ -7160,8 +7160,8 @@ TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a wor
 Then, when I tried with <<initrd>> and no disk:
 
 ....
-./build -aA -i
-./qemurr -aA -F '/rand_check.out;/poweroff.out;' -i
+./build -a A -i
+./qemurr -a A -F '/rand_check.out;/poweroff.out;' -i
 ....
 
 QEMU crashes with:
@@ -7414,20 +7414,20 @@ arch=aarch64
 printf 'm5 exit' > data/readfile
 ./run -a "$arch" -g -F '/gem5.sh'
 
-# Restore the checkpoint, and run the benchmark with parameter 1.000.
-# We skip the boot completely, saving time!
+# Restore the most recent checkpoint taken, and run the benchmark
+# with parameter 1.000. We skip the boot completely, saving time!
 printf 'm5 resetstats;dhrystone 1000;m5 exit' > data/readfile
-./run -a "$arch" -g -- -r 1
+./run -a "$arch" -g -l 1
 ./gem5-stat -a "$arch"
 
 # Now with another parameter 10.000.
 printf 'm5 resetstats;dhrystone 10000;m5 exit' > data/readfile
-./run -a "$arch" -g -- -r 1
+./run -a "$arch" -g -l 1
 ./gem5-stat -a "$arch"
 
 # Get an interactive shell at the end of the restore.
 printf '' > data/readfile
-./run -a "$arch" -g -- -r 1
+./run -a "$arch" -g -l 1
 ....
 
 The commands output the approximate number of CPU cycles it took Dhrystone to run.
@@ -7571,36 +7571,36 @@ which gives:
 
 ....
 n 1000
-cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 24.71
 exit_status 0
 cycles 52386455
 instructions 4555081
-cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 17.44
 exit_status 0
 cycles 6683355
 instructions 4466051
 
 n 10000
-cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 52.90
 exit_status 0
 cycles 165704397
 instructions 11531136
-cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 36.19
 exit_status 0
 cycles 16182925
 instructions 11422585
 
 n 100000
-cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 325.09
 exit_status 0
 cycles 1295703657
 instructions 81189411
-cmd ./run -a arm -g -- -r 1 --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 250.74
 exit_status 0
 cycles 110585681
@@ -8047,8 +8047,10 @@ where <<m5>> is a guest utility present inside the gem5 tree which we cross-comp
 To restore the checkpoint, kill the VM and run:
 
 ....
-./run -a arm -g -- -r 1
+./run -a arm -g -l 1
 ....
+
+The `-l` option restores the checkpoint that was created most recently.
 
 Let's create a second checkpoint to see how it works, in guest:
 
@@ -8060,16 +8062,18 @@ m5 checkpoint
 Kill the VM, and try it out:
 
 ....
-./run -a arm -g -- -r 2
+./run -a arm -g -l 1
 ....
 
-and now in the guest:
+Here we use `-l 1` again, since the second snapshot we took is now the most recent one
+
+Now in the guest:
 
 ....
 cat f
 ....
 
-contains the `date`. The file `f` wouldn't exist had we used the first checkpoint with `-r 1`.
+contains the `date`. The file `f` wouldn't exist had we used the first checkpoint with `-l 2`, which is the second most recent snapshot taken.
 
 If you automate things with <<kernel-command-line-parameters>> as in:
 
@@ -8080,20 +8084,28 @@ If you automate things with <<kernel-command-line-parameters>> as in:
 Then there is no need to pass the kernel command line again to gem5 for replay:
 
 ....
-./run -a arm -g -- -r 1
+./run -a arm -g -l 1
 ....
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
 
+==== gem5 checkpoint internals
+
 Checkpoints are stored inside the `m5out` directory at:
 
 ....
-out/<arch>/gem5/<gem5-variant>/<run-id>/m5out/cpt.<checkpoint-time>
+out/<arch>/gem5/<run-id>/m5out/cpt.<checkpoint-time>
 ....
 
-and TODO confirm the `-r N` tag takes the N-th checkpoint with the longest running time, which is not necessarily the last one that was taken, unless you take the second one on the same simulation as the first one.
+where `<checkpoint-time>` is the cycle number at which the checkpoint was taken.
 
-This integer value is just pure `fs.py` sugar, the backend at `m5.instantiate` just takes the actual tracepoint directory as input.
+`fs.py` exposes the `-r N` flag to restore checkpoints, which N-th checkpoint with the largest `<checkpoint-time>`: https://github.com/gem5/gem5/blob/e02ec0c24d56bce4a0d8636a340e15cd223d1930/configs/common/Simulation.py#L118
+
+However, that interface is bad because if you had taken previous checkpoints, you have no idea what `N` to use, unless you memorize which checkpoint was taken at which cycle.
+
+Therefore, just use our superior `-l` flag, which uses directory timestamps to determine which checkpoint you created most recently.
+
+The `-r N` integer value is just pure `fs.py` sugar, the backend at `m5.instantiate` just takes the actual tracepoint directory path as input.
 
 [[gem5-restore-new-scrip]]
 ==== gem5 checkpoint restore and run a different script
@@ -8111,9 +8123,9 @@ There is however one loophole: <<m5-readfile>>, which reads whatever is present 
 printf 'echo "setup run";m5 exit' > data/readfile
 ./run -a aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 printf 'echo "first benchmark";m5 exit' > data/readfile
-./run -a aarch64 -g -- -r 1
+./run -a aarch64 -g -l 1
 printf 'echo "second benchmark";m5 exit' > data/readfile
-./run -a aarch64 -g -- -r 1
+./run -a aarch64 -g -l 1
 ....
 
 Since this is such a common setup, we provide helper for it at: link:rootfs_overlay/gem5.sh[rootfs_overlay/gem5.sh].
@@ -8157,7 +8169,7 @@ m5 checkpoint
 And then restore the checkpoint with a different CPU:
 
 ....
-./run -a arm -g -- --caches -r 1 --restore-with-cpu=HPI
+./run -a arm -g -l 1 -- --caches --restore-with-cpu=HPI
 ....
 
 === Pass extra options to gem5
@@ -8477,13 +8489,13 @@ patch -d gem5/gem5 -p1 < patches/manual/gem5-biglittle.patch
 then:
 
 ....
-./run -aA -g -X-b
+./run -a A -g -X-b
 ....
 
 Checkpoints can be restored with:
 
 ....
-./run -aA -g -X-b -- --restore-from=out/aarch64/gem5/0/m5ou5/cpt.*
+./run -a A -g -X-b -- --restore-from=out/aarch64/gem5/0/m5ou5/cpt.*
 ....
 
 Advantages over `fs.py`:
@@ -8778,8 +8790,8 @@ The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to c
 Built and run `gem5.debug`, which has optimizations turned off unlike the default `gem5.opt`:
 
 ....
-./build -aA -g -M debug -t debug
-./run -aA -g -M debug -t debug
+./build -a A -g -M debug -t debug
+./run -a A -g -M debug -t debug
 ....
 
 `-M` is optional just to prevent it from overwriting the `opt` build.
@@ -8787,8 +8799,8 @@ Built and run `gem5.debug`, which has optimizations turned off unlike the defaul
 A Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
 
 ....
-./run -aA -E 'm5 exit' -g -L v4.16
-./run -aA -E 'm5 exit' -g -M debug -t debug -L v4.16
+./run -a A -E 'm5 exit' -g -L v4.16
+./run -a A -E 'm5 exit' -g -M debug -t debug -L v4.16
 ....
 
 Therefore the performance different is very big, making debug mode almost unusable.
