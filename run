@@ -47,7 +47,7 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:RrT:t:U:uVX:x OPT; do
       ;;
     d)
       debug=true
-      extra_flags_qemu="$extra_flags_qemu -S \\
+      extra_flags_qemu="${extra_flags_qemu} -S \\
 "
       ;;
     E)
@@ -144,7 +144,6 @@ while getopts a:c:DdE:e:F:f:G:ghIiKkL:M:m:N:n:PQ:RrT:t:U:uVX:x OPT; do
   esac
 done
 shift "$(($OPTIND - 1))"
-extra_flags="${extra_flags}${@}"
 OPTIND=1
 if [ -n "$extra_opts" ]; then
   while getopts b OPT $extra_opts; do
@@ -216,7 +215,6 @@ ${gem5opts}\
 --dtb "${common_gem5_system_dir}/arm/dt/armv8_gem5_v1_big_little_2_2.dtb" \\
 --kernel="${common_vmlinux}" \\
 --little-cpus=2 \\
-${extra_flags}\
 "
   else
     gem5_common="\
@@ -230,12 +228,11 @@ ${gem5_common}\
 "
     if [ "$common_arch" = x86_64 ]; then
       if "$kvm"; then
-        extra_flags="$extra_flags --cpu-type=X86KvmCPU"
+        extra_flags="${extra_flags} --cpu-type=X86KvmCPU"
       fi
       cmd="\
 ${gem5_common}\
 --command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda ${extra_append}' \\
-${extra_flags}\
 "
     elif [ "$common_arch" = arm ] || [ "$common_arch" = aarch64 ]; then
       # TODO why is it mandatory to pass mem= here? Not true for QEMU.
@@ -244,7 +241,6 @@ ${extra_flags}\
 --command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
 --dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$common_arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
 --machine-type=VExpress_GEM5_V1 \\
-${extra_flags}\
 "
     fi
   fi
@@ -381,6 +377,10 @@ if "$tmux"; then
   elif "$debug"; then
     eval "./tmu ./rungdb -a '${common_arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
   fi
+fi
+if [ -n "${1:-}" ]; then
+  extra_flags="${extra_flags}${@} \\
+"
 fi
 cmd="time \\
 ${cmd}"
