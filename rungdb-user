@@ -1,22 +1,14 @@
 #!/usr/bin/env bash
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-usage="$0 <exec-relative-path> [<brk-symbol>]"
 gem5_opt=
-while getopts a:gh OPT; do
+while getopts "h${common_getopts_flags}" OPT; do
   case "$OPT" in
-    a)
-      common_arch="$OPTARG"
-      ;;
-    g)
-      common_gem5=true
-      gem5_opt=-g
-      ;;
     h)
-      echo "$usage"
-      exit 0
+      echo "$0 <exec-relative-path> [<brk-symbol>]"
+      exit
       ;;
     ?)
-      exit 2
+      common_getopts_case "$OPT"
       ;;
   esac
 done
@@ -30,6 +22,9 @@ else
   brk=
 fi
 common_setup
+if "$common_gem5"; then
+  gem5_opt=-g
+fi
 executable="${common_build_dir}/${executable_rel}"
 addr="$("${common_root_dir}/runtc" readelf -h "$executable" | awk '/Entry/{ print $NF }' )"
 ex="-ex \"add-symbol-file $executable $addr\""

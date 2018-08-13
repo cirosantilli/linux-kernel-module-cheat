@@ -18,11 +18,8 @@ kernel_config_fragments=
 post_script_args=
 qemu_sdl='--enable-sdl --with-sdlabi=2.0'
 v=0
-while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:Q:qSs:t:v' OPT; do
+while getopts "B:b:C:c:fGj:hIiK:klp:qSs:v${common_getopts_flags}" OPT; do
   case "$OPT" in
-    a)
-      common_arch="$OPTARG"
-      ;;
     B)
       echo "$OPTARG" >> "$br2_cli_file"
       ;;
@@ -37,11 +34,6 @@ while getopts 'a:B:b:C:c:fGgj:hIiK:kL:lM:p:Q:qSs:t:v' OPT; do
       ;;
     f)
       configure=false
-      ;;
-    g)
-      extra_make_args="${extra_make_args} gem5-reconfigure \\
-"
-      common_gem5=true
       ;;
     h)
       echo "https://github.com/cirosantilli/linux-kernel-module-cheat#build" 2>&1
@@ -71,22 +63,13 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
       extra_make_args="${extra_make_args} kernel_module-reconfigure \\
 "
       ;;
-    L)
-      common_linux_variant="$OPTARG"
-      ;;
     l)
       linux_reconfigure=true
       extra_make_args="${extra_make_args} linux-reconfigure \\
 "
       ;;
-    M)
-      common_gem5_variant="$OPTARG"
-      ;;
     p)
       post_script_args="$OPTARG"
-      ;;
-    Q)
-      common_qemu_variant="$OPTARG"
       ;;
     q)
       extra_make_args="${extra_make_args} host-qemu-reconfigure \\
@@ -95,21 +78,19 @@ BR2_TARGET_ROOTFS_INITRAMFS=n
     S)
       qemu_sdl=
       ;;
-    s)
-      common_suffix="$OPTARG"
-      ;;
-    t)
-      common_gem5_build_type="$OPTARG"
-      ;;
     v)
       v=1
       ;;
     ?)
-      exit 2
+      common_getopts_case "$OPT"
       ;;
   esac
 done
 shift $(($OPTIND - 1))
+if "$common_gem5"; then
+  extra_make_args="${extra_make_args} gem5-reconfigure \\
+"
+fi
 extra_make_args="${extra_make_args} $@"
 common_setup
 config_file="${common_buildroot_out_dir}/.config"
