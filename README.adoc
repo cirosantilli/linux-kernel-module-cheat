@@ -3115,16 +3115,8 @@ git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-sta
 git fetch up
 git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
 
-cd ..
-./build -lk
-# Manually fix broken kernel modules if necessary.
-git branch "buildroot-2017.08-linux-${last_mainline_revision}"
-git add .
 # And update the README to show off.
 git commit -m "linux: update to ${next_mainline_revision}"
-# Test the heck out of it, especially kernel modules and GDB.
-./run
-git push
 ....
 
 But we have since moved to running just mainline, which makes the update simpler.
@@ -3629,7 +3621,7 @@ warn: Kernel panic in simulated kernel
 
 before hanging forever.
 
-We can make gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `fs.py` quit instead of hang with:
+We can make gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `fs.py` quit instead of hang with `system.panic_on_panic`:
 
 ....
 patch -d gem5/gem5 -p1 < patches/manual/gem5-panic.patch
@@ -3639,6 +3631,12 @@ patch -d gem5/gem5 -p1 < patches/manual/gem5-panic.patch
 Source: link:patches/manual/gem5-panic.patch[].
 
 It does not seem to be exposed to `fs.py`.
+
+TODO: fs.py x86 does not have it:
+
+....
+AttributeError: Class LinuxX86System has no parameter panic_on_panic
+....
 
 However TODO it still exits with status 0... so we are just parsing the logs for now, as for QEMU. This seems to happen because the abort that is used to quit at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/base/logging.hh#L124[src/base/logging.hh]:
 
@@ -9462,25 +9460,21 @@ Testing that should be done for every functional patch.
 
 ===== Guest testing
 
-....
-./run -a x86_64 -e '- lkmc_eval="/insrm.sh hello 5;/sbin/ifup -a;wget -S google.com;poweroff;"'
-./run -a arm    -e '- lkmc_eval="/insrm.sh hello 5;/sbin/ifup -a;wget -S google.com;poweroff;"'
-....
-
-Should:
-
-* boot
-* show `hello.ko`, `init` and `exit` messages
-* make a network request
-* shutdown gracefully
-
-We are slowly automating testable guest tests with:
+Build for all stable archs and run basic fast tests:
 
 ....
-./run -F '/test_all.sh;/poweroff.out' | grep lkmc_test
+./build-all
+./test
+echo $?
 ....
 
-which outputs `lkmc_test_pass` or `lkmc_test_fail`.
+Shoud output 0.
+
+Test that the Internet works:
+
+....
+./run -a x86_64 -e '- lkmc_eval="/sbin/ifup -a;wget -S google.com;poweroff;"'
+....
 
 Source: link:rootfs_overlay/test_all.sh[].
 

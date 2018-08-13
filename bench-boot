@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
-set -eu
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
+test_size=1
+OPTIND=1
+while getopts t: OPT; do
+  case "$OPT" in
+    t)
+      # 1: a few seconds and important
+      # 2: < 5 minutes and important or a few seconds and not too important
+      # 3: all
+      test_size="$OPTARG"
+      ;;
+    ?)
+      exit 2
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+extra_args="$*"
+
 caches='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 bench() (
-  common_bench_cmd "./run -a ${1}" "$common_bench_boot"
+  common_bench_cmd "./run -a ${1} ${extra_args}" "$common_bench_boot"
+  echo >> "$common_bench_boot"
 )
 gem5_insts() (
   printf "instructions $(./gem5-stat -a "$1" sim_insts)\n" >> "$common_bench_boot"
@@ -19,27 +37,35 @@ rm -f "${common_bench_boot}"
 arch=x86_64
 bench "$arch -E '/poweroff.out'"
 bench "$arch -E '/poweroff.out' -K"
-bench "$arch -E '/poweroff.out' -T exec_tb"
-qemu_insts "$arch"
-bench "$arch -E 'm5 exit' -g"
-gem5_insts "$arch"
+if [ "$test_size" -ge 2 ]; then
+  bench "$arch -E '/poweroff.out' -T exec_tb"
+  qemu_insts "$arch"
+fi
+if [ "$test_size" -ge 2 ]; then
+  bench "$arch -E 'm5 exit' -g"
+  gem5_insts "$arch"
+fi
 #bench "$arch -E 'm5 exit' -g -- --cpu-type=DerivO3CPU ${caches}"
 #gem5_insts "$arch"
 
 arch=arm
 bench "$arch -E '/poweroff.out'"
-bench "$arch -E '/poweroff.out' -T exec_tb"
-qemu_insts "$arch"
-bench "$arch -E 'm5 exit' -g"
-gem5_insts "$arch"
+if [ "$test_size" -ge 2 ]; then
+  bench "$arch -E '/poweroff.out' -T exec_tb"
+  qemu_insts "$arch"
+fi
+#bench "$arch -E 'm5 exit' -g"
+#gem5_insts "$arch"
 #bench "$arch -E 'm5 exit' -g -- --cpu-type=HPI ${caches}"
 #gem5_insts "$arch"
 
 arch=aarch64
 bench "$arch -E '/poweroff.out'"
-bench "$arch -E '/poweroff.out' -T exec_tb"
-qemu_insts "$arch"
-bench "$arch -E 'm5 exit' -g"
-gem5_insts "$arch"
-bench "$arch -E 'm5 exit' -g -- --cpu-type=HPI ${caches}"
-gem5_insts "$arch"
+if [ "$test_size" -ge 2 ]; then
+  bench "$arch -E '/poweroff.out' -T exec_tb"
+  qemu_insts "$arch"
+fi
+#bench "$arch -E 'm5 exit' -g"
+#gem5_insts "$arch"
+#bench "$arch -E 'm5 exit' -g -- --cpu-type=HPI ${caches}"
+#gem5_insts "$arch"

@@ -18,5 +18,9 @@ cmd="$1"
 outfile="${2:-/dev/null}"
 mkdir -p "$(dirname "$outfile")"
 echo "$cmd" | tee $a "$outfile"
-eval "$cmd"
-exit "$?"
+# PIPESTATUS so that cmd="main_cmd | post_process" will return the status of cmd.
+# Not POSIX.
+# https://unix.stackexchange.com/questions/14270/get-exit-status-of-process-thats-piped-to-another
+# https://stackoverflow.com/questions/1221833/pipe-output-and-capture-exit-status-in-bash
+eval "${cmd}; cmd_exit=\${PIPESTATUS[0]}"
+exit "$cmd_exit"
