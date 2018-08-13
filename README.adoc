@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.17 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware device models. "Tested" in x86, ARM and MIPS guests, Ubuntu 18.04 host.
+Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.18 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware device models. "Tested" in x86, ARM and MIPS guests, Ubuntu 18.04 host.
 
 toc::[]
 
@@ -1184,6 +1184,17 @@ We assign a contiguous port range for each run ID.
 gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on `config.ini`.
 +
 The GDB port can be assigned on `gem5.opt --remote-gdb-port`, but it does not appear on `config.ini`.
+
+=== Build the documentation
+
+You don't need to depend on GitHub:
+
+....
+./build-doc
+xdg-open out/README.html
+....
+
+Source: link:build-doc[]
 
 [[gdb]]
 == GDB step debug
@@ -9396,14 +9407,6 @@ These appear when you do `./some-script -h`.
 
 We have to keep them as separate files from the README for that to be possible.
 
-:leveloffset: +3
-
-include::build-usage.adoc[]
-
-include::run-usage.adoc[]
-
-:leveloffset: -3
-
 ==== getvar
 
 The link:getvar[] helper script prints the value of a variable from the link:common[] file.
@@ -9417,6 +9420,139 @@ For example, to get the Buildroot output directory for an ARM build, you can use
 This script exists mostly to factor out instructions given on the README which users are expected to copy paste into the terminal.
 
 Otherwise, it becomes very difficult to keep everything working across path refactors, since README snippets cannot be tested automatically.
+
+==== build
+
+....
+./build [OPTIONS] [-- EXTRA_MAKE_ARGS]
+....
+
+===== build configuration options
+
+[options="header"]
+|===
+|Name |Argument name        |Description
+|`-a` |`ARCH`               |Build for architecture `ARCH`.
+|`-B` |`BR2_CONFIG`         |Add a single Buildroot option to the current build.
+                             Example: `-B 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'`
+|`-b` |`BR2_CONFIG_FILE`    |Also use the given Buildroot configuration fragment file.
+                             Pass multiple times to use multiple fragment files.
+|`-C` |`CONFIG_SOMETHING`   |Also use the given Linux kernel configuration, example:
+                             `./build -c 'CONFIG_FORTIFY_SOURCE=y'`
+                             Can be used multiple times for multiple configs.
+                             These options take precedence over `-c`.
+|`-c` |`KERNEL_CONFIG_FILE` |Also use the given kernel configuration fragment file.
+                             Pass multiple times to use multiple fragment files.
+                             These options take precedence over `-K`.
+|`-f` |                     |Skip the Buildroot configuration. Saves a few seconds,
+                             but requires you to know what you are doing :-)
+                             Mnemonic: `fast`.
+|`-g` |                     |Enable gem5 build or force its rebuild.
+|`-h` |                     |Show this help message.
+|`-L` |`VARIANT`            |Linux kernel build variant.
+|`-I` |                     |Enable initramfs for the current build.
+|`-i` |                     |Enable initrd for the current build.
+|`-K` |`KERNEL_CONFIG_FILE` |Use `KERNEL_CONFIG_FILE` as the exact Linux kernel
+                             configuration. Ignore the default kernel config fragments,
+                             but still add options explicitly passed with `-C` and `-c`.
+                             on top of it.
+|`-M` |`VARIANT`            |gem5 build variant.
+|`-p` |                     |Pass extra arguments to the `rootfs_post_build_script`.
+|`-Q` |`VARIANT``           |QEMU build variant.
+|`-S` |                     |Don't build QEMU with SDL support.
+                             Graphics such as X11 won't work, only the terminal.
+|`-s` |                     |Add a custom suffix to the build.
+                             E.g., doing `./build -s mysuf` puts all the build output
+                             into `out/x86_64-mysuf`. This allows keep multiple builds around
+                             when you checkout between branches.
+|`-v` |                     |Do a verbose build.
+|===
+
+===== build target options
+
+[options="header"]
+|===
+|Name |Forces rebuild of |Extra actions
+|`-g` |gem5              |
+|`-k` |Kernel modules    |
+|`-l` |Linux kernel      |Touches kernel configuration files to overcome:
+                          https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+|`-q` |QEMU              |
+|===
+==== run
+
+....
+./run [OPTIONS] [-- EXTRA_RUN_ARGS]
+....
+
+[options="header"]
+|===
+|Name   |Argument name |Description
+|`-a`   |`ARCH`        |Run architecture `ARCH`.
+|`-c`   |`NCPUS`       |Emulate `NCPUS` guest CPUs.
+|`-D`   |              |Run GDB on the emulator itself.
+|`-d`   |              |Wait for GDB to connect before starting execution.
+|`-E`   |`CMDSTR`      |Replace the normal init with a minimal init that just evals
+                        with given `CMDSTR` bash command string. Example:
+                        `-E 'insmod /hello.ko;'`
+|`-e`   |`CLI_OPTIONS` |Pass an extra Linux kernel command line options,
+                        and place them before the dash separator `-`.
+                        Only options that come before the `-`, i.e. "standard"
+                        options, should be passed with this option.
+                        Example: `./run -a arm -e 'init=/poweroff.out'`
+|`-F`   |`CMDSTR`      |Much like `-f`, but base64 encodes the string.
+                        Mnemonic: `-F` is to `-f` what `-E` is to `-e`.
+|`-f`   |`CLI_OPTIONS` |Pass an extra Linux kernel command line options,
+                        add a dash `-` separator, and place the options after the dash.
+                        Intended for custom options understood by our `init` scripts,
+                        most of which are prefixed by `lkmc_`, e.g.:
+                        `./run -f 'lkmc_eval="wget google.com" lkmc_lala=y'`
+                        Mnenomic: comes after `-e`.
+|`-G`   |              |Pass extra options to the gem5 executable.
+                        Do not confuse with the arguments passed to config scripts,
+                        like `fs.py`. Example: `./run -G '--debug-flags=Exec --debug' -g`
+|`-g`   |              |Use gem5 instead of QEMU.
+|`-h`   |              |Show this help message.
+|`-I`   |              |Run with initramfs.
+|`-i`   |              |Run with initrd.
+|`-K`   |              |Use KVM. Only works if guest arch == host arch.
+|`-k`   |              |Enable KGDB.
+|`-L`   |`VARIANT`     |Linux kernel build variant.
+|`-l`   |`CHECKPOINT`  |Restore the nth most recently taken gem5 checkpoint according to
+                        directory timestamps.
+|`-M`   |`VARIANT`     |gem5 build output variant.
+|`-m`   |              |Set the memory size of the guest. E.g.: `-m 512M`. Default: `256M`.
+                        The default is the minimum amount that boots all archs without extra
+                        options added. Anything lower will lead some arch to fail to boot.
+                        Any
+|`-N`   |`VARIANT`     |gem5 source input variant.
+|`-n`   |              |Run ID.
+|`-R`   |              |Replay a QEMU run record deterministically.
+|`-r`   |              |Record a QEMU run record for later replay with `-R`.
+|`-P`   |              |Run the downloaded prebuilt images.
+|`-Q`   |`VARIANT``    |QEMU build variant.
+|`-T`   |`TRACE_TYPES` |Set trace events to be enabled.
+                        If not given, gem5 tracing is completely disabled, while QEMU tracing
+                        is enabled but uses default traces that are very rare and don't affect
+                        performance. `./configure --enable-trace-backends=simple` seems to enable
+                        some traces by default, e.g. `pr_manager_run`, and I don't know how to
+                        get rid of them.
+|`-U`   |              |Pass extra parameters to the program running on the `-u` tmux split.
+|`-u`   |              |Create a tmUx split the window.
+                        You must already be inside of a `tmux` session to use this option.
+                        * on the main window, run the emulator as usual
+                        * on the split:
+                        ** if on QEMU and `-d` is given, GDB
+                        ** if on gem5, the gem5 terminal
+|`-V`   |              |Run QEMU with VNC instead of the default SDL.
+                        Connect to it with: `vinagre localhost:5900`.
+|`-X`   |`EXTRA_OPTS`  |Extra options that did not fit into `A-z`!
+                        This string is parsed by `getopt` on a separate parse step with different
+                        meanings for each flag.
+|`-X-b` |              |Use `fs_bigLITTLE.py` instead of `fs.py` on gem5 simulation.
+                       Ignored by QEMU.
+|`-x`   |              |Run in graphic mode. Mnemonic: X11.
+|===
 
 ==== runtc
 
