@@ -8733,7 +8733,7 @@ This becomes inevitable when you want to launch <<gem5-simultaneous-runs-with-bu
 
 ===== gem5 simultaneous runs with build variants
 
-In order to checkout multiple gem5 builds and run them simultaneously, you also need to use the `-N`:
+In order to checkout multiple gem5 builds and run them simultaneously, you also need to use the `-N` flag:
 
 ....
 ./build -g
@@ -8744,6 +8744,8 @@ git -C gem5/gem5 checkout -
 ./run -g -M some-branch -N some-branch -n 1 &>/dev/null &
 ....
 
+When `-N` is not given, the default source tree under `gem5/gem5` is used.
+
 The `-N <woktree-id>` determines the location of the gem5 tree to be used for both:
 
 * the input C files of the build at build time
@@ -8751,14 +8753,19 @@ The `-N <woktree-id>` determines the location of the gem5 tree to be used for bo
 
 The difference between `-M` and `-N` is that `-M` specifies the gem5 build output directory, while `-N` specifies the source input directory.
 
-When `-N` is not given, source tree under `gem5/gem5` is used.
-
 If `-N <worktree-id>` is given, the directory used is `data/gem5/<worktree-id>`, and:
 
 * if that directory does not exist, create a `git worktree` at a branch `wt/<worktree-id>` on current commit of `gem5/gem5` there.
 +
 The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `gem5/gem5` and still use `-N some-branch`, without conflict for the worktree branch, which can only be checked out once.
 * otherwise, leave that worktree untouched, without updating it
+
+Therefore, future builds for `worktree-id` will not automatically modify the revision of the worktree, and to do that you must manually check it out:
+
+....
+git -C data/gem5/some-branch checkout some-branch-v2
+./build -g -M some-branch -N some-branch
+....
 
 `-N` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
 
