@@ -15,7 +15,6 @@ extra_append='console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkm
 extra_append_after_dash=
 extra_flags=
 extra_flags_qemu=
-extra_opts=
 gem5opts=
 gem5_fsbiglittle=false
 gem5_restore_last_checkpoint=
@@ -34,109 +33,136 @@ trace_enabled=false
 # just to prevent QEMU from emitting a warning that '' is not valid.
 trace_type=pr_manager_run
 vnc=
-while getopts "c:DdE:e:F:f:G:hIiKkl:m:PRrT:U:uVX:x${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    c)
-      cpus="$OPTARG"
+
+parsed=$(getopt \
+  -o "c:DdE:e:F:f:G:hIiKkl:m:PRrT:U:uVx${common_getopt_flags}" \
+  -l "\
+append,\
+cpus:,\
+debug,\
+debug-vm,\
+eval:,\
+help:,\
+gem5-biglittle,\
+${common_getopt_flags_long}\
+" \
+-- "$@")
+eval set -- "$parsed"
+while true; do
+  case "$1" in
+    -c|--cpus)
+      cpus="$2"
+      shift 2
       ;;
-    D)
+    -D|--debug-vm)
       debug_vm="gdb -q -ex start --args \\
 "
+      shift
       ;;
-    d)
+    -d|--debug)
       debug=true
       extra_flags_qemu="${extra_flags_qemu} -S \\
 "
+      shift
       ;;
-    E)
-      lkmc_eval="$OPTARG"
+    -E|--eval)
+      lkmc_eval="$2"
+      shift 2
       ;;
-    e)
-      extra_append="${extra_append} ${OPTARG}"
+    -e|--append)
+      extra_append="${extra_append} ${2}"
+      shift 2
       ;;
-    F)
-      extra_append_after_dash="${extra_append_after_dash} lkmc_eval_base64=\"$(printf "${OPTARG}" | base64)\""
-       ;;
-    f)
-      extra_append_after_dash="${extra_append_after_dash} ${OPTARG}"
+    -F)
+      extra_append_after_dash="${extra_append_after_dash} lkmc_eval_base64=\"$(printf "${2}" | base64)\""
+      shift 2
       ;;
-    G)
-      gem5opts="$OPTARG \\
+    -f)
+      extra_append_after_dash="${extra_append_after_dash} ${2}"
+      shift 2
+      ;;
+    -G)
+      gem5opts="$2 \\
 "
+      shift 2
       ;;
-    h)
+    --gem5-biglittle)
+      gem5_fsbiglittle=true
+      ;;
+    -h|--help)
       echo "https://github.com/cirosantilli/linux-kernel-module-cheat#run" 2>&1
       exit
       ;;
-    I)
+    -I)
       initramfs=true
+      shift
       ;;
-    i)
+    -i)
       initrd=true
+      shift
       ;;
-    K)
+    -K)
       kvm=true
+      shift
       ;;
-    k)
+    -k)
       extra_append="$extra_append kgdbwait"
       # For those who want to try KDB.
       #extra_append="$extra_append kgdbwait kgdboc=kbd"
       kgdb=true
+      shift
       ;;
-    l)
-      gem5_restore_last_checkpoint="${OPTARG}"
+    -l)
+      gem5_restore_last_checkpoint="${2}"
+      shift 2
       ;;
-    m)
-      memory="$OPTARG"
+    -m)
+      memory="$2"
+      shift 2
       ;;
-    P)
+    -P)
       prebuilt=true
+      shift
       ;;
-    R)
+    -R)
       rr=replay
+      shift
       ;;
-    r)
+    -r)
       rr=record
+      shift
       ;;
-    T)
+    -T)
       trace_enabled=true
-      trace_type="$OPTARG"
+      trace_type="$2"
+      shift 2
       ;;
-    U)
-      tmux_args="$OPTARG"
+    -U)
+      tmux_args="$2"
+      shift 2
       ;;
-    u)
+    -u)
       tmux=true
+      shift
       ;;
-    X)
-      extra_opts="${extra_opts} ${OPTARG}"
-      ;;
-    x)
+    -x)
       nographic=false
+      shift
       ;;
-    V)
+    -V)
       vnc="-vnc :0 \\
 "
+      shift
       ;;
-    ?)
-      common_getopts_case "$OPT"
+    --)
+      shift
+      break
+      ;;
+    *)
+      common_getopt_case "$@"
       ;;
   esac
 done
-shift "$(($OPTIND - 1))"
-OPTIND=1
-if [ -n "$extra_opts" ]; then
-  while getopts b OPT $extra_opts; do
-    case "$OPT" in
-      b)
-        gem5_fsbiglittle=true
-        ;;
-      ?)
-        exit 2
-        ;;
-    esac
-  done
-fi
 common_setup
 if "$debug" && "$kvm"; then
   echo 'error: -d and -K are incompatible' 1>&2

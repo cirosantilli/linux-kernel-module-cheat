@@ -6,30 +6,44 @@ lx_symbols="-ex 'lx-symbols ../kernel_module-1.0/' \\
 "
 kgdb=false
 docontinue=true
-while getopts "A:a:b:CgkL:n:X${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    A)
-      after="$OPTARG"
+parsed=$(getopt \
+  -o "A:a:b:CgkL:n:X${common_getopt_flags}" \
+  -l "\
+after:,
+before:,
+kgdb:,
+${common_getopt_flags_long}\
+" \
+-- "$@")
+eval set -- "$parsed"
+while true; do
+  case "$1" in
+    -A|--after)
+      after="$2"
+      shift 2
       ;;
-    b)
-      before="$OPTARG"
+    -b|--before)
+      before="$2"
+      shift 2
       ;;
-    C)
+    -C)
       # No Continue.
       docontinue=false
+      shift
       ;;
-    k)
+    -k|--kgdb)
       kgdb=true
+      shift
       ;;
-    X)
+    -X)
       lx_symbols=
+      shift
       ;;
-    ?)
-      common_getopts_case "$OPT"
+    *)
+      common_getopt_case "$@"
       ;;
   esac
 done
-shift "$(($OPTIND - 1))"
 if [ "$#" -gt 0 ]; then
   brk="-ex 'break ${1}' \\
 "

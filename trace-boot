@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    ?)
-      common_getopts_case "$OPT"
+parsed=$(getopt -o "${common_getopt_flags}" -l "$common_getopt_flags_long" -- "$@")
+eval set -- "$parsed"
+while true; do
+  case "$1" in
+    *)
+      common_getopt_case "$@"
       ;;
   esac
 done
-shift "$(($OPTIND - 1))"
 common_setup
 if "$common_gem5"; then
   time ./run -a "$common_arch" -E 'm5 exit' -g -T 'Exec,-ExecSymbol,-ExecMicro' "$@"
