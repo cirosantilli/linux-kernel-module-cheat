@@ -1,20 +1,26 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-executable="$1"
-common_setup
-"${common_host_dir}/usr/bin/${common_arch}-linux-gdb" \
-  -q \
-  -ex "set sysroot ${common_buildroot_out_dir}/staging" \
-  -ex "target remote localhost:${common_qemu_hostfwd_generic_port}" \
-  -ex 'tb main' \
-  -ex 'c' \
-  "${common_build_dir}/${executable}" \
-;
+#!/usr/bin/env python3
+
+import glob
+import os
+import subprocess
+import sys
+
+import common
+
+parser = common.get_argparse(argparse_args={
+    'description':'Connect to gdbserver running on the guest.'
+})
+parser.add_argument(
+    'executable',
+    help='Path to the executable to be debugged relative to the Buildroot build directory.'
+)
+args = common.setup(parser)
+sys.exit(subprocess.Popen([
+  common.get_toolchain_tool('gdb'),
+  '-q',
+  '-ex', 'set sysroot {}'.format(common.staging_dir),
+  '-ex', 'target remote localhost:{}'.format(common.qemu_hostfwd_generic_port),
+  '-ex', 'tbreak main',
+  '-ex', 'continue',
+  os.path.join(common.build_dir, args.executable),
+]).wait())

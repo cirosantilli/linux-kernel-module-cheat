@@ -1,24 +1,24 @@
 ################################################################################
 #
-# kernel_module
+# kernel_modules
 #
 ################################################################################
 
-KERNEL_MODULE_VERSION = 1.0
-KERNEL_MODULE_SITE = $(BR2_EXTERNAL_KERNEL_MODULE_PATH)
-KERNEL_MODULE_SITE_METHOD = local
+KERNEL_MODULES_VERSION = 1.0
+KERNEL_MODULES_SITE = $(BR2_EXTERNAL_KERNEL_MODULES_PATH)
+KERNEL_MODULES_SITE_METHOD = local
 
 ifeq ($(BR2_PACKAGE_EIGEN),y)
-	KERNEL_MODULE_DEPENDENCIES += eigen
+	KERNEL_MODULES_DEPENDENCIES += eigen
 endif
 ifeq ($(BR2_PACKAGE_LIBDRM),y)
-	KERNEL_MODULE_DEPENDENCIES += libdrm
+	KERNEL_MODULES_DEPENDENCIES += libdrm
 endif
 ifeq ($(BR2_PACKAGE_OPENBLAS),y)
-	KERNEL_MODULE_DEPENDENCIES += openblas
+	KERNEL_MODULES_DEPENDENCIES += openblas
 endif
 
-define KERNEL_MODULE_BUILD_CMDS
+define KERNEL_MODULES_BUILD_CMDS
 	$(MAKE) -C '$(@D)/user' $(TARGET_CONFIGURE_OPTS) \
 	  BR2_PACKAGE_EIGEN="$(BR2_PACKAGE_EIGEN)" \
 	  BR2_PACKAGE_LIBDRM="$(BR2_PACKAGE_LIBDRM)" \
@@ -26,7 +26,7 @@ define KERNEL_MODULE_BUILD_CMDS
 	;
 endef
 
-define KERNEL_MODULE_INSTALL_TARGET_CMDS
+define KERNEL_MODULES_INSTALL_TARGET_CMDS
 	# The modules are already installed by the kernel-module package type
 	# under /lib/modules/**, but let's also copy the modules to the root
 	# for insmod convenience.
