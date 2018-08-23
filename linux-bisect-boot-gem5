@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
-set -eu
-cd ..
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
+while getopts "h${common_getopts_flags}" OPT; do
+  case "$OPT" in
+    h)
+      echo "https://github.com/cirosantilli/linux-kernel-module-cheat#getvar" 2>&1
+      exit
+      ;;
+    ?)
+      common_getopts_case "$OPT"
+      ;;
+  esac
+done
+shift "$(($OPTIND - 1))"
+common_linux_variant=bisect
+common_setup
 # Rebuilds were failing without this.
-rm -rf out/arm/buildroot/build/linux-custom.bisect/
-./build -aa -L bisect
-./run -aa -E 'm5 exit' -L bisect -gu
+cd "$common_root_dir"
+rm -rf "$(./getvar -a "$common_arch" -L "$common_linux_variant" linux_variant_dir)"
+./build -a "$common_arch" -L "$common_linux_variant"
+status=0
+./run -a "$common_arch" -E 'm5 exit' -L "$common_linux_variant" -gu || status=$?
+if [ "$status" -eq 125 ] || [ "$status" -gt 127 ]; then
+  status=1
+fi
+exit "$status"
