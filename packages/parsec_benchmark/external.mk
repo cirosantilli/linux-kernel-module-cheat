@@ -4,15 +4,20 @@
 #
 ################################################################################
 
-PARSEC_BENCHMARK_VERSION = master
-PARSEC_BENCHMARK_SITE = git@github.com:cirosantilli/parsec-benchmark.git
-PARSEC_BENCHMARK_SITE_METHOD = git
+# If we ever upstream to Buildroot.
+# PARSEC_BENCHMARK_VERSION = 75d55ac446a43c47efb1044844a108c6c330184c
+# PARSEC_BENCHMARK_SITE = git@github.com:cirosantilli/parsec-benchmark.git
+# PARSEC_BENCHMARK_SITE_METHOD = git
+
+PARSEC_BENCHMARK_VERSION = 1.0
+PARSEC_BENCHMARK_SITE = $(LKMC_PARSEC_BENCHMARK_SRCDIR)
+PARSEC_BENCHMARK_SITE_METHOD = local
 
 define PARSEC_BENCHMARK_BUILD_CMDS
   # TODO make this nicer, only untar when extract step is done.
   # EXTRACT_CMDS and EXTRA_DOWNLOADS would be good candidates,
   # but they don't run with OVERRIDE_SRCDIR.
-  '$(PARSEC_BENCHMARK_PKGDIR)/parsec-benchmark/get-inputs' $(if $(filter $(V),1),-v,) '$(DL_DIR)' '$(@D)/'
+  '$(@D)/get-inputs' $(if $(filter $(V),1),-v,) '$(DL_DIR)' '$(@D)/'
   # We run the benchmarks with the wrong arch here to generate the inputs on the host.
   # This is because on gem5 this takes too long to do.
   export GNU_TARGET_NAME='$(GNU_TARGET_NAME)' && \

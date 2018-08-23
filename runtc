@@ -1,19 +1,47 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "h${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    h)
-      echo "https://github.com/cirosantilli/linux-kernel-module-cheat#runtc" 2>&1
-      exit
-      ;;
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-tool="$1"
-shift
-common_setup
-"${common_buildroot_out_dir}/host/bin/"*-buildroot-*"${tool}" "$@"
-exit "$?"
+#!/usr/bin/env python3
+
+import os
+import subprocess
+import sys
+
+import common
+
+parser = common.get_argparse(argparse_args={
+    'description': '''Run a Buildroot ToolChain tool like readelf or objdump.
+
+For example, to get some information about the arm vmlinux:
+
+....
+./%(prog)s readelf -- -e "$(./getvar vmlinux)"
+....
+
+Get the list of available tools with:
+
+....
+ls "$(./getvar -a arm host_bin_dir)"
+....
+'''
+})
+parser.add_argument(
+    '--dry',
+    help='Just output the tool path to stdout but actually run it',
+    action='store_true',
+)
+parser.add_argument('tool', help='Which tool to run.')
+parser.add_argument(
+    'extra_args',
+    default=[],
+    help='Extra arguments for the tool.',
+    metavar='extra-args',
+    nargs='*'
+)
+args = common.setup(parser)
+if args.dry:
+    print(common.get_toolchain_tool(args.tool))
+else:
+    sys.exit(common.run_cmd(
+        [common.get_toolchain_tool(args.tool)] + args.extra_args,
+        cmd_file=os.path.join(common.run_dir, 'runtc.sh'),
+        cwd=common.linux_variant_dir,
+        show_cmd=False,
+    ))

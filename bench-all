@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-set -x
-bench_build=false
-bench_buildroot_baseline=false
+set -eux
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+bench_all=false
+bench_buildroot_build=false
+bench_buildroot_baseline_build=false
 bench_gem5_build=false
 bench_linux_boot=false
 default_arch=x86_64
@@ -10,19 +11,16 @@ update_repo=false
 while getopts Aa:Bbglu OPT; do
   case "$OPT" in
     A)
-      bench_build=true
-      bench_buildroot_baseline=true
-      bench_gem5_build=true
-      bench_linux_boot=true
+      bench_all=true
       ;;
     a)
       default_arch="$OPTARG"
       ;;
     b)
-      bench_build=true
+      bench_buildroot_build=true
       ;;
     B)
-      bench_buildroot_baseline=true
+      bench_buildroot_baseline_build=true
       ;;
     g)
       bench_gem5_build=true
@@ -40,9 +38,24 @@ while getopts Aa:Bbglu OPT; do
 done
 shift "$(($OPTIND - 1))"
 comment="${1:-}"
+if \
+  ! "$bench_buildroot_build" && \
+  ! "$bench_buildroot_baseline_build" && \
+  ! "$bench_gem5_build" && \
+  ! "$bench_linux_boot" \
+; then
+  bench_all=true
+fi
+if "$bench_all"; then
+  bench_buildroot_build=true
+  bench_buildroot_baseline_build=true
+  bench_gem5_build=true
+  bench_linux_boot=true
+fi
+getvar="${root_dir}/getvar"
 
 # Create output directory.
-benchmark_repo="${common_root_dir}/../linux-kernel-module-cheat-regression"
+benchmark_repo="${root_dir}/../linux-kernel-module-cheat-regression"
 mkdir -p "$benchmark_repo"
 last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
 if [ -n "$last_dir" ]; then
@@ -51,62 +64,61 @@ else
   seq_id=0
 fi
 seq_id="$(printf '%0.4d' "$seq_id")"
-dir_basename="${seq_id}_${common_sha}"
+dir_basename="${seq_id}_$("$getvar" sha)"
 new_dir="${benchmark_repo}/${dir_basename}"
 mkdir "$new_dir"
 
-if "$bench_build"; then
-  common_arch="$default_arch"
-  common_suffix=bench
-  common_setup
-  rm -rf "$common_out_arch_dir"
-  ./build -a "$common_arch" -B 'BR2_CCACHE=n' -s "$common_suffix"
-  cp "${common_build_dir}/build-time.log" "${new_dir}/build-time-${common_arch}.log"
-  rm -rf "$common_out_arch_dir"
+do_bench_buildroot_build() (
+  arch="$default_arch"
+  build_id=bench
+  if [ "${1:-}" = baseline ]; then
+    baseline=--baseline
+    baseline_suffix=-baseline
+  else
+    baseline=
+    baseline_suffix=
+  fi
+  common_build_dir="$("$getvar" --arch "$arch" --buildroot-build-id "$build_id" build_dir)"
+  common_images_dir="$("$getvar" --arch "$arch" --buildroot-build-id "$build_id" images_dir)"
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id" --clean
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id" --no-all -- source
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id"
+  cp "${common_build_dir}/build-time.log" "${new_dir}/buildroot-build-time-${baseline_suffix}${arch}.log"
+  wc -c "${images_dir}/"* > "${new_dir}/buildroot-image-size-${baseline_suffix}${arch}.log"
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id" --clean
+)
+
+if "$bench_buildroot_build"; then
+  do_bench_buildroot_build
 fi
 
-if "$bench_buildroot_baseline"; then
-  cd "${common_root_dir}/buildroot"
-  git clean -xdf
-  make "qemu_${default_arch}_defconfig"
-  printf '
-BR2_CCACHE=y
-BR2_TARGET_ROOTFS_CPIO=y
-BR2_TARGET_ROOTFS_EXT2=n
-' >>.config
-  make olddefconfig
-  make source
-  time env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(nproc)"
-  cp output/build/build-time.log "${new_dir}/baseline-build-time-${default_arch}.log"
-  wc -c output/images/* > "${new_dir}/baseline-image-size-${default_arch}.log"
-  git clean -xdf
+if "$bench_buildroot_baseline_build"; then
+  do_bench_buildroot_build baseline
 fi
 
 if "$bench_gem5_build"; then
-  arches='x86_64 arm'
-  for common_arch in $arches; do
-    common_setup
-    cd "${common_gem5_src_dir}"
-    git clean -xdf
-    results_file="${common_gem5_out_dir}/bench-build.txt"
-    gem5_outdir="${common_out_dir}/bench_build"
-    rm -fr "$results_file" "${gem5_outdir}"
-    # TODO understand better: --foreground required otherwise we cannot
-    # kill the build with Ctrl+C if something goes wrong, can be minimized to:
-    # bash -c "eval 'timeout 5 sleep 3'"
-    common_bench_cmd "timeout --foreground 900 ../build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
-    cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
-    cd "${common_root_dir}/gem5/gem5"
-    git clean -xdf
-    rm -fr "${gem5_outdir}"
-  done
+  common_arch="$default_arch"
+  gem5_build_id=bench-build
+  common_gem5_build_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_out_dir)"
+  common_gem5_src_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_src_dir)"
+  results_file="${common_gem5_build_dir}/bench-build.txt"
+  git -C "${common_gem5_src_dir}" clean -xdf
+  rm -f "$results_file"
+  "${root_dir}/build-gem5" --arch "$common_arch" --clean --gem5-build-id "$gem5_build_id"
+  # TODO understand better: --foreground required otherwise we cannot
+  # kill the build with Ctrl+C if something goes wrong, can be minimized to:
+  # bash -c "eval 'timeout 5 sleep 3'"
+  "${root_dir}/bench-cmd" "timeout --foreground 900 ./build-gem5 --arch '$common_arch' --gem5-build-id '$gem5_build_id'" "$results_file"
+  cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
+  git -C "${common_gem5_src_dir}" clean -xdf
+  "${root_dir}/build-gem5" --arch "$common_arch" --clean --gem5-build-id "$gem5_build_id"
 fi
 
 if "$bench_linux_boot"; then
-  cd "${common_root_dir}"
-  ./build-all
-  ./bench-boot
-  cp "$common_bench_boot" "$new_dir"
+  cd "${root_dir}"
+  "${root_dir}/build-all"
+  "${root_dir}/bench-boot" -t 3
+  cp "$(${root_dir}/getvar bench_boot)" "$new_dir"
 fi
 
 if "$update_repo"; then

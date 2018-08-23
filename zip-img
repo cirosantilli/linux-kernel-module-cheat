@@ -1,10 +1,17 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-common_setup
-cd "$common_root_dir"
-outfile="${common_out_dir}/lkmc-${common_sha}.zip"
-rm -f "$outfile"
-for common_arch in x86_64 arm aarch64; do
-  common_setup
-  zip -r "$outfile" "${common_qcow2_file#${common_root_dir}/}" "${common_linux_image#${common_root_dir}/}"
-done
+#!/usr/bin/env python3
+
+import os
+import subprocess
+import zipfile
+
+import common
+
+outfile = os.path.join(common.out_dir, 'lkmc-{}.zip'.format(common.sha))
+if os.path.exists(outfile):
+    os.unlink(outfile)
+zipf = zipfile.ZipFile(outfile, 'w', zipfile.ZIP_DEFLATED)
+for arch in common.arches:
+    common.setup(common.get_argparse(default_args={'arch': arch}))
+    zipf.write(common.qcow2_file, arcname=os.path.relpath(common.qcow2_file, common.root_dir))
+    zipf.write(common.linux_image, arcname=os.path.relpath(common.linux_image, common.root_dir))
+zipf.close()

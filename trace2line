@@ -1,22 +1,62 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-common_setup
-kernel_dir="${common_build_dir}/linux-custom"
-(
-  if "$common_gem5"; then
-    sed -r 's/^.* (0x[^. ]*)[. ].*/\1/' "$common_trace_txt_file"
-  else
-    sed -r 's/.*pc=//' "$common_trace_txt_file"
-  fi
-) | \
-  xargs "${common_host_dir}/bin/${common_arch}-linux-addr2line" -e "${common_vmlinux}" -fp | \
-  sed -E "s|at ${kernel_dir}/(\./\|)||" | \
-  uniq -c \
-> "${common_run_dir}/trace-lines.txt"
+#!/usr/bin/env python3
+
+'''
+TODO port this to Python fully. I started it, but then it was hanging on some
+IO blocking annoyance in the pipeline, and I don't have the time to deal with
+it, so I'm just going to forward the common options to the old shell script for
+now...
+'''
+
+import os
+import re
+import subprocess
+import sys
+
+import common
+
+parser = common.get_argparse(argparse_args={
+    'description': 'Convert an execution trace containing PC values into the Linux kernel linex executed'
+})
+args = common.setup(parser)
+sys.exit(subprocess.Popen([
+    os.path.join(common.root_dir, 'trace2line.sh'),
+    'true' if args.gem5 else 'false',
+    common.trace_txt_file,
+    common.get_toolchain_tool('addr2line'),
+    common.vmlinux,
+    common.run_dir,
+]).wait())
+
+# This was the full conversion attempt.
+
+# if args.gem5:
+#     def get_pc(line):
+#         # TODO
+#         # stdin = sed -r 's/^.* (0x[^. ]*)[. ].*/\1/' "$common_trace_txt_file")
+#         pass
+# else:
+#     def get_pc(line):
+#         return line.split('=')[-1]
+# with \
+#         subprocess.Popen(
+#             [
+#                 common.get_toolchain_tool('addr2line'),
+#                 '-e',
+#                 common.vmlinux,
+#                 '-f',
+#                 '-p',
+#             ],
+#             stdout=subprocess.PIPE,
+#             stdin=subprocess.PIPE,
+#         ) as proc, \
+#         open(common.trace_txt_file, 'r') as infile, \
+#         open(os.path.join(common.run_dir, 'trace-lines.txt'), 'w') as outfile \
+#     :
+#     for in_line in infile:
+#         proc.stdin.write(get_pc(in_line).encode())
+#         proc.stdin.flush()
+#         stdout = proc.stdout.read()
+#         outfile.write(stdout.decode())
+#     # TODO
+#     # sed -E "s|at ${common.linux_build_dir}/(\./\|)||"
+#     # uniq -c

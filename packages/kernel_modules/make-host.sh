@@ -3,7 +3,7 @@
 # We can almost do everything from the Makefile itself by using default values for
 #
 #    LINUX_DIR ?= "/lib/modules/$(uname -r)/build"
-#    BR2_EXTERNAL_KERNEL_MODULE_PATH="$(pwd)"
+#    BR2_EXTERNAL_KERNEL_MODULES_PATH="$(pwd)"
 #
 # The problem with that is that if you define those variables in your environment,
 # the build breaks, so this is more portable.
@@ -20,5 +20,5 @@ while getopts j: OPT; do
   esac
 done
 shift $(($OPTIND - 1))
-make -j "$j" KERNEL_MODULE_PATH="$(pwd)" LINUX_DIR="/lib/modules/$(uname -r)/build" "$@"
+make -j "$j" KERNEL_MODULES_PATH="$(pwd)" LINUX_DIR="/lib/modules/$(uname -r)/build" "$@"
 make -C user/ -j "$j" "$@"

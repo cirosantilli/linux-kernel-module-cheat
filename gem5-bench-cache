@@ -1,72 +1,72 @@
 #!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-common_gem5=true
+set -eu
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 generate_checkpoints=true
-while getopts "C${common_getopts_flags}" OPT; do
+while getopts "C" OPT; do
   case "$OPT" in
     C)
       generate_checkpoints=false
       ;;
     ?)
-      common_getopts_case "$OPT"
+      exit 2;
       ;;
   esac
 done
 shift "$(($OPTIND - 1))"
-common_setup
+common_opts="--gem5 $@"
 
 # Vars
-cmd="./run -a ${common_arch} -g"
+cmd="./run ${common_opts}"
 cache_small='--caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024  '
 cache_large='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
-results_file="${common_gem5_run_dir}/bench-cache.txt"
+results_file="$(${root_dir}/getvar ${common_opts} run_dir)/bench-cache.txt"
 
 bench() (
-  common_bench_cmd "$1" "$results_file"
+  "${root_dir}/bench-cmd" "$1"
   {
     printf 'cycles '
-    ./gem5-stat -a "$common_arch"
+    ./gem5-stat ${common_opts}
     printf 'instructions '
-    ./gem5-stat -a "$common_arch" sim_insts
+    ./gem5-stat ${common_opts} sim_insts
     # RESTORE_INVESTIGATION
-    #cycles_switch="$(./gem5-stat -a "$common_arch" system.switch_cpus.numCycles)"
+    #cycles_switch="$(./gem5-stat ${common_opts} system.switch_cpus.numCycles)"
     #if [ -n "$cycles_switch" ]; then
     #  printf "cycles_switch ${cycles_switch}\n"
     #fi
+    printf "\n"
   } >> "$results_file"
 )
 
 bench-all() (
-  bench "${cmd} -l 1 -- ${cache_small} --cpu-type=HPI --restore-with-cpu=HPI"
-  bench "${cmd} -l 1 -- ${cache_large} --cpu-type=HPI --restore-with-cpu=HPI"
+  bench "${cmd} --gem5-readfile \"$1\" --gem5-restore 1 -- ${cache_small} --cpu-type=HPI --restore-with-cpu=HPI"
+  bench "${cmd} --gem5-readfile \"$1\" --gem5-restore 1 -- ${cache_large} --cpu-type=HPI --restore-with-cpu=HPI"
   # RESTORE_INVESTIGATION
   # These were mostly to investigate what happens on restore:
   # https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
-  #bench "${cmd} -l 1"
-  #bench "${cmd} -l 1 -- ${cache_small}"
-  #bench "${cmd} -l 1 -- ${cache_large}"
-  #bench "${cmd} -l 2 -- ${cache_small}"
-  #bench "${cmd} -l 3 -- ${cache_large}"
-  #bench "${cmd} -l 4 -- ${cache_small} --cpu-type=HPI"
-  #bench "${cmd} -l 5 -- ${cache_large} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 1"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 1 -- ${cache_small}"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 1 -- ${cache_large}"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 2 -- ${cache_small}"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 3 -- ${cache_large}"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 4 -- ${cache_small} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 5 -- ${cache_large} --cpu-type=HPI"
   ## Restore from At-- omicSimpleCPU to HPI.
-  #bench "${cmd} -l 2 -- ${cache_small} --cpu-type=HPI --restore-with-cpu=HPI"
-  #bench "${cmd} -l 3 -- ${cache_large} --cpu-type=HPI --restore-with-cpu=HPI"
-  #bench "${cmd} -l 2 -- ${cache_small} --restore-with-cpu=HPI"
-  #bench "${cmd} -l 3 -- ${cache_large} --restore-with-cpu=HPI"
-  #bench "${cmd} -l 2 -- ${cache_small} --cpu-type=HPI"
-  #bench "${cmd} -l 3 -- ${cache_large} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 2 -- ${cache_small} --cpu-type=HPI --restore-with-cpu=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 3 -- ${cache_large} --cpu-type=HPI --restore-with-cpu=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 2 -- ${cache_small} --restore-with-cpu=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 3 -- ${cache_large} --restore-with-cpu=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 2 -- ${cache_small} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 3 -- ${cache_large} --cpu-type=HPI"
   ## Restore HPI with different cache sizes and see if it is used.
-  #bench "${cmd} -l 4 -- ${cache_large} --cpu-type=HPI"
-  #bench "${cmd} -l 5 -- ${cache_small} --cpu-type=HPI"
-  #bench "${cmd} -l 2 -- ${cache_large} --cpu-type=HPI"
-  #bench "${cmd} -l 3 -- ${cache_small} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 4 -- ${cache_large} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 5 -- ${cache_small} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 2 -- ${cache_large} --cpu-type=HPI"
+  #bench "${cmd} --gem5-readfile '$1' --gem5-restore 3 -- ${cache_small} --cpu-type=HPI"
 )
 
 
 if "$generate_checkpoints"; then
   # Create the checkpoints after the kernel boot.
-  printf 'm5 exit' > "${common_gem5_readfile_file}"
   cpt_cmd="-E '/gem5.sh'"
   # RESTORE_INVESTIGATION
   ## 5
@@ -84,8 +84,5 @@ fi
 # Restore and run benchmarks.
 rm -f "$results_file"
 for n in 1000 10000 100000; do
-  printf "n ${n}\n" >> "$results_file"
-  printf "dhrystone ${n}" > "${common_gem5_readfile_file}"
-  bench-all
-  printf "\n" >> "$results_file"
+  bench-all "dhrystone ${n}"
 done
