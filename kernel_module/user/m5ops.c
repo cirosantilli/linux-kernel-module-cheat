@@ -5,22 +5,39 @@
 #include <stdlib.h>
 
 #define ENABLED 1
-#if defined(__aarch64__)
+#if defined(__arm__)
 static void m5_checkpoint()
 {
-	__asm__ __volatile__ ("mov x0, 0; mov x1, 0; .inst 0xff000110 | (0x43 << 16);");
+	__asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x43 << 16);");
 };
 static void m5_dump_stats()
 {
-	__asm__ __volatile__ ("mov x0, 0; mov x1, 0; .inst 0xff000110 | (0x41 << 16);");
+	__asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x41 << 16);");
 };
 static void m5_exit()
 {
-	__asm__ __volatile__ ("mov x0, 0; .inst 0xff000110 | (0x21 << 16);");
+	__asm__ __volatile__ ("mov r0, #0; .inst 0xEE000110 | (0x21 << 16);");
 };
 static void m5_reset_stats()
 {
-	__asm__ __volatile__ ("mov x0, 0; mov x1, 0; .inst 0xff000110 | (0x40 << 16);");
+	__asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x40 << 16);");
+};
+#elif defined(__aarch64__)
+static void m5_checkpoint()
+{
+	__asm__ __volatile__ ("mov x0, #0; mov x1, #0; .inst 0xFF000110 | (0x43 << 16);");
+};
+static void m5_dump_stats()
+{
+	__asm__ __volatile__ ("mov x0, #0; mov x1, #0; .inst 0xFF000110 | (0x41 << 16);");
+};
+static void m5_exit()
+{
+	__asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);");
+};
+static void m5_reset_stats()
+{
+	__asm__ __volatile__ ("mov x0, #0; mov x1, #0; .inst 0XFF000110 | (0x40 << 16);");
 };
 #else
 #undef ENABLED
@@ -35,7 +52,7 @@ void
 #endif
 )
 {
-#if defined(__aarch64__)
+#if ENABLED
 	char action;
 	if (argc > 1) {
 		action = argv[1][0];
