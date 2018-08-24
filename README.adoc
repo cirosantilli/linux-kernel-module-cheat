@@ -8221,15 +8221,35 @@ It is possible to guess what most tools do from the corresponding <<m5ops>>, but
 
 ===== m5 exit
 
-Quit gem5 with exit status 0.
+End the simulation.
+
+Sane Python scripts will exit gem5 with status 0, which is what `fs.py` does.
 
 ===== m5 fail
 
-Quit gem5 with the given exit status.
+End the simulation with a failure exit event:
 
 ....
 m5 fail 1
 ....
+
+Sane Python scripts would use that as the exit status of gem5, which would be useful for testing purposes, but `fs.py` at 200281b08ca21f0d2678e23063f088960d3c0819 just prints an error message:
+
+....
+Simulated exit code not 0! Exit code is 1
+....
+
+and exits with status 0.
+
+TODO: it used to exit non 0, be like that, but it actually got changed to just print the message. Why? https://gem5-review.googlesource.com/c/public/gem5/+/4880
+
+`m5 fail` is just a superset of `m5 exit`, which is just:
+
+....
+m5 fail 0
+....
+
+as can be seen from the source: https://github.com/gem5/gem5/blob/50a57c0376c02c912a978c4443dd58caebe0f173/src/sim/pseudo_inst.cc#L303
 
 ===== m5 writefile
 
@@ -8294,10 +8314,13 @@ The executable `/m5ops.out` illustrates how to hard code with inline assembly th
 ....
 # checkpoint
 /m5ops.out c
+
 # dumpstats
 /m5ops.out d
-# dump exit
+
+# exit
 /m5ops.out e
+
 # dump resetstats
 /m5ops.out r
 ....
@@ -8359,7 +8382,20 @@ Finally, `m5.c` calls the defined functions as in:
 m5_exit(ints[0]);
 ....
 
-Therefore, the runtime "argument" that gets passed to the instruction, e.g. the desired exit status in the case of `exit`, gets passed directly through the link:https://en.wikipedia.org/wiki/Calling_convention#ARM_(A64)[aarch64 calling convention].
+Therefore, the runtime "argument" that gets passed to the instruction, e.g. the delay in ticks until the exit for `m5 exit`, gets passed directly through the link:https://en.wikipedia.org/wiki/Calling_convention#ARM_(A64)[aarch64 calling convention].
+
+Keep in mind that for all archs, `m5.c` does the calls with 64-bit integers:
+
+....
+uint64_t ints[2] = {0,0};
+parse_int_args(argc, argv, ints, argc);
+m5_fail(ints[1], ints[0]);
+....
+
+Therefore, for example:
+
+* aarch64 uses `x0` for the first argument and `x1` for the second, since each is 64 bits log already
+* arm uses `r0` and `r1` for the first argument, and `r2` and `r3` for the second, since each register is only 32 bits long
 
 That convention specifies that `x0` to `x7` contain the function arguments, so `x0` contains the first argument, and `x1` the second.
 
