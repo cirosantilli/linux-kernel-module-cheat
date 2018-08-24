@@ -7013,6 +7013,8 @@ The most interesting are events which show instructions that QEMU ran, for which
 ./trace-boot -a x86_64
 ....
 
+Under the hood, this uses QEMU's `-trace` option.
+
 You can then inspect the instructions with:
 
 ....
@@ -7055,6 +7057,38 @@ Call Trace:
 +
 in which the boot appears to hang for a considerable time.
 * patch  QEMU source to remove the `disable` from `exec_tb` in the `trace-events` file. See also: https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/
+
+==== QEMU -d tracing
+
+QEMU also has a second trace mechanism in addition to `-trace`, find out the events with:
+
+....
+./run -- -d help
+....
+
+Let's pick the one that dumps executed instructions, `in_asm`:
+
+....
+./run -E '/poweroff.out' -- -D out/trace.txt -d in_asm
+less out/trace.txt
+....
+
+Sample output excerpt:
+
+....
+----------------
+IN:
+0xfffffff0:  ea 5b e0 00 f0           ljmpw    $0xf000:$0xe05b
+
+----------------
+IN:
+0x000fe05b:  2e 66 83 3e 88 61 00     cmpl     $0, %cs:0x6188
+0x000fe062:  0f 85 7b f0              jne      0xd0e1
+....
+
+TODO: after `IN:`, symbol names are meant to show, which is awesome, but I don't get any. I do see them however when running a bare metal example from: https://github.com/cirosantilli/newlib-examples/tree/900a9725947b1f375323c7da54f69e8049158881
+
+TODO: what is the point of having two mechanisms, `-trace` and  `-d`? `-d` tracing is cool because it does not require a messy recompile, and it can also show symbols.
 
 ==== Trace source lines
 
