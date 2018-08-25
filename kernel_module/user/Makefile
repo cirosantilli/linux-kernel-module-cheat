@@ -1,10 +1,12 @@
 .PHONY: all clean
 
-CFLAGS_EXTRA ?= -fopenmp -std=c99 -Wall -Werror -Wextra
-IN_EXT_C ?= .c
-IN_EXT_CXX ?= .cpp
-LIBS :=
-OUT_EXT ?= .out
+CFLAGS_EXTRA = -fopenmp -std=c99
+CXXFLAGS_EXTRA = -std=c++17
+CCFLAGS_EXTRA = -Wall -Werror -Wextra
+IN_EXT_C = .c
+IN_EXT_CXX = .cpp
+LIBS =
+OUT_EXT = .out
 
 OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
 ifeq ($(BR2_PACKAGE_EIGEN),y)
