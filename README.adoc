@@ -6876,7 +6876,7 @@ gem5 full system:
 ....
 printf 'm5 exit' > data/readfile
 ./run -a a -g -F '/gem5.sh'
-printf 'm5 resetstats;dhrystone 100000;m5 exit' > data/readfile
+printf 'dhrystone 100000' > data/readfile
 time ./run -a a -l 1 -g
 ....
 
@@ -7410,33 +7410,37 @@ OK, this is why we used gem5 in the first place, performance measurements!
 
 Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildroot provides.
 
-The most flexible way is to do:
+A flexible setup is:
 
 ....
 arch=aarch64
+cmd="./run -a '$arch' -g -F '/gem5.sh'"
+restore='-l 1 -- --cpu-type=HPI --restore-with-cpu=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 
-# Generate a checkpoint after Linux boots.
+# Generate a checkpoint after Linux boots, using the faster and less detailed CPU.
 # The boot takes a while, be patient young Padawan.
-printf 'm5 exit' > data/readfile
-./run -a "$arch" -g -F '/gem5.sh'
-
-# Restore the most recent checkpoint taken, and run the benchmark
-# with parameter 1.000. We skip the boot completely, saving time!
-printf 'm5 resetstats;dhrystone 1000;m5 exit' > data/readfile
-./run -a "$arch" -g -l 1
-./gem5-stat -a "$arch"
-
-# Now with another parameter 10.000.
-printf 'm5 resetstats;dhrystone 10000;m5 exit' > data/readfile
-./run -a "$arch" -g -l 1
-./gem5-stat -a "$arch"
-
-# Get an interactive shell at the end of the restore.
 printf '' > data/readfile
-./run -a "$arch" -g -l 1
+eval "$cmd"
+
+# Restore the most recent checkpoint taken with the more detailed and slower HPI CPU,
+# and run the benchmark with parameter 1.000. We skip the boot completely, saving time!
+printf 'dhrystone 1000' > data/readfile
+eval "${cmd} ${restore}"
+./gem5-stat -a "$arch"
+
+# Now run again with another parameter 10.000.
+# This one should take more cycles!
+printf 'dhrystone 10000' > data/readfile
+eval "${cmd} ${restore}"
+./gem5-stat -a "$arch"
+
+# Get an interactive shell at the end of the restore
+# if you need to debug something more interactively.
+printf 'sh' > data/readfile
+eval "${cmd} ${restore}"
 ....
 
-The commands output the approximate number of CPU cycles it took Dhrystone to run.
+The `gem5-stats` commands output the approximate number of CPU cycles it took Dhrystone to run.
 
 For more serious tests, you will likely want to automate logging the commands ran and results to files, a good example is: link:gem5-bench-cache[].
 
@@ -7447,20 +7451,6 @@ A more naive and simpler to understand approach would be a direct:
 ....
 
 but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-scrip>>
-
-A few imperfections of our benchmarking method are:
-
-* when we do `m5 resetstats` and `m5 exit`, there is some time passed before the `exec` system call returns and the actual benchmark starts and ends
-* the benchmark outputs to stdout, which means so extra cycles in addition to the actual computation. But TODO: how to get the output to check that it is correct without such IO cycles?
-
-Solutions to these problems include:
-
-* modify benchmark code with instrumentation directly, see <<m5ops-instructions>> for an example.
-* monitor known addresses TODO possible? Create an example.
-
-Discussion at: https://stackoverflow.com/questions/48944587/how-to-count-the-number-of-cpu-clock-cycles-between-the-start-and-end-of-a-bench/48944588#48944588
-
-Those problems should be insignificant if the benchmark runs for long enough however.
 
 Now you can play a fun little game with your friends:
 
@@ -7481,6 +7471,22 @@ Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format
 [the stats]
 ---------- End Simulation Statistics   ----------
 ....
+
+==== Skip extra benchmark instructions
+
+A few imperfections of our <<gem5-run-benchmark,benchmarking method>> are:
+
+* when we do `m5 resetstats` and `m5 exit`, there is some time passed before the `exec` system call returns and the actual benchmark starts and ends
+* the benchmark outputs to stdout, which means so extra cycles in addition to the actual computation. But TODO: how to get the output to check that it is correct without such IO cycles?
+
+Solutions to these problems include:
+
+* modify benchmark code with instrumentation directly, see <<m5ops-instructions>> for an example.
+* monitor known addresses TODO possible? Create an example.
+
+Discussion at: https://stackoverflow.com/questions/48944587/how-to-count-the-number-of-cpu-clock-cycles-between-the-start-and-end-of-a-bench/48944588#48944588
+
+Those problems should be insignificant if the benchmark runs for long enough however.
 
 ==== gem5 system parameters
 

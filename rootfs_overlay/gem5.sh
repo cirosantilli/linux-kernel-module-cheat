@@ -1,7 +1,6 @@
 #!/bin/sh
+# This covers the most common setup to run a benchmark in gem5 and exit.
 m5 checkpoint
-script=/tmp/readfile
-m5 readfile > "$script"
-if [ -s "$script" ]; then
-  sh "$script"
-fi
+m5 resetstats
+m5 readfile | sh
+m5 exit
