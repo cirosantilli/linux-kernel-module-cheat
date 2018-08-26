@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import imp
 import subprocess
 import os
 import sys
@@ -30,6 +31,7 @@ def get_argparse(**kwargs):
     """
     Return an argument parser with common arguments set.
     """
+    global this
     default_build_id='default'
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
@@ -70,7 +72,7 @@ Default: %(default)s
         '--port-offset', type=int,
         help="""\
 Increase the ports to be used such as for GDB by an offset to run multiple
-instances in parallel.
+instances in parallel. Equals the run ID if that is an integer.
 Default: %(default)s
 """
     )
@@ -90,6 +92,11 @@ around when you checkout between branches.
         '-t', '--gem5-build-type', default='opt',
         help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
     )
+    # A bit ugly as it actually changes the defaults shown on --help, but we can't do any better
+    # because it is impossible to check if arguments were given or not...
+    # - https://stackoverflow.com/questions/30487767/check-if-argparse-optional-argument-is-set-or-not
+    # - https://stackoverflow.com/questions/3609852/which-is-the-best-way-to-allow-configuration-options-be-overridden-at-the-comman
+    parser.set_defaults(**this.configs)
     return parser
 
 def setup(parser):
@@ -166,7 +173,10 @@ def setup(parser):
 
     # Ports.
     if args.port_offset is None:
-        args.port_offset = int(args.run_id)
+        try:
+            args.port_offset = int(args.run_id)
+        except ValueError:
+            args.port_offset = 0
     if args.gem5:
         this.gem5_telnet_port = 3456 + args.port_offset
         this.gdb_port = 7000 + args.port_offset
@@ -204,7 +214,9 @@ sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H'
 
 # Config file. TODO move to decent python setup.
 config_file = os.path.join(data_dir, 'config')
-if os.path.exists(config_file):
-    exec(open(config_file).read())
-    with open(config_file) as f:
-        exec(f.read())
+config = imp.load_source('config', config_file)
+configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
+# if os.path.exists(config_file):
+    # exec(open(config_file).read())
+    # with open(config_file) as f:
+        # exec(f.read())
