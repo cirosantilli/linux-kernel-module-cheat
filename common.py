@@ -113,11 +113,13 @@ def setup(parser):
     if args.arch in this.arch_map:
         args.arch = this.arch_map[args.arch]
     if args.arch == 'arm':
-        gem5_arch = 'ARM'
+        this.armv = 7
+        this.gem5_arch = 'ARM'
     elif args.arch == 'aarch64':
-        gem5_arch = 'ARM'
+        this.armv = 8
+        this.gem5_arch = 'ARM'
     elif args.arch == 'x86_64':
-        gem5_arch = 'X86'
+        this.gem5_arch = 'X86'
     this.buildroot_dir = os.path.join(root_dir, 'buildroot')
     this.arch_dir = args.arch
     if args.suffix is not None:
@@ -136,6 +138,7 @@ def setup(parser):
     this.qemu_guest_custom_dir = os.path.join(this.build_dir, 'qemu-custom')
     this.host_dir = os.path.join(this.buildroot_out_dir, 'host')
     this.images_dir = os.path.join(this.buildroot_out_dir, 'images')
+    this.ext2_file = os.path.join(this.images_dir, 'rootfs.ext2')
     this.qcow2_file = os.path.join(this.images_dir, 'rootfs.ext2.qcow2')
     this.staging_dir = os.path.join(this.buildroot_out_dir, 'staging')
     this.target_dir = os.path.join(this.buildroot_out_dir, 'target')
