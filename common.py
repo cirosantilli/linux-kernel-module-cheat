@@ -32,13 +32,17 @@ def get_argparse(**kwargs):
     Return an argument parser with common arguments set.
     """
     global this
+    arch_choices = []
+    for key in this.arch_map:
+        arch_choices.append(key)
+        arch_choices.append(this.arch_map[key])
     default_build_id='default'
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         **kwargs
     )
     parser.add_argument(
-        '-a', '--arch', default='x86_64',
+        '-a', '--arch', choices=arch_choices, default='x86_64',
         help='CPU architecture. Default: %(default)s'
     )
     parser.add_argument(
@@ -72,8 +76,8 @@ Default: %(default)s
         '--port-offset', type=int,
         help="""\
 Increase the ports to be used such as for GDB by an offset to run multiple
-instances in parallel. Equals the run ID if that is an integer.
-Default: %(default)s
+instances in parallel.
+Default: the run ID (-n) if that is an integer, otherwise 0.
 """
     )
     parser.add_argument(
@@ -106,18 +110,14 @@ def setup(parser):
     """
     global this
     args = parser.parse_args()
-    if args.arch == 'a' or args.arch == 'arm':
-        args.arch = 'arm'
+    if args.arch in this.arch_map:
+        args.arch = this.arch_map[args.arch]
+    if args.arch == 'arm':
         gem5_arch = 'ARM'
-    elif args.arch == 'A' or args.arch == 'aarch64':
-        args.arch = 'aarch64'
+    elif args.arch == 'aarch64':
         gem5_arch = 'ARM'
-    elif args.arch == 'x' or args.arch == 'x86_64':
-        args.arch = 'x86_64'
+    elif args.arch == 'x86_64':
         gem5_arch = 'X86'
-    else:
-        print('unknown arch: {}'.format(args.arch), file=sys.stderr)
-        sys.exit(2)
     this.buildroot_dir = os.path.join(root_dir, 'buildroot')
     this.arch_dir = args.arch
     if args.suffix is not None:
@@ -209,6 +209,11 @@ bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 common_dir = os.path.join(out_dir, 'common')
 
 # Other default variables.
+arch_map = {
+    'a': 'arm',
+    'A': 'aarch64',
+    'x': 'x86_64',
+}
 gem5_cpt_pref = '^cpt\.'
 sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
 

@@ -1,397 +1,432 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
+#!/usr/bin/env python3
+import common
+parser = common.get_argparse(
+    description='Run Linux on an emulator'
+)
+parser.add_argument(
+    '-c', '--cpus', default=1, type=int,
+    help='Number of guest CPUs to emulate. Default: %(default)s'
+)
+parser.add_argument(
+    '-D', '--debug-vm', default=False, action='store_true',
+    help='Run GDB on the emulator itself.'
+)
+parser.add_argument(
+    '-d', '--debug', default=False, action='store_true',
+    help='Wait for GDB to connect before starting execution'
+)
+parser.add_argument(
+    '-E', '--eval',
+    help="""\
+Replace the normal init with a minimal init that just evals with given
+`CMDSTR` bash command string. Example: `-E 'insmod /hello.ko;'`
+"""
+)
+parser.add_argument(
+    '-e', '--kernel-cli-extra',
+    help="""\
+Pass an extra Linux kernel command line options, and place them before
+the dash separator `-`. Only options that come before the `-`, i.e.
+"standard" options, should be passed with this option.
+Example: `./run -a arm -e 'init=/poweroff.out'`
+"""
+)
+parser.add_argument(
+    '-F', '--kernel-cli-extra-after-dash-base64',
+    help="""\
+Much like `-f`, but base64 encodes the string. Mnemonic:
+`-F` is to `-f` what `-E` is to `-e`.)
+"""
+)
+parser.add_argument(
+    '-f', '--kernel-cli-extra-after-dash',
+    help="""\
+Pass an extra Linux kernel command line options, add a dash `-`
+separator, and place the options after the dash. Intended for custom
+options understood by our `init` scripts, most of which are prefixed
+by `lkmc_`, e.g.: `./run -f 'lkmc_eval="wget google.com" lkmc_lala=y'`
+Mnenomic: comes after `-e`.
+"""
+)
+parser.add_argument(
+    '-G', '--gem5-exe-args',
+    help="""\
+Pass extra options to the gem5 executable.
+Do not confuse with the arguments passed to config scripts,
+like `fs.py`. Example: `./run -G '--debug-flags=Exec --debug' -g`.
+"""
+)
+parser.add_argument(
+    '--gem5-biglittle', default=False, action='store_true',
+    help='Use fs_bigLITTLE.py instead of fs.py'
+)
+group = parser.add_mutually_exclusive_group()
+group.add_argument(
+    '-I', '--initramfs', default=False, action='store_true',
+    help='Use initramfs instead of a root filesystem'
+)
+group.add_argument(
+    '-i', '--initrd', default=False, action='store_true',
+    help='Use initrd instead of a root filesystem'
+)
+parser.add_argument(
+    '-K', '--kvm', default=False, action='store_true',
+    help='Use KVM. Only works if guest arch == host arch'
+)
+parser.add_argument(
+    '-k', '--kgdb', default=False, action='store_true'
+)
+parser.add_argument(
+    '-l', '--gem5-restore-last-checkpoint', type=int,
+    help="""\
+Restore the nth most recently taken gem5 checkpoint according to directory
+timestamps.
+"""
+)
+parser.add_argument(
+    '-m', '--memory', default='256M',
+    help="""\
+Set the memory size of the guest. E.g.: `-m 512M`. We try to keep the default
+at the minimal ammount amount that boots all archs. Anything lower could lead
+some arch to fail to boot.
+Default: %(default)s
+"""
+)
+parser.add_argument(
+    '-P', '--prebuilt', default=False, action='store_true',
+    help='Run the downloaded prebuilt images.'
+)
+group = parser.add_mutually_exclusive_group()
+group.add_argument(
+    '-R', '--qemu-replay', default=False, action='store_true',
+    help='Replay a QEMU run record deterministically'
+)
+group.add_argument(
+    '-r', '--qemu-record', default=False, action='store_true',
+    help='Record a QEMU run record for later replay with `-R`'
+)
+parser.add_argument(
+    '-T', '--trace',
+    help="""\
+Set trace events to be enabled. If not given, gem5 tracing is completely
+disabled, while QEMU tracing is enabled but uses default traces that are very
+rare and don't affect performance, because `./configure
+--enable-trace-backends=simple` seems to enable some traces by default, e.g.
+`pr_manager_run`, and I don't know how to get rid of them.
+"""
+)
+parser.add_argument(
+    '-U', '--tmux-args',
+    help='Pass extra parameters to the program running on the `-u` tmux split'
+)
+parser.add_argument(
+    '-u', '--tmux', default=False, action='store_true',
+    help="""\
+Create a tmUx split the window. You must already be inside of a `tmux` session
+to use this option:
+* on the main window, run the emulator as usual
+* on the split:
+** if on QEMU and `-d` is given, GDB
+** if on gem5, the gem5 terminal
+"""
+)
+parser.add_argument(
+    '-x', '--graphic', default=False, action='store_true',
+    help='Run in graphic mode. Mnemonic: X11'
+)
+parser.add_argument(
+    '-V', '--vnc', default=False, action='store_true',
+    help="""\
+Run QEMU with VNC instead of the default SDL. Connect to it with:
+`vinagre localhost:5900`.
+"""
+)
+parser.add_argument(
+    'extra_emulator_args', nargs='?',
+    help='Extra options to append at the end of the emulator command line'
+)
+args = common.setup(parser)
 
-# CLI handling.
-cpus=1
-debug_vm=
-debug=false
-kgdb=false
-kvm=false
-# nokaslr:
-# - https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
-# - https://stackoverflow.com/questions/44612822/unable-to-debug-kernel-with-qemu-gdb/49840927#49840927
-#   Turned on by default since v4.12
-extra_append='console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y'
-extra_append_after_dash=
-extra_flags=
-extra_flags_qemu=
-extra_opts=
-gem5opts=
-gem5_fsbiglittle=false
-gem5_restore_last_checkpoint=
-lkmc_eval=
-initrd=false
-initramfs=false
-memory=256M
-nographic=true
-prebuilt=false
-rr=
-root=
-tmux=false
-tmux_args=
-trace_enabled=false
-# A dummy value that is already turned on by default and does not produce large output,
-# just to prevent QEMU from emitting a warning that '' is not valid.
-trace_type=pr_manager_run
-vnc=
-while getopts "c:DdE:e:F:f:G:hIiKkl:m:PRrT:U:uVX:x${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    c)
-      cpus="$OPTARG"
-      ;;
-    D)
-      debug_vm="gdb -q -ex start --args \\
-"
-      ;;
-    d)
-      debug=true
-      extra_flags_qemu="${extra_flags_qemu} -S \\
-"
-      ;;
-    E)
-      lkmc_eval="$OPTARG"
-      ;;
-    e)
-      extra_append="${extra_append} ${OPTARG}"
-      ;;
-    F)
-      extra_append_after_dash="${extra_append_after_dash} lkmc_eval_base64=\"$(printf "${OPTARG}" | base64)\""
-       ;;
-    f)
-      extra_append_after_dash="${extra_append_after_dash} ${OPTARG}"
-      ;;
-    G)
-      gem5opts="$OPTARG \\
-"
-      ;;
-    h)
-      echo "https://github.com/cirosantilli/linux-kernel-module-cheat#run" 2>&1
-      exit
-      ;;
-    I)
-      initramfs=true
-      ;;
-    i)
-      initrd=true
-      ;;
-    K)
-      kvm=true
-      ;;
-    k)
-      extra_append="$extra_append kgdbwait"
-      # For those who want to try KDB.
-      #extra_append="$extra_append kgdbwait kgdboc=kbd"
-      kgdb=true
-      ;;
-    l)
-      gem5_restore_last_checkpoint="${OPTARG}"
-      ;;
-    m)
-      memory="$OPTARG"
-      ;;
-    P)
-      prebuilt=true
-      ;;
-    R)
-      rr=replay
-      ;;
-    r)
-      rr=record
-      ;;
-    T)
-      trace_enabled=true
-      trace_type="$OPTARG"
-      ;;
-    U)
-      tmux_args="$OPTARG"
-      ;;
-    u)
-      tmux=true
-      ;;
-    X)
-      extra_opts="${extra_opts} ${OPTARG}"
-      ;;
-    x)
-      nographic=false
-      ;;
-    V)
-      vnc="-vnc :0 \\
-"
-      ;;
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-OPTIND=1
-if [ -n "$extra_opts" ]; then
-  while getopts b OPT $extra_opts; do
-    case "$OPT" in
-      b)
-        gem5_fsbiglittle=true
-        ;;
-      ?)
-        exit 2
-        ;;
-    esac
-  done
-fi
-common_setup
-if "$debug" && "$kvm"; then
-  echo 'error: -d and -K are incompatible' 1>&2
-  exit 1
-fi
-if "$initrd" || "$initramfs"; then
-  ramfs=true
-else
-  ramfs=false
-fi
-if [ -n "$lkmc_eval" ]; then
-  if "$ramfs"; then
-    initarg="rdinit"
-  else
-    initarg="init"
-  fi
-  extra_append="${extra_append} ${initarg}=/eval_base64.sh"
-  extra_append_after_dash="${extra_append_after_dash} lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
-fi
-if "$nographic"; then
-  if [ "$common_arch" = x86_64 ]; then
-    extra_append="${extra_append} console=ttyS0"
-  fi
-  extra_flags_qemu="${extra_flags_qemu}-nographic \\
-"
-fi
-if [ -n "$extra_append_after_dash" ]; then
-  extra_append="${extra_append} - ${extra_append_after_dash}"
-fi
-
-if "$common_gem5"; then
-  memory="${memory}B"
-  if "$trace_enabled"; then
-    gem5opts="${gem5opts} --debug-flags='${trace_type}' \\
-"
-  fi
-  gem5_common="\
-M5_PATH='${common_gem5_system_dir}' \\
-${debug_vm}\
-'${common_executable}' \\
---debug-file=trace.txt \\
-${gem5opts}\
--d '${common_m5out_dir}' \\
-"
-  if "$gem5_fsbiglittle"; then
-    if [ -n "$gem5_restore_last_checkpoint" ]; then
-      extra_flags="${extra_flags}\
---restore-from='${common_m5out_dir}/$(ls -crt "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)' \\
-"
-    fi
-    cmd="${gem5_common}\
-"${common_gem5_default_src_dir}/configs/example/arm/fs_bigLITTLE.py" \\
---big-cpus=2 \\
---cpu-type=atomic \\
---disk="${common_images_dir}/rootfs.ext2" \\
---dtb "${common_gem5_system_dir}/arm/dt/armv8_gem5_v1_big_little_2_2.dtb" \\
---kernel="${common_vmlinux}" \\
---little-cpus=2 \\
-"
-  else
-    if [ -n "$gem5_restore_last_checkpoint" ]; then
-      latest_cpt_basename="$(ls -crt "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)"
-      n="$(ls -1 "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | sort -k 2 -n -t . | grep -n "$latest_cpt_basename" | cut -d : -f 1)"
-      extra_flags="${extra_flags}-r ${n} \\
-"
-    fi
-    gem5_common="\
-${gem5_common}\
-'${common_gem5_src_dir}/configs/example/fs.py' \\
---disk-image='${common_images_dir}/rootfs.ext2' \\
---kernel='${common_vmlinux}' \\
---mem-size='${memory}' \\
---num-cpus='${cpus}' \\
---script='${common_gem5_readfile_file}' \\
-"
-    if [ "$common_arch" = x86_64 ]; then
-      if "$kvm"; then
-        extra_flags="${extra_flags} --cpu-type=X86KvmCPU"
-      fi
-      cmd="\
-${gem5_common}\
---command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda ${extra_append}' \\
-"
-    elif [ "$common_arch" = arm ] || [ "$common_arch" = aarch64 ]; then
-      # TODO why is it mandatory to pass mem= here? Not true for QEMU.
-      # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
-      cmd="${gem5_common}\
---command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
---dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$common_arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
---machine-type=VExpress_GEM5_V1 \\
-"
-    fi
-  fi
-else
-  mkdir -p "$common_qemu_run_dir"
-  if [ -z "$debug_vm" ]; then
-    serial_monitor="-serial mon:stdio \\
-"
-  else
-    serial_monitor=
-  fi
-  if "$kvm"; then
-    extra_flags="${extra_flags}-enable-kvm \\
-"
-  fi
-  if "$kgdb"; then
-    extra_flags_qemu="${extra_flags_qemu}-serial 'tcp::${common_gdb_port},server,nowait' \\
-"
-  fi
-  if "$prebuilt"; then
-    common_mkdir
-    qemu_executable="qemu-system-${common_arch}"
-  else
-    qemu_executable="${common_qemu_exec}"
-  fi
-  extra_flags="${extra_flags_qemu}${extra_flags}"
-  qemu_common="\
-${debug_vm}\
-${qemu_executable} \\
--device rtl8139,netdev=net0 \\
--gdb 'tcp::${common_gdb_port}' \\
--kernel '${common_linux_image}' \\
--m '${memory}' \\
--monitor 'telnet::${common_qemu_monitor_port},server,nowait' \\
--netdev 'user,hostfwd=tcp::${common_qemu_hostfwd_generic_port}-:${common_qemu_hostfwd_generic_port},hostfwd=tcp::${common_qemu_hostfwd_ssh_port}-:22,id=net0' \\
--no-reboot \\
-${serial_monitor}\
--smp '${cpus}' \\
--trace 'enable=${trace_type},file=${common_qemu_run_dir}/trace.bin' \\
--virtfs 'local,path=${common_9p_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
--virtfs 'local,path=${common_buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
-${vnc}"
-  if "$initrd"; then
-    extra_flags="${extra_flags} -initrd '${common_images_dir}/rootfs.cpio' \\
-"
-  fi
-
-  # Disk related options.
-  if "$ramfs"; then
-    # TODO why is this needed, and why any string works.
-    root='root=/dev/anything'
-  else
-    if [ ! "$common_arch" = mips64 ]; then
-      if [ -n "$rr" ]; then
-        driveif=none
-        rrid=',id=img-direct'
-        root='root=/dev/sda'
-        snapshot=
-      else
-        driveif=virtio
-        root='root=/dev/vda'
-        rrid=
-        snapshot=,snapshot
-      fi
-      extra_flags="${extra_flags}-drive 'file=${common_qcow2_file},format=qcow2,if=${driveif}${snapshot}${rrid}' \\
-"
-      if [ -n "$rr" ]; then
-        extra_flags="${extra_flags}\
--drive driver=blkreplay,if=none,image=img-direct,id=img-blkreplay \\
--device ide-hd,drive=img-blkreplay \\
-"
-      fi
-    fi
-  fi
-
-  if [ -n "$rr" ]; then
-    extra_flags="${extra_flags}\
--object filter-replay,id=replay,netdev=net0 \\
--icount 'shift=7,rr=${rr},rrfile=${common_qemu_rrfile}' \\
-"
-    virtio_gpu_pci=
-  else
-    virtio_gpu_pci="-device virtio-gpu-pci \\
-"
-  fi
-  case "$common_arch" in
-    x86_64)
-      if "$kgdb"; then
-        extra_append="${extra_append} kgdboc=ttyS0,115200"
-      fi
-      cmd="\
-${qemu_common}\
--M pc \\
--append '${root} nopat ${extra_append}' \\
--device edu \\
-"
-    ;;
-    arm|aarch64)
-      if "$kgdb"; then
-        extra_append="${extra_append} kgdboc=ttyAMA0,115200"
-      fi
-      if [  "$common_arch" = arm ]; then
-        cpu=cortex-a15
-      else
-        cpu=cortex-a57
-      fi
-      # highmem=off needed since v3.0.0 due to:
-      # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
-      cmd="\
-${qemu_common}\
--M virt,highmem=off \\
--append '${root} ${extra_append}' \\
--cpu "$cpu" \\
-${virtio_gpu_pci}\
-"
-    ;;
-    mips64)
-      if ! "$ramfs"; then
-        root='root=/dev/hda'
-        extra_flags="${extra_flags}-drive 'file=${common_qcow2_file},format=qcow2${snapshot}' \\
-"
-      fi
-      cmd="\
-${qemu_common}\
--M malta \\
--append '${root} ${extra_append}' \\
--cpu I6400 \\
-"
-    ;;
-  esac
-fi
-if "$tmux"; then
-  if "$common_gem5"; then
-    eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
-  elif "$debug"; then
-    eval "./tmu ./rungdb -a '${common_arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
-  fi
-fi
-if [ -n "${1:-}" ]; then
-  extra_flags="${extra_flags}${@} \\
-"
-fi
-cmd="time \\
-${cmd}${extra_flags}"
-if [ -z "$debug_vm" ]; then
-  cmd="${cmd}\
-|& tee >(ts -s %.s > ${common_termout_file})\
-"
-fi
-"${common_root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"
-cmd_out=$?
-if [ "$cmd_out" -ne 0 ]; then
-  exit "$cmd_out"
-fi
-
-# Check if guest panicked.
-if "$common_gem5"; then
-  # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
-  #
-  # Grepping for '^panic: ' does not work because some errors don't show that message
-  panic_msg='--- BEGIN LIBC BACKTRACE ---$'
-else
-  panic_msg='Kernel panic - not syncing'
-fi
-if grep -E -e "$panic_msg" -q "$common_termout_file"; then
-  echo 'Simulation error detected by parsing logs. Exiting with status 1.'
-  exit 1
-fi
+#if args.debug_vm:
+#    debug_vm="gdb -q -ex start --args"
+#if args.debug:
+#    extra_flags_qemu="${extra_flags_qemu} -S"
+#F)
+#    extra_append_after_dash="${extra_append_after_dash} lkmc_eval_base64=\"$(printf "${OPTARG}" | base64)\""
+#    ;;
+#f)
+#    extra_append_after_dash="${extra_append_after_dash} ${OPTARG}"
+#    ;;
+#if args.kgdb:
+#    extra_append="$extra_append kgdbwait"
+#if args.vnc:
+#    vnc = ['-vnc', ':0']
+#
+## nokaslr:
+## - https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
+## - https://stackoverflow.com/questions/44612822/unable-to-debug-kernel-with-qemu-gdb/49840927#49840927
+##   Turned on by default since v4.12
+#extra_append='console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y'
+#
+## A dummy value that is already turned on by default and does not produce large output,
+## just to prevent QEMU from emitting a warning that '' is not valid.
+#trace_type=pr_manager_run
+#
+#
+#if "$debug" && "$kvm"; then
+#  echo 'error: -d and -K are incompatible' 1>&2
+#  exit 1
+#fi
+#if "$initrd" || "$initramfs"; then
+#  ramfs=true
+#else
+#  ramfs=false
+#fi
+#if [ -n "$lkmc_eval" ]; then
+#  if "$ramfs"; then
+#    initarg="rdinit"
+#  else
+#    initarg="init"
+#  fi
+#  extra_append="${extra_append} ${initarg}=/eval_base64.sh"
+#  extra_append_after_dash="${extra_append_after_dash} lkmc_eval=\"$(printf "$lkmc_eval" | base64)\""
+#fi
+#if "$nographic"; then
+#  if [ "$common_arch" = x86_64 ]; then
+#    extra_append="${extra_append} console=ttyS0"
+#  fi
+#  extra_flags_qemu="${extra_flags_qemu}-nographic \\
+#"
+#fi
+#if [ -n "$extra_append_after_dash" ]; then
+#  extra_append="${extra_append} - ${extra_append_after_dash}"
+#fi
+#
+#if "$common_gem5"; then
+#  memory="${memory}B"
+#  if "$trace_enabled"; then
+#    gem5opts="${gem5opts} --debug-flags='${trace_type}' \\
+#"
+#  fi
+#  gem5_common="\
+#M5_PATH='${common_gem5_system_dir}' \\
+#${debug_vm}\
+#'${common_executable}' \\
+#--debug-file=trace.txt \\
+#${gem5opts}\
+#-d '${common_m5out_dir}' \\
+#"
+#  if "$gem5_fsbiglittle"; then
+#    if [ -n "$gem5_restore_last_checkpoint" ]; then
+#      extra_flags="${extra_flags}\
+#--restore-from='${common_m5out_dir}/$(ls -crt "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)' \\
+#"
+#    fi
+#    cmd="${gem5_common}\
+#"${common_gem5_default_src_dir}/configs/example/arm/fs_bigLITTLE.py" \\
+#--big-cpus=2 \\
+#--cpu-type=atomic \\
+#--disk="${common_images_dir}/rootfs.ext2" \\
+#--dtb "${common_gem5_system_dir}/arm/dt/armv8_gem5_v1_big_little_2_2.dtb" \\
+#--kernel="${common_vmlinux}" \\
+#--little-cpus=2 \\
+#"
+#  else
+#    if [ -n "$gem5_restore_last_checkpoint" ]; then
+#      latest_cpt_basename="$(ls -crt "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)"
+#      n="$(ls -1 "$common_m5out_dir" | grep -E "$common_gem5_cpt_pref" | sort -k 2 -n -t . | grep -n "$latest_cpt_basename" | cut -d : -f 1)"
+#      extra_flags="${extra_flags}-r ${n} \\
+#"
+#    fi
+#    gem5_common="\
+#${gem5_common}\
+#'${common_gem5_src_dir}/configs/example/fs.py' \\
+#--disk-image='${common_images_dir}/rootfs.ext2' \\
+#--kernel='${common_vmlinux}' \\
+#--mem-size='${memory}' \\
+#--num-cpus='${cpus}' \\
+#--script='${common_gem5_readfile_file}' \\
+#"
+#    if [ "$common_arch" = x86_64 ]; then
+#      if "$kvm"; then
+#        extra_flags="${extra_flags} --cpu-type=X86KvmCPU"
+#      fi
+#      cmd="\
+#${gem5_common}\
+#--command-line='earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda ${extra_append}' \\
+#"
+#    elif [ "$common_arch" = arm ] || [ "$common_arch" = aarch64 ]; then
+#      # TODO why is it mandatory to pass mem= here? Not true for QEMU.
+#      # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
+#      cmd="${gem5_common}\
+#--command-line='earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem=${memory} root=/dev/sda ${extra_append}' \\
+#--dtb-file='${common_gem5_system_dir}/arm/dt/$([ "$common_arch" = arm ] && echo "armv7_gem5_v1_${cpus}cpu" || echo "armv8_gem5_v1_${cpus}cpu").dtb' \\
+#--machine-type=VExpress_GEM5_V1 \\
+#"
+#    fi
+#  fi
+#else
+#  mkdir -p "$common_qemu_run_dir"
+#  if [ -z "$debug_vm" ]; then
+#    serial_monitor="-serial mon:stdio \\
+#"
+#  else
+#    serial_monitor=
+#  fi
+#  if "$kvm"; then
+#    extra_flags="${extra_flags}-enable-kvm \\
+#"
+#  fi
+#  if "$kgdb"; then
+#    extra_flags_qemu="${extra_flags_qemu}-serial 'tcp::${common_gdb_port},server,nowait' \\
+#"
+#  fi
+#  if "$prebuilt"; then
+#    common_mkdir
+#    qemu_executable="qemu-system-${common_arch}"
+#  else
+#    qemu_executable="${common_qemu_exec}"
+#  fi
+#  extra_flags="${extra_flags_qemu}${extra_flags}"
+#  qemu_common="\
+#${debug_vm}\
+#${qemu_executable} \\
+#-device rtl8139,netdev=net0 \\
+#-gdb 'tcp::${common_gdb_port}' \\
+#-kernel '${common_linux_image}' \\
+#-m '${memory}' \\
+#-monitor 'telnet::${common_qemu_monitor_port},server,nowait' \\
+#-netdev 'user,hostfwd=tcp::${common_qemu_hostfwd_generic_port}-:${common_qemu_hostfwd_generic_port},hostfwd=tcp::${common_qemu_hostfwd_ssh_port}-:22,id=net0' \\
+#-no-reboot \\
+#${serial_monitor}\
+#-smp '${cpus}' \\
+#-trace 'enable=${trace_type},file=${common_qemu_run_dir}/trace.bin' \\
+#-virtfs 'local,path=${common_9p_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
+#-virtfs 'local,path=${common_buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
+#${vnc}"
+#  if "$initrd"; then
+#    extra_flags="${extra_flags} -initrd '${common_images_dir}/rootfs.cpio' \\
+#"
+#  fi
+#
+#  # Disk related options.
+#  if "$ramfs"; then
+#    # TODO why is this needed, and why any string works.
+#    root='root=/dev/anything'
+#  else
+#    if [ ! "$common_arch" = mips64 ]; then
+#      if [ -n "$rr" ]; then
+#        driveif=none
+#        rrid=',id=img-direct'
+#        root='root=/dev/sda'
+#        snapshot=
+#      else
+#        driveif=virtio
+#        root='root=/dev/vda'
+#        rrid=
+#        snapshot=,snapshot
+#      fi
+#      extra_flags="${extra_flags}-drive 'file=${common_qcow2_file},format=qcow2,if=${driveif}${snapshot}${rrid}' \\
+#"
+#      if [ -n "$rr" ]; then
+#        extra_flags="${extra_flags}\
+#-drive driver=blkreplay,if=none,image=img-direct,id=img-blkreplay \\
+#-device ide-hd,drive=img-blkreplay \\
+#"
+#      fi
+#    fi
+#  fi
+#
+#  if [ -n "$rr" ]; then
+#    extra_flags="${extra_flags}\
+#-object filter-replay,id=replay,netdev=net0 \\
+#-icount 'shift=7,rr=${rr},rrfile=${common_qemu_rrfile}' \\
+#"
+#    virtio_gpu_pci=
+#  else
+#    virtio_gpu_pci="-device virtio-gpu-pci \\
+#"
+#  fi
+#  case "$common_arch" in
+#    x86_64)
+#      if "$kgdb"; then
+#        extra_append="${extra_append} kgdboc=ttyS0,115200"
+#      fi
+#      cmd="\
+#${qemu_common}\
+#-M pc \\
+#-append '${root} nopat ${extra_append}' \\
+#-device edu \\
+#"
+#    ;;
+#    arm|aarch64)
+#      if "$kgdb"; then
+#        extra_append="${extra_append} kgdboc=ttyAMA0,115200"
+#      fi
+#      if [  "$common_arch" = arm ]; then
+#        cpu=cortex-a15
+#      else
+#        cpu=cortex-a57
+#      fi
+#      # highmem=off needed since v3.0.0 due to:
+#      # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+#      cmd="\
+#${qemu_common}\
+#-M virt,highmem=off \\
+#-append '${root} ${extra_append}' \\
+#-cpu "$cpu" \\
+#${virtio_gpu_pci}\
+#"
+#    ;;
+#    mips64)
+#      if ! "$ramfs"; then
+#        root='root=/dev/hda'
+#        extra_flags="${extra_flags}-drive 'file=${common_qcow2_file},format=qcow2${snapshot}' \\
+#"
+#      fi
+#      cmd="\
+#${qemu_common}\
+#-M malta \\
+#-append '${root} ${extra_append}' \\
+#-cpu I6400 \\
+#"
+#    ;;
+#  esac
+#fi
+#if "$tmux"; then
+#  if "$common_gem5"; then
+#    eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
+#  elif "$debug"; then
+#    eval "./tmu ./rungdb -a '${common_arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
+#  fi
+#fi
+#if [ -n "${1:-}" ]; then
+#  extra_flags="${extra_flags}${@} \\
+#"
+#fi
+#cmd="time \\
+#${cmd}${extra_flags}"
+#if [ -z "$debug_vm" ]; then
+#  cmd="${cmd}\
+#|& tee >(ts -s %.s > ${common_termout_file})\
+#"
+#fi
+#"${common_root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"
+#cmd_out=$?
+#if [ "$cmd_out" -ne 0 ]; then
+#  exit "$cmd_out"
+#fi
+#
+## Check if guest panicked.
+#if "$common_gem5"; then
+#  # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
+#  #
+#  # Grepping for '^panic: ' does not work because some errors don't show that message
+#  panic_msg='--- BEGIN LIBC BACKTRACE ---$'
+#else
+#  panic_msg='Kernel panic - not syncing'
+#fi
+#if grep -E -e "$panic_msg" -q "$common_termout_file"; then
+#  echo 'Simulation error detected by parsing logs. Exiting with status 1.'
+#  exit 1
+#fi
