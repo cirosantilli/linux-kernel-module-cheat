@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import imp
 import subprocess
 import os
+import shlex
 import sys
 
 this = sys.modules[__name__]
@@ -26,6 +28,9 @@ this = sys.modules[__name__]
 #    env time --append -f 'time %e' --output = "$results_file" "${root_dir}/eeval" -a "$cmd" "$results_file"
 #    printf "exit_status $?\n" >> "$results_file"
 #)
+
+def base64_encode(string):
+    return base64.b64encode(string.encode()).decode()
 
 def get_argparse(**kwargs):
     """
@@ -104,6 +109,12 @@ around when you checkout between branches.
     parser.set_defaults(**this.configs)
     return parser
 
+def print_cmd(cmd):
+    out = []
+    for arg in cmd:
+        out.extend([shlex.quote(arg), ' \\\n'])
+    print(''.join(out))
+
 def setup(parser):
     """
     Parse the command line arguments, and setup several variables based on them.
@@ -138,6 +149,7 @@ def setup(parser):
     this.qemu_executable = os.path.join(this.qemu_variant_dir, '{}-softmmu'.format(args.arch), 'qemu-system-{}'.format(args.arch))
     this.qemu_guest_custom_dir = os.path.join(this.build_dir, 'qemu-custom')
     this.host_dir = os.path.join(this.buildroot_out_dir, 'host')
+    this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
     this.images_dir = os.path.join(this.buildroot_out_dir, 'images')
     this.ext2_file = os.path.join(this.images_dir, 'rootfs.ext2')
     this.qcow2_file = os.path.join(this.images_dir, 'rootfs.ext2.qcow2')

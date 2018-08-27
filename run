@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-import base64
-
-import common
 import os
 import shlex
 import subprocess
 import sys
 
+import common
+
 # Argparse.
-parser = common.get_argparse(
-    description='Run Linux on an emulator'
-)
+parser = common.get_argparse(description='Run Linux on an emulator')
 init_group = parser.add_mutually_exclusive_group()
 kvm_group = parser.add_mutually_exclusive_group()
 parser.add_argument(
@@ -176,7 +173,7 @@ else:
 if args.debug:
     extra_qemu_args.append('-S')
 if args.kernel_cli_extra_after_dash_base64 is not None:
-    kernel_cli_extra_after_dash += ' lkmc_eval_base64="{}"'.format(base64.b64encode(args.kernel_cli_extra_after_dash_base64))
+    kernel_cli_extra_after_dash += ' lkmc_eval_base64="{}"'.format(common.base64_encode(args.kernel_cli_extra_after_dash_base64))
 if args.kernel_cli_extra_after_dash is not None:
     kernel_cli_extra_after_dash += ' {}'.format(args.kernel_cli_extra_after_dash)
 if args.kgdb:
@@ -195,13 +192,13 @@ if args.eval is not None:
     else:
         initarg = 'init'
     kernel_cli_extra += ' {}=/eval_base64.sh'.format(initarg)
-    kernel_cli_extra_after_dash += ' lkmc_eval="{}"'.format(base64.b64encode(args.eval))
+    kernel_cli_extra_after_dash += ' lkmc_eval="{}"'.format(common.base64_encode(args.eval))
 if not args.graphic:
     if args.arch == 'x86_64':
         kernel_cli_extra += ' console=ttyS0'
     extra_qemu_args.append('-nographic')
 if kernel_cli_extra_after_dash:
-    kernel_cli_extra += " - {}".format(kernel_cli_extra_after_dash)
+    kernel_cli_extra += " -{}".format(kernel_cli_extra_after_dash)
 
 # A dummy value that is already turned on by default and does not produce large output,
 # just to prevent QEMU from emitting a warning that '' is not valid.
@@ -361,13 +358,6 @@ else:
             virtio_gpu_pci
         )
 
-cmd += extra_emulator_args
-print(' \\\n'.join(cmd))
-try:
-    subprocess.Popen(cmd, env=env).wait()
-except KeyboardInterrupt:
-    pass
-
 #if args.tmux:
 #    if args.gem5:
 #        eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
@@ -377,6 +367,11 @@ except KeyboardInterrupt:
 #  extra_emulator_args="${extra_emulator_args}${@} \\
 #"
 #fi
+
+cmd += extra_emulator_args
+common.print_cmd(cmd)
+subprocess.Popen(cmd, env=env).wait()
+
 #cmd="time \\
 #${cmd}${extra_emulator_args}"
 #if [ -z "$debug_vm" ]; then
