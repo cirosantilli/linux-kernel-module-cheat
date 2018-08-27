@@ -157,6 +157,7 @@ parser.add_argument(
 )
 args = common.setup(parser)
 
+# Common qemu / gem5 logic.
 # nokaslr:
 # * https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
 # * https://stackoverflow.com/questions/44612822/unable-to-debug-kernel-with-qemu-gdb/49840927#49840927
@@ -164,25 +165,26 @@ args = common.setup(parser)
 kernel_cli_extra = 'console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y'
 if args.kernel_cli_extra is not None:
     kernel_cli_extra += ' {}'.format(args.kernel_cli_extra)
-
-# Common qemu / gem5 logic.
 env = os.environ.copy()
 kernel_cli_extra_after_dash = ''
-extra_args_qemu = []
+extra_emulator_args = args.extra_emulator_args.copy()
+extra_qemu_args = []
 if args.debug_vm:
     debug_vm = ['gdb', '-q', '-ex', 'start', '--args']
 else:
     debug_vm = []
 if args.debug:
-    extra_args_qemu.append('-S')
+    extra_qemu_args.append('-S')
 if args.kernel_cli_extra_after_dash_base64 is not None:
     kernel_cli_extra_after_dash += ' lkmc_eval_base64="{}"'.format(base64.b64encode(args.kernel_cli_extra_after_dash_base64))
 if args.kernel_cli_extra_after_dash is not None:
     kernel_cli_extra_after_dash += ' {}'.format(args.kernel_cli_extra_after_dash)
 if args.kgdb:
-    kernel_cli_extra += " kgdbwait"
+    kernel_cli_extra += ' kgdbwait'
 if args.vnc:
     vnc = ['-vnc', ':0']
+else:
+    vnc = []
 if args.initrd or args.initramfs:
     ramfs = True
 else:
@@ -192,16 +194,14 @@ if args.eval is not None:
         initarg = 'rdinit'
     else:
         initarg = 'init'
-    kernel_cli_extra += '{}=/eval_base64.sh'.format(initarg)
+    kernel_cli_extra += ' {}=/eval_base64.sh'.format(initarg)
     kernel_cli_extra_after_dash += ' lkmc_eval="{}"'.format(base64.b64encode(args.eval))
 if not args.graphic:
     if args.arch == 'x86_64':
         kernel_cli_extra += ' console=ttyS0'
-    extra_args_qemu.append('-nographic')
+    extra_qemu_args.append('-nographic')
 if kernel_cli_extra_after_dash:
     kernel_cli_extra += " - {}".format(kernel_cli_extra_after_dash)
-
-kernel_cli_extra_after_dash
 
 # A dummy value that is already turned on by default and does not produce large output,
 # just to prevent QEMU from emitting a warning that '' is not valid.
@@ -265,134 +265,120 @@ if args.gem5:
                 '--dtb-file', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
                 '--machine-type', 'VExpress_GEM5_V1',
             ]
-#else
-#  mkdir -p "common.run_dir"
-#  if [ -z "$debug_vm" ]; then
-#    serial_monitor="-serial mon:stdio \\
-#"
-#  else
-#    serial_monitor=
-#  fi
-#  if "$kvm"; then
-#    extra_args="${extra_args}-enable-kvm \\
-#"
-#  fi
-#  if "$kgdb"; then
-#    extra_args_qemu="${extra_args_qemu}-serial 'tcp::${common_gdb_port},server,nowait' \\
-#"
-#  fi
-#  if "$prebuilt"; then
-#    common_mkdir
-#    qemu_executable="qemu-system-${common_arch}"
-#  else
-#    qemu_executable="${common_qemu_exec}"
-#  fi
-#  extra_args="${extra_args_qemu}${extra_args}"
-#  qemu_common="\
-#${debug_vm}\
-#${qemu_executable} \\
-#-device rtl8139,netdev=net0 \\
-#-gdb 'tcp::${common_gdb_port}' \\
-#-kernel '${common_linux_image}' \\
-#-m '${memory}' \\
-#-monitor 'telnet::${common_qemu_monitor_port},server,nowait' \\
-#-netdev 'user,hostfwd=tcp::${common_qemu_hostfwd_generic_port}-:${common_qemu_hostfwd_generic_port},hostfwd=tcp::${common_qemu_hostfwd_ssh_port}-:22,id=net0' \\
-#-no-reboot \\
-#${serial_monitor}\
-#-smp '${cpus}' \\
-#-trace 'enable=${trace_type},file=${common_run_dir}/trace.bin' \\
-#-virtfs 'local,path=${common_9p_dir},mount_tag=host_scratch,security_model=mapped,id=host_scratch' \\
-#-virtfs 'local,path=${common_buildroot_out_dir}/build,mount_tag=host_out,security_model=mapped,id=host_out' \\
-#${vnc}"
-#  if "$initrd"; then
-#    extra_args="${extra_args} -initrd '${common_images_dir}/rootfs.cpio' \\
-#"
-#  fi
-#
-#  # Disk related options.
-#  if "$ramfs"; then
-#    # TODO why is this needed, and why any string works.
-#    root='root=/dev/anything'
-#  else
-#    if [ -n "$rr" ]; then
-#      driveif=none
-#      rrid=',id=img-direct'
-#      root='root=/dev/sda'
-#      snapshot=
-#    else
-#      driveif=virtio
-#      root='root=/dev/vda'
-#      rrid=
-#      snapshot=,snapshot
-#    fi
-#    extra_args="${extra_args}-drive 'file=${common_qcow2_file},format=qcow2,if=${driveif}${snapshot}${rrid}' \\
-#"
-#    if [ -n "$rr" ]; then
-#      extra_args="${extra_args}\
-#-drive driver=blkreplay,if=none,image=img-direct,id=img-blkreplay \\
-#-device ide-hd,drive=img-blkreplay \\
-#"
-#    fi
-#  fi
-#
-#  if [ -n "$rr" ]; then
-#    extra_args="${extra_args}\
-#-object filter-replay,id=replay,netdev=net0 \\
-#-icount 'shift=7,rr=${rr},rrfile=${common_qemu_rrfile}' \\
-#"
-#    virtio_gpu_pci=
-#  else
-#    virtio_gpu_pci="-device virtio-gpu-pci \\
-#"
-#  fi
-#  case "args.arch" in
-#    x86_64)
-#      if "$kgdb"; then
-#        kernel_cli_extra="${kernel_cli_extra} kgdboc=ttyS0,115200"
-#      fi
-#      cmd="\
-#${qemu_common}\
-#-M pc \\
-#-append '${root} nopat ${kernel_cli_extra}' \\
-#-device edu \\
-#"
-#    ;;
-#    arm|aarch64)
-#      if "$kgdb"; then
-#        kernel_cli_extra="${kernel_cli_extra} kgdboc=ttyAMA0,115200"
-#      fi
-#      if [  "args.arch" = arm ]; then
-#        cpu=cortex-a15
-#      else
-#        cpu=cortex-a57
-#      fi
-#      # highmem=off needed since v3.0.0 due to:
-#      # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
-#      cmd="\
-#${qemu_common}\
-#-M virt,highmem=off \\
-#-append '${root} ${kernel_cli_extra}' \\
-#-cpu "$cpu" \\
-#${virtio_gpu_pci}\
-#"
-#    ;;
-#  esac
-#fi
+else:
+    os.makedirs(common.run_dir, exist_ok=True)
+    if args.debug_vm:
+        serial_monitor = []
+    else:
+        serial_monitor = ['-serial', 'mon:stdio']
+    if args.kvm:
+        extra_emulator_args.append('-enable-kvm')
+    if args.kgdb:
+        extra_qemu_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.gdb_port)])
+    if args.prebuilt:
+        common.mkdir()
+        qemu_executable = "qemu-system-{}".format(args.arch)
+    else:
+        qemu_executable = common.qemu_executable
+    extra_emulator_args = extra_qemu_args + extra_emulator_args
+    cmd = (
+        debug_vm +
+        [
+            qemu_executable,
+            '-device', 'rtl8139,netdev=net0',
+            '-gdb', 'tcp::{}'.format(common.gdb_port),
+            '-kernel', common.linux_image,
+            '-m', args.memory,
+            '-monitor', 'telnet::{},server,nowait'.format(common.qemu_monitor_port),
+            '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(common.qemu_hostfwd_generic_port, common.qemu_hostfwd_generic_port, common.qemu_hostfwd_ssh_port),
+            '-no-reboot',
+            '-smp', str(args.cpus),
+            '-trace', 'enable={},file={}'.format(trace_type, os.path.join(common.run_dir, 'trace.bin')),
+            '-virtfs', 'local,path={},mount_tag=host_scratch,security_model=mapped,id=host_scratch'.format(common.p9_dir),
+            '-virtfs', 'local,path={},mount_tag=host_out,security_model=mapped,id=host_out'.format(common.build_dir),
+        ] +
+        serial_monitor +
+        vnc
+    )
+    if args.initrd:
+        extra_emulator_args.extend(['-initrd', os.path.join(common.images_dir, 'rootfs.cpio')])
+    rr = args.qemu_record or args.qemu_replay
+    if ramfs:
+        # TODO why is this needed, and why any string works.
+        root = 'root=/dev/anything'
+    else:
+        if rr:
+            driveif = 'none'
+            rrid = ',id=img-direct'
+            root = 'root=/dev/sda'
+            snapshot = ''
+        else:
+            driveif = 'virtio'
+            root = 'root=/dev/vda'
+            rrid = ''
+            snapshot = ',snapshot'
+        extra_emulator_args.extend([
+            '-drive',
+            'file={},format=qcow2,if={}{}{}'.format(common.qcow2_file, driveif, snapshot, rrid)
+        ])
+        if rr:
+            extra_emulator_args.extend([
+            '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay',
+            '-device', 'ide-hd,drive=img-blkreplay'
+        ])
+    if rr:
+        extra_emulator_args.extend([
+            '-object', 'filter-replay,id=replay,netdev=net0',
+            '-icount', 'shift=7,rr={},rrfile={}'.format('record' if args.qemu_record else 'replay', common.qemu_rrfile),
+        ])
+        virtio_gpu_pci = []
+    else:
+        virtio_gpu_pci = ['-device', 'virtio-gpu-pci']
+    if args.arch == 'x86_64':
+        if args.kgdb:
+            kernel_cli_extra += ' kgdboc=ttyS0,115200'
+        cmd.extend([
+            '-M', 'pc',
+            '-append', '{} nopat {}'.format(root, kernel_cli_extra),
+            '-device', 'edu',
+        ])
+    elif args.arch == 'arm' or args.arch == 'aarch64':
+        if args.kgdb:
+            kernel_cli_extra += ' kgdboc=ttyAMA0,115200'
+        if args.arch == 'arm':
+            cpu = 'cortex-a15'
+        else:
+            cpu = 'cortex-a57'
+        # highmem=off needed since v3.0.0 due to:
+        # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+        cmd = (
+            cmd +
+            [
+                '-M', 'virt,highmem=off',
+                '-append', '{} {}'.format(root, kernel_cli_extra),
+                '-cpu', cpu,
+            ] +
+            virtio_gpu_pci
+        )
 
+cmd += extra_emulator_args
 print(' \\\n'.join(cmd))
-subprocess.check_output(cmd, env=env)
+try:
+    subprocess.Popen(cmd, env=env).wait()
+except KeyboardInterrupt:
+    pass
 
 #if args.tmux:
 #    if args.gem5:
 #        eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
 #    elif args.debug:
-#        eval "./tmu ./rungdb -a '${common_arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
+#        eval "./tmu ./rungdb -a '${args.arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
 #if [ -n "${1:-}" ]; then
-#  extra_args="${extra_args}${@} \\
+#  extra_emulator_args="${extra_emulator_args}${@} \\
 #"
 #fi
 #cmd="time \\
-#${cmd}${extra_args}"
+#${cmd}${extra_emulator_args}"
 #if [ -z "$debug_vm" ]; then
 #  cmd="${cmd}\
 #|& tee >(ts -s %.s > ${common_termout_file})\

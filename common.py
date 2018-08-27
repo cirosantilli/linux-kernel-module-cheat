@@ -60,8 +60,9 @@ def get_argparse(**kwargs):
     parser.add_argument(
         '-N', '--gem5-worktree',
         help="""\
-gem5 worktree to use for build and Python scripts at runtime.
-If not given, just use the submodule source.
+gem5 git worktree to use for build and Python scripts at runtime. Automatically
+create a new git worktree with the given id if one does not exist. If not
+given, just use the submodule source.
 """
     )
     parser.add_argument(
@@ -195,10 +196,10 @@ def setup(parser):
 def mkdir():
     global this
     os.makedirs(this.build_dir, exist_ok=True)
-    os.mkdirs(this.gem5_out_dir, exit_ok=True)
-    os.mkdirs(this.gem5_run_dir, exit_ok=True)
-    os.mkdirs(this.qemu_run_dir, exit_ok=True)
-    os.mkdirs(this.p9_dir, exit_ok=True)
+    os.makedirs(this.gem5_out_dir, exist_ok=True)
+    os.makedirs(this.gem5_run_dir, exist_ok=True)
+    os.makedirs(this.qemu_run_dir, exist_ok=True)
+    os.makedirs(this.p9_dir, exist_ok=True)
 
 # Default paths.
 root_dir = os.path.dirname(os.path.abspath(__file__))
