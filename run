@@ -2,13 +2,14 @@
 
 import os
 import shlex
+import signal
 import subprocess
 import sys
 
 import common
 
 # Argparse.
-parser = common.get_argparse(description='Run Linux on an emulator')
+parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
 init_group = parser.add_mutually_exclusive_group()
 kvm_group = parser.add_mutually_exclusive_group()
 parser.add_argument(
@@ -123,7 +124,7 @@ rare and don't affect performance, because `./configure
 """
 )
 parser.add_argument(
-    '-U', '--tmux-args',
+    '-U', '--tmux-args', default='',
     help='Pass extra parameters to the program running on the `-u` tmux split'
 )
 parser.add_argument(
@@ -358,28 +359,37 @@ else:
             virtio_gpu_pci
         )
 
-#if args.tmux:
-#    if args.gem5:
-#        eval "./tmu 'sleep 2;./gem5-shell -n ${common_run_id} ${tmux_args};'"
-#    elif args.debug:
-#        eval "./tmu ./rungdb -a '${args.arch} -L ${common_linux_variant}' -n ${common_run_id} ${tmux_args}"
-#if [ -n "${1:-}" ]; then
-#  extra_emulator_args="${extra_emulator_args}${@} \\
-#"
-#fi
+if args.tmux:
+    if args.gem5:
+        subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
+            'sleep 2;./gem5-shell -n {} {}' \
+            .format(args.run_id, args.tmux_args)
+        ])
+    elif args.debug:
+        # TODO find a nicer way to forward all those args automatically.
+        # Part of me wants to: https://github.com/jonathanslenders/pymux
+        # but it cannot be used as a library properly it seems, and it is
+        # slower than tmux.
+        subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
+            "sleep 2;./rungdb -a '{}' -L '{}' -n '{}' {}" \
+            .format(args.arch, args.linux_build_id, args.run_id, args.tmux_args)
+        ])
 
 cmd += extra_emulator_args
 common.print_cmd(cmd)
+# Otherwise Ctrl + C gives an ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
+signal.signal(signal.SIGINT, signal.SIG_IGN)
 subprocess.Popen(cmd, env=env).wait()
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 #cmd="time \\
 #${cmd}${extra_emulator_args}"
 #if [ -z "$debug_vm" ]; then
 #  cmd="${cmd}\
-#|& tee >(ts -s %.s > ${common_termout_file})\
+#|& tee >(ts -s %.s > ${common.termout_file})\
 #"
 #fi
-#"${common_root_dir}/eeval" "$cmd" "${common_run_dir}/run.sh"
+#"${common.root_dir}/eeval" "$cmd" "${common.run_dir}/run.sh"
 #cmd_out=$?
 #if [ "$cmd_out" -ne 0 ]; then
 #  exit "$cmd_out"

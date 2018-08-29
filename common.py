@@ -32,19 +32,23 @@ this = sys.modules[__name__]
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
 
-def get_argparse(**kwargs):
+def get_argparse(default_args=None, argparse_args=None):
     """
     Return an argument parser with common arguments set.
     """
     global this
+    if default_args is None:
+        default_args = {}
+    if argparse_args is None:
+        argparse_args = {}
     arch_choices = []
     for key in this.arch_map:
         arch_choices.append(key)
         arch_choices.append(this.arch_map[key])
-    default_build_id='default'
+    default_build_id = 'default'
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        **kwargs
+        **argparse_args
     )
     parser.add_argument(
         '-a', '--arch', choices=arch_choices, default='x86_64',
@@ -102,11 +106,13 @@ around when you checkout between branches.
         '-t', '--gem5-build-type', default='opt',
         help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
     )
+    defaults = this.configs.copy()
+    defaults.update(default_args)
     # A bit ugly as it actually changes the defaults shown on --help, but we can't do any better
     # because it is impossible to check if arguments were given or not...
     # - https://stackoverflow.com/questions/30487767/check-if-argparse-optional-argument-is-set-or-not
     # - https://stackoverflow.com/questions/3609852/which-is-the-best-way-to-allow-configuration-options-be-overridden-at-the-comman
-    parser.set_defaults(**this.configs)
+    parser.set_defaults(**defaults)
     return parser
 
 def print_cmd(cmd):
@@ -115,7 +121,7 @@ def print_cmd(cmd):
         out.extend([shlex.quote(arg), ' \\\n'])
     print(''.join(out))
 
-def setup(parser):
+def setup(parser, **extra_args):
     """
     Parse the command line arguments, and setup several variables based on them.
     Typically done after getting inputs from the command line arguments.

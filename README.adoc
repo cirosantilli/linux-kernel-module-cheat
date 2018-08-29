@@ -1112,7 +1112,7 @@ Bibliography: https://stackoverflow.com/questions/5947286/how-to-load-linux-kern
 
 When doing long simulations sweeping across multiple system parameters, it becomes fundamental to do multiple simulations in parallel.
 
-This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: https://github.com/cirosantilli-work/gem5-issues/issues/15
+This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: link:https://github.com/cirosantilli-work/gem5-issues/issues/15[], so the only way to parallelize is to run multiple instances in parallel.
 
 This also has a good synergy with <<build-variants>>.
 
@@ -1128,9 +1128,16 @@ Another shell:
 ./run -n 1
 ....
 
+and now you have two QEMU instances running in parallel.
+
 The default run id is `0`.
 
-This method also allows us to keep run outputs in separate directories for later inspection, e.g.:
+Our scripts solve two difficulties with simultaneous runs:
+
+* port conflicts, e.g. GDB and link:gem5-shell[]
+* output directory conflicts, e.g. traces and gem5 stats overwriting one another
+
+Each run gets a separate output directory. For example:
 
 ....
 ./run -a A -g -n 0 &>/dev/null &
@@ -1140,8 +1147,8 @@ This method also allows us to keep run outputs in separate directories for later
 produces two separate `m5out` directories:
 
 ....
-ls "$(./getvar -a A -g -n 0 m5out_dir)"
-ls "$(./getvar -a A -g -n 1 m5out_dir)"
+echo "$(./getvar -a A -g -n 0 m5out_dir)"
+echo "$(./getvar -a A -g -n 1 m5out_dir)"
 ....
 
 and the gem5 host executable stdout and stderr can be found at:
@@ -1153,21 +1160,13 @@ less "$(./getvar -a A -g -n 1 termout_file)"
 
 Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
 
-You can also add a prefix to the build ID before a period:
+To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
 
 ....
-./run -a A -g -n some-experiment.1
+./run -a A -g -n some-experiment --port-offset 1
 ....
 
-and makes it easier to remember afterwards which directory contains what.
-
-However this still takes up the same ports as:
-
-....
-./run -a A -g -n 1
-....
-
-so you cannot run both at the same time.
+`--port-offset` defaults to the run ID when that is a number.
 
 Like <<cpu-architecture>>, you will need to pass the `-n` option to anything that needs to know runtime information, e.g. <<gdb>>:
 

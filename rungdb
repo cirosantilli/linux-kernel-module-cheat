@@ -2,12 +2,13 @@
 
 import os
 import shlex
+import sys
 import signal
 import subprocess
 
 import common
 
-parser = common.get_argparse(description='Connect with GDB to an emulator to debug Linux itself')
+parser = common.get_argparse(argparse_args={'description':'Connect with GDB to an emulator to debug Linux itself'})
 parser.add_argument(
     '-A', '--after', default='',
     help='Pass extra arguments to GDB, to be appended after all other arguments'
@@ -82,6 +83,9 @@ common.print_cmd(cmd)
 
 # TODO eeval
 # "${common.root_dir}/eeval" "$cmd $after" "${common.run_dir}/rungdb.sh"
-def signal_handler(sig, frame): pass
-signal.signal(signal.SIGINT, signal_handler)
-subprocess.Popen(cmd, cwd=common.linux_variant_dir).wait()
+
+# Required, otherwise Ctrl + C kills Python and that kills GDB.
+# https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
+signal.signal(signal.SIGINT, lambda *args: None)
+
+sys.exit(subprocess.Popen(cmd, cwd=common.linux_variant_dir).wait())
