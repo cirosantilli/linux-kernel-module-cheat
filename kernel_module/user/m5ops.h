@@ -12,7 +12,7 @@ static void m5_dumpstats(void)
 };
 static void m5_exit()
 {
-	__asm__ __volatile__ ("mov r0, #0; .inst 0xEE000110 | (0x21 << 16);");
+	__asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);");
 };
 static void m5_fail_1(void)
 {
