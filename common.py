@@ -123,7 +123,10 @@ around when you checkout between branches.
         '-t', '--gem5-build-type', default='opt',
         help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
     )
-    defaults = this.configs.copy()
+    if hasattr(this, 'configs'):
+        defaults = this.configs.copy()
+    else:
+        defaults = {}
     defaults.update(default_args)
     # A bit ugly as it actually changes the defaults shown on --help, but we can't do any better
     # because it is impossible to check if arguments were given or not...
@@ -300,12 +303,7 @@ arch_map = {
 }
 gem5_cpt_prefix = '^cpt\.'
 sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
-
-# Config file. TODO move to decent python setup.
 config_file = os.path.join(data_dir, 'config')
-config = imp.load_source('config', config_file)
-configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
-# if os.path.exists(config_file):
-    # exec(open(config_file).read())
-    # with open(config_file) as f:
-        # exec(f.read())
+if os.path.exists(config_file):
+    config = imp.load_source('config', config_file)
+    configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
