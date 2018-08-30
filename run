@@ -224,11 +224,9 @@ if args.gem5:
         ]
     )
     if args.gem5_biglittle:
-        # TODO port
-        # if args.gem5_restore_last_checkpoint is not None:
-        #     cmd += [
-        #         '--restore-from='${common.m5out_dir}/$(ls -crt "common.m5out_dir" | grep -E "common.gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1
-        #     ]
+        if args.gem5_restore_last_checkpoint is not None:
+            cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore_last_checkpoint]
+            extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
         cmd += [
             os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
             '--big-cpus', '2',
@@ -240,10 +238,10 @@ if args.gem5:
         ]
     else:
         # TODO port
-        #if [ -n "$gem5_restore_last_checkpoint" ]; then
-        #    latest_cpt_basename="$(ls -crt "common.m5out_dir" | grep -E "common.gem5_cpt_pref" | tail -n "$gem5_restore_last_checkpoint" | head -n 1)"
-        #    n="$(ls -1 "common.m5out_dir" | grep -E "common.gem5_cpt_pref" | sort -k 2 -n -t . | grep -n "$latest_cpt_basename" | cut -d : -f 1)"
-        #    cmd += -r ${n} \\
+        if args.gem5_restore_last_checkpoint is not None:
+            cpt_dirs = common.gem_list_checkpoint_dirs()
+            cpt_dir = cpt_dirs[-args.gem5_restore_last_checkpoint]
+            extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
         cmd += [
             os.path.join(common.gem5_src_dir, 'configs', 'example', 'fs.py'),
             '--disk-image', common.ext2_file,
@@ -401,7 +399,7 @@ with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env) as proc:
                     break
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 if proc.returncode != 0:
-    sys.exit(proc.returncode)
+    common.error('simulator exited with status != 0')
 # Check if guest panicked.
 if args.gem5:
     # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
@@ -413,5 +411,4 @@ panic_re = re.compile(panic_msg)
 with open(common.termout_file, 'r') as logfile:
     for line in logfile:
         if panic_re.search(line):
-            print('Simulation error detected by parsing logs. Exiting with status 1.', file=sys.stderr)
-            sys.exit(1)
+            common.error('simulation error detected by parsing logs')

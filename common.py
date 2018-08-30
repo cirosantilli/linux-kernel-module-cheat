@@ -3,6 +3,7 @@
 import argparse
 import base64
 import imp
+import re
 import subprocess
 import os
 import shlex
@@ -32,6 +33,20 @@ this = sys.modules[__name__]
 
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
+
+def error(msg):
+    print('error: {}'.format(msg), file=sys.stderr)
+    sys.exit(1)
+
+def gem_list_checkpoint_dirs():
+    """
+    List checkpoint directory, oldest first.
+    """
+    global this
+    prefix_re = re.compile(this.gem5_cpt_prefix)
+    files = list(filter(lambda x: os.path.isdir(os.path.join(this.m5out_dir, x)) and prefix_re.search(x), os.listdir(this.m5out_dir)))
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(this.m5out_dir, x)))
+    return files
 
 def get_argparse(default_args=None, argparse_args=None):
     """
@@ -245,7 +260,7 @@ arch_map = {
     'A': 'aarch64',
     'x': 'x86_64',
 }
-gem5_cpt_pref = '^cpt\.'
+gem5_cpt_prefix = '^cpt\.'
 sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
 
 # Config file. TODO move to decent python setup.
