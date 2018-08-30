@@ -6,6 +6,7 @@ import imp
 import subprocess
 import os
 import shlex
+import stat
 import sys
 
 this = sys.modules[__name__]
@@ -115,11 +116,18 @@ around when you checkout between branches.
     parser.set_defaults(**defaults)
     return parser
 
-def print_cmd(cmd):
+def print_cmd(cmd, cmd_file=None):
     out = []
     for arg in cmd:
         out.extend([shlex.quote(arg), ' \\\n'])
-    print(''.join(out))
+    out = ''.join(out)
+    print(out)
+    if cmd_file is not None:
+        with open(cmd_file, 'w') as f:
+            f.write('#!/usr/bin/env bash\n')
+            f.write(out)
+        st = os.stat(cmd_file)
+        os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
 
 def setup(parser, **extra_args):
     """
@@ -185,6 +193,7 @@ def setup(parser, **extra_args):
         this.executable = this.qemu_executable
         this.run_dir = this.qemu_run_dir
         this.termout_file = this.qemu_termout_file
+    this.cmd_file = os.path.join(this.run_dir, 'cmd.sh')
     if args.arch == 'arm':
         this.linux_image = os.path.join('arch', 'arm', 'boot', 'zImage')
     elif args.arch == 'aarch64':

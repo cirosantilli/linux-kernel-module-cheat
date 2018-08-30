@@ -5,6 +5,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import re
 
 import common
 
@@ -21,7 +22,7 @@ parser.add_argument(
     help='Run GDB on the emulator itself.'
 )
 kvm_group.add_argument(
-    '-d', '--debug', default=False, action='store_true',
+    '-d', '--debug-guest', default=False, action='store_true',
     help='Wait for GDB to connect before starting execution'
 )
 parser.add_argument(
@@ -171,7 +172,7 @@ if args.debug_vm:
     debug_vm = ['gdb', '-q', '-ex', 'start', '--args']
 else:
     debug_vm = []
-if args.debug:
+if args.debug_guest:
     extra_qemu_args.append('-S')
 if args.kernel_cli_extra_after_dash_base64 is not None:
     kernel_cli_extra_after_dash += ' lkmc_eval_base64="{}"'.format(common.base64_encode(args.kernel_cli_extra_after_dash_base64))
@@ -365,7 +366,7 @@ if args.tmux:
             'sleep 2;./gem5-shell -n {} {}' \
             .format(args.run_id, args.tmux_args)
         ])
-    elif args.debug:
+    elif args.debug_guest:
         # TODO find a nicer way to forward all those args automatically.
         # Part of me wants to: https://github.com/jonathanslenders/pymux
         # but it cannot be used as a library properly it seems, and it is
@@ -376,33 +377,41 @@ if args.tmux:
         ])
 
 cmd += extra_emulator_args
-common.print_cmd(cmd)
+do_tee = not debug_vm
+if do_tee:
+    stdout=subprocess.PIPE
+    stderr=subprocess.STDOUT
+else:
+    stdout=None
+    stderr=None
+common.print_cmd(cmd, common.cmd_file)
 # Otherwise Ctrl + C gives an ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
 signal.signal(signal.SIGINT, signal.SIG_IGN)
-subprocess.Popen(cmd, env=env).wait()
+# https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
+with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env) as proc:
+    if do_tee:
+        with open(common.termout_file, 'bw') as logfile:
+            while True:
+                byte = proc.stdout.read(1)
+                if byte:
+                    sys.stdout.buffer.write(byte)
+                    sys.stdout.flush()
+                    logfile.write(byte)
+                else:
+                    break
 signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-#cmd="time \\
-#${cmd}${extra_emulator_args}"
-#if [ -z "$debug_vm" ]; then
-#  cmd="${cmd}\
-#|& tee >(ts -s %.s > ${common.termout_file})\
-#"
-#fi
-#"${common.root_dir}/eeval" "$cmd" "${common.run_dir}/run.sh"
-#cmd_out=$?
-#if [ "$cmd_out" -ne 0 ]; then
-#  exit "$cmd_out"
-#fi
-
-# TODO
-## Check if guest panicked.
-#if args.gem5:
-#    # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
-#    # Grepping for '^panic: ' does not work because some errors don't show that message.
-#    panic_msg = '--- BEGIN LIBC BACKTRACE ---$'
-#else:
-#    panic_msg = 'Kernel panic - not syncing'
-#if grep -E -e "$panic_msg" -q "common.termout_file"; then
-#    print('Simulation error detected by parsing logs. Exiting with status 1.', file=sys.stderr)
-#    sys.exit(1)
+if proc.returncode != 0:
+    sys.exit(proc.returncode)
+# Check if guest panicked.
+if args.gem5:
+    # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
+    # Grepping for '^panic: ' does not work because some errors don't show that message.
+    panic_msg = '--- BEGIN LIBC BACKTRACE ---$'
+else:
+    panic_msg = 'Kernel panic - not syncing'
+panic_re = re.compile(panic_msg)
+with open(common.termout_file, 'r') as logfile:
+    for line in logfile:
+        if panic_re.search(line):
+            print('Simulation error detected by parsing logs. Exiting with status 1.', file=sys.stderr)
+            sys.exit(1)

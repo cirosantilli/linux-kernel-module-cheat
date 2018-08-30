@@ -1,5 +1,5 @@
 #!/bin/sh
-# This covers the most common setup to run a benchmark in gem5 and exit.
+# https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-restore-new-scrip
 m5 checkpoint
 m5 resetstats
 m5 readfile | sh
