@@ -7,6 +7,7 @@ import re
 import subprocess
 import os
 import shlex
+import signal
 import stat
 import sys
 
@@ -144,6 +145,43 @@ def print_cmd(cmd, cmd_file=None):
         st = os.stat(cmd_file)
         os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
 
+def run_cmd(cmd, cmd_file=None, out_file=None, **kwargs):
+    """
+    Run a command. Write the command to stdout before running it.
+
+    Wait until the command finishes execution.
+
+    If:
+
+    - cmd_file is not None, write the command to the given file
+    - out_file is not None, write the stdout and stderr of the command to the given file
+    """
+    if out_file:
+        stdout=subprocess.PIPE
+        stderr=subprocess.STDOUT
+    else:
+        stdout=None
+        stderr=None
+    print_cmd(cmd, cmd_file)
+    # Otherwise Ctrl + C gives:
+    # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
+    # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
+    with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, **kwargs) as proc:
+        if out_file is not None:
+            with open(out_file, 'bw') as logfile:
+                while True:
+                    byte = proc.stdout.read(1)
+                    if byte:
+                        sys.stdout.buffer.write(byte)
+                        sys.stdout.flush()
+                        logfile.write(byte)
+                    else:
+                        break
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    return proc.returncode
+
 def setup(parser, **extra_args):
     """
     Parse the command line arguments, and setup several variables based on them.
@@ -208,7 +246,7 @@ def setup(parser, **extra_args):
         this.executable = this.qemu_executable
         this.run_dir = this.qemu_run_dir
         this.termout_file = this.qemu_termout_file
-    this.cmd_file = os.path.join(this.run_dir, 'cmd.sh')
+    this.run_cmd_file = os.path.join(this.run_dir, 'cmd.sh')
     if args.arch == 'arm':
         this.linux_image = os.path.join('arch', 'arm', 'boot', 'zImage')
     elif args.arch == 'aarch64':

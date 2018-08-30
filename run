@@ -2,7 +2,6 @@
 
 import os
 import shlex
-import signal
 import subprocess
 import sys
 import re
@@ -375,30 +374,12 @@ if args.tmux:
         ])
 
 cmd += extra_emulator_args
-do_tee = not debug_vm
-if do_tee:
-    stdout=subprocess.PIPE
-    stderr=subprocess.STDOUT
+if debug_vm:
+    out_file = None
 else:
-    stdout=None
-    stderr=None
-common.print_cmd(cmd, common.cmd_file)
-# Otherwise Ctrl + C gives an ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
-signal.signal(signal.SIGINT, signal.SIG_IGN)
-# https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
-with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env) as proc:
-    if do_tee:
-        with open(common.termout_file, 'bw') as logfile:
-            while True:
-                byte = proc.stdout.read(1)
-                if byte:
-                    sys.stdout.buffer.write(byte)
-                    sys.stdout.flush()
-                    logfile.write(byte)
-                else:
-                    break
-signal.signal(signal.SIGINT, signal.SIG_DFL)
-if proc.returncode != 0:
+    out_file = common.termout_file
+returncode = common.run_cmd(cmd, cmd_file=common.run_cmd_file, out_file=out_file, env=env)
+if returncode != 0:
     common.error('simulator exited with status != 0')
 # Check if guest panicked.
 if args.gem5:
