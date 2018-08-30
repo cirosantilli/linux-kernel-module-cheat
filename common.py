@@ -135,10 +135,15 @@ around when you checkout between branches.
     parser.set_defaults(**defaults)
     return parser
 
-def print_cmd(cmd, cmd_file=None):
+def print_cmd(cmd, cmd_file=None, extra_env=None):
+    if extra_env is None:
+        extra_env = {}
+    newline_separator = ' \\\n'
     out = []
+    for key in extra_env:
+        out.extend(['{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])), newline_separator])
     for arg in cmd:
-        out.extend([shlex.quote(arg), ' \\\n'])
+        out.extend([shlex.quote(arg), newline_separator])
     out = ''.join(out)
     print(out)
     if cmd_file is not None:
@@ -148,7 +153,7 @@ def print_cmd(cmd, cmd_file=None):
         st = os.stat(cmd_file)
         os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
 
-def run_cmd(cmd, cmd_file=None, out_file=None, **kwargs):
+def run_cmd(cmd, cmd_file=None, out_file=None, extra_env=None, **kwargs):
     """
     Run a command. Write the command to stdout before running it.
 
@@ -159,19 +164,23 @@ def run_cmd(cmd, cmd_file=None, out_file=None, **kwargs):
     - cmd_file is not None, write the command to the given file
     - out_file is not None, write the stdout and stderr of the command to the given file
     """
-    if out_file:
+    if out_file is not None:
         stdout=subprocess.PIPE
         stderr=subprocess.STDOUT
     else:
         stdout=None
         stderr=None
-    print_cmd(cmd, cmd_file)
+    if extra_env is None:
+        extra_env = {}
+    env = os.environ.copy()
+    env.update(extra_env)
+    print_cmd(cmd, cmd_file, extra_env=extra_env)
     # Otherwise Ctrl + C gives:
     # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
     # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
-    with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, **kwargs) as proc:
+    with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
         if out_file is not None:
             with open(out_file, 'bw') as logfile:
                 while True:

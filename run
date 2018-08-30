@@ -163,7 +163,6 @@ args = common.setup(parser)
 kernel_cli_extra = 'console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y'
 if args.kernel_cli_extra is not None:
     kernel_cli_extra += ' {}'.format(args.kernel_cli_extra)
-env = os.environ.copy()
 kernel_cli_extra_after_dash = ''
 extra_emulator_args = args.extra_emulator_args.copy()
 extra_qemu_args = []
@@ -200,6 +199,7 @@ if not args.graphic:
     extra_qemu_args.append('-nographic')
 if kernel_cli_extra_after_dash:
     kernel_cli_extra += " -{}".format(kernel_cli_extra_after_dash)
+extra_env = {}
 
 # A dummy value that is already turned on by default and does not produce large output,
 # just to prevent QEMU from emitting a warning that '' is not valid.
@@ -210,7 +210,7 @@ if args.gem5:
     gem5_exe_args = shlex.split(args.gem5_exe_args)
     if args.trace is not None:
         gem5_exe_args.append('--debug-flags={}'.format(args.trace))
-    env['M5_PATH'] = common.gem5_system_dir
+    extra_env['M5_PATH'] = common.gem5_system_dir
     cmd = (
         debug_vm +
         [
@@ -378,7 +378,7 @@ if debug_vm:
     out_file = None
 else:
     out_file = common.termout_file
-returncode = common.run_cmd(cmd, cmd_file=common.run_cmd_file, out_file=out_file, env=env)
+returncode = common.run_cmd(cmd, cmd_file=common.run_cmd_file, out_file=out_file, extra_env=extra_env)
 if returncode != 0:
     common.error('simulator exited with status != 0')
 # Check if guest panicked.
