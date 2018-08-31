@@ -154,8 +154,12 @@ def get_stats(stat_re=None, stats_file=None):
 def print_cmd(cmd, cmd_file=None, extra_env=None):
     """
     Format a command given as a list of strings so that it can
-    be viewed nicely and executed by bash directly.
+    be viewed nicely and executed by bash directly and print it to stdout.
+
+    Optionally save the command to cmd_file file, and add extra_env
+    environment variables to the command generated.
     """
+    newline_separator = ' \\\n'
     out = []
     for key in extra_env:
         out.extend(['{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])), newline_separator])
