@@ -1,11 +1,17 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-"${common_root_dir}/gem5-stat" -a "$common_arch" | awk 'NR % 2 { printf "%d %s ", NR/2, $0; next; } 1'
+#!/usr/bin/env python3
+import common
+parser = common.get_argparse(
+    argparse_args={'description':'Convert a BST vs heap stat file into a gnuplot input'}
+)
+args = common.setup(parser)
+stats = common.get_stats()
+it = iter(stats)
+i = 1
+for stat in it:
+    try:
+        next_stat = next(it)
+    except StopIteration:
+        # Automatic dumpstats at end may lead to odd number of stats.
+        break
+    print('{} {} {}'.format(i, stat, next_stat))
+    i += 1

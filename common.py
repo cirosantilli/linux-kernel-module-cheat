@@ -135,10 +135,27 @@ around when you checkout between branches.
     parser.set_defaults(**defaults)
     return parser
 
+def get_stats(stat_re=None, stats_file=None):
+    global this
+    if stat_re is None:
+        stat_re = '^system.cpu[0-9]*.numCycles$'
+    if stats_file is None:
+        stats_file = this.stats_file
+    stat_re = re.compile(stat_re)
+    ret = []
+    with open(stats_file, 'r') as statfile:
+        for line in statfile:
+            if line[0] != '-':
+                cols = line.split()
+                if len(cols) > 1 and stat_re.search(cols[0]):
+                    ret.append(cols[1])
+    return ret
+
 def print_cmd(cmd, cmd_file=None, extra_env=None):
-    if extra_env is None:
-        extra_env = {}
-    newline_separator = ' \\\n'
+    """
+    Format a command given as a list of strings so that it can
+    be viewed nicely and executed by bash directly.
+    """
     out = []
     for key in extra_env:
         out.extend(['{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])), newline_separator])
