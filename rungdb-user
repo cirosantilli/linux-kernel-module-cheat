@@ -1,38 +1,45 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-gem5_opt=
-while getopts "h${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    h)
-      echo "$0 <exec-relative-path> [<brk-symbol>]"
-      exit
-      ;;
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-executable_rel="$1"
-shift
-if [ "$#" -gt 0 ]; then
-  brk="'$1'"
-  shift
-else
-  brk=
-fi
-common_setup
-if "$common_gem5"; then
-  gem5_opt=-g
-fi
-executable="${common_build_dir}/${executable_rel}"
-addr="$("${common_root_dir}/runtc" readelf -h "$executable" | awk '/Entry/{ print $NF }' )"
-ex="-ex \"add-symbol-file $executable $addr\""
-# -X or else lx-symbols throws for arm:
+#!/usr/bin/env python3
+
+import imp
+import os
+import subprocess
+import re
+
+import common
+rungdb = imp.load_source('config', 'rungdb')
+
+parser = common.get_argparse(argparse_args={
+    'description':'''GDB step debug guest userland processes without gdbserver.
+
+More information at: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-userland-processes
+'''
+})
+parser.add_argument(
+    'executable',
+    help='Path to the executable to be debugged relative to the Buildroot build directory.'
+)
+parser.add_argument(
+    'break',
+    default=None,
+    help='Break at this point, e.g. main.',
+    nargs='?'
+)
+args = common.setup(parser)
+readelf_header = subprocess.check_output([
+  common.get_toolchain_tool('readelf'),
+  '-h',
+  os.path.join(common.build_dir, args.executable),
+])
+for line in readelf_header.decode().split('\n'):
+    split = line.split()
+    if line.startswith('  Entry point address:'):
+        addr = line.split()[-1]
+        break
+print(addr)
+args.before = '-ex \"add-symbol-file {} {}\"'.format(args.executable, addr)
+# Or else lx-symbols throws for arm:
 # gdb.MemoryError: Cannot access memory at address 0xbf0040cc
 # TODO understand better.
-#
 # Also, lx-symbols overrides the add-symbol-file commands.
-cmd="./rungdb -a '${common_arch}' -b '${ex}' ${gem5_opt} -X ${brk}"
-echo "$cmd"
-eval "$cmd"
+args.no_lxsymbols = True
+rungdb.main(args)

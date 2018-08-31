@@ -285,7 +285,7 @@ def setup(parser, **extra_args):
         this.executable = this.qemu_executable
         this.run_dir = this.qemu_run_dir
         this.termout_file = this.qemu_termout_file
-    this.run_cmd_file = os.path.join(this.run_dir, 'cmd.sh')
+    this.run_cmd_file = os.path.join(this.run_dir, 'run.sh')
     if args.arch == 'arm':
         this.linux_image = os.path.join('arch', 'arm', 'boot', 'zImage')
     elif args.arch == 'aarch64':

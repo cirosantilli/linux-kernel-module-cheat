@@ -8,75 +8,79 @@ import subprocess
 
 import common
 
-parser = common.get_argparse(argparse_args={'description':'Connect with GDB to an emulator to debug Linux itself'})
-parser.add_argument(
-    '-A', '--after', default='',
-    help='Pass extra arguments to GDB, to be appended after all other arguments'
-)
-parser.add_argument(
-    '-b', '--before', default='',
-    help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
-)
-parser.add_argument(
-    '-C', '--no-continue', default=False, action='store_true',
-    help="Don't run continue after connecting"
-)
-parser.add_argument(
-    '-k', '--kgdb', default=False, action='store_true'
-)
-parser.add_argument(
-    '-X', '--no-lxsymbols', default=False, action='store_true'
-)
-parser.add_argument(
-    'break_at', nargs='?',
-    help='Extra options to append at the end of the emulator command line'
-)
-args = common.setup(parser)
-after = shlex.split(args.after)
-before = shlex.split(args.before)
-if args.no_lxsymbols:
-    lx_symbols = []
-else:
-    lx_symbols = ['-ex', 'lx-symbols ../kernel_module-1.0/']
-if args.break_at is not None:
-    break_at = ['-ex', 'break {}'.format(args.break_at)]
-else:
-    break_at = []
-cmd = (
-    [
-        os.path.join(common.host_bin_dir,
-        '{}-linux-gdb'.format(args.arch))
-    ] +
-    before +
-    [
-        '-q',
-        '-ex', 'add-auto-load-safe-path {}'.format(common.linux_variant_dir),
-        '-ex', 'file {}'.format(common.vmlinux),
-        '-ex', 'target remote localhost:{}'.format(common.gdb_port),
-    ]
-)
-if not args.kgdb:
-    cmd.extend(break_at)
-if not args.no_continue:
-    # ## lx-symbols
-    #
-    # ### lx-symbols after continue
-    #
-    # lx symbols must be run after continue.
-    #
-    # running it immediately after the connect on the bootloader leads to failure,
-    # likely because kernel structure on which it depends are not yet available.
-    #
-    # With this setup, continue runs, and lx-symbols only runs when a break happens,
-    # either by hitting the breakpoint, or by entering Ctrl + C.
-    #
-    # Sure, if the user sets a break on a raw address of the bootloader,
-    # problems will still arise, but let's think about that some other time.
-    #
-    # ### lx-symbols autoload
-    #
-    # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
-    # which gets put on the kernel build root when python debugging scripts are enabled.
-    cmd.extend(['-ex', 'continue'] + lx_symbols)
-cmd.extend(after)
-sys.exit(common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'rungdb.sh'), cwd=common.linux_variant_dir))
+def main(args):
+    after = shlex.split(args.after)
+    before = shlex.split(args.before)
+    if args.no_lxsymbols:
+        lx_symbols = []
+    else:
+        lx_symbols = ['-ex', 'lx-symbols ../kernel_module-1.0/']
+    if args.break_at is not None:
+        break_at = ['-ex', 'break {}'.format(args.break_at)]
+    else:
+        break_at = []
+    cmd = (
+        [
+            os.path.join(common.host_bin_dir,
+            '{}-linux-gdb'.format(args.arch))
+        ] +
+        before +
+        [
+            '-q',
+            '-ex', 'add-auto-load-safe-path {}'.format(common.linux_variant_dir),
+            '-ex', 'file {}'.format(common.vmlinux),
+            '-ex', 'target remote localhost:{}'.format(common.gdb_port),
+        ]
+    )
+    if not args.kgdb:
+        cmd.extend(break_at)
+    if not args.no_continue:
+        # ## lx-symbols
+        #
+        # ### lx-symbols after continue
+        #
+        # lx symbols must be run after continue.
+        #
+        # running it immediately after the connect on the bootloader leads to failure,
+        # likely because kernel structure on which it depends are not yet available.
+        #
+        # With this setup, continue runs, and lx-symbols only runs when a break happens,
+        # either by hitting the breakpoint, or by entering Ctrl + C.
+        #
+        # Sure, if the user sets a break on a raw address of the bootloader,
+        # problems will still arise, but let's think about that some other time.
+        #
+        # ### lx-symbols autoload
+        #
+        # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
+        # which gets put on the kernel build root when python debugging scripts are enabled.
+        cmd.extend(['-ex', 'continue'] + lx_symbols)
+    cmd.extend(after)
+    return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'rungdb.sh'), cwd=common.linux_variant_dir)
+
+if __name__ == '__main__':
+    parser = common.get_argparse(argparse_args={'description':'Connect with GDB to an emulator to debug Linux itself'})
+    parser.add_argument(
+        '-A', '--after', default='',
+        help='Pass extra arguments to GDB, to be appended after all other arguments'
+    )
+    parser.add_argument(
+        '-b', '--before', default='',
+        help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
+    )
+    parser.add_argument(
+        '-C', '--no-continue', default=False, action='store_true',
+        help="Don't run continue after connecting"
+    )
+    parser.add_argument(
+        '-k', '--kgdb', default=False, action='store_true'
+    )
+    parser.add_argument(
+        '-X', '--no-lxsymbols', default=False, action='store_true'
+    )
+    parser.add_argument(
+        'break_at', nargs='?',
+        help='Extra options to append at the end of the emulator command line'
+    )
+    args = common.setup(parser)
+    sys.exit(main(args))
