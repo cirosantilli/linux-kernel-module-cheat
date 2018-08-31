@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import glob
 import os
 import subprocess
 import sys
@@ -10,10 +9,10 @@ import common
 parser = common.get_argparse(argparse_args={
     'description':'''Run a Buildroot ToolChain tool like readelf or objdump.
 
-For example, to run `readelf -h` for the `arm` architecture, use:
+For example, to get some information about the arm vmlinux:
 
 ....
-./%(prog)s -a arm readelf -- -h
+./%(prog)s readelf -- -e "$(./getvar vmlinux)"
 ....
 
 Get the list of available tools with:
@@ -32,6 +31,4 @@ parser.add_argument(
     nargs='*'
 )
 args = common.setup(parser)
-paths = glob.glob(os.path.join(common.host_bin_dir, '*-buildroot-*-{}'.format(args.tool)))
-assert len(paths) == 1
-sys.exit(subprocess.Popen(paths + args.extra_args).wait())
+sys.exit(subprocess.Popen([common.get_toolchain_tool(args.tool)] + args.extra_args).wait())

@@ -2,13 +2,14 @@
 
 import argparse
 import base64
+import glob
 import imp
-import re
-import subprocess
 import os
+import re
 import shlex
 import signal
 import stat
+import subprocess
 import sys
 
 this = sys.modules[__name__]
@@ -150,6 +151,10 @@ def get_stats(stat_re=None, stats_file=None):
                 if len(cols) > 1 and stat_re.search(cols[0]):
                     ret.append(cols[1])
     return ret
+
+def get_toolchain_tool(tool):
+    global this
+    return glob.glob(os.path.join(this.host_bin_dir, '*-buildroot-*-{}'.format(tool)))[0]
 
 def print_cmd(cmd, cmd_file=None, extra_env=None):
     """
