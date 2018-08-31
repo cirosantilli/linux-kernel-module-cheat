@@ -1462,7 +1462,7 @@ so it is close to the failing `0xbf0000cc`.
 `readelf`:
 
 ....
-./runtc readelf -s "$(./getvar build_dir)/kernel_module-1.0/hello.ko"
+./runtc readelf -- -s "$(./getvar build_dir)/kernel_module-1.0/hello.ko"
 ....
 
 does not give any interesting hits at `cc`, no symbol was placed that far.
@@ -1535,7 +1535,7 @@ The base address shows on terminal:
 Now let's find the offset of `myinit`:
 
 ....
-./runtc readelf \
+./runtc readelf -- \
   -s "$(./getvar build_dir)/kernel_module-1.0/fops.ko" | \
   grep myinit
 ....
@@ -1856,7 +1856,7 @@ Cannot access memory at address 0x10604
 We have also double checked the address with:
 
 ....
-./runtc -a arm readelf \
+./runtc -a arm readelf -- \
   -s "$(./getvar -a arm build_dir)/kernel_module-1.0/fops.ko" | \
   grep main
 ....
@@ -2457,7 +2457,7 @@ TODO Can you run arm executables in the aarch64 guest? https://stackoverflow.com
 I've tried:
 
 ....
-./runtc -a aarch64 gcc|cg -static ~/test/hello_world.c -o data/9p/a.out
+./runtc -a aarch64 gcc -- -static ~/test/hello_world.c -o data/9p/a.out
 ./run -a A -F '/mnt/9p/a.out'
 ....
 
@@ -3325,7 +3325,7 @@ vermagic:       4.17.0 SMP mod_unload modversions
 Module information is stored in a special `.modinfo` section of the ELF file:
 
 ....
-./runtc readelf -SW "$(./getvar target_dir)/module_info.ko"
+./runtc readelf -- -SW "$(./getvar target_dir)/module_info.ko"
 ....
 
 contains:
@@ -3337,7 +3337,7 @@ contains:
 and:
 
 ....
-./runtc readelf -x .modinfo "$(./getvar build_dir)/module_info.ko"
+./runtc readelf -- -x .modinfo "$(./getvar build_dir)/module_info.ko"
 ....
 
 gives:
@@ -3554,7 +3554,7 @@ as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-conver
 The exact same thing can be done post mortem with:
 
 ....
-./runtc gdb \
+./runtc gdb -- \
   -batch \
   -ex 'info line *(myinit+0x1d)' \
   "$(./getvar build_dir)/kernel_module-1.0/panic.ko" \
@@ -4884,7 +4884,7 @@ Meaning of the flags:
 * `vaddr`: first virtual address of a page the belongs to the process. Notably:
 +
 ....
-./runtc readelf -l "$(./getvar build_dir)/kernel_module-1.0/user/virt_to_phys_test.out"
+./runtc readelf -- -l "$(./getvar build_dir)/kernel_module-1.0/user/virt_to_phys_test.out"
 ....
 +
 contains:
@@ -5256,7 +5256,7 @@ Notes:
 It can be found from:
 +
 ....
-./runtc readelf -e "$(./getvar vmlinux)" | grep Entry
+./runtc readelf -- -e "$(./getvar vmlinux)" | grep Entry
 ....
 +
 TODO confirm further. If I try to break there with:
@@ -6747,7 +6747,7 @@ The reason this is cool, is that `ls` is not statically compiled, but since we h
 In other words, much cooler than:
 
 ....
-./runtc -a arm gcc -static ./kernel_module/user/hello.c
+./runtc -a arm gcc -- -static ./kernel_module/user/hello.c
 qemu-arm a.out
 ....
 
@@ -6798,9 +6798,9 @@ First we try some `-static` sanity checks.
 Works and prints `hello`:
 
 ....
-./runtc -a x86_64  gcc -static -o x86_64.out  ./kernel_module/user/hello.c
-./runtc -a arm     gcc -static -o arm.out     ./kernel_module/user/hello.c
-./runtc -a aarch64 gcc -static -o aarch64.out ./kernel_module/user/hello.c
+./runtc -a x86_64  gcc -- -static -o x86_64.out  ./kernel_module/user/hello.c
+./runtc -a arm     gcc -- -static -o arm.out     ./kernel_module/user/hello.c
+./runtc -a aarch64 gcc -- -static -o aarch64.out ./kernel_module/user/hello.c
 "$(./getvar -a x86_64 -g exec)"  ./gem5/gem5/configs/example/se.py -c ./x86_64.out
 "$(./getvar -a arm -g exec)"     ./gem5/gem5/configs/example/se.py -c ./arm.out
 "$(./getvar -a aarch64 -g exec)" ./gem5/gem5/configs/example/se.py -c ./aarch64.out
@@ -9555,16 +9555,6 @@ Otherwise, it becomes very difficult to keep everything working across path refa
                           https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
 |`-q` |QEMU              |
 |===
-
-==== runtc
-
-The link:runtc[] helper script runs a Tool Chain executable built by Buildroot.
-
-For example, to run `readelf -h` for the `arm` architecture, use:
-
-....
-./runtc -a arm readelf -h
-....
 
 === CONTRIBUTING
 
