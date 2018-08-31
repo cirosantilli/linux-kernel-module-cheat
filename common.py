@@ -236,6 +236,7 @@ def setup(parser, **extra_args):
     this.target_dir = os.path.join(this.buildroot_out_dir, 'target')
     this.gem5_run_dir = os.path.join(this.out_arch_dir, 'gem5', str(args.run_id))
     this.m5out_dir = os.path.join(this.gem5_run_dir, 'm5out')
+    this.stats_file = os.path.join(this.m5out_dir, 'stats.txt')
     this.trace_txt_file = os.path.join(this.m5out_dir, 'trace.txt')
     this.gem5_termout_file = os.path.join(this.gem5_run_dir, 'termout.txt')
     this.qemu_run_dir = os.path.join(this.out_arch_dir, 'qemu', str(args.run_id))

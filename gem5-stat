@@ -1,25 +1,20 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-common_gem5=true
-while getopts "h${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    h)
-      printf "\
-usage: $0 [-a arch] [stat=system.cpu.numCycles]
-Get the value for a gem5 stat from the stats.txt file.
-" 1>&2
-      exit
-      ;;
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-if [ $# -gt 0 ]; then
-  stat="$1"
-else
-  stat=system.cpu[0-9]*.numCycles
-fi
-common_setup
-awk "/^$stat /{ print \$2 }" "${common_m5out_dir}/stats.txt"
+#!/usr/bin/env python3
+import re
+import common
+parser = common.get_argparse(
+    argparse_args={'description':'Get the value of a gem5 stat from the stats.txt file.'}
+)
+parser.add_argument(
+  'stat',
+  default='^system.cpu[0-9]*.numCycles$',
+  help='Python regexp matching the full stat name of interest',
+  nargs='?',
+)
+args = common.setup(parser)
+stat_re = re.compile(args.stat)
+with open(common.stats_file, 'r') as statfile:
+    for line in statfile:
+        if line[0] != '-':
+            cols = line.split()
+            if len(cols) > 1 and stat_re.search(cols[0]):
+                print(cols[1])
