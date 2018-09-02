@@ -2664,17 +2664,68 @@ ____
 And you can try it out with:
 
 ....
-./run -e 'init=/init_env_poweroff.sh - asdf=qwer zxcv'
+./run -e 'init=/init_env_poweroff.out - asdf=qwer zxcv'
 ....
 
-Source: link:rootfs_overlay/init_env_poweroff.sh[].
-
-Also note how the annoying dash `-` also gets passed as a parameter to `init`, which makes it impossible to use this method for most executables.
-
-Finally, the docs are lying, arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear:
+Output:
 
 ....
-./run -e 'init=/init_env_poweroff.sh - /poweroff.out'
+args:
+/init_env_poweroff.out
+-
+zxcv
+
+env:
+HOME=/
+TERM=linux
+asdf=qwer
+....
+
+Source: link:kernel_module/user/init_env_poweroff.c[].
+
+==== init environment args
+
+The annoying dash `-` gets passed as a parameter to `init`, which makes it impossible to use this method for most non custom executables.
+
+Arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear, from args, e.g.:
+
+....
+./run -e 'init=/init_env_poweroff.out - /poweroff.out'
+....
+
+outputs:
+
+....
+args
+/init_env_poweroff.out
+-
+ab
+....
+
+so see how `a.b` is gone.
+
+==== init environment env
+
+Wait, where do `HOME` and `TERM` come from? (greps the kernel). Ah, OK, the kernel sets those by default: https://github.com/torvalds/linux/blob/94710cac0ef4ee177a63b5227664b38c95bbf703/init/main.c#L173
+
+....
+const char *envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };
+....
+
+Furthermore, if you run something inside a shell:
+
+....
+./run -E '/usr/bin/env'
+....
+
+BusyBox also defines `SHLVL` and `PWD=`:
+
+....
+SHLVL=1
+HOME=/
+TERM=linux
+lkmc_eval=L3Vzci9iaW4vZW52
+PWD=/
 ....
 
 === Networking
