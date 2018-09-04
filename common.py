@@ -2,6 +2,7 @@
 
 import argparse
 import base64
+import copy
 import glob
 import imp
 import os
@@ -36,14 +37,10 @@ this = sys.modules[__name__]
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
 
-def error(msg):
-    print('error: {}'.format(msg), file=sys.stderr)
-    sys.exit(1)
-
 def gem_list_checkpoint_dirs():
-    """
+    '''
     List checkpoint directory, oldest first.
-    """
+    '''
     global this
     prefix_re = re.compile(this.gem5_cpt_prefix)
     files = list(filter(lambda x: os.path.isdir(os.path.join(this.m5out_dir, x)) and prefix_re.search(x), os.listdir(this.m5out_dir)))
@@ -51,9 +48,9 @@ def gem_list_checkpoint_dirs():
     return files
 
 def get_argparse(default_args=None, argparse_args=None):
-    """
+    '''
     Return an argument parser with common arguments set.
-    """
+    '''
     global this
     if default_args is None:
         default_args = {}
@@ -86,27 +83,27 @@ def get_argparse(default_args=None, argparse_args=None):
     )
     parser.add_argument(
         '-N', '--gem5-worktree',
-        help="""\
+        help='''\
 gem5 git worktree to use for build and Python scripts at runtime. Automatically
 create a new git worktree with the given id if one does not exist. If not
 given, just use the submodule source.
-"""
+'''
     )
     parser.add_argument(
         '-n', '--run-id', default='0',
-        help="""\
+        help='''\
 ID for run outputs such as gem5's m5out. Allows you to do multiple runs,
 and then inspect separate outputs later in different output directories.
 Default: %(default)s
-"""
+'''
     )
     parser.add_argument(
         '--port-offset', type=int,
-        help="""\
+        help='''\
 Increase the ports to be used such as for GDB by an offset to run multiple
 instances in parallel.
 Default: the run ID (-n) if that is an integer, otherwise 0.
-"""
+'''
     )
     parser.add_argument(
         '-Q', '--qemu-build-id', default=default_build_id,
@@ -114,11 +111,11 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
     )
     parser.add_argument(
         '-s', '--suffix',
-        help="""\
+        help='''\
 Add a custom suffix to the build. E.g., doing `./build -s mysuf` puts all
 the build output into `out/x86_64-mysuf`. This allows keep multiple builds
 around when you checkout between branches.
-"""
+'''
     )
     parser.add_argument(
         '-t', '--gem5-build-type', default='opt',
@@ -156,14 +153,17 @@ def get_toolchain_tool(tool):
     global this
     return glob.glob(os.path.join(this.host_bin_dir, '*-buildroot-*-{}'.format(tool)))[0]
 
+def log_error(msg):
+    print('error: {}'.format(msg), file=sys.stderr)
+
 def print_cmd(cmd, cmd_file=None, extra_env=None):
-    """
+    '''
     Format a command given as a list of strings so that it can
     be viewed nicely and executed by bash directly and print it to stdout.
 
     Optionally save the command to cmd_file file, and add extra_env
     environment variables to the command generated.
-    """
+    '''
     newline_separator = ' \\\n'
     out = []
     for key in extra_env:
@@ -179,23 +179,44 @@ def print_cmd(cmd, cmd_file=None, extra_env=None):
         st = os.stat(cmd_file)
         os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
 
-def run_cmd(cmd, cmd_file=None, out_file=None, extra_env=None, **kwargs):
-    """
+def resolve_args(defaults, args, extra_args):
+    if extra_args is None:
+        extra_args = {}
+    argcopy = copy.copy(args)
+    argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
+    return argcopy
+
+def run_cmd(cmd, cmd_file=None, out_file=None, show_stdout=True, extra_env=None, **kwargs):
+    '''
     Run a command. Write the command to stdout before running it.
 
     Wait until the command finishes execution.
 
-    If:
+    :param cmd: command to run
+    :type cmd: List[str]
 
-    - cmd_file is not None, write the command to the given file
-    - out_file is not None, write the stdout and stderr of the command to the given file
-    """
+    :param cmd_file: if not None, write the command to be run to that file
+    :type cmd_file: str
+
+    :param out_file: if not None, write the stdout and stderr of the command the file
+    :type out_file: str
+
+    :param show_stdout: wether to show stdout and stderr on the terminal or not
+    :type show_stdout: bool
+
+    :param extra_env: extra environment variables to add when running the command
+    :type extra_env: Dict[str,str]
+    '''
     if out_file is not None:
-        stdout=subprocess.PIPE
-        stderr=subprocess.STDOUT
+        stdout = subprocess.PIPE
+        stderr = subprocess.STDOUT
     else:
-        stdout=None
-        stderr=None
+        if show_stdout:
+            stdout = None
+            stderr = None
+        else:
+            stdout = subprocess.DEVNULL
+            stderr = subprocess.DEVNULL
     if extra_env is None:
         extra_env = {}
     env = os.environ.copy()
@@ -212,8 +233,9 @@ def run_cmd(cmd, cmd_file=None, out_file=None, extra_env=None, **kwargs):
                 while True:
                     byte = proc.stdout.read(1)
                     if byte:
-                        sys.stdout.buffer.write(byte)
-                        sys.stdout.flush()
+                        if show_stdout:
+                            sys.stdout.buffer.write(byte)
+                            sys.stdout.flush()
                         logfile.write(byte)
                     else:
                         break
@@ -221,10 +243,10 @@ def run_cmd(cmd, cmd_file=None, out_file=None, extra_env=None, **kwargs):
     return proc.returncode
 
 def setup(parser, **extra_args):
-    """
+    '''
     Parse the command line arguments, and setup several variables based on them.
     Typically done after getting inputs from the command line arguments.
-    """
+    '''
     global this
     args = parser.parse_args()
     if args.arch in this.arch_map:
@@ -245,14 +267,14 @@ def setup(parser, **extra_args):
     this.out_arch_dir = os.path.join(this.out_dir, this.arch_dir)
     this.buildroot_out_dir = os.path.join(this.out_arch_dir, 'buildroot')
     this.build_dir = os.path.join(this.buildroot_out_dir, 'build')
-    this.linux_custom_dir = os.path.join(this.build_dir, 'linux-custom')
-    this.linux_variant_dir = '{}.{}'.format(this.linux_custom_dir, args.linux_build_id)
+    this.linux_build_dir = os.path.join(this.build_dir, 'linux-custom')
+    this.linux_variant_dir = '{}.{}'.format(this.linux_build_dir, args.linux_build_id)
     this.vmlinux = os.path.join(this.linux_variant_dir, "vmlinux")
-    this.qemu_custom_dir = os.path.join(this.build_dir, 'host-qemu-custom')
-    this.qemu_guest_variant_dir = os.path.join(this.qemu_custom_dir, args.qemu_build_id)
-    this.qemu_variant_dir = '{}.{}'.format(this.qemu_custom_dir, args.qemu_build_id)
+    this.qemu_build_dir = os.path.join(this.build_dir, 'host-qemu-custom')
+    this.qemu_guest_variant_dir = os.path.join(this.qemu_build_dir, args.qemu_build_id)
+    this.qemu_variant_dir = '{}.{}'.format(this.qemu_build_dir, args.qemu_build_id)
     this.qemu_executable = os.path.join(this.qemu_variant_dir, '{}-softmmu'.format(args.arch), 'qemu-system-{}'.format(args.arch))
-    this.qemu_guest_custom_dir = os.path.join(this.build_dir, 'qemu-custom')
+    this.qemu_guest_build_dir = os.path.join(this.build_dir, 'qemu-custom')
     this.host_dir = os.path.join(this.buildroot_out_dir, 'host')
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
     this.images_dir = os.path.join(this.buildroot_out_dir, 'images')
@@ -266,6 +288,9 @@ def setup(parser, **extra_args):
     this.trace_txt_file = os.path.join(this.m5out_dir, 'trace.txt')
     this.gem5_termout_file = os.path.join(this.gem5_run_dir, 'termout.txt')
     this.qemu_run_dir = os.path.join(this.out_arch_dir, 'qemu', str(args.run_id))
+    this.qemu_trace_basename = 'trace.bin'
+    this.qemu_trace_file = os.path.join(this.qemu_run_dir, 'trace.bin')
+    this.qemu_trace_txt_file = os.path.join(this.qemu_run_dir, 'trace.txt')
     this.qemu_termout_file = os.path.join(this.qemu_run_dir, 'termout.txt')
     this.qemu_rrfile = os.path.join(this.qemu_run_dir, 'rrfile')
     this.gem5_out_dir = os.path.join(this.common_dir, 'gem5', args.gem5_build_id)
@@ -327,6 +352,7 @@ p9_dir = os.path.join(data_dir, '9p')
 gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
 gem5_readfile_file = os.path.join(data_dir, 'readfile')
 gem5_default_src_dir = os.path.join(root_dir, 'gem5', 'gem5')
+qemu_src_dir = os.path.join(root_dir, 'qemu')
 out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 common_dir = os.path.join(out_dir, 'common')

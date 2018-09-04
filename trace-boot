@@ -1,25 +1,46 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-common_setup
-if "$common_gem5"; then
-  time ./run -a "$common_arch" -E 'm5 exit' -g -T 'Exec,-ExecSymbol,-ExecMicro' "$@"
-else
-  time ./run -a "$common_arch" -e 'init=/poweroff.out' -T exec_tb "$@"
-  time ./qemu-trace2txt -a "$common_arch"
-  # Instruction count.
-  # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
-  # So let's just leave it here for now since it did not add a significant processing time.
-  echo "instructions $(wc -l "${common_trace_txt_file}" | cut -d' ' -f1)"
-  entry_addr=$("${common_root_dir}/runtc" readelf -h "${common_build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
-  echo "entry_address ${entry_addr}"
-  sed "/${entry_addr}/q" "${common_trace_txt_file}" >"${common_qemu_run_dir}/trace-boot.txt"
-  echo "instructions_firmware $(wc -l "${common_qemu_run_dir}/trace-boot.txt" | cut -d' ' -f1)"
-fi
+#!/usr/bin/env python3
+
+import imp
+import os
+import subprocess
+import re
+
+import common
+run = imp.load_source('run', os.path.join(common.root_dir, 'run'))
+qemu_trace2txt = imp.load_source('qemu_trace2txt', os.path.join(common.root_dir, 'qemu-trace2txt'))
+
+parser = common.get_argparse(argparse_args={
+    'description': '''Trace the PIC addresses executed on a Linux kernel boot.
+
+More information at: https://github.com/cirosantilli/linux-kernel-module-cheat#tracing
+'''
+})
+parser.add_argument(
+    'extra_emulator_args', nargs='*',
+    help='Extra options to append at the end of the emulator command line'
+)
+args = common.setup(parser)
+extra_args = {
+    'extra_emulator_args': args.extra_emulator_args,
+}
+if args.gem5:
+    extra_args.update({
+        'eval': 'm5 exit',
+        'trace': 'Exec,-ExecSymbol,-ExecMicro',
+    })
+    run.main(args, extra_args)
+else:
+    extra_args.update({
+        'kernel_cli_extra': 'init=/poweroff.out',
+        'trace': 'exec_tb',
+    })
+    run.main(args, extra_args)
+    qemu_trace2txt.main()
+    ## Instruction count.
+    ## We could put this on a separate script, but it just adds more arch boilerplate to a new script.
+    ## So let's just leave it here for now since it did not add a significant processing time.
+    #echo "instructions $(wc -l "${common_trace_txt_file}" | cut -d' ' -f1)"
+    #entry_addr=$("${common_root_dir}/runtc" readelf -h "${common_build_dir}/linux-custom/vmlinux" | grep 'Entry point address' | sed -E 's/.*: *//')
+    #echo "entry_address ${entry_addr}"
+    #sed "/${entry_addr}/q" "${common_trace_txt_file}" >"${common_qemu_run_dir}/trace-boot.txt"
+    #echo "instructions_firmware $(wc -l "${common_qemu_run_dir}/trace-boot.txt" | cut -d' ' -f1)"
