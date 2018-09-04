@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import copy
 import os
 import shlex
 import sys
@@ -8,7 +9,29 @@ import subprocess
 
 import common
 
-def main(args):
+defaults = {
+    'after': '',
+    'before': '',
+    'no_continue': False,
+    'kgdb': False,
+    'no_lxsymbols': False,
+    'break_at': None,
+}
+
+def main(args, extra_args=None):
+    """
+    :param args: argparse parse_argument() output. Must contain all the common options,
+                 but does not need GDB specific ones.
+    :type args: argparse.Namespace
+
+    :param extra_args: extra arguments to be added to args
+    :type extra_args: Dict[str,Any]
+    """
+    global defaults
+    if extra_args is None:
+        extra_args = {}
+    args = copy.copy(args)
+    args.__dict__ = dict(list(defaults.items()) + list(args.__dict__.items()) + list(extra_args.items()))
     after = shlex.split(args.after)
     before = shlex.split(args.before)
     if args.no_lxsymbols:
@@ -61,11 +84,11 @@ def main(args):
 if __name__ == '__main__':
     parser = common.get_argparse(argparse_args={'description':'Connect with GDB to an emulator to debug Linux itself'})
     parser.add_argument(
-        '-A', '--after', default='',
+        '-A', '--after', default=defaults['after'],
         help='Pass extra arguments to GDB, to be appended after all other arguments'
     )
     parser.add_argument(
-        '-b', '--before', default='',
+        '-b', '--before', default=defaults['before'],
         help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
     )
     parser.add_argument(
