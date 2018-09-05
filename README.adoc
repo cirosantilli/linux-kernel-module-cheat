@@ -5288,9 +5288,9 @@ QEMU:
 sample output:
 
 ....
-instruction count all: 1833863
-entry address: 0x1000000
-instruction count firmware: 20708
+instructions 1833863
+entry_address 0x1000000
+instructions_firmware 20708
 ....
 
 gem5:
@@ -5328,7 +5328,7 @@ It only appears once on every log I've seen so far, checked with `grep 0x1000000
 +
 Then when we count the instructions that run before the kernel entry point, there is only about 100k instructions, which is insignificant compared to the kernel boot itself.
 +
-TODO `-a arm` and `-a aarch64` does not count firmware instructions properly because the entry point address of the ELF file does not show up on the trace at all.
+TODO `-a arm` and `-a aarch64` does not count firmware instructions properly because the entry point address of the ELF file (`ffffff8008080000` for `aarch64`) does not show up on the trace at all. Tested on link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/f8c0502bb2680f2dbe7c1f3d7958f60265347005[f8c0502bb2680f2dbe7c1f3d7958f60265347005].
 * We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
 +
 ....
@@ -9046,42 +9046,19 @@ So for example when you run:
 ./run -a arm
 ....
 
-Stdout shows a line with the full command of type:
+the very first stdout output of that script is the actual QEMU command that is being run. 
 
-....
-time \
-/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/host-qemu-custom.default/arm-softmmu/qemu-system-arm \
--device rtl8139,netdev=net0 \
--gdb 'tcp::45457' \
--kernel '/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build/linux-custom.default/arch/arm/boot/zImage' \
--m '256M' \
--monitor 'telnet::45454,server,nowait' \
--netdev 'user,hostfwd=tcp::45455-:45455,hostfwd=tcp::45456-:22,id=net0' \
--no-reboot \
--serial mon:stdio \
--smp '1' \
--trace 'enable=pr_manager_run,file=/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/qemu/0/trace.bin' \
--virtfs 'local,path=/home/ciro/bak/git/linux-kernel-module-cheat/data/9p,mount_tag=host_scratch,security_model=mapped,id=host_scratch' \
--virtfs 'local,path=/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/build,mount_tag=host_out,security_model=mapped,id=host_out' \
--M virt,highmem=off \
--append 'root=/dev/vda console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y' \
--cpu cortex-a15 \
--device virtio-gpu-pci \
--nographic \
--drive 'file=/home/ciro/bak/git/linux-kernel-module-cheat/out/arm/buildroot/images/rootfs.ext2.qcow2,format=qcow2,if=virtio,snapshot' \
-|& tee >(ts -s %.s > /home/ciro/bak/git/linux-kernel-module-cheat/out/arm/qemu/0/termout.txt)
-....
-
-and this line is also saved to a file for convenience:
+The command is also saved to a file for convenience:
 
 ....
 cat "$(./getvar -a arm run_cmd_file)"
 ....
 
-or for gem5:
+which you can manually modify and execute during your experiments later:
 
 ....
-cat "$(./getvar -a arm -g run_cmd_file)"
+vim "$(./getvar -a arm run_cmd_file)"
+./"$(./getvar -a arm run_cmd_file)"
 ....
 
 Next, you will also want to give the relevant images to save them time. Zip the images with:
@@ -9091,7 +9068,15 @@ Next, you will also want to give the relevant images to save them time. Zip the 
 ./zip-img
 ....
 
-and then upload the `out/lkmc-*.zip` file somewhere, e.g. GitHub release assets as in https://github.com/cirosantilli/linux-kernel-module-cheat/releases/tag/test-replay-arm
+Source: link:zip-img[]
+
+This generates a zip file:
+
+....
+out/lkmc-*.zip
+....
+
+which you can then upload somewhere, e.g. GitHub release assets as in https://github.com/cirosantilli/linux-kernel-module-cheat/releases/tag/test-replay-arm
 
 Finally, do a clone of the relevant repository out of tree and reproduce the bug there, to be 100% sure that it is an actual upstream bug, and to provide developers with the cleanest possible commands.
 

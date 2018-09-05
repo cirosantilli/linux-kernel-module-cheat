@@ -133,6 +133,20 @@ around when you checkout between branches.
     parser.set_defaults(**defaults)
     return parser
 
+def get_elf_entry(elf_file_path):
+    global this
+    readelf_header = subprocess.check_output([
+        this.get_toolchain_tool('readelf'),
+        '-h',
+        elf_file_path
+    ])
+    for line in readelf_header.decode().split('\n'):
+        split = line.split()
+        if line.startswith('  Entry point address:'):
+            addr = line.split()[-1]
+            break
+    return int(addr, 0)
+
 def get_stats(stat_re=None, stats_file=None):
     global this
     if stat_re is None:

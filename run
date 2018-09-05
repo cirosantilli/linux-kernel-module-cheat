@@ -84,16 +84,20 @@ def main(args, extra_args=None):
     if kernel_cli_extra_after_dash:
         kernel_cli_extra += " -{}".format(kernel_cli_extra_after_dash)
     extra_env = {}
-
-    # A dummy value that is already turned on by default and does not produce large output,
-    # just to prevent QEMU from emitting a warning that '' is not valid.
-    trace_type = 'pr_manager_run'
+    if args.trace is None:
+        do_trace = False
+        # A dummy value that is already turned on by default and does not produce large output,
+        # just to prevent QEMU from emitting a warning that '' is not valid.
+        trace_type = 'pr_manager_run'
+    else:
+        do_trace = True
+        trace_type = args.trace
 
     if args.gem5:
         memory = '{}B'.format(args.memory)
         gem5_exe_args = shlex.split(args.gem5_exe_args)
-        if args.trace is not None:
-            gem5_exe_args.append('--debug-flags={}'.format(args.trace))
+        if do_trace:
+            gem5_exe_args.append('--debug-flags={}'.format(trace_type))
         extra_env['M5_PATH'] = common.gem5_system_dir
         cmd = (
             debug_vm +

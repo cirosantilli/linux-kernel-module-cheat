@@ -2,8 +2,6 @@
 
 import imp
 import os
-import subprocess
-import re
 
 import common
 rungdb = imp.load_source('rungdb', os.path.join(common.root_dir, 'rungdb'))
@@ -25,19 +23,9 @@ parser.add_argument(
     nargs='?'
 )
 args = common.setup(parser)
-readelf_header = subprocess.check_output([
-  common.get_toolchain_tool('readelf'),
-  '-h',
-  os.path.join(common.build_dir, args.executable),
-])
-for line in readelf_header.decode().split('\n'):
-    split = line.split()
-    if line.startswith('  Entry point address:'):
-        addr = line.split()[-1]
-        break
-print(addr)
+addr = common.get_elf_entry(os.path.join(common.build_dir, args.executable))
 extra_args = {}
-extra_args['before'] = '-ex \"add-symbol-file {} {}\"'.format(args.executable, addr)
+extra_args['before'] = '-ex \"add-symbol-file {} {}\"'.format(args.executable, hex(addr))
 # Or else lx-symbols throws for arm:
 # gdb.MemoryError: Cannot access memory at address 0xbf0040cc
 # TODO understand better.
