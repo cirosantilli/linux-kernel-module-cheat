@@ -289,6 +289,7 @@ def setup(parser, **extra_args):
     global out_arch_dir
     this.out_arch_dir = os.path.join(this.out_dir, this.arch_dir)
     this.buildroot_out_dir = os.path.join(this.out_arch_dir, 'buildroot')
+    this.buildroot_config_file = os.path.join(this.buildroot_out_dir, '.config')
     this.build_dir = os.path.join(this.buildroot_out_dir, 'build')
     this.linux_build_dir = os.path.join(this.build_dir, 'linux-custom')
     this.linux_variant_dir = '{}.{}'.format(this.linux_build_dir, args.linux_build_id)

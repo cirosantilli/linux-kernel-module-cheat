@@ -1,223 +1,255 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-mkdir -p "${common_out_dir}"
-br2_cli_file="${common_out_dir}/br2_cli"
-rm -f "$br2_cli_file"
-touch "$br2_cli_file"
-kernel_config_fragment_cli_file="${common_out_dir}/kernel_config_fragment_cli"
-kernel_config_fragment_cli_file_tmp="${kernel_config_fragment_cli_file}_tmp"
-rm -f "$kernel_config_fragment_cli_file_tmp"
-touch "$kernel_config_fragment_cli_file_tmp"
-configure=true
-config_fragments="${common_root_dir}/br2/default"
-extra_make_args=
-j="$(nproc)"
-linux_reconfigure=false
-linux_kernel_custom_config_file=
-kernel_config_fragments=
-post_script_args=
-qemu_sdl='--enable-sdl --with-sdlabi=2.0'
-v=0
-while getopts "B:b:C:c:fGj:hIiK:klp:qSs:v${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    B)
-      echo "$OPTARG" >> "$br2_cli_file"
-      ;;
-    b)
-      config_fragments="${config_fragments} $(common_abspath "${OPTARG}")"
-      ;;
-    C)
-      echo "$OPTARG" >> "$kernel_config_fragment_cli_file_tmp"
-      ;;
-    c)
-      kernel_config_fragments="${kernel_config_fragments} $(common_abspath "${OPTARG}")"
-      ;;
-    f)
-      configure=false
-      ;;
-    h)
-      echo "https://github.com/cirosantilli/linux-kernel-module-cheat#build" 2>&1
-      exit
-      ;;
-    I)
-      echo "
-BR2_TARGET_ROOTFS_CPIO=n
-BR2_TARGET_ROOTFS_EXT2=n
-BR2_TARGET_ROOTFS_INITRAMFS=y
-" >> "$br2_cli_file"
-      ;;
-    i)
-      echo "
-BR2_TARGET_ROOTFS_CPIO=y
-BR2_TARGET_ROOTFS_EXT2=n
-BR2_TARGET_ROOTFS_INITRAMFS=n
-" >> "$br2_cli_file"
-      ;;
-    j)
-      j="$OPTARG"
-      ;;
-    K)
-      linux_kernel_custom_config_file="$(common_abspath "${OPTARG}")"
-      ;;
-    k)
-      extra_make_args="${extra_make_args} kernel_module-reconfigure \\
-"
-      ;;
-    l)
-      linux_reconfigure=true
-      extra_make_args="${extra_make_args} linux-reconfigure \\
-"
-      ;;
-    p)
-      post_script_args="$OPTARG"
-      ;;
-    q)
-      extra_make_args="${extra_make_args} host-qemu-reconfigure \\
-"
-      ;;
-    S)
-      qemu_sdl=
-      ;;
-    v)
-      v=1
-      ;;
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift $(($OPTIND - 1))
-if "$common_gem5"; then
-  extra_make_args="${extra_make_args} gem5-reconfigure \\
-"
-fi
-extra_make_args="${extra_make_args} $@"
-common_setup
-config_file="${common_buildroot_out_dir}/.config"
-case "$common_arch" in
-  x86_64)
-    defconfig=qemu_x86_64_defconfig
-  ;;
-  arm)
-    defconfig=qemu_arm_vexpress_defconfig
-  ;;
-  aarch64)
-    defconfig=qemu_aarch64_virt_defconfig
-  ;;
-  mips64)
-    defconfig=qemu_mips64r6_malta_defconfig
-  ;;
-esac
-config_fragments="${config_fragments} ${common_root_dir}/br2/qemu ${br2_cli_file}"
+#!/usr/bin/env python3
 
-time {
-# Configure.
-if "$configure"; then
-  if ! cmp "${kernel_config_fragment_cli_file}" "${kernel_config_fragment_cli_file_tmp}"; then
-    # Only copy if modified, otherwise the kernel always rebuilds.
-    cp "${kernel_config_fragment_cli_file_tmp}" "${kernel_config_fragment_cli_file}" 
-  fi
-  cd "${common_buildroot_dir}"
-  for p in $(find "${common_root_dir}/patches/buildroot/" -maxdepth 1 -name '*.patch' -print); do
-    patch -N -r - -p 1 < "$p" || :
-  done
-  br2_external='../kernel_module:../gem5:../parsec-benchmark'
-  packages_dir="${common_root_dir}/packages"
-  for package_dir in "${packages_dir}"/*/; do
-    br2_external="${br2_external}:../packages/$(basename "${package_dir}")"
-  done
-  make O="$common_buildroot_out_dir" BR2_EXTERNAL="$br2_external" "$defconfig"
-  # TODO Can't get rid of these for now.
-  # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
-  for config_fragment in $config_fragments; do
-    cat "$config_fragment" >> "$config_file"
-  done
-  printf "
-BR2_JLEVEL=${j}
-BR2_DL_DIR=\"${common_dir}/dl\"
-BR2_ROOTFS_POST_SCRIPT_ARGS=\"${post_script_args}\"
-" >> "$config_file"
-  if "$common_gem5"; then
-    printf "BR2_PACKAGE_GEM5=y\n" >> "${config_file}"
-  fi
-  kernel_config_fragment_dir=../kernel_config_fragment
-  if [ -n "$linux_kernel_custom_config_file" ]; then
-    if [ -f "$linux_kernel_custom_config_file" ]; then
-      printf "BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y\nBR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"${linux_kernel_custom_config_file}\"\n" >> "$config_file"
-      if "${linux_reconfigure}"; then
-        touch "${linux_kernel_custom_config_file}"
-      fi
-    else
-      echo "error: -K: file does not exist: ${linux_kernel_custom_config_file}" 1>&2
-      exit 1
-    fi
-    default_config_fragments=
-  else
-    default_config_fragments="${kernel_config_fragment_dir}/min ${kernel_config_fragment_dir}/default ${kernel_config_fragment_dir}/display"
-  fi
-  printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${default_config_fragments} ${kernel_config_fragments} ${kernel_config_fragment_cli_file}\"\n" >> "$config_file"
-  if "${linux_reconfigure}"; then
-    # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-    touch "${kernel_config_fragment_dir}/min"
-  fi
-  if [ "$common_arch" = 'mips64' ]; then
-    # Workaround for: https://bugs.busybox.net/show_bug.cgi?id=10276
-    sed -Ei 's/^BR2_PACKAGE_LINUX_TOOLS_GPIO/BR2_PACKAGE_LINUX_TOOLS_GPIO=n/' "$config_file"
-  fi
-  make O="$common_buildroot_out_dir" olddefconfig
-fi
-  echo 'config time:'
+import multiprocessing
+import os
+import shlex
+import subprocess
+import sys
+import re
+
+import common
+
+defaults = {
+    'buildroot_config': [],
+    'buildroot_config_fragment': [],
+    'initramfs': False,
+    'initrd': False,
+    'kernel_config': [],
+    'kernel_config_fragment': [],
+    'kernel_custom_config_file': None,
+    'linux_reconfigure': False,
+    'nproc': None,
+    'skip_configure': False,
+    'qemu_reconfigure': False,
+    'verbose': False,
+    'extra_make_args': '',
 }
-echo
 
-common_mkdir
+def main(args, extra_args=None):
+    global defaults
+    args = common.resolve_args(defaults, args, extra_args)
+    mkdir -p "${common_out_dir}"
 
-# Manage Linux kernel and QEMU variants.
-symlink_buildroot_variant() (
-  custom_dir="$1"
-  variant_dir="$2"
-  if [ -h "$custom_dir" ]; then
-    rm "$custom_dir"
-  elif [ -d "$custom_dir" ]; then
-    # Migration for existing builds.
-    mv "$custom_dir" "$variant_dir"
-  fi
-  mkdir -p "$variant_dir"
-  ln -s "$variant_dir" "$custom_dir"
-)
-symlink_buildroot_variant "$common_linux_build_dir" "$common_linux_variant_dir"
-symlink_buildroot_variant "$common_qemu_build_dir" "$common_qemu_variant_dir"
-# TODO: this breaks the build. But then I noticed that it wouldn't make sense,
-# because this is a guest tool, and we don't have image variants yet. Some other day maybe.
-#symlink_buildroot_variant "$common_qemu_guest_build_dir" "$common_qemu_guest_variant_dir"
+    buildroot_configs = args.buildroot_config
+    extra_make_args = args.extra_make_args
+    if args.kernel_module_reconfigure:
+        extra_make_args.append('kernel_module-reconfigure')
+    if args.linux_reconfigure:
+        extra_make_args.append('linux-reconfigure')
+    if args.qemu_reconfigure:
+        extra_make_args.append('host-qemu-reconfigure')
+    if args.gem5:
+        extra_make_args.append('gem5-reconfigure')
+    if args.initramfs:
+        buildroot_configs.extend([
+            'BR2_TARGET_ROOTFS_CPIO=n',
+            'BR2_TARGET_ROOTFS_EXT2=n',
+            'BR2_TARGET_ROOTFS_INITRAMFS=y',
+        ])
+    if args.initrd:
+        buildroot_configs.extend([
+            'BR2_TARGET_ROOTFS_CPIO=y',
+            'BR2_TARGET_ROOTFS_EXT2=n'
+            'BR2_TARGET_ROOTFS_INITRAMFS=n',
+        ])
+    if args.nproc is None:
+        nproc = multiprocessing.cpu_count()
+    else:
+        nproc = args.nproc
+    if common.arch == 'x86_64':
+        defconfig = 'qemu_x86_64_defconfig'
+    elif common.arch == 'arm':
+        defconfig = 'qemu_arm_vexpress_defconfig'
+    elif common.arch == 'aarch64':
+        defconfig = 'qemu_aarch64_virt_defconfig'
 
-# Manage gem5 variants.
-if "$common_gem5"; then
-  if [ ! -e "${common_gem5_src_dir}/.git" ]; then
-    git -C "$common_gem5_default_src_dir" worktree add -b "wt/${common_gem5_variant}" "${common_gem5_src_dir}"
-  fi
-fi
+    # TODO
+    buildroot_config_fragments="${common_root_dir}/br2/default"
+    args.buildroot_config_fragment
+    args.kernel_config
+    args.kernel_config_fragment
+    config_fragments="${config_fragments} ${common_root_dir}/br2/qemu ${br2_cli_file}"
 
-cd "$common_buildroot_dir"
-# HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
-# It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
-#
-# Even if were an autotools package, there is no general way currently to pass extra configs to it:
-# https://stackoverflow.com/questions/44341188/how-to-pass-extra-custom-configure-autotools-options-to-a-buildroot-package/44341225#44341225
-#
-# BR2_ options may be given on the command line here, and they do have direct "define" effects.
-# But this is generally bad, as it skips the Kconfig mechanism, e.g. it does not set defaults properly.
-cmd="time \\
-env \\
--u LD_LIBRARY_PATH \\
-make \\
-O='${common_buildroot_out_dir}' \\
-HOST_QEMU_OPTS='--enable-debug --enable-trace-backends=simple ${qemu_sdl}' \\
-GEM5_LKMC_GEM5_BUILD_TYPE="$common_gem5_build_type" \\
-GEM5_LKMC_OUTDIR="$common_gem5_out_dir" \\
-GEM5_LKMC_SRCDIR="$common_gem5_src_dir" \\
-V='${v}' \\
-${extra_make_args} \
-all \\
-"
-"${common_root_dir}/eeval" "$cmd" "${common_out_arch_dir}/build.sh"
+    time {
+    # Configure.
+    if "$configure"; then
+      if ! cmp "${kernel_config_fragment_cli_file}" "${kernel_config_fragment_cli_file_tmp}"; then
+        # Only copy if modified, otherwise the kernel always rebuilds.
+        cp "${kernel_config_fragment_cli_file_tmp}" "${kernel_config_fragment_cli_file}" 
+      fi
+      cd "${common_buildroot_dir}"
+      for p in $(find "${common_root_dir}/patches/buildroot/" -maxdepth 1 -name '*.patch' -print); do
+        patch -N -r - -p 1 < "$p" || :
+      done
+      br2_external='../kernel_module:../gem5:../parsec-benchmark'
+      packages_dir="${common_root_dir}/packages"
+      for package_dir in "${packages_dir}"/*/; do
+        br2_external="${br2_external}:../packages/$(basename "${package_dir}")"
+      done
+      make O="$common_buildroot_out_dir" BR2_EXTERNAL="$br2_external" "$defconfig"
+      # TODO Can't get rid of these for now.
+      # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
+      for config_fragment in $config_fragments; do
+        cat "$config_fragment" >> "$common.buildroot_config_file"
+      done
+      printf "
+    BR2_JLEVEL=${j}
+    BR2_DL_DIR=\"${common_dir}/dl\"
+    " >> "$common.buildroot_config_file"
+      if "$common_gem5"; then
+        printf "BR2_PACKAGE_GEM5=y\n" >> "${common.buildroot_config_file}"
+      fi
+      kernel_config_fragment_dir=../kernel_config_fragment
+      if [ -n "$linux_kernel_custom_config_file" ]; then
+        if [ -f "$linux_kernel_custom_config_file" ]; then
+          printf "BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y\nBR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"${linux_kernel_custom_config_file}\"\n" >> "$common.buildroot_config_file"
+          if "${linux_reconfigure}"; then
+            touch "${linux_kernel_custom_config_file}"
+          fi
+        else
+          echo "error: -K: file does not exist: ${linux_kernel_custom_config_file}" 1>&2
+          exit 1
+        fi
+        default_config_fragments=
+      else
+        default_config_fragments="${kernel_config_fragment_dir}/min ${kernel_config_fragment_dir}/default ${kernel_config_fragment_dir}/display"
+      fi
+      printf "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"${default_config_fragments} ${kernel_config_fragments} ${kernel_config_fragment_cli_file}\"\n" >> "$common.buildroot_config_file"
+      if "${linux_reconfigure}"; then
+        # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+        touch "${kernel_config_fragment_dir}/min"
+      fi
+      make O="$common_buildroot_out_dir" olddefconfig
+    fi
+      echo 'config time:'
+    }
+    echo
+
+    common_mkdir
+
+    # Manage Linux kernel and QEMU variants.
+    symlink_buildroot_variant() (
+      custom_dir="$1"
+      variant_dir="$2"
+      if [ -h "$custom_dir" ]; then
+        rm "$custom_dir"
+      elif [ -d "$custom_dir" ]; then
+        # Migration for existing builds.
+        mv "$custom_dir" "$variant_dir"
+      fi
+      mkdir -p "$variant_dir"
+      ln -s "$variant_dir" "$custom_dir"
+    )
+    symlink_buildroot_variant "$common_linux_build_dir" "$common_linux_variant_dir"
+    symlink_buildroot_variant "$common_qemu_build_dir" "$common_qemu_variant_dir"
+    # TODO: this breaks the build. But then I noticed that it wouldn't make sense,
+    # because this is a guest tool, and we don't have image variants yet. Some other day maybe.
+    #symlink_buildroot_variant "$common_qemu_guest_build_dir" "$common_qemu_guest_variant_dir"
+    
+    # Manage gem5 variants.
+    if "$common_gem5"; then
+      if [ ! -e "${common_gem5_src_dir}/.git" ]; then
+        git -C "$common_gem5_default_src_dir" worktree add -b "wt/${common_gem5_variant}" "${common_gem5_src_dir}"
+      fi
+    fi
+    
+    cd "$common_buildroot_dir"
+    # HOST_QEMU_OPTS is a hack that happens to work because the QEMU package luckly uses += at all times.
+    # It shouldn't be necessary in the first place: https://bugs.busybox.net/show_bug.cgi?id=9936
+    #
+    # Even if were an autotools package, there is no general way currently to pass extra configs to it:
+    # https://stackoverflow.com/questions/44341188/how-to-pass-extra-custom-configure-autotools-options-to-a-buildroot-package/44341225#44341225
+    #
+    # BR2_ options may be given on the command line here, and they do have direct "define" effects.
+    # But this is generally bad, as it skips the Kconfig mechanism, e.g. it does not set defaults properly.
+    cmd="time \\
+    env \\
+    -u LD_LIBRARY_PATH \\
+    make \\
+    O='${common_buildroot_out_dir}' \\
+    HOST_QEMU_OPTS='--enable-debug --enable-trace-backends=simple --enable-sdl --with-sdlabi=2.0' \\
+    GEM5_LKMC_GEM5_BUILD_TYPE="$common_gem5_build_type" \\
+    GEM5_LKMC_OUTDIR="$common_gem5_out_dir" \\
+    GEM5_LKMC_SRCDIR="$common_gem5_src_dir" \\
+    V='${v}' \\
+    ${extra_make_args} \
+    all \\
+    "
+    "${common_root_dir}/eeval" "$cmd" "${common_out_arch_dir}/build.sh"
+        return 0
+
+def get_argparse():
+    parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
+    parser.add_argument(
+        '-B', '--br2-config', default=defaults['buildroot_config'], action='append',
+        help='''Add a single Buildroot config to the current build.
+Example value: 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'.
+Can be used multiple times to add multiple configs.
+Takes precedence over any Buildroot config files.
+'''
+    )
+    parser.add_argument(
+        '-b', '--br2-config-fragment', default=defaults['buildroot_config_fragment'], action='append',
+        help='''Also use the given Buildroot configuration fragment file.
+Pass multiple times to use multiple fragment files.'''
+    )
+    parser.add_argument(
+        '-C', '--kernel-config', default=defaults['kernel_config'], action='append',
+        help='''Add a single kernel config configs to the current build.
+Example value: 'CONFIG_FORTIFY_SOURCE=y'.
+Can be used multiple times to add multiple configs.
+Takes precedence over any Buildroot config files.
+'''
+    )
+    parser.add_argument(
+        '-c', '--kernel-config-fragment', default=defaults['kernel_config_fragment'], action='append',
+        help='''Also use the given kernel configuration fragment file.
+Pass multiple times to use multiple fragment files.'''
+    )
+    parser.add_argument(
+        '-I', '--initramfs', default=defaults['initramfs'], action='store_true',
+    )
+    parser.add_argument(
+        '-i', '--initrd', default=defaults['initrd'], action='store_true',
+    )
+    parser.add_argument(
+        '-j', '--nproc', default=defaults['nproc'], type=int,
+        help='Number of processors to use for the build. Default: all.'
+    )
+    parser.add_argument(
+        '--skip-configure', default=defaults['skip_configure'], action='store_true',
+        help='''Skip the Buildroot configuration. Saves a few seconds,
+but requires you to know what you are doing :-)'''
+    )
+    parser.add_argument(
+        '-K', '--kernel-custom-config-file', default=defaults['kernel_custom_config_file'],
+        help='''Ignore all default kernel configurations and use this file instead.
+Still uses options explicitly passed with `-C` and `-c` on top of it.'''
+    )
+    parser.add_argument(
+        '-k', '--kernel-module-reconfigure', default=defaults['kernel_module_reconfigure'], action='store_true',
+        help='Reconfigure and rebuild the kernel modules'
+    )
+    parser.add_argument(
+        '-l', '--linux-reconfigure', default=defaults['linux_reconfigure'], action='store_true',
+        help='''Reconfigure and rebuild the Linux kernel.
+Touches kernel configuration files to overcome:
+https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi'''
+    )
+    parser.add_argument(
+        '-q', '--qemu-reconfigure', default=defaults['qemu_reconfigure'], action='store_true',
+        help='Reconfigure and rebuild QEMU'
+    )
+    parser.add_argument(
+        '-v', '--verbose', default=defaults['verbose'], action='store_true',
+        help='Do a verbose build'
+    )
+    parser.add_argument(
+        'extra-make-args', default=defaults['extra_make_args'], nargs='?'
+    )
+    return parser
+
+if __name__ == '__main__':
+    parser = get_argparse()
+    args = common.setup(parser)
+    sys.exit(main(args))
