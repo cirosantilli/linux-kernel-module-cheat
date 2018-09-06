@@ -200,7 +200,15 @@ def resolve_args(defaults, args, extra_args):
     argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
     return argcopy
 
-def run_cmd(cmd, cmd_file=None, out_file=None, show_stdout=True, extra_env=None, **kwargs):
+def run_cmd(
+        cmd,
+        cmd_file=None,
+        out_file=None,
+        show_stdout=True,
+        show_cmd=True,
+        extra_env=None,
+        **kwargs
+    ):
     '''
     Run a command. Write the command to stdout before running it.
 
@@ -235,7 +243,8 @@ def run_cmd(cmd, cmd_file=None, out_file=None, show_stdout=True, extra_env=None,
         extra_env = {}
     env = os.environ.copy()
     env.update(extra_env)
-    print_cmd(cmd, cmd_file, extra_env=extra_env)
+    if show_cmd:
+        print_cmd(cmd, cmd_file, extra_env=extra_env)
     # Otherwise Ctrl + C gives:
     # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
     # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
