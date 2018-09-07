@@ -299,6 +299,7 @@ def setup(parser, **extra_args):
     this.vmlinux = os.path.join(this.linux_variant_dir, "vmlinux")
     this.qemu_build_dir = os.path.join(this.common_dir, 'qemu', args.qemu_build_id)
     this.qemu_executable = os.path.join(this.qemu_build_dir, '{}-softmmu'.format(args.arch), 'qemu-system-{}'.format(args.arch))
+    this.qemu_img_executable = os.path.join(this.qemu_build_dir, 'qemu-img')
     this.qemu_guest_build_dir = os.path.join(this.build_dir, 'qemu-custom')
     this.host_dir = os.path.join(this.buildroot_out_dir, 'host')
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')

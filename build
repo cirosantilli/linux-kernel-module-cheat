@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import pathlib
 import shlex
+import shutil
 import subprocess
 import sys
 import re
@@ -90,8 +91,6 @@ def main(args, extra_args=None):
                 path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_overlay'))),
             'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
                 path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_post_build_script'))),
-            'BR2_ROOTFS_POST_IMAGE_SCRIPT="{}"'.format(
-                path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_post_image_script'))),
             'BR2_ROOTFS_USERS_TABLES="{}"'.format(
                 path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))),
         ])
@@ -181,20 +180,16 @@ def main(args, extra_args=None):
 
     common.mkdir()
 
-    ## Manage Linux kernel and QEMU variants.
-    #symlink_buildroot_variant() (
-    #  custom_dir="$1"
-    #  variant_dir="$2"
-    #  if [ -h "$custom_dir" ]; then
-    #    rm "$custom_dir"
-    #  elif [ -d "$custom_dir" ]; then
-    #    # Migration for existing builds.
-    #    mv "$custom_dir" "$variant_dir"
-    #  fi
-    #  mkdir -p "$variant_dir"
-    #  ln -s "$variant_dir" "$custom_dir"
-    #)
-    #symlink_buildroot_variant "$common_linux_build_dir" "$common_linux_variant_dir"
+    # Manage Linux kernel and QEMU variants.
+    def symlink_buildroot_variant(custom_dir, variant_dir):
+        if os.path.islink(custom_dir):
+            os.unlink(custom_dir)
+        elif os.path.isdir(custom_dir):
+            # Migration for existing builds.
+            shutil.move(custom_dir, variant_dir)
+        os.makedirs(variant_dir, exist_ok=True)
+        os.symlink(variant_dir, custom_dir)
+    symlink_buildroot_variant(common.linux_build_dir, common.linux_variant_dir)
 
     ## Manage gem5 variants.
     #if "$common_gem5"; then
@@ -203,7 +198,7 @@ def main(args, extra_args=None):
     #  fi
     #fi
 
-    return common.run_cmd(
+    assert common.run_cmd(
         [
             'make',
             'O={}'.format(common.buildroot_out_dir),
@@ -215,7 +210,20 @@ def main(args, extra_args=None):
         out_file=os.path.join(common.out_arch_dir, 'buildroot.log'),
         delete_env=['LD_LIBRARY_PATH'],
         cwd=common.buildroot_dir,
-    )
+    ) == 0
+
+    # Create the qcow2 from ext2.
+    assert common.run_cmd([
+        common.qemu_img_executable,
+        '-T', 'pr_manager_run,file=/dev/null',
+        'convert',
+        '-f', 'raw',
+        '-O', 'qcow2',
+        common.ext2_file,
+        common.qcow2_file,
+    ]) == 0
+
+    return 0
 
 def get_argparse():
     parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
