@@ -134,7 +134,6 @@ def main(args, extra_args=None):
             kernel_config_fragments.append(os.path.join(kernel_config_fragment_cli_path))
         if True:
             # Kernel configuration fragments.
-            kernel_config_fragment_dir = os.path.join('..', 'kernel_config_fragment')
             if args.kernel_custom_config_file is not None:
                 if os.path.exists(args.kernel_custom_config_file):
                     buildroot_configs.extend([
@@ -147,13 +146,16 @@ def main(args, extra_args=None):
                     raise Exception('Kernel config fragment file does not exist: {}'.format(args.kernel_custom_config_file))
                 default_kernel_config_fragments = []
             else:
-                default_kernel_config_fragments = ['min', 'default', 'display']
+                kernel_config_fragment_dir = os.path.join(common.root_dir, 'kernel_config_fragments')
+                default_kernel_config_fragments = ['min']
                 if args.linux_reconfigure:
                     # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
                     pathlib.Path(os.path.join(kernel_config_fragment_dir, 'min')).touch()
             for i, default_kernel_config_fragment in enumerate(default_kernel_config_fragments):
                 default_kernel_config_fragments[i] = os.path.join(kernel_config_fragment_dir, default_kernel_config_fragment)
         kernel_config_fragments.extend(default_kernel_config_fragments)
+        for i, frag in enumerate(kernel_config_fragments):
+            kernel_config_fragments[i] = path_relative_to_buildroot(frag)
         buildroot_kernel_config_fragment_str = 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="{}"'.format(' '.join(kernel_config_fragments))
         buildroot_configs.append(buildroot_kernel_config_fragment_str)
 
@@ -193,10 +195,6 @@ def main(args, extra_args=None):
     #  ln -s "$variant_dir" "$custom_dir"
     #)
     #symlink_buildroot_variant "$common_linux_build_dir" "$common_linux_variant_dir"
-    #symlink_buildroot_variant "$common_qemu_build_dir" "$common_qemu_variant_dir"
-    ## TODO: this breaks the build. But then I noticed that it wouldn't make sense,
-    ## because this is a guest tool, and we don't have image variants yet. Some other day maybe.
-    ##symlink_buildroot_variant "$common_qemu_guest_build_dir" "$common_qemu_guest_variant_dir"
 
     ## Manage gem5 variants.
     #if "$common_gem5"; then
