@@ -207,6 +207,7 @@ def run_cmd(
         show_stdout=True,
         show_cmd=True,
         extra_env=None,
+        delete_env=None,
         **kwargs
     ):
     '''
@@ -241,8 +242,12 @@ def run_cmd(
             stderr = subprocess.DEVNULL
     if extra_env is None:
         extra_env = {}
+    if delete_env is None:
+        delete_env = []
     env = os.environ.copy()
     env.update(extra_env)
+    for key in delete_env:
+        del env[key]
     if show_cmd:
         print_cmd(cmd, cmd_file, extra_env=extra_env)
     # Otherwise Ctrl + C gives:
@@ -282,11 +287,9 @@ def setup(parser, **extra_args):
         this.gem5_arch = 'ARM'
     elif args.arch == 'x86_64':
         this.gem5_arch = 'X86'
-    this.buildroot_dir = os.path.join(root_dir, 'buildroot')
     this.arch_dir = args.arch
     if args.suffix is not None:
         this.arch_dir = '{}-{}'.format(arch_dir, args.suffix)
-    global out_arch_dir
     this.out_arch_dir = os.path.join(this.out_dir, this.arch_dir)
     this.buildroot_out_dir = os.path.join(this.out_arch_dir, 'buildroot')
     this.buildroot_config_file = os.path.join(this.buildroot_out_dir, '.config')
@@ -376,10 +379,12 @@ p9_dir = os.path.join(data_dir, '9p')
 gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
 gem5_readfile_file = os.path.join(data_dir, 'readfile')
 gem5_default_src_dir = os.path.join(root_dir, 'gem5', 'gem5')
-qemu_src_dir = os.path.join(root_dir, 'qemu')
 out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 common_dir = os.path.join(out_dir, 'common')
+submodules_dir = os.path.join(root_dir, 'submodules')
+buildroot_dir = os.path.join(submodules_dir, 'buildroot')
+qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 
 # Other default variables.
 arch_map = {
