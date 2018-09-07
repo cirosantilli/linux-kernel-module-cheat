@@ -28,7 +28,7 @@ defaults = {
 }
 
 def path_relative_to_buildroot(abspath):
-    return os.path.relpath(abspath, common.buildroot_dir)
+    return os.path.relpath(abspath, common.buildroot_src_dir)
 
 def main(args, extra_args=None):
     global defaults
@@ -55,7 +55,7 @@ def main(args, extra_args=None):
     # Configure.
     if not args.skip_configure:
         # Initial make configure.
-        #cd "${common_buildroot_dir}"
+        #cd "${common_buildroot_src_dir}"
         #for p in $(find "${common_root_dir}/patches/buildroot/" -maxdepth 1 -name '*.patch' -print); do
         #  patch -N -r - -p 1 < "$p" || :
         #done
@@ -73,7 +73,7 @@ def main(args, extra_args=None):
                 'BR2_EXTERNAL={}'.format(br2_external_str),
                 defconfig,
             ],
-            cwd=common.buildroot_dir,
+            cwd=common.buildroot_src_dir,
         )
 
         # Extra buildroot configs.
@@ -175,9 +175,8 @@ def main(args, extra_args=None):
                 'O={}'.format(common.buildroot_out_dir),
                 'olddefconfig',
             ],
-            cwd=common.buildroot_dir,
+            cwd=common.buildroot_src_dir,
         )
-
     common.mkdir()
 
     # Manage Linux kernel and QEMU variants.
@@ -198,6 +197,7 @@ def main(args, extra_args=None):
     #  fi
     #fi
 
+    # Do the actual build.
     assert common.run_cmd(
         [
             'make',
@@ -209,7 +209,7 @@ def main(args, extra_args=None):
         ,
         out_file=os.path.join(common.out_arch_dir, 'buildroot.log'),
         delete_env=['LD_LIBRARY_PATH'],
-        cwd=common.buildroot_dir,
+        cwd=common.buildroot_src_dir,
     ) == 0
 
     # Create the qcow2 from ext2.

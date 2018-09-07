@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+
+import glob
+import multiprocessing
+import os
+import pathlib
+import shutil
+import subprocess
+
+import common
+
+parser = common.get_argparse()
+parser.add_argument(
+    'extra_scons_args',
+    default=[],
+    metavar='extra-scons-args',
+    nargs='*'
+)
+args = common.setup(parser)
+binaries_dir = os.path.join(common.gem5_system_dir, 'binaries')
+disks_dir = os.path.join(common.gem5_system_dir, 'disks')
+os.makedirs(binaries_dir, exist_ok=True)
+os.makedirs(disks_dir, exist_ok=True)
+if args.arch == 'x86_64':
+    dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
+    with open(dummy_img_path, 'wb') as dummy_img_file:
+        zeroes = b'\x00' * (2 ** 16)
+        for i in range(2 ** 10):
+            dummy_img_file.write(zeroes)
+    subprocess.check_call(['mkswap', dummy_img_path])
+    with open(os.path.join(binaries_dir, 'x86_64-vmlinux-2.6.22.9'), 'w'):
+        # This file must always be present, despite --kernel overriding that default and selecting the kernel.
+        # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
+        pass
+elif args.arch == 'arm' or args.arch == 'aarch64':
+    gem5_system_src_dir = os.path.join(common.gem5_src_dir, 'system')
+
+    # dtb
+    dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
+    dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
+    subprocess.check_call(['make', '-C', dt_src_dir])
+    os.makedirs(dt_build_dir, exist_ok=True)
+    for dt in glob.glob(os.path.join(dt_src_dir, '*.dtb')):
+        shutil.copy2(dt, dt_build_dir)
+
+    # Bootloader 32.
+    bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
+    # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
+    subprocess.check_call(['make', '-C', bootloader32_dir])
+    # bootloader
+    shutil.copy2(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
+
+    # Bootloader 64.
+    bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
+    # TODO cross_compile is ignored because the make does not use CC...
+    subprocess.check_call(['make', '-C', bootloader64_dir])
+    shutil.copy2(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
+assert common.run_cmd([
+        'scons',
+        # TODO factor with build.
+        '-j', str(multiprocessing.cpu_count()),
+        '--ignore-style',
+        common.gem5_executable
+    ] +
+    args.extra_scons_args,
+    cwd=common.gem5_src_dir,
+    extra_env={'PATH': '/usr/lib/ccache:' + os.environ['PATH']},
+) == 0
+term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
+subprocess.check_call(['make', '-C', term_src_dir])
+shutil.copy2(os.path.join(term_src_dir, 'm5term'), common.gem5_m5term)
