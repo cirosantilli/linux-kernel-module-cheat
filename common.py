@@ -383,6 +383,7 @@ common_dir = os.path.join(out_dir, 'common')
 submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
+linux_src_dir = os.path.join(submodules_dir, 'linux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 
 # Other default variables.

@@ -9,33 +9,96 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.18 module development example tutorials with GDB and KGDB step debugging and minimal educational hardware device models. "Tested" in x86, ARM, Ubuntu 18.04 host.
+Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.18 module development example tutorials with <<gdb,GDB>> and <<KGDB>> step debugging and minimal educational hardware device models. "Tested" in x86, ARM, Ubuntu 18.04 host.
 
 toc::[]
 
+== About
+
+This project is made to help me study, modify and test low level system components by using system simulators.
+
+The current focuses are:
+
+* Linux kernel and Linux kernel modules
+* full systems emulators, currently <<qemu-buildroot-setup>> and <<gem5-buildroot-setup>>
+* <<buildroot>>. We use and therefore document, a large part of its feature set.
+
+This setup could also be easily extended to cover:
+
+* C standard libraries
+* compilers
+
+This provides setups that are:
+
+* highly automated: "just works"
+* thoroughly documented: you know what "just works" means
+* can be fully built from source: to give visibility and allow modifications
+* can also use prebuilt binaries: in case you are lazy or unable to build from source
+
+=== Fairy tale
+
+____
+Once upon a time, there was a boy called Linus.
+
+Linus made a super fun toy, and since he was not very humble, decided to call it Linux.
+
+Linux was an awesome toy, but it had one big problem: it was very difficult to learn how to play with it!
+
+As a result, only some weird kids who were very bored ended up playing with Linux, and everyone thought those kids were very cool, in their own weird way.
+
+One day, a mysterious new kid called Ciro tried to play with Linux, and like many before him, got very frustrated, and gave up.
+
+A few years later, Ciro had grown up a bit, and by chance came across a very cool toy made by the boy Petazzoni and his gang: it was called Buildroot.
+
+Ciro noticed that if you used Buildroot together with Linux, and Linux suddenly became very fun to play with!
+
+So Ciro decided to explain to as many kids as possible how to use Buildroot to play with Linux.
+
+And so everyone was happy. Except some of the old weird kernel hackers who wanted to keep their mystique, but so be it.
+
+THE END
+____
+
 == Getting started
 
-=== Setup types
+There are several different possible setups to use this repo.
 
-==== Getting started natively
+Each subsection of this describes one of those setups, and the trade-offs of each.
+
+If you don't know which one to go for, start with <<qemu-buildroot-setup>>
+
+=== QEMU Buildroot setup
 
 This is the best setup if you are on one of the supported systems: Ubuntu 16.04 or Ubuntu 18.04.
 
-Everything will likely also work on other Linux distros if you install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. You can also try <<docker>> if you are on other distros.
+Everything will likely also work on other Linux distros if you install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. You can also try <<docker>> if you are on other Linux distros.
 
 Reserve 12Gb of disk and run:
 
 ....
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-./configure && ./build && ./run
+./configure && \
+  ./build-qemu &&
+  ./build && \
+  ./run && \
+:;
 ....
+
+The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
 It does not work if you just download the .zip from GitHub because we use Git submodules, you must clone this repo. `./configure` then fetches only the required submodules for you.
 
-It is also trivial to build for different supported <<cpu-architecture,CPU architectures>>.
+It is super easy to build for different supported CPU architectures, just use the `--arch` option:
 
-The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
+....
+./build-qemu --arch arm && \
+  ./build --arch arm && \
+  ./run --arch arm && \
+:;
+....
+
+See also: <<cpu-architecture,CPU architectures>>.
 
 If you don't want to wait, you could also try the following faster but much more limited methods:
 
@@ -74,34 +137,36 @@ See also: <<text-mode>>.
 
 Source:
 
-* link:kernel_module/hello.c[]
-* link:kernel_module/hello2.c[]
+* link:packages/kernel_modules/hello.c[]
+* link:packages/kernel_modules/hello2.c[]
+
+All available modules can be found in the link:packages/kernel_modules/[`kernel_modules` directory].
 
 Once you use <<gdb>> and <<tmux>>, your terminal will look a bit like this:
 
 ....
-[    1.451857] input: AT Translated Set 2 keyboard as /devices/platform/i8042/s1│loading @0xffffffffc0000000: ../kernel_module-1.0//timer.ko
+[    1.451857] input: AT Translated Set 2 keyboard as /devices/platform/i8042/s1│loading @0xffffffffc0000000: ../kernel_modules-1.0//timer.ko
 [    1.454310] ledtrig-cpu: registered to indicate activity on CPUs             │(gdb) b lkmc_timer_callback
 [    1.455621] usbcore: registered new interface driver usbhid                  │Breakpoint 1 at 0xffffffffc0000000: file /home/ciro/bak/git/linux-kernel-module
-[    1.455811] usbhid: USB HID core driver                                      │-cheat/out/x86_64/buildroot/build/kernel_module-1.0/./timer.c, line 28.
+[    1.455811] usbhid: USB HID core driver                                      │-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./timer.c, line 28.
 [    1.462044] NET: Registered protocol family 10                               │(gdb) c
 [    1.467911] Segment Routing with IPv6                                        │Continuing.
 [    1.468407] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver              │
 [    1.470859] NET: Registered protocol family 17                               │Breakpoint 1, lkmc_timer_callback (data=0xffffffffc0002000 <mytimer>)
 [    1.472017] 9pnet: Installing 9P2000 support                                 │    at /linux-kernel-module-cheat//out/x86_64/buildroot/build/
-[    1.475461] sched_clock: Marking stable (1473574872, 0)->(1554017593, -80442)│kernel_module-1.0/./timer.c:28
+[    1.475461] sched_clock: Marking stable (1473574872, 0)->(1554017593, -80442)│kernel_modules-1.0/./timer.c:28
 [    1.479419] ALSA device list:                                                │28      {
 [    1.479567]   No soundcards found.                                           │(gdb) c
 [    1.619187] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100                 │Continuing.
 [    1.622954] ata2.00: configured for MWDMA2                                   │
 [    1.644048] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ P5│Breakpoint 1, lkmc_timer_callback (data=0xffffffffc0002000 <mytimer>)
 [    1.741966] tsc: Refined TSC clocksource calibration: 2904.010 MHz           │    at /linux-kernel-module-cheat//out/x86_64/buildroot/build/
-[    1.742796] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x29dc0f4s│kernel_module-1.0/./timer.c:28
+[    1.742796] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x29dc0f4s│kernel_modules-1.0/./timer.c:28
 [    1.743648] clocksource: Switched to clocksource tsc                         │28      {
 [    2.072945] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8043│(gdb) bt
 [    2.078641] EXT4-fs (vda): couldn't mount as ext3 due to feature incompatibis│#0  lkmc_timer_callback (data=0xffffffffc0002000 <mytimer>)
 [    2.080350] EXT4-fs (vda): mounting ext2 file system using the ext4 subsystem│    at /linux-kernel-module-cheat//out/x86_64/buildroot/build/
-[    2.088978] EXT4-fs (vda): mounted filesystem without journal. Opts: (null)  │kernel_module-1.0/./timer.c:28
+[    2.088978] EXT4-fs (vda): mounted filesystem without journal. Opts: (null)  │kernel_modules-1.0/./timer.c:28
 [    2.089872] VFS: Mounted root (ext2 filesystem) readonly on device 254:0.    │#1  0xffffffff810ab494 in call_timer_fn (timer=0xffffffffc0002000 <mytimer>,
 [    2.097168] devtmpfs: mounted                                                │    fn=0xffffffffc0000000 <lkmc_timer_callback>) at kernel/time/timer.c:1326
 [    2.126472] Freeing unused kernel memory: 1264K                              │#2  0xffffffff810ab71f in expire_timers (head=<optimized out>,
@@ -121,17 +186,79 @@ hello /root/.profile                                                            
                                                                                 │(gdb)
 ....
 
-All available modules can be found in the link:kernel_module/[`kernel_module` directory].
-
-We will try to support the following Ubuntu versions at least:
+We tend to support the following Ubuntu host versions at least:
 
 * if the latest release is an LTS, support both the latest LTS and the previous one
 * otherwise, support both latest LTS and the latest non-LTS
 
-[[docker]]
-==== Getting started with Docker
+==== About the QEMU Buildroot setup
 
-This is a good option if you are on a Linux host, but the <<getting-started-natively,native build>> failed due to your weird host distribution.
+link:https://en.wikipedia.org/wiki/Buildroot[] is a set of `make` scripts that downloads everything from source
+
+=== gem5 Buildroot setup
+
+==== About the gem5 Buildroot setup
+
+This setup is like the <<qemu-buildroot-setup>>, but it uses link:http://gem5.org/[gem5] instead of QEMU as a system simulator.
+
+QEMU tries to run as fast as possible and give correct results at the end, but it does not tell us how many CPU cycles it takes to do something, just the number of instructions it ran, and this cannot be used to estimate system performance. This is known as a functional simulation
+
+gem5 on the other hand, can simulate the system in more detail than QEMU, including:
+
+* simplified CPU pipeline
+* caches
+* DRAM timing
+
+and can therefore be used to estimate system performance, see: <<gem5-run-benchmark>> for an example.
+
+The downside of gem5 much slower than QEMU because of the greater simulation detail.
+
+See <<gem5-vs-qemu,like QEMU>> for a more thorough comparison.
+
+==== gem5 Buildroot setup getting started
+
+For the most part, if you just add the `--gem5` option or `-gem5` suffix to all commands and everything should magically work:
+
+....
+./configure --gem5 && \
+  ./build --arch aarch64 --gem5 && \
+  ./build-gem5 --arch aarch64 && \
+  ./run --arch aarch64 --gem5 \
+;
+....
+
+If you have already built <<qemu-buildroot-setup>> previously, don't be afraid, gem5 and QEMU use almost the same root filesystem and kernel, so `./build --gem` will be fast. It is currently only needed for the <<m5>> tool.
+
+To get a terminal, either open a new shell and run:
+
+....
+./gem5-shell
+....
+
+or if you are inside tmux, which I highly recommend, just run gem5 with:
+
+....
+./run --tmux
+....
+
+This will open up a split terminal by default so that you can see both the gem5 stdout and the terminal. See also: <<tmux-gem5>>
+
+TODO: `arm` boot broken on kernel 4.18 with:
+
+....
+Internal error: Oops - undefined instruction
+....
+
+Workaround by checking out kernel 4.17 as explained at <<linux-kernel-build-variants>>. Bisected down to kernel 1d4238c56f9816ce0f9c8dbe42d7f2ad81cb6613, gem5 is not implementing the `CSDB` instruction.
+
+More information at: <<gem5>>
+
+[[docker]]
+=== QEMU Buildroot setup inside Docker
+
+This is the same as the native <<qemu-buildroot-setup>>, but run from inside a Docker on the host.
+
+This is a good option if you are on a Linux host, but the native setup failed due to your weird host distribution, and you have better things to do with your life than to debug it.
 
 Before anything, you must get rid of any host build files on `out/` if you have any. A simple way to do this it to:
 
@@ -234,34 +361,22 @@ After this, to start using Docker again will you need another:
 ....
 
 [[prebuilt]]
-==== Getting started with prebuilts
+=== Prebuilt setup
+
+==== About the prebuilt setup
+
+This setup uses prebuilt binaries of the <<qemu-buildroot-setup>> that we upload to  GitHub from time to time.
 
 We don't currently provide a full prebuilt because it would be too big to host freely, notably because of the cross toolchain.
 
-However, we do provide a prebuilt filesystem and kernel, which allows you to quickly try out running our kernel modules:
+Our prebuilts currently include:
 
-. Download QEMU and this repo:
-+
-....
-sudo apt-get install qemu-system-x86
-git clone https://github.com/cirosantilli/linux-kernel-module-cheat
-cd linux-kernel-module-cheat
-....
-. go to the latest release link:https://github.com/cirosantilli/linux-kernel-module-cheat/releases[], download the `lkmc-*.zip` file and extract it into the repository:
-+
-....
-unzip lkmc-*.zip
-....
-+
-It is link:https://stackoverflow.com/questions/24987542/is-there-a-link-to-github-for-downloading-a-file-in-the-latest-release-of-a-repo/50540591#50540591[not possible to automate this step without the API], and I'm not venturing there at this time, pull requests welcome.
-. checkout to the prebuilt repo version so that the scripts and documentation will be compatible with it, and run with the `-P` option:
-+
-....
-git checkout <release-sha>
-./run -P
-....
+* Linux kernel
+* root filesystem
 
-Limitations of this method:
+Advantages: saves time and disk space.
+
+Limitations:
 
 * can't GDB step debug the kernel, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <<prebuilt-toolchain>>.
 +
@@ -271,8 +386,45 @@ Maybe we could work around this by just downloading the kernel source somehow, a
 * you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us.
 * <<gem5>> is not currently supported, although it should not be too hard to do. One annoyance is that there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself.
 
+==== Prebuilt setup getting started
+
+Download this repo:
+
+....
+git clone https://github.com/cirosantilli/linux-kernel-module-cheat
+cd linux-kernel-module-cheat
+....
+
+Go to the latest release link:https://github.com/cirosantilli/linux-kernel-module-cheat/releases[], download the `lkmc-*.zip` file and extract it into the repository:
+
+....
+unzip lkmc-*.zip
+....
+
+It is link:https://stackoverflow.com/questions/24987542/is-there-a-link-to-github-for-downloading-a-file-in-the-latest-release-of-a-repo/50540591#50540591[not possible to automate this step without the API], and I'm not venturing there at this time, pull requests welcome.
+
+Checkout to the prebuilt repo version so that the scripts and documentation will be compatible with it, and run with the `-P` option:
+
+....
+git checkout <release-sha>
+git submodule update --init "$(./getvar qemu_src_dir)"
+./build-qemu
+./run
+....
+
+and you are done.
+
+Alternatively, you can also try to use the host QEMU:
+
+....
+sudo apt-get install qemu-system-x86
+./run -P
+....
+
+but QEMU builds are pretty quick, and this further increases the probability of incompatibilities, are you really that lazy?
+
 [[host]]
-==== Getting started on host
+=== Host kernel module setup
 
 This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
 
@@ -289,7 +441,7 @@ It has however severe limitations, and you will soon see that the compilation ti
 Still interested?
 
 ....
-cd kernel_module
+cd packages/kernel_modules
 ./make-host.sh
 ....
 
@@ -323,7 +475,7 @@ sudo lsmod | grep hello
 Once you are done with this method, you must clean up the in-tree build objects before you decide to do the right thing and move on to the superior `./build` Buildroot method:
 
 ....
-cd "kernel_module"
+cd packages/kernel_modules
 ./make-host.sh clean
 ....
 
@@ -403,7 +555,7 @@ flooding the screen with colors. See also: https://superuser.com/questions/22309
 TODO: on arm, we see the penguin and some boot messages, but don't get a shell at then end:
 
 ....
-./run -a aarch64 -x
+./run --arch aarch64 -x
 ....
 
 I think it does not work because the graphic window is <<drm>> only, i.e.:
@@ -468,10 +620,10 @@ Overview: https://stackoverflow.com/questions/50364863/how-to-get-graphical-gui-
 More concretely:
 
 ....
-git -C linux checkout gem5/v4.15
-./build -gl -aa -K linux/arch/arm/configs/gem5_defconfig -L gem5-v4.15
-git -C linux checkout -
-./run -aa -g -L gem5-v4.15
+git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
+./build -gl --arch arm -K linux/arch/arm/configs/gem5_defconfig -L gem5-v4.15
+git -C "$(./getvar linux_src_dir)" checkout -
+./run --arch arm -g -L gem5-v4.15
 ....
 
 and then on another shell:
@@ -507,7 +659,7 @@ info: VNC client attached
 Alternatively, you can also view the frames with `--frame-capture`:
 
 ....
-./run -aa -g -L gem5-v4.15 -- --frame-capture
+./run --arch arm -g -L gem5-v4.15 -- --frame-capture
 ....
 
 This option dumps one compressed PNG whenever the screen image changes inside `m5out`, indexed by the cycle ID. This allows for more controlled experiments.
@@ -527,14 +679,14 @@ Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/
 For `aarch64` we also need `-c kernel_config_fragment/display`:
 
 ....
-git -C linux checkout gem5/v4.15
-./build -gl -a A \
+git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
+./build -gl --arch aarch64 \
   -c kernel_config_fragment/display \
   -K linux/arch/arm64/configs/gem5_defconfig \
   -L gem5-v4.15 \
 ;
-git -C linux checkout -
-./run -a A -gu -L gem5-v4.15
+git -C "$(./getvar linux_src_dir)" checkout -
+./run --arch aarch64 -gu -L gem5-v4.15
 ....
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
@@ -609,7 +761,39 @@ To automate that, use the methods described at: <<init>>
 
 === printk
 
-We use `printk` a lot, and it shows on the terminal by default, along with stdout and what you type.
+=== Text mode
+
+By default, we show the serial console directly on the current terminal, without opening a QEMU window.
+
+Quit QEMU immediately:
+
+....
+Ctrl-A X
+....
+
+https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui
+
+Alternative methods:
+
+* `quit` command on the <<qemu-monitor>>
+* `pkill qemu`
+=== Text mode
+
+By default, we show the serial console directly on the current terminal, without opening a QEMU window.
+
+Quit QEMU immediately:
+
+....
+Ctrl-A X
+....
+
+https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui
+
+Alternative methods:
+
+* `quit` command on the <<qemu-monitor>>
+* `pkill qemu`
+We use `printk` a lot in our kernel modules, and it shows on the terminal by default, along with stdout and what you type.
 
 Hide all `printk` messages:
 
@@ -712,7 +896,7 @@ echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
 insmod /myprintk.ko
 ....
 
-Source: link:kernel_module/myprintk.c[]
+Source: link:packages/kernel_modules/myprintk.c[]
 
 This outputs the `pr_debug` message:
 
@@ -731,7 +915,7 @@ and it shows as enabled:
 
 ....
 # grep myprintk /sys/kernel/debug/dynamic_debug/control
-/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_module-1.0/./myprintk.c:12 [myprintk]myinit =p "pr_debug\012"
+/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./myprintk.c:12 [myprintk]myinit =p "pr_debug\012"
 ....
 
 Enable `pr_debug` for boot messages as well, before we can reach userland and write to `/proc`:
@@ -807,10 +991,10 @@ For example, you you modify the kernel modules, you must rebuild with:
 which is just an alias for:
 
 ....
-./build -- kernel_module-reconfigure
+./build -- kernel_modules-reconfigure
 ....
 
-where `kernel_module` is the name of out Buildroot package that contains the kernel modules.
+where `kernel_modules` is the name of out Buildroot package that contains the kernel modules.
 
 Other important targets are:
 
@@ -839,7 +1023,7 @@ Not all packages have an alias, when they don't, just use the form:
 For example, if you decide to <<enable-compiler-optimizations>> after an initial build is finished, you must first clean the build before rebuilding:
 
 ....
-./build -B 'BR2_OPTIMIZE_3=y' kernel_module-dirclean kernel_module-reconfigure
+./build -B 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
 ....
 
 as explained at: https://buildroot.org/downloads/manual/manual.html#rebuild-pkg
@@ -849,7 +1033,7 @@ The clean is necessary because the source files didn't change, so `make` would j
 [[retype]]
 === Don't retype arguments all the time
 
-It gets annoying to retype `-a aarch64` for every single command, or to remember `./build -B` setups.
+It gets annoying to retype `--arch aarch64` for every single command, or to remember `./build -B` setups.
 
 So simplify that, do:
 
@@ -1054,7 +1238,7 @@ If you are feeling fancy, you can also insert modules with:
 modprobe hello
 ....
 
-which insmods link:kernel_module/hello.c[].
+which insmods link:packages/kernel_modules/hello.c[].
 
 `modprobe` searches for modules under:
 
@@ -1084,8 +1268,8 @@ which teaches you how it is done from C code.
 
 Source:
 
-* link:kernel_module/user/myinsmod.c[]
-* link:kernel_module/user/myrmmod.c[]
+* link:packages/kernel_modules/user/myinsmod.c[]
+* link:packages/kernel_modules/user/myrmmod.c[]
 
 The Linux kernel offers two system calls for module insertion:
 
@@ -1140,22 +1324,22 @@ Our scripts solve two difficulties with simultaneous runs:
 Each run gets a separate output directory. For example:
 
 ....
-./run -a A -g -n 0 &>/dev/null &
-./run -a A -g -n 1 &>/dev/null &
+./run --arch aarch64 -g -n 0 &>/dev/null &
+./run --arch aarch64 -g -n 1 &>/dev/null &
 ....
 
 produces two separate `m5out` directories:
 
 ....
-echo "$(./getvar -a A -g -n 0 m5out_dir)"
-echo "$(./getvar -a A -g -n 1 m5out_dir)"
+echo "$(./getvar --arch aarch64 -g -n 0 m5out_dir)"
+echo "$(./getvar --arch aarch64 -g -n 1 m5out_dir)"
 ....
 
 and the gem5 host executable stdout and stderr can be found at:
 
 ....
-less "$(./getvar -a A -g -n 0 termout_file)"
-less "$(./getvar -a A -g -n 1 termout_file)"
+less "$(./getvar --arch aarch64 -g -n 0 termout_file)"
+less "$(./getvar --arch aarch64 -g -n 1 termout_file)"
 ....
 
 Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
@@ -1163,7 +1347,7 @@ Each line is prepended with the timestamp in seconds since the start of the prog
 To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
 
 ....
-./run -a A -g -n some-experiment --port-offset 1
+./run --arch aarch64 -g -n some-experiment --port-offset 1
 ....
 
 `--port-offset` defaults to the run ID when that is a number.
@@ -1378,7 +1562,7 @@ Wait for the boot to end and run:
 insmod /timer.ko
 ....
 
-Source: link:kernel_module/timer.c[].
+Source: link:packages/kernel_modules/timer.c[].
 
 This prints a message to dmesg every second.
 
@@ -1392,7 +1576,7 @@ In GDB, hit `Ctrl-C`, and note how it says:
 
 ....
 scanning for modules in /linux-kernel-module-cheat//out/x86_64/buildroot/build/linux-custom
-loading @0xffffffffc0000000: ../kernel_module-1.0//timer.ko
+loading @0xffffffffc0000000: ../kernel_modules-1.0//timer.ko
 ....
 
 That's `lx-symbols` working! Now simply:
@@ -1429,18 +1613,18 @@ Error occurred in Python command: Cannot access memory at address 0xbf0000cc
 
 Can't reproduce on `x86_64` and `aarch64` are fine.
 
-It is kind of random: if you just `insmod` manually and then immediately `./rungdb -a arm`, then it usually works.
+It is kind of random: if you just `insmod` manually and then immediately `./rungdb --arch arm`, then it usually works.
 
 But this fails most of the time: shell 1:
 
 ....
-./run -a arm -F 'insmod /hello.ko'
+./run --arch arm -F 'insmod /hello.ko'
 ....
 
 shell 2:
 
 ....
-./rungdb -a arm
+./rungdb --arch arm
 ....
 
 then hit `Ctrl-C` on shell 2, and voila.
@@ -1462,7 +1646,7 @@ so it is close to the failing `0xbf0000cc`.
 `readelf`:
 
 ....
-./runtc readelf -- -s "$(./getvar build_dir)/kernel_module-1.0/hello.ko"
+./runtc readelf -- -s "$(./getvar build_dir)/kernel_modules-1.0/hello.ko"
 ....
 
 does not give any interesting hits at `cc`, no symbol was placed that far.
@@ -1536,7 +1720,7 @@ Now let's find the offset of `myinit`:
 
 ....
 ./runtc readelf -- \
-  -s "$(./getvar build_dir)/kernel_module-1.0/fops.ko" | \
+  -s "$(./getvar build_dir)/kernel_modules-1.0/fops.ko" | \
   grep myinit
 ....
 
@@ -1654,7 +1838,7 @@ And then tell GDB where the module was loaded with:
 
 ....
 Ctrl-C
-add-symbol-file ../kernel_module-1.0/fops.ko 0xfffffffa00000000
+add-symbol-file ../kernel_modules-1.0/fops.ko 0xfffffffa00000000
 ....
 
 Alternatively, if the module panics before you can read `/proc/modules`, there is a <<pr_debug>> which shows the load address:
@@ -1697,20 +1881,20 @@ See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operati
 One possibility is to run:
 
 ....
-./trace-boot -a arm
+./trace-boot --arch arm
 ....
 
 and then find the second address (the first one does not work, already too late maybe):
 
 ....
-less "$(./getvar -a arm trace_txt_file)"
+less "$(./getvar --arch arm trace_txt_file)"
 ....
 
 and break there:
 
 ....
-./run -a arm -d
-./rungdb -a arm '*0x1000'
+./run --arch arm -d
+./rungdb --arch arm '*0x1000'
 ....
 
 but TODO: it does not show the source assembly under `arch/arm`: https://stackoverflow.com/questions/11423784/qemu-arm-linux-kernel-boot-debug-no-source-code
@@ -1766,7 +1950,7 @@ since GDB does not know that libc is loaded.
 * Shell 2:
 +
 ....
-./rungdb-user kernel_module-1.0/user/sleep_forever.out main
+./rungdb-user kernel_modules-1.0/user/sleep_forever.out main
 ....
 
 TODO not working as of f8c0502bb2680f2dbe7c1f3d7958f60265347005, does not break. Bisect on recent QEMU and kernel. Debug by creating an executable that prints the address of `main`.
@@ -1819,7 +2003,7 @@ Non-init process:
 * Shell 2:
 +
 ....
-./rungdb-user kernel_module-1.0/user/myinsmod.out main
+./rungdb-user kernel_modules-1.0/user/myinsmod.out main
 ....
 * Shell 1 after the boot finishes:
 +
@@ -1836,12 +2020,12 @@ TODO: on QEMU bfba11afddae2f7b2c1335b4e23133e9cd3c9126, it works on `x86_64` and
 * Shell 1:
 +
 ....
-./run -a arm
+./run --arch arm
 ....
 * Shell 2: wait for boot to finish, and run:
 +
 ....
-./rungdb-user -a arm kernel_module-1.0/user/hello.out main
+./rungdb-user --arch arm kernel_modules-1.0/user/hello.out main
 ....
 * Shell 1:
 +
@@ -1858,8 +2042,8 @@ Cannot access memory at address 0x10604
 We have also double checked the address with:
 
 ....
-./runtc -a arm readelf -- \
-  -s "$(./getvar -a arm build_dir)/kernel_module-1.0/fops.ko" | \
+./runtc --arch arm readelf -- \
+  -s "$(./getvar --arch arm build_dir)/kernel_modules-1.0/fops.ko" | \
   grep main
 ....
 
@@ -1949,7 +2133,7 @@ We can set and get which cores the Linux kernel allows a program to run on with 
 ./run -c2 -F '/sched_getaffinity.out'
 ....
 
-Source: link:kernel_module/user/sched_getaffinity.c[]
+Source: link:packages/kernel_modules/user/sched_getaffinity.c[]
 
 Sample output:
 
@@ -1997,7 +2181,7 @@ We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and cor
 on another shell:
 
 ....
-./rungdb-user kernel_module-1.0/user/sched_getaffinity.out main
+./rungdb-user kernel_modules-1.0/user/sched_getaffinity.out main
 ....
 
 Then, inside GDB:
@@ -2028,7 +2212,7 @@ TODO we then tried:
 and:
 
 ....
-./rungdb-user kernel_module-1.0/user/sched_getaffinity_threads.out
+./rungdb-user kernel_modules-1.0/user/sched_getaffinity_threads.out
 ....
 
 to switch between two simultaneous live threads with different affinities, it just didn't break on our threads:
@@ -2220,7 +2404,7 @@ Source: link:rootfs_overlay/kgdb-mod.sh[].
 In GDB:
 
 ....
-lx-symbols ../kernel_module-1.0/
+lx-symbols ../kernel_modules-1.0/
 b fop_write
 c
 c
@@ -2284,7 +2468,7 @@ Source: link:rootfs_overlay/gdbserver.sh[].
 Host:
 
 ....
-./rungdbserver kernel_module-1.0/user/myinsmod.out
+./rungdbserver kernel_modules-1.0/user/myinsmod.out
 ....
 
 You can find the executable with:
@@ -2319,7 +2503,7 @@ An implementation overview can be found at: https://reverseengineering.stackexch
 As usual, different archs work with:
 
 ....
-./rungdbserver -a arm kernel_module-1.0/user/myinsmod.out
+./rungdbserver --arch arm kernel_modules-1.0/user/myinsmod.out
 ....
 
 === gdbserver BusyBox
@@ -2374,25 +2558,25 @@ The portability of the kernel and toolchains is amazing: change an option and mo
 To use `arm` instead of x86 for example:
 
 ....
-./build -a arm
-./run -a arm
+./build --arch arm
+./run --arch arm
 ....
 
 Debug:
 
 ....
-./run -a arm -d
+./run --arch arm -d
 # On another terminal.
-./rungdb -a arm
+./rungdb --arch arm
 ....
 
-We also have one letter shorthand names for the architectures:
+We also have one letter shorthand names for the architectures and `--arch` option:
 
 ....
 # aarch64
-./run -a A
+./run --arch aarch64
 # arm
-./run -a a
+./run --arch arm
 # x86_64
 ./run -a x
 ....
@@ -2439,9 +2623,9 @@ traps: ring0.out[55] general protection ip:40054c sp:7fffffffec20 error:0 in rin
 
 Sources:
 
-* link:kernel_module/ring0.c[]
-* link:kernel_module/ring0.h[]
-* link:kernel_module/user/ring0.c[]
+* link:packages/kernel_modules/ring0.c[]
+* link:packages/kernel_modules/ring0.h[]
+* link:packages/kernel_modules/user/ring0.c[]
 
 In both cases, we attempt to run the exact same code which is shared on the `ring0.h` header file.
 
@@ -2459,8 +2643,8 @@ TODO Can you run arm executables in the aarch64 guest? https://stackoverflow.com
 I've tried:
 
 ....
-./runtc -a aarch64 gcc -- -static ~/test/hello_world.c -o data/9p/a.out
-./run -a A -F '/mnt/9p/a.out'
+./runtc --arch aarch64 gcc -- -static ~/test/hello_world.c -o data/9p/a.out
+./run --arch aarch64 -F '/mnt/9p/a.out'
 ....
 
 but it fails with:
@@ -2578,7 +2762,7 @@ but why not just use our minimal `/poweroff.out` and be done with it?
 ./run -E '/poweroff.out'
 ....
 
-Source: link:kernel_module/user/poweroff.c[]
+Source: link:packages/kernel_modules/user/poweroff.c[]
 
 This also illustrates how to shutdown the computer from C: https://stackoverflow.com/questions/28812514/how-to-shutdown-linux-using-c-or-qt-without-call-to-system
 
@@ -2590,7 +2774,7 @@ I dare you to guess what this does:
 ./run -E '/sleep_forever.out'
 ....
 
-Source: link:kernel_module/user/sleep_forever.c[]
+Source: link:packages/kernel_modules/user/sleep_forever.c[]
 
 This executable is a convenient simple init that does not panic and sleeps instead.
 
@@ -2683,7 +2867,7 @@ TERM=linux
 asdf=qwer
 ....
 
-Source: link:kernel_module/user/init_env_poweroff.c[].
+Source: link:packages/kernel_modules/user/init_env_poweroff.c[].
 
 ==== init environment args
 
@@ -3191,7 +3375,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/params.c[]
+* link:packages/kernel_modules/params.c[]
 * link:rootfs_overlay/params.sh[]
 
 As shown in the example, module parameters can also be read and modified at runtime from <<sysfs>>.
@@ -3245,8 +3429,8 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/dep.c[]
-* link:kernel_module/dep2.c[]
+* link:packages/kernel_modules/dep.c[]
+* link:packages/kernel_modules/dep2.c[]
 * link:rootfs_overlay/dep.sh[]
 
 The kernel deduces dependencies based on the `EXPORT_SYMBOL` that each module uses.
@@ -3344,7 +3528,7 @@ name = module_info
 version = 1.0
 ....
 
-Source: link:kernel_module/module_info.c[]
+Source: link:packages/kernel_modules/module_info.c[]
 
 Some of those are also present on sysfs:
 
@@ -3430,7 +3614,7 @@ Possible dmesg output:
 VERMAGIC_STRING = 4.17.0 SMP mod_unload modversions
 ....
 
-Source: link:kernel_module/vermagic.c[]
+Source: link:packages/kernel_modules/vermagic.c[]
 
 If we artificially create a mismatch with `MODULE_INFO(vermagic`, the insmod fails with:
 
@@ -3444,7 +3628,7 @@ and `dmesg` says the expected and found vermagic found:
 vermagic_fail: version magic 'asdfqwer' should be '4.17.0 SMP mod_unload modversions '
 ....
 
-Source: link:kernel_module/vermagic_fail.c[]
+Source: link:packages/kernel_modules/vermagic_fail.c[]
 
 The kernel's vermagic is defined based on compile time configurations at link:https://github.com/torvalds/linux/blob/v4.17/include/linux/vermagic.h#L35[include/linux/vermagic.h]:
 
@@ -3492,7 +3676,7 @@ init_module
 cleanup_module
 ....
 
-Source: link:kernel_module/module_init.c[]
+Source: link:packages/kernel_modules/module_init.c[]
 
 TODO why were `module_init` and `module_exit` created? https://stackoverflow.com/questions/3218320/what-is-the-difference-between-module-init-and-init-module-in-a-linux-kernel-mod
 
@@ -3507,8 +3691,8 @@ insmod /oops.ko
 
 Source:
 
-* link:kernel_module/panic.c[]
-* link:kernel_module/oops.c[]
+* link:packages/kernel_modules/panic.c[]
+* link:packages/kernel_modules/oops.c[]
 
 A panic can also be generated with:
 
@@ -3599,7 +3783,7 @@ info line *(myinit+0x1d)
 which gives us the correct line:
 
 ....
-Line 7 of "/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_module-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
+Line 7 of "/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
 ....
 
 as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-convert-addresses-to-lines/27576029#27576029
@@ -3610,7 +3794,7 @@ The exact same thing can be done post mortem with:
 ./runtc gdb -- \
   -batch \
   -ex 'info line *(myinit+0x1d)' \
-  "$(./getvar build_dir)/kernel_module-1.0/panic.ko" \
+  "$(./getvar build_dir)/kernel_modules-1.0/panic.ko" \
 ;
 ....
 
@@ -3653,8 +3837,8 @@ before hanging forever.
 We can make gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `fs.py` quit instead of hang with `system.panic_on_panic`:
 
 ....
-patch -d gem5/gem5 -p1 < patches/manual/gem5-panic.patch
-./run -aa -F 'echo c > /proc/sysrq-trigger' -g
+patch -d "$(./getvar gem5_src_dir)" -p1 < patches/manual/gem5-panic.patch
+./run --arch arm -F 'echo c > /proc/sysrq-trigger' -g
 ....
 
 Source: link:patches/manual/gem5-panic.patch[].
@@ -3829,7 +4013,7 @@ info line *(myinit+0x18)
 which gives us the correct line:
 
 ....
-Line 7 of "/linux-kernel-module-cheat/out/arm/buildroot/build/kernel_module-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
+Line 7 of "/linux-kernel-module-cheat/out/arm/buildroot/build/kernel_modules-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
 ....
 
 This-did not work on `arm` due to <<gdb-step-debug-kernel-module-arm>> so we need to either:
@@ -3845,7 +4029,7 @@ The `dump_stack` function produces a stack trace much like panic and oops, but c
 insmod /dump_stack.ko
 ....
 
-Source: link:kernel_module/dump_stack.c[]
+Source: link:packages/kernel_modules/dump_stack.c[]
 
 ==== WARN_ON
 
@@ -3858,7 +4042,7 @@ echo 1 > /proc/sys/kernel/panic_on_warn
 insmod /warn_on.ko
 ....
 
-Source: link:kernel_module/warn_on.c[]
+Source: link:packages/kernel_modules/warn_on.c[]
 
 Can also be activated with the `panic_on_warn` boot parameter.
 
@@ -3890,7 +4074,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/debugfs.c[]
+* link:packages/kernel_modules/debugfs.c[]
 * link:rootfs_overlay/debugfs.sh[]
 
 Debugfs is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
@@ -3931,7 +4115,7 @@ Procfs can run all system calls, including ones that debugfs can't, e.g. <<mmap>
 
 Sources:
 
-* link:kernel_module/procfs.c[]
+* link:packages/kernel_modules/procfs.c[]
 * link:rootfs_overlay/procfs.sh[]
 
 Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
@@ -3953,7 +4137,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/sysfs.c[]
+* link:packages/kernel_modules/sysfs.c[]
 * link:rootfs_overlay/sysfs.sh[]
 
 Vs procfs:
@@ -3994,7 +4178,7 @@ Sources:
 
 * link:rootfs_overlay/character_device.sh[]
 * link:rootfs_overlay/mknoddev.sh[]
-* link:kernel_module/character_device.c[]
+* link:packages/kernel_modules/character_device.c[]
 
 Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
 
@@ -4047,7 +4231,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/character_device_create.c[]
+* link:packages/kernel_modules/character_device_create.c[]
 * link:rootfs_overlay/character_device_create.sh[]
 
 Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
@@ -4073,7 +4257,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/fops.c[]
+* link:packages/kernel_modules/fops.c[]
 * link:rootfs_overlay/fops.sh[]
 
 Then give this a try:
@@ -4103,7 +4287,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/seq_file.c[]
+* link:packages/kernel_modules/seq_file.c[]
 * link:rootfs_overlay/seq_file.sh[]
 
 In this example we create a debugfs file that behaves just like a file that contains:
@@ -4140,7 +4324,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/seq_file_single_open.c[]
+* link:packages/kernel_modules/seq_file_single_open.c[]
 * link:rootfs_overlay/seq_file_single_open.sh[]
 
 This example produces a debugfs file that behaves like a file that contains:
@@ -4162,8 +4346,8 @@ Outcome: `jiffies` gets printed to stdout every second from userland.
 
 Sources:
 
-* link:kernel_module/poll.c[]
-* link:kernel_module/poll.c[]
+* link:packages/kernel_modules/poll.c[]
+* link:packages/kernel_modules/poll.c[]
 * link:rootfs_overlay/poll.sh[]
 
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
@@ -4191,9 +4375,9 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/ioctl.c[]
-* link:kernel_module/ioctl.h[]
-* link:kernel_module/user/ioctl.c[]
+* link:packages/kernel_modules/ioctl.c[]
+* link:packages/kernel_modules/ioctl.h[]
+* link:packages/kernel_modules/user/ioctl.c[]
 * link:rootfs_overlay/ioctl.sh[]
 
 `ioctl` is one of the most important methods of communication with real device drivers, which often take several fields as input.
@@ -4240,8 +4424,8 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/mmap.c[]
-* link:kernel_module/user/mmap.c[]
+* link:packages/kernel_modules/mmap.c[]
+* link:packages/kernel_modules/user/mmap.c[]
 * link:rootfs_overlay/mmap.sh[]
 
 In this example, we make a tiny 4 byte kernel buffer available to user-space, and we then modify it on userspace, and check that the kernel can see the modification.
@@ -4276,9 +4460,9 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/anonymous_inode.c[]
-* link:kernel_module/anonymous_inode.h[]
-* link:kernel_module/user/anonymous_inode.c[]
+* link:packages/kernel_modules/anonymous_inode.c[]
+* link:packages/kernel_modules/anonymous_inode.h[]
+* link:packages/kernel_modules/user/anonymous_inode.c[]
 * link:rootfs_overlay/anonymous_inode.sh[]
 
 This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
@@ -4304,9 +4488,9 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/netlink.c[]
-* link:kernel_module/netlink.h[]
-* link:kernel_module/user/netlink.c[]
+* link:packages/kernel_modules/netlink.c[]
+* link:packages/kernel_modules/netlink.h[]
+* link:packages/kernel_modules/user/netlink.c[]
 * link:rootfs_overlay/netlink.sh[]
 
 Launch multiple user requests in parallel to stress our socket:
@@ -4331,7 +4515,7 @@ Kernel threads are managed exactly like userland threads; they also have a backi
 insmod /kthread.ko
 ....
 
-Source: link:kernel_module/kthread.c[]
+Source: link:packages/kernel_modules/kthread.c[]
 
 Outcome: dmesg counts from `0` to `9` once every second infinitely many times:
 
@@ -4369,7 +4553,7 @@ Let's launch two threads and see if they actually run in parallel:
 insmod /kthreads.ko
 ....
 
-Source: link:kernel_module/kthreads.c[]
+Source: link:packages/kernel_modules/kthreads.c[]
 
 Outcome: two threads count to dmesg from `0` to `9` in parallel.
 
@@ -4403,7 +4587,7 @@ Count to dmesg every one second from `0` up to `n - 1`:
 insmod /sleep.ko n=5
 ....
 
-Source: link:kernel_module/sleep.c[]
+Source: link:packages/kernel_modules/sleep.c[]
 
 The sleep is done with a call to link:https://github.com/torvalds/linux/blob/v4.17/kernel/time/timer.c#L1984[`usleep_range`] directly inside `module_init` for simplicity.
 
@@ -4428,7 +4612,7 @@ Stop counting:
 rmmod workqueue_cheat
 ....
 
-Source: link:kernel_module/workqueue_cheat.c[]
+Source: link:packages/kernel_modules/workqueue_cheat.c[]
 
 The workqueue thread is killed after the worker function returns.
 
@@ -4452,7 +4636,7 @@ rmmod work_from_work
 
 The sleep is done indirectly through: link:https://github.com/torvalds/linux/blob/v4.17/include/linux/workqueue.h#L522[`queue_delayed_work`], which waits the specified time before scheduling the work.
 
-Source: link:kernel_module/work_from_work.c[]
+Source: link:packages/kernel_modules/work_from_work.c[]
 
 ==== schedule
 
@@ -4464,7 +4648,7 @@ Let's block the entire kernel! Yay:
 
 Outcome: the system hangs, the only way out is to kill the VM.
 
-Source: link:kernel_module/schedule.c[]
+Source: link:packages/kernel_modules/schedule.c[]
 
 kthreads only allow interrupting if you call `schedule()`, and the `schedule=0` <<kernel-module-parameters,kernel module parameter>> turns it off.
 
@@ -4520,7 +4704,7 @@ Stop the count:
 rmmod wait_queue
 ....
 
-Source: link:kernel_module/wait_queue.c[]
+Source: link:packages/kernel_modules/wait_queue.c[]
 
 This example launches three threads:
 
@@ -4548,7 +4732,7 @@ Stop counting:
 rmmod timer
 ....
 
-Source: link:kernel_module/timer.c[]
+Source: link:packages/kernel_modules/timer.c[]
 
 Timers are callbacks that run when an interrupt happens, from the interrupt context itself.
 
@@ -4569,7 +4753,7 @@ Brute force monitor every shared interrupt that will accept us:
 ./run -F 'insmod /irq.ko' -x
 ....
 
-Source: link:kernel_module/irq.c[].
+Source: link:packages/kernel_modules/irq.c[].
 
 Now try the following:
 
@@ -4713,7 +4897,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:kernel_module/kstrto.c[]
+* link:packages/kernel_modules/kstrto.c[]
 * link:rootfs_overlay/kstrto.sh[]
 
 Bibliography: https://stackoverflow.com/questions/6139493/how-convert-char-to-int-in-linux-kernel/49811658#49811658
@@ -4727,7 +4911,7 @@ insmod /virt_to_phys.ko
 cat /sys/kernel/debug/lkmc_virt_to_phys
 ....
 
-Source: link:kernel_module/virt_to_phys.c[]
+Source: link:packages/kernel_modules/virt_to_phys.c[]
 
 Sample output:
 
@@ -4784,7 +4968,7 @@ First get a virtual address to play with:
 /virt_to_phys_test.out &
 ....
 
-Source: link:kernel_module/user/virt_to_phys_test.c[]
+Source: link:packages/kernel_modules/user/virt_to_phys_test.c[]
 
 Sample output:
 
@@ -4811,7 +4995,7 @@ Sample output physical address:
 0x7c7b800
 ....
 
-Source: link:kernel_module/user/virt_to_phys_user.c[]
+Source: link:packages/kernel_modules/user/virt_to_phys_user.c[]
 
 Now we can verify that `virt_to_phys_user.out` gave the correct physical address in the following ways:
 
@@ -4928,7 +5112,7 @@ vaddr pfn soft-dirty file/shared swapped present library
 7ffff78ec000 1fd4 0 1 0 1 /lib/libuClibc-1.0.30.so
 ....
 
-Source: link:kernel_module/user/pagemap_dump.c[]
+Source: link:packages/kernel_modules/user/pagemap_dump.c[]
 
 Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c
 
@@ -4937,7 +5121,7 @@ Meaning of the flags:
 * `vaddr`: first virtual address of a page the belongs to the process. Notably:
 +
 ....
-./runtc readelf -- -l "$(./getvar build_dir)/kernel_module-1.0/user/virt_to_phys_test.out"
+./runtc readelf -- -l "$(./getvar build_dir)/kernel_modules-1.0/user/virt_to_phys_test.out"
 ....
 +
 contains:
@@ -5004,7 +5188,7 @@ I hope to have examples of all methods some day, since I'm obsessed with visibil
 
 ==== CONFIG_PROC_EVENTS
 
-Logs proc events such as process creation to a link:kernel_module/netlink.c[netlink socket].
+Logs proc events such as process creation to a link:packages/kernel_modules/netlink.c[netlink socket].
 
 We then have a userland program that listens to the events and prints them out:
 
@@ -5023,7 +5207,7 @@ a
 #
 ....
 
-Source: link:kernel_module/user/proc_events.c[]
+Source: link:packages/kernel_modules/user/proc_events.c[]
 
 TODO: why `exit: tid=79` shows after `exit: tid=80`?
 
@@ -5049,8 +5233,8 @@ TODO can you get process data such as UID and process arguments? It seems not si
 0111ca406bdfa6fd65a2605d353583b4c4051781 was failing with:
 
 ....
->>> kernel_module 1.0 Building
-/usr/bin/make -j8 -C '/linux-kernel-module-cheat//out/aarch64/buildroot/build/kernel_module-1.0/user' BR2_PACKAGE_OPENBLAS="" CC="/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc" LD="/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-ld"
+>>> kernel_modules 1.0 Building
+/usr/bin/make -j8 -C '/linux-kernel-module-cheat//out/aarch64/buildroot/build/kernel_modules-1.0/user' BR2_PACKAGE_OPENBLAS="" CC="/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc" LD="/linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-ld"
 /linux-kernel-module-cheat//out/aarch64/buildroot/host/bin/aarch64-buildroot-linux-uclibc-gcc  -ggdb3 -fopenmp -O0 -std=c99 -Wall -Werror -Wextra -o 'proc_events.out' 'proc_events.c'
 In file included from /linux-kernel-module-cheat//out/aarch64/buildroot/host/aarch64-buildroot-linux-uclibc/sysroot/usr/include/signal.h:329:0,
                  from proc_events.c:12:
@@ -5219,7 +5403,7 @@ Outcome: dmesg outputs on every fork:
 <_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
 ....
 
-Source: link:kernel_module/kprobe_example.c[]
+Source: link:packages/kernel_modules/kprobe_example.c[]
 
 TODO: it does not work if I try to immediately launch `sleep`, why?
 
@@ -5282,7 +5466,7 @@ Results (boot not excluded):
 QEMU:
 
 ....
-./trace-boot -a x86_64
+./trace-boot --arch x86_64
 ....
 
 sample output:
@@ -5296,10 +5480,10 @@ instructions_firmware 20708
 gem5:
 
 ....
-./run -a aarch64 -g -E 'm5 exit'
+./run --arch aarch64 -g -E 'm5 exit'
 # Or:
-# ./run -a aarch64 -g -E 'm5 exit' -- --cpu-type=HPI --caches
-./gem5-stat -a aarch64 sim_insts
+# ./run --arch aarch64 -g -E 'm5 exit' -- --cpu-type=HPI --caches
+./gem5-stat --arch aarch64 sim_insts
 ....
 
 Notes:
@@ -5328,11 +5512,11 @@ It only appears once on every log I've seen so far, checked with `grep 0x1000000
 +
 Then when we count the instructions that run before the kernel entry point, there is only about 100k instructions, which is insignificant compared to the kernel boot itself.
 +
-TODO `-a arm` and `-a aarch64` does not count firmware instructions properly because the entry point address of the ELF file (`ffffff8008080000` for `aarch64`) does not show up on the trace at all. Tested on link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/f8c0502bb2680f2dbe7c1f3d7958f60265347005[f8c0502bb2680f2dbe7c1f3d7958f60265347005].
+TODO `--arch arm` and `--arch aarch64` does not count firmware instructions properly because the entry point address of the ELF file (`ffffff8008080000` for `aarch64`) does not show up on the trace at all. Tested on link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/f8c0502bb2680f2dbe7c1f3d7958f60265347005[f8c0502bb2680f2dbe7c1f3d7958f60265347005].
 * We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
 +
 ....
-./rungdb-user kernel_module-1.0/user/poweroff.out main
+./rungdb-user kernel_modules-1.0/user/poweroff.out main
 ....
 +
 And get that from the traces, e.g. if the address is `4003a0`, then we search:
@@ -5383,7 +5567,7 @@ TODO not always reproducible. Find a more reproducible failure. I could not obse
 insmod /memcpy_overflow.ko
 ....
 
-Source: link:kernel_module/strlen_overflow.c[]
+Source: link:packages/kernel_modules/strlen_overflow.c[]
 
 Bibliography: https://www.reddit.com/r/hacking/comments/8h4qxk/what_a_buffer_overflow_in_the_linux_kernel_looks/
 
@@ -5425,7 +5609,7 @@ UIO interface in a nutshell:
 
 Sources:
 
-* link:kernel_module/user/uio_read.c[]
+* link:packages/kernel_modules/user/uio_read.c[]
 * link:rootfs_overlay/uio_read.sh[]
 
 Bibliography:
@@ -5556,7 +5740,7 @@ Minimal example:
 ./run -e 'init=/ctrl_alt_del.out' -x
 ....
 
-Source: link:kernel_module/user/ctrl_alt_del.c[]
+Source: link:packages/kernel_modules/user/ctrl_alt_del.c[]
 
 When you hit `Ctrl-Alt-Del` in the guest, our tiny init handles a `SIGINT` sent by the kernel and outputs to stdout:
 
@@ -5870,7 +6054,7 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 ./run -F '/libdrm_modeset.out' -x
 ....
 
-Source: link:kernel_module/user/libdrm_modeset.c[]
+Source: link:packages/kernel_modules/user/libdrm_modeset.c[]
 
 Outcome: for a few seconds, the screen that contains the terminal gets taken over by changing colors of the rainbow.
 
@@ -5897,7 +6081,7 @@ crw-------    1 root     root      226,   0 May 28 09:41 card0
 Try creating new displays:
 
 ....
-./run -a A -x -- -device virtio-gpu-pci
+./run --arch aarch64 -x -- -device virtio-gpu-pci
 ....
 
 to see multiple `/dev/dri/cardN`, and then use a different display with:
@@ -5986,7 +6170,7 @@ Looks like a more raw alternative to libdrm:
 
 ....
 ./build -B 'BR2_PACKABE_LIBDRI2=y'
-wget -O kernel_module/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
+wget -O packages/kernel_modules/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
 ./build -k
 ....
 
@@ -6202,7 +6386,7 @@ insmod /pci_min.ko
 
 Sources:
 
-* Kernel module: link:kernel_module/pci_min.c[].
+* Kernel module: link:packages/kernel_modules/pci_min.c[].
 * QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
 
 Outcome:
@@ -6241,7 +6425,7 @@ This tests a lot of features of the edu device, to understand the results, compa
 
 Sources:
 
-* kernel module: link:kernel_module/qemu_edu.c[]
+* kernel module: link:packages/kernel_modules/qemu_edu.c[]
 * QEMU device: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
 * test script: link:rootfs_overlay/qemu_edu.sh[]
 
@@ -6483,7 +6667,7 @@ where link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0190b/
 Then compile with:
 
 ....
-./build -aa -b br2/gpio -c kernel_config_fragment/gpio -l
+./build --arch arm -b br2/gpio -c kernel_config_fragment/gpio -l
 ....
 
 then test it out with:
@@ -6516,7 +6700,7 @@ static void arm_sysctl_write(void *opaque, hwaddr offset,
 and then rebuild with:
 
 ....
-./build -aa -c kernel_config_fragment/leds -lq
+./build --arch arm -c kernel_config_fragment/leds -lq
 ....
 
 But beware that one of the LEDs has a heartbeat trigger by default (specified on dts), so it will produce a lot of output.
@@ -6552,7 +6736,7 @@ git checkout platform-device
 
 before building, it does not work on master.
 
-The module itself can be found at: https://github.com/cirosantilli/linux-kernel-module-cheat/blob/platform-device/kernel_module/platform_device.c
+The module itself can be found at: https://github.com/cirosantilli/linux-kernel-module-cheat/blob/platform-device/kernel_modules/platform_device.c
 
 Rationale: we found out that the kernels that build for `qemu -M versatilepb` don't work on gem5 because `versatilepb` is an old pre-v7 platform, and gem5 requires armv7.
 
@@ -6788,7 +6972,7 @@ This has nothing to do with the Linux kernel, but it is cool:
 
 ....
 sudo apt-get install qemu-user
-./build -a arm
+./build --arch arm
 cd "$(./getvar target_dir)"
 qemu-arm -L . bin/ls
 ....
@@ -6800,7 +6984,7 @@ The reason this is cool, is that `ls` is not statically compiled, but since we h
 In other words, much cooler than:
 
 ....
-./runtc -a arm gcc -- -static ./kernel_module/user/hello.c
+./runtc --arch arm gcc -- -static ./packages/kernel_modules/user/hello.c
 qemu-arm a.out
 ....
 
@@ -6817,13 +7001,13 @@ Anyways, this warns us that the userland emulation will likely not be reliable, 
 GDB step debugging is also possible with:
 
 ....
-cd "$(./getvar -a arm target_dir)"
-qemu-arm -g 1234 -L . ../build/kernel_module-1.0/user/myinsmod.out
+cd "$(./getvar --arch arm target_dir)"
+qemu-arm -g 1234 -L . ../build/kernel_modules-1.0/user/myinsmod.out
 ../host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gdb \
   --nh \
   -ex 'set architecture arm' \
   -ex 'set sysroot .' \
-  -ex 'file ../build/kernel_module-1.0/user/myinsmod.out' \
+  -ex 'file ../build/kernel_modules-1.0/user/myinsmod.out' \
   -ex 'target remote localhost:1234' \
   -ex 'break main' \
   -ex 'continue' \
@@ -6851,12 +7035,12 @@ First we try some `-static` sanity checks.
 Works and prints `hello`:
 
 ....
-./runtc -a x86_64  gcc -- -static -o x86_64.out  ./kernel_module/user/hello.c
-./runtc -a arm     gcc -- -static -o arm.out     ./kernel_module/user/hello.c
-./runtc -a aarch64 gcc -- -static -o aarch64.out ./kernel_module/user/hello.c
-"$(./getvar -a x86_64 -g exec)"  ./gem5/gem5/configs/example/se.py -c ./x86_64.out
-"$(./getvar -a arm -g exec)"     ./gem5/gem5/configs/example/se.py -c ./arm.out
-"$(./getvar -a aarch64 -g exec)" ./gem5/gem5/configs/example/se.py -c ./aarch64.out
+./runtc --arch x86_64  gcc -- -static -o x86_64.out  ./packages/kernel_modules/user/hello.c
+./runtc --arch arm     gcc -- -static -o arm.out     ./packages/kernel_modules/user/hello.c
+./runtc --arch aarch64 gcc -- -static -o aarch64.out ./packages/kernel_modules/user/hello.c
+"$(./getvar --arch x86_64 -g exec)"  "$(./getvar gem5_src_dir)/configs/example/se.py" -c ./x86_64.out
+"$(./getvar --arch arm -g exec)"     "$(./getvar gem5_src_dir)/configs/example/se.py" -c ./arm.out
+"$(./getvar --arch aarch64 -g exec)" "$(./getvar gem5_src_dir)/configs/example/se.py" -c ./aarch64.out
 ....
 
 But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m/50542301#50542301
@@ -6864,9 +7048,9 @@ But I think this is unreliable, and only works because we are using uclibc which
 Ignoring that insanity, we then try it with dynamically linked executables:
 
 ....
-"$(./getvar -a x86_64  -g exec)" ./gem5/gem5/configs/example/se.py -c "$(./getvar -a x86_64  -g target_dir)/hello.out"
-"$(./getvar -a arm     -g exec)" ./gem5/gem5/configs/example/se.py -c "$(./getvar -a arm     -g target_dir)/hello.out"
-"$(./getvar -a aarch64 -g exec)" ./gem5/gem5/configs/example/se.py -c "$(./getvar -a aarch64 -g target_dir)/hello.out"
+"$(./getvar --arch x86_64  -g exec)" "$(./getvar gem5_src_dir)/configs/example/se.py" -c "$(./getvar --arch x86_64  -g target_dir)/hello.out"
+"$(./getvar --arch arm     -g exec)" "$(./getvar gem5_src_dir)/configs/example/se.py" -c "$(./getvar --arch arm     -g target_dir)/hello.out"
+"$(./getvar --arch aarch64 -g exec)" "$(./getvar gem5_src_dir)/configs/example/se.py" -c "$(./getvar --arch aarch64 -g target_dir)/hello.out"
 ....
 
 But at 185c2730cc78d5adda683d76c0e3b35e7cb534f0 they fail with:
@@ -6875,7 +7059,7 @@ But at 185c2730cc78d5adda683d76c0e3b35e7cb534f0 they fail with:
 fatal: Unable to open dynamic executable's interpreter.
 ....
 
-and `cd "$(./getvar -a aarch64 target_dir)` did not help: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
+and `cd "$(./getvar --arch aarch64 target_dir)` did not help: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
 
 The current FAQ says it is not possible to use dynamic executables: http://gem5.org/Frequently_Asked_Questions but I don't trust it, and then these presentations mention it:
 
@@ -6892,13 +7076,13 @@ gem5 user mode:
 
 ....
 make \
-  -C "$(./getvar -a arm build_dir)/dhrystone-2" \
+  -C "$(./getvar --arch arm build_dir)/dhrystone-2" \
   CC=""$(./getvar buildroot_out_dir)/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc" \
   CFLAGS=-static \
 ;
-time "$(./getvar -a arm -g exec)" \
+time "$(./getvar --arch arm -g exec)" \
   ./gem5/gem5/configs/example/se.py \
-  -c "$(./getvar -a arm build_dir)/dhrystone-2/dhrystone" \
+  -c "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
   -o 100000 \
 ;
 ....
@@ -6907,21 +7091,21 @@ gem5 full system:
 
 ....
 printf 'm5 exit' > data/readfile
-./run -a a -g -F '/gem5.sh'
+./run --arch arm -g -F '/gem5.sh'
 printf 'dhrystone 100000' > data/readfile
-time ./run -a a -l 1 -g
+time ./run --arch arm -l 1 -g
 ....
 
 QEMU user mode:
 
 ....
-time qemu-arm "$(./getvar -a arm build_dir)/dhrystone-2/dhrystone" 100000000
+time qemu-arm "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" 100000000
 ....
 
 QEMU full system:
 
 ....
-time ./run -a a -F 'time dhrystone 100000000;/poweroff.out'
+time ./run --arch arm -F 'time dhrystone 100000000;/poweroff.out'
 ....
 
 Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
@@ -7066,7 +7250,7 @@ QEMU can log several different events.
 The most interesting are events which show instructions that QEMU ran, for which we have a helper:
 
 ....
-./trace-boot -a x86_64
+./trace-boot --arch x86_64
 ....
 
 Under the hood, this uses QEMU's `-trace` option.
@@ -7074,7 +7258,7 @@ Under the hood, this uses QEMU's `-trace` option.
 You can then inspect the instructions with:
 
 ....
-less "$(./getvar -a x86_64 run_dir)/trace.txt"
+less "$(./getvar --arch x86_64 run_dir)/trace.txt"
 ....
 
 Get the list of available trace events:
@@ -7151,8 +7335,8 @@ TODO: what is the point of having two mechanisms, `-trace` and  `-d`? `-d` traci
 We can further use Binutils' `addr2line` to get the line that corresponds to each address:
 
 ....
-./trace-boot -a x86_64 && ./trace2line -a x86_64
-less "$(./getvar -a x86_64 run_dir)/trace-lines.txt"
+./trace-boot --arch x86_64 && ./trace2line --arch x86_64
+less "$(./getvar --arch x86_64 run_dir)/trace-lines.txt"
 ....
 
 The format is as follows:
@@ -7235,8 +7419,8 @@ TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a wor
 Then, when I tried with <<initrd>> and no disk:
 
 ....
-./build -a A -i
-./qemurr -a A -F '/rand_check.out;/poweroff.out;' -i
+./build --arch aarch64 -i
+./qemurr --arch aarch64 -F '/rand_check.out;/poweroff.out;' -i
 ....
 
 QEMU crashes with:
@@ -7283,7 +7467,7 @@ and we are back at `start_kernel`
 TODO: is there any way to distinguish which instruction runs on each core? Doing:
 
 ....
-./run -a x86_64 -c 2 -E '/poweroff.out' -T exec_tb
+./run --arch x86_64 -c 2 -E '/poweroff.out' -T exec_tb
 ./qemu-trace2txt
 ....
 
@@ -7308,14 +7492,14 @@ gem5 unlike QEMU is deterministic by default without needing to replay traces
 But it also provides a tracing mechanism documented at: link:http://www.gem5.org/Trace_Based_Debugging[] to allow easily inspecting certain aspects of the system:
 
 ....
-./run -a aarch64 -E 'm5 exit' -g -T Exec
-less "$(./getvar -a aarch64 run_dir)/trace.txt"
+./run --arch aarch64 -E 'm5 exit' -g -T Exec
+less "$(./getvar --arch aarch64 run_dir)/trace.txt"
 ....
 
 List all available debug flags:
 
 ....
-./run -a aarch64 -G='--debug-help' -g
+./run --arch aarch64 -G='--debug-help' -g
 ....
 
 but to understand most of them you have to look at the source code:
@@ -7366,8 +7550,8 @@ The best way to verify all of this is to write some bare metal code: https://sta
 Trace the source lines just like <<trace-source-lines,for QEMU>> with:
 
 ....
-./trace-boot -a aarch64 -g && ./trace2line -a aarch64 -g
-less "$(./getvar -a aarch64 run_dir)/trace-lines.txt"
+./trace-boot --arch aarch64 -g && ./trace2line --arch aarch64 -g
+less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"
 ....
 
 TODO: 7452d399290c9c1fc6366cdad129ef442f323564 `./trace2line` this is too slow and takes hours. QEMU's processing of 170k events takes 7 seconds. gem5's processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up... The workaround is to just use gem5's `ExecSymbol` to get function granularity, and then GDB individually if line detail is needed?
@@ -7389,32 +7573,6 @@ This started happening when we switched to building QEMU through Buildroot, and 
 Using text mode is another workaround if you don't need GUI features.
 
 == gem5
-
-=== gem5 getting started
-
-gem5 is a system simulator, much <<gem5-vs-qemu,like QEMU>>: http://gem5.org/
-
-For the most part, just add the `-g` option to all commands and everything should magically work:
-
-....
-./configure -g && ./build -a arm -g && ./run -a arm -g
-....
-
-To get a terminal, either open a new shell and run:
-
-....
-./gem5-shell
-....
-
-or use `./run -u` if you are using tmux, which I highly recommend: <<tmux-gem5>>.
-
-TODO: `arm` broken on kernel 4.18 with:
-
-....
-Internal error: Oops - undefined instruction
-....
-
-Workaround by checking out kernel 4.17 as explained at <<linux-kernel-build-variants>>. Bisected down to kernel 1d4238c56f9816ce0f9c8dbe42d7f2ad81cb6613, gem5 is not implementing the `CSDB` instruction.
 
 === gem5 vs QEMU
 
@@ -7505,7 +7663,7 @@ For more serious tests, you will likely want to automate logging the commands ra
 A more naive and simpler to understand approach would be a direct:
 
 ....
-./run -a aarch64 -g -E 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
+./run --arch aarch64 -g -E 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
 ....
 
 but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-scrip>>
@@ -7519,7 +7677,7 @@ Now you can play a fun little game with your friends:
 To find out why your program is slow, a good first step is to have a look at the statistics for the run:
 
 ....
-cat "$(./getvar -a aarch64 m5out_dir)/stats.txt"
+cat "$(./getvar --arch aarch64 m5out_dir)/stats.txt"
 ....
 
 Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
@@ -7555,7 +7713,7 @@ The rabbit hole is likely deep, but let's scratch a bit of the surface.
 ===== Number of cores
 
 ....
-./run -a arm -c 2 -g
+./run --arch arm -c 2 -g
 ....
 
 Check with:
@@ -7633,44 +7791,44 @@ Behaviour breakdown:
 So we take a performance measurement approach instead:
 
 ....
-./gem5-bench-cache -a aarch64
-cat "$(./getvar -a aarch64 run_dir)bench-cache.txt"
+./gem5-bench-cache --arch aarch64
+cat "$(./getvar --arch aarch64 run_dir)bench-cache.txt"
 ....
 
 which gives:
 
 ....
 n 1000
-cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --arch arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 24.71
 exit_status 0
 cycles 52386455
 instructions 4555081
-cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --arch arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 17.44
 exit_status 0
 cycles 6683355
 instructions 4466051
 
 n 10000
-cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --arch arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 52.90
 exit_status 0
 cycles 165704397
 instructions 11531136
-cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --arch arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 36.19
 exit_status 0
 cycles 16182925
 instructions 11422585
 
 n 100000
-cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --arch arm -g -l 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 325.09
 exit_status 0
 cycles 1295703657
 instructions 81189411
-cmd ./run -a arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --arch arm -g -l 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 250.74
 exit_status 0
 cycles 110585681
@@ -7699,7 +7857,7 @@ TODO: now to verify this with the Linux kernel? Besides raw performance benchmar
 ===== Memory size
 
 ....
-./run -a arm -m 512M
+./run --arch arm -m 512M
 ....
 
 and verify inside the guest with:
@@ -7724,7 +7882,7 @@ and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
 Clock frequency: TODO how does it affect performance in benchmarks?
 
 ....
-./run -a aarch64 -g -- --cpu-clock 10000000
+./run --arch aarch64 -g -- --cpu-clock 10000000
 ....
 
 Check with:
@@ -7736,7 +7894,7 @@ m5 resetstats && sleep 10 && m5 dumpstats
 and then:
 
 ....
-./gem5-stat -a aarch64
+./gem5-stat --arch aarch64
 ....
 
 TODO: why doesn't this exist:
@@ -7768,8 +7926,8 @@ Usage:
 
 ....
 printf '/bst_vs_heap.out' > data/readfile
-./run -aA -g -F '/gem5.sh'
-./bst-vs-heap -aA -g > bst_vs_heap.dat
+./run --arch aarch64 -g -F '/gem5.sh'
+./bst-vs-heap --arch aarch64 -g > bst_vs_heap.dat
 ....
 
 and then feed `bst_vs_heap.dat` into: https://github.com/cirosantilli/cpp-cheat/blob/9d0f77792fc8e55b20b6ee32018761ef3c5a3f2f/cpp/interactive/bst_vs_heap.gnuplot
@@ -7777,7 +7935,7 @@ and then feed `bst_vs_heap.dat` into: https://github.com/cirosantilli/cpp-cheat/
 Sources:
 
 * link:bst-vs-heap[]
-* link:kernel_module/user/bst_vs_heap.cpp[]
+* link:packages/kernel_modules/user/bst_vs_heap.cpp[]
 
 ===== OpenMP
 
@@ -7787,7 +7945,7 @@ Implemented by GCC itself, so just a toolchain configuration, no external libs, 
 /openmp.out
 ....
 
-Source: link:kernel_module/user/openmp.c[]
+Source: link:packages/kernel_modules/user/openmp.c[]
 
 ===== BLAS
 
@@ -7804,7 +7962,7 @@ Outcome: the test passes:
 0
 ....
 
-Source: link:kernel_module/user/openblas.c[]
+Source: link:packages/kernel_modules/user/openblas.c[]
 
 The test performs a general matrix multiplication:
 
@@ -7849,7 +8007,7 @@ Output:
 2.5 1.5
 ....
 
-Source: link:kernel_module/user/eigen.cpp[]
+Source: link:packages/kernel_modules/user/eigen.cpp[]
 
 This example just creates a matrix and prints it out.
 
@@ -7867,7 +8025,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-configure -gpq && ./build -a arm -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' -g && ./run -a arm -g
+configure -gpq && ./build --arch arm -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' -g && ./run --arch arm -g
 ....
 
 Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
@@ -7894,7 +8052,7 @@ Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a
 
 ....
 ./build \
-  -a arm \
+  --arch arm \
   -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   -B 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
   -g \
@@ -7952,7 +8110,7 @@ If you still want to run this, try it out with:
 
 ....
 ./build \
-  -a aarch64 \
+  --arch aarch64 \
   -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   -B 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
   -B 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
@@ -7982,12 +8140,12 @@ rm -rf \
   "$(./getvar buildroot_out_dir)"/images/rootfs.* \
   "$(./getvar buildroot_out_dir)"/target/parsec-* \
 ;
-./build -a arm -g
+./build --arch arm -g
 ....
 
 ====== PARSEC benchmark hacking
 
-If you end up going inside link:parsec-benchmark/parsec-benchmark[] to hack up the benchmark (you will!), these tips will be helpful.
+If you end up going inside link:submodules/parsec-benchmark[] to hack up the benchmark (you will!), these tips will be helpful.
 
 Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.
 
@@ -7998,7 +8156,7 @@ A few workarounds are:
 If you do this, don't forget to do a:
 +
 ....
-cd parsec-benchmark/parsec-benchmark
+cd submodules/parsec-benchmark
 git clean -xdf .
 ....
 before going for the cross compile build.
@@ -8008,7 +8166,7 @@ before going for the cross compile build.
 Don't forget to explicitly rebuild PARSEC with:
 +
 ....
-./build -a arm -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' -g parsec-benchmark-reconfigure
+./build --arch arm -B 'BR2_PACKAGE_PARSEC_BENCHMARK=y' -g parsec-benchmark-reconfigure
 ....
 +
 You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
@@ -8019,7 +8177,7 @@ You may also want to test if your patches are still functionally correct inside 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
 ....
-./run -a arm -e 'init=/poweroff.out' -g
+./run --arch arm -e 'init=/poweroff.out' -g
 ....
 
 Internals: when we give `--command-line=` to gem5, it overrides default command lines, including some mandatory ones which are required to boot properly.
@@ -8029,7 +8187,7 @@ Our run script hardcodes the require options in the default `--command-line` and
 To find the default options in the first place, we removed `--command-line` and ran:
 
 ....
-./run -a arm -g
+./run --arch arm -g
 ....
 
 and then looked at the line of the Linux kernel that starts with:
@@ -8045,13 +8203,13 @@ Kernel command line:
 Analogous <<gdb,to QEMU>>, on the first shell:
 
 ....
-./run -a arm -d -g
+./run --arch arm -d -g
 ....
 
 On the second shell:
 
 ....
-./rungdb -a arm -g
+./rungdb --arch arm -g
 ....
 
 On a third shell:
@@ -8116,7 +8274,7 @@ I press `n`, it just runs the program until the end, instead of stopping on the 
 TODO:
 
 ....
-./rungdb-user -a arm -g gem5-1.0/gem5/util/m5/m5 main
+./rungdb-user --arch arm -g gem5-1.0/gem5/util/m5/m5 main
 ....
 
 breaks when `m5` is run on guest, but does not show the source code.
@@ -8128,7 +8286,7 @@ Analogous to QEMU's <<snapshot>>, but better since it can be started from inside
 Documentation: http://gem5.org/Checkpoints
 
 ....
-./run -a arm -g
+./run --arch arm -g
 ....
 
 In the guest, wait for the boot to end and run:
@@ -8142,7 +8300,7 @@ where <<m5>> is a guest utility present inside the gem5 tree which we cross-comp
 To restore the checkpoint, kill the VM and run:
 
 ....
-./run -a arm -g -l 1
+./run --arch arm -g -l 1
 ....
 
 The `-l` option restores the checkpoint that was created most recently.
@@ -8157,7 +8315,7 @@ m5 checkpoint
 Kill the VM, and try it out:
 
 ....
-./run -a arm -g -l 1
+./run --arch arm -g -l 1
 ....
 
 Here we use `-l 1` again, since the second snapshot we took is now the most recent one
@@ -8173,13 +8331,13 @@ contains the `date`. The file `f` wouldn't exist had we used the first checkpoin
 If you automate things with <<kernel-command-line-parameters>> as in:
 
 ....
-./run -a arm -E 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' -g
+./run --arch arm -E 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' -g
 ....
 
 Then there is no need to pass the kernel command line again to gem5 for replay:
 
 ....
-./run -a arm -g -l 1
+./run --arch arm -g -l 1
 ....
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
@@ -8216,11 +8374,11 @@ There is however one loophole: <<m5-readfile>>, which reads whatever is present 
 
 ....
 printf 'echo "setup run";m5 exit' > data/readfile
-./run -a aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run --arch aarch64 -g -E 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 printf 'echo "first benchmark";m5 exit' > data/readfile
-./run -a aarch64 -g -l 1
+./run --arch aarch64 -g -l 1
 printf 'echo "second benchmark";m5 exit' > data/readfile
-./run -a aarch64 -g -l 1
+./run --arch aarch64 -g -l 1
 ....
 
 Since this is such a common setup, we provide helper for it at: link:rootfs_overlay/gem5.sh[rootfs_overlay/gem5.sh]. This script is analogous to gem5's in-tree link:https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
@@ -8252,7 +8410,7 @@ A common combo is to boot Linux with a fast CPU, make a checkpoint and then repl
 An illustrative interactive run:
 
 ....
-./run -a arm -g
+./run --arch arm -g
 ....
 
 In guest:
@@ -8264,7 +8422,7 @@ m5 checkpoint
 And then restore the checkpoint with a different CPU:
 
 ....
-./run -a arm -g -l 1 -- --caches --restore-with-cpu=HPI
+./run --arch arm -g -l 1 -- --caches --restore-with-cpu=HPI
 ....
 
 === Pass extra options to gem5
@@ -8279,7 +8437,7 @@ Pass options to the `fs.py` script:
 * boot with the more detailed and slow `HPI` CPU model:
 +
 ....
-./run -a arm -g -- --caches --cpu-type=HPI
+./run --arch arm -g -- --caches --cpu-type=HPI
 ....
 
 Pass options to the `gem5` executable itself:
@@ -8382,7 +8540,7 @@ m5 writefile myfileguest myfilehost
 Host:
 
 ....
-cat "$(./getvar -a aarch64 -g m5out_dir)/myfilehost"
+cat "$(./getvar --arch aarch64 -g m5out_dir)/myfilehost"
 ....
 
 Does not work for subdirectories, gem5 crashes:
@@ -8444,8 +8602,8 @@ The executable `/m5ops.out` illustrates how to hard code with inline assembly th
 
 Sources:
 
-* link:kernel_module/user/m5ops.h[]
-* link:kernel_module/user/m5ops.c[]
+* link:packages/kernel_modules/user/m5ops.h[]
+* link:packages/kernel_modules/user/m5ops.c[]
 
 That executable is of course a subset of <<m5>> and useless by itself: its goal is only illustrate how to hardcode some <<m5ops>> yourself as one-liners.
 
@@ -8565,7 +8723,7 @@ link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 instruction] that retu
 ./gem5-stat
 ....
 
-Source: link:kernel_module/user/rdtsc.c[]
+Source: link:packages/kernel_modules/user/rdtsc.c[]
 
 `rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
 
@@ -8583,7 +8741,7 @@ Bibliography:
 
 ===== pmccntr
 
-TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_module/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:packages/kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
 
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
@@ -8623,7 +8781,7 @@ patch -d gem5/gem5 -p1 < patches/manual/gem5-biglittle.patch
 then:
 
 ....
-./run -a A -g --gem5-biglittle
+./run --arch aarch64 -g --gem5-biglittle
 ....
 
 Advantages over `fs.py`:
@@ -8669,7 +8827,7 @@ You will likely want to change that to:
 BR2_OPTIMIZE_3=y
 ....
 
-Our link:kernel_module/user[] package correctly forwards the Buildroot options to the build with `$(TARGET_CONFIGURE_OPTS)`, so you don't have to do any extra work.
+Our link:packages/kernel_modules/user[] package correctly forwards the Buildroot options to the build with `$(TARGET_CONFIGURE_OPTS)`, so you don't have to do any extra work.
 
 Don't forget to do that if you are <<add-new-buildroot-packages,adding a new package>> with your own build system.
 
@@ -8678,7 +8836,7 @@ Then, you have two choices:
 * if you already have a full `-O0` build, you can choose to rebuild just your package of interest to save some time as described at: <<rebuild-a-package-with-different-build-options>>
 +
 ....
-./build -B 'BR2_OPTIMIZE_3=y' kernel_module-dirclean kernel_module-reconfigure
+./build -B 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
 ....
 +
 However, this approach might not be representative since calls to an unoptimized libc and other libraries will have a negative performance impact.
@@ -8786,7 +8944,7 @@ while a build is going on in another terminal and my cooler is humming. Especial
 
 First, see if you can't get away without actually adding a new package, for example:
 
-* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:kernel_module/user[] and you are done
+* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:packages/kernel_modules/user[] and you are done
 * if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-options>>
 
 If none of those methods are flexible enough for you, create a new package as follows:
@@ -8834,9 +8992,9 @@ For example, if you want to keep two builds around, one for the latest Linux ver
 
 ....
 ./build
-git -C linux checkout v4.16
+git -C "$(./getvar linux_src_dir)" checkout v4.16
 ./build -L v4.16
-git -C linux checkout -
+git -C "$(./getvar linux_src_dir)" checkout -
 ./run
 ./run -L v4.16
 ....
@@ -8855,9 +9013,9 @@ Analogous to the <<linux-kernel-build-variants>> but with the `-Q` option instea
 
 ....
 ./build
-git -C qemu checkout v2.12.0
+git -C "$(./getvar qemu_src_dir)" checkout v2.12.0
 ./build -Q v2.12.0 -q
-git -C linux checkout -
+git -C "$(./getvar qemu_src_dir)" checkout -
 ./run
 ./run -Q v2.12.0
 ....
@@ -8868,11 +9026,11 @@ Analogous to the <<linux-kernel-build-variants>> but with the `-M` option instea
 
 ....
 ./build -g
-git -C gem5/gem5 checkout some-branch
+git -C "$(./getvar gem5_src_dir)" checkout some-branch
 ./build -g -M some-branch
-git -C gem5/gem5 checkout -
+git -C "$(./getvar gem5_src_dir)" checkout -
 ./run -g
-git -C gem5/gem5 checkout some-branch
+git -C "$(./getvar gem5_src_dir)" checkout some-branch
 ./run -M some-branch -g
 ....
 
@@ -8888,9 +9046,9 @@ In order to checkout multiple gem5 builds and run them simultaneously, you also 
 
 ....
 ./build -g
-git -C gem5/gem5 checkout some-branch
+git -C "$(./getvar linux_src_dir)" checkout some-branch
 ./build -g -M some-branch -N some-branch
-git -C gem5/gem5 checkout -
+git -C "$(./getvar linux_src_dir)" checkout -
 ./run -g -n 0 &>/dev/null &
 ./run -g -M some-branch -N some-branch -n 1 &>/dev/null &
 ....
@@ -8925,8 +9083,8 @@ git -C data/gem5/some-branch checkout some-branch-v2
 Built and run `gem5.debug`, which has optimizations turned off unlike the default `gem5.opt`:
 
 ....
-./build -a A -g -M debug -t debug
-./run -a A -g -M debug -t debug
+./build --arch aarch64 -g -M debug -t debug
+./run --arch aarch64 -g -M debug -t debug
 ....
 
 `-M` is optional just to prevent it from overwriting the `opt` build.
@@ -8934,8 +9092,8 @@ Built and run `gem5.debug`, which has optimizations turned off unlike the defaul
 A Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
 
 ....
-./run -a A -E 'm5 exit' -g -L v4.16
-./run -a A -E 'm5 exit' -g -M debug -t debug -L v4.16
+./run --arch aarch64 -E 'm5 exit' -g -L v4.16
+./run --arch aarch64 -E 'm5 exit' -g -M debug -t debug -L v4.16
 ....
 
 Therefore the performance different is very big, making debug mode almost unusable.
@@ -8948,10 +9106,10 @@ This hack-ish technique allows us to rebuild just one package at a time:
 ./build KERNEL_MODULE_VERSION=mybranch
 ....
 
-and now you can see that a new version of `kernel_module` was built and put inside the image:
+and now you can see that a new version of `kernel_modules` was built and put inside the image:
 
 ....
-ls "$(./getvar build_dir)/kernel_module-mybranch"
+ls "$(./getvar build_dir)/kernel_modules-mybranch"
 ....
 
 Unfortunately we don't have a nice runtime selection with `./run` implemented currently, you have to manually move packages around.
@@ -8997,7 +9155,7 @@ Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` inste
 Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
 
 ....
-du -hsx "$(./getvar -a arm target_dir)"
+du -hsx "$(./getvar --arch arm target_dir)"
 ....
 
 https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
@@ -9043,7 +9201,7 @@ We make that easy by building commands as strings, and then echoing them before 
 So for example when you run:
 
 ....
-./run -a arm
+./run --arch arm
 ....
 
 the very first stdout output of that script is the actual QEMU command that is being run. 
@@ -9051,14 +9209,14 @@ the very first stdout output of that script is the actual QEMU command that is b
 The command is also saved to a file for convenience:
 
 ....
-cat "$(./getvar -a arm run_cmd_file)"
+cat "$(./getvar --arch arm run_cmd_file)"
 ....
 
 which you can manually modify and execute during your experiments later:
 
 ....
-vim "$(./getvar -a arm run_cmd_file)"
-./"$(./getvar -a arm run_cmd_file)"
+vim "$(./getvar --arch arm run_cmd_file)"
+./"$(./getvar --arch arm run_cmd_file)"
 ....
 
 Next, you will also want to give the relevant images to save them time. Zip the images with:
@@ -9120,43 +9278,43 @@ cat "$(./getvar bench_boot)"
 Sample results at 2bddcc2891b7e5ac38c10d509bdfc1c8fe347b94:
 
 ....
-cmd ./run -a x86_64 -E '/poweroff.out'
+cmd ./run --arch x86_64 -E '/poweroff.out'
 time 3.58
 exit_status 0
-cmd ./run -a x86_64 -E '/poweroff.out' -K
+cmd ./run --arch x86_64 -E '/poweroff.out' -K
 time 0.89
 exit_status 0
-cmd ./run -a x86_64 -E '/poweroff.out' -T exec_tb
+cmd ./run --arch x86_64 -E '/poweroff.out' -T exec_tb
 time 4.12
 exit_status 0
 instructions 2343768
-cmd ./run -a x86_64 -E 'm5 exit' -g
+cmd ./run --arch x86_64 -E 'm5 exit' -g
 time 451.10
 exit_status 0
 instructions 706187020
-cmd ./run -a arm -E '/poweroff.out'
+cmd ./run --arch arm -E '/poweroff.out'
 time 1.85
 exit_status 0
-cmd ./run -a arm -E '/poweroff.out' -T exec_tb
+cmd ./run --arch arm -E '/poweroff.out' -T exec_tb
 time 1.92
 exit_status 0
 instructions 681000
-cmd ./run -a arm -E 'm5 exit' -g
+cmd ./run --arch arm -E 'm5 exit' -g
 time 94.85
 exit_status 0
 instructions 139895210
-cmd ./run -a aarch64 -E '/poweroff.out'
+cmd ./run --arch aarch64 -E '/poweroff.out'
 time 1.36
 exit_status 0
-cmd ./run -a aarch64 -E '/poweroff.out' -T exec_tb
+cmd ./run --arch aarch64 -E '/poweroff.out' -T exec_tb
 time 1.37
 exit_status 0
 instructions 178879
-cmd ./run -a aarch64 -E 'm5 exit' -g
+cmd ./run --arch aarch64 -E 'm5 exit' -g
 time 72.50
 exit_status 0
 instructions 115754212
-cmd ./run -a aarch64 -E 'm5 exit' -g -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+cmd ./run --arch aarch64 -E 'm5 exit' -g -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
 time 369.13
 exit_status 0
 instructions 115774177
@@ -9169,7 +9327,7 @@ TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction 
 TODO 62f6870e4e0b384c4bd2d514116247e81b241251 takes 33 minutes to finish at 62f6870e4e0b384c4bd2d514116247e81b241251:
 
 ....
-cmd ./run -a arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
+cmd ./run --arch arm -E 'm5 exit' -g -- --caches --cpu-type=HPI
 ....
 
 while aarch64 only 7 minutes.
@@ -9196,7 +9354,7 @@ The build times are calculated after doing `./configure` and link:https://buildr
 
 Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
 
-Single file change on `./build kernel_module-reconfigure`: 7 seconds.
+Single file change on `./build kernel_modules-reconfigure`: 7 seconds.
 
 Buildroot automatically stores build timestamps as milliseconds since Epoch. Convert to minutes:
 
@@ -9435,7 +9593,7 @@ This is specially interesting because QEMU and gem5 are capable of generating DT
 QEMU's `-M virt` for example, which we use by default for `aarch64`, boots just fine without the `-dtb` option:
 
 ....
-./run -a aarch64
+./run --arch aarch64
 ....
 
 Then, from inside the guest:
@@ -9462,7 +9620,7 @@ contains:
 However, if we increase the <<number-of-cores,number of cores>>:
 
 ....
-./run -a aarch64 -c 2
+./run --arch aarch64 -c 2
 ....
 
 QEMU automatically adds a second CPU to the DTB!
@@ -9477,7 +9635,7 @@ The action seems to be happening at: `hw/arm/virt.c`.
 ** `data/readfile`: see <<m5-readfile>>
 ** `data/9p`: see <<9p>>
 ** `data/gem5/<variant>`: see: <<gem5-build-variants>>
-* link:kernel_module[]: Buildroot package that contains our kernel modules and userland C tests
+* link:packages/kernel_modules[]: Buildroot package that contains our kernel modules and userland C tests
 * `out`: gitignored Build outputs. You won't lose data by deleting this folder since everything there can be re-generated, only time.
 ** `out/<arch>`: arch specific outputs
 *** `out/<arch>/buildroot`: standard Buildroot output
@@ -9505,7 +9663,13 @@ This directory has the following structure:
 
 ==== packages directory
 
-Any directory in that subdirectory is added to `BR2_EXTERNAL` and become available to the build.
+Every directory inside it is a Buildroot package.
+
+Those packages get automatically added to Buildroot's `BR2_EXTERNAL` so you just need to turn them on during build, e.g.:
+
+....
+BR2_SAMPLE_PACKAGE=y
+....
 
 ==== patches
 
@@ -9542,7 +9706,7 @@ We use it for:
 * customized configuration files
 * userland module test scripts that don't need to be compiled.
 +
-C files for example need compilation, and must go through the regular package system, e.g. through link:kernel_module/user[].
+C files for example need compilation, and must go through the regular package system, e.g. through link:packages/kernel_modules/user[].
 
 === CONTRIBUTING
 
@@ -9570,7 +9734,7 @@ Sources:
 Test that the Internet works:
 
 ....
-./run -a x86_64 -e '- lkmc_eval="/sbin/ifup -a;wget -S google.com;poweroff;"'
+./run --arch x86_64 -e '- lkmc_eval="/sbin/ifup -a;wget -S google.com;poweroff;"'
 ....
 
 Source: link:rootfs_overlay/test_all.sh[].
@@ -9630,7 +9794,7 @@ git bisect run ../biset-qemu-linux-boot
 git bisect reset
 cd ..
 git submodule update
-rm -rf "$(./getvar -a arm build_dir)/host-qemu-custom.bisect"
+rm -rf "$(./getvar --arch arm build_dir)/host-qemu-custom.bisect"
 ....
 
 An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
@@ -9679,8 +9843,8 @@ hello cpp
 
 Sources:
 
-* link:kernel_module/user/hello.c[]
-* link:kernel_module/user/hello_cpp.c[]
+* link:packages/kernel_modules/user/hello.c[]
+* link:packages/kernel_modules/user/hello_cpp.c[]
 
 ===== rand_check.out
 
@@ -9690,7 +9854,7 @@ Print out several parameters that normally change randomly from boot to boot:
 ./run -F '/rand_check.out;/poweroff.out'
 ....
 
-Source: link:kernel_module/user/rand_check.c[]
+Source: link:packages/kernel_modules/user/rand_check.c[]
 
 This can be used to check the determinism of:
 
@@ -9708,46 +9872,6 @@ This is not yet super stable, but one day maybe this script will automatically d
 Source: link:release[].
 
 This should in particular enable to easily update <<prebuilt>>.
-
-=== About
-
-This project is for people who want to learn and modify low level system components:
-
-* Linux kernel and Linux kernel modules
-* full systems emulators like QEMU and gem5
-* C standard libraries. This could also be put on a submodule if people show interest.
-* Buildroot. We use and therefore document, a large part of its feature set.
-
-Philosophy:
-
-* automate as much as possible to make things more reproducible
-* do everything from source to make things understandable and hackable
-
-This project should be called "Linux kernel playground", like: https://github.com/Fuzion24/AndroidKernelExploitationPlayground maybe I'll rename it some day. Would semi conflict with: http://copr-fe.cloud.fedoraproject.org/coprs/jwboyer/kernel-playground/ though.
-
-==== Fairy tale
-
-____
-Once upon a time, there was a boy called Linus.
-
-Linus made a super fun toy, and since he was not very humble, decided to call it Linux.
-
-Linux was an awesome toy, but it had one big problem: it was very difficult to learn how to play with it!
-
-As a result, only some weird kids who were very bored ended up playing with Linux, and everyone thought those kids were very cool, in their own weird way.
-
-One day, a mysterious new kid called Ciro tried to play with Linux, and like many before him, got very frustrated, and gave up.
-
-A few years later, Ciro had grown up a bit, and by chance came across a very cool toy made by the boy Petazzoni and his gang: it was called Buildroot.
-
-Ciro noticed that if you used Buildroot together with Linux, Linux suddenly became very fun to play with!
-
-So Ciro decided to explain to as many kids as possible how to use Buildroot to play with Linux.
-
-And so everyone was happy. Except some of the old weird kernel hackers who wanted to keep their mystique, but so be it.
-
-THE END
-____
 
 === Bibliography
 

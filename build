@@ -19,7 +19,7 @@ defaults = {
     'kernel_config': [],
     'kernel_config_fragment': [],
     'kernel_custom_config_file': None,
-    'kernel_module_reconfigure': False,
+    'kernel_modules_reconfigure': False,
     'linux_reconfigure': False,
     'nproc': None,
     'skip_configure': False,
@@ -35,8 +35,8 @@ def main(args, extra_args=None):
     args = common.resolve_args(defaults, args, extra_args)
     os.makedirs(common.out_dir, exist_ok=True)
     extra_make_args = shlex.split(args.extra_make_args)
-    if args.kernel_module_reconfigure:
-        extra_make_args.append('kernel_module-reconfigure')
+    if args.kernel_modules_reconfigure:
+        extra_make_args.append('kernel_modules-reconfigure')
     if args.linux_reconfigure:
         extra_make_args.append('linux-reconfigure')
     if args.gem5:
@@ -190,13 +190,6 @@ def main(args, extra_args=None):
         os.symlink(variant_dir, custom_dir)
     symlink_buildroot_variant(common.linux_build_dir, common.linux_variant_dir)
 
-    ## Manage gem5 variants.
-    #if "$common_gem5"; then
-    #  if [ ! -e "${common_gem5_src_dir}/.git" ]; then
-    #    git -C "$common_gem5_default_src_dir" worktree add -b "wt/${common_gem5_variant}" "${common_gem5_src_dir}"
-    #  fi
-    #fi
-
     # Do the actual build.
     assert common.run_cmd(
         [
@@ -228,7 +221,7 @@ def main(args, extra_args=None):
 def get_argparse():
     parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
     parser.add_argument(
-        '-B', '--br2-config', default=defaults['buildroot_config'], action='append',
+        '-B', '--buildroot-config', default=defaults['buildroot_config'], action='append',
         help='''Add a single Buildroot config to the current build.
 Example value: 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'.
 Can be used multiple times to add multiple configs.
@@ -236,7 +229,7 @@ Takes precedence over any Buildroot config files.
 '''
     )
     parser.add_argument(
-        '-b', '--br2-config-fragment', default=defaults['buildroot_config_fragment'], action='append',
+        '-b', '--buildroot-config-fragment', default=defaults['buildroot_config_fragment'], action='append',
         help='''Also use the given Buildroot configuration fragment file.
 Pass multiple times to use multiple fragment files.'''
     )
@@ -274,7 +267,7 @@ but requires you to know what you are doing :-)'''
 Still uses options explicitly passed with `-C` and `-c` on top of it.'''
     )
     parser.add_argument(
-        '-k', '--kernel-module-reconfigure', default=defaults['kernel_module_reconfigure'], action='store_true',
+        '-k', '--kernel-modules-reconfigure', default=defaults['kernel_modules_reconfigure'], action='store_true',
         help='Reconfigure and rebuild the kernel modules'
     )
     parser.add_argument(
