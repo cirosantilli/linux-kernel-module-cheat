@@ -15,6 +15,37 @@ import sys
 
 this = sys.modules[__name__]
 
+# Default paths.
+root_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(root_dir, 'data')
+p9_dir = os.path.join(data_dir, '9p')
+gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
+gem5_readfile_file = os.path.join(data_dir, 'readfile')
+out_dir = os.path.join(root_dir, 'out')
+bench_boot = os.path.join(out_dir, 'bench-boot.txt')
+common_dir = os.path.join(out_dir, 'common')
+dl_dir = os.path.join(common_dir, 'dl')
+submodules_dir = os.path.join(root_dir, 'submodules')
+buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
+gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
+linux_src_dir = os.path.join(submodules_dir, 'linux')
+qemu_src_dir = os.path.join(submodules_dir, 'qemu')
+parsec_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
+
+# Other default variables.
+arch_map = {
+    'a': 'arm',
+    'A': 'aarch64',
+    'x': 'x86_64',
+}
+arches = [arch_map[k] for k in arch_map]
+gem5_cpt_prefix = '^cpt\.'
+sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
+config_file = os.path.join(data_dir, 'config')
+if os.path.exists(config_file):
+    config = imp.load_source('config', config_file)
+    configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
+
 # TODO
 ## Benchmark a command.
 ##
@@ -50,6 +81,9 @@ def gem_list_checkpoint_dirs():
 def get_argparse(default_args=None, argparse_args=None):
     '''
     Return an argument parser with common arguments set.
+
+    :type default_args: Dict[str,str]
+    :type argparse_args: Dict
     '''
     global this
     if default_args is None:
@@ -370,31 +404,3 @@ def mkdir():
     os.makedirs(this.gem5_run_dir, exist_ok=True)
     os.makedirs(this.qemu_run_dir, exist_ok=True)
     os.makedirs(this.p9_dir, exist_ok=True)
-
-# Default paths.
-root_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(root_dir, 'data')
-p9_dir = os.path.join(data_dir, '9p')
-gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
-gem5_readfile_file = os.path.join(data_dir, 'readfile')
-out_dir = os.path.join(root_dir, 'out')
-bench_boot = os.path.join(out_dir, 'bench-boot.txt')
-common_dir = os.path.join(out_dir, 'common')
-submodules_dir = os.path.join(root_dir, 'submodules')
-buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
-gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
-linux_src_dir = os.path.join(submodules_dir, 'linux')
-qemu_src_dir = os.path.join(submodules_dir, 'qemu')
-
-# Other default variables.
-arch_map = {
-    'a': 'arm',
-    'A': 'aarch64',
-    'x': 'x86_64',
-}
-gem5_cpt_prefix = '^cpt\.'
-sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
-config_file = os.path.join(data_dir, 'config')
-if os.path.exists(config_file):
-    config = imp.load_source('config', config_file)
-    configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}

@@ -3,7 +3,6 @@
 import multiprocessing
 import os
 import pathlib
-import shlex
 import shutil
 import subprocess
 import sys
@@ -25,7 +24,7 @@ defaults = {
     'nproc': None,
     'skip_configure': False,
     'verbose': False,
-    'extra_make_args': '',
+    'extra_make_args': [],
 }
 
 def path_relative_to_buildroot(abspath):
@@ -35,7 +34,7 @@ def main(args, extra_args=None):
     global defaults
     args = common.resolve_args(defaults, args, extra_args)
     os.makedirs(common.out_dir, exist_ok=True)
-    extra_make_args = shlex.split(args.extra_make_args)
+    extra_make_args = args.extra_make_args.copy()
     if args.kernel_modules_reconfigure:
         extra_make_args.append('kernel_modules-reconfigure')
     if args.linux_reconfigure:
@@ -81,7 +80,7 @@ def main(args, extra_args=None):
         buildroot_configs = args.buildroot_config
         buildroot_configs.extend([
             'BR2_JLEVEL={}'.format(nproc),
-            'BR2_DL_DIR="{}"'.format(os.path.join(common.common_dir, 'dl')),
+            'BR2_DL_DIR="{}"'.format(common.dl_dir),
             'BR2_GLOBAL_PATCH_DIR="{}"'.format(
                 path_relative_to_buildroot(os.path.join(common.root_dir, 'patches', 'global'))),
             'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="{}"'.format(
@@ -195,6 +194,7 @@ def main(args, extra_args=None):
     assert common.run_cmd(
         [
             'make',
+            'GEM5_LKMC_SRCDIR="{}"'.format(common.gem5_src_dir),
             'O={}'.format(common.buildroot_out_dir),
             'V={}'.format(int(args.verbose)),
         ] +
@@ -207,15 +207,16 @@ def main(args, extra_args=None):
     ) == 0
 
     # Create the qcow2 from ext2.
-    assert common.run_cmd([
-        common.qemu_img_executable,
-        '-T', 'pr_manager_run,file=/dev/null',
-        'convert',
-        '-f', 'raw',
-        '-O', 'qcow2',
-        common.ext2_file,
-        common.qcow2_file,
-    ]) == 0
+    if os.path.exists(common.qemu_img_executable):
+        assert common.run_cmd([
+            common.qemu_img_executable,
+            '-T', 'pr_manager_run,file=/dev/null',
+            'convert',
+            '-f', 'raw',
+            '-O', 'qcow2',
+            common.ext2_file,
+            common.qcow2_file,
+        ]) == 0
 
     return 0
 
@@ -282,7 +283,7 @@ https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-
         help='Do a verbose build'
     )
     parser.add_argument(
-        'extra-make-args', default=defaults['extra_make_args'], nargs='?'
+        'extra-make-args', default=defaults['extra_make_args'], nargs='*'
     )
     return parser
 

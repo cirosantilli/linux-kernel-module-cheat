@@ -3335,7 +3335,7 @@ cat /proc/version
 or in the source:
 
 ....
-cd linux
+cd "$(./getvar linux_src_dir)"
 git log | grep -E '    Linux [0-9]+\.' | head
 ....
 
@@ -7192,6 +7192,14 @@ Getting everything to work required careful choice of QEMU command line options:
 
 Peter Maydell said potentially not possible nicely as of August 2018: https://stackoverflow.com/questions/51747744/how-to-run-a-qemu-monitor-command-from-inside-the-guest/51764110#51764110
 
+It is also worth looking into the QEMU Guest Agent tool `qemu-gq` that can be enabled with:
+
+....
+./build -B 'BR2_PACKAGE_QEMU=y'
+....
+
+See also: https://superuser.com/questions/930588/how-to-pass-commands-noninteractively-to-running-qemu-from-the-guest-qmp-via-te
+
 ==== QEMU monitor from GDB
 
 When doing <<gdb>> it is possible to send QEMU monitor commands through the GDB `monitor` command, which saves you the trouble of opening yet another shell.
@@ -8151,7 +8159,7 @@ If you want to remove PARSEC later, Buildroot doesn't provide an automated packa
 
 ....
 rm -rf \
-  ./out/common/dl/parsec-* \
+  "$(./getvar dl_dir)"/parsec-* \
   "$(./getvar buildroot_out_dir)"/build/parsec-* \
   "$(./getvar buildroot_out_dir)"/build/packages-file-list.txt \
   "$(./getvar buildroot_out_dir)"/images/rootfs.* \
@@ -8173,7 +8181,7 @@ A few workarounds are:
 If you do this, don't forget to do a:
 +
 ....
-cd submodules/parsec-benchmark
+cd "$(./getvar parsec_src_dir)"
 git clean -xdf .
 ....
 before going for the cross compile build.
@@ -9788,11 +9796,11 @@ For example, when updating from QEMU `v2.12.0` to `v3.0.0-rc3`, the Linux kernel
 We then bisected it as explained at: https://stackoverflow.com/questions/4713088/how-to-use-git-bisect/22592593#22592593 with the link:qemu-bisect-boot[] script:
 
 ....
-cd qemu
+cd "$(./getvar qemu_src_dir)"
 git bisect start
 
 # Check that our test script fails on v3.0.0-rc3 as expected, and mark it as bad.
-../qemu-bisect-boot
+../../qemu-bisect-boot
 # Should output 1.
 echo #?
 git bisect bad
@@ -9826,7 +9834,7 @@ This example is based on the Linux kernel, for which we used to have patches, bu
 # Last point before out patches.
 last_mainline_revision=v4.15
 next_mainline_revision=v4.16
-cd linux
+cd "$(./getvar linux_src_dir)"
 
 # Create a branch before the rebase in case things go wrong.
 git checkout -b "lkmc-${last_mainline_revision}"

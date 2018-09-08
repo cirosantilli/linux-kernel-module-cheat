@@ -1,28 +1,34 @@
-#!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-while getopts "h${common_getopts_flags}" OPT; do
-  case "$OPT" in
-    h)
-      echo "https://github.com/cirosantilli/linux-kernel-module-cheat#bisection" 2>&1
-      exit
-      ;;
-    ?)
-      common_getopts_case "$OPT"
-      ;;
-  esac
-done
-shift "$(($OPTIND - 1))"
-common_linux_variant=bisect
-common_setup
-cd "$common_root_dir"
+#!/usr/bin/env python3
+
+import imp
+import os
+import shutil
+import sys
+
+import common
+build = imp.load_source('build', os.path.join(common.root_dir, 'build'))
+run = imp.load_source('run', os.path.join(common.root_dir, 'run'))
+
+parser = common.get_argparse(
+    argparse_args={
+        'description': '''Bisect the Linux kernel on gem5 boots.
+
+More information at: https://github.com/cirosantilli/linux-kernel-module-cheat#bisection
+'''},
+    default_args={
+        'gem5': True,
+        'linux_build_id': 'bisect',
+    },
+)
+args = common.setup(parser)
 # We need a clean rebuild becuase rebuilds at different revisions:
 # - may fail
 # - may not actually rebuild all files, e.g. on header changes
-rm -rf "$(./getvar -a "$common_arch" -L "$common_linux_variant" linux_variant_dir)"
-./build -a "$common_arch" -L "$common_linux_variant"
-status=0
-./run -a "$common_arch" -E 'm5 exit' -L "$common_linux_variant" -g || status=$?
-if [ "$status" -eq 125 ] || [ "$status" -gt 127 ]; then
-  status=1
-fi
-exit "$status"
+shutil.rmtree(common.linux_variant_dir)
+assert build.main(args) == 0
+status = run.main(args, {
+    'eval': 'm5 exit',
+})
+if status == 125 or status == 127:
+    status = 1
+sys.exit(status)
