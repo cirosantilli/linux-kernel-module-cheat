@@ -85,31 +85,27 @@ BR2_TARGET_ROOTFS_EXT2=n
 fi
 
 if "$bench_gem5_build"; then
-  arches='x86_64 arm'
-  for common_arch in $arches; do
-    common_gem5_out_dir="$("$getvar" --arch "$common_arch" gem5_out_dir)"
-    common_gem5_src_dir="$("$getvar" --arch "$common_arch" gem5_src_dir)"
-    common_out_dir="$("$getvar" --arch "$common_arch" out_dir)"
-    cd "${common_gem5_src_dir}"
-    git clean -xdf
-    results_file="${common_gem5_out_dir}/bench-build.txt"
-    gem5_outdir="${common_out_dir}/bench_build"
-    rm -fr "$results_file" "${gem5_outdir}"
-    # TODO understand better: --foreground required otherwise we cannot
-    # kill the build with Ctrl+C if something goes wrong, can be minimized to:
-    # bash -c "eval 'timeout 5 sleep 3'"
-    "${root_dir}/bench-cmd" "timeout --foreground 900 ../build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
-    cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
-    cd "${root_dir}/gem5/gem5"
-    git clean -xdf
-    rm -fr "${gem5_outdir}"
-  done
+  common_arch="$default_arch"
+  gem5_build_id=bench-build
+  common_gem5_out_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_out_dir)"
+  common_gem5_src_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_src_dir)"
+  results_file="${common_gem5_out_dir}/bench-build.txt"
+  git -C "${common_gem5_src_dir}" clean -xdf
+  rm -f "$results_file"
+  "${root_dir}/build-gem5" --arch "$common_arch" --clean --gem5-build-id "$gem5_build_id"
+  # TODO understand better: --foreground required otherwise we cannot
+  # kill the build with Ctrl+C if something goes wrong, can be minimized to:
+  # bash -c "eval 'timeout 5 sleep 3'"
+  "${root_dir}/bench-cmd" "timeout --foreground 900 ./build-gem5 --arch '$common_arch' --gem5-build-id '$gem5_build_id'" "$results_file"
+  cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
+  git -C "${common_gem5_src_dir}" clean -xdf
+  "${root_dir}/build-gem5" --arch "$common_arch" --clean --gem5-build-id "$gem5_build_id"
 fi
 
 if "$bench_linux_boot"; then
   cd "${root_dir}"
   ./build-all
-  ./bench-boot
+  ./bench-boot -t 3
   cp "$(${root_dir}/getvar bench_boot)" "$new_dir"
 fi
 

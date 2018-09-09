@@ -69,10 +69,11 @@ If you don't know which one to go for, start with <<qemu-buildroot-setup>>
 
 The trade-offs are basically a balance between:
 
-* how long and how much disk space does the build take
+* how long and how much disk space does the build and run take
 * visibility: can you GDB step debug everything and read source code?
 * modifiability: can you modify the source code and rebuild a modified version?
 * how portable the setup is: does it work on Windows? Could it ever?
+* accuracy: how accurate does the simulation represent real hardware?
 
 === QEMU Buildroot setup
 
@@ -9355,6 +9356,8 @@ We tried to automate it on Travis with link:.travis.yml[] but it hits the curren
 
 ==== Benchmark Linux kernel boot
 
+Benchmark all:
+
 ....
 ./build-all
 ./bench-boot
@@ -9365,45 +9368,45 @@ Sample results at 2bddcc2891b7e5ac38c10d509bdfc1c8fe347b94:
 
 ....
 cmd ./run --arch x86_64 --eval '/poweroff.out'
-time 3.58
+time 7.46
 exit_status 0
+
 cmd ./run --arch x86_64 --eval '/poweroff.out' --kvm
-time 0.89
+time 7.61
 exit_status 0
+
 cmd ./run --arch x86_64 --eval '/poweroff.out' --trace exec_tb
-time 4.12
+time 8.04
 exit_status 0
-instructions 2343768
+instructions 1665023
+
 cmd ./run --arch x86_64 --eval 'm5 exit' --gem5
-time 451.10
+time 254.32
 exit_status 0
-instructions 706187020
+instructions 380799337
+
 cmd ./run --arch arm --eval '/poweroff.out'
-time 1.85
+time 5.56
 exit_status 0
+
 cmd ./run --arch arm --eval '/poweroff.out' --trace exec_tb
-time 1.92
+time 5.78
 exit_status 0
-instructions 681000
-cmd ./run --arch arm --eval 'm5 exit' --gem5
-time 94.85
-exit_status 0
-instructions 139895210
+instructions 742319
+
 cmd ./run --arch aarch64 --eval '/poweroff.out'
-time 1.36
+time 4.85
 exit_status 0
+
 cmd ./run --arch aarch64 --eval '/poweroff.out' --trace exec_tb
-time 1.37
+time 4.91
 exit_status 0
-instructions 178879
+instructions 245471
+
 cmd ./run --arch aarch64 --eval 'm5 exit' --gem5
-time 72.50
+time 68.71
 exit_status 0
-instructions 115754212
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
-time 369.13
-exit_status 0
-instructions 115774177
+instructions 120555566
 ....
 
 TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction count so much much higher?
@@ -9455,31 +9458,28 @@ Or to conveniently do a clean build without affecting your current one:
 cat ../linux-kernel-module-cheat-regression/*/build-time.log
 ....
 
-===== Find which packages are making the build slow
+===== Find which packages are making the build slow and big
 
 ....
-cd "$(./getvar buildroot_out_dir)
-make graph-build graph-depends
-xdg-open graphs/build.pie-packages.pdf
-xdg-open graphs/graph-depends.pdf
+./build --skip-configure -- graph-build graph-size graph-depends
+cd "$(./getvar buildroot_out_dir)/graphs"
+xdg-open build.pie-packages.pdf
+xdg-open graph-depends.pdf
+xdg-open graph-size.pdf
 ....
 
 Our philosophy is:
 
-* if something adds little to the build time, build it in by default
-* otherwise, make it optional
-* try to keep the toolchain (GCC, Binutils) unchanged, otherwise a full rebuild is  required.
-+
-So we generally just enable all toolchain options by default, even though this adds a bit of time to the build.
-* if something is very valuable, we just add it by default even if it increases the Build time, notably GDB and QEMU
-* runtime is sacred.
-+
-We do our best to reduce the instruction and feature count to the bare minimum needed, to make the system:
+* keep the root filesystem as tiny as possible to make prebuilts small. It is easy to add new packages once you have the toolchain.
+* enable every feature possible on the toolchain (GCC, Binutils), because changes imply Buildroot rebuilds
+* runtime is sacred. Faster systems are:
 +
 --
 ** easier to understand
-** run faster, specially for <<gem5>>
+** run faster, which is specially for <<gem5>> which is slow
 --
++
+Runtime basically just comes down to how we configure the Linux kernel, since in the root filesystem all that matters is `init=`, and that is easy to control.
 +
 One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
 
