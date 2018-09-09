@@ -16,6 +16,7 @@ defaults = {
     'extra_emulator_args': [],
     'gem5_biglittle': False,
     'gem5_exe_args': '',
+    'gem5_readfile': '',
     'gem5_restore': None,
     'graphic': False,
     'initramfs': False,
@@ -94,6 +95,8 @@ def main(args, extra_args=None):
         trace_type = args.trace
 
     if args.gem5:
+        with open(common.gem5_readfile, 'w') as readfile:
+            readfile.write(args.gem5_readfile)
         memory = '{}B'.format(args.memory)
         gem5_exe_args = shlex.split(args.gem5_exe_args)
         if do_trace:
@@ -135,7 +138,7 @@ def main(args, extra_args=None):
                 '--kernel', common.vmlinux,
                 '--mem-size', memory,
                 '--num-cpus', str(args.cpus),
-                '--script', common.gem5_readfile_file,
+                '--script', common.gem5_readfile,
             ]
             if args.arch == 'x86_64':
                 if args.kvm:
@@ -349,6 +352,10 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
     parser.add_argument(
         '--gem5-biglittle', default=defaults['gem5_biglittle'], action='store_true',
         help='Use fs_bigLITTLE.py instead of fs.py'
+    )
+    parser.add_argument(
+        '--gem5-readfile', default=defaults['gem5_readfile'],
+        help='Set the contents of m5 readfile to this string.'
     )
     init_group.add_argument(
         '-I', '--initramfs', default=defaults['initramfs'], action='store_true',

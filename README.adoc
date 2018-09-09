@@ -7088,10 +7088,13 @@ time \
 gem5 full system:
 
 ....
-printf 'm5 exit' > data/readfile
-./run --arch arm --gem5 --eval-busybox '/gem5.sh'
-printf 'dhrystone 100000' > data/readfile
-time ./run --arch arm --gem5-restore 1 --gem5
+time \
+  ./run \
+  --arch arm \
+  --eval-busybox '/gem5.sh' \
+  --gem5
+  --gem5-readfile 'dhrystone 100000' \
+;
 ....
 
 QEMU user mode:
@@ -7645,25 +7648,21 @@ restore='-l 1 -- --cpu-type=HPI --restore-with-cpu=HPI --caches --l2cache --l1d_
 
 # Generate a checkpoint after Linux boots, using the faster and less detailed CPU.
 # The boot takes a while, be patient young Padawan.
-printf '' > data/readfile
 eval "$cmd"
 
 # Restore the most recent checkpoint taken with the more detailed and slower HPI CPU,
 # and run the benchmark with parameter 1.000. We skip the boot completely, saving time!
-printf 'dhrystone 1000' > data/readfile
-eval "${cmd} ${restore}"
+eval "${cmd} --gem5-readfile 'dhrystone 1000' ${restore}"
 ./gem5-stat -a "$arch"
 
 # Now run again with another parameter 10.000.
 # This one should take more cycles!
-printf 'dhrystone 10000' > data/readfile
-eval "${cmd} ${restore}"
+eval "${cmd} --gem5-readfile 'dhrystone 10000' ${restore}"
 ./gem5-stat -a "$arch"
 
 # Get an interactive shell at the end of the restore
 # if you need to debug something more interactively.
-printf 'sh' > data/readfile
-eval "${cmd} ${restore}"
+eval "${cmd} --gem5-readfile 'sh' ${restore}"
 ....
 
 The `gem5-stats` commands output the approximate number of CPU cycles it took Dhrystone to run.

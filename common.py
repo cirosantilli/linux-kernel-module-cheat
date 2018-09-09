@@ -20,7 +20,6 @@ root_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(root_dir, 'data')
 p9_dir = os.path.join(data_dir, '9p')
 gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
-gem5_readfile_file = os.path.join(data_dir, 'readfile')
 out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 common_dir = os.path.join(out_dir, 'common')
@@ -346,6 +345,7 @@ def setup(parser, **extra_args):
     this.m5out_dir = os.path.join(this.gem5_run_dir, 'm5out')
     this.stats_file = os.path.join(this.m5out_dir, 'stats.txt')
     this.trace_txt_file = os.path.join(this.m5out_dir, 'trace.txt')
+    this.gem5_readfile = os.path.join(this.gem5_run_dir, 'readfile')
     this.gem5_termout_file = os.path.join(this.gem5_run_dir, 'termout.txt')
     this.qemu_run_dir = os.path.join(this.out_arch_dir, 'qemu', str(args.run_id))
     this.qemu_trace_basename = 'trace.bin'
@@ -370,7 +370,7 @@ def setup(parser, **extra_args):
         this.executable = this.qemu_executable
         this.run_dir = this.qemu_run_dir
         this.termout_file = this.qemu_termout_file
-    this.gem5_config_dir = os.path.join(this.gem5_src_dir, 'config')
+    this.gem5_config_dir = os.path.join(this.gem5_src_dir, 'configs')
     this.gem5_se_file = os.path.join(this.gem5_config_dir, 'example', 'se.py')
     this.gem5_fs_file = os.path.join(this.gem5_config_dir, 'example', 'fs.py')
     this.run_cmd_file = os.path.join(this.run_dir, 'run.sh')
