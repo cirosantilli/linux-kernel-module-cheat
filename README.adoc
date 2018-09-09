@@ -238,10 +238,10 @@ For the most part, if you just add the `--gem5` option or `-gem5` suffix to all 
 
 ....
 ./configure --gem5 && \
-  ./build --arch aarch64 --gem5 && \
-  ./build-gem5 --arch aarch64 && \
-  ./run --arch aarch64 --gem5 \
-;
+./build --arch aarch64 --gem5 && \
+./build-gem5 --arch aarch64 && \
+./run --arch aarch64 --gem5 &&\
+:;
 ....
 
 If you have already built <<qemu-buildroot-setup>> previously, don't be afraid, gem5 and QEMU use almost the same root filesystem and kernel, so `./build --gem` will be fast. It is currently only needed for the <<m5>> tool.
@@ -708,9 +708,12 @@ For `aarch64` we also need `-c kernel_config_fragment/display`:
 
 ....
 git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build -gl --arch aarch64 \
+./build \
+  --arch aarch64 \
   -c kernel_config_fragment/display \
+  --gem5 \
   -K linux/arch/arm64/configs/gem5_defconfig \
+  -l \
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -1315,7 +1318,7 @@ First shell:
 Another shell:
 
 ....
-./run -n 1
+./run --run-id 1
 ....
 
 and now you have two QEMU instances running in parallel.
@@ -1330,22 +1333,22 @@ Our scripts solve two difficulties with simultaneous runs:
 Each run gets a separate output directory. For example:
 
 ....
-./run --arch aarch64 --gem5 -n 0 &>/dev/null &
-./run --arch aarch64 --gem5 -n 1 &>/dev/null &
+./run --arch aarch64 --gem5 --run-id 0 &>/dev/null &
+./run --arch aarch64 --gem5 --run-id 1 &>/dev/null &
 ....
 
 produces two separate `m5out` directories:
 
 ....
-echo "$(./getvar --arch aarch64 --gem5 -n 0 m5out_dir)"
-echo "$(./getvar --arch aarch64 --gem5 -n 1 m5out_dir)"
+echo "$(./getvar --arch aarch64 --gem5 --run-id 0 m5out_dir)"
+echo "$(./getvar --arch aarch64 --gem5 --run-id 1 m5out_dir)"
 ....
 
 and the gem5 host executable stdout and stderr can be found at:
 
 ....
-less "$(./getvar --arch aarch64 --gem5 -n 0 termout_file)"
-less "$(./getvar --arch aarch64 --gem5 -n 1 termout_file)"
+less "$(./getvar --arch aarch64 --gem5 --run-id 0 termout_file)"
+less "$(./getvar --arch aarch64 --gem5 --run-id 1 termout_file)"
 ....
 
 Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
@@ -1353,7 +1356,7 @@ Each line is prepended with the timestamp in seconds since the start of the prog
 To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
 
 ....
-./run --arch aarch64 --gem5 -n some-experiment --port-offset 1
+./run --arch aarch64 --gem5 --run-id some-experiment --port-offset 1
 ....
 
 `--port-offset` defaults to the run ID when that is a number.
@@ -1361,8 +1364,8 @@ To have more semantic output directories names for later inspection, you can use
 Like <<cpu-architecture>>, you will need to pass the `-n` option to anything that needs to know runtime information, e.g. <<gdb>>:
 
 ....
-./run -n 1
-./rungdb -n 1
+./run --run-id 1
+./rungdb --run-id 1
 ....
 
 To run multiple gem5 checkouts, see: <<gem5-simultaneous-runs-with-build-variants>>.
@@ -7527,8 +7530,8 @@ List all available debug flags:
 but to understand most of them you have to look at the source code:
 
 ....
-less gem5/gem5/src/cpu/SConscript
-less gem5/gem5/src/cpu/exetrace.cc
+less "$(./getvar gem5_src_dir)/src/cpu/SConscript"
+less "$(./getvar gem5_src_dir)/src/cpu/exetrace.cc"
 ....
 
 As can be seen on the `Sconstruct`, `Exec` is just an alias that enables a set of flags.
@@ -8781,13 +8784,13 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:packages
 
 === gem5 Python scripts without rebuild
 
-We have made a crazy setup that allows you to just `cd` into `gem5/gem5`, and edit Python scripts directly there.
+We have made a crazy setup that allows you to just `cd` into `submodules/gem5`, and edit Python scripts directly there.
 
 This is not normally possible with Buildroot, since normal Buildroot packages first copy files to the output directory (`$(./getvar -a <arch> build_dir)/<pkg>`), and then build there.
 
 So if you modified the Python scripts with this setup, you would still need to `./build` to copy the modified files over.
 
-For gem5 specifically however, we have hacked up the build so that we `cd` into the `gem5/gem5` tree, and then do an link:https://www.mail-archive.com/gem5-users@gem5.org/msg15421.html[out of tree] build to `out/common/gem5`.
+For gem5 specifically however, we have hacked up the build so that we `cd` into the `submodules/gem5` tree, and then do an link:https://www.mail-archive.com/gem5-users@gem5.org/msg15421.html[out of tree] build to `out/common/gem5`.
 
 Another advantage of this method is the we factor out the `arm` and `aarch64` gem5 builds which are identical and large, as well as the smaller arch generic pieces.
 
@@ -8807,7 +8810,7 @@ The `--gem5-biglittle` option enables the alternative `configs/example/arm/fs_bi
 First apply:
 
 ....
-patch -d gem5/gem5 -p1 < patches/manual/gem5-biglittle.patch
+patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-biglittle.patch
 ....
 
 then:
@@ -9014,12 +9017,10 @@ This approach has the advantage of being simple and robust, but it wastes a lot 
 The next less coarse approach, is to use the `-s` option:
 
 ....
-./build -s mybranch
+./build --suffix mybranch
 ....
 
 which generates a full new build under `out/` named for example as `out/x86_64-mybranch`, but at least avoids copying up the source.
-
-TODO: only `-s` works for `./build`, e.g. if you want to `./run` afterwards you need to manually `mv` build around. This should be easy to patch however.
 
 ==== Linux kernel build variants
 
@@ -9051,10 +9052,10 @@ Analogous to the <<linux-kernel-build-variants>> but with the `-Q` option instea
 ....
 ./build-qemu
 git -C "$(./getvar qemu_src_dir)" checkout v2.12.0
-./build-qemu -Q v2.12.0
+./build-qemu --qemu-build-id v2.12.0
 git -C "$(./getvar qemu_src_dir)" checkout -
 ./run
-./run -Q v2.12.0
+./run --qemu-build-id v2.12.0
 ....
 
 ==== gem5 build variants
@@ -9063,12 +9064,10 @@ Analogous to the <<linux-kernel-build-variants>> but with the `-M` option instea
 
 ....
 # Build master.
-./build --gem5
 ./build-gem5
 
 # Build another branch.
 git -C "$(./getvar gem5_src_dir)" checkout some-branch
-./build --gem5 --gem5-build-id some-branch
 ./build-gem5 --gem5-build-id some-branch
 
 # Restore master.
@@ -9094,23 +9093,21 @@ In order to checkout multiple gem5 builds and run them simultaneously, you also 
 
 ....
 # Build master.
-./build --gem5
 ./build-gem5
 
 # Build another branch.
 git -C "$(./getvar linux_src_dir)" checkout some-branch
-./build --gem5 --gem5-build-id some-branch --gem5-worktree some-branch
 ./build-gem5 --gem5-build-id some-branch --gem5-worktree some-branch
 
 # Restore master.
 git -C "$(./getvar linux_src_dir)" checkout -
 
 # Run master.
-./run --gem5 -n 0 &>/dev/null &
+./run --gem5 --run-id 0 &>/dev/null &
 
 # Run another branch using the worktree for the scripts,
 # without the need to check out anything.
-./run --gem5 --gem5-build-id some-branch --gem5-worktree some-branch -n 1 &>/dev/null &
+./run --gem5 --gem5-build-id some-branch --gem5-worktree some-branch --run-id 1 &>/dev/null &
 ....
 
 When `--gem5-worktree` is not given, the default source tree under `submodules/gem5` is used.
@@ -9143,8 +9140,8 @@ git -C data/gem5/some-branch checkout some-branch-v2
 Built and run `gem5.debug`, which has optimizations turned off unlike the default `gem5.opt`:
 
 ....
-./build --arch aarch64 --gem5 --gem5-build-id debug -t debug
-./run --arch aarch64 --gem5 --gem5-build-id debug -t debug
+./build-gem5 --arch aarch64 --gem5-build-id debug --gem5-build-type debug
+./run --arch aarch64 --gem5 --gem5-build-id debug --gem5-build-type debug
 ....
 
 We generate a separate build folder with `--gem5-build-id` just to prevent the `opt` build from getting overwritten, so we can keep both around at the same time.
@@ -9153,7 +9150,7 @@ A Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528
 
 ....
 ./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16 --gem5-build-id debug -t debug
+./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16 --gem5-build-id debug --gem5-build-type debug
 ....
 
 Therefore the performance different is very big, making debug mode almost unusable.
