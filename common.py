@@ -370,6 +370,9 @@ def setup(parser, **extra_args):
         this.executable = this.qemu_executable
         this.run_dir = this.qemu_run_dir
         this.termout_file = this.qemu_termout_file
+    this.gem5_config_dir = os.path.join(this.gem5_src_dir, 'config')
+    this.gem5_se_file = os.path.join(this.gem5_config_dir, 'example', 'se.py')
+    this.gem5_fs_file = os.path.join(this.gem5_config_dir, 'example', 'fs.py')
     this.run_cmd_file = os.path.join(this.run_dir, 'run.sh')
     if args.arch == 'arm':
         this.linux_image = os.path.join('arch', 'arm', 'boot', 'zImage')

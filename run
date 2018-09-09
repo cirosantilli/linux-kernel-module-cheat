@@ -15,20 +15,20 @@ defaults = {
     'eval': None,
     'extra_emulator_args': [],
     'gem5_biglittle': False,
-    'gem5_exe_args':'',
-    'gem5_restore_last_checkpoint': None,
+    'gem5_exe_args': '',
+    'gem5_restore': None,
     'graphic': False,
     'initramfs': False,
     'initrd': False,
-    'kernel_cli_extra': None,
-    'kernel_cli_extra_after_dash': None,
-    'kernel_cli_extra_after_dash_base64': None,
+    'kernel_cli': None,
+    'kernel_cli_after_dash': None,
+    'eval_busybox': None,
     'kgdb': False,
     'kvm': False,
     'memory': '256M',
     'prebuilt': False,
-    'qemu_record': False,
-    'qemu_replay': False,
+    'record': False,
+    'replay': False,
     'terminal': False,
     'tmux': False,
     'tmux_args': '',
@@ -44,10 +44,10 @@ def main(args, extra_args=None):
     # * https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
     # * https://stackoverflow.com/questions/44612822/unable-to-debug-kernel-with-qemu-gdb/49840927#49840927
     #   Turned on by default since v4.12
-    kernel_cli_extra = 'console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y'
-    if args.kernel_cli_extra is not None:
-        kernel_cli_extra += ' {}'.format(args.kernel_cli_extra)
-    kernel_cli_extra_after_dash = ''
+    kernel_cli = 'console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y'
+    if args.kernel_cli is not None:
+        kernel_cli += ' {}'.format(args.kernel_cli)
+    kernel_cli_after_dash = ''
     extra_emulator_args = args.extra_emulator_args.copy()
     extra_qemu_args = []
     if args.debug_vm:
@@ -56,12 +56,12 @@ def main(args, extra_args=None):
         debug_vm = []
     if args.debug_guest:
         extra_qemu_args.append('-S')
-    if args.kernel_cli_extra_after_dash_base64 is not None:
-        kernel_cli_extra_after_dash += ' lkmc_eval_base64="{}"'.format(common.base64_encode(args.kernel_cli_extra_after_dash_base64))
-    if args.kernel_cli_extra_after_dash is not None:
-        kernel_cli_extra_after_dash += ' {}'.format(args.kernel_cli_extra_after_dash)
+    if args.eval_busybox is not None:
+        kernel_cli_after_dash += ' lkmc_eval_base64="{}"'.format(common.base64_encode(args.eval_busybox))
+    if args.kernel_cli_after_dash is not None:
+        kernel_cli_after_dash += ' {}'.format(args.kernel_cli_after_dash)
     if args.kgdb:
-        kernel_cli_extra += ' kgdbwait'
+        kernel_cli += ' kgdbwait'
     if args.vnc:
         vnc = ['-vnc', ':0']
     else:
@@ -75,14 +75,14 @@ def main(args, extra_args=None):
             initarg = 'rdinit'
         else:
             initarg = 'init'
-        kernel_cli_extra += ' {}=/eval_base64.sh'.format(initarg)
-        kernel_cli_extra_after_dash += ' lkmc_eval="{}"'.format(common.base64_encode(args.eval))
+        kernel_cli += ' {}=/eval_base64.sh'.format(initarg)
+        kernel_cli_after_dash += ' lkmc_eval="{}"'.format(common.base64_encode(args.eval))
     if not args.graphic:
         if args.arch == 'x86_64':
-            kernel_cli_extra += ' console=ttyS0'
+            kernel_cli += ' console=ttyS0'
         extra_qemu_args.append('-nographic')
-    if kernel_cli_extra_after_dash:
-        kernel_cli_extra += " -{}".format(kernel_cli_extra_after_dash)
+    if kernel_cli_after_dash:
+        kernel_cli += " -{}".format(kernel_cli_after_dash)
     extra_env = {}
     if args.trace is None:
         do_trace = False
@@ -111,8 +111,8 @@ def main(args, extra_args=None):
             ]
         )
         if args.gem5_biglittle:
-            if args.gem5_restore_last_checkpoint is not None:
-                cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore_last_checkpoint]
+            if args.gem5_restore is not None:
+                cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
                 extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
             cmd += [
                 os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
@@ -125,12 +125,12 @@ def main(args, extra_args=None):
             ]
         else:
             # TODO port
-            if args.gem5_restore_last_checkpoint is not None:
+            if args.gem5_restore is not None:
                 cpt_dirs = common.gem_list_checkpoint_dirs()
-                cpt_dir = cpt_dirs[-args.gem5_restore_last_checkpoint]
+                cpt_dir = cpt_dirs[-args.gem5_restore]
                 extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
             cmd += [
-                os.path.join(common.gem5_src_dir, 'configs', 'example', 'fs.py'),
+                common.gem5_fs_file,
                 '--disk-image', common.ext2_file,
                 '--kernel', common.vmlinux,
                 '--mem-size', memory,
@@ -140,12 +140,12 @@ def main(args, extra_args=None):
             if args.arch == 'x86_64':
                 if args.kvm:
                     cmd += ['--cpu-type', 'X86KvmCPU']
-                cmd += ['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli_extra)]
+                cmd += ['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)]
             elif args.arch == 'arm' or args.arch == 'aarch64':
                 # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                 # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                 cmd += [
-                    '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli_extra),
+                    '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
                     '--dtb-file', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
                     '--machine-type', 'VExpress_GEM5_V1',
                 ]
@@ -186,7 +186,7 @@ def main(args, extra_args=None):
         )
         if args.initrd:
             extra_emulator_args.extend(['-initrd', os.path.join(common.images_dir, 'rootfs.cpio')])
-        rr = args.qemu_record or args.qemu_replay
+        rr = args.record or args.replay
         if ramfs:
             # TODO why is this needed, and why any string works.
             root = 'root=/dev/anything'
@@ -213,22 +213,22 @@ def main(args, extra_args=None):
         if rr:
             extra_emulator_args.extend([
                 '-object', 'filter-replay,id=replay,netdev=net0',
-                '-icount', 'shift=7,rr={},rrfile={}'.format('record' if args.qemu_record else 'replay', common.qemu_rrfile),
+                '-icount', 'shift=7,rr={},rrfile={}'.format('record' if args.record else 'replay', common.qemu_rrfile),
             ])
             virtio_gpu_pci = []
         else:
             virtio_gpu_pci = ['-device', 'virtio-gpu-pci']
         if args.arch == 'x86_64':
             if args.kgdb:
-                kernel_cli_extra += ' kgdboc=ttyS0,115200'
+                kernel_cli += ' kgdboc=ttyS0,115200'
             cmd.extend([
                 '-M', 'pc',
-                '-append', '{} nopat {}'.format(root, kernel_cli_extra),
+                '-append', '{} nopat {}'.format(root, kernel_cli),
                 '-device', 'edu',
             ])
         elif args.arch == 'arm' or args.arch == 'aarch64':
             if args.kgdb:
-                kernel_cli_extra += ' kgdboc=ttyAMA0,115200'
+                kernel_cli += ' kgdboc=ttyAMA0,115200'
             if args.arch == 'arm':
                 cpu = 'cortex-a15'
             else:
@@ -239,7 +239,7 @@ def main(args, extra_args=None):
                 cmd +
                 [
                     '-M', 'virt,highmem=off',
-                    '-append', '{} {}'.format(root, kernel_cli_extra),
+                    '-append', '{} {}'.format(root, kernel_cli),
                     '-cpu', cpu,
                 ] +
                 virtio_gpu_pci
@@ -304,12 +304,12 @@ def get_argparse():
     parser.add_argument(
         '-E', '--eval',
         help='''\
-Replace the normal init with a minimal init that just evals with given
-`CMDSTR` bash command string. Example: `-E 'insmod /hello.ko;'`
+Replace the normal init with a minimal init that just evals the given string.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#replace-init
 '''
     )
     parser.add_argument(
-        '-e', '--kernel-cli-extra',
+        '-e', '--kernel-cli',
         help='''\
 Pass an extra Linux kernel command line options, and place them before
 the dash separator `-`. Only options that come before the `-`, i.e.
@@ -318,20 +318,21 @@ Example: `./run -a arm -e 'init=/poweroff.out'`
 '''
     )
     parser.add_argument(
-        '-F', '--kernel-cli-extra-after-dash-base64',
+        '-F', '--eval-busybox',
         help='''\
-    Much like `-f`, but base64 encodes the string. Mnemonic:
-    `-F` is to `-f` what `-E` is to `-e`.)
-    '''
+Pass a base64 encoded command line parameter that gets evalled by the Busybox init.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#init-busybox
+'''
     )
     parser.add_argument(
-        '-f', '--kernel-cli-extra-after-dash',
+        '-f', '--kernel-cli-after-dash',
         help='''\
 Pass an extra Linux kernel command line options, add a dash `-`
 separator, and place the options after the dash. Intended for custom
 options understood by our `init` scripts, most of which are prefixed
-by `lkmc_`, e.g.: `./run -f 'lkmc_eval="wget google.com" lkmc_lala=y'`
-Mnenomic: comes after `-e`.
+by `lkmc_`.
+Example: `./run -f 'lkmc_eval="wget google.com" lkmc_lala=y'`
+Mnenomic: `-f` comes after `-e`.
 '''
     )
     parser.add_argument(
@@ -339,7 +340,10 @@ Mnenomic: comes after `-e`.
         help='''\
 Pass extra options to the gem5 executable.
 Do not confuse with the arguments passed to config scripts,
-like `fs.py`. Example: `./run -G '--debug-flags=Exec --debug' -g`.
+like `fs.py`. Example:
+./run -G '--debug-flags=Exec --debug' --gem5 -- --cpu-type=HPI --caches
+will run:
+gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
 '''
     )
     parser.add_argument(
@@ -362,11 +366,11 @@ like `fs.py`. Example: `./run -G '--debug-flags=Exec --debug' -g`.
         '-k', '--kgdb', default=defaults['kgdb'], action='store_true'
     )
     parser.add_argument(
-        '-l', '--gem5-restore-last-checkpoint', type=int,
+        '-l', '--gem5-restore', type=int,
         help='''\
-    Restore the nth most recently taken gem5 checkpoint according to directory
-    timestamps.
-    '''
+Restore the nth most recently taken gem5 checkpoint according to directory
+timestamps.
+'''
     )
     parser.add_argument(
         '-m', '--memory', default=defaults['memory'],
@@ -383,11 +387,11 @@ Default: %(default)s
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        '-R', '--qemu-replay', default=defaults['qemu_replay'], action='store_true',
+        '-R', '--replay', default=defaults['replay'], action='store_true',
         help='Replay a QEMU run record deterministically'
     )
     group.add_argument(
-        '-r', '--qemu-record', default=defaults['qemu_record'], action='store_true',
+        '-r', '--record', default=defaults['record'], action='store_true',
         help='Record a QEMU run record for later replay with `-R`'
     )
     parser.add_argument(
