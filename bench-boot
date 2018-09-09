@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
+set -eu
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 test_size=1
 OPTIND=1
 while getopts t: OPT; do
@@ -17,10 +18,11 @@ while getopts t: OPT; do
 done
 shift "$(($OPTIND - 1))"
 extra_args="$*"
+common_bench_boot="$(${root_dir}/getvar bench_boot)"
 
 caches='--caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB'
 bench() (
-  common_bench_cmd "./run -a ${1} ${extra_args}" "$common_bench_boot"
+  "${root_dir}/bench-cmd"  "./run -a ${1} ${extra_args}" "$common_bench_boot"
   echo >> "$common_bench_boot"
 )
 gem5_insts() (

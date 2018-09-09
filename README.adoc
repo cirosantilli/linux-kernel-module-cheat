@@ -63,9 +63,16 @@ ____
 
 There are several different possible setups to use this repo.
 
-Each subsection of this describes one of those setups, and the trade-offs of each.
+Each child section of this section describes one of those setups, and the trade-offs of each.
 
 If you don't know which one to go for, start with <<qemu-buildroot-setup>>
+
+The trade-offs are basically a balance between:
+
+* how long and how much disk space does the build take
+* visibility: can you GDB step debug everything and read source code?
+* modifiability: can you modify the source code and rebuild a modified version?
+* how portable the setup is: does it work on Windows? Could it ever?
 
 === QEMU Buildroot setup
 
@@ -259,6 +266,12 @@ or if you are inside tmux, which I highly recommend, just run gem5 with:
 ....
 
 This will open up a split terminal by default so that you can see both the gem5 stdout and the terminal. See also: <<tmux-gem5>>
+
+If you forgot to open the shell and gem5 exit, you can inspect the terminal output post-mortem at:
+
+....
+less "$(./getvar --gem5 termout_file)"
+....
 
 TODO: `arm` boot broken on kernel 4.18 with:
 
@@ -7074,7 +7087,7 @@ gem5 user mode:
 ....
 make \
   -C "$(./getvar --arch arm build_dir)/dhrystone-2" \
-  CC="$(./getvar --arch arm host_bin_dir)/arm-buildroot-linux-uclibcgnueabihf-gcc" \
+  CC="$(./runtc --arch arm --dry gcc)" \
   CFLAGS=-static \
 ;
 time \
@@ -7635,39 +7648,31 @@ On the other hand, the chip makers tend to upstream less, and the project become
 
 OK, this is why we used gem5 in the first place, performance measurements!
 
-Let's benchmark https://en.wikipedia.org/wiki/Dhrystone[Dhrystone] which Buildroot provides.
+Let's see how many cycles https://en.wikipedia.org/wiki/Dhrystone[Dhrystone], which Buildroot provides, takes for a few different input parameters.
 
-A flexible setup is:
+A flexible setup is demonstrated at:
 
 ....
-arch=aarch64
-cmd="./run -a '$arch' --gem5 --eval-busybox '/gem5.sh'"
-# These cache sizes roughly match the ARM Cortex A75
-# https://en.wikipedia.org/wiki/ARM_Cortex-A75
-restore='-l 1 -- --cpu-type=HPI --restore-with-cpu=HPI --caches --l2cache --l1d_size=128kB --l1i_size=1024kB --l2_size=256kB'
-
-# Generate a checkpoint after Linux boots, using the faster and less detailed CPU.
-# The boot takes a while, be patient young Padawan.
-eval "$cmd"
-
-# Restore the most recent checkpoint taken with the more detailed and slower HPI CPU,
-# and run the benchmark with parameter 1.000. We skip the boot completely, saving time!
-eval "${cmd} --gem5-readfile 'dhrystone 1000' ${restore}"
-./gem5-stat -a "$arch"
-
-# Now run again with another parameter 10.000.
-# This one should take more cycles!
-eval "${cmd} --gem5-readfile 'dhrystone 10000' ${restore}"
-./gem5-stat -a "$arch"
-
-# Get an interactive shell at the end of the restore
-# if you need to debug something more interactively.
-eval "${cmd} --gem5-readfile 'sh' ${restore}"
+./gem5-bench-dhrystone
+cat out/gem5-bench-dhrystone.txt
 ....
+
+Source: link:gem5-bench-dhrystone[]
+
+Sample output:
+
+....
+n cycles
+1000 12898577
+10000 23441629
+100000 128428617
+....
+
+so as expected, the Dhrystone run with a larger input parameter `100000` took more cycles than the ones with smaller input parameters.
 
 The `gem5-stats` commands output the approximate number of CPU cycles it took Dhrystone to run.
 
-For more serious tests, you will likely want to automate logging the commands ran and results to files, a good example is: link:gem5-bench-cache[].
+Another interesting example can be found at: link:gem5-bench-cache[].
 
 A more naive and simpler to understand approach would be a direct:
 
@@ -7801,47 +7806,47 @@ So we take a performance measurement approach instead:
 
 ....
 ./gem5-bench-cache --arch aarch64
-cat "$(./getvar --arch aarch64 run_dir)bench-cache.txt"
+cat "$(./getvar --arch aarch64 run_dir)/bench-cache.txt"
 ....
 
 which gives:
 
 ....
-n 1000
-cmd ./run --arch arm --gem5 --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
-time 24.71
+cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+time 23.82
 exit_status 0
-cycles 52386455
-instructions 4555081
-cmd ./run --arch arm --gem5 --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
-time 17.44
-exit_status 0
-cycles 6683355
-instructions 4466051
+cycles 93284622
+instructions 4393457
 
-n 10000
-cmd ./run --arch arm --gem5 --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
-time 52.90
+cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+time 14.91
 exit_status 0
-cycles 165704397
-instructions 11531136
-cmd ./run --arch arm --gem5 --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
-time 36.19
-exit_status 0
-cycles 16182925
-instructions 11422585
+cycles 10128985
+instructions 4211458
 
-n 100000
-cmd ./run --arch arm --gem5 --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
-time 325.09
+cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+time 51.87
 exit_status 0
-cycles 1295703657
-instructions 81189411
-cmd ./run --arch arm --gem5 --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
-time 250.74
+cycles 188803630
+instructions 12401336
+
+cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+time 35.35
 exit_status 0
-cycles 110585681
-instructions 80899588
+cycles 20715757
+instructions 12192527
+
+cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+time 339.07
+exit_status 0
+cycles 1176559936
+instructions 94222791
+
+cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+time 240.37
+exit_status 0
+cycles 125666679
+instructions 91738770
 ....
 
 We make the following conclusions:
@@ -7934,8 +7939,12 @@ https://stackoverflow.com/questions/6147242/heap-vs-binary-search-tree-bst/29548
 Usage:
 
 ....
-printf '/bst_vs_heap.out' > data/readfile
-./run --arch aarch64 --gem5 --eval-busybox '/gem5.sh'
+./run \
+  --arch aarch64 \
+  --eval-busybox '/gem5.sh' \
+  --gem5 \
+  --gem5-readfile '/bst_vs_heap.out' \
+;
 ./bst-vs-heap --arch aarch64 --gem5 > bst_vs_heap.dat
 ....
 
@@ -8387,18 +8396,32 @@ The problem is that boot takes forever, and after the checkpoint, the memory and
 * hack up an existing rc script, since the disk is fixed
 * inject new kernel boot command line options, since those have already been put into memory by the bootloader
 
-There is however one loophole: <<m5-readfile>>, which reads whatever is present on the host, so we can do it like:
+There is however a few loopholes, <<m5-readfile>> being the simplest, as it reads whatever is present on the host.
+
+So we can do it like:
 
 ....
-printf 'echo "setup run";m5 exit' > data/readfile
-./run --arch aarch64 --gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
-printf 'echo "first benchmark";m5 exit' > data/readfile
-./run --arch aarch64 --gem5 --gem5-restore 1
-printf 'echo "second benchmark";m5 exit' > data/readfile
-./run --arch aarch64 --gem5 --gem5-restore 1
+# Boot, checkpoint and exit.
+printf 'echo "setup run";m5 exit' > "$(./getvar gem5_readfile)"
+./run --gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+
+# Restore and run the first benchmark.
+printf 'echo "first benchmark";m5 exit' > "$(./getvar gem5_readfile)"
+./run --gem5 --gem5-restore 1
+
+# Restore and run the second benchmark.
+printf 'echo "second benchmark";m5 exit' > "$(./getvar gem5_readfile)"
+./run --gem5 --gem5-restore 1
+
+# If something weird happened, create an interactive shell to examine the system.
+printf 'sh' > "$(./getvar gem5_readfile)"
+./run --gem5 --gem5-restore 1
 ....
 
-Since this is such a common setup, we provide helper for it at: link:rootfs_overlay/gem5.sh[rootfs_overlay/gem5.sh]. This script is analogous to gem5's in-tree link:https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
+Since this is such a common setup, we provide some helpers for it as described at <<gem5-run-benchmark>>:
+
+* link:rootfs_overlay/gem5.sh[rootfs_overlay/gem5.sh]. This script is analogous to gem5's in-tree link:https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
+* `./run --gem5-readfile` is a convenient way to set the `m5 readfile`
 
 Other loophole possibilities include:
 
@@ -8415,6 +8438,8 @@ send "ls /\r"
 send "m5 exit\r"
 expect eof
 ....
++
+This is ugly however as it is not deterministic.
 
 https://www.mail-archive.com/gem5-users@gem5.org/msg15233.html
 
@@ -8568,12 +8593,14 @@ m5 writefile myfileguest mydirhost/myfilehost
 
 ===== m5 readfile
 
+Read a host file pointed to by the `fs.py --script` option to stdout.
+
 https://stackoverflow.com/questions/49516399/how-to-use-m5-readfile-and-m5-execfile-in-gem5/49538051#49538051
 
 Host:
 
 ....
-date > data/readfile
+date > "$(./getvar gem5_readfile)"
 ....
 
 Guest:
@@ -8582,13 +8609,18 @@ Guest:
 m5 readfile
 ....
 
+Outcome: date shows on guest.
+
 ===== m5 execfile
+
+Trivial combination of `m5 readfile` + execute the script.
 
 Host:
 
 ....
 printf '#!/bin/sh
-echo asdf' > data/readfile
+echo asdf
+' > "$(./getvar gem5_readfile)"
 ....
 
 Guest:
@@ -8597,6 +8629,12 @@ Guest:
 touch /tmp/execfile
 chmod +x /tmp/execfile
 m5 execfile
+....
+
+Outcome:
+
+....
+adsf
 ....
 
 ==== m5ops instructions
@@ -9318,6 +9356,7 @@ We tried to automate it on Travis with link:.travis.yml[] but it hits the curren
 ==== Benchmark Linux kernel boot
 
 ....
+./build-all
 ./bench-boot
 cat "$(./getvar bench_boot)"
 ....
@@ -9679,7 +9718,6 @@ The action seems to be happening at: `hw/arm/virt.c`.
 === Directory structure
 
 * `data`: gitignored user created data. Deleting this might lead to loss of data. Of course, if something there becomes is important enough to you, git track it.
-** `data/readfile`: see <<m5-readfile>>
 ** `data/9p`: see <<9p>>
 ** `data/gem5/<variant>`: see: <<gem5-build-variants>>
 * link:packages/kernel_modules[]: Buildroot package that contains our kernel modules and userland C tests

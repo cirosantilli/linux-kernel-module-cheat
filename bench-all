@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-set -x
+set -eux
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 bench_build=false
 bench_buildroot_baseline=false
 bench_gem5_build=false
@@ -40,9 +40,10 @@ while getopts Aa:Bbglu OPT; do
 done
 shift "$(($OPTIND - 1))"
 comment="${1:-}"
+getvar="${root_dir}/getvar"
 
 # Create output directory.
-benchmark_repo="${common_root_dir}/../linux-kernel-module-cheat-regression"
+benchmark_repo="${root_dir}/../linux-kernel-module-cheat-regression"
 mkdir -p "$benchmark_repo"
 last_dir="$(ls "$benchmark_repo" | grep -E '^[0-9]' | tail -n 1)"
 if [ -n "$last_dir" ]; then
@@ -57,8 +58,9 @@ mkdir "$new_dir"
 
 if "$bench_build"; then
   common_arch="$default_arch"
+  common_out_arch_dir="$("$getvar" --arch "$common_arch" out_arch_dir)"
+  common_out_arch_dir="$("$getvar" --arch "$common_arch" build_dir)"
   common_suffix=bench
-  common_setup
   rm -rf "$common_out_arch_dir"
   ./build -a "$common_arch" -B 'BR2_CCACHE=n' -s "$common_suffix"
   cp "${common_build_dir}/build-time.log" "${new_dir}/build-time-${common_arch}.log"
@@ -66,7 +68,7 @@ if "$bench_build"; then
 fi
 
 if "$bench_buildroot_baseline"; then
-  cd "${common_root_dir}/buildroot"
+  cd "${root_dir}/buildroot"
   git clean -xdf
   make "qemu_${default_arch}_defconfig"
   printf '
@@ -85,7 +87,9 @@ fi
 if "$bench_gem5_build"; then
   arches='x86_64 arm'
   for common_arch in $arches; do
-    common_setup
+    common_gem5_out_dir="$("$getvar" --arch "$common_arch" gem5_out_dir)"
+    common_gem5_src_dir="$("$getvar" --arch "$common_arch" gem5_src_dir)"
+    common_out_dir="$("$getvar" --arch "$common_arch" out_dir)"
     cd "${common_gem5_src_dir}"
     git clean -xdf
     results_file="${common_gem5_out_dir}/bench-build.txt"
@@ -94,19 +98,19 @@ if "$bench_gem5_build"; then
     # TODO understand better: --foreground required otherwise we cannot
     # kill the build with Ctrl+C if something goes wrong, can be minimized to:
     # bash -c "eval 'timeout 5 sleep 3'"
-    common_bench_cmd "timeout --foreground 900 ../build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
+    "${root_dir}/bench-cmd" "timeout --foreground 900 ../build -a '$common_arch' -o '${gem5_outdir}'" "$results_file"
     cp "$results_file" "${new_dir}/gem5-bench-build-${common_arch}.txt"
-    cd "${common_root_dir}/gem5/gem5"
+    cd "${root_dir}/gem5/gem5"
     git clean -xdf
     rm -fr "${gem5_outdir}"
   done
 fi
 
 if "$bench_linux_boot"; then
-  cd "${common_root_dir}"
+  cd "${root_dir}"
   ./build-all
   ./bench-boot
-  cp "$common_bench_boot" "$new_dir"
+  cp "$(${root_dir}/getvar bench_boot)" "$new_dir"
 fi
 
 if "$update_repo"; then

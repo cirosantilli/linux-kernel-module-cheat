@@ -22,6 +22,11 @@ ls "$(./getvar -a arm host_bin_dir)"
 ....
 '''
 })
+parser.add_argument(
+    '--dry',
+    help='Just output the tool path to stdout but actually run it',
+    action='store_true',
+)
 parser.add_argument('tool', help='Which tool to run.')
 parser.add_argument(
     'extra_args',
@@ -31,9 +36,12 @@ parser.add_argument(
     nargs='*'
 )
 args = common.setup(parser)
-sys.exit(common.run_cmd(
-    [common.get_toolchain_tool(args.tool)] + args.extra_args,
-    cmd_file=os.path.join(common.run_dir, 'runtc.sh'),
-    cwd=common.linux_variant_dir,
-    show_cmd=False,
-))
+if args.dry:
+    print(common.get_toolchain_tool(args.tool))
+else:
+    sys.exit(common.run_cmd(
+        [common.get_toolchain_tool(args.tool)] + args.extra_args,
+        cmd_file=os.path.join(common.run_dir, 'runtc.sh'),
+        cwd=common.linux_variant_dir,
+        show_cmd=False,
+    ))

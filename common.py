@@ -45,25 +45,6 @@ if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
 
-# TODO
-## Benchmark a command.
-##
-## $1: command to benchmark
-## $2: where to append write results to. Default: /dev/null.
-##
-## Result format:
-##
-## cmd <command run>
-## time <time in seconds to finish>
-## exit_status <exit status>
-#bench_cmd() (
-#    cmd = "$1"
-#    results_file = "${2:-/dev/null}"
-#    printf 'cmd ' >> "$results_file"
-#    env time --append -f 'time %e' --output = "$results_file" "${root_dir}/eeval" -a "$cmd" "$results_file"
-#    printf "exit_status $?\n" >> "$results_file"
-#)
-
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
 
