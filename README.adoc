@@ -210,9 +210,16 @@ link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of `make` scrip
 * glibc
 * BusyBox
 
-It therefore produces a pristine, blob-less and debuggable setup.
+It therefore produces a pristine, blob-less, debuggable setup, where all moving parts are configured to work perfectly together.
 
-The price that you pay is that the first build takes a while, but it is well worth it.
+The downsides of Buildroot are:
+
+* the first build takes a while, but it is well worth it
+* the selection of software packages is relatively limited if compared to Debian, e.g. no Java or Python package in guest out of the box.
++
+In theory, any software can be packaged, and the Buildroot side is easy.
++
+The hard part is dealing with crappy third party build systems and huge dependency chains.
 
 link:https://en.wikipedia.org/wiki/QEMU[QEMU] is a system simulator: it simulates a CPU and devices such as interrupt handlers, timers, UART, screen, keyboard, etc.
 
@@ -221,6 +228,19 @@ QEMU is the leading cross arch system simulator as of 2018. It is even the defau
 QEMU is also supported by Buildroot in-tree, see e.g.: https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_aarch64_virt_defconfig
 
 All of this makes QEMU the natural choice of system simulator.
+
+[[retype]]
+==== Default command line arguments
+
+It gets annoying to retype `--arch aarch64` for every single command, or to remember `./build --buildroot-config` setups.
+
+So simplify that, do:
+
+....
+cp config.example data/config
+....
+
+and then edit the `data/config` file to your needs.
 
 === gem5 Buildroot setup
 
@@ -527,193 +547,7 @@ rmmod hello.ko
 dmesg
 ....
 
-=== Automatic startup commands
-
-When debugging a module, it becomes tedious to wait for build and re-type:
-
-....
-/modulename.sh
-....
-
-every time.
-
-To automate that, use the methods described at: <<init>>
-
-=== printk
-
-We use `printk` a lot in our kernel modules, and it shows on the terminal by default, along with stdout and what you type.
-
-Hide all `printk` messages:
-
-....
-dmesg -n 1
-....
-
-or equivalently:
-
-....
-echo 1 > /proc/sys/kernel/printk
-....
-
-See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
-
-Do it with a <<kernel-command-line-parameters>> to affect the boot itself:
-
-....
-./run --kernel-cli 'loglevel=5'
-....
-
-and now only boot warning messages or worse show, which is useful to identify problems.
-
-Our default `printk` format is:
-
-....
-<LEVEL>[TIMESTAMP] MESSAGE
-....
-
-e.g.:
-
-....
-<6>[    2.979121] Freeing unused kernel memory: 2024K
-....
-
-where:
-
-* `LEVEL`: higher means less serious
-* `TIMESTAMP`: seconds since boot
-
-This format is selected by the following boot options:
-
-* `console_msg_format=syslog`: add the `<LEVEL>` part. Added in v4.16.
-* `printk.time=y`: add the `[TIMESTAMP]` part
-
-==== pr_debug
-
-https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405
-
-Debug messages are not printable by default without recompiling.
-
-But the awesome `CONFIG_DYNAMIC_DEBUG=y` option which we enable by default allows us to do:
-
-....
-echo 8 > /proc/sys/kernel/printk
-echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
-/myinsmod.out /hello.ko
-....
-
-and we have a shortcut at:
-
-....
-/pr_debug.sh
-....
-
-Source: link:rootfs_overlay/pr_debug.sh[].
-
-Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
-
-Wildcards are also accepted, e.g. enable all messages from all files:
-
-....
-echo 'file * +p' > /sys/kernel/debug/dynamic_debug/control
-....
-
-TODO: why is this not working:
-
-....
-echo 'func sys_init_module +p' > /sys/kernel/debug/dynamic_debug/control
-....
-
-Enable messages in specific modules:
-
-....
-echo 8 > /proc/sys/kernel/printk
-echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
-insmod /myprintk.ko
-....
-
-Source: link:packages/kernel_modules/myprintk.c[]
-
-This outputs the `pr_debug` message:
-
-....
-printk debug
-....
-
-but TODO: it also shows debug messages even without enabling them explicitly:
-
-....
-echo 8 > /proc/sys/kernel/printk
-insmod /myprintk.ko
-....
-
-and it shows as enabled:
-
-....
-# grep myprintk /sys/kernel/debug/dynamic_debug/control
-/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./myprintk.c:12 [myprintk]myinit =p "pr_debug\012"
-....
-
-Enable `pr_debug` for boot messages as well, before we can reach userland and write to `/proc`:
-
-....
-./run --kernel-cli 'dyndbg="file * +p" loglevel=8'
-....
-
-Get ready for the noisiest boot ever, I think it overflows the `printk` buffer and funny things happen.
-
-===== pr_debug != printk(KERN_DEBUG
-
-When `CONFIG_DYNAMIC_DEBUG` is set,  `printk(KERN_DEBUG` is not the exact same as `pr_debug(` since `printk(KERN_DEBUG` messages are visible with:
-
-....
-./run --kernel-cli 'initcall_debug logleve=8'
-....
-
-which outputs lines of type:
-
-....
-<7>[    1.756680] calling  clk_disable_unused+0x0/0x130 @ 1
-<7>[    1.757003] initcall clk_disable_unused+0x0/0x130 returned 0 after 111 usecs
-....
-
-which are `printk(KERN_DEBUG` inside `init/main.c` in v4.16.
-
-Mentioned at: https://stackoverflow.com/questions/37272109/how-to-get-details-of-all-modules-drivers-got-initialized-probed-during-kernel-b
-
-This likely comes from the ifdef split at `init/main.c`:
-
-....
-/* If you are writing a driver, please use dev_dbg instead */
-#if defined(CONFIG_DYNAMIC_DEBUG)
-#include <linux/dynamic_debug.h>
-
-/* dynamic_pr_debug() uses pr_fmt() internally so we don't need it here */
-#define pr_debug(fmt, ...) \
-    dynamic_pr_debug(fmt, ##__VA_ARGS__)
-#elif defined(DEBUG)
-#define pr_debug(fmt, ...) \
-    printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#else
-#define pr_debug(fmt, ...) \
-    no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-....
-
-==== ignore_loglevel
-
-....
-./run --kernel-cli 'ignore_loglevel'
-....
-
-enables all log levels, and is basically the same as:
-
-....
-./run --kernel-cli 'loglevel=8'
-....
-
-except that you don't need to know what is the maximum level.
-
-=== Rebuild
+=== Rebuild Buildroot packages
 
 After making changes to a Buildroot package, you must explicitly request it to be rebuilt.
 
@@ -742,19 +576,6 @@ For example, if you decide to <<enable-compiler-optimizations>> after an initial
 as explained at: https://buildroot.org/downloads/manual/manual.html#rebuild-pkg
 
 The clean is necessary because the source files didn't change, so `make` would just check the timestamps and not build anything.
-
-[[retype]]
-=== Don't retype arguments all the time
-
-It gets annoying to retype `--arch aarch64` for every single command, or to remember `./build --buildroot-config` setups.
-
-So simplify that, do:
-
-....
-cp config.example data/config
-....
-
-and then edit the `data/config` file to your needs.
 
 === Clean the build
 
@@ -785,9 +606,9 @@ rm -rf "$(./getvar buildroot_build_dir)/build/host-qemu-custom"
 
 This is sometimes necessary when changing the version of the submodules, and then builds fail. We should try to understand why and report bugs.
 
-=== Filesystem persistency
+=== Disk persistency
 
-We disable filesystem persistency for both QEMU and gem5 by default, to prevent the emulator from putting the image in an unknown state.
+We disable disk persistency for both QEMU and gem5 by default, to prevent the emulator from putting the image in an unknown state.
 
 For QEMU, this is done by passing the `snapshot` option to `-drive`, and for gem5 it is the default behaviour.
 
@@ -2378,27 +2199,43 @@ If you want to revive and maintain it, send a pull request.
 
 == init
 
-When the Linux kernel finishes booting, it runs an executable as the first and only userland process.
+When the Linux kernel finishes booting, it runs an executable as the first and only userland process. This executable is called the `init` program.
 
-This init process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
+The init process is then responsible for setting up the entire userland (or destroying everything when you want to have fun).
 
-This typically means reading some configuration files (e.g. `/etc/initrc`) and forking a bunch of userland executables based on those files.
+This typically means reading some configuration files (e.g. `/etc/initrc`) and forking a bunch of userland executables based on those files, including the very interactive shell that we end up on.
 
 systemd provides a "popular" init implementation for desktop distros as of 2017.
 
 BusyBox provides its own minimalistic init implementation which Buildroot, and therefore this repo, uses by default.
 
+The `init` program can be either an executable shell text file, or a compiled ELF file. It becomes easy to accept this once you see that the `exec` system call handles both cases equally: https://unix.stackexchange.com/questions/174062/can-the-init-process-be-a-shell-script-in-linux/395375#395375
+
+The `init` executable is searched for in a list of paths in the root filesystem, including `/init`, `/sbin/init` and a few others. For more details see: <<path-to-init>>
+
 === Replace init
 
 To have more control over the system, you can replace BusyBox's init with your own.
 
-The `--eval` option replaces init and evals a command from the <<kernel-command-line-parameters>>:
+The most direct way to replace `init` with our own is to just use the `init=` <<kernel-command-line-parameters,command line parameter>> directly:
+
+....
+./run --kernel-cli 'init=/count.sh'
+....
+
+This just counts every second forever and does not give you a shell.
+
+This method is not very flexible however, as it is hard to reliably pass multiple commands and command line arguments to the init with it, as explained at: <<init-environment>>.
+
+For this reason, we have created a more robust helper method with the `--eval` option:
 
 ....
 ./run --eval 'echo "asdf qwer";insmod /hello.ko;/poweroff.out'
 ....
 
-which is basically a shortcut for:
+The `--eval` option replaces init with a shell script that just evals the given command.
+
+It is basically a shortcut for:
 
 ....
 ./run --kernel-cli 'init=/eval_base64.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"'
@@ -2410,9 +2247,7 @@ This allows quoting and newlines by base64 encoding on host, and decoding on gue
 
 It also automatically chooses between `init=` and `rcinit=` for you, see: <<path-to-init>>
 
-so you should almost always use it, unless you are really counting each cycle ;-)
-
-This method replaces BusyBox' init completely, which makes things more minimal, but also has has the following consequences:
+`--eval` replaces BusyBox' init completely, which makes things more minimal, but also has has the following consequences:
 
 * `/etc/fstab` mounts are not done, notably `/proc` and `/sys`, test it out with:
 +
@@ -2695,6 +2530,8 @@ For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM
 == Graphics
 
 Both QEMU and gem5 are capable of outputting graphics to the screen, and taking mouse and keyboard input.
+
+TODO. Review. make awesome.
 
 === Text mode QEMU
 
@@ -3376,6 +3213,184 @@ git log --grep 'linux: bump default to version'
 Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
+
+=== printk
+
+`printk` is the most simple and widely used way of getting information from the kernel, so you should familiarize yourself with its basic configuration. 
+
+We use `printk` a lot in our kernel modules, and it shows on the terminal by default, along with stdout and what you type.
+
+Hide all `printk` messages:
+
+....
+dmesg -n 1
+....
+
+or equivalently:
+
+....
+echo 1 > /proc/sys/kernel/printk
+....
+
+See also: https://superuser.com/questions/351387/how-to-stop-kernel-messages-from-flooding-my-console
+
+Do it with a <<kernel-command-line-parameters>> to affect the boot itself:
+
+....
+./run --kernel-cli 'loglevel=5'
+....
+
+and now only boot warning messages or worse show, which is useful to identify problems.
+
+Our default `printk` format is:
+
+....
+<LEVEL>[TIMESTAMP] MESSAGE
+....
+
+e.g.:
+
+....
+<6>[    2.979121] Freeing unused kernel memory: 2024K
+....
+
+where:
+
+* `LEVEL`: higher means less serious
+* `TIMESTAMP`: seconds since boot
+
+This format is selected by the following boot options:
+
+* `console_msg_format=syslog`: add the `<LEVEL>` part. Added in v4.16.
+* `printk.time=y`: add the `[TIMESTAMP]` part
+
+The debug highest level is a bit more magic, see: <<pr_debug>> for more info.
+
+==== ignore_loglevel
+
+....
+./run --kernel-cli 'ignore_loglevel'
+....
+
+enables all log levels, and is basically the same as:
+
+....
+./run --kernel-cli 'loglevel=8'
+....
+
+except that you don't need to know what is the maximum level.
+
+==== pr_debug
+
+https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405
+
+Debug messages are not printable by default without recompiling.
+
+But the awesome `CONFIG_DYNAMIC_DEBUG=y` option which we enable by default allows us to do:
+
+....
+echo 8 > /proc/sys/kernel/printk
+echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
+/myinsmod.out /hello.ko
+....
+
+and we have a shortcut at:
+
+....
+/pr_debug.sh
+....
+
+Source: link:rootfs_overlay/pr_debug.sh[].
+
+Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
+
+Wildcards are also accepted, e.g. enable all messages from all files:
+
+....
+echo 'file * +p' > /sys/kernel/debug/dynamic_debug/control
+....
+
+TODO: why is this not working:
+
+....
+echo 'func sys_init_module +p' > /sys/kernel/debug/dynamic_debug/control
+....
+
+Enable messages in specific modules:
+
+....
+echo 8 > /proc/sys/kernel/printk
+echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
+insmod /myprintk.ko
+....
+
+Source: link:packages/kernel_modules/myprintk.c[]
+
+This outputs the `pr_debug` message:
+
+....
+printk debug
+....
+
+but TODO: it also shows debug messages even without enabling them explicitly:
+
+....
+echo 8 > /proc/sys/kernel/printk
+insmod /myprintk.ko
+....
+
+and it shows as enabled:
+
+....
+# grep myprintk /sys/kernel/debug/dynamic_debug/control
+/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./myprintk.c:12 [myprintk]myinit =p "pr_debug\012"
+....
+
+Enable `pr_debug` for boot messages as well, before we can reach userland and write to `/proc`:
+
+....
+./run --kernel-cli 'dyndbg="file * +p" loglevel=8'
+....
+
+Get ready for the noisiest boot ever, I think it overflows the `printk` buffer and funny things happen.
+
+===== pr_debug != printk(KERN_DEBUG
+
+When `CONFIG_DYNAMIC_DEBUG` is set,  `printk(KERN_DEBUG` is not the exact same as `pr_debug(` since `printk(KERN_DEBUG` messages are visible with:
+
+....
+./run --kernel-cli 'initcall_debug logleve=8'
+....
+
+which outputs lines of type:
+
+....
+<7>[    1.756680] calling  clk_disable_unused+0x0/0x130 @ 1
+<7>[    1.757003] initcall clk_disable_unused+0x0/0x130 returned 0 after 111 usecs
+....
+
+which are `printk(KERN_DEBUG` inside `init/main.c` in v4.16.
+
+Mentioned at: https://stackoverflow.com/questions/37272109/how-to-get-details-of-all-modules-drivers-got-initialized-probed-during-kernel-b
+
+This likely comes from the ifdef split at `init/main.c`:
+
+....
+/* If you are writing a driver, please use dev_dbg instead */
+#if defined(CONFIG_DYNAMIC_DEBUG)
+#include <linux/dynamic_debug.h>
+
+/* dynamic_pr_debug() uses pr_fmt() internally so we don't need it here */
+#define pr_debug(fmt, ...) \
+    dynamic_pr_debug(fmt, ##__VA_ARGS__)
+#elif defined(DEBUG)
+#define pr_debug(fmt, ...) \
+    printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+#else
+#define pr_debug(fmt, ...) \
+    no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+#endif
+....
 
 === Kernel module APIs
 
@@ -9033,7 +9048,7 @@ If none of those methods are flexible enough for you, create a new package as fo
 ./run --eval-busybox '/sample_package.out'
 ....
 +
-if you make any changes to that package after the initial build: <<rebuild>>
+if you make any changes to that package after the initial build: <<rebuild-buildroot-packages>>
 
 === Build variants
 
