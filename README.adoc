@@ -72,8 +72,10 @@ The trade-offs are basically a balance between:
 * how long and how much disk space does the build and run take
 * visibility: can you GDB step debug everything and read source code?
 * modifiability: can you modify the source code and rebuild a modified version?
-* how portable the setup is: does it work on Windows? Could it ever?
+* portability: does it work on a Windows host? Could it ever?
 * accuracy: how accurate does the simulation represent real hardware?
+* compatibility: how likely is is that all the components will work well together: emulator, compiler, kernel, standard library, ...
+* guest software availability: how wide is your choice of easily installed guest software packages?
 
 === QEMU Buildroot setup
 
@@ -141,7 +143,7 @@ Quit QEMU with:
 Ctrl-A X
 ....
 
-See also: <<text-mode>>.
+See also: <<quit-qemu-from-text-mode>>.
 
 Source:
 
@@ -525,273 +527,6 @@ rmmod hello.ko
 dmesg
 ....
 
-=== Text mode
-
-By default, we show the serial console directly on the current terminal, without opening a QEMU window.
-
-Quit QEMU immediately:
-
-....
-Ctrl-A X
-....
-
-https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui
-
-Alternative methods:
-
-* `quit` command on the <<qemu-monitor>>
-* `pkill qemu`
-
-TODO: if you hit `Ctrl-C` several times while `arm` or `aarch64` are booting, after boot the userland shell does not show any updates when you type, this seems to be a bug on the Linux kernel v4.16: http://lists.nongnu.org/archive/html/qemu-discuss/2018-04/msg00027.html
-
-=== Graphic mode
-
-Enable graphic mode:
-
-....
-./run --graphic
-....
-
-Text mode is the default due to the following considerable advantages:
-
-* copy and paste commands and stdout output to / from host
-* get full panic traces when you start making the kernel crash :-) See also: https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic
-* have a large scroll buffer, and be able to search it, e.g. by using tmux on host
-* one less window floating around to think about in addition to your shell :-)
-* graphics mode has only been properly tested on `x86_64`.
-
-Text mode has the following limitations over graphics mode:
-
-* you can't see graphics such as those produced by <<x11>>
-* very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
-
-`x86_64` has a VGA device enabled by default, as can be seen as:
-
-....
-./qemumonitor info qtree
-....
-
-and the Linux kernel picks it up through the link:https://en.wikipedia.org/wiki/Linux_framebuffer[fbdev] graphics system as can be seen from:
-
-....
-cat /dev/urandom > /dev/fb0
-....
-
-flooding the screen with colors. See also: https://superuser.com/questions/223094/how-do-i-know-if-i-have-kms-enabled
-
-==== Graphic mode arm
-
-===== Graphic mode arm terminal
-
-TODO: on arm, we see the penguin and some boot messages, but don't get a shell at then end:
-
-....
-./run --arch aarch64 --graphic
-....
-
-I think it does not work because the graphic window is <<drm>> only, i.e.:
-
-....
-cat /dev/urandom > /dev/fb0
-....
-
-fails with:
-
-....
-cat: write error: No space left on device
-....
-
-and has no effect, and the Linux kernel does not appear to have a built-in DRM console as it does for fbdev with <<fbcon,fbcon>>.
-
-There is however one out-of-tree implementation: <<kmscon>>.
-
-===== Graphic mode arm terminal implementation
-
-`arm` and `aarch64` rely on the QEMU CLI option:
-
-....
--device virtio-gpu-pci
-....
-
-and the kernel config options:
-
-....
-CONFIG_DRM=y
-CONFIG_DRM_VIRTIO_GPU=y
-....
-
-Unlike x86, `arm` and `aarch64` don't have a display device attached by default, thus the need for `virtio-gpu-pci`.
-
-See also https://wiki.qemu.org/Documentation/Platforms/ARM (recently edited and corrected by yours truly... :-)).
-
-===== Graphic mode arm VGA
-
-TODO: how to use VGA on ARM? https://stackoverflow.com/questions/20811203/how-can-i-output-to-vga-through-qemu-arm Tried:
-
-....
--device VGA
-....
-
-But https://github.com/qemu/qemu/blob/v2.12.0/docs/config/mach-virt-graphical.cfg#L264 says:
-
-....
-# We use virtio-gpu because the legacy VGA framebuffer is
-# very troublesome on aarch64, and virtio-gpu is the only
-# video device that doesn't implement it.
-....
-
-so maybe it is not possible?
-
-==== Graphic mode gem5
-
-TODO could not get it working on `x86_64`, only ARM.
-
-Overview: https://stackoverflow.com/questions/50364863/how-to-get-graphical-gui-output-and-user-touch-keyboard-mouse-input-in-a-ful/50364864#50364864
-
-More concretely:
-
-....
-git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build \
-  --arch arm \
-  --gem5 \
-  -l \
-  -K linux/arch/arm/configs/gem5_defconfig \
-  --linux-build-id gem5-v4.15 \
-;
-git -C "$(./getvar linux_src_dir)" checkout -
-./run --arch arm --gem5 --linux-build-id gem5-v4.15
-....
-
-and then on another shell:
-
-....
-vinagre localhost:5900
-....
-
-The <<config_logo>> penguin only appears after several seconds, together with kernel messages of type:
-
-....
-[    0.152755] [drm] found ARM HDLCD version r0p0
-[    0.152790] hdlcd 2b000000.hdlcd: bound virt-encoder (ops 0x80935f94)
-[    0.152795] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
-[    0.152799] [drm] No driver support for vblank timestamp query.
-[    0.215179] Console: switching to colour frame buffer device 240x67
-[    0.230389] hdlcd 2b000000.hdlcd: fb0:  frame buffer device
-[    0.230509] [drm] Initialized hdlcd 1.0.0 20151021 for 2b000000.hdlcd on minor 0
-....
-
-The port `5900` is incremented by one if you already have something running on that port, `gem5` stdout tells us the right port on stdout as:
-
-....
-system.vncserver: Listening for connections on port 5900
-....
-
-and when we connect it shows a message:
-
-....
-info: VNC client attached
-....
-
-Alternatively, you can also view the frames with `--frame-capture`:
-
-....
-./run \
-  --arch arm \
-  --gem5 \
-  --linux-build-id gem5-v4.15 \
-  -- --frame-capture \
-;
-....
-
-This option dumps one compressed PNG whenever the screen image changes inside `m5out`, indexed by the cycle ID. This allows for more controlled experiments.
-
-It is fun to see how we get one new frame whenever the white underscore cursor appears and reappears under the penguin.
-
-TODO <<kmscube>> failed on `aarch64` with:
-
-....
-kmscube[706]: unhandled level 2 translation fault (11) at 0x00000000, esr 0x92000006, in libgbm.so.1.0.0[7fbf6a6000+e000]
-....
-
-Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/38fd6153d965ba20145f53dc1bb3ba34b336bde9[38fd6153d965ba20145f53dc1bb3ba34b336bde9]
-
-===== Graphic mode gem5 aarch64
-
-For `aarch64` we also need `-c kernel_config_fragment/display`:
-
-....
-git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build \
-  --arch aarch64 \
-  -c kernel_config_fragment/display \
-  --gem5 \
-  -K linux/arch/arm64/configs/gem5_defconfig \
-  -l \
-  --linux-build-id gem5-v4.15 \
-;
-git -C "$(./getvar linux_src_dir)" checkout -
-./run --arch aarch64 --gem5 --linux-build-id gem5-v4.15
-....
-
-This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
-
-===== Graphic mode gem5 internals
-
-We cannot use mainline Linux because the <<gem5-arm-linux-kernel-patches>> are required at least to provide the `CONFIG_DRM_VIRT_ENCODER` option.
-
-gem5 emulates the link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0541c/CHDBAIDI.html[HDLCD] ARM Holdings hardware for `arm` and `aarch64`.
-
-The kernel uses HDLCD to implement the <<drm>> interface, the required kernel config options are present at: link:kernel_config_fragment/display[].
-
-TODO: minimize out the `-K`. If we just remove it on `arm`: it does not work with a failing dmesg:
-
-....
-[    0.066208] [drm] found ARM HDLCD version r0p0
-[    0.066241] hdlcd 2b000000.hdlcd: bound virt-encoder (ops drm_vencoder_ops)
-[    0.066247] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
-[    0.066252] [drm] No driver support for vblank timestamp query.
-[    0.066276] hdlcd 2b000000.hdlcd: Cannot do DMA to address 0x0000000000000000
-[    0.066281] swiotlb: coherent allocation failed for device 2b000000.hdlcd size=8294400
-[    0.066288] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.15.0 #1
-[    0.066293] Hardware name: V2P-AARCH64 (DT)
-[    0.066296] Call trace:
-[    0.066301]  dump_backtrace+0x0/0x1b0
-[    0.066306]  show_stack+0x24/0x30
-[    0.066311]  dump_stack+0xb8/0xf0
-[    0.066316]  swiotlb_alloc_coherent+0x17c/0x190
-[    0.066321]  __dma_alloc+0x68/0x160
-[    0.066325]  drm_gem_cma_create+0x98/0x120
-[    0.066330]  drm_fbdev_cma_create+0x74/0x2e0
-[    0.066335]  __drm_fb_helper_initial_config_and_unlock+0x1d8/0x3a0
-[    0.066341]  drm_fb_helper_initial_config+0x4c/0x58
-[    0.066347]  drm_fbdev_cma_init_with_funcs+0x98/0x148
-[    0.066352]  drm_fbdev_cma_init+0x40/0x50
-[    0.066357]  hdlcd_drm_bind+0x220/0x428
-[    0.066362]  try_to_bring_up_master+0x21c/0x2b8
-[    0.066367]  component_master_add_with_match+0xa8/0xf0
-[    0.066372]  hdlcd_probe+0x60/0x78
-[    0.066377]  platform_drv_probe+0x60/0xc8
-[    0.066382]  driver_probe_device+0x30c/0x478
-[    0.066388]  __driver_attach+0x10c/0x128
-[    0.066393]  bus_for_each_dev+0x70/0xb0
-[    0.066398]  driver_attach+0x30/0x40
-[    0.066402]  bus_add_driver+0x1d0/0x298
-[    0.066408]  driver_register+0x68/0x100
-[    0.066413]  __platform_driver_register+0x54/0x60
-[    0.066418]  hdlcd_platform_driver_init+0x20/0x28
-[    0.066424]  do_one_initcall+0x44/0x130
-[    0.066428]  kernel_init_freeable+0x13c/0x1d8
-[    0.066433]  kernel_init+0x18/0x108
-[    0.066438]  ret_from_fork+0x10/0x1c
-[    0.066444] hdlcd 2b000000.hdlcd: Failed to set initial hw configuration.
-[    0.066470] hdlcd 2b000000.hdlcd: master bind failed: -12
-[    0.066477] hdlcd: probe of 2b000000.hdlcd failed with error -12
-[
-....
-
-So what other options are missing from `gem5_defconfig`? It would be cool to minimize it out to better understand the options.
-
 === Automatic startup commands
 
 When debugging a module, it becomes tedious to wait for build and re-type:
@@ -803,23 +538,6 @@ When debugging a module, it becomes tedious to wait for build and re-type:
 every time.
 
 To automate that, use the methods described at: <<init>>
-
-=== Text mode
-
-By default, we show the serial console directly on the current terminal, without opening a QEMU window.
-
-Quit QEMU immediately:
-
-....
-Ctrl-A X
-....
-
-https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui
-
-Alternative methods:
-
-* `quit` command on the <<qemu-monitor>>
-* `pkill qemu`
 
 === printk
 
@@ -868,19 +586,6 @@ This format is selected by the following boot options:
 
 * `console_msg_format=syslog`: add the `<LEVEL>` part. Added in v4.16.
 * `printk.time=y`: add the `[TIMESTAMP]` part
-
-Scroll up in <<graphic-mode>>:
-
-....
-Shift-PgUp
-....
-
-but I never managed to increase that buffer:
-
-* https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
-* https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
-
-The superior alternative is to use text mode and GNU screen or tmux.
 
 ==== pr_debug
 
@@ -1068,13 +773,13 @@ git clean -xdf .
 To only nuke one architecture, do:
 
 ....
-rm -rf "$(./getvar buildroot_out_dir)"
+rm -rf "$(./getvar buildroot_build_dir)"
 ....
 
 Only nuke one one package:
 
 ....
-rm -rf "$(./getvar buildroot_out_dir)/build/host-qemu-custom"
+rm -rf "$(./getvar buildroot_build_dir)/build/host-qemu-custom"
 ./build
 ....
 
@@ -2550,7 +2255,7 @@ s
 This is made possible by the GDB command:
 
 ....
-set sysroot ${common_buildroot_out_dir}/staging
+set sysroot ${common_buildroot_build_dir}/staging
 ....
 
 which automatically finds unstripped shared libraries on the host for us.
@@ -2987,7 +2692,310 @@ The main use case for `-enable-kvm` in this repository is to test if something t
 
 For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
 
-== X11
+== Graphics
+
+Both QEMU and gem5 are capable of outputting graphics to the screen, and taking mouse and keyboard input.
+
+=== Text mode QEMU
+
+Text mode is the our default mode for QEMU.
+
+The opposite of text mode is <<qemu-graphic-mode>>
+
+In text mode, we just show the serial console directly on the current terminal, without opening a QEMU GUI window.
+
+You cannot see any graphics from text mode, but text operations such as scrolling up are much more convenient in this mode, including:
+
+making this a good default, unless you really want to use with graphics.
+
+==== Quit QEMU from text mode
+
+https://superuser.com/questions/1087859/how-to-quit-the-qemu-monitor-when-not-using-a-gui
+
+However, our QEMU setup captures Ctrl + C and other common signals and sends them to the guest, which makes it hard to quit QEMU for the first time since there is no GUI either.
+
+The simplest way to quit QEMU, is to do:
+
+....
+Ctrl-A X
+....
+
+Alternative methods include:
+
+* `quit` command on the <<qemu-monitor>>
+* `pkill qemu`
+
+=== Scroll up in graphic mode
+
+Scroll up in <<graphic-mode>>:
+
+....
+Shift-PgUp
+....
+
+but I never managed to increase that buffer:
+
+* https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
+* https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
+
+The superior alternative is to use text mode and GNU screen or <<tmux>>.
+
+=== QEMU graphic mode
+
+Enable graphic mode with:
+
+....
+./run --graphic
+....
+
+Outcome: you see a penguin due to <<config_logo>>.
+
+For a more exciting GUI experience, see: <<x11>>
+
+Text mode is the default due to the following considerable advantages:
+
+* copy and paste commands and stdout output to / from host
+* get full panic traces when you start making the kernel crash :-) See also: https://unix.stackexchange.com/questions/208260/how-to-scroll-up-after-a-kernel-panic
+* have a large scroll buffer, and be able to search it, e.g. by using tmux on host
+* one less window floating around to think about in addition to your shell :-)
+* graphics mode has only been properly tested on `x86_64`.
+
+Text mode has the following limitations over graphics mode:
+
+* you can't see graphics such as those produced by <<x11>>
+* very early kernel messages such as `early console in extract_kernel` only show on the GUI, since at such early stages, not even the serial has been setup.
+
+`x86_64` has a VGA device enabled by default, as can be seen as:
+
+....
+./qemumonitor info qtree
+....
+
+and the Linux kernel picks it up through the link:https://en.wikipedia.org/wiki/Linux_framebuffer[fbdev] graphics system as can be seen from:
+
+....
+cat /dev/urandom > /dev/fb0
+....
+
+flooding the screen with colors. See also: https://superuser.com/questions/223094/how-do-i-know-if-i-have-kms-enabled
+
+==== Graphic mode QEMU arm
+
+===== QEMU graphic mode arm terminal
+
+TODO: on arm, we see the penguin and some boot messages, but don't get a shell at then end:
+
+....
+./run --arch aarch64 --graphic
+....
+
+I think it does not work because the graphic window is <<drm>> only, i.e.:
+
+....
+cat /dev/urandom > /dev/fb0
+....
+
+fails with:
+
+....
+cat: write error: No space left on device
+....
+
+and has no effect, and the Linux kernel does not appear to have a built-in DRM console as it does for fbdev with <<fbcon,fbcon>>.
+
+There is however one out-of-tree implementation: <<kmscon>>.
+
+===== Graphic mode QEMU arm terminal implementation
+
+`arm` and `aarch64` rely on the QEMU CLI option:
+
+....
+-device virtio-gpu-pci
+....
+
+and the kernel config options:
+
+....
+CONFIG_DRM=y
+CONFIG_DRM_VIRTIO_GPU=y
+....
+
+Unlike x86, `arm` and `aarch64` don't have a display device attached by default, thus the need for `virtio-gpu-pci`.
+
+See also https://wiki.qemu.org/Documentation/Platforms/ARM (recently edited and corrected by yours truly... :-)).
+
+-==== Graphic mode QEMU arm VGA
+
+TODO: how to use VGA on ARM? https://stackoverflow.com/questions/20811203/how-can-i-output-to-vga-through-qemu-arm Tried:
+
+....
+-device VGA
+....
+
+But https://github.com/qemu/qemu/blob/v2.12.0/docs/config/mach-virt-graphical.cfg#L264 says:
+
+....
+# We use virtio-gpu because the legacy VGA framebuffer is
+# very troublesome on aarch64, and virtio-gpu is the only
+# video device that doesn't implement it.
+....
+
+so maybe it is not possible?
+
+=== Graphic mode gem5
+
+TODO could not get it working on `x86_64`, only ARM.
+
+Overview: https://stackoverflow.com/questions/50364863/how-to-get-graphical-gui-output-and-user-touch-keyboard-mouse-input-in-a-ful/50364864#50364864
+
+More concretely:
+
+....
+git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
+./build \
+  --arch arm \
+  --gem5 \
+  -l \
+  -K linux/arch/arm/configs/gem5_defconfig \
+  --linux-build-id gem5-v4.15 \
+;
+git -C "$(./getvar linux_src_dir)" checkout -
+./run --arch arm --gem5 --linux-build-id gem5-v4.15
+....
+
+and then on another shell:
+
+....
+vinagre localhost:5900
+....
+
+The <<config_logo>> penguin only appears after several seconds, together with kernel messages of type:
+
+....
+[    0.152755] [drm] found ARM HDLCD version r0p0
+[    0.152790] hdlcd 2b000000.hdlcd: bound virt-encoder (ops 0x80935f94)
+[    0.152795] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[    0.152799] [drm] No driver support for vblank timestamp query.
+[    0.215179] Console: switching to colour frame buffer device 240x67
+[    0.230389] hdlcd 2b000000.hdlcd: fb0:  frame buffer device
+[    0.230509] [drm] Initialized hdlcd 1.0.0 20151021 for 2b000000.hdlcd on minor 0
+....
+
+The port `5900` is incremented by one if you already have something running on that port, `gem5` stdout tells us the right port on stdout as:
+
+....
+system.vncserver: Listening for connections on port 5900
+....
+
+and when we connect it shows a message:
+
+....
+info: VNC client attached
+....
+
+Alternatively, you can also view the frames with `--frame-capture`:
+
+....
+./run \
+  --arch arm \
+  --gem5 \
+  --linux-build-id gem5-v4.15 \
+  -- --frame-capture \
+;
+....
+
+This option dumps one compressed PNG whenever the screen image changes inside `m5out`, indexed by the cycle ID. This allows for more controlled experiments.
+
+It is fun to see how we get one new frame whenever the white underscore cursor appears and reappears under the penguin.
+
+TODO <<kmscube>> failed on `aarch64` with:
+
+....
+kmscube[706]: unhandled level 2 translation fault (11) at 0x00000000, esr 0x92000006, in libgbm.so.1.0.0[7fbf6a6000+e000]
+....
+
+Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/38fd6153d965ba20145f53dc1bb3ba34b336bde9[38fd6153d965ba20145f53dc1bb3ba34b336bde9]
+
+===== Graphic mode gem5 aarch64
+
+For `aarch64` we also need `-c kernel_config_fragment/display`:
+
+....
+git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
+./build \
+  --arch aarch64 \
+  -c kernel_config_fragment/display \
+  --gem5 \
+  -K linux/arch/arm64/configs/gem5_defconfig \
+  -l \
+  --linux-build-id gem5-v4.15 \
+;
+git -C "$(./getvar linux_src_dir)" checkout -
+./run --arch aarch64 --gem5 --linux-build-id gem5-v4.15
+....
+
+This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
+
+===== Graphic mode gem5 internals
+
+We cannot use mainline Linux because the <<gem5-arm-linux-kernel-patches>> are required at least to provide the `CONFIG_DRM_VIRT_ENCODER` option.
+
+gem5 emulates the link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0541c/CHDBAIDI.html[HDLCD] ARM Holdings hardware for `arm` and `aarch64`.
+
+The kernel uses HDLCD to implement the <<drm>> interface, the required kernel config options are present at: link:kernel_config_fragment/display[].
+
+TODO: minimize out the `-K`. If we just remove it on `arm`: it does not work with a failing dmesg:
+
+....
+[    0.066208] [drm] found ARM HDLCD version r0p0
+[    0.066241] hdlcd 2b000000.hdlcd: bound virt-encoder (ops drm_vencoder_ops)
+[    0.066247] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[    0.066252] [drm] No driver support for vblank timestamp query.
+[    0.066276] hdlcd 2b000000.hdlcd: Cannot do DMA to address 0x0000000000000000
+[    0.066281] swiotlb: coherent allocation failed for device 2b000000.hdlcd size=8294400
+[    0.066288] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.15.0 #1
+[    0.066293] Hardware name: V2P-AARCH64 (DT)
+[    0.066296] Call trace:
+[    0.066301]  dump_backtrace+0x0/0x1b0
+[    0.066306]  show_stack+0x24/0x30
+[    0.066311]  dump_stack+0xb8/0xf0
+[    0.066316]  swiotlb_alloc_coherent+0x17c/0x190
+[    0.066321]  __dma_alloc+0x68/0x160
+[    0.066325]  drm_gem_cma_create+0x98/0x120
+[    0.066330]  drm_fbdev_cma_create+0x74/0x2e0
+[    0.066335]  __drm_fb_helper_initial_config_and_unlock+0x1d8/0x3a0
+[    0.066341]  drm_fb_helper_initial_config+0x4c/0x58
+[    0.066347]  drm_fbdev_cma_init_with_funcs+0x98/0x148
+[    0.066352]  drm_fbdev_cma_init+0x40/0x50
+[    0.066357]  hdlcd_drm_bind+0x220/0x428
+[    0.066362]  try_to_bring_up_master+0x21c/0x2b8
+[    0.066367]  component_master_add_with_match+0xa8/0xf0
+[    0.066372]  hdlcd_probe+0x60/0x78
+[    0.066377]  platform_drv_probe+0x60/0xc8
+[    0.066382]  driver_probe_device+0x30c/0x478
+[    0.066388]  __driver_attach+0x10c/0x128
+[    0.066393]  bus_for_each_dev+0x70/0xb0
+[    0.066398]  driver_attach+0x30/0x40
+[    0.066402]  bus_add_driver+0x1d0/0x298
+[    0.066408]  driver_register+0x68/0x100
+[    0.066413]  __platform_driver_register+0x54/0x60
+[    0.066418]  hdlcd_platform_driver_init+0x20/0x28
+[    0.066424]  do_one_initcall+0x44/0x130
+[    0.066428]  kernel_init_freeable+0x13c/0x1d8
+[    0.066433]  kernel_init+0x18/0x108
+[    0.066438]  ret_from_fork+0x10/0x1c
+[    0.066444] hdlcd 2b000000.hdlcd: Failed to set initial hw configuration.
+[    0.066470] hdlcd 2b000000.hdlcd: master bind failed: -12
+[    0.066477] hdlcd: probe of 2b000000.hdlcd failed with error -12
+[
+....
+
+So what other options are missing from `gem5_defconfig`? It would be cool to minimize it out to better understand the options.
+
+[[x11]]
+=== X11 Buildroot
+
+Once you've seen the `CONFIG_LOGO` penguin as a sanity check, you can try to go for a cooler X11 Buildroot setup.
 
 Build and run:
 
@@ -3008,6 +3016,8 @@ And then from the GUI you can start exciting graphical programs such as:
 xcalc
 xeyes
 ....
+
+Outcome:
 
 image:x11.png[image]
 
@@ -3031,7 +3041,7 @@ TODO as of: c2696c978d6ca88e8b8599c92b1beeda80eb62b2 I noticed that `startx` lea
 [    2.809104] WARNING: CPU: 0 PID: 51 at drivers/gpu/drm/ttm/ttm_bo_vm.c:304 ttm_bo_vm_open+0x37/0x40
 ....
 
-=== X11 mouse not moving
+==== X11 Buildroot mouse not moving
 
 TODO 9076c1d9bcc13b6efdb8ef502274f846d8d4e6a1 I'm 100% sure that it was working before, but I didn't run it forever, and it stopped working at some point. Needs bisection, on whatever commit last touched x11 stuff.
 
@@ -3073,7 +3083,7 @@ Note that our current link:kernel_confi_fragment sets:
 
 for gem5, so you might want to remove those lines to debug this.
 
-=== X11 ARM
+==== X11 Buildroot ARM
 
 On ARM, `startx` hangs at a message:
 
@@ -3718,7 +3728,7 @@ How to generate them:
 * https://unix.stackexchange.com/questions/66197/how-to-cause-kernel-panic-with-a-single-command
 * https://stackoverflow.com/questions/23484147/generate-kernel-oops-or-crash-in-the-code
 
-When a panic happens, <<linux-kernel-magic-keys,`Shift-PgUp`>> does not work as it normally does, and it is hard to get the logs if on are on <<graphic-mode>>:
+When a panic happens, <<linux-kernel-magic-keys,`Shift-PgUp`>> does not work as it normally does, and it is hard to get the logs if on are on <<graphic-mode-qemu>>:
 
 * https://superuser.com/questions/848412/scrolling-up-the-failed-screen-with-kernel-panic
 * https://superuser.com/questions/269228/write-qemu-booting-virtual-machine-output-to-a-file
@@ -4870,7 +4880,7 @@ So so see something interesting, you need to monitor an interrupt that is more r
 
 ==== /proc/interrupts
 
-In the guest on <<graphic-mode>>:
+In the guest on <<graphic-mode-qemu>>:
 
 ....
 watch -n 1 cat /proc/interrupts
@@ -5643,7 +5653,7 @@ Bibliography:
 [[fbcon]]
 ==== Linux kernel console fun
 
-Requires <<graphic-mode>>.
+Requires <<graphics>>.
 
 You can also try those on the `Ctrl-Alt-F3` of your Ubuntu host, but it is much more fun inside a VM!
 
@@ -5670,7 +5680,7 @@ TODO: font and keymap. Mentioned at: https://cmcenroe.me/2017/05/05/linux-consol
 
 ==== Linux kernel magic keys
 
-Requires <<graphic-mode>>.
+Requires <<graphics>>.
 
 Let's have some fun.
 
@@ -6036,7 +6046,7 @@ Instead, the shell appears on `/dev/tty7`.
 
 ==== CONFIG_LOGO
 
-If you run in <<graphic-mode>>, then you get a Penguin image for <<number-of-cores,every core>> above the console! https://askubuntu.com/questions/80938/is-it-possible-to-get-the-tux-logo-on-the-text-based-boot
+If you run in <<graphics>>, then you get a Penguin image for <<number-of-cores,every core>> above the console! https://askubuntu.com/questions/80938/is-it-possible-to-get-the-tux-logo-on-the-text-based-boot
 
 This is due to the link:https://github.com/torvalds/linux/blob/v4.17/drivers/video/logo/Kconfig#L5[`CONFIG_LOGO=y`] option which we enable by default.
 
@@ -6417,7 +6427,7 @@ What happened:
 * our hardware model is coded such that it generates an interrupt when written to
 * the Linux kernel interrupt handler write to another register, which tells the hardware to stop sending interrupts
 
-Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<graphic-mode>> instead.
+Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<graphic-mode-qemu>> instead.
 
 We don't enable the device by default because it does not work for vanilla QEMU, which we often want to test with this repository.
 
@@ -7138,7 +7148,7 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 
 The QEMU monitor is a terminal that allows you to send text commands to the QEMU VM: https://en.wikibooks.org/wiki/QEMU/Monitor
 
-Accessed it in either <<text-mode>> and <<graphic-mode>>:
+On another terminal, run:
 
 ....
 ./qemumonitor
@@ -8157,10 +8167,10 @@ If you want to remove PARSEC later, Buildroot doesn't provide an automated packa
 ....
 rm -rf \
   "$(./getvar dl_dir)"/parsec-* \
-  "$(./getvar buildroot_out_dir)"/build/parsec-* \
-  "$(./getvar buildroot_out_dir)"/build/packages-file-list.txt \
-  "$(./getvar buildroot_out_dir)"/images/rootfs.* \
-  "$(./getvar buildroot_out_dir)"/target/parsec-* \
+  "$(./getvar buildroot_build_dir)"/build/parsec-* \
+  "$(./getvar buildroot_build_dir)"/build/packages-file-list.txt \
+  "$(./getvar buildroot_build_dir)"/images/rootfs.* \
+  "$(./getvar buildroot_build_dir)"/target/parsec-* \
 ;
 ./build --arch arm --gem5
 ....
@@ -8919,7 +8929,7 @@ mv out out~
 `make menuconfig` is a convenient way to find Buildroot configurations:
 
 ....
-cd "$(./getvar buildroot_out_dir)"
+cd "$(./getvar buildroot_build_dir)"
 make menuconfig
 ....
 
@@ -8992,7 +9002,7 @@ If you don't set it, the default is to use `~/.buildroot-ccache` with `5G`, whic
 I find it very relaxing to watch ccache at work with:
 
 ....
-watch -n1 'make -C "$(./getvar buildroot_out_dir)" ccache-stats'
+watch -n1 'make -C "$(./getvar buildroot_build_dir)" ccache-stats'
 ....
 
 or if you have it installed on host and the environment variables exported simply with:
@@ -9462,7 +9472,7 @@ cat ../linux-kernel-module-cheat-regression/*/build-time.log
 
 ....
 ./build --skip-configure -- graph-build graph-size graph-depends
-cd "$(./getvar buildroot_out_dir)/graphs"
+cd "$(./getvar buildroot_build_dir)/graphs"
 xdg-open build.pie-packages.pdf
 xdg-open graph-depends.pdf
 xdg-open graph-size.pdf

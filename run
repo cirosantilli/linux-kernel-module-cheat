@@ -208,6 +208,12 @@ def main(args, extra_args=None):
                 '-drive',
                 'file={},format=qcow2,if={}{}{}'.format(common.qcow2_file, driveif, snapshot, rrid)
             ])
+            if not os.path.exists(common.qcow2_file):
+                raise Exception(
+                    'Cannot find the qcow2 root filesystem. You must build QEMU\n'
+                    'before building the root filesystem? That is needed because the qcow2\n' +
+                    'is created with qemu-img. Tried to use: ' + qemu_executable
+                )
             if rr:
                 extra_emulator_args.extend([
                 '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay',
@@ -247,7 +253,9 @@ def main(args, extra_args=None):
                 ] +
                 virtio_gpu_pci
             )
-
+        if not os.path.exists(qemu_executable):
+            raise Exception('QEMU executable does not exist, did you forget to build or install it?\n' +
+                            'Tried to use: ' + qemu_executable)
     if args.tmux:
         if args.gem5:
             subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
@@ -263,7 +271,6 @@ def main(args, extra_args=None):
                 "sleep 2;./rungdb -a '{}' -L '{}' -n '{}' {}" \
                 .format(args.arch, args.linux_build_id, args.run_id, args.tmux_args)
             ])
-
     cmd += extra_emulator_args
     if debug_vm or args.terminal:
         out_file = None

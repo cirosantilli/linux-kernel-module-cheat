@@ -22,8 +22,7 @@ p9_dir = os.path.join(data_dir, '9p')
 gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
 out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
-common_dir = os.path.join(out_dir, 'common')
-dl_dir = os.path.join(common_dir, 'dl')
+dl_dir = os.path.join(out_dir, 'dl')
 submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
@@ -124,12 +123,9 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
         help='QEMU build ID. Allows you to keep multiple separate QEMU builds. Default: %(default)s'
     )
     parser.add_argument(
-        '-s', '--suffix',
-        help='''\
-Add a custom suffix to the build. E.g., doing `./build -s mysuf` puts all
-the build output into `out/x86_64-mysuf`. This allows keep multiple builds
-around when you checkout between branches.
-'''
+        '--buildroot-build-id',
+        default=default_build_id,
+        help='Buildroot build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'
     )
     parser.add_argument(
         '-t', '--gem5-build-type', default='opt',
@@ -301,44 +297,41 @@ def setup(parser, **extra_args):
         this.gem5_arch = 'ARM'
     elif args.arch == 'x86_64':
         this.gem5_arch = 'X86'
-    this.arch_dir = args.arch
-    if args.suffix is not None:
-        this.arch_dir = '{}-{}'.format(arch_dir, args.suffix)
-    this.out_arch_dir = os.path.join(this.out_dir, this.arch_dir)
-    this.buildroot_out_dir = os.path.join(this.out_arch_dir, 'buildroot')
-    this.buildroot_config_file = os.path.join(this.buildroot_out_dir, '.config')
-    this.build_dir = os.path.join(this.buildroot_out_dir, 'build')
+    this.buildroot_build_dir = os.path.join(this.out_dir, 'buildroot', args.arch, args.buildroot_build_id)
+    this.buildroot_config_file = os.path.join(this.buildroot_build_dir, '.config')
+    this.build_dir = os.path.join(this.buildroot_build_dir, 'build')
     this.linux_build_dir = os.path.join(this.build_dir, 'linux-custom')
     this.linux_variant_dir = '{}.{}'.format(this.linux_build_dir, args.linux_build_id)
     this.vmlinux = os.path.join(this.linux_variant_dir, "vmlinux")
-    this.qemu_build_dir = os.path.join(this.common_dir, 'qemu', args.qemu_build_id)
+    this.qemu_build_dir = os.path.join(this.out_dir, 'qemu', args.qemu_build_id)
     this.qemu_executable = os.path.join(this.qemu_build_dir, '{}-softmmu'.format(args.arch), 'qemu-system-{}'.format(args.arch))
     this.qemu_img_executable = os.path.join(this.qemu_build_dir, 'qemu-img')
     this.qemu_guest_build_dir = os.path.join(this.build_dir, 'qemu-custom')
-    this.host_dir = os.path.join(this.buildroot_out_dir, 'host')
+    this.host_dir = os.path.join(this.buildroot_build_dir, 'host')
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
-    this.images_dir = os.path.join(this.buildroot_out_dir, 'images')
+    this.images_dir = os.path.join(this.buildroot_build_dir, 'images')
     this.ext2_file = os.path.join(this.images_dir, 'rootfs.ext2')
     this.qcow2_file = os.path.join(this.images_dir, 'rootfs.ext2.qcow2')
-    this.staging_dir = os.path.join(this.buildroot_out_dir, 'staging')
-    this.target_dir = os.path.join(this.buildroot_out_dir, 'target')
-    this.gem5_run_dir = os.path.join(this.out_arch_dir, 'gem5', str(args.run_id))
+    this.staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
+    this.target_dir = os.path.join(this.buildroot_build_dir, 'target')
+    this.run_dir_base = os.path.join(this.out_dir, 'run')
+    this.gem5_run_dir = os.path.join(this.run_dir_base, 'gem5', args.arch, str(args.run_id))
     this.m5out_dir = os.path.join(this.gem5_run_dir, 'm5out')
     this.stats_file = os.path.join(this.m5out_dir, 'stats.txt')
     this.trace_txt_file = os.path.join(this.m5out_dir, 'trace.txt')
     this.gem5_readfile = os.path.join(this.gem5_run_dir, 'readfile')
     this.gem5_termout_file = os.path.join(this.gem5_run_dir, 'termout.txt')
-    this.qemu_run_dir = os.path.join(this.out_arch_dir, 'qemu', str(args.run_id))
+    this.qemu_run_dir = os.path.join(this.run_dir_base, 'qemu', args.arch, str(args.run_id))
     this.qemu_trace_basename = 'trace.bin'
     this.qemu_trace_file = os.path.join(this.qemu_run_dir, 'trace.bin')
     this.qemu_trace_txt_file = os.path.join(this.qemu_run_dir, 'trace.txt')
     this.qemu_termout_file = os.path.join(this.qemu_run_dir, 'termout.txt')
     this.qemu_rrfile = os.path.join(this.qemu_run_dir, 'rrfile')
-    this.gem5_out_dir = os.path.join(this.common_dir, 'gem5', args.gem5_build_id)
-    this.gem5_m5term = os.path.join(this.gem5_out_dir, 'm5term')
-    this.gem5_build_dir = os.path.join(this.gem5_out_dir, 'build')
-    this.gem5_executable = os.path.join(this.gem5_build_dir, gem5_arch, 'gem5.{}'.format(args.gem5_build_type))
-    this.gem5_system_dir = os.path.join(this.gem5_out_dir, 'system')
+    this.gem5_build_dir = os.path.join(this.out_dir, 'gem5', args.gem5_build_id)
+    this.gem5_m5term = os.path.join(this.gem5_build_dir, 'm5term')
+    this.gem5_build_build_dir = os.path.join(this.gem5_build_dir, 'build')
+    this.gem5_executable = os.path.join(this.gem5_build_build_dir, gem5_arch, 'gem5.{}'.format(args.gem5_build_type))
+    this.gem5_system_dir = os.path.join(this.gem5_build_dir, 'system')
     if args.gem5_worktree is not None:
         this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
     else:
@@ -384,7 +377,7 @@ def setup(parser, **extra_args):
 def mkdir():
     global this
     os.makedirs(this.build_dir, exist_ok=True)
-    os.makedirs(this.gem5_out_dir, exist_ok=True)
+    os.makedirs(this.gem5_build_dir, exist_ok=True)
     os.makedirs(this.gem5_run_dir, exist_ok=True)
     os.makedirs(this.qemu_run_dir, exist_ok=True)
     os.makedirs(this.p9_dir, exist_ok=True)

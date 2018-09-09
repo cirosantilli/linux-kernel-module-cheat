@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -eux
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+bench_all=false
 bench_build=false
 bench_buildroot_baseline=false
 bench_gem5_build=false
@@ -10,10 +11,7 @@ update_repo=false
 while getopts Aa:Bbglu OPT; do
   case "$OPT" in
     A)
-      bench_build=true
-      bench_buildroot_baseline=true
-      bench_gem5_build=true
-      bench_linux_boot=true
+      bench_all=true
       ;;
     a)
       default_arch="$OPTARG"
@@ -40,6 +38,20 @@ while getopts Aa:Bbglu OPT; do
 done
 shift "$(($OPTIND - 1))"
 comment="${1:-}"
+if \
+  ! "$bench_build" && \
+  ! "$bench_buildroot_baseline" && \
+  ! "$bench_gem5_build" && \
+  ! "$bench_linux_boot" \
+; then
+  bench_all=true
+fi
+if "$bench_all"; then
+  bench_build=true
+  bench_buildroot_baseline=true
+  bench_gem5_build=true
+  bench_linux_boot=true
+fi
 getvar="${root_dir}/getvar"
 
 # Create output directory.
@@ -52,19 +64,19 @@ else
   seq_id=0
 fi
 seq_id="$(printf '%0.4d' "$seq_id")"
-dir_basename="${seq_id}_${common_sha}"
+dir_basename="${seq_id}_$("$getvar" sha)"
 new_dir="${benchmark_repo}/${dir_basename}"
 mkdir "$new_dir"
 
 if "$bench_build"; then
   common_arch="$default_arch"
-  common_out_arch_dir="$("$getvar" --arch "$common_arch" out_arch_dir)"
-  common_out_arch_dir="$("$getvar" --arch "$common_arch" build_dir)"
   common_suffix=bench
-  rm -rf "$common_out_arch_dir"
-  ./build -a "$common_arch" -B 'BR2_CCACHE=n' -s "$common_suffix"
+  common_buildroot_build_dir="$("$getvar" --arch "$common_arch" --buildroot-build-id "$common_suffix" buildroot_build_dir)"
+  common_build_dir="$("$getvar" --arch "$common_arch" --buildroot-build-id "$common_suffix" build_dir)"
+  rm -rf "$common_buildroot_build_dir"
+  ./build --arch "$common_arch" --buildroot-config 'BR2_CCACHE=n' --buildroot-build-id "$common_suffix"
   cp "${common_build_dir}/build-time.log" "${new_dir}/build-time-${common_arch}.log"
-  rm -rf "$common_out_arch_dir"
+  rm -rf "$common_buildroot_build_dir"
 fi
 
 if "$bench_buildroot_baseline"; then
@@ -87,9 +99,9 @@ fi
 if "$bench_gem5_build"; then
   common_arch="$default_arch"
   gem5_build_id=bench-build
-  common_gem5_out_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_out_dir)"
+  common_gem5_build_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_out_dir)"
   common_gem5_src_dir="$("$getvar" --arch "$common_arch" --gem5-build-id "$gem5_build_id" gem5_src_dir)"
-  results_file="${common_gem5_out_dir}/bench-build.txt"
+  results_file="${common_gem5_build_dir}/bench-build.txt"
   git -C "${common_gem5_src_dir}" clean -xdf
   rm -f "$results_file"
   "${root_dir}/build-gem5" --arch "$common_arch" --clean --gem5-build-id "$gem5_build_id"
