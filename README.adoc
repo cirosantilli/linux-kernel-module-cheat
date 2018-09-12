@@ -11,7 +11,7 @@
 
 Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.18 module development example tutorials with <<gdb,GDB>> and <<KGDB>> step debugging and minimal educational hardware device models. "Tested" in Ubuntu 18.04 host, x86 and ARM guests.
 
-TLDR: <<qemu-buildroot-setup>>
+TL;DR: <<qemu-buildroot-setup>>
 
 toc::[]
 
@@ -19,7 +19,11 @@ toc::[]
 
 This project was created to help me understand, modify and test low level system components by using system simulators.
 
-System simulators are cool because they are free, make everything highly reproducible, and give full visibility to the system. 
+System simulators are cool compared to real hardware because they are:
+
+* free
+* make experiments highly reproducible
+* give full visibility to the system: you can inspect any byte in memory, or the state of any hardware register. The laws of physics sometimes get in the way when doing that for real hardware.
 
 The current components we focus the most on are:
 
@@ -155,6 +159,10 @@ Source:
 * link:packages/kernel_modules/hello2.c[]
 
 All available modules can be found in the link:packages/kernel_modules/[`kernel_modules` directory].
+
+I now urge you to read the following sections which contain widely applicable information:
+
+* TODO
 
 Once you use <<gdb>> and <<tmux>>, your terminal will look a bit like this:
 
@@ -2496,6 +2504,255 @@ TODO why: https://unix.stackexchange.com/questions/124283/busybox-ping-ip-works-
 
 To enable networking by default, use the methods documented at <<automatic-startup-commands>>
 
+== initrd
+
+The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
+
+The bootloader, which for us is QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
+
+With this setup, you don't even need to give a root filesystem to the kernel, it just does everything in memory in a ramfs.
+
+To enable initrd instead of the default ext2 disk image, do:
+
+....
+./build --initrd
+./run --initrd
+....
+
+Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
+
+....
+cat "$(./getvar run_dir)/run.sh"
+....
+
+Also as expected, there is no filesystem persistency, since we are doing everything in memory:
+
+....
+date >f
+poweroff
+cat f
+# can't open 'f': No such file or directory
+....
+
+which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.
+
+One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:
+
+....
+end Kernel panic - not syncing: Out of memory and no killable processes...
+....
+
+This can be solved by increasing the memory with:
+
+....
+./run --initrd --memory 256M
+....
+
+The main ingredients to get initrd working are:
+
+* `BR2_TARGET_ROOTFS_CPIO=y`: make Buildroot generate `images/rootfs.cpio` in addition to the other images.
++
+It is also possible to compress that image with other options.
+* `qemu -initrd`: make QEMU put the image into memory and tell the kernel about it.
+* `CONFIG_BLK_DEV_INITRD=y`: Compile the kernel with initrd support, see also: https://unix.stackexchange.com/questions/67462/linux-kernel-is-not-finding-the-initrd-correctly/424496#424496
++
+Buildroot forces that option when `BR2_TARGET_ROOTFS_CPIO=y` is given
+
+https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image asks how the mechanism works in more detail.
+
+=== initrd in desktop distros
+
+Most modern desktop distributions have an initrd in their root disk to do early setup.
+
+The rationale for this is described at: https://en.wikipedia.org/wiki/Initial_ramdisk
+
+One obvious use case is having an encrypted root filesystem: you keep the initrd in an unencrypted partition, and then setup decryption from there.
+
+I think GRUB then knows read common disk formats, and then loads that initrd to memory with a `/boot/grub/grub.cfg` directive of type:
+
+....
+initrd /initrd.img-4.4.0-108-generic
+....
+
+Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
+
+=== initramfs
+
+initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself.
+
+So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-initrd`! Pretty cool.
+
+Try it out with:
+
+....
+./build --initramfs -l && ./run --initramfs
+....
+
+The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+
+....
+./build --initramfs && ./run --initramfs
+....
+
+It is interesting to see how this increases the size of the kernel image if you do a:
+
+....
+ls -lh "$(./getvar linux_image)"
+....
+
+before and after using initramfs, since the `.cpio` is now glued to the kernel image.
+
+In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the kernel config option `CONFIG_INITRAMFS_SOURCE` point to the CPIO that will be embedded in the kernel image.
+
+http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
+
+=== gem5 initrd
+
+TODO we were not able to get it working yet: https://stackoverflow.com/questions/49261801/how-to-boot-the-linux-kernel-with-initrd-or-initramfs-with-gem5
+
+== Device tree
+
+The device tree is a Linux kernel defined data structure that serves to inform the kernel how the hardware is setup.
+
+<<platform_device>> contains a minimal runnable example of device tree manipulation.
+
+Device trees serve to reduce the need for hardware vendors to patch the kernel: they just provide a device tree file instead, which is much simpler.
+
+x86 does not use it device trees, but many other archs to, notably ARM.
+
+This is notably because ARM boards:
+
+* typically don't have discoverable hardware extensions like PCI, but rather just put everything on an SoC with magic register addresses
+* are made by a wide variety of vendors due to ARM's licensing business model, which increases variability
+
+=== DTB files
+
+Files that contain device trees have the `.dtb` extension when compiled, and `.dts` when in text form.
+
+You can convert between those formats with:
+
+....
+sudo apt-get install device-tree-compiler
+dtc -I dtb -O dts -o a.dts a.dtb
+dtc -I dts -O dtb -o a.dtb a.dts
+....
+
+See also: https://stackoverflow.com/questions/14000736/tool-to-visualize-the-device-tree-file-dtb-used-by-the-linux-kernel/39931834#39931834
+
+Device tree files are provided to the emulator just like the root filesystem and the Linux kernel image.
+
+In real hardware, those components are also often provided separately. For example, on the Raspberry Pi 2, the SD card must contain two partitions:
+
+* the first contains all magic files, including the Linux kernel and the device tree
+* the second contains the root filesystem
+
+See also: https://stackoverflow.com/questions/29837892/how-to-run-a-c-program-with-no-os-on-the-raspberry-pi/40063032#40063032
+
+=== Device tree syntax
+
+Good format descriptions:
+
+* https://www.raspberrypi.org/documentation/configuration/device-tree.md
+
+Minimal example
+
+....
+/dts-v1/;
+
+/ {
+    a;
+};
+....
+
+Check correctness with:
+
+....
+dtc a.dts
+....
+
+Separate nodes are simply merged by node path, e.g.:
+
+....
+/dts-v1/;
+
+/ {
+    a;
+};
+
+/ {
+    b;
+};
+....
+
+then `dtc a.dts` gives:
+
+....
+/dts-v1/;
+
+/ {
+        a;
+        b;
+};
+....
+
+=== Get device tree from running kernel
+
+https://unix.stackexchange.com/questions/265890/is-it-possible-to-get-the-information-for-a-device-tree-using-sys-of-a-running/330926#330926
+
+This is specially interesting because QEMU and gem5 are capable of generating DTBs that match the selected machine depending on dynamic command line parameters for some types of machines.
+
+QEMU's `-M virt` for example, which we use by default for `aarch64`, boots just fine without the `-dtb` option:
+
+....
+./run --arch aarch64
+....
+
+Then, from inside the guest:
+
+....
+dtc -I fs -O dts /sys/firmware/devicetree/base
+....
+
+contains:
+
+....
+        cpus {
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+
+                cpu@0 {
+                        compatible = "arm,cortex-a57";
+                        device_type = "cpu";
+                        reg = <0x0>;
+                };
+        };
+....
+
+=== Device tree emulator generation
+
+Since emulators know everything about the hardware, they can automatically generate device trees for us, which is very convenient.
+
+This is the case for both QEMU and gem5.
+
+For example, if we increase the <<number-of-cores,number of cores>> to 2:
+
+....
+./run --arch aarch64 --cpus 2
+....
+
+QEMU automatically adds a second CPU to the DTB!
+
+....
+                cpu@0 {
+                cpu@1 {
+....
+
+The action seems to be happening at: `hw/arm/virt.c`.
+
+<<gem5-fs_biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
+
+gem5 can generate DTBs on ARM with `--generate-dtb`, but we don't use that feature as of f8c0502bb2680f2dbe7c1f3d7958f60265347005 because it was buggy.
+
 == KVM
 
 You can make QEMU or gem5 <<benchmark-linux-kernel-boot,run faster>> by passing enabling KVM with:
@@ -2752,7 +3009,7 @@ kmscube[706]: unhandled level 2 translation fault (11) at 0x00000000, esr 0x9200
 
 Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/38fd6153d965ba20145f53dc1bb3ba34b336bde9[38fd6153d965ba20145f53dc1bb3ba34b336bde9]
 
-===== Graphic mode gem5 aarch64
+==== Graphic mode gem5 aarch64
 
 For `aarch64` we also need `-c kernel_config_fragment/display`:
 
@@ -2772,7 +3029,7 @@ git -C "$(./getvar linux_src_dir)" checkout -
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
 
-===== Graphic mode gem5 internals
+==== Graphic mode gem5 internals
 
 We cannot use mainline Linux because the <<gem5-arm-linux-kernel-patches>> are required at least to provide the `CONFIG_DRM_VIRT_ENCODER` option.
 
@@ -2944,112 +3201,6 @@ A friend told me this but I haven't tried it yet:
 * `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
 * `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
 
-== initrd
-
-The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
-
-The bootloader, which for us is QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
-
-With this setup, you don't even need to give a root filesystem to the kernel, it just does everything in memory in a ramfs.
-
-To enable initrd instead of the default ext2 disk image, do:
-
-....
-./build --initrd
-./run --initrd
-....
-
-Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
-
-....
-cat "$(./getvar run_dir)/run.sh"
-....
-
-Also as expected, there is no filesystem persistency, since we are doing everything in memory:
-
-....
-date >f
-poweroff
-cat f
-# can't open 'f': No such file or directory
-....
-
-which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.
-
-One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:
-
-....
-end Kernel panic - not syncing: Out of memory and no killable processes...
-....
-
-This can be solved by increasing the memory with:
-
-....
-./run --initrd --memory 256M
-....
-
-The main ingredients to get initrd working are:
-
-* `BR2_TARGET_ROOTFS_CPIO=y`: make Buildroot generate `images/rootfs.cpio` in addition to the other images.
-+
-It is also possible to compress that image with other options.
-* `qemu -initrd`: make QEMU put the image into memory and tell the kernel about it.
-* `CONFIG_BLK_DEV_INITRD=y`: Compile the kernel with initrd support, see also: https://unix.stackexchange.com/questions/67462/linux-kernel-is-not-finding-the-initrd-correctly/424496#424496
-+
-Buildroot forces that option when `BR2_TARGET_ROOTFS_CPIO=y` is given
-
-https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image asks how the mechanism works in more detail.
-
-=== initrd in desktop distros
-
-Most modern desktop distributions have an initrd in their root disk to do early setup.
-
-The rationale for this is described at: https://en.wikipedia.org/wiki/Initial_ramdisk
-
-One obvious use case is having an encrypted root filesystem: you keep the initrd in an unencrypted partition, and then setup decryption from there.
-
-I think GRUB then knows read common disk formats, and then loads that initrd to memory with a `/boot/grub/grub.cfg` directive of type:
-
-....
-initrd /initrd.img-4.4.0-108-generic
-....
-
-Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
-
-=== initramfs
-
-initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself.
-
-So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-initrd`! Pretty cool.
-
-Try it out with:
-
-....
-./build --initramfs -l && ./run --initramfs
-....
-
-The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-
-....
-./build --initramfs && ./run --initramfs
-....
-
-It is interesting to see how this increases the size of the kernel image if you do a:
-
-....
-ls -lh "$(./getvar linux_image)"
-....
-
-before and after using initramfs, since the `.cpio` is now glued to the kernel image.
-
-In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the kernel config option `CONFIG_INITRAMFS_SOURCE` point to the CPIO that will be embedded in the kernel image.
-
-http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
-
-=== gem5 initrd
-
-TODO we were not able to get it working yet: https://stackoverflow.com/questions/49261801/how-to-boot-the-linux-kernel-with-initrd-or-initramfs-with-gem5
-
 == Linux kernel
 
 === Linux kernel configuration
@@ -3215,7 +3366,7 @@ You should then look up if there is a branch that supports that kernel. Staying 
 
 === printk
 
-`printk` is the most simple and widely used way of getting information from the kernel, so you should familiarize yourself with its basic configuration. 
+`printk` is the most simple and widely used way of getting information from the kernel, so you should familiarize yourself with its basic configuration.
 
 We use `printk` a lot in our kernel modules, and it shows on the terminal by default, along with stdout and what you type.
 
@@ -9072,21 +9223,29 @@ if you make any changes to that package after the initial build: <<rebuild-build
 
 It often happens that you are comparing two versions of the build, a good and a bad one, and trying to figure out why the bad one is bad.
 
-This section describes some techniques that can help to reduce the build time and disk usage in those situations.
+Our build variants system allows you to keep multipmle built versions of all major components, so that you can easily switching between running one or the other.
 
-==== Full builds variants
+==== Buildroot build variants
 
-The most coarse thing you can do is to keep two full checkouts of this repository, possibly with `git subtree`.
-
-This approach has the advantage of being simple and robust, but it wastes a lot of space and time for the full rebuild, since <<ccache>> does not make compilation instantaneous due to configuration file reading.
-
-The next less coarse approach, is to use the `-s` option:
+If you want to have multiple versions of the GCC toolchain or root filesystem, this is for you:
 
 ....
-./build --suffix mybranch
-....
+# Build master.
+./build
 
-which generates a full new build under `out/` named for example as `out/x86_64-mybranch`, but at least avoids copying up the source.
+# Build another branch.
+git -C "$(./getvar buildroot_src_dir)" checkout 2018.05
+./build --buildroot-build-id 2018.05
+
+# Restore master.
+git -C "$(./getvar buildroot_src_dir)" checkout -
+
+# Run master.
+./run
+
+# Run another branch.
+./run --buildroot-build-id 2018.05
+....
 
 ==== Linux kernel build variants
 
@@ -9664,100 +9823,6 @@ kmod's `modprobe` can also load modules under different names to avoid conflicts
 sudo modprobe vmhgfs -o vm_hgfs
 ....
 
-=== Device tree
-
-<<platform_device>> contains a minimal runnable example.
-
-Good format descriptions:
-
-* https://www.raspberrypi.org/documentation/configuration/device-tree.md
-
-Minimal example
-
-....
-/dts-v1/;
-
-/ {
-    a;
-};
-....
-
-Check correctness with:
-
-....
-dtc a.dts
-....
-
-Separate nodes are simply merged by node path, e.g.:
-
-....
-/dts-v1/;
-
-/ {
-    a;
-};
-
-/ {
-    b;
-};
-....
-
-then `dtc a.dts` gives:
-
-....
-/dts-v1/;
-
-/ {
-        a;
-        b;
-};
-....
-
-==== Get device tree from running kernel
-
-https://unix.stackexchange.com/questions/265890/is-it-possible-to-get-the-information-for-a-device-tree-using-sys-of-a-running/330926#330926
-
-This is specially interesting because QEMU and gem5 are capable of generating DTBs that match the selected machine depending on dynamic command line parameters for some types of machines.
-
-QEMU's `-M virt` for example, which we use by default for `aarch64`, boots just fine without the `-dtb` option:
-
-....
-./run --arch aarch64
-....
-
-Then, from inside the guest:
-
-....
-dtc -I fs -O dts /sys/firmware/devicetree/base
-....
-
-contains:
-
-....
-        cpus {
-                #address-cells = <0x1>;
-                #size-cells = <0x0>;
-
-                cpu@0 {
-                        compatible = "arm,cortex-a57";
-                        device_type = "cpu";
-                        reg = <0x0>;
-                };
-        };
-....
-
-However, if we increase the <<number-of-cores,number of cores>>:
-
-....
-./run --arch aarch64 --cpus 2
-....
-
-QEMU automatically adds a second CPU to the DTB!
-
-The action seems to be happening at: `hw/arm/virt.c`.
-
-<<gem5-fs_biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
-
 === Directory structure
 
 * `data`: gitignored user created data. Deleting this might lead to loss of data. Of course, if something there becomes is important enough to you, git track it.
@@ -9798,6 +9863,10 @@ Those packages get automatically added to Buildroot's `BR2_EXTERNAL`, so all you
 ....
 ./build --buildroot-config BR2_SAMPLE_PACKAGE=y
 ....
+
+If you want to add something to the root filesystem, possibly involving cross-compilation, then packages are the way to go.
+
+In particular, our kernel modules are stored inside a Buildroot package: link:packages/kernel_modules[].
 
 ==== patches
 
