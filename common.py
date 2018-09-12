@@ -143,6 +143,13 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
     parser.set_defaults(**defaults)
     return parser
 
+def add_build_arguments(parser):
+    parser.add_argument(
+        '--clean',
+        help='Clean the build instead of building.',
+        action='store_true',
+    )
+
 def get_elf_entry(elf_file_path):
     global this
     readelf_header = subprocess.check_output([

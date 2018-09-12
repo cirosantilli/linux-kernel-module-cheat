@@ -105,9 +105,9 @@ cd linux-kernel-module-cheat
 
 The first configure will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
-It does not work if you just download the .zip from GitHub because we use Git submodules, you must clone this repo. `./configure` then fetches only the required submodules for you.
+It does not work if you just download the `.zip` from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo. `./configure` then fetches only the required submodules for you.
 
-It is super easy to build for different supported CPU architectures, just use the `--arch` option:
+It is super easy to build for different CPU architectures, just use the `--arch` option:
 
 ....
 ./build-qemu --arch arm && \
@@ -151,18 +151,79 @@ Quit QEMU with:
 Ctrl-A X
 ....
 
-See also: <<quit-qemu-from-text-mode>>.
-
-Source:
+Sources:
 
 * link:packages/kernel_modules/hello.c[]
 * link:packages/kernel_modules/hello2.c[]
 
 All available modules can be found in the link:packages/kernel_modules/[`kernel_modules` directory].
 
+See also: <<quit-qemu-from-text-mode>>.
+
+Now try to modify link:packages/kernel_modules/hello.c[] to contain:
+
+....
+pr_info("hello init hacked\n");
+....
+
+and then rebuild the kernel modules and re-run to see it take effect:
+
+....
+./build --kernel-modules
+./run -F 'insmod /hello.ko'
+....
+
+Congratulations, you are now officially a kernel module hacker!
+
+The reboot after rebuild is annoying. We don't have a perfect solution for it yet, but there are some ideas cooking at: <<gem5-restore-new-script>>.
+
+Not satisfied with kernel modules? OK then, let's hack up the <<linux-kernel-entry-point,entry point of the>> Linux kernel itself.
+
+Open the file `submodules/linux/init/main.c` on your text editor, find the `start_kernel` function, and then add there a:
+
+....
+pr_info("I'VE HACKED THE LINUX KERNEL!!!");
+....
+
+Then rebuild the Linux kernel and reboot:
+
+....
+./build && ./run
+....
+
+and, surely enough, your message has appeared at the beginning of the boot.
+
+So you are now officially a kernel hacker, way to go!
+
+Not satisfied with mere software? OK then, let's hack up the QEMU entry point.
+
+First find it with GDB:
+
+....
+./run --debug-vm
+....
+
+which leaves us at `submodules/qemu/vl.c`, so hack up the `main` there with:
+
+....
+puts("I'VE HACKED QEMU");
+....
+
+and as usual rebuild and re-run:
+
+.....
+./build-qemu && ./run
+.....
+
+and once again, there is your message.
+
+You have now gone from newb to hardware hacker in a mere 15 minutes, your rate of progress is truly astounding!!!
+
 I now urge you to read the following sections which contain widely applicable information:
 
-* TODO
+* <<default-command-line-arguments>>
+* <<rebuild-buildroot-packages>>
+* <<clean-the-build>>
 
 Once you use <<gdb>> and <<tmux>>, your terminal will look a bit like this:
 
@@ -236,19 +297,6 @@ QEMU is also supported by Buildroot in-tree, see e.g.: https://github.com/buildr
 
 All of this makes QEMU the natural choice of system simulator.
 
-[[retype]]
-==== Default command line arguments
-
-It gets annoying to retype `--arch aarch64` for every single command, or to remember `./build --buildroot-config` setups.
-
-So simplify that, do:
-
-....
-cp config.example data/config
-....
-
-and then edit the `data/config` file to your needs.
-
 === gem5 Buildroot setup
 
 ==== About the gem5 Buildroot setup
@@ -275,8 +323,8 @@ For the most part, if you just add the `--gem5` option or `-gem5` suffix to all 
 
 ....
 ./configure --gem5 && \
-  ./build --arch aarch64 --gem5 && \
   ./build-gem5 --arch aarch64 && \
+  ./build --arch aarch64 --gem5 && \
   ./run --arch aarch64 --gem5 &&\
 :;
 ....
@@ -553,65 +601,6 @@ dmesg
 rmmod hello.ko
 dmesg
 ....
-
-=== Rebuild Buildroot packages
-
-After making changes to a Buildroot package, you must explicitly request it to be rebuilt.
-
-For example, you you modify the kernel modules, which is a Buildroot package, you must rebuild with:
-
-....
-./build --kernel-modules
-....
-
-which is just an alias for:
-
-....
-./build -- kernel_modules-reconfigure
-....
-
-where `kernel_modules` is the name of out Buildroot package that contains the kernel modules.
-
-==== Rebuild a package with different build options
-
-For example, if you decide to <<enable-compiler-optimizations>> after an initial build is finished, you must first clean the build before rebuilding:
-
-....
-./build --buildroot-config 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
-....
-
-as explained at: https://buildroot.org/downloads/manual/manual.html#rebuild-pkg
-
-The clean is necessary because the source files didn't change, so `make` would just check the timestamps and not build anything.
-
-=== Clean the build
-
-You did something crazy, and nothing seems to work anymore?
-
-All builds are stored under `buildroot/`,
-
-The most coarse thing you can do is:
-
-....
-cd buildroot
-git checkout -- .
-git clean -xdf .
-....
-
-To only nuke one architecture, do:
-
-....
-rm -rf "$(./getvar buildroot_build_dir)"
-....
-
-Only nuke one one package:
-
-....
-rm -rf "$(./getvar buildroot_build_dir)/build/host-qemu-custom"
-./build
-....
-
-This is sometimes necessary when changing the version of the submodules, and then builds fail. We should try to understand why and report bugs.
 
 === Disk persistency
 
@@ -2783,6 +2772,52 @@ The main use case for `-enable-kvm` in this repository is to test if something t
 
 For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
 
+== kmod
+
+https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
+
+Multi-call executable that implements: `lsmod`, `insmod`, `rmmod`, and other tools on desktop distros such as Ubuntu 16.04, where e.g.:
+
+....
+ls -l /bin/lsmod
+....
+
+gives:
+
+....
+lrwxrwxrwx 1 root root 4 Jul 25 15:35 /bin/lsmod -> kmod
+....
+
+and:
+
+....
+dpkg -l | grep -Ei
+....
+
+contains:
+
+....
+ii  kmod                                        22-1ubuntu5                                         amd64        tools for managing Linux kernel modules
+....
+
+BusyBox also implements its own version of those executables. There are some differences.
+
+Buildroot also has a kmod package, but we are not using it since BusyBox' version is good enough so far.
+
+This page will only describe features that differ from kmod to the BusyBox implementation.
+
+=== module-init-tools
+
+Name of a predecessor set of tools.
+
+=== kmod modprobe
+
+kmod's `modprobe` can also load modules under different names to avoid conflicts, e.g.:
+
+....
+sudo modprobe vmhgfs -o vm_hgfs
+....
+
 == Graphics
 
 Both QEMU and gem5 are capable of outputting graphics to the screen, and taking mouse and keyboard input.
@@ -3541,6 +3576,10 @@ This likely comes from the ifdef split at `init/main.c`:
     no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
 ....
+
+=== Linux kernel entry point
+
+`start_kernel` is a good definition of it: ttps://stackoverflow.com/questions/18266063/does-kernel-have-main-function/33422401#33422401
 
 === Kernel module APIs
 
@@ -7146,11 +7185,13 @@ Bibliography: https://serverfault.com/questions/769874/how-to-forward-a-port-fro
 
 ==== Secondary disk
 
-A simpler and possibly less overhead alternative to <<9P>> would be to generate a secondary disk image with the bencmark you want to rebuild.
+A simpler and possibly less overhead alternative to <<9P>> would be to generate a secondary disk image with the benchmark you want to rebuild.
 
 Then you can `umount` and re-mount on guest without reboot.
 
 We don't support this yet, but it should not be too hard to hack it up, maybe by hooking into link:rootfs_post_build_script[].
+
+This was not possible from gem5 `fs.py` as of 60600f09c25255b3c8f72da7fb49100e2682093a: https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661
 
 === QEMU user mode
 
@@ -7856,7 +7897,7 @@ A more naive and simpler to understand approach would be a direct:
 ./run --arch aarch64 --gem5 --eval 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
 ....
 
-but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-scrip>>
+but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-script>>.
 
 Now you can play a fun little game with your friends:
 
@@ -8562,7 +8603,7 @@ Therefore, just use our superior `--gem5-restore` flag, which uses directory tim
 
 The `-r N` integer value is just pure `fs.py` sugar, the backend at `m5.instantiate` just takes the actual tracepoint directory path as input.
 
-[[gem5-restore-new-scrip]]
+[[gem5-restore-new-script]]
 ==== gem5 checkpoint restore and run a different script
 
 You want to automate running several tests from a single pristine post-boot state.
@@ -8602,7 +8643,7 @@ Since this is such a common setup, we provide some helpers for it as described a
 Other loophole possibilities include:
 
 * <<9p>>
-* link:https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661[create multiple disk images], and mount the benchmark from on one of them
+* <<secondary-disk>>
 * `expect` as mentioned at: https://stackoverflow.com/questions/7013137/automating-telnet-session-using-bash-scripts
 +
 ....
@@ -9054,16 +9095,44 @@ Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/
 
 == Buildroot
 
-=== Custom Buildroot options
+=== Rebuild Buildroot packages
+
+After making changes to a Buildroot package, you must explicitly request it to be rebuilt.
+
+For example, if you modify the kernel modules, which is a Buildroot package, you must rebuild with:
+
+....
+./build -- kernel_modules-reconfigure
+....
+
+where `kernel_modules` is the name of our Buildroot package that contains the kernel modules.
+
+Since rebuilding this package is such a common case, we have a shortcut for it:
+
+....
+./build --kernel-modules
+....
+
+==== Rebuild a Buildroot package with different build options
 
 We provide the following mechanisms:
 
 * `./build --buildroot-config-fragment data/br2`: append the Buildroot configuration file `data/br2` to a single build. Must be passed every time you run `./build`. The format is the same as link:br2/default[].
 * `./build --buildroot-config 'BR2_SOME_OPTION="myval"'`: append a single option to a single build.
 
-You will then likely want to make those more permanent with: <<retype>>
+For example, if you decide to <<enable-buildroot-compiler-optimizations>> after an initial build is finished, you must first clean the build before rebuilding:
 
-==== Enable compiler optimizations
+....
+./build --buildroot-config 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
+....
+
+as explained at: https://buildroot.org/downloads/manual/manual.html#rebuild-pkg
+
+The clean is necessary because the source files didn't change, so `make` would just check the timestamps and not build anything.
+
+You will then likely want to make those more permanent with: <<default-command-line-arguments>>
+
+==== Enable Buildroot compiler optimizations
 
 If you are benchmarking compiled programs instead of hand written assembly, remember that we configure Buildroot to disable optimizations by default with:
 
@@ -9775,53 +9844,46 @@ gem5:
 ** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
 ** https://github.com/gem5/gem5/issues/25
 
-== Conversation
+== About this repo
 
-=== kmod
+=== Default command line arguments
 
-https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
+It gets annoying to retype `--arch aarch64` for every single command, or to remember `--buildroot-config` setups.
 
-Multi-call executable that implements: `lsmod`, `insmod`, `rmmod`, and other tools on desktop distros such as Ubuntu 16.04, where e.g.:
-
-....
-ls -l /bin/lsmod
-....
-
-gives:
+So simplify that, do:
 
 ....
-lrwxrwxrwx 1 root root 4 Jul 25 15:35 /bin/lsmod -> kmod
+cp config.example data/config
 ....
 
-and:
+and then edit the `data/config` file to your needs.
+
+=== Clean the build
+
+You did something crazy, and nothing seems to work anymore?
+
+All our build outputs are stored under `out/`, so the coarsest and most effective thing you can do is:
 
 ....
-dpkg -l | grep -Ei
+rm -rf out
 ....
 
-contains:
+This implies a full rebuild for all archs however, so you might first want to explore finer grained cleans.
+
+To only nuke one architecture, do:
 
 ....
-ii  kmod                                        22-1ubuntu5                                         amd64        tools for managing Linux kernel modules
+rm -rf "$(./getvar buildroot_build_dir)"
 ....
 
-BusyBox also implements its own version of those executables. There are some differences.
-
-Buildroot also has a kmod package, but we are not using it since BusyBox' version is good enough so far.
-
-This page will only describe features that differ from kmod to the BusyBox implementation.
-
-==== module-init-tools
-
-Name of a predecessor set of tools.
-
-==== kmod modprobe
-
-kmod's `modprobe` can also load modules under different names to avoid conflicts, e.g.:
+Only nuke one one package:
 
 ....
-sudo modprobe vmhgfs -o vm_hgfs
+rm -rf "$(./getvar buildroot_build_dir)/build/host-qemu-custom"
+./build
 ....
+
+This is sometimes necessary when changing the version of the submodules, and then builds fail. We should try to understand why and report bugs.
 
 === Directory structure
 

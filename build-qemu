@@ -2,11 +2,13 @@
 
 import multiprocessing
 import os
+import shutil
 import subprocess
 
 import common
 
 parser = common.get_argparse()
+common.add_build_arguments(parser)
 parser.add_argument(
     'extra_config_args',
     default=[],
@@ -14,24 +16,27 @@ parser.add_argument(
     nargs='*'
 )
 args = common.setup(parser)
-os.makedirs(common.qemu_build_dir, exist_ok=True)
-subprocess.check_call(
-    [
-        os.path.join(common.qemu_src_dir, 'configure'),
-        '--enable-debug',
-        '--enable-trace-backends=simple',
-        '--target-list={}-softmmu'.format(args.arch),
-        '--enable-sdl',
-        '--with-sdlabi=2.0',
-    ] +
-    args.extra_config_args,
-    cwd=common.qemu_build_dir
-)
-subprocess.check_call(
-    [
-        'make',
-        # TODO factor with build.
-        '-j', str(multiprocessing.cpu_count()),
-    ],
-    cwd=common.qemu_build_dir
-)
+if args.clean:
+    shutil.rmtree(common.qemu_build_dir)
+else:
+    os.makedirs(common.qemu_build_dir, exist_ok=True)
+    subprocess.check_call(
+        [
+            os.path.join(common.qemu_src_dir, 'configure'),
+            '--enable-debug',
+            '--enable-trace-backends=simple',
+            '--target-list={}-softmmu'.format(args.arch),
+            '--enable-sdl',
+            '--with-sdlabi=2.0',
+        ] +
+        args.extra_config_args,
+        cwd=common.qemu_build_dir
+    )
+    subprocess.check_call(
+        [
+            'make',
+            # TODO factor with build.
+            '-j', str(multiprocessing.cpu_count()),
+        ],
+        cwd=common.qemu_build_dir
+    )
