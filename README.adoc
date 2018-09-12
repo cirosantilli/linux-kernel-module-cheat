@@ -160,65 +160,6 @@ All available modules can be found in the link:packages/kernel_modules/[`kernel_
 
 See also: <<quit-qemu-from-text-mode>>.
 
-Now try to modify link:packages/kernel_modules/hello.c[] to contain:
-
-....
-pr_info("hello init hacked\n");
-....
-
-and then rebuild the kernel modules and re-run to see it take effect:
-
-....
-./build --kernel-modules
-./run -F 'insmod /hello.ko'
-....
-
-Congratulations, you are now officially a kernel module hacker!
-
-The reboot after rebuild is annoying. We don't have a perfect solution for it yet, but there are some ideas cooking at: <<gem5-restore-new-script>>.
-
-Not satisfied with kernel modules? OK then, let's hack up the <<linux-kernel-entry-point,entry point of the>> Linux kernel itself.
-
-Open the file `submodules/linux/init/main.c` on your text editor, find the `start_kernel` function, and then add there a:
-
-....
-pr_info("I'VE HACKED THE LINUX KERNEL!!!");
-....
-
-Then rebuild the Linux kernel and reboot:
-
-....
-./build && ./run
-....
-
-and, surely enough, your message has appeared at the beginning of the boot.
-
-So you are now officially a kernel hacker, way to go!
-
-Not satisfied with mere software? OK then, let's hack up the QEMU entry point.
-
-First find it with GDB:
-
-....
-./run --debug-vm
-....
-
-which leaves us at `submodules/qemu/vl.c`, so hack up the `main` there with:
-
-....
-puts("I'VE HACKED QEMU");
-....
-
-and as usual rebuild and re-run:
-
-.....
-./build-qemu && ./run
-.....
-
-and once again, there is your message.
-
-You have now gone from newb to hardware hacker in a mere 15 minutes, your rate of progress is truly astounding!!!
-
 I now urge you to read the following sections which contain widely applicable information:
 
 * <<default-command-line-arguments>>
@@ -268,6 +209,77 @@ hello /root/.profile                                                            
 [    8.851385] 4294894504                                                       │#12 0x0000000000000000 in ?? ()
                                                                                 │(gdb)
 ....
+
+==== Your first kernel hack
+
+Modify link:packages/kernel_modules/hello.c[] to contain:
+
+....
+pr_info("hello init hacked\n");
+....
+
+and then rebuild the kernel modules and re-run to see it take effect:
+
+....
+./build --kernel-modules
+./run -F 'insmod /hello.ko'
+....
+
+Congratulations, you are now officially a kernel module hacker!
+
+The reboot after rebuild is annoying. We don't have a perfect solution for it yet, but there are some ideas cooking at: <<gem5-restore-new-script>>.
+
+Not satisfied with kernel modules? OK then, let's hack up the <<linux-kernel-entry-point,entry point of the>> Linux kernel itself.
+
+Open the file:
+
+....
+vim submodules/linux/init/main.c
+....
+
+and find the `start_kernel` function, then add there a:
+
+....
+pr_info("I'VE HACKED THE LINUX KERNEL!!!");
+....
+
+Then rebuild the Linux kernel and reboot:
+
+....
+./build && ./run
+....
+
+and, surely enough, your message has appeared at the beginning of the boot.
+
+So you are now officially a kernel hacker, way to go!
+
+Not satisfied with mere software? OK then, let's hack up the QEMU x86 CPU identification:
+
+....
+vim submodules/qemu/target/i386/cpu.c
+....
+
+and modify:
+
+....
+.model_id = "QEMU Virtual CPU version " QEMU_HW_VERSION,
+....
+
+to contain:
+
+....
+.model_id = "QEMU Virtual CPU version HACKED " QEMU_HW_VERSION,
+....
+
+then as usual rebuild and re-run:
+
+.....
+./build-qemu && ./run -F 'grep "model name" /proc/cpuinfo'
+.....
+
+and once again, there is your message: QEMU communicated it to the Linux kernel, which printed it out.
+
+You have now gone from newb to hardware hacker in a mere 15 minutes, your rate of progress is truly astounding!!!
 
 ==== About the QEMU Buildroot setup
 
