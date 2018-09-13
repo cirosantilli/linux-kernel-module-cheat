@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eu
 interactive_pkgs=libsdl2-dev
 gem5=false
 qemu=true
@@ -105,6 +105,7 @@ fi
 if "$gem5"; then
   submodules="${submodules} gem5"
 fi
+submodules="$(for submodule in ${submodules}; do printf "submodules/${submodule} "; done)"
 (
   set -e
   # Shallow cloning saves a considerable amount of time, specially because of the linux kernel.
@@ -113,9 +114,7 @@ fi
   # In particular:
   # - `shallow = true` on the submodule has no effect for the non default educational branches of our submodules
   # - QEMU's submodules point to commits that are neither under branches nor tags, and so `--shallow-submodules` fails
-  for submodule in submodules/*/; do
-    git submodule update --depth 1 $gitjobs --init -- "submodules/${submodule}"
-  done
+  git submodule update --depth 1 $gitjobs --init -- ${submodules}
   if "$qemu"; then
     git -C submodules/qemu submodule update --init --recursive
   fi
