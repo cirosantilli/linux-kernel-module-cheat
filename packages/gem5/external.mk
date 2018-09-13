@@ -5,7 +5,7 @@
 ################################################################################
 
 GEM5_VERSION = 1.0
-GEM5_SITE = $(GEM5_LKMC_SRCDIR)
+GEM5_SITE = $(LKMC_GEM5_SRCDIR)
 GEM5_SITE_METHOD = local
 
 ifeq ($(ARCH),x86_64)

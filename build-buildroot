@@ -203,17 +203,20 @@ def main(args, extra_args=None):
                     # CLI kernel configurations.
                     kernel_config_fragment_cli_path = os.path.join(common.buildroot_build_dir, 'lkmc_kernel_config_fragment_cli')
                     kernel_config_cli_str = '\n'.join(args.kernel_config)
+                    do_write = False
                     if os.path.exists(kernel_config_fragment_cli_path):
                         with open(kernel_config_fragment_cli_path, 'r') as kernel_config_fragment_cli_file:
                             kernel_config_cli_str_old = kernel_config_fragment_cli_file.read()
                             if kernel_config_cli_str != kernel_config_cli_str_old:
-                                #  Only update if modified, otherwise Buildroot rebuilds the
-                                # kernel always rebuilds kernel every time.
                                 do_write = True
                     else:
                         do_write = True
-                    with open(kernel_config_fragment_cli_path, 'w') as kernel_config_fragment_cli_file:
-                        kernel_config_fragment_cli_file.write(kernel_config_cli_str)
+                    if do_write:
+                        #  Only update if modified, otherwise Buildroot tries to
+                        # rebuilds the kernel every time, which takes a few seconds.
+                        # even when the kernel has already been built.
+                        with open(kernel_config_fragment_cli_path, 'w') as kernel_config_fragment_cli_file:
+                            kernel_config_fragment_cli_file.write(kernel_config_cli_str)
                     kernel_config_fragments.append(os.path.join(kernel_config_fragment_cli_path))
                 if True:
                     # Kernel configuration fragments.
@@ -269,7 +272,8 @@ def main(args, extra_args=None):
         assert common.run_cmd(
             [
                 'make',
-                'GEM5_LKMC_SRCDIR="{}"'.format(common.gem5_src_dir),
+                'LKMC_GEM5_SRCDIR="{}"'.format(common.gem5_src_dir),
+                'LKMC_PARSEC_BENCHMARK_SRCDIR="{}"'.format(common.parsec_benchmark_src_dir),
                 'O={}'.format(common.buildroot_build_dir),
                 'V={}'.format(int(args.verbose)),
             ] +

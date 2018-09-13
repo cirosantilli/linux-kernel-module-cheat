@@ -29,7 +29,7 @@ buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
 linux_src_dir = os.path.join(submodules_dir, 'linux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
-parsec_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
+parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
 
 # Other default variables.
 arch_map = {
