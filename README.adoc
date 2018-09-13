@@ -453,7 +453,7 @@ If you mistakenly run `./rundocker` twice, it opens two mirrored terminals. To q
 Ctrl-P Ctrl-Q
 ....
 
-To use <<graphic-mode>> from Docker:
+To use <<qemu-graphic-mode>> from Docker:
 
 ....
 ./run --graphic --vnc
@@ -1560,7 +1560,7 @@ Bibliography:
 
 == KGDB
 
-TODO: only working with <<graphic-mode>>. Without it, nothing shows on the terminal. So likely something linked to the option `console=ttyS0`.
+TODO: only working with <<qemu-graphic-mode>>. Without it, nothing shows on the terminal. So likely something linked to the option `console=ttyS0`.
 
 KGDB is kernel dark magic that allows you to GDB the kernel on real hardware without any extra hardware support.
 
@@ -2600,19 +2600,45 @@ sudo modprobe vmhgfs -o vm_hgfs
 
 Both QEMU and gem5 are capable of outputting graphics to the screen, and taking mouse and keyboard input.
 
-TODO. Review. make awesome.
+https://unix.stackexchange.com/questions/307390/what-is-the-difference-between-ttys0-ttyusb0-and-ttyama0-in-linux
 
-=== Text mode QEMU
+=== QEMU text mode
 
-Text mode is the our default mode for QEMU.
+Text mode is the default mode for QEMU.
 
 The opposite of text mode is <<qemu-graphic-mode>>
 
 In text mode, we just show the serial console directly on the current terminal, without opening a QEMU GUI window.
 
-You cannot see any graphics from text mode, but text operations such as scrolling up are much more convenient in this mode, including:
+You cannot see any graphics from text mode, but text operations in this mode, including:
 
-making this a good default, unless you really want to use with graphics.
+* scrolling up: <<scroll-up-in-graphic-mode>>
+* copy paste to and from the terminal
+
+making this a good default, unless you really need to use with graphics.
+
+Text mode works by sending the terminal character by character to a serial device.
+
+This is different from a display screen, where each character is a bunch of pixels, and it would be much harder to convert that into actual terminal text.
+
+For more details, see:
+
+* https://unix.stackexchange.com/questions/307390/what-is-the-difference-between-ttys0-ttyusb0-and-ttyama0-in-linux
+* <<tty>>
+
+Note that you can still see an image even in text mode with the VNC:
+
+....
+./run --vnc
+....
+
+and on another terminal:
+
+....
+./vnc
+....
+
+but there is not terminal on the VNC window, just the <<config_logo>> penguin.
 
 ==== Quit QEMU from text mode
 
@@ -2630,21 +2656,6 @@ Alternative methods include:
 
 * `quit` command on the <<qemu-monitor>>
 * `pkill qemu`
-
-=== Scroll up in graphic mode
-
-Scroll up in <<graphic-mode>>:
-
-....
-Shift-PgUp
-....
-
-but I never managed to increase that buffer:
-
-* https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
-* https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
-
-The superior alternative is to use text mode and GNU screen or <<tmux>>.
 
 === QEMU graphic mode
 
@@ -2685,7 +2696,22 @@ cat /dev/urandom > /dev/fb0
 
 flooding the screen with colors. See also: https://superuser.com/questions/223094/how-do-i-know-if-i-have-kms-enabled
 
-==== Graphic mode QEMU arm
+==== Scroll up in graphic mode
+
+Scroll up in <<qemu-graphic-mode>>:
+
+....
+Shift-PgUp
+....
+
+but I never managed to increase that buffer:
+
+* https://askubuntu.com/questions/709697/how-to-increase-scrollback-lines-in-ubuntu14-04-2-server-edition
+* https://unix.stackexchange.com/questions/346018/how-to-increase-the-scrollback-buffer-size-for-tty
+
+The superior alternative is to use text mode and GNU screen or <<tmux>>.
+
+==== QEMU Graphic mode arm
 
 ===== QEMU graphic mode arm terminal
 
@@ -2711,7 +2737,7 @@ and has no effect, and the Linux kernel does not appear to have a built-in DRM c
 
 There is however one out-of-tree implementation: <<kmscon>>.
 
-===== Graphic mode QEMU arm terminal implementation
+===== QEMU graphic mode arm terminal implementation
 
 `arm` and `aarch64` rely on the QEMU CLI option:
 
@@ -2730,7 +2756,7 @@ Unlike x86, `arm` and `aarch64` don't have a display device attached by default,
 
 See also https://wiki.qemu.org/Documentation/Platforms/ARM (recently edited and corrected by yours truly... :-)).
 
--==== Graphic mode QEMU arm VGA
+===== QEMU graphic mode arm VGA
 
 TODO: how to use VGA on ARM? https://stackoverflow.com/questions/20811203/how-can-i-output-to-vga-through-qemu-arm Tried:
 
@@ -2748,7 +2774,9 @@ But https://github.com/qemu/qemu/blob/v2.12.0/docs/config/mach-virt-graphical.cf
 
 so maybe it is not possible?
 
-=== Graphic mode gem5
+=== gem5 Graphic mode
+
+gem5 does not have a "text mode", since it cannot redirect the Linux terminal to same host terminal where the executable is running: you are always forced to connect to the terminal with `gem-shell`.
 
 TODO could not get it working on `x86_64`, only ARM.
 
@@ -3799,7 +3827,7 @@ How to generate them:
 * https://unix.stackexchange.com/questions/66197/how-to-cause-kernel-panic-with-a-single-command
 * https://stackoverflow.com/questions/23484147/generate-kernel-oops-or-crash-in-the-code
 
-When a panic happens, <<linux-kernel-magic-keys,`Shift-PgUp`>> does not work as it normally does, and it is hard to get the logs if on are on <<graphic-mode-qemu>>:
+When a panic happens, <<linux-kernel-magic-keys,`Shift-PgUp`>> does not work as it normally does, and it is hard to get the logs if on are on <<qemu-graphic-mode>>:
 
 * https://superuser.com/questions/848412/scrolling-up-the-failed-screen-with-kernel-panic
 * https://superuser.com/questions/269228/write-qemu-booting-virtual-machine-output-to-a-file
@@ -4951,7 +4979,7 @@ So so see something interesting, you need to monitor an interrupt that is more r
 
 ==== /proc/interrupts
 
-In the guest on <<graphic-mode-qemu>>:
+In the guest with <<qemu-graphic-mode>>:
 
 ....
 watch -n 1 cat /proc/interrupts
@@ -6565,7 +6593,7 @@ What happened:
 * our hardware model is coded such that it generates an interrupt when written to
 * the Linux kernel interrupt handler write to another register, which tells the hardware to stop sending interrupts
 
-Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<graphic-mode-qemu>> instead.
+Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<qemu-graphic-mode>> instead.
 
 We don't enable the device by default because it does not work for vanilla QEMU, which we often want to test with this repository.
 
@@ -7386,7 +7414,7 @@ And in QEMU:
 /qemu_edu.sh
 ....
 
-When in <<graphic-mode,non graphic mode>>, using `--debug-vm` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest program like:
+When in <<qemu-text-mode>>, using `--debug-vm` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest program like:
 
 ....
 sleep 10
@@ -8920,7 +8948,7 @@ Those patches look interesting, but it is obviously not possible to understand w
 
 So let's explain them one by one here as we understand them:
 
-* `drm: Add component-aware simple encoder` allows you to see images through VNC: <<graphic-mode-gem5>>
+* `drm: Add component-aware simple encoder` allows you to see images through VNC: <<gem5-graphic-mode>>
 * `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8/50248068#5024806
 
 === m5term
