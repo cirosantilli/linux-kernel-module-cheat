@@ -162,6 +162,7 @@ See also: <<quit-qemu-from-text-mode>>.
 
 I now urge you to read the following sections which contain widely applicable information:
 
+* <<run-command-after-boot>>
 * <<default-command-line-arguments>>
 * <<rebuild-buildroot-packages>>
 * <<clean-the-build>>
@@ -222,7 +223,7 @@ and then rebuild the kernel modules and re-run to see it take effect:
 
 ....
 ./build-buildroot --kernel-modules
-./run -F 'insmod /hello.ko'
+./run --eval-busybox 'insmod /hello.ko'
 ....
 
 Congratulations, you are now officially a kernel module hacker!
@@ -274,7 +275,7 @@ to contain:
 then as usual rebuild and re-run:
 
 .....
-./build-qemu && ./run -F 'grep "model name" /proc/cpuinfo'
+./build-qemu && ./run --eval-busybox 'grep "model name" /proc/cpuinfo'
 .....
 
 and once again, there is your message: QEMU communicated it to the Linux kernel, which printed it out.
@@ -2505,7 +2506,7 @@ ping google.com
 
 TODO why: https://unix.stackexchange.com/questions/124283/busybox-ping-ip-works-but-hostname-nslookup-fails-with-bad-address
 
-To enable networking by default, use the methods documented at <<automatic-startup-commands>>
+To enable networking by default, use the methods documented at <<init-busybox>>.
 
 == initrd
 
@@ -9135,14 +9136,14 @@ Since rebuilding this package is such a common case, we have a shortcut for it:
 ./build-buildroot --kernel-modules
 ....
 
-==== Rebuild a Buildroot package with different build options
+=== Custom Buildroot configs
 
 We provide the following mechanisms:
 
 * `./build-buildroot --buildroot-config-fragment data/br2`: append the Buildroot configuration file `data/br2` to a single build. Must be passed every time you run `./build`. The format is the same as link:br2/default[].
 * `./build-buildroot --buildroot-config 'BR2_SOME_OPTION="myval"'`: append a single option to a single build.
 
-For example, if you decide to <<enable-buildroot-compiler-optimizations>> after an initial build is finished, you must first clean the build before rebuilding:
+For example, if you decide to <<enable-buildroot-compiler-optimizations>> after an initial build is finished, you must <<clean-the-build>> and rebuild:
 
 ....
 ./build-buildroot --buildroot-config 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
@@ -9176,7 +9177,7 @@ Don't forget to do that if you are <<add-new-buildroot-packages,adding a new pac
 
 Then, you have two choices:
 
-* if you already have a full `-O0` build, you can choose to rebuild just your package of interest to save some time as described at: <<rebuild-a-package-with-different-build-options>>
+* if you already have a full `-O0` build, you can choose to rebuild just your package of interest to save some time as described at: <<custom-buildroot-configs>>
 +
 ....
 ./build-buildroot \
@@ -9293,7 +9294,7 @@ while a build is going on in another terminal and my cooler is humming. Especial
 First, see if you can't get away without actually adding a new package, for example:
 
 * if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:packages/kernel_modules/user[] and you are done
-* if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-options>>
+* if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-configs>>
 
 If none of those methods are flexible enough for you, create a new package as follows:
 
@@ -9867,6 +9868,18 @@ gem5:
 ** https://github.com/gem5/gem5/issues/25
 
 == About this repo
+
+=== Run command after boot
+
+If you just want to run a command after boot ends without thinking much about it, just use the `--eval-busybox` option, e.g.:
+
+....
+./run --eval-busybox 'echo hello'
+....
+
+This option passes the command to our init scripts, and uses a few clever tricks along the way to make it just work.
+
+See <<init>> for the gory details.
 
 === Default command line arguments
 
