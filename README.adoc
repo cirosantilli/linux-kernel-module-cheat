@@ -98,7 +98,7 @@ git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
 ./configure && \
   ./build-qemu &&
-  ./build && \
+  ./build-buildroot && \
   ./run && \
 :;
 ....
@@ -111,7 +111,7 @@ It is super easy to build for different CPU architectures, just use the `--arch`
 
 ....
 ./build-qemu --arch arm && \
-  ./build --arch arm && \
+  ./build-buildroot --arch arm && \
   ./run --arch arm && \
 :;
 ....
@@ -221,7 +221,7 @@ pr_info("hello init hacked\n");
 and then rebuild the kernel modules and re-run to see it take effect:
 
 ....
-./build --kernel-modules
+./build-buildroot --kernel-modules
 ./run -F 'insmod /hello.ko'
 ....
 
@@ -246,7 +246,7 @@ pr_info("I'VE HACKED THE LINUX KERNEL!!!");
 Then rebuild the Linux kernel and reboot:
 
 ....
-./build && ./run
+./build-buildroot && ./run
 ....
 
 and, surely enough, your message has appeared at the beginning of the boot.
@@ -281,7 +281,7 @@ and once again, there is your message: QEMU communicated it to the Linux kernel,
 
 You have now gone from newb to hardware hacker in a mere 15 minutes, your rate of progress is truly astounding!!!
 
-BTW: if you want to be a real hardware hacker, it just can't be done with open source tools. The root obstacle is that link:https://en.wikipedia.org/wiki/Semiconductor_fabrication_plant[Silicon fabs] don't reveal their design rules, which implies that there are no decent standard cell libraries, which implies that you can't get decent power performance and area estimates, see: https://www.quora.com/Are-there-good-open-source-standard-cell-libraries-to-learn-IC-synthesis-with-EDA-tools/answer/Ciro-Santilli The only thing you can do is purely functional designs with Verilator, but you will never know if it can be actually produced and how efficient it can be.
+BTW: if you want to be a real hardware hacker, it just can't be done with open source tools as of 2018. The root obstacle is that link:https://en.wikipedia.org/wiki/Semiconductor_fabrication_plant[Silicon fabs] don't publish reveal their link:https://en.wikipedia.org/wiki/Design_rule_checking[design rules], which implies that there are no decent standard cell libraries, which implies that you can't get decent power performance and area estimates, see: https://www.quora.com/Are-there-good-open-source-standard-cell-libraries-to-learn-IC-synthesis-with-EDA-tools/answer/Ciro-Santilli The only thing you can do with open source is purely functional designs with Verilator, but you will never know if it can be actually produced and how efficient it can be.
 
 ==== About the QEMU Buildroot setup
 
@@ -338,12 +338,12 @@ For the most part, if you just add the `--gem5` option or `-gem5` suffix to all 
 ....
 ./configure --gem5 && \
   ./build-gem5 --arch aarch64 && \
-  ./build --arch aarch64 --gem5 && \
+  ./build-buildroot --arch aarch64 --gem5 && \
   ./run --arch aarch64 --gem5 &&\
 :;
 ....
 
-If you have already built <<qemu-buildroot-setup>> previously, don't be afraid, gem5 and QEMU use almost the same root filesystem and kernel, so `./build --gem` will be fast. It is currently only needed for the <<m5>> tool.
+If you have already built <<qemu-buildroot-setup>> previously, don't be afraid, gem5 and QEMU use almost the same root filesystem and kernel, so `./build-buildroot --gem` will be fast. It is currently only needed for the <<m5>> tool.
 
 To get a terminal, either open a new shell and run:
 
@@ -646,7 +646,7 @@ sync
 When you do:
 
 ....
-./build
+./build-buildroot
 ....
 
 the disk image gets overwritten by a fresh filesystem and you lose all changes.
@@ -2106,7 +2106,7 @@ The portability of the kernel and toolchains is amazing: change an option and mo
 To use `arm` instead of x86 for example:
 
 ....
-./build --arch arm
+./build-buildroot --arch arm
 ./run --arch arm
 ....
 
@@ -2290,7 +2290,7 @@ insmod /hello.ko
 /poweroff.out
 ' > rootfs_overlay/gitignore.sh
 chmod +x rootfs_overlay/gitignore.sh
-./build
+./build-buildroot
 ./run --kernel-cli 'init=/gitignore.sh'
 ....
 
@@ -2383,7 +2383,7 @@ Alternatively, you can also add the comamdns to run to a new `init.d` entry to r
 ....
 cp rootfs_overlay/etc/init.d/S98 rootfs_overlay/etc/init.d/S99.gitignore
 vim rootfs_overlay/etc/init.d/S99.gitignore
-./build
+./build-buildroot
 ./run
 ....
 
@@ -2518,7 +2518,7 @@ With this setup, you don't even need to give a root filesystem to the kernel, it
 To enable initrd instead of the default ext2 disk image, do:
 
 ....
-./build --initrd
+./build-buildroot --initrd
 ./run --initrd
 ....
 
@@ -2588,13 +2588,13 @@ So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-in
 Try it out with:
 
 ....
-./build --initramfs -l && ./run --initramfs
+./build-buildroot --initramfs -l && ./run --initramfs
 ....
 
 The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
 
 ....
-./build --initramfs && ./run --initramfs
+./build-buildroot --initramfs && ./run --initramfs
 ....
 
 It is interesting to see how this increases the size of the kernel image if you do a:
@@ -2996,7 +2996,7 @@ More concretely:
 
 ....
 git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build \
+./build-buildroot \
   --arch arm \
   --gem5 \
   -l \
@@ -3066,7 +3066,7 @@ For `aarch64` we also need `-c kernel_config_fragment/display`:
 
 ....
 git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build \
+./build-buildroot \
   --arch aarch64 \
   -c kernel_config_fragment/display \
   --gem5 \
@@ -3144,7 +3144,7 @@ Once you've seen the `CONFIG_LOGO` penguin as a sanity check, you can try to go 
 Build and run:
 
 ....
-./build --buildroot-config-fragment br2/x11
+./build-buildroot --buildroot-config-fragment br2/x11
 ./run --graphic
 ....
 
@@ -3174,7 +3174,7 @@ Not sure how well that graphics stack represents real systems, but if it does it
 To x11 packages have an `xserver` prefix as in:
 
 ....
-./build --buildroot-config-fragment br2/x11 -- xserver_xorg-server-reconfigure
+./build-buildroot --buildroot-config-fragment br2/x11 -- xserver_xorg-server-reconfigure
 ....
 
 the easiest way to find them out is to just list `"$(./getvar build_dir)/x*`.
@@ -3266,7 +3266,7 @@ By default, we use a `.config` that is a mixture of:
 Use just your own exact `.config` instead:
 
 ....
-./build -K data/myconfig -l
+./build-buildroot -K data/myconfig -l
 ....
 
 Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
@@ -3274,7 +3274,7 @@ Beware that Buildroot can `sed` override some of the configurations we make no m
 Modify a single option:
 
 ....
-./build -C 'CONFIG_FORTIFY_SOURCE=y' -l
+./build-buildroot -C 'CONFIG_FORTIFY_SOURCE=y' -l
 ....
 
 Use an extra kernel config fragment file:
@@ -3284,7 +3284,7 @@ printf '
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
 ' > myconfig
-./build -c 'myconfig' -l
+./build-buildroot -c 'myconfig' -l
 ....
 
 `-K`, `-c`, `-C` can all be used at the same time. Options passed via `-C` take precedence over `-c`, which takes precedence over `-K`.
@@ -5625,7 +5625,7 @@ TODO: can you get function arguments? https://stackoverflow.com/questions/276087
 kprobes is an instrumentation mechanism that injects arbitrary code at a given address in a trap instruction, much like GDB. Oh, the good old kernel. :-)
 
 ....
-./build -C 'CONFIG_KPROBES=y'
+./build-buildroot -C 'CONFIG_KPROBES=y'
 ....
 
 Then on guest:
@@ -5786,7 +5786,7 @@ Make it harder to get hacked and easier to notice that you were, at the cost of 
 Detects buffer overflows for us:
 
 ....
-./build -C 'CONFIG_FORTIFY_SOURCE=y' --linux-build-id fortify --kernel-modules
+./build-buildroot -C 'CONFIG_FORTIFY_SOURCE=y' --linux-build-id fortify --kernel-modules
 ./run --eval-busybox 'insmod /strlen_overflow.ko' --linux-build-id fortify
 ....
 
@@ -6089,7 +6089,7 @@ tty63::respawn:-/bin/sh
 # Leave one serial empty.
 #::respawn:/sbin/getty -L ttyS3 0 vt100
 ' >> rootfs_overlay/etc/inittab
-./build
+./build-buildroot
 ./run --graphic -- \
   -serial telnet::1235,server,nowait \
   -serial vc:800x600 \
@@ -6291,7 +6291,7 @@ Looks like a recompile is needed to modify the image...
 DRM / DRI is the new interface that supersedes `fbdev`:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_LIBDRM=y' --kernel-modules
+./build-buildroot --buildroot-config 'BR2_PACKAGE_LIBDRM=y' --kernel-modules
 ./run --eval-busybox '/libdrm_modeset.out' --graphic
 ....
 
@@ -6302,7 +6302,7 @@ Outcome: for a few seconds, the screen that contains the terminal gets taken ove
 TODO not working for `aarch64`, it takes over the screen for a few seconds and the kernel messages disappear, but the screen stays black all the time.
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_LIBDRM=y' --kernel-modules
+./build-buildroot --buildroot-config 'BR2_PACKAGE_LIBDRM=y' --kernel-modules
 ./run --eval-busybox '/libdrm_modeset.out' --graphic
 ....
 
@@ -6343,7 +6343,7 @@ Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/
 ==== kmscube
 
 ....
-./build --buildroot-config-fragment br2/kmscube
+./build-buildroot --buildroot-config-fragment br2/kmscube
 ....
 
 Outcome: a colored spinning cube coded in OpenGL + EGL takes over your display and spins forever: https://www.youtube.com/watch?v=CqgJMgfxjsk
@@ -6410,9 +6410,9 @@ TODO get working.
 Looks like a more raw alternative to libdrm:
 
 ....
-./build --buildroot-config 'BR2_PACKABE_LIBDRI2=y'
+./build-buildroot --buildroot-config 'BR2_PACKABE_LIBDRI2=y'
 wget -O packages/kernel_modules/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
-./build --kernel-modules
+./build-buildroot --kernel-modules
 ....
 
 but then I noticed that that example requires multiple files, and I don't feel like integrating it into our build.
@@ -6434,7 +6434,7 @@ C userland test suite.
 Buildroot already has a package, so it is trivial to build it:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_LTP_TESTSUITE=y'
+./build-buildroot --buildroot-config 'BR2_PACKAGE_LTP_TESTSUITE=y'
 ....
 
 Then try it out with:
@@ -6453,8 +6453,8 @@ TODO a large chunk of tests, the Open POSIX test suite, is disabled with a comme
 POSIX userland stress. Two versions:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_STRESS=y'
-./build --buildroot-config 'BR2_PACKAGE_STRESS_NG=y'
+./build-buildroot --buildroot-config 'BR2_PACKAGE_STRESS=y'
+./build-buildroot --buildroot-config 'BR2_PACKAGE_STRESS_NG=y'
 ....
 
 Websites:
@@ -6908,7 +6908,7 @@ where link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0190b/
 Then compile with:
 
 ....
-./build --arch arm --buildroot-config-fragment br2/gpio -c kernel_config_fragment/gpio -l
+./build-buildroot --arch arm --buildroot-config-fragment br2/gpio -c kernel_config_fragment/gpio -l
 ....
 
 then test it out with:
@@ -6941,7 +6941,7 @@ static void arm_sysctl_write(void *opaque, hwaddr offset,
 and then rebuild with:
 
 ....
-./build --arch arm -c kernel_config_fragment/leds -lq
+./build-buildroot --arch arm -c kernel_config_fragment/leds -lq
 ....
 
 But beware that one of the LEDs has a heartbeat trigger by default (specified on dts), so it will produce a lot of output.
@@ -7160,7 +7160,7 @@ We us this exact procedure to connect to <<gdbserver>>.
 Not enabled by default due to the build / runtime overhead. To enable, build with:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_OPENSSH=y'
+./build-buildroot --buildroot-config 'BR2_PACKAGE_OPENSSH=y'
 ....
 
 Then inside the guest turn on sshd:
@@ -7215,7 +7215,7 @@ This has nothing to do with the Linux kernel, but it is cool:
 
 ....
 sudo apt-get install qemu-user
-./build --arch arm
+./build-buildroot --arch arm
 cd "$(./getvar target_dir)"
 qemu-arm -L . bin/ls
 ....
@@ -7429,7 +7429,7 @@ Peter Maydell said potentially not possible nicely as of August 2018: https://st
 It is also worth looking into the QEMU Guest Agent tool `qemu-gq` that can be enabled with:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_QEMU=y'
+./build-buildroot --buildroot-config 'BR2_PACKAGE_QEMU=y'
 ....
 
 See also: https://superuser.com/questions/930588/how-to-pass-commands-noninteractively-to-running-qemu-from-the-guest-qmp-via-te
@@ -7678,7 +7678,7 @@ TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a wor
 Then, when I tried with <<initrd>> and no disk:
 
 ....
-./build --arch aarch64 -i
+./build-buildroot --arch aarch64 -i
 ./qemurr --arch aarch64 --eval-busybox '/rand_check.out;/poweroff.out;' -i
 ....
 
@@ -8203,7 +8203,7 @@ Source: link:packages/kernel_modules/user/openmp.c[]
 Buildroot supports it, which makes everything just trivial:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_OPENBLAS=y' --kernel-modules
+./build-buildroot --buildroot-config 'BR2_PACKAGE_OPENBLAS=y' --kernel-modules
 ./run --eval-busybox '/openblas.out; echo $?'
 ....
 
@@ -8242,7 +8242,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 Header only linear algebra library with a mainline Buildroot package:
 
 ....
-./build --buildroot-config 'BR2_PACKAGE_EIGEN=y' --kernel-modules
+./build-buildroot --buildroot-config 'BR2_PACKAGE_EIGEN=y' --kernel-modules
 ....
 
 Just create an array and print it:
@@ -8277,7 +8277,7 @@ There are two ways to run PARSEC with this repo:
 
 ....
 ./configure -gpq && \
-./build --arch arm --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' --gem5 && \
+./build-buildroot --arch arm --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' --gem5 && \
 ./run --arch arm --gem5 && \
 :;
 ....
@@ -8305,7 +8305,7 @@ but this might be a bit time consuming in gem5.
 Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a rebuild with:
 
 ....
-./build \
+./build-buildroot \
   --arch arm \
   --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
@@ -8363,7 +8363,7 @@ but it simply is not feasible in gem5 because it takes too long.
 If you still want to run this, try it out with:
 
 ....
-./build \
+./build-buildroot \
   --arch aarch64 \
   --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
@@ -8394,7 +8394,7 @@ rm -rf \
   "$(./getvar buildroot_build_dir)"/images/rootfs.* \
   "$(./getvar buildroot_build_dir)"/target/parsec-* \
 ;
-./build --arch arm --gem5
+./build-buildroot --arch arm --gem5
 ....
 
 ====== PARSEC benchmark hacking
@@ -8420,7 +8420,7 @@ before going for the cross compile build.
 Don't forget to explicitly rebuild PARSEC with:
 +
 ....
-./build \
+./build-buildroot \
   --arch arm \
   --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   --gem5 \
@@ -9026,7 +9026,7 @@ Lets try to understand some stats better.
 link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 instruction] that returns the cycle count since reset:
 
 ....
-./build --gem5 --kernel-modules && \
+./build-buildroot --gem5 --kernel-modules && \
 ./run --eval '/rdtsc.out;m5 exit;' --gem5 && \
 ./gem5-stat && \
 :;
@@ -9124,7 +9124,7 @@ After making changes to a Buildroot package, you must explicitly request it to b
 For example, if you modify the kernel modules, which is a Buildroot package, you must rebuild with:
 
 ....
-./build -- kernel_modules-reconfigure
+./build-buildroot -- kernel_modules-reconfigure
 ....
 
 where `kernel_modules` is the name of our Buildroot package that contains the kernel modules.
@@ -9132,20 +9132,20 @@ where `kernel_modules` is the name of our Buildroot package that contains the ke
 Since rebuilding this package is such a common case, we have a shortcut for it:
 
 ....
-./build --kernel-modules
+./build-buildroot --kernel-modules
 ....
 
 ==== Rebuild a Buildroot package with different build options
 
 We provide the following mechanisms:
 
-* `./build --buildroot-config-fragment data/br2`: append the Buildroot configuration file `data/br2` to a single build. Must be passed every time you run `./build`. The format is the same as link:br2/default[].
-* `./build --buildroot-config 'BR2_SOME_OPTION="myval"'`: append a single option to a single build.
+* `./build-buildroot --buildroot-config-fragment data/br2`: append the Buildroot configuration file `data/br2` to a single build. Must be passed every time you run `./build`. The format is the same as link:br2/default[].
+* `./build-buildroot --buildroot-config 'BR2_SOME_OPTION="myval"'`: append a single option to a single build.
 
 For example, if you decide to <<enable-buildroot-compiler-optimizations>> after an initial build is finished, you must first clean the build before rebuilding:
 
 ....
-./build --buildroot-config 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
+./build-buildroot --buildroot-config 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
 ....
 
 as explained at: https://buildroot.org/downloads/manual/manual.html#rebuild-pkg
@@ -9179,7 +9179,7 @@ Then, you have two choices:
 * if you already have a full `-O0` build, you can choose to rebuild just your package of interest to save some time as described at: <<rebuild-a-package-with-different-build-options>>
 +
 ....
-./build \
+./build-buildroot \
   --buildroot-config 'BR2_OPTIMIZE_3=y' \
   -- \
   kernel_modules-dirclean \
@@ -9196,7 +9196,7 @@ Kernel-wise it should be fine though due to: <<kernel-o0>>
 +
 ....
 mv out out~
-./build --buildroot-config 'BR2_OPTIMIZE_3=y'
+./build-buildroot --buildroot-config 'BR2_OPTIMIZE_3=y'
 ....
 
 === Find Buildroot options with make menuconfig
@@ -9304,7 +9304,7 @@ If none of those methods are flexible enough for you, create a new package as fo
 * don't forget to rebuild with:
 +
 ....
-./build -- sample_package-reconfigure
+./build-buildroot -- sample_package-reconfigure
 ./run --eval-busybox '/sample_package.out'
 ....
 +
@@ -9322,11 +9322,11 @@ If you want to have multiple versions of the GCC toolchain or root filesystem, t
 
 ....
 # Build master.
-./build
+./build-buildroot
 
 # Build another branch.
 git -C "$(./getvar buildroot_src_dir)" checkout 2018.05
-./build --buildroot-build-id 2018.05
+./build-buildroot --buildroot-build-id 2018.05
 
 # Restore master.
 git -C "$(./getvar buildroot_src_dir)" checkout -
@@ -9345,9 +9345,9 @@ Since the Linux kernel is so important to us, we have created a convenient dedic
 For example, if you want to keep two builds around, one for the latest Linux version, and the other for Linux `v4.16`:
 
 ....
-./build
+./build-buildroot
 git -C "$(./getvar linux_src_dir)" checkout v4.16
-./build --linux-build-id v4.16
+./build-buildroot --linux-build-id v4.16
 git -C "$(./getvar linux_src_dir)" checkout -
 ./run
 ./run --linux-build-id v4.16
@@ -9446,7 +9446,7 @@ Therefore, future builds for `worktree-id` will not automatically modify the rev
 
 ....
 git -C data/gem5/some-branch checkout some-branch-v2
-./build --gem5 --gem5-build-id some-branch --gem5-worktree some-branch
+./build-buildroot --gem5 --gem5-build-id some-branch --gem5-worktree some-branch
 ....
 
 `--gem5-worktree` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
@@ -9476,7 +9476,7 @@ Therefore the performance different is very big, making debug mode almost unusab
 This hack-ish technique allows us to rebuild just one package at a time:
 
 ....
-./build KERNEL_MODULE_VERSION=mybranch
+./build-buildroot KERNEL_MODULE_VERSION=mybranch
 ....
 
 and now you can see that a new version of `kernel_modules` was built and put inside the image:
@@ -9490,7 +9490,7 @@ Unfortunately we don't have a nice runtime selection with `./run` implemented cu
 TODO: is there a way to do it nicely for `*_OVERRIDE_SRCDIR` packages from link:buildroot_override[]? I tried:
 
 ....
-./build -l LINUX_VERSION=mybranch
+./build-buildroot -l LINUX_VERSION=mybranch
 ....
 
 but it fails with:
@@ -9502,7 +9502,7 @@ linux/linux.mk:492: *** LINUX_SITE cannot be empty when LINUX_SOURCE is not.  St
 and theI tried:
 
 ....
-./build -l LINUX_VERSION=mybranch LINUX_SITE="$(pwd)/linux"
+./build-buildroot -l LINUX_VERSION=mybranch LINUX_SITE="$(pwd)/linux"
 ....
 
 but it feels hackish, and the build was slower than normal, looks like the build was single threaded?
@@ -9518,7 +9518,7 @@ Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)
 The solution is to simply add:
 
 ....
-./build --buildroot-config 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'
+./build-buildroot --buildroot-config 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'
 ....
 
 where 512Mb is "large enough".
@@ -9555,14 +9555,14 @@ which contributed to a large part of the slowness.
 Test how Buildroot deals with many files with:
 
 ....
-./build \
+./build-buildroot \
   --buildroot-config 'BR2_PACKAGE_LKMC_MANY_FILES=y' \
   -- \
   lkmc_many_files-reconfigure \
   |& \
   ts -i '%.s' \
 ;
-./build |& ts -i '%.s'
+./build-buildroot |& ts -i '%.s'
 ....
 
 and notice how the second build, which does not rebuilt the package at all, still gets stuck in the `RPATH` check forever without our Buildroot patch.
@@ -9736,7 +9736,7 @@ The build times are calculated after doing `./configure` and link:https://buildr
 
 Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
 
-Single file change on `./build kernel_modules-reconfigure`: 7 seconds.
+Single file change on `./build-buildroot kernel_modules-reconfigure`: 7 seconds.
 
 Buildroot automatically stores build timestamps as milliseconds since Epoch. Convert to minutes:
 
@@ -9754,7 +9754,7 @@ cat ../linux-kernel-module-cheat-regression/*/build-time.log
 ===== Find which packages are making the build slow and big
 
 ....
-./build --skip-configure -- graph-build graph-size graph-depends
+./build-buildroot --skip-configure -- graph-build graph-size graph-depends
 cd "$(./getvar buildroot_build_dir)/graphs"
 xdg-open build.pie-packages.pdf
 xdg-open graph-depends.pdf
@@ -9890,22 +9890,43 @@ All our build outputs are stored under `out/`, so the coarsest and most effectiv
 rm -rf out
 ....
 
-This implies a full rebuild for all archs however, so you might first want to explore finer grained cleans.
+This implies a full rebuild for all archs however, so you might first want to explore finer grained cleans first.
 
-To only nuke one architecture, do:
-
-....
-rm -rf "$(./getvar buildroot_build_dir)"
-....
-
-Only nuke one one package:
+All our individual `build-*` scripts have a `--clean` option to completely nuke their builds:
 
 ....
-rm -rf "$(./getvar buildroot_build_dir)/build/host-qemu-custom"
-./build
+./build-gem5 --clean
+./build-qemu --clean
+./build-buildroot --clean
 ....
 
-This is sometimes necessary when changing the version of the submodules, and then builds fail. We should try to understand why and report bugs.
+Verify with:
+
+....
+ls "$(./getvar qemu_build_dir)"
+ls "$(./getvar gem5_build_dir)"
+ls "$(./getvar buildroot_build_dir)"
+....
+
+Note that host tools like QEMU and gem5 store all archs in a single directory to factor out build objects, so cleaning one arch will clean all of them.
+
+To only nuke one one Buildroot package, we can use the link:https://buildroot.org/downloads/manual/manual.html#pkg-build-steps[]`-dirclean`] Buildroot target:
+
+....
+./build-buildroot --no-all -- <package-name>-dirclean
+....
+
+e.g.:
+
+....
+./build-buildroot --no-all -- kernel_modules-dirclean
+....
+
+Verify with:
+
+....
+ls "$(./getvar build_dir)"
+....
 
 === Directory structure
 
@@ -9945,7 +9966,7 @@ Every directory inside it is a Buildroot package.
 Those packages get automatically added to Buildroot's `BR2_EXTERNAL`, so all you need to do is to turn them on during build, e.g.:
 
 ....
-./build --buildroot-config BR2_SAMPLE_PACKAGE=y
+./build-buildroot --buildroot-config BR2_SAMPLE_PACKAGE=y
 ....
 
 If you want to add something to the root filesystem, possibly involving cross-compilation, then packages are the way to go.
@@ -10052,18 +10073,19 @@ For example, when updating from QEMU `v2.12.0` to `v3.0.0-rc3`, the Linux kernel
 We then bisected it as explained at: https://stackoverflow.com/questions/4713088/how-to-use-git-bisect/22592593#22592593 with the link:qemu-bisect-boot[] script:
 
 ....
+root_dir="$(pwd)"
 cd "$(./getvar qemu_src_dir)"
 git bisect start
 
 # Check that our test script fails on v3.0.0-rc3 as expected, and mark it as bad.
-../../qemu-bisect-boot
+"${root_dir}/qemu-bisect-boot"
 # Should output 1.
 echo #?
 git bisect bad
 
 # Same for the good end.
 git checkout v2.12.0
-../qemu-bisect-boot
+"${root_dir}/qemu-bisect-boot"
 # Should output 0.
 echo #?
 git bisect good
@@ -10073,9 +10095,8 @@ git bisect run ../biset-qemu-linux-boot
 
 # Clean up after the bisection.
 git bisect reset
-cd ..
 git submodule update
-rm -rf "$(./getvar --arch arm build_dir)/host-qemu-custom.bisect"
+"${root_dir}/build-qemu" --clean --qemu-build-id bisect
 ....
 
 An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].

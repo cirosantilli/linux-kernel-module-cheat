@@ -217,6 +217,10 @@ def resolve_args(defaults, args, extra_args):
     argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
     return argcopy
 
+def rmrf(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+
 def run_cmd(
         cmd,
         cmd_file=None,

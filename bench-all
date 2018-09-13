@@ -2,8 +2,8 @@
 set -eux
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 bench_all=false
-bench_build=false
-bench_buildroot_baseline=false
+bench_buildroot_build=false
+bench_buildroot_baseline_build=false
 bench_gem5_build=false
 bench_linux_boot=false
 default_arch=x86_64
@@ -17,10 +17,10 @@ while getopts Aa:Bbglu OPT; do
       default_arch="$OPTARG"
       ;;
     b)
-      bench_build=true
+      bench_buildroot_build=true
       ;;
     B)
-      bench_buildroot_baseline=true
+      bench_buildroot_baseline_build=true
       ;;
     g)
       bench_gem5_build=true
@@ -39,16 +39,16 @@ done
 shift "$(($OPTIND - 1))"
 comment="${1:-}"
 if \
-  ! "$bench_build" && \
-  ! "$bench_buildroot_baseline" && \
+  ! "$bench_buildroot_build" && \
+  ! "$bench_buildroot_baseline_build" && \
   ! "$bench_gem5_build" && \
   ! "$bench_linux_boot" \
 ; then
   bench_all=true
 fi
 if "$bench_all"; then
-  bench_build=true
-  bench_buildroot_baseline=true
+  bench_buildroot_build=true
+  bench_buildroot_baseline_build=true
   bench_gem5_build=true
   bench_linux_boot=true
 fi
@@ -68,33 +68,31 @@ dir_basename="${seq_id}_$("$getvar" sha)"
 new_dir="${benchmark_repo}/${dir_basename}"
 mkdir "$new_dir"
 
-if "$bench_build"; then
-  common_arch="$default_arch"
-  common_suffix=bench
-  common_buildroot_build_dir="$("$getvar" --arch "$common_arch" --buildroot-build-id "$common_suffix" buildroot_build_dir)"
-  common_build_dir="$("$getvar" --arch "$common_arch" --buildroot-build-id "$common_suffix" build_dir)"
-  rm -rf "$common_buildroot_build_dir"
-  ./build --arch "$common_arch" --buildroot-config 'BR2_CCACHE=n' --buildroot-build-id "$common_suffix"
-  cp "${common_build_dir}/build-time.log" "${new_dir}/build-time-${common_arch}.log"
-  rm -rf "$common_buildroot_build_dir"
+do_bench_buildroot_build() (
+  arch="$default_arch"
+  build_id=bench
+  if [ "$1" = baseline ]; then
+    baseline=--baseline
+    baseline_suffix=-baseline
+  else
+    baseline=
+    baseline_suffix=
+  fi
+  common_build_dir="$("$getvar" --arch "$arch" --buildroot-build-id "$build_id" build_dir)"
+  common_images_dir="$("$getvar" --arch "$arch" --buildroot-build-id "$build_id" images_dir)"
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id" --clean
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id" --buildroot-config 'BR2_CCACHE=n'
+  cp "${common_build_dir}/build-time.log" "${new_dir}/buildroot-build-time-${baseline_suffix}${arch}.log"
+  wc -c "${images_dir}/"* > "${new_dir}/buildroot-image-size-${baseline_suffix}${arch}.log"
+  "${root_dir}/build-buildroot" --arch "$arch" $baseline --buildroot-build-id "$build_id" --clean
+)
+
+if "$bench_buildroot_build"; then
+  do_bench_buildroot_build
 fi
 
-if "$bench_buildroot_baseline"; then
-  common_buildroot_src_dir="$("$getvar" --arch "$default_arch" build_dir)"
-  cd "${common_buildroot_src_dir}"
-  git clean -xdf
-  make "qemu_${default_arch}_defconfig"
-  printf '
-BR2_CCACHE=y
-BR2_TARGET_ROOTFS_CPIO=y
-BR2_TARGET_ROOTFS_EXT2=n
-' >>.config
-  make olddefconfig
-  make source
-  time env -u LD_LIBRARY_PATH make BR2_JLEVEL="$(nproc)"
-  cp output/build/build-time.log "${new_dir}/baseline-build-time-${default_arch}.log"
-  wc -c output/images/* > "${new_dir}/baseline-image-size-${default_arch}.log"
-  git clean -xdf
+if "$bench_buildroot_baseline_build"; then
+  do_bench_buildroot_build baseline
 fi
 
 if "$bench_gem5_build"; then
@@ -117,8 +115,8 @@ fi
 
 if "$bench_linux_boot"; then
   cd "${root_dir}"
-  ./build-all
-  ./bench-boot -t 3
+  "${root_dir}/build-all"
+  "${root_dir}/bench-boot" -t 3
   cp "$(${root_dir}/getvar bench_boot)" "$new_dir"
 fi
 
