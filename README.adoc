@@ -166,6 +166,10 @@ I now urge you to read the following sections which contain widely applicable in
 * <<default-command-line-arguments>>
 * <<rebuild-buildroot-packages>>
 * <<clean-the-build>>
+* <<build-the-documentation>>
+* Linux kernel
+** <<printk>>
+** <<kernel-command-line-parameters>>
 
 Once you use <<gdb>> and <<tmux>>, your terminal will look a bit like this:
 
@@ -616,321 +620,6 @@ dmesg
 rmmod hello.ko
 dmesg
 ....
-
-=== Disk persistency
-
-We disable disk persistency for both QEMU and gem5 by default, to prevent the emulator from putting the image in an unknown state.
-
-For QEMU, this is done by passing the `snapshot` option to `-drive`, and for gem5 it is the default behaviour.
-
-If you hack up our link:run[] script to remove that option, then:
-
-....
-./run --eval-busybox 'date >f;poweroff'
-
-....
-
-followed by:
-
-....
-./run --eval-busybox 'cat f'
-....
-
-gives the date, because `poweroff` without `-n` syncs before shutdown.
-
-The `sync` command also saves the disk:
-
-....
-sync
-....
-
-When you do:
-
-....
-./build-buildroot
-....
-
-the disk image gets overwritten by a fresh filesystem and you lose all changes.
-
-Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
-
-Persistency is also turned off when booting from <<initrd>> with a CPIO instead of with a disk.
-
-Disk persistency is useful to re-run shell commands from the history of a previous session with `Ctrl-R`, but we felt that the loss of determinism was not worth it.
-
-==== gem5 disk persistency
-
-TODO how to make gem5 disk writes persistent?
-
-As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the `config.ini` under cow sections, but hacking them to true did not work:
-
-....
-diff --git a/configs/common/FSConfig.py b/configs/common/FSConfig.py
-index 17498c42b..76b8b351d 100644
---- a/configs/common/FSConfig.py
-+++ b/configs/common/FSConfig.py
-@@ -60,7 +60,7 @@ os_types = { 'alpha' : [ 'linux' ],
-            }
-
- class CowIdeDisk(IdeDisk):
--    image = CowDiskImage(child=RawDiskImage(read_only=True),
-+    image = CowDiskImage(child=RawDiskImage(read_only=False),
-                          read_only=False)
-
-     def childImage(self, ci):
-....
-
-The directory of interest is `src/dev/storage`.
-
-qcow2 does not appear supported, there are not hits in the source tree, and there is a mention on Nate's 2009 wishlist: http://gem5.org/Nate%27s_Wish_List
-
-=== Kernel command line parameters
-
-Bootloaders can pass a string as input to the Linux kernel when it is booting to control its behaviour, much like the `execve` system call does to userland processes.
-
-This allows us to control the behaviour of the kernel without rebuilding anything.
-
-With QEMU, QEMU itself acts as the bootloader, and provides the `-append` option and we expose it through `./run --kernel-cli`, e.g.:
-
-....
-./run --kernel-cli 'foo bar'
-....
-
-Then inside the host, you can check which options were given with:
-
-....
-cat /proc/cmdline
-....
-
-They are also printed at the beginning of the boot message:
-
-....
-dmesg | grep "Command line"
-....
-
-See also:
-
-* https://unix.stackexchange.com/questions/48601/how-to-display-the-linux-kernel-command-line-parameters-given-for-the-current-bo
-* https://askubuntu.com/questions/32654/how-do-i-find-the-boot-parameters-used-by-the-running-kernel
-
-The arguments are documented in the kernel documentation: https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html
-
-When dealing with real boards, extra command line options are provided on some magic bootloader configuration file, e.g.:
-
-* GRUB configuration files: https://askubuntu.com/questions/19486/how-do-i-add-a-kernel-boot-parameter
-* Raspberry pi `/boot/cmdline.txt` on a magic partition: https://raspberrypi.stackexchange.com/questions/14839/how-to-change-the-kernel-commandline-for-archlinuxarm-on-raspberry-pi-effectly
-
-==== Kernel command line parameters escaping
-
-Double quotes can be used to escape spaces as in `opt="a b"`, but double quotes themselves cannot be escaped, e.g. `opt"a\"b"`
-
-This even lead us to use base64 encoding with `--eval`!
-
-==== Kernel command line parameters definition points
-
-There are two methods:
-
-* `__setup` as in:
-+
-....
-__setup("console=", console_setup);
-....
-* `core_param` as in:
-+
-....
-core_param(panic, panic_timeout, int, 0644);
-....
-
-`core_param` suggests how they are different:
-
-....
-/**
- * core_param - define a historical core kernel parameter.
-
-...
-
- * core_param is just like module_param(), but cannot be modular and
- * doesn't add a prefix (such as "printk.").  This is for compatibility
- * with __setup(), and it makes sense as truly core parameters aren't
- * tied to the particular file they're in.
- */
-....
-
-==== norandmaps
-
-Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
-
-....
-./run --eval-busybox '/rand_check.out;/poweroff.out'
-./run --eval-busybox '/rand_check.out;/poweroff.out'
-....
-
-If we remove it from our link:run[] script by hacking it up, the addresses shown by `rand_check.out` vary across boots.
-
-Equivalent to:
-
-....
-echo 0 > /proc/sys/kernel/randomize_va_space
-....
-
-=== insmod alternatives
-
-==== modprobe
-
-If you are feeling fancy, you can also insert modules with:
-
-....
-modprobe hello
-....
-
-which insmods link:packages/kernel_modules/hello.c[].
-
-`modprobe` searches for modules under:
-
-....
-ls /lib/modules/*/extra/
-....
-
-Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
-
-....
-modprobe dummy-irq irq=1
-....
-
-==== myinsmod
-
-If you are feeling raw, you can insert and remove modules with our own minimal module inserter and remover!
-
-....
-# init_module
-/myinsmod.out /hello.ko
-# finit_module
-/myinsmod.out /hello.ko "" 1
-/myrmmod.out hello
-....
-
-which teaches you how it is done from C code.
-
-Source:
-
-* link:packages/kernel_modules/user/myinsmod.c[]
-* link:packages/kernel_modules/user/myrmmod.c[]
-
-The Linux kernel offers two system calls for module insertion:
-
-* `init_module`
-* `finit_module`
-
-and:
-
-....
-man init_module
-....
-
-documents that:
-
-____
-The finit_module() system call is like init_module(), but reads the module to be loaded from the file descriptor fd.  It is useful when the authenticity of a kernel module can be determined from its location in the filesystem; in cases where that is possible, the overhead of using cryptographically signed modules to determine the authenticity of a module can be avoided.  The param_values  argument is as for init_module().
-____
-
-`finit` is newer and was added only in v3.8. More rationale: https://lwn.net/Articles/519010/
-
-Bibliography: https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
-
-=== Simultaneous runs
-
-When doing long simulations sweeping across multiple system parameters, it becomes fundamental to do multiple simulations in parallel.
-
-This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: link:https://github.com/cirosantilli-work/gem5-issues/issues/15[], so the only way to parallelize is to run multiple instances in parallel.
-
-This also has a good synergy with <<build-variants>>.
-
-First shell:
-
-....
-./run
-....
-
-Another shell:
-
-....
-./run --run-id 1
-....
-
-and now you have two QEMU instances running in parallel.
-
-The default run id is `0`.
-
-Our scripts solve two difficulties with simultaneous runs:
-
-* port conflicts, e.g. GDB and link:gem5-shell[]
-* output directory conflicts, e.g. traces and gem5 stats overwriting one another
-
-Each run gets a separate output directory. For example:
-
-....
-./run --arch aarch64 --gem5 --run-id 0 &>/dev/null &
-./run --arch aarch64 --gem5 --run-id 1 &>/dev/null &
-....
-
-produces two separate `m5out` directories:
-
-....
-echo "$(./getvar --arch aarch64 --gem5 --run-id 0 m5out_dir)"
-echo "$(./getvar --arch aarch64 --gem5 --run-id 1 m5out_dir)"
-....
-
-and the gem5 host executable stdout and stderr can be found at:
-
-....
-less "$(./getvar --arch aarch64 --gem5 --run-id 0 termout_file)"
-less "$(./getvar --arch aarch64 --gem5 --run-id 1 termout_file)"
-....
-
-Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
-
-To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
-
-....
-./run --arch aarch64 --gem5 --run-id some-experiment --port-offset 1
-....
-
-`--port-offset` defaults to the run ID when that is a number.
-
-Like <<cpu-architecture>>, you will need to pass the `-n` option to anything that needs to know runtime information, e.g. <<gdb>>:
-
-....
-./run --run-id 1
-./rungdb --run-id 1
-....
-
-To run multiple gem5 checkouts, see: <<gem5-simultaneous-runs-with-build-variants>>.
-
-Implementation note: we create multiple namespaces for two things:
-
-* run output directory
-* ports
-** QEMU allows setting all ports explicitly.
-+
-If a port is not free, it just crashes.
-+
-We assign a contiguous port range for each run ID.
-** gem5 automatically increments ports until it finds a free one.
-+
-gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on `config.ini`.
-+
-The GDB port can be assigned on `gem5.opt --remote-gdb-port`, but it does not appear on `config.ini`.
-
-=== Build the documentation
-
-You don't need to depend on GitHub:
-
-....
-./build-doc
-xdg-open out/README.html
-....
-
-Source: link:build-doc[]
 
 [[gdb]]
 == GDB step debug
@@ -2789,7 +2478,79 @@ The main use case for `-enable-kvm` in this repository is to test if something t
 
 For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
 
-== kmod
+== Kernel module utilities
+
+=== insmod
+
+link:https://git.busybox.net/busybox/tree/modutils/insmod.c?h=1_29_3[Provided by BusyBox]:
+
+....
+./run --eval-busybox 'insmod /hello.ko'
+....
+
+=== modprobe
+
+If you are feeling fancy, you can also insert modules with:
+
+....
+modprobe hello
+....
+
+which insmods link:packages/kernel_modules/hello.c[].
+
+`modprobe` searches for modules under:
+
+....
+ls /lib/modules/*/extra/
+....
+
+Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
+
+....
+modprobe dummy-irq irq=1
+....
+
+=== myinsmod
+
+If you are feeling raw, you can insert and remove modules with our own minimal module inserter and remover!
+
+....
+# init_module
+/myinsmod.out /hello.ko
+# finit_module
+/myinsmod.out /hello.ko "" 1
+/myrmmod.out hello
+....
+
+which teaches you how it is done from C code.
+
+Source:
+
+* link:packages/kernel_modules/user/myinsmod.c[]
+* link:packages/kernel_modules/user/myrmmod.c[]
+
+The Linux kernel offers two system calls for module insertion:
+
+* `init_module`
+* `finit_module`
+
+and:
+
+....
+man init_module
+....
+
+documents that:
+
+____
+The finit_module() system call is like init_module(), but reads the module to be loaded from the file descriptor fd.  It is useful when the authenticity of a kernel module can be determined from its location in the filesystem; in cases where that is possible, the overhead of using cryptographically signed modules to determine the authenticity of a module can be avoided.  The param_values  argument is as for init_module().
+____
+
+`finit` is newer and was added only in v3.8. More rationale: https://lwn.net/Articles/519010/
+
+Bibliography: https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
+
+=== kmod
 
 https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
 
@@ -2823,11 +2584,11 @@ Buildroot also has a kmod package, but we are not using it since BusyBox' versio
 
 This page will only describe features that differ from kmod to the BusyBox implementation.
 
-=== module-init-tools
+==== module-init-tools
 
 Name of a predecessor set of tools.
 
-=== kmod modprobe
+==== kmod modprobe
 
 kmod's `modprobe` can also load modules under different names to avoid conflicts, e.g.:
 
@@ -3415,6 +3176,95 @@ git log --grep 'linux: bump default to version'
 Those commits change `BR2_LINUX_KERNEL_LATEST_VERSION` in `/linux/Config.in`.
 
 You should then look up if there is a branch that supports that kernel. Staying on branches is a good idea as they will get backports, in particular ones that fix the build as newer host versions come out.
+
+=== Kernel command line parameters
+
+Bootloaders can pass a string as input to the Linux kernel when it is booting to control its behaviour, much like the `execve` system call does to userland processes.
+
+This allows us to control the behaviour of the kernel without rebuilding anything.
+
+With QEMU, QEMU itself acts as the bootloader, and provides the `-append` option and we expose it through `./run --kernel-cli`, e.g.:
+
+....
+./run --kernel-cli 'foo bar'
+....
+
+Then inside the host, you can check which options were given with:
+
+....
+cat /proc/cmdline
+....
+
+They are also printed at the beginning of the boot message:
+
+....
+dmesg | grep "Command line"
+....
+
+See also:
+
+* https://unix.stackexchange.com/questions/48601/how-to-display-the-linux-kernel-command-line-parameters-given-for-the-current-bo
+* https://askubuntu.com/questions/32654/how-do-i-find-the-boot-parameters-used-by-the-running-kernel
+
+The arguments are documented in the kernel documentation: https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html
+
+When dealing with real boards, extra command line options are provided on some magic bootloader configuration file, e.g.:
+
+* GRUB configuration files: https://askubuntu.com/questions/19486/how-do-i-add-a-kernel-boot-parameter
+* Raspberry pi `/boot/cmdline.txt` on a magic partition: https://raspberrypi.stackexchange.com/questions/14839/how-to-change-the-kernel-commandline-for-archlinuxarm-on-raspberry-pi-effectly
+
+==== Kernel command line parameters escaping
+
+Double quotes can be used to escape spaces as in `opt="a b"`, but double quotes themselves cannot be escaped, e.g. `opt"a\"b"`
+
+This even lead us to use base64 encoding with `--eval`!
+
+==== Kernel command line parameters definition points
+
+There are two methods:
+
+* `__setup` as in:
++
+....
+__setup("console=", console_setup);
+....
+* `core_param` as in:
++
+....
+core_param(panic, panic_timeout, int, 0644);
+....
+
+`core_param` suggests how they are different:
+
+....
+/**
+ * core_param - define a historical core kernel parameter.
+
+...
+
+ * core_param is just like module_param(), but cannot be modular and
+ * doesn't add a prefix (such as "printk.").  This is for compatibility
+ * with __setup(), and it makes sense as truly core parameters aren't
+ * tied to the particular file they're in.
+ */
+....
+
+==== norandmaps
+
+Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
+
+....
+./run --eval-busybox '/rand_check.out;/poweroff.out'
+./run --eval-busybox '/rand_check.out;/poweroff.out'
+....
+
+If we remove it from our link:run[] script by hacking it up, the addresses shown by `rand_check.out` vary across boots.
+
+Equivalent to:
+
+....
+echo 0 > /proc/sys/kernel/randomize_va_space
+....
 
 === printk
 
@@ -6486,6 +6336,73 @@ kill %1
 == QEMU
 
 Some QEMU specific features to play with and limitations to cry over.
+
+=== Disk persistency
+
+We disable disk persistency for both QEMU and gem5 by default, to prevent the emulator from putting the image in an unknown state.
+
+For QEMU, this is done by passing the `snapshot` option to `-drive`, and for gem5 it is the default behaviour.
+
+If you hack up our link:run[] script to remove that option, then:
+
+....
+./run --eval-busybox 'date >f;poweroff'
+
+....
+
+followed by:
+
+....
+./run --eval-busybox 'cat f'
+....
+
+gives the date, because `poweroff` without `-n` syncs before shutdown.
+
+The `sync` command also saves the disk:
+
+....
+sync
+....
+
+When you do:
+
+....
+./build-buildroot
+....
+
+the disk image gets overwritten by a fresh filesystem and you lose all changes.
+
+Remember that if you forcibly turn QEMU off without `sync` or `poweroff` from inside the VM, e.g. by closing the QEMU window, disk changes may not be saved.
+
+Persistency is also turned off when booting from <<initrd>> with a CPIO instead of with a disk.
+
+Disk persistency is useful to re-run shell commands from the history of a previous session with `Ctrl-R`, but we felt that the loss of determinism was not worth it.
+
+==== gem5 disk persistency
+
+TODO how to make gem5 disk writes persistent?
+
+As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the `config.ini` under cow sections, but hacking them to true did not work:
+
+....
+diff --git a/configs/common/FSConfig.py b/configs/common/FSConfig.py
+index 17498c42b..76b8b351d 100644
+--- a/configs/common/FSConfig.py
++++ b/configs/common/FSConfig.py
+@@ -60,7 +60,7 @@ os_types = { 'alpha' : [ 'linux' ],
+            }
+
+ class CowIdeDisk(IdeDisk):
+-    image = CowDiskImage(child=RawDiskImage(read_only=True),
++    image = CowDiskImage(child=RawDiskImage(read_only=False),
+                          read_only=False)
+
+     def childImage(self, ci):
+....
+
+The directory of interest is `src/dev/storage`.
+
+qcow2 does not appear supported, there are not hits in the source tree, and there is a mention on Nate's 2009 wishlist: http://gem5.org/Nate%27s_Wish_List
 
 === Snapshot
 
@@ -9877,7 +9794,7 @@ If you just want to run a command after boot ends without thinking much about it
 ./run --eval-busybox 'echo hello'
 ....
 
-This option passes the command to our init scripts, and uses a few clever tricks along the way to make it just work.
+This option passes the command to our init scripts through <<kernel-command-line-parameters>>, and uses a few clever tricks along the way to make it just work.
 
 See <<init>> for the gory details.
 
@@ -9940,6 +9857,101 @@ Verify with:
 ....
 ls "$(./getvar build_dir)"
 ....
+
+=== Build the documentation
+
+You don't need to depend on GitHub:
+
+....
+./build-doc
+xdg-open out/README.html
+....
+
+Source: link:build-doc[]
+
+=== Simultaneous runs
+
+When doing long simulations sweeping across multiple system parameters, it becomes fundamental to do multiple simulations in parallel.
+
+This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: link:https://github.com/cirosantilli-work/gem5-issues/issues/15[], so the only way to parallelize is to run multiple instances in parallel.
+
+This also has a good synergy with <<build-variants>>.
+
+First shell:
+
+....
+./run
+....
+
+Another shell:
+
+....
+./run --run-id 1
+....
+
+and now you have two QEMU instances running in parallel.
+
+The default run id is `0`.
+
+Our scripts solve two difficulties with simultaneous runs:
+
+* port conflicts, e.g. GDB and link:gem5-shell[]
+* output directory conflicts, e.g. traces and gem5 stats overwriting one another
+
+Each run gets a separate output directory. For example:
+
+....
+./run --arch aarch64 --gem5 --run-id 0 &>/dev/null &
+./run --arch aarch64 --gem5 --run-id 1 &>/dev/null &
+....
+
+produces two separate `m5out` directories:
+
+....
+echo "$(./getvar --arch aarch64 --gem5 --run-id 0 m5out_dir)"
+echo "$(./getvar --arch aarch64 --gem5 --run-id 1 m5out_dir)"
+....
+
+and the gem5 host executable stdout and stderr can be found at:
+
+....
+less "$(./getvar --arch aarch64 --gem5 --run-id 0 termout_file)"
+less "$(./getvar --arch aarch64 --gem5 --run-id 1 termout_file)"
+....
+
+Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
+
+To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
+
+....
+./run --arch aarch64 --gem5 --run-id some-experiment --port-offset 1
+....
+
+`--port-offset` defaults to the run ID when that is a number.
+
+Like <<cpu-architecture>>, you will need to pass the `-n` option to anything that needs to know runtime information, e.g. <<gdb>>:
+
+....
+./run --run-id 1
+./rungdb --run-id 1
+....
+
+To run multiple gem5 checkouts, see: <<gem5-simultaneous-runs-with-build-variants>>.
+
+Implementation note: we create multiple namespaces for two things:
+
+* run output directory
+* ports
+** QEMU allows setting all ports explicitly.
++
+If a port is not free, it just crashes.
++
+We assign a contiguous port range for each run ID.
+** gem5 automatically increments ports until it finds a free one.
++
+gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on `config.ini`.
++
+The GDB port can be assigned on `gem5.opt --remote-gdb-port`, but it does not appear on `config.ini`.
 
 === Directory structure
 
