@@ -8,6 +8,7 @@ import imp
 import os
 import re
 import shlex
+import shutil
 import signal
 import stat
 import subprocess

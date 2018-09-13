@@ -29,206 +29,6 @@ defaults = {
     'extra_make_args': [],
 }
 
-def path_relative_to_buildroot(abspath):
-    return os.path.relpath(abspath, common.buildroot_src_dir)
-
-def main(args, extra_args=None):
-    global defaults
-    args = common.resolve_args(defaults, args, extra_args)
-    if args.clean:
-        common.rmrf(common.buildroot_build_dir)
-    else:
-        os.makedirs(common.out_dir, exist_ok=True)
-        extra_make_args = args.extra_make_args.copy()
-        if args.kernel_modules:
-            extra_make_args.append('kernel_modules-reconfigure')
-        if args.linux_reconfigure:
-            extra_make_args.append('linux-reconfigure')
-        if args.gem5:
-            extra_make_args.append('gem5-reconfigure')
-        if args.nproc is None:
-            nproc = multiprocessing.cpu_count()
-        else:
-            nproc = args.nproc
-        if args.arch == 'x86_64':
-            defconfig = 'qemu_x86_64_defconfig'
-        elif args.arch == 'arm':
-            defconfig = 'qemu_arm_vexpress_defconfig'
-        elif args.arch == 'aarch64':
-            defconfig = 'qemu_aarch64_virt_defconfig'
-
-        # Configure.
-        if not args.skip_configure:
-            # Initial make configure.
-            # TODO port and test.
-            #cd "${common_buildroot_src_dir}"
-            #for p in $(find "${common_root_dir}/patches/buildroot/" -maxdepth 1 -name '*.patch' -print); do
-            #  patch -N -r - -p 1 < "$p" || :
-            #done
-            br2_external_dirs = []
-            packages_dir = os.path.join(common.root_dir, 'packages')
-            for package_dir in os.listdir(packages_dir):
-                package_dir_abs = os.path.join(packages_dir, package_dir)
-                if os.path.isdir(package_dir_abs):
-                    br2_external_dirs.append(path_relative_to_buildroot(package_dir_abs))
-            br2_external_str = ':'.join(br2_external_dirs)
-            subprocess.check_call(
-                [
-                    'make',
-                    'O={}'.format(common.buildroot_build_dir),
-                    'BR2_EXTERNAL={}'.format(br2_external_str),
-                    defconfig,
-                ],
-                cwd=common.buildroot_src_dir,
-            )
-
-            if not args.baseline:
-                # Extra buildroot configs.
-                buildroot_configs = args.buildroot_config
-                buildroot_configs.extend([
-                    'BR2_JLEVEL={}'.format(nproc),
-                    'BR2_DL_DIR="{}"'.format(common.dl_dir),
-                    'BR2_GLOBAL_PATCH_DIR="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'patches', 'global'))),
-                    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'busybox_config_fragment'))),
-                    'BR2_PACKAGE_OVERRIDE_FILE="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))),
-                    'BR2_ROOTFS_OVERLAY="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_overlay'))),
-                    'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_post_build_script'))),
-                    'BR2_ROOTFS_USERS_TABLES="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))),
-                ])
-
-                if args.gem5:
-                    buildroot_configs.append('BR2_PACKAGE_GEM5=y')
-                if args.initramfs:
-                    buildroot_configs.extend([
-                        'BR2_TARGET_ROOTFS_CPIO=n',
-                        'BR2_TARGET_ROOTFS_EXT2=n',
-                        'BR2_TARGET_ROOTFS_INITRAMFS=y',
-                    ])
-                if args.initrd:
-                    buildroot_configs.extend([
-                        'BR2_TARGET_ROOTFS_CPIO=y',
-                        'BR2_TARGET_ROOTFS_EXT2=n'
-                        'BR2_TARGET_ROOTFS_INITRAMFS=n',
-                    ])
-                buildroot_config_fragments = [
-                    os.path.join(common.root_dir, 'buildroot_config', 'default')
-                ] + args.buildroot_config_fragment
-
-                # Decide kernel configuration.
-                kernel_config_fragments = []
-                if True:
-                    # CLI kernel configurations.
-                    kernel_config_fragment_cli_path = os.path.join(common.buildroot_build_dir, 'lkmc_kernel_config_fragment_cli')
-                    kernel_config_cli_str = '\n'.join(args.kernel_config)
-                    if os.path.exists(kernel_config_fragment_cli_path):
-                        with open(kernel_config_fragment_cli_path, 'r') as kernel_config_fragment_cli_file:
-                            kernel_config_cli_str_old = kernel_config_fragment_cli_file.read()
-                            if kernel_config_cli_str != kernel_config_cli_str_old:
-                                #  Only update if modified, otherwise Buildroot rebuilds the
-                                # kernel always rebuilds kernel every time.
-                                do_write = True
-                    else:
-                        do_write = True
-                    with open(kernel_config_fragment_cli_path, 'w') as kernel_config_fragment_cli_file:
-                        kernel_config_fragment_cli_file.write(kernel_config_cli_str)
-                    kernel_config_fragments.append(os.path.join(kernel_config_fragment_cli_path))
-                if True:
-                    # Kernel configuration fragments.
-                    if args.kernel_custom_config_file is not None:
-                        if os.path.exists(args.kernel_custom_config_file):
-                            buildroot_configs.extend([
-                                'BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y',
-                                'BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"{}\"'.format(args.kernel_custom_config_file),
-                            ])
-                            if args.linux_reconfigure:
-                                pathlib.Path(args.kernel_custom_config_file).touch()
-                        else:
-                            raise Exception('Kernel config fragment file does not exist: {}'.format(args.kernel_custom_config_file))
-                        default_kernel_config_fragments = []
-                    else:
-                        kernel_config_fragment_dir = os.path.join(common.root_dir, 'kernel_config')
-                        default_kernel_config_fragments = ['min', 'default']
-                        if args.linux_reconfigure:
-                            # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-                            pathlib.Path(os.path.join(kernel_config_fragment_dir, 'min')).touch()
-                    for i, default_kernel_config_fragment in enumerate(default_kernel_config_fragments):
-                        default_kernel_config_fragments[i] = os.path.join(kernel_config_fragment_dir, default_kernel_config_fragment)
-                kernel_config_fragments.extend(default_kernel_config_fragments)
-                for i, frag in enumerate(kernel_config_fragments):
-                    kernel_config_fragments[i] = path_relative_to_buildroot(frag)
-                buildroot_kernel_config_fragment_str = 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="{}"'.format(' '.join(kernel_config_fragments))
-                buildroot_configs.append(buildroot_kernel_config_fragment_str)
-
-                # Write extra configs into the Buildroot config file.
-                # TODO Can't get rid of these for now with nice fragments:
-                # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
-                with open(common.buildroot_config_file, 'a') as br2_config_file:
-                    for buildroot_config_fragment in buildroot_config_fragments:
-                        with open(buildroot_config_fragment, 'r') as br2_config_fragment:
-                            for line in br2_config_fragment:
-                                br2_config_file.write(line)
-                    for buildroot_config in buildroot_configs:
-                        br2_config_file.write(buildroot_config + '\n')
-
-                subprocess.check_call(
-                    [
-                        'make',
-                        'O={}'.format(common.buildroot_build_dir),
-                        'olddefconfig',
-                    ],
-                    cwd=common.buildroot_src_dir,
-                )
-            common.mkdir()
-
-        # Manage Linux kernel and QEMU variants.
-        def symlink_buildroot_variant(custom_dir, variant_dir):
-            if os.path.islink(custom_dir):
-                os.unlink(custom_dir)
-            elif os.path.isdir(custom_dir):
-                # Migration for existing builds.
-                shutil.move(custom_dir, variant_dir)
-            os.makedirs(variant_dir, exist_ok=True)
-            os.symlink(variant_dir, custom_dir)
-        symlink_buildroot_variant(common.linux_build_dir, common.linux_variant_dir)
-
-        # Do the actual build.
-        if not args.no_all:
-            extra_make_args.append('all')
-        assert common.run_cmd(
-            [
-                'make',
-                'GEM5_LKMC_SRCDIR="{}"'.format(common.gem5_src_dir),
-                'O={}'.format(common.buildroot_build_dir),
-                'V={}'.format(int(args.verbose)),
-            ] +
-            extra_make_args
-            ,
-            out_file=os.path.join(common.buildroot_build_dir, 'lkmc.log'),
-            delete_env=['LD_LIBRARY_PATH'],
-            cwd=common.buildroot_src_dir,
-        ) == 0
-
-        # Create the qcow2 from ext2. This is optional, because gem5
-        # does not need the qcow2.
-        if os.path.exists(common.qemu_img_executable):
-            assert common.run_cmd([
-                common.qemu_img_executable,
-                '-T', 'pr_manager_run,file=/dev/null',
-                'convert',
-                '-f', 'raw',
-                '-O', 'qcow2',
-                common.ext2_file,
-                common.qcow2_file,
-            ]) == 0
-
-        return 0
-
 def get_argparse():
     parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
     common.add_build_arguments(parser)
@@ -303,9 +103,216 @@ but requires you to know what you are doing :-)'''
         help='Do a verbose build'
     )
     parser.add_argument(
-        'extra_make_args', default=defaults['extra_make_args'], metavar='extra-make-args', nargs='*'
+        'extra_make_args', default=defaults['extra_make_args'], metavar='extra-make-args', nargs='*',
+        help='''Extra arguments to be passed to the Buildroot make,
+usually extra Buildroot targets.'''
     )
     return parser
+
+def main(args, extra_args=None):
+    global defaults
+    args = common.resolve_args(defaults, args, extra_args)
+    if args.clean:
+        common.rmrf(common.buildroot_build_dir)
+    else:
+        os.makedirs(common.out_dir, exist_ok=True)
+        extra_make_args = args.extra_make_args.copy()
+        if args.kernel_modules:
+            extra_make_args.append('kernel_modules-reconfigure')
+        if args.linux_reconfigure:
+            extra_make_args.append('linux-reconfigure')
+        if args.gem5:
+            extra_make_args.append('gem5-reconfigure')
+        if args.nproc is None:
+            nproc = multiprocessing.cpu_count()
+        else:
+            nproc = args.nproc
+        if args.arch == 'x86_64':
+            defconfig = 'qemu_x86_64_defconfig'
+        elif args.arch == 'arm':
+            defconfig = 'qemu_arm_vexpress_defconfig'
+        elif args.arch == 'aarch64':
+            defconfig = 'qemu_aarch64_virt_defconfig'
+
+        # Configure.
+        if not args.skip_configure:
+            # Initial make configure.
+            # TODO port and test.
+            #cd "${common_buildroot_src_dir}"
+            #for p in $(find "${common_root_dir}/patches/buildroot/" -maxdepth 1 -name '*.patch' -print); do
+            #  patch -N -r - -p 1 < "$p" || :
+            #done
+            br2_external_dirs = []
+            packages_dir = os.path.join(common.root_dir, 'packages')
+            for package_dir in os.listdir(packages_dir):
+                package_dir_abs = os.path.join(packages_dir, package_dir)
+                if os.path.isdir(package_dir_abs):
+                    br2_external_dirs.append(path_relative_to_buildroot(package_dir_abs))
+            br2_external_str = ':'.join(br2_external_dirs)
+            subprocess.check_call(
+                [
+                    'make',
+                    'O={}'.format(common.buildroot_build_dir),
+                    'BR2_EXTERNAL={}'.format(br2_external_str),
+                    defconfig,
+                ],
+                cwd=common.buildroot_src_dir,
+            )
+            buildroot_configs = args.buildroot_config
+            buildroot_configs.extend([
+                'BR2_JLEVEL={}'.format(nproc),
+                'BR2_DL_DIR="{}"'.format(common.dl_dir),
+            ])
+            write_configs(buildroot_configs)
+            if not args.baseline:
+                buildroot_configs.extend([
+                    'BR2_GLOBAL_PATCH_DIR="{}"'.format(
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'patches', 'global'))),
+                    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="{}"'.format(
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'busybox_config_fragment'))),
+                    'BR2_PACKAGE_OVERRIDE_FILE="{}"'.format(
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))),
+                    'BR2_ROOTFS_OVERLAY="{}"'.format(
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_overlay'))),
+                    'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_post_build_script'))),
+                    'BR2_ROOTFS_USERS_TABLES="{}"'.format(
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))),
+                ])
+                if args.gem5:
+                    buildroot_configs.append('BR2_PACKAGE_GEM5=y')
+                if args.initramfs:
+                    buildroot_configs.extend([
+                        'BR2_TARGET_ROOTFS_CPIO=n',
+                        'BR2_TARGET_ROOTFS_EXT2=n',
+                        'BR2_TARGET_ROOTFS_INITRAMFS=y',
+                    ])
+                if args.initrd:
+                    buildroot_configs.extend([
+                        'BR2_TARGET_ROOTFS_CPIO=y',
+                        'BR2_TARGET_ROOTFS_EXT2=n'
+                        'BR2_TARGET_ROOTFS_INITRAMFS=n',
+                    ])
+                buildroot_config_fragments = [
+                    os.path.join(common.root_dir, 'buildroot_config', 'default')
+                ] + args.buildroot_config_fragment
+
+                # Decide kernel configuration.
+                kernel_config_fragments = []
+                if True:
+                    # CLI kernel configurations.
+                    kernel_config_fragment_cli_path = os.path.join(common.buildroot_build_dir, 'lkmc_kernel_config_fragment_cli')
+                    kernel_config_cli_str = '\n'.join(args.kernel_config)
+                    if os.path.exists(kernel_config_fragment_cli_path):
+                        with open(kernel_config_fragment_cli_path, 'r') as kernel_config_fragment_cli_file:
+                            kernel_config_cli_str_old = kernel_config_fragment_cli_file.read()
+                            if kernel_config_cli_str != kernel_config_cli_str_old:
+                                #  Only update if modified, otherwise Buildroot rebuilds the
+                                # kernel always rebuilds kernel every time.
+                                do_write = True
+                    else:
+                        do_write = True
+                    with open(kernel_config_fragment_cli_path, 'w') as kernel_config_fragment_cli_file:
+                        kernel_config_fragment_cli_file.write(kernel_config_cli_str)
+                    kernel_config_fragments.append(os.path.join(kernel_config_fragment_cli_path))
+                if True:
+                    # Kernel configuration fragments.
+                    if args.kernel_custom_config_file is not None:
+                        if os.path.exists(args.kernel_custom_config_file):
+                            buildroot_configs.extend([
+                                'BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y',
+                                'BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"{}\"'.format(args.kernel_custom_config_file),
+                            ])
+                            if args.linux_reconfigure:
+                                pathlib.Path(args.kernel_custom_config_file).touch()
+                        else:
+                            raise Exception('Kernel config fragment file does not exist: {}'.format(args.kernel_custom_config_file))
+                        default_kernel_config_fragments = []
+                    else:
+                        kernel_config_fragment_dir = os.path.join(common.root_dir, 'kernel_config')
+                        default_kernel_config_fragments = ['min', 'default']
+                        if args.linux_reconfigure:
+                            # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
+                            pathlib.Path(os.path.join(kernel_config_fragment_dir, 'min')).touch()
+                    for i, default_kernel_config_fragment in enumerate(default_kernel_config_fragments):
+                        default_kernel_config_fragments[i] = os.path.join(kernel_config_fragment_dir, default_kernel_config_fragment)
+                kernel_config_fragments.extend(default_kernel_config_fragments)
+                for i, frag in enumerate(kernel_config_fragments):
+                    kernel_config_fragments[i] = path_relative_to_buildroot(frag)
+                buildroot_kernel_config_fragment_str = 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="{}"'.format(' '.join(kernel_config_fragments))
+                buildroot_configs.append(buildroot_kernel_config_fragment_str)
+                write_configs(buildroot_configs, buildroot_config_fragments)
+                subprocess.check_call(
+                    [
+                        'make',
+                        'O={}'.format(common.buildroot_build_dir),
+                        'olddefconfig',
+                    ],
+                    cwd=common.buildroot_src_dir,
+                )
+
+        # Manage Linux kernel and QEMU variants.
+        def symlink_buildroot_variant(custom_dir, variant_dir):
+            if os.path.islink(custom_dir):
+                os.unlink(custom_dir)
+            elif os.path.isdir(custom_dir):
+                # Migration for existing builds.
+                shutil.move(custom_dir, variant_dir)
+            os.makedirs(variant_dir, exist_ok=True)
+            os.symlink(variant_dir, custom_dir)
+        symlink_buildroot_variant(common.linux_build_dir, common.linux_variant_dir)
+
+        # Do the actual build.
+        common.mkdir()
+        if not args.no_all:
+            extra_make_args.append('all')
+        assert common.run_cmd(
+            [
+                'make',
+                'GEM5_LKMC_SRCDIR="{}"'.format(common.gem5_src_dir),
+                'O={}'.format(common.buildroot_build_dir),
+                'V={}'.format(int(args.verbose)),
+            ] +
+            extra_make_args
+            ,
+            out_file=os.path.join(common.buildroot_build_dir, 'lkmc.log'),
+            delete_env=['LD_LIBRARY_PATH'],
+            cwd=common.buildroot_src_dir,
+        ) == 0
+
+        # Create the qcow2 from ext2. This is optional, because gem5
+        # does not need the qcow2.
+        if os.path.exists(common.qemu_img_executable) and os.path.exists(common.ext2_file):
+            assert common.run_cmd([
+                common.qemu_img_executable,
+                '-T', 'pr_manager_run,file=/dev/null',
+                'convert',
+                '-f', 'raw',
+                '-O', 'qcow2',
+                common.ext2_file,
+                common.qcow2_file,
+            ]) == 0
+
+        return 0
+
+def path_relative_to_buildroot(abspath):
+    return os.path.relpath(abspath, common.buildroot_src_dir)
+
+def write_configs(buildroot_configs, buildroot_config_fragments=None):
+    """
+    Write extra configs into the Buildroot config file.
+    TODO Can't get rid of these for now with nice fragments:
+    http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
+    """
+    if buildroot_config_fragments is None:
+        buildroot_config_fragments = []
+    with open(common.buildroot_config_file, 'a') as br2_config_file:
+        for buildroot_config_fragment in buildroot_config_fragments:
+            with open(buildroot_config_fragment, 'r') as br2_config_fragment:
+                for line in br2_config_fragment:
+                    br2_config_file.write(line)
+        for buildroot_config in buildroot_configs:
+            br2_config_file.write(buildroot_config + '\n')
 
 if __name__ == '__main__':
     parser = get_argparse()
