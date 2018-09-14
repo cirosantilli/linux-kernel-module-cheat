@@ -9205,48 +9205,6 @@ which gives:
 uid=1000(user0) gid=1000(user0) groups=1000(user0)
 ....
 
-=== ccache
-
-We have link:https://buildroot.org/downloads/manual/manual.html#ccache[enabled ccached] builds by default.
-
-`BR2_CCACHE_USE_BASEDIR=n` is used, which means that:
-
-* absolute paths are used and GDB can find source files
-* but builds are not reused across separated LKMC directories
-
-ccache can considerably speed up builds when you:
-
-* are switching between multiple configurations for a given package to bisect something out, as mentioned at: <<modify-kernel-config>>
-* clean the build because things stopped working. We store the cache outside of this repository, so you can nuke away without fear
-
-The default ccache environment variables are honored if you have them set, which we recommend you do. E.g., in your `.bashrc`:
-
-....
-export CCACHE_DIR=~/.ccache
-export CCACHE_MAXSIZE="20G"
-....
-
-The choice basically comes down to:
-
-* should I store my cache on my HD or SSD?
-* how big is my build, and how many build configurations do I need to keep around at a time?
-
-If you don't set it, the default is to use `~/.buildroot-ccache` with `5G`, which is a bit small for us.
-
-I find it very relaxing to watch ccache at work with:
-
-....
-watch -n1 'make -C "$(./getvar buildroot_build_dir)" ccache-stats'
-....
-
-or if you have it installed on host and the environment variables exported simply with:
-
-....
-watch -n1 'ccache -s'
-....
-
-while a build is going on in another terminal and my cooler is humming. Especially when the hit count goes up ;-) The joys of system programming.
-
 === Add new Buildroot packages
 
 First, see if you can't get away without actually adding a new package, for example:
@@ -9654,6 +9612,17 @@ cp config.example data/config
 
 and then edit the `data/config` file to your needs.
 
+=== Build the documentation
+
+You don't need to depend on GitHub:
+
+....
+./build-doc
+xdg-open out/README.html
+....
+
+Source: link:build-doc[]
+
 === Clean the build
 
 You did something crazy, and nothing seems to work anymore?
@@ -9702,16 +9671,46 @@ Verify with:
 ls "$(./getvar build_dir)"
 ....
 
-=== Build the documentation
+=== ccache
 
-You don't need to depend on GitHub:
+link:https://en.wikipedia.org/wiki/Ccache[ccache] <<benchmark-builds,might>> save you a lot of re-build when you decide to <<clean-the-build>> or create a new <<build-variants,build variant>>.
+
+We have ccache enabled for everything we build by default.
+
+However, you likely want to add the following to your `.bashrc` to take better advantage of `ccache`:
 
 ....
-./build-doc
-xdg-open out/README.html
+export CCACHE_DIR=~/.ccache
+export CCACHE_MAXSIZE="20G"
 ....
 
-Source: link:build-doc[]
+We cannot automate this because you have to decide:
+
+* should I store my cache on my HD or SSD?
+* how big is my build, and how many build configurations do I need to keep around at a time?
+
+If you don't those variables it, the default is to use `~/.buildroot-ccache` with `5G`, which is a bit small for us.
+
+To check if `ccache` is working, run this command while a build is running on another shell:
+
+....
+watch -n1 'make -C "$(./getvar buildroot_build_dir)" ccache-stats'
+....
+
+or if you have it installed on host and the environment variables exported simply with:
+
+....
+watch -n1 'ccache -s'
+....
+
+and then watch the miss or hit counts go up.
+
+We have link:https://buildroot.org/downloads/manual/manual.html#ccache[enabled ccached] builds by default.
+
+`BR2_CCACHE_USE_BASEDIR=n` is used for Buildroot, which means that:
+
+* absolute paths are used and GDB can find source files
+* but builds are not reused across separated LKMC directories
 
 === Simultaneous runs
 
