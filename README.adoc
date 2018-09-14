@@ -502,7 +502,7 @@ Advantages: saves time and disk space.
 
 Limitations:
 
-* can't GDB step debug the kernel, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <<prebuilt-toolchain>>.
+* can't <<gdb,GDB step debug the kernel>>, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <<prebuilt-toolchain>>.
 +
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
 * can't create new modules or modify the existing ones, since no cross toolchain
@@ -623,7 +623,7 @@ dmesg
 
 === GDB step debug kernel boot
 
-`-d` makes QEMU wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
+`--debug-guest` makes QEMU wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
 
 ....
 ./run --debug-guest
@@ -644,9 +644,9 @@ or at a given line:
 Now QEMU will stop there, and you can use the normal GDB commands:
 
 ....
-l
-n
-c
+list
+next
+continue
 ....
 
 See also:
@@ -705,8 +705,6 @@ When you hit `Ctrl-C`, if we happen to be inside kernel code at that point, whic
 
 === tmux
 
-https://unix.stackexchange.com/questions/152738/how-to-split-a-new-window-and-run-a-command-in-this-new-window-using-tmux/432111#432111
-
 tmux just makes things even more fun by allowing us to see both terminals at once without dragging windows around!
 
 First start `tmux` with:
@@ -753,9 +751,11 @@ See the tmux manual for further details:
 man tmux
 ....
 
+Bibliography: https://unix.stackexchange.com/questions/152738/how-to-split-a-new-window-and-run-a-command-in-this-new-window-using-tmux/432111#432111
+
 ==== tmux gem5
 
-If you are using gem5 instead of QEMU, `-u` has a different effect: it opens the gem5 terminal instead of the debugger:
+If you are using gem5 instead of QEMU, `--tmux` has a different effect: it opens the gem5 terminal instead of the debugger:
 
 ....
 ./run --gem5 --tmux
@@ -768,7 +768,7 @@ From inside tmux, you can do that with `Ctrl-B C` or `Ctrl-B %`.
 To see the debugger by default instead of the terminal, run:
 
 ....
-./tmu ./rungdb;./run --debug-guest --gem5
+./tmu ./rungdb && ./run --debug-guest --gem5
 ....
 
 === GDB step debug kernel module
@@ -813,10 +813,10 @@ loading @0xffffffffc0000000: ../kernel_modules-1.0//timer.ko
 That's `lx-symbols` working! Now simply:
 
 ....
-b lkmc_timer_callback
-c
-c
-c
+break lkmc_timer_callback
+continue
+continue
+continue
 ....
 
 and we now control the callback from GDB!
@@ -7400,8 +7400,8 @@ This is of course trivial since they are just regular userland programs on the h
 Then you could:
 
 ....
-b edu_mmio_read
-c
+break edu_mmio_read
+continue
 ....
 
 And in QEMU:
