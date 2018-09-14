@@ -32,6 +32,7 @@ gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
 linux_src_dir = os.path.join(submodules_dir, 'linux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
+ccache_dir = os.path.join('/usr', 'lib', 'ccache')
 
 # Other default variables.
 arch_map = {
