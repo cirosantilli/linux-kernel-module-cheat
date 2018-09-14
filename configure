@@ -2,19 +2,22 @@
 set -eu
 interactive_pkgs=libsdl2-dev
 gem5=false
+gem5_given=false
 qemu=true
-submodules='buildroot linux'
+qemu_given=false
+submodules_dir=submodules
+submodules=buildroot
 y=
 while getopts gpqt OPT; do
   case "$OPT" in
     g)
-      gem5=true
+      gem5_given=true
       ;;
     p)
       submodules="${submodules} parsec-benchmark"
       ;;
     q)
-      qemu=false
+      qemu_given=true
       ;;
     t)
       interactive_pkgs=
@@ -23,6 +26,12 @@ while getopts gpqt OPT; do
   esac
 done
 shift $(($OPTIND - 1))
+if "$gem5_given" && ! "$qemu_given"; then
+  qemu=false
+fi
+if "$gem5_given"; then
+  gem5=true
+fi
 
 ## apt-get
 
@@ -69,14 +78,11 @@ pkgs="$pkgs libelf-dev"
 
 # https://stackoverflow.com/questions/20010199/determining-if-a-process-runs-inside-lxc-docker
 if [ -f /.dockerenv ]; then
-  # --jobs is not available in git 2.7.4 from Ubuntu 16.04.
-  gitjobs=
   mysudo=
   # https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list
   sed -Ei 's/^# deb-src/deb-src/' /etc/apt/sources.list
   y=-y
 else
-  gitjobs="--jobs $(nproc)"
   mysudo=sudo
 fi
 $mysudo apt-get update $y
@@ -105,19 +111,37 @@ fi
 if "$gem5"; then
   submodules="${submodules} gem5"
 fi
-submodules="$(for submodule in ${submodules}; do printf "submodules/${submodule} "; done)"
-(
-  set -e
-  # Shallow cloning saves a considerable amount of time, specially because of the linux kernel.
-  # However, git submodules are buggy as usual, and this is the best way I've found to get it done:
-  # https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
-  # In particular:
-  # - `shallow = true` on the submodule has no effect for the non default educational branches of our submodules
-  # - QEMU's submodules point to commits that are neither under branches nor tags, and so `--shallow-submodules` fails
-  git submodule update --depth 1 $gitjobs --init -- ${submodules}
-  if "$qemu"; then
-    git -C submodules/qemu submodule update --init --recursive
-  fi
-) &
-# https://unix.stackexchange.com/questions/65532/why-does-set-e-not-work-inside-subshells-with-parenthesis-followed-by-an-or
-wait $! || git submodule update --init --recursive -- $submodules
+submodules="$(for submodule in ${submodules}; do printf "${submodules_dir}/${submodule} "; done)"
+
+# == Shallow cloning.
+#
+# TODO Ideally we should shallow clone --depth 1 all of them.
+#
+# However, most git servers out there are crap or craply configured
+# and don't allow shallow cloning except for branches.
+#
+# So for now, let's shallow clone only the Linux kernel, which has by far
+# the largest .git repo history, and full clone the others.
+#
+# Then we will maintain a GitHub Linux kernel mirror / fork that always has a
+# lkmc branch, and point to it, so that it will always succeed.
+#
+# See also:
+#
+# * https://stackoverflow.com/questions/3489173/how-to-clone-git-repository-with-specific-revision-changeset
+# * https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
+# * https://unix.stackexchange.com/questions/338578/why-is-the-git-clone-of-the-linux-kernel-source-code-much-larger-than-the-extrac
+#
+# == Other nice git options for when distros move to newer Git
+#
+# Currently not on Ubuntu 16.04:
+#
+# `--progress`: added on Git 2.10:
+#
+# * https://stackoverflow.com/questions/32944468/how-to-show-progress-for-submodule-fetching
+# * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
+#
+# `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
+#
+git submodule update --init --recursive -- ${submodules}
+git submodule update --depth 1 --init --recursive -- "${submodules_dir}/linux"
