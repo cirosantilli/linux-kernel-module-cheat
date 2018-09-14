@@ -277,7 +277,8 @@ def run_cmd(
     env = os.environ.copy()
     env.update(extra_env)
     for key in delete_env:
-        del env[key]
+        if key in env:
+            del env[key]
     if show_cmd:
         print_cmd(cmd, cmd_file, extra_env=extra_env)
     # Otherwise Ctrl + C gives:
