@@ -3,6 +3,7 @@
 import argparse
 import base64
 import copy
+import datetime
 import glob
 import imp
 import os
@@ -13,6 +14,7 @@ import signal
 import stat
 import subprocess
 import sys
+import time
 
 this = sys.modules[__name__]
 
@@ -44,6 +46,13 @@ config_file = os.path.join(data_dir, 'config')
 if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
+
+def add_build_arguments(parser):
+    parser.add_argument(
+        '--clean',
+        help='Clean the build instead of building.',
+        action='store_true',
+    )
 
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
@@ -144,13 +153,6 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
     parser.set_defaults(**defaults)
     return parser
 
-def add_build_arguments(parser):
-    parser.add_argument(
-        '--clean',
-        help='Clean the build instead of building.',
-        action='store_true',
-    )
-
 def get_elf_entry(elf_file_path):
     global this
     readelf_header = subprocess.check_output([
@@ -210,6 +212,11 @@ def print_cmd(cmd, cmd_file=None, extra_env=None):
             f.write(out)
         st = os.stat(cmd_file)
         os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
+
+def print_time(ellapsed_seconds):
+    hours, rem = divmod(ellapsed_seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+    print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
 def resolve_args(defaults, args, extra_args):
     if extra_args is None:
