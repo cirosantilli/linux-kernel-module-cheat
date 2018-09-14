@@ -3,6 +3,7 @@
 import multiprocessing
 import os
 import subprocess
+import time
 
 import common
 
@@ -18,6 +19,7 @@ args = common.setup(parser)
 if args.clean:
     common.rmrf(common.qemu_build_dir)
 else:
+    start_time = time.time()
     os.makedirs(common.qemu_build_dir, exist_ok=True)
     subprocess.check_call(
         [
@@ -37,5 +39,8 @@ else:
             # TODO factor with build.
             '-j', str(multiprocessing.cpu_count()),
         ],
-        cwd=common.qemu_build_dir
+        cwd=common.qemu_build_dir,
+        extra_env={'PATH': '/usr/lib/ccache:' + os.environ['PATH']},
     )
+    end_time = time.time()
+    common.print_time(end_time - start_time)
