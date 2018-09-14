@@ -9269,206 +9269,6 @@ If none of those methods are flexible enough for you, create a new package as fo
 +
 if you make any changes to that package after the initial build: <<rebuild-buildroot-packages>>
 
-=== Build variants
-
-It often happens that you are comparing two versions of the build, a good and a bad one, and trying to figure out why the bad one is bad.
-
-Our build variants system allows you to keep multipmle built versions of all major components, so that you can easily switching between running one or the other.
-
-==== Buildroot build variants
-
-If you want to have multiple versions of the GCC toolchain or root filesystem, this is for you:
-
-....
-# Build master.
-./build-buildroot
-
-# Build another branch.
-git -C "$(./getvar buildroot_src_dir)" checkout 2018.05
-./build-buildroot --buildroot-build-id 2018.05
-
-# Restore master.
-git -C "$(./getvar buildroot_src_dir)" checkout -
-
-# Run master.
-./run
-
-# Run another branch.
-./run --buildroot-build-id 2018.05
-....
-
-==== Linux kernel build variants
-
-Since the Linux kernel is so important to us, we have created a convenient dedicated mechanism for it.
-
-For example, if you want to keep two builds around, one for the latest Linux version, and the other for Linux `v4.16`:
-
-....
-./build-buildroot
-git -C "$(./getvar linux_src_dir)" fetch --tags --unshallow
-git -C "$(./getvar linux_src_dir)" checkout v4.16
-./build-buildroot --linux-build-id v4.16
-git -C "$(./getvar linux_src_dir)" checkout -
-./run
-./run --linux-build-id v4.16
-....
-
-The `git fetch --unshallow` is needed the first time because link:configure[] only does a shallow clone of the Linux kernel to save space and time, see also: https://stackoverflow.com/questions/6802145/how-to-convert-a-git-shallow-clone-to-a-full-clone
-
-The `--linux-build-id` option should be passed to all scripts that support it, much like `-a` for the <<cpu-architecture>>, e.g. to step debug:
-
-.....
-./rungdb --linux-build-id v4.16
-.....
-
-This technique is implemented semi-hackishly by moving symlinks around inside the Buildroot build dir at build time, and selecting the right build directory at runtime.
-
-==== QEMU build variants
-
-Analogous to the <<linux-kernel-build-variants>> but with the `--qemu-build-id` option instead:
-
-....
-./build-qemu
-git -C "$(./getvar qemu_src_dir)" checkout v2.12.0
-./build-qemu --qemu-build-id v2.12.0
-git -C "$(./getvar qemu_src_dir)" checkout -
-./run
-./run --qemu-build-id v2.12.0
-....
-
-==== gem5 build variants
-
-Analogous to the <<linux-kernel-build-variants>> but with the `--gem5-build-id` option instead:
-
-....
-# Build master.
-./build-gem5
-
-# Build another branch.
-git -C "$(./getvar gem5_src_dir)" checkout some-branch
-./build-gem5 --gem5-build-id some-branch
-
-# Restore master.
-git -C "$(./getvar gem5_src_dir)" checkout -
-
-# Run master.
-./run --gem5
-
-# Run another branch.
-git -C "$(./getvar gem5_src_dir)" checkout some-branch
-./run --gem5-build-id some-branch --gem5
-....
-
-Don't forget however that gem5 has Python scripts in its source code tree, and that those must match the source code of a given build.
-
-Therefore, you can't forget to checkout to the sources to that of the corresponding build before running, unless you explicitly tell gem5 to use a non-default source tree with `--gem5-worktree`.
-
-This becomes inevitable when you want to launch <<gem5-simultaneous-runs-with-build-variants>>.
-
-===== gem5 simultaneous runs with build variants
-
-In order to checkout multiple gem5 builds and run them simultaneously, you also need to use the `--gem5-worktree` flag:
-
-....
-# Build master.
-./build-gem5
-
-# Build another branch.
-git -C "$(./getvar linux_src_dir)" checkout some-branch
-./build-gem5 --gem5-build-id some-branch --gem5-worktree some-branch
-
-# Restore master.
-git -C "$(./getvar linux_src_dir)" checkout -
-
-# Run master.
-./run --gem5 --run-id 0 &>/dev/null &
-
-# Run another branch using the worktree for the scripts,
-# without the need to check out anything.
-./run --gem5 --gem5-build-id some-branch --gem5-worktree some-branch --run-id 1 &>/dev/null &
-....
-
-When `--gem5-worktree` is not given, the default source tree under `submodules/gem5` is used.
-
-The `--gem5-worktree <woktree-id>` determines the location of the gem5 tree to be used for both:
-
-* the input C files of the build at build time
-* the Python scripts to be used at runtime
-
-The difference between `--gem5-build-id` and `--gem5-worktree` is that `--gem5-build-id` specifies the gem5 build output directory, while `--gem5-worktree` specifies the source input directory.
-
-If `--gem5-worktree <worktree-id>` is given, the directory used is `data/gem5/<worktree-id>`, and:
-
-* if that directory does not exist, create a `git worktree` at a branch `wt/<worktree-id>` on current commit of `submodules/gem5` there.
-+
-The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `submodules/gem5` and still use `--gem5-worktree some-branch`, without conflict for the worktree branch, which can only be checked out once.
-* otherwise, leave that worktree untouched, without updating it
-
-Therefore, future builds for `worktree-id` will not automatically modify the revision of the worktree, and to do that you must manually check it out:
-
-....
-git -C data/gem5/some-branch checkout some-branch-v2
-./build-buildroot --gem5 --gem5-build-id some-branch --gem5-worktree some-branch
-....
-
-`--gem5-worktree` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
-
-===== gem5 debug build
-
-Built and run `gem5.debug`, which has optimizations turned off unlike the default `gem5.opt`:
-
-....
-./build-gem5 --arch aarch64 --gem5-build-id debug --gem5-build-type debug
-./run --arch aarch64 --gem5 --gem5-build-id debug --gem5-build-type debug
-....
-
-We generate a separate build folder with `--gem5-build-id` just to prevent the `opt` build from getting overwritten, so we can keep both around at the same time.
-
-A Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
-
-....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16 --gem5-build-id debug --gem5-build-type debug
-....
-
-Therefore the performance different is very big, making debug mode almost unusable.
-
-==== Generic package build variants
-
-This hack-ish technique allows us to rebuild just one package at a time:
-
-....
-./build-buildroot KERNEL_MODULE_VERSION=mybranch
-....
-
-and now you can see that a new version of `kernel_modules` was built and put inside the image:
-
-....
-ls "$(./getvar build_dir)/kernel_modules-mybranch"
-....
-
-Unfortunately we don't have a nice runtime selection with `./run` implemented currently, you have to manually move packages around.
-
-TODO: is there a way to do it nicely for `*_OVERRIDE_SRCDIR` packages from link:buildroot_override[]? I tried:
-
-....
-./build-buildroot -l LINUX_VERSION=mybranch
-....
-
-but it fails with:
-
-....
-linux/linux.mk:492: *** LINUX_SITE cannot be empty when LINUX_SOURCE is not.  Stop.
-....
-
-and theI tried:
-
-....
-./build-buildroot -l LINUX_VERSION=mybranch LINUX_SITE="$(pwd)/linux"
-....
-
-but it feels hackish, and the build was slower than normal, looks like the build was single threaded?
-
 === BR2_TARGET_ROOTFS_EXT2_SIZE
 
 When adding new large package to the Buildroot root filesystem, it may fail with the message:
@@ -9996,6 +9796,206 @@ We assign a contiguous port range for each run ID.
 gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on `config.ini`.
 +
 The GDB port can be assigned on `gem5.opt --remote-gdb-port`, but it does not appear on `config.ini`.
+
+=== Build variants
+
+It often happens that you are comparing two versions of the build, a good and a bad one, and trying to figure out why the bad one is bad.
+
+Our build variants system allows you to keep multiple built versions of all major components, so that you can easily switching between running one or the other.
+
+==== Linux kernel build variants
+
+If you want to keep two builds around, one for the latest Linux version, and the other for Linux `v4.16`:
+
+....
+# Build master.
+./build-buildroot
+
+# Build another branch.
+git -C "$(./getvar linux_src_dir)" fetch --tags --unshallow
+git -C "$(./getvar linux_src_dir)" checkout v4.16
+./build-buildroot --linux-build-id v4.16
+
+# Restore master.
+git -C "$(./getvar linux_src_dir)" checkout -
+
+# Run master.
+./run
+
+# Run another branch.
+./run --linux-build-id v4.16
+....
+
+The `git fetch --unshallow` is needed the first time because link:configure[] only does a shallow clone of the Linux kernel to save space and time, see also: https://stackoverflow.com/questions/6802145/how-to-convert-a-git-shallow-clone-to-a-full-clone
+
+The `--linux-build-id` option should be passed to all scripts that support it, much like `--arch` for the <<cpu-architecture>>, e.g. to step debug:
+
+.....
+./rungdb --linux-build-id v4.16
+.....
+
+To run both kernels simultaneously, one on each QEMU instance, see: <<simultaneous-runs>>.
+
+==== QEMU build variants
+
+Analogous to the <<linux-kernel-build-variants>> but with the `--qemu-build-id` option instead:
+
+....
+./build-qemu
+git -C "$(./getvar qemu_src_dir)" checkout v2.12.0
+./build-qemu --qemu-build-id v2.12.0
+git -C "$(./getvar qemu_src_dir)" checkout -
+./run
+./run --qemu-build-id v2.12.0
+....
+
+==== gem5 build variants
+
+Analogous to the <<linux-kernel-build-variants>> but with the `--gem5-build-id` option instead:
+
+....
+# Build master.
+./build-gem5
+
+# Build another branch.
+git -C "$(./getvar gem5_src_dir)" checkout some-branch
+./build-gem5 --gem5-build-id some-branch
+
+# Restore master.
+git -C "$(./getvar gem5_src_dir)" checkout -
+
+# Run master.
+./run --gem5
+
+# Run another branch.
+git -C "$(./getvar gem5_src_dir)" checkout some-branch
+./run --gem5-build-id some-branch --gem5
+....
+
+Don't forget however that gem5 has Python scripts in its source code tree, and that those must match the source code of a given build.
+
+Therefore, you can't forget to checkout to the sources to that of the corresponding build before running, unless you explicitly tell gem5 to use a non-default source tree with `--gem5-worktree`.
+
+This becomes inevitable when you want to launch <<gem5-simultaneous-runs-with-build-variants>>.
+
+===== gem5 simultaneous runs with build variants
+
+In order to checkout multiple gem5 builds and run them simultaneously, you also need to use the `--gem5-worktree` flag:
+
+....
+# Build master.
+./build-gem5
+
+# Build another branch.
+git -C "$(./getvar linux_src_dir)" checkout some-branch
+./build-gem5 --gem5-build-id some-branch --gem5-worktree some-branch
+
+# Restore master.
+git -C "$(./getvar linux_src_dir)" checkout -
+
+# Run master.
+./run --gem5 --run-id 0 &>/dev/null &
+
+# Run another branch using the worktree for the scripts,
+# without the need to check out anything.
+./run --gem5 --gem5-build-id some-branch --gem5-worktree some-branch --run-id 1 &>/dev/null &
+....
+
+When `--gem5-worktree` is not given, the default source tree under `submodules/gem5` is used.
+
+The `--gem5-worktree <woktree-id>` determines the location of the gem5 tree to be used for both:
+
+* the input C files of the build at build time
+* the Python scripts to be used at runtime
+
+The difference between `--gem5-build-id` and `--gem5-worktree` is that `--gem5-build-id` specifies the gem5 build output directory, while `--gem5-worktree` specifies the source input directory.
+
+If `--gem5-worktree <worktree-id>` is given, the directory used is `data/gem5/<worktree-id>`, and:
+
+* if that directory does not exist, create a `git worktree` at a branch `wt/<worktree-id>` on current commit of `submodules/gem5` there.
++
+The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `submodules/gem5` and still use `--gem5-worktree some-branch`, without conflict for the worktree branch, which can only be checked out once.
+* otherwise, leave that worktree untouched, without updating it
+
+Therefore, future builds for `worktree-id` will not automatically modify the revision of the worktree, and to do that you must manually check it out:
+
+....
+git -C data/gem5/some-branch checkout some-branch-v2
+./build-buildroot --gem5 --gem5-build-id some-branch --gem5-worktree some-branch
+....
+
+`--gem5-worktree` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
+
+===== gem5 debug build
+
+The `gem5.debug` has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
+
+....
+./build-gem5 --arch aarch64 --gem5-build-id debug --gem5-build-type debug
+./run --arch aarch64 --debug-vm --gem5 --gem5-build-id debug --gem5-build-type debug
+....
+
+We generate a separate build folder with `--gem5-build-id` just to prevent the `opt` build from getting overwritten, so we can keep both around at the same time.
+
+The price to pay however is high: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
+
+....
+./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16
+./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16 --gem5-build-id debug --gem5-build-type debug
+....
+
+so you will likely only use this when it is unavoidable.
+
+==== Buildroot package build variants
+
+This hack-ish technique allows us to rebuild just one package at a time:
+
+....
+./build-buildroot KERNEL_MODULE_VERSION=mybranch
+....
+
+and now you can see that a new version of `kernel_modules` was built and put inside the image:
+
+....
+ls "$(./getvar build_dir)/kernel_modules-mybranch"
+....
+
+Unfortunately we don't have a nice runtime selection with `./run` implemented currently, you have to manually move packages around.
+
+TODO: is there a way to do it nicely for `*_OVERRIDE_SRCDIR` packages from link:buildroot_override[]? I tried:
+
+....
+./build-buildroot -l LINUX_VERSION=mybranch
+....
+
+but it fails with:
+
+....
+linux/linux.mk:492: *** LINUX_SITE cannot be empty when LINUX_SOURCE is not.  Stop.
+....
+
+and then tried:
+
+....
+./build-buildroot -l LINUX_VERSION=mybranch LINUX_SITE="$(pwd)/linux"
+....
+
+but it feels hackish, and the build was slower than normal, looks like the build was single threaded?
+
+==== Buildroot build variants
+
+Allows you to have multiple versions of the GCC toolchain or root filesystem.
+
+Analogous to the <<linux-kernel-build-variants>> but with the `--buildroot-build-id` option instead:
+
+....
+./build-buildroot
+git -C "$(./getvar buildroot_src_dir)" checkout 2018.05
+./build-buildroot --buildroot-build-id 2018.05
+git -C "$(./getvar buildroot_src_dir)" checkout -
+./run
+./run --buildroot-build-id 2018.05
+....
 
 === Directory structure
 
