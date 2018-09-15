@@ -50,7 +50,7 @@ def main(args, extra_args=None):
     if args.kernel_cli is not None:
         kernel_cli += ' {}'.format(args.kernel_cli)
     kernel_cli_after_dash = ''
-    extra_emulator_args = args.extra_emulator_args.copy()
+    extra_emulator_args = []
     extra_qemu_args = []
     if args.debug_vm:
         debug_vm = ['gdb', '-q', '-ex', 'start', '--args']
@@ -157,6 +157,7 @@ def main(args, extra_args=None):
                     '--machine-type', 'VExpress_GEM5_V1',
                 ]
     else:
+        extra_emulator_args.extend(extra_qemu_args)
         os.makedirs(common.run_dir, exist_ok=True)
         if args.debug_vm:
             serial_monitor = []
@@ -165,13 +166,12 @@ def main(args, extra_args=None):
         if args.kvm:
             extra_emulator_args.append('-enable-kvm')
         if args.kgdb:
-            extra_qemu_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.gdb_port)])
+            extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.gdb_port)])
         if args.prebuilt:
             common.mkdir()
             qemu_executable = "qemu-system-{}".format(args.arch)
         else:
             qemu_executable = common.qemu_executable
-        extra_emulator_args = extra_qemu_args + args.extra_emulator_args
         cmd = (
             debug_vm +
             [
@@ -275,7 +275,8 @@ def main(args, extra_args=None):
                 "sleep 2;./rungdb -a '{}' -L '{}' -n '{}' {}" \
                 .format(args.arch, args.linux_build_id, args.run_id, args.tmux_args)
             ])
-    cmd += extra_emulator_args
+    cmd.extend(extra_emulator_args)
+    cmd.extend(args.extra_emulator_args)
     if debug_vm or args.terminal:
         out_file = None
     else:
