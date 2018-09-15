@@ -8,7 +8,7 @@ install: |
 
 script: |
   cd "$TRAVIS_BUILD_DIR"
-  # -j: I'm unable to install nproc on Travis.
+  # --nproc: I'm unable to install nproc on Travis.
   # TODO why? Is part of coreutils in Ubuntu 16.04:
   # http://manpages.ubuntu.com/manpages/trusty/man1/nproc.1.html
   # which ./configure is installing.
@@ -16,11 +16,6 @@ script: |
   # awk: without it, too much stdout (4Mb max)
   # If we ignore stdout: Travis kills job because it spent
   # too long without any new stdout.
-  #
-  # -S otherwise apt-get instlal fails with:
-  # The following packages have unmet dependencies:
-  # libsdl2-dev : Depends: libegl1-mesa-dev
-  #            Depends: libgles2-mesa-dev
-  bash -x ./build-qemu -j 16 -S |& awk 'NR % 1000 == 0'
-  bash -x ./build-buildroot -j 16 -S |& awk 'NR % 1000 == 0'
+  bash -x ./build-qemu --nproc 16 |& awk 'NR % 1000 == 0'
+  bash -x ./build-buildroot --nproc 16 |& awk 'NR % 1000 == 0'
   bash -x ./run --kernel-cli 'init=/poweroff.out'
