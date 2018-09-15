@@ -22,6 +22,7 @@ defaults = {
     'kernel_config_fragment': [],
     'kernel_custom_config_file': None,
     'kernel_modules': False,
+    'no_kernel_modules': False,
     'linux_reconfigure': False,
     'no_all': False,
     'nproc': None,
@@ -33,6 +34,7 @@ defaults = {
 def get_argparse():
     parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
     common.add_build_arguments(parser)
+    kernel_module_group = parser.add_mutually_exclusive_group()
     parser.add_argument(
         '-B', '--buildroot-config', default=defaults['buildroot_config'], action='append',
         help='''Add a single Buildroot config to the current build.
@@ -79,9 +81,9 @@ Pass multiple times to use multiple fragment files.'''
         help='''Ignore all default kernel configurations and use this file instead.
 Still uses options explicitly passed with `-C` and `-c` on top of it.'''
     )
-    parser.add_argument(
+    kernel_module_group.add_argument(
         '-k', '--kernel-modules', default=defaults['kernel_modules'], action='store_true',
-        help='Reconfigure and rebuild the kernel modules'
+        help='Reconfigure and rebuild the kernel modules package'
     )
     parser.add_argument(
         '-l', '--linux-reconfigure', default=defaults['linux_reconfigure'], action='store_true',
@@ -93,6 +95,10 @@ https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-
         '--no-all', default=defaults['no_all'], action='store_true',
         help='''Don't build the all target which normally gets build by default.
 That target builds the root filesystem and all its dependencies.'''
+    )
+    kernel_module_group.add_argument(
+        '--no-kernel-modules', default=defaults['kernel_modules'], action='store_true',
+        help="Don't build the kernel modules package"
     )
     parser.add_argument(
         '--skip-configure', default=defaults['skip_configure'], action='store_true',
@@ -180,6 +186,8 @@ def main(args, extra_args=None):
                     'BR2_ROOTFS_USERS_TABLES="{}"'.format(
                         path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))),
                 ])
+                if not args.no_kernel_modules:
+                    buildroot_configs.append('BR2_PACKAGE_KERNEL_MODULES=y')
                 if args.gem5:
                     buildroot_configs.append('BR2_PACKAGE_GEM5=y')
                 if args.initramfs:
