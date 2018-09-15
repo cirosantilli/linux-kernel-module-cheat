@@ -97,7 +97,7 @@ https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-
 That target builds the root filesystem and all its dependencies.'''
     )
     kernel_module_group.add_argument(
-        '--no-kernel-modules', default=defaults['kernel_modules'], action='store_true',
+        '--no-kernel-modules', default=defaults['no_kernel_modules'], action='store_true',
         help="Don't build the kernel modules package"
     )
     parser.add_argument(
@@ -293,18 +293,11 @@ def main(args, extra_args=None):
             cwd=common.buildroot_src_dir,
         ) == 0
 
-        # Create the qcow2 from ext2. This is optional, because gem5
-        # does not need the qcow2.
-        if os.path.exists(common.qemu_img_executable) and os.path.exists(common.ext2_file):
-            assert common.run_cmd([
-                common.qemu_img_executable,
-                '-T', 'pr_manager_run,file=/dev/null',
-                'convert',
-                '-f', 'raw',
-                '-O', 'qcow2',
-                common.ext2_file,
-                common.qcow2_file,
-            ]) == 0
+        # Create the qcow2 from ext2.
+        # Skip if qemu is not present, because gem5 does not need the qcow2.
+        # so we don't force a QEMU build for gem5.
+        if not args.no_all and os.path.exists(common.qemu_img_executable):
+            common.raw_to_qcow2()
 
         return 0
 

@@ -219,6 +219,18 @@ def print_time(ellapsed_seconds):
     minutes, seconds = divmod(rem, 60)
     print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
+def raw_to_qcow2():
+    global this
+    assert this.run_cmd([
+        this.qemu_img_executable,
+        '-T', 'pr_manager_run,file=/dev/null',
+        'convert',
+        '-f', 'raw',
+        '-O', 'qcow2',
+        this.rootfs_raw_file,
+        this.qcow2_file,
+    ]) == 0
+
 def resolve_args(defaults, args, extra_args):
     if extra_args is None:
         extra_args = {}
@@ -331,8 +343,8 @@ def setup(parser, **extra_args):
     this.host_dir = os.path.join(this.buildroot_build_dir, 'host')
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
     this.images_dir = os.path.join(this.buildroot_build_dir, 'images')
-    this.ext2_file = os.path.join(this.images_dir, 'rootfs.ext2')
-    this.qcow2_file = os.path.join(this.images_dir, 'rootfs.ext2.qcow2')
+    this.rootfs_raw_file = os.path.join(this.images_dir, 'rootfs.squashfs')
+    this.qcow2_file = this.rootfs_raw_file + '.qcow2'
     this.staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
     this.target_dir = os.path.join(this.buildroot_build_dir, 'target')
     this.run_dir_base = os.path.join(this.out_dir, 'run')

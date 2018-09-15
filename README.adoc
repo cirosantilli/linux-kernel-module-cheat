@@ -222,7 +222,7 @@ We use `./build-buildroot` because the kernel modules go inside the root filesys
 
 The reboot after rebuild is annoying. We don't have a perfect solution for it yet, but there are some ideas cooking at: <<gem5-restore-new-script>>.
 
-Using <<KVM>> can speed boot up however if your host and guest have the same arch, e.g. on an `x86_64` host:
+Using <<KVM>> can <<benchmark-linux-kernel-boot,speed up>> the boot however if your host and guest have the same arch, e.g. on an `x86_64` host:
 
 ....
 ./run --kvm
@@ -7103,6 +7103,7 @@ But TODO we didn't get it working yet:
 
 * https://stackoverflow.com/questions/41119656/how-can-i-overlayfs-the-root-filesystem-on-linux
 * https://unix.stackexchange.com/questions/316018/how-to-use-overlayfs-to-protect-the-root-filesystem
+* https://unix.stackexchange.com/questions/420646/mount-root-as-overlayfs
 
 Test with the script:
 
@@ -7129,10 +7130,12 @@ ls /overlay/proc
 
 A less good alternative is to set `LD_LIBRARY_PATH` on the 9p mount and run executables directly from the mount.
 
-Even mor awesome than `chroot` be to `pivot_root`, but I couldn't get that working either:
+Even more awesome than `chroot` would be to `pivot_root`, but I couldn't get that working either:
 
 * https://stackoverflow.com/questions/28015688/pivot-root-device-or-resource-busy
 * https://unix.stackexchange.com/questions/179788/pivot-root-device-or-resource-busy
+
+Here is a more basic working example of OverlayFS usage: https://askubuntu.com/questions/109413/how-do-i-use-overlayfs/1075564#1075564
 
 === Guest host networking
 
@@ -9298,11 +9301,22 @@ Unfortunately, TODO we don't have a perfect way to find the right value for `BR2
 du -hsx "$(./getvar --arch arm target_dir)"
 ....
 
-https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
+Some promising ways to overcome this problem include:
 
-libguestfs is very promising link:https://serverfault.com/questions/246835/convert-directory-to-qemu-kvm-virtual-disk-image/916697#916697[], in particular link:http://libguestfs.org/guestfish.1.html#vfs-minimum-size[`vfs-minimum-size`].
+* <<squashfs>>
+TODO benchmark: would gem5 suffer a considerable disk read performance hit due to decompressing SquashFS?
+* libguestfs: link:https://serverfault.com/questions/246835/convert-directory-to-qemu-kvm-virtual-disk-image/916697#916697[], in particular link:http://libguestfs.org/guestfish.1.html#vfs-minimum-size[`vfs-minimum-size`]
+* use methods described at: <<gem5-restore-new-script>> instead of putting builds on the root filesystem
 
-One way to overcome this problem is to mount benchmarks from host instead of adding them to the root filesystem, e.g. with: <<9p>>.
+Bibliography: https://stackoverflow.com/questions/49211241/is-there-a-way-to-automatically-detect-the-minimum-required-br2-target-rootfs-ex
+
+==== SquashFS
+
+link:https://en.wikipedia.org/wiki/SquashFS[SquashFS] creation with `mksquashfs` does not take fixed sizes, and I have successfully booted from it, but it is readonly, which is unacceptable.
+
+But then we could mount link:https://wiki.debian.org/ramfs[ramfs] on top of it with <<overlayfs>> to make it writable, but my attempts failed exactly as mentioned at <<overlayfs>>.
+
+This is the exact unanswered question: https://unix.stackexchange.com/questions/343484/mounting-squashfs-image-with-read-write-overlay-for-rootfs
 
 [[rpath]]
 === Buildroot rebuild is slow when the root filesystem is large
