@@ -41,7 +41,7 @@ The design goals are to provide setups that are:
 * highly automated: "just works"
 * thoroughly documented: you know what "just works" means
 * can be fully built from source: to give visibility and allow modifications
-* can also use prebuilt binaries as much as possible: in case you are lazy or unable to build from source
+* can also use <<prebuilt, prebuilt binaries>> as much as possible: in case you are lazy or unable to build from source
 
 == Getting started
 
@@ -522,17 +522,24 @@ Our prebuilts currently include:
 * Linux kernel
 * root filesystem
 
-Advantages: saves time and disk space.
+Advantage: saves time and disk space on the initial install.
 
-Limitations:
+The limitations are severe however:
 
 * can't <<gdb,GDB step debug the kernel>>, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <<prebuilt-toolchain>>.
 +
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
 * can't create new modules or modify the existing ones, since no cross toolchain
-* can't use things that rely on our QEMU fork, e.g. in-fork <<device-models>> or <<tracing>>
 * you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us.
-* <<gem5>> is not currently supported, although it should not be too hard to do. One annoyance is that there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself.
+* <<gem5>> is not currently supported, although it should not be too hard to do.
++
+Annoyances:
++
+** there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself
+** it does not handle <<gem5-qcow2,qcow2>>, and we haven't gotten <<squashfs>> to work yet, therefore we would have to either distribute large ext2 images, or constantly fight with <<br2_target_rootfs_ext2_size>>
+** QEMU uses  bzImage and gdm5 the raw `vmlinux`, and we don't want to distribute the same thing twice... https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux We could use `extract-vmlinux`, but that would imply cloning the Linux kernel, which is at least half of the kernel build time :-)
+
+This setup might be good enough for those developing simulators, as that requires less image modification. But once again, if you are serious about this, why not just let your computer build the <<qemu-buildroot-setup,full featured setup>> while you take a coffee or a nap? :-)
 
 ==== Prebuilt setup getting started
 
@@ -562,17 +569,31 @@ git submodule update --init "$(./getvar qemu_src_dir)"
 
 and you are done.
 
-Alternatively, you can also try to use the host QEMU:
+Alternatively, you can also try to use the host QEMU directly with:
 
 ....
-sudo apt-get install qemu-system-x86
+sudo apt-get install qemu-system-x86 qemu-utils
 ./run --prebuilt
 ....
 
 but QEMU builds are pretty quick, and this further increases the probability of incompatibilities, are you really that lazy?
 
+////
+For gem5, do:
+
+....
+sudo apt-get install qemu-utils
+./build-gem5
+./run --gem5 --prebuilt
+....
+
+`qemu-utils` is required because we currently distribute `.qcow2` files which <<gem5-qcow2,gem5 can't handle>>, so we need `qemu-img` to extract them first.
+////
+
 [[host]]
 === Host kernel module setup
+
+**THIS IS DANGEROUS, YOU HAVE BEEN WARNED**
 
 This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
 
@@ -6488,7 +6509,11 @@ index 17498c42b..76b8b351d 100644
 
 The directory of interest is `src/dev/storage`.
 
+=== gem5 qcow2
+
 qcow2 does not appear supported, there are not hits in the source tree, and there is a mention on Nate's 2009 wishlist: http://gem5.org/Nate%27s_Wish_List
+
+This would be good to allow storing smaller sparse ext2 images locally on disk.
 
 === Snapshot
 

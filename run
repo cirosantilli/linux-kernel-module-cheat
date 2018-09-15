@@ -3,6 +3,7 @@
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -95,7 +96,14 @@ def main(args, extra_args=None):
         do_trace = True
         trace_type = args.trace
 
+    def raise_rootfs_not_found():
+        raise Exception('Root filesystem not found. Did you build it?\n' \
+                        'Tried to use: ' + common.rootfs_raw_file)
     if args.gem5:
+        if not os.path.exists(common.rootfs_raw_file):
+            if not os.path.exists(common.qcow2_file):
+                raise_rootfs_not_found()
+            common.raw_to_qcow2(prebuilt=args.prebuilt, reverse=True)
         os.makedirs(os.path.dirname(common.gem5_readfile), exist_ok=True)
         with open(common.gem5_readfile, 'w') as readfile:
             readfile.write(args.gem5_readfile)
@@ -161,17 +169,18 @@ def main(args, extra_args=None):
         os.makedirs(common.run_dir, exist_ok=True)
         if args.prebuilt:
             common.mkdir()
-            qemu_executable = "qemu-system-{}".format(args.arch)
+            qemu_executable = common.qemu_executable_basename
+            qemu_found = shutil.which(qemu_executable) is not None
         else:
             qemu_executable = common.qemu_executable
-        if not os.path.exists(qemu_executable):
-            raise Exception('QEMU executable does not exist, did you forget to build or install it?\n' \
+            qemu_found = os.path.exists(qemu_executable)
+        if not qemu_found:
+            raise Exception('Could not find the QEMU executable, did you forget to build or install it?\n' \
                             'Tried to use: ' + qemu_executable)
         if not os.path.exists(common.qcow2_file):
             if not os.path.exists(common.rootfs_raw_file):
-                raise Exception('Root filesystem not found. Did you build it?\n' \
-                                'Tried to use: ' + common.rootfs_raw_file)
-            common.raw_to_qcow2()
+                raise_rootfs_not_found()
+            common.raw_to_qcow2(prebuilt=args.prebuilt)
         if args.debug_vm:
             serial_monitor = []
         else:
@@ -401,7 +410,7 @@ Default: %(default)s
     )
     parser.add_argument(
         '-P', '--prebuilt', default=defaults['prebuilt'], action='store_true',
-        help='Run the downloaded prebuilt images.'
+        help='Run the downloaded prebuilt images with pre-packaged host tools.'
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(

@@ -219,16 +219,32 @@ def print_time(ellapsed_seconds):
     minutes, seconds = divmod(rem, 60)
     print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
-def raw_to_qcow2():
+def raw_to_qcow2(prebuilt=False, reverse=False):
     global this
+    if prebuilt:
+        qemu_img_executable = this.qemu_img_basename
+    else:
+        qemu_img_executable = this.qemu_img_executable
+    infmt = 'raw'
+    outfmt = 'qcow2'
+    infile = this.rootfs_raw_file
+    outfile = this.qcow2_file
+    if reverse:
+        tmp = infmt
+        infmt = outfmt
+        outfmt = tmp
+        tmp = infile
+        infile = outfile
+        outfile = tmp
     assert this.run_cmd([
-        this.qemu_img_executable,
+        qemu_img_executable,
+        # Prevent qemu-img from generating trace files like QEMU. Disgusting.
         '-T', 'pr_manager_run,file=/dev/null',
         'convert',
-        '-f', 'raw',
-        '-O', 'qcow2',
-        this.rootfs_raw_file,
-        this.qcow2_file,
+        '-f', infmt,
+        '-O', outfmt,
+        infile,
+        outfile,
     ]) == 0
 
 def resolve_args(defaults, args, extra_args):
@@ -337,13 +353,15 @@ def setup(parser, **extra_args):
     this.linux_variant_dir = '{}.{}'.format(this.linux_build_dir, args.linux_build_id)
     this.vmlinux = os.path.join(this.linux_variant_dir, "vmlinux")
     this.qemu_build_dir = os.path.join(this.out_dir, 'qemu', args.qemu_build_id)
-    this.qemu_executable = os.path.join(this.qemu_build_dir, '{}-softmmu'.format(args.arch), 'qemu-system-{}'.format(args.arch))
-    this.qemu_img_executable = os.path.join(this.qemu_build_dir, 'qemu-img')
+    this.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
+    this.qemu_executable = os.path.join(this.qemu_build_dir, '{}-softmmu'.format(args.arch), this.qemu_executable_basename)
+    this.qemu_img_basename = 'qemu-img'
+    this.qemu_img_executable = os.path.join(this.qemu_build_dir, this.qemu_img_basename)
     this.qemu_guest_build_dir = os.path.join(this.build_dir, 'qemu-custom')
     this.host_dir = os.path.join(this.buildroot_build_dir, 'host')
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
     this.images_dir = os.path.join(this.buildroot_build_dir, 'images')
-    this.rootfs_raw_file = os.path.join(this.images_dir, 'rootfs.squashfs')
+    this.rootfs_raw_file = os.path.join(this.images_dir, 'rootfs.ext2')
     this.qcow2_file = this.rootfs_raw_file + '.qcow2'
     this.staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
     this.target_dir = os.path.join(this.buildroot_build_dir, 'target')
