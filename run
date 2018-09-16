@@ -105,9 +105,7 @@ def main(args, extra_args=None):
                 raise_rootfs_not_found()
             common.raw_to_qcow2(prebuilt=args.prebuilt, reverse=True)
         if not os.path.exists(common.vmlinux):
-            # This would allow us to run the prebuilt QEMU Linux image.
-            # but TODO cannot convert Image to vmlinux on aarch64:
-            # run-detectors: unable to find an interpreter for
+            # This is to run gem5 from a prebuilt download.
             if not os.path.exists(common.linux_image):
                 raise Exception('Linux kernel image not found. Did you compile it?\n' \
                                 'Tried: ' + common.vmlinux)
@@ -305,11 +303,11 @@ def main(args, extra_args=None):
     if args.gem5:
         # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
         # Grepping for '^panic: ' does not work because some errors don't show that message.
-        panic_msg = '--- BEGIN LIBC BACKTRACE ---$'
+        panic_msg = b'--- BEGIN LIBC BACKTRACE ---$'
     else:
-        panic_msg = 'Kernel panic - not syncing'
+        panic_msg = b'Kernel panic - not syncing'
     panic_re = re.compile(panic_msg)
-    with open(common.termout_file, 'r') as logfile:
+    with open(common.termout_file, 'br') as logfile:
         for line in logfile:
             if panic_re.search(line):
                 common.log_error('simulation error detected by parsing logs')

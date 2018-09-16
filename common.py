@@ -310,10 +310,19 @@ def run_cmd(
             del env[key]
     if show_cmd:
         print_cmd(cmd, cmd_file, extra_env=extra_env)
+
     # Otherwise Ctrl + C gives:
     # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
     # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
+    sigint_old = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    # Otherwise BrokenPipeError when piping through | grep
+    # But if I do this, my terminal gets broken at the end. Why, why, why.
+    # https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
+    # Ignoring the exception is not enough as it prints a warning anyways.
+    #sigpipe_old = signal.getsignal(signal.SIGPIPE)
+    #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
     with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
         if out_file is not None:
@@ -327,7 +336,8 @@ def run_cmd(
                         logfile.write(byte)
                     else:
                         break
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGINT, sigint_old)
+    #signal.signal(signal.SIGPIPE, sigpipe_old)
     return proc.returncode
 
 def setup(parser, **extra_args):
