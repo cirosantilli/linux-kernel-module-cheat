@@ -531,52 +531,49 @@ The limitations are severe however:
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
 * can't create new modules or modify the existing ones, since no cross toolchain
 * you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us.
-* <<gem5>> is not currently supported, although it should not be too hard to do.
-+
-Annoyances:
+* <<gem5>> is not currently supported, although it should not be too hard to do. Annoyances:
 +
 ** there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself
 ** it does not handle <<gem5-qcow2,qcow2>>, and we haven't gotten <<squashfs>> to work yet, therefore we would have to either distribute large ext2 images, or constantly fight with <<br2_target_rootfs_ext2_size>>
-** QEMU uses  bzImage and gdm5 the raw `vmlinux`, and we don't want to distribute the same thing twice... https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux We could use `extract-vmlinux`, but that would imply cloning the Linux kernel, which is at least half of the kernel build time :-)
+** QEMU uses  `bzImage` and gem5 the raw `vmlinux`, and we don't want to distribute the same thing twice...
++
+And our attempt at using link:https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux[`extract-vmlinux`] failed for `aarch64` with:
++
+....
+run-detectors: unable to find an interpreter for
+....
 
 This setup might be good enough for those developing simulators, as that requires less image modification. But once again, if you are serious about this, why not just let your computer build the <<qemu-buildroot-setup,full featured setup>> while you take a coffee or a nap? :-)
 
 ==== Prebuilt setup getting started
 
-Download this repo:
+Some times it works with the host QEMU:
 
 ....
+sudo apt-get install qemu-system-x86
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-....
-
-Go to the latest release link:https://github.com/cirosantilli/linux-kernel-module-cheat/releases[], download the `lkmc-*.zip` file and extract it into the repository:
-
-....
+./download-latest-release
 unzip lkmc-*.zip
+./run --prebuilt
 ....
 
-It is link:https://stackoverflow.com/questions/24987542/is-there-a-link-to-github-for-downloading-a-file-in-the-latest-release-of-a-repo/50540591#50540591[not possible to automate this step without the API], and I'm not venturing there at this time, pull requests welcome.
-
-Checkout to the prebuilt repo version so that the scripts and documentation will be compatible with it, and run with the `--prebuilt` option:
+but to be sure, build your own at a tested revision:
 
 ....
-git checkout <release-sha>
 git submodule update --init --recursive "$(./getvar qemu_src_dir)"
 ./build-qemu
 ./run
 ....
 
-and you are done.
+This also allows you to <<your-first-kernel-hack,modify QEMU>> if you're into that sort of thing.
 
-Alternatively, you can also try to use the host QEMU directly with:
+To try an older prebuilt:
 
-....
-sudo apt-get install qemu-system-x86 qemu-utils
-./run --prebuilt
-....
+* download it from: link:https://github.com/cirosantilli/linux-kernel-module-cheat/releases[]
+* checkout this repo to match the SHA of the release
 
-but QEMU builds are pretty quick, and this further increases the probability of incompatibilities, are you really that lazy?
+then do whatever that checked out README says.
 
 ////
 For gem5, do:
