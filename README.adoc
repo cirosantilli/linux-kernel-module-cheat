@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-Run one command, get a QEMU or gem5 Buildroot BusyBox virtual machine built from source with several minimal Linux kernel 4.18 module development example tutorials with <<gdb,GDB>> and <<KGDB>> step debugging and minimal educational hardware device models. "Tested" in Ubuntu 18.04 host, x86 and ARM guests.
+The perfect setup to study and modify the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<gem5-buildroot-setup,gem5>>. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<docker,Docker>>. "Tested" in Ubuntu 18.04 host, x86 and ARM guests with kernel v4.18.
 
 TL;DR: <<qemu-buildroot-setup>>
 
@@ -65,14 +65,14 @@ The trade-offs are basically a balance between:
 
 This is the best setup if you are on Ubuntu. We tend to test this repo the most on the latest Ubuntu, and on the latest Ubuntu LTS.
 
-Everything will likely also work on other Linux distros if you install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. You can also try <<docker>> if you are on other Linux distros. Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just use an Ubuntu VM in that case.
+Everything will likely also work on other Linux distros if you do what install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. You can also try <<docker>> if you are on other Linux distros. Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just use an Ubuntu VM in that case.
 
 Reserve 12Gb of disk and run:
 
 ....
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-./configure && \
+./configure --qemu && \
   ./build-qemu &&
   ./build-buildroot && \
   ./run && \
@@ -392,7 +392,13 @@ Internal error: Oops - undefined instruction
 
 Workaround by checking out kernel 4.17 as explained at <<linux-kernel-build-variants>>. Bisected down to kernel 1d4238c56f9816ce0f9c8dbe42d7f2ad81cb6613, gem5 is not implementing the `CSDB` instruction.
 
-More information at: <<gem5>>
+More gem5 information is present at: <<gem5>>
+
+Good next steps are:
+
+* <<gem5-run-benchmark>>
+* <<m5out-directory>>
+* <<m5ops>>
 
 [[docker]]
 === Docker host setup
@@ -461,7 +467,7 @@ or even better, by starting a <<tmux>> session inside the container. We install 
 You can start a second shell and run a command in it at the same time with:
 
 ....
-./rundocker sh ./rungdb start_kernel
+./rundocker sh ./run-gdb start_kernel
 ....
 
 Docker stops if and only if you quit the initial shell, you can quit this one without consequences.
@@ -663,6 +669,159 @@ rmmod hello.ko
 dmesg
 ....
 
+=== Baremetal setup
+
+==== About the baremetal setup
+
+This setup does not use the Linux kernel nor Buildroot at all: it just runs your very own minimal OS.
+
+`x86_64` is not currently supported, only `arm` and `aarch64`: I had made some x86 bare metal examples at: https://github.com/cirosantilli/x86-bare-metal-examples but I'm lazy to port them here now. Pull requests are welcome.
+
+The main reason this setup is included in this project, despite the word "Linux" being on the project name, is that a lot of the emulator boilerplate can be reused for both use cases.
+
+This setup allows you to make a tiny OS and that runs just a few instructions, use it to fully control the CPU to better understand the simulators for example, or develop your own OS if you are into that.
+
+You can also use C and a subset of the C standard library because we enable link:https://en.wikipedia.org/wiki/Newlib[Newlib] by default.
+
+Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/crosstool-ng[crosstool-NG]. If you have already built <<qemu-buildroot-setup,Buildroot>> previously, you will end up with two GCCs installed. Unfortunately I don't see a solution for this, since we need separate toolchains for Newlib on baremetal and glibc on Linux: https://stackoverflow.com/questions/38956680/difference-between-arm-none-eabi-and-arm-linux-gnueabi/38989869#38989869
+
+==== Baremetal setup getting started
+
+QEMU:
+
+....
+./configure --baremetal --qemu      && \
+./build-qemu --arch arm             && \
+./build-crosstool-ng --arch arm     && \
+./build-baremetal --arch arm        && \
+./run --arch arm --baremetal prompt && \
+:;
+....
+
+You are now left inside QEMU running the tiny baremetal system link:baremetal/prompt.c[], which uses the UART to:
+
+* print characters to the terminal
+* read characters from your keyboard
+
+A session looks like this after typing `abc`:
+
+....
+enter a character
+got: a
+new alloc of 1 bytes at address 0x0x4000a2c8
+enter a character
+got: b
+new alloc of 2 bytes at address 0x0x4000a2c8
+enter a character
+got: c
+new alloc of 4 bytes at address 0x0x4000a2c8
+....
+
+`./build-baremetal` is the command that actually builds the baremetal system for us. It uses crosstool-NG, so that command must be preceded by `./build-crosstool-ng`.
+
+Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image. You can run a different image with commands such as:
+
+....
+./run --arch arm --baremetal exit
+./run --arch arm --baremetal arch/arm/semihost_exit
+....
+
+which will run respectively:
+
+* link:baremetal/exit.c[]
+* link:baremetal/arch/arm/m5exit.S[]
+
+which just make the emulator quit via <<semihosting>>.
+
+Alternatively, for the sake of tab completion, we also accept full paths inside `baremetal`:
+
+....
+./run --arch arm --baremetal baremetal/exit.c
+./run --arch arm --baremetal "$(pwd)/baremetal/exit.c"
+./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.c
+./run --arch arm --baremetal "$(pwd)/baremetal/arch/arm/semihost_exit.c"
+....
+
+To use gem5 instead of QEMU do:
+
+....
+./configure --baremetal --gem5             && \
+./build-gem5 --arch arm                    && \
+./build-crosstool-ng --arch arm            && \
+./build-baremetal --arch arm --gem5        && \
+./run --arch arm --baremetal prompt --gem5 && \
+:;
+....
+
+and then <<qemu-buildroot-setup,as usual>> open a shell with:
+
+....
+./gem5-shell
+....
+
+TODO:
+
+* the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
+* semihosting is disabled, and all examples that rely on it fail, including  how to enable it? See <<gem5-semihosting>>
+
+Note that `./build-baremetal` requires the `--gem5` option, and generates separate executable images for both, as can be seen from:
+
+....
+echo "$(./getvar --arch arm --baremetal prompt        image)"
+echo "$(./getvar --arch arm --baremetal prompt --gem5 image)"
+....
+
+This is unlike the Linux kernel that has a single image for both QEMU and gem5:
+
+....
+echo "$(./getvar --arch arm        image)"
+echo "$(./getvar --arch arm --gem5 image)"
+....
+
+The reason for that is that on baremetal we don't parse the <<device-tree,device tress>> from memory like the Linux kernel does, which tells the kernel for example the UART address, and many other system parameters.
+
+`gem5` also supports the `RealViewPBX` machine, which represents an older hardware compared to the default `VExpress_GEM5_V1`:
+
+....
+./build-baremetal --arch arm --gem5 --machine RealViewPBX
+./run --arch arm --baremetal prompt --gem5 --machine RealViewPBX
+....
+
+This generates yet new separate images with new magic constants:
+
+....
+echo "$(./getvar --arch arm --baremetal prompt --gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch arm --baremetal prompt --gem5 --machine RealViewPBX      image)"
+....
+
+But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
+
+gem5 aarch64 baremetal currently requires you to apply a small patch before running:
+
+....
+./build-baremetal --arch aarch64 --gem5
+patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-aarch64-baremetal.patch
+./run --arch arm --baremetal prompt --gem5
+....
+
+Source: link:patches/manual/gem5-aarch64-baremetal.patch[]
+
+This patch is required only for baremetal because the Linux bootloader enters 32 bit mode and switches to 64 for us, but the in the baremetal system we use our own bootloader.
+
+Therefore we must tell gem5 to start the system in aarch64 mode for us with the options:
+
+....
+highest_el_is_64 = True
+auto_reset_addr_64 = True
+....
+
+That patch breaks `--arch arm`, so don't forget to remove it if you want to go back to it.
+
+For more information on baremetal, see the section: <<baremetal>>. The following subjects are particularly important:
+
+* <<tracing>>
+* <<baremetal-gdb-step-debug>>
+
 [[gdb]]
 == GDB step debug
 
@@ -677,13 +836,13 @@ dmesg
 Say you want to break at `start_kernel`. So on another shell:
 
 ....
-./rungdb start_kernel
+./run-gdb start_kernel
 ....
 
 or at a given line:
 
 ....
-./rungdb init/main.c:1088
+./run-gdb init/main.c:1088
 ....
 
 Now QEMU will stop there, and you can use the normal GDB commands:
@@ -729,7 +888,7 @@ which counts to infinity to stdout. Source: link:rootfs_overlay/count.sh[].
 Then in another shell, run:
 
 ....
-./rungdb
+./run-gdb
 ....
 
 and then hit:
@@ -813,7 +972,7 @@ From inside tmux, you can do that with `Ctrl-B C` or `Ctrl-B %`.
 To see the debugger by default instead of the terminal, run:
 
 ....
-./tmu ./rungdb && ./run --debug-guest --gem5
+./tmu ./run-gdb && ./run --debug-guest --gem5
 ....
 
 === GDB step debug kernel module
@@ -845,7 +1004,7 @@ This prints a message to dmesg every second.
 Shell 2:
 
 ....
-./rungdb
+./run-gdb
 ....
 
 In GDB, hit `Ctrl-C`, and note how it says:
@@ -889,7 +1048,7 @@ Error occurred in Python command: Cannot access memory at address 0xbf0000cc
 
 Can't reproduce on `x86_64` and `aarch64` are fine.
 
-It is kind of random: if you just `insmod` manually and then immediately `./rungdb --arch arm`, then it usually works.
+It is kind of random: if you just `insmod` manually and then immediately `./run-gdb --arch arm`, then it usually works.
 
 But this fails most of the time: shell 1:
 
@@ -900,7 +1059,7 @@ But this fails most of the time: shell 1:
 shell 2:
 
 ....
-./rungdb --arch arm
+./run-gdb --arch arm
 ....
 
 then hit `Ctrl-C` on shell 2, and voila.
@@ -951,7 +1110,7 @@ As of 4.16, the call happens in `do_one_initcall`, so we can do in shell 1:
 shell 2 after boot finishes (because there are other calls to `do_init_module` at boot, presumably for the built-in modules):
 
 ....
-./rungdb do_one_initcall
+./run-gdb do_one_initcall
 ....
 
 then step until the line:
@@ -965,7 +1124,7 @@ which does the actual call, and then step into it.
 For the next time, you can also put a breakpoint there directly:
 
 ....
-./rungdb init/main.c:833
+./run-gdb init/main.c:833
 ....
 
 How we found this out: first we got <<gdb-module_init-calculate-entry-address>> working, and then we did a `bt`. AKA cheating :-)
@@ -1021,7 +1180,7 @@ Now we can just do a fresh boot on shell 1:
 and on shell 2:
 
 ....
-./rungdb '*0xffffffffc0000240'
+./run-gdb '*0xffffffffc0000240'
 ....
 
 GDB then breaks, and `lx-symbols` works.
@@ -1089,7 +1248,7 @@ directly gives an <<oops,oops>> as I'd expect.
 Useless, but a good way to show how hardcore you are. Disable `lx-symbols` with:
 
 ....
-./rungdb --no-lxsymbols
+./run-gdb --no-lxsymbols
 ....
 
 From inside guest:
@@ -1136,14 +1295,14 @@ And then search for a line of type:
 Break at the very first instruction executed by QEMU:
 
 ....
-./rungdb --no-continue
+./run-gdb --no-continue
 ....
 
 TODO why can't we break at early startup stuff such as:
 
 ....
-./rungdb extract_kernel
-./rungdb main
+./run-gdb extract_kernel
+./run-gdb main
 ....
 
 Maybe it is because they are being copied around at specific locations instead of being run directly from inside the main image, which is where the debug information points to?
@@ -1170,12 +1329,12 @@ and break there:
 
 ....
 ./run --arch arm --debug-guest
-./rungdb --arch arm '*0x1000'
+./run-gdb --arch arm '*0x1000'
 ....
 
 but TODO: it does not show the source assembly under `arch/arm`: https://stackoverflow.com/questions/11423784/qemu-arm-linux-kernel-boot-debug-no-source-code
 
-I also tried to hack `rungdb` with:
+I also tried to hack `run-gdb` with:
 
 ....
 @@ -81,7 +81,7 @@ else
@@ -1226,7 +1385,7 @@ since GDB does not know that libc is loaded.
 * Shell 2:
 +
 ....
-./rungdb-user kernel_modules-1.0/user/sleep_forever.out main
+./run-gdb-user kernel_modules-1.0/user/sleep_forever.out main
 ....
 
 TODO not working as of f8c0502bb2680f2dbe7c1f3d7958f60265347005, does not break. Bisect on recent QEMU and kernel. Debug by creating an executable that prints the address of `main`.
@@ -1243,7 +1402,7 @@ BusyBox custom init process:
 * Shell 2:
 +
 ....
-./rungdb-user busybox-1.26.2/busybox ls_main
+./run-gdb-user busybox-1.26.2/busybox ls_main
 ....
 
 This follows BusyBox' convention of calling the main for each executable as `<exec>_main` since the `busybox` executable has many "mains".
@@ -1258,7 +1417,7 @@ BusyBox default init process:
 * Shell 2:
 +
 ....
-./rungdb-user busybox-1.26.2/busybox init_main
+./run-gdb-user busybox-1.26.2/busybox init_main
 ....
 
 This cannot be debugged in another way without modifying the source, or `/sbin/init` exits early with:
@@ -1279,7 +1438,7 @@ Non-init process:
 * Shell 2:
 +
 ....
-./rungdb-user kernel_modules-1.0/user/myinsmod.out main
+./run-gdb-user kernel_modules-1.0/user/myinsmod.out main
 ....
 * Shell 1 after the boot finishes:
 +
@@ -1301,7 +1460,7 @@ TODO: on QEMU bfba11afddae2f7b2c1335b4e23133e9cd3c9126, it works on `x86_64` and
 * Shell 2: wait for boot to finish, and run:
 +
 ....
-./rungdb-user --arch arm kernel_modules-1.0/user/hello.out main
+./run-gdb-user --arch arm kernel_modules-1.0/user/hello.out main
 ....
 * Shell 1:
 +
@@ -1309,7 +1468,7 @@ TODO: on QEMU bfba11afddae2f7b2c1335b4e23133e9cd3c9126, it works on `x86_64` and
 /hello.out
 ....
 
-The problem is that the `b main` that we do inside `./rungdb-user` says:
+The problem is that the `b main` that we do inside `./run-gdb-user` says:
 
 ....
 Cannot access memory at address 0x10604
@@ -1465,7 +1624,7 @@ We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and cor
 on another shell:
 
 ....
-./rungdb-user kernel_modules-1.0/user/sched_getaffinity.out main
+./run-gdb-user kernel_modules-1.0/user/sched_getaffinity.out main
 ....
 
 Then, inside GDB:
@@ -1496,7 +1655,7 @@ TODO we then tried:
 and:
 
 ....
-./rungdb-user kernel_modules-1.0/user/sched_getaffinity_threads.out
+./run-gdb-user kernel_modules-1.0/user/sched_getaffinity_threads.out
 ....
 
 to switch between two simultaneous live threads with different affinities, it just didn't break on our threads:
@@ -1618,7 +1777,7 @@ Usage:
 
 ....
 ./run --kgdb
-./rungdb --kgdb
+./run-gdb --kgdb
 ....
 
 In GDB:
@@ -1646,7 +1805,7 @@ c
 
 And now you can count from GDB!
 
-If you do: `b __x64_sys_write` immediately after `./rungdb --kgdb`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
+If you do: `b __x64_sys_write` immediately after `./run-gdb --kgdb`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
 
 See also:
 
@@ -1758,7 +1917,7 @@ Source: link:rootfs_overlay/gdbserver.sh[].
 Host:
 
 ....
-./rungdbserver kernel_modules-1.0/user/myinsmod.out
+./run-gdbserver kernel_modules-1.0/user/myinsmod.out
 ....
 
 You can find the executable with:
@@ -1793,7 +1952,7 @@ An implementation overview can be found at: https://reverseengineering.stackexch
 As usual, different archs work with:
 
 ....
-./rungdbserver --arch arm kernel_modules-1.0/user/myinsmod.out
+./run-gdbserver --arch arm kernel_modules-1.0/user/myinsmod.out
 ....
 
 === gdbserver BusyBox
@@ -1807,7 +1966,7 @@ BusyBox executables are all symlinks, so if you do on guest:
 on host you need:
 
 ....
-./rungdbserver busybox-1.26.2/busybox
+./run-gdbserver busybox-1.26.2/busybox
 ....
 
 === gdbserver shared libraries
@@ -1857,7 +2016,7 @@ Debug:
 ....
 ./run --arch arm --debug-guest
 # On another terminal.
-./rungdb --arch arm
+./run-gdb --arch arm
 ....
 
 We also have one letter shorthand names for the architectures and `--arch` option:
@@ -1933,7 +2092,7 @@ TODO Can you run arm executables in the aarch64 guest? https://stackoverflow.com
 I've tried:
 
 ....
-./run-toolchain --arch aarch64 gcc -- -static ~/test/hello_world.c -o data/9p/a.out
+./run-toolchain --arch aarch64 gcc -- -static ~/test/hello_world.c -o "$(./getvar p9_dir)/a.out"
 ./run --arch aarch64 --eval-busybox '/mnt/9p/a.out'
 ....
 
@@ -2756,7 +2915,7 @@ Text mode has the following limitations over graphics mode:
 `x86_64` has a VGA device enabled by default, as can be seen as:
 
 ....
-./qemumonitor info qtree
+./qemu-monitor info qtree
 ....
 
 and the Linux kernel picks it up through the link:https://en.wikipedia.org/wiki/Linux_framebuffer[fbdev] graphics system as can be seen from:
@@ -3962,7 +4121,7 @@ says that the function `myinit` is in the module `panic`.
 To find the line that panicked, do:
 
 ....
-./rungdb
+./run-gdb
 ....
 
 and then:
@@ -4192,7 +4351,7 @@ RIP: 0010:myinit+0x18/0x30 [oops]
 and then on GDB:
 
 ....
-./rungdb
+./run-gdb
 ....
 
 run
@@ -4999,7 +5158,7 @@ so only `1` has `myirqhandler0` attached but not `0`.
 The <<qemu-monitor>> also has some interrupt statistics for x86_64:
 
 ....
-./qemumonitor info irq
+./qemu-monitor info irq
 ....
 
 TODO: properly understand how each IRQ maps to what number.
@@ -5118,7 +5277,7 @@ virt_to_phys(&static_var) = 0x40002308
 We can confirm that the `kmalloc_ptr` translation worked with:
 
 ....
-./qemumonitor 'xp 0xe169ae8'
+./qemu-monitor 'xp 0xe169ae8'
 ....
 
 which reads four bytes from a given physical address, and gives the expected:
@@ -5130,7 +5289,7 @@ which reads four bytes from a given physical address, and gives the expected:
 TODO it only works for kmalloc however, for the static variable:
 
 ....
-./qemumonitor 'xp 0x40002308'
+./qemu-monitor 'xp 0x40002308'
 ....
 
 it gave a wrong value of `00000000`.
@@ -5207,7 +5366,7 @@ First launch `virt_to_phys_user.out` as described at <<userland-physical-address
 On a second terminal, use QEMU to read the physical address:
 
 ....
-./qemumonitor 'xp 0x7c7b800'
+./qemu-monitor 'xp 0x7c7b800'
 ....
 
 Output:
@@ -5698,13 +5857,13 @@ It can be found from:
 TODO confirm further. If I try to break there with:
 +
 ....
-./rungdb *0x1000000
+./run-gdb *0x1000000
 ....
 +
 but I have no corresponding source line. Also note that this line is not actually the first line, since the kernel messages such as `early console in extract_kernel` have already shown on screen at that point. This does not break at all:
 +
 ....
-./rungdb extract_kernel
+./run-gdb extract_kernel
 ....
 +
 It only appears once on every log I've seen so far, checked with `grep 0x1000000 trace.txt`
@@ -5715,7 +5874,7 @@ TODO `--arch arm` and `--arch aarch64` does not count firmware instructions prop
 * We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
 +
 ....
-./rungdb-user kernel_modules-1.0/user/poweroff.out main
+./run-gdb-user kernel_modules-1.0/user/poweroff.out main
 ....
 +
 And get that from the traces, e.g. if the address is `4003a0`, then we search:
@@ -5877,7 +6036,7 @@ Shift-PgDown
 Shift-PgUp
 ....
 
-Or inside `./qemumonitor`:
+Or inside `./qemu-monitor`:
 
 ....
 sendkey shift-pgup
@@ -5984,7 +6143,7 @@ Bibliography:
 We cannot test these actual shortcuts on QEMU since the host captures them at a lower level, but from:
 
 ....
-./qemumonitor
+./qemu-monitor
 ....
 
 we can for example crash the system with:
@@ -6369,7 +6528,10 @@ Looks like a more raw alternative to libdrm:
 
 ....
 ./build-buildroot --buildroot-config 'BR2_PACKABE_LIBDRI2=y'
-wget -O packages/kernel_modules/user/dri2test.c https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c
+wget \
+  -O "$(./getvar kernel_modules_src_dir)/user/dri2test.c" \
+  https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c \
+:;
 ./build-buildroot --kernel-modules
 ....
 
@@ -6489,7 +6651,7 @@ Disk persistency is useful to re-run shell commands from the history of a previo
 
 TODO how to make gem5 disk writes persistent?
 
-As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the `config.ini` under cow sections, but hacking them to true did not work:
+As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the <<config-ini>> under cow sections, but hacking them to true did not work:
 
 ....
 diff --git a/configs/common/FSConfig.py b/configs/common/FSConfig.py
@@ -6532,7 +6694,7 @@ To test it out, login into the VM with and run:
 On another shell, take a snapshot:
 
 ....
-./qemumonitor savevm my_snap_id
+./qemu-monitor savevm my_snap_id
 ....
 
 The counting continues.
@@ -6540,7 +6702,7 @@ The counting continues.
 Restore the snapshot:
 
 ....
-./qemumonitor loadvm my_snap_id
+./qemu-monitor loadvm my_snap_id
 ....
 
 and the counting goes back to where we saved. This shows that CPU and memory states were reverted.
@@ -6560,7 +6722,7 @@ echo 0 >f
 Monitor:
 
 ....
-./qemumonitor savevm my_snap_id
+./qemu-monitor savevm my_snap_id
 ....
 
 Guest:
@@ -6572,7 +6734,7 @@ echo 1 >f
 Monitor:
 
 ....
-./qemumonitor loadvm my_snap_id
+./qemu-monitor loadvm my_snap_id
 ....
 
 Guest:
@@ -6739,7 +6901,7 @@ which we identify as being `edu` and `pci_min` respectively by the magic numbers
 Alternatively, we can also do use the QEMU monitor:
 
 ....
-./qemumonitor info qtree
+./qemu-monitor info qtree
 ....
 
 which gives:
@@ -7061,7 +7223,7 @@ TODO performance compared to NFS.
 As usual, we have already set everything up for you. On host:
 
 ....
-cd data/9p
+cd "$(./getvar p9_dir)"
 uname -a > host
 ....
 
@@ -7236,7 +7398,7 @@ A simpler and possibly less overhead alternative to <<9P>> would be to generate 
 
 Then you can `umount` and re-mount on guest without reboot.
 
-We don't support this yet, but it should not be too hard to hack it up, maybe by hooking into link:rootfs_post_build_script[].
+We don't support this yet, but it should not be too hard to hack it up, maybe by hooking into link:rootfs-post-build-script[].
 
 This was not possible from gem5 `fs.py` as of 60600f09c25255b3c8f72da7fb49100e2682093a: https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661
 
@@ -7258,7 +7420,7 @@ The reason this is cool, is that `ls` is not statically compiled, but since we h
 In other words, much cooler than:
 
 ....
-./run-toolchain --arch arm gcc -- -static ./packages/kernel_modules/user/hello.c
+./run-toolchain --arch arm gcc -- -static "$(./getvar kernel_modules_src_dir)/user/hello.c"
 qemu-arm a.out
 ....
 
@@ -7309,9 +7471,9 @@ First we try some `-static` sanity checks.
 Works and prints `hello`:
 
 ....
-./run-toolchain --arch x86_64  gcc -- -static -o x86_64.out  ./packages/kernel_modules/user/hello.c
-./run-toolchain --arch arm     gcc -- -static -o arm.out     ./packages/kernel_modules/user/hello.c
-./run-toolchain --arch aarch64 gcc -- -static -o aarch64.out ./packages/kernel_modules/user/hello.c
+./run-toolchain --arch x86_64  gcc -- -static -o x86_64.out  "$(./getvar kernel_modules_src_dir)/user/hello.c"
+./run-toolchain --arch arm     gcc -- -static -o arm.out     "$(./getvar kernel_modules_src_dir)/user/hello.c"
+./run-toolchain --arch aarch64 gcc -- -static -o aarch64.out "$(./getvar kernel_modules_src_dir)/user/hello.c"
 "$(./getvar --arch x86_64  --gem5 exec)" "$(./getvar gem5_se_file)" -c ./x86_64.out
 "$(./getvar --arch arm     --gem5 exec)" "$(./getvar gem5_se_file)" -c ./arm.out
 "$(./getvar --arch aarch64 --gem5 exec)" "$(./getvar gem5_se_file)" -c ./aarch64.out
@@ -7404,20 +7566,20 @@ The QEMU monitor is a terminal that allows you to send text commands to the QEMU
 On another terminal, run:
 
 ....
-./qemumonitor
+./qemu-monitor
 ....
 
 or send one command such as `info qtree` and quit the monitor:
 
 ....
-./qemumonitor info qtree
+./qemu-monitor info qtree
 ....
 
-Source: link:qemumonitor[]
+Source: link:qemu-monitor[]
 
-`qemumonitor` uses the `-monitor` QEMU command line option, which makes the monitor listen from a socket.
+`qemu-monitor` uses the `-monitor` QEMU command line option, which makes the monitor listen from a socket.
 
-`qemumonitor` does not support input from an stdin pipe currently, see comments on the source for rationale.
+`qemu-monitor` does not support input from an stdin pipe currently, see comments on the source for rationale.
 
 Alternatively, from text mode:
 
@@ -7442,7 +7604,7 @@ Ctrl-Alt ?
 
 where `?` is a digit `1`, or `2`, or, `3`, etc. depending on what else is available on the GUI: serial, parallel and frame buffer.
 
-In general, `./qemumonitor` is the best option, as it:
+In general, `./qemu-monitor` is the best option, as it:
 
 * works on both modes
 * allows to use the host Bash history to re-run one off commands
@@ -7664,7 +7826,7 @@ This awesome feature allows you to examine a single run as many times as you wou
 A convenient shortcut to do both at once to test the feature is:
 
 ....
-./qemurr --eval-busybox '/rand_check.out;/poweroff.out;'
+./qemu-rr --eval-busybox '/rand_check.out;/poweroff.out;'
 ....
 
 By comparing the terminal output of both runs, we can see that they are the exact same, including things which normally differ across runs:
@@ -7691,7 +7853,7 @@ EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
 TODO replay with network gets stuck:
 
 ....
-./qemurr --eval-busybox '/sbin/ifup -a;wget -S google.com;/poweroff.out;'
+./qemu-rr --eval-busybox '/sbin/ifup -a;wget -S google.com;/poweroff.out;'
 ....
 
 after the message:
@@ -7710,7 +7872,7 @@ Then, when I tried with <<initrd>> and no disk:
 
 ....
 ./build-buildroot --arch aarch64 -i
-./qemurr --arch aarch64 --eval-busybox '/rand_check.out;/poweroff.out;' -i
+./qemu-rr --arch aarch64 --eval-busybox '/rand_check.out;/poweroff.out;' -i
 ....
 
 QEMU crashes with:
@@ -7737,7 +7899,7 @@ QEMU replays support checkpointing, and this allows for a simplistic "reverse de
 On another shell:
 
 ....
-./rungdb start_kernel
+./run-gdb start_kernel
 ....
 
 In GDB:
@@ -7958,19 +8120,7 @@ Now you can play a fun little game with your friends:
 * make a program that solves the computation problem, and outputs output to stdout
 * write the code that runs the correct computation in the smallest number of cycles possible
 
-To find out why your program is slow, a good first step is to have a look at the statistics for the run:
-
-....
-cat "$(./getvar --arch aarch64 m5out_dir)/stats.txt"
-....
-
-Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
-
-....
----------- Begin Simulation Statistics ----------
-[the stats]
----------- End Simulation Statistics   ----------
-....
+To find out why your program is slow, a good first step is to have a look at <<stats-txt>> file.
 
 ==== Skip extra benchmark instructions
 
@@ -8425,7 +8575,7 @@ If you want to remove PARSEC later, Buildroot doesn't provide an automated packa
 
 ....
 rm -rf \
-  "$(./getvar dl_dir)"/parsec-* \
+  "$(./getvar buildroot_download_dir)"/parsec-* \
   "$(./getvar buildroot_build_dir)"/build/parsec-* \
   "$(./getvar buildroot_build_dir)"/build/packages-file-list.txt \
   "$(./getvar buildroot_build_dir)"/images/rootfs.* \
@@ -8505,7 +8655,7 @@ Analogous <<gdb,to QEMU>>, on the first shell:
 On the second shell:
 
 ....
-./rungdb --arch arm --gem5
+./run-gdb --arch arm --gem5
 ....
 
 On a third shell:
@@ -8518,7 +8668,42 @@ When you want to break, just do a `Ctrl-C` on GDB shell, and then `continue`.
 
 And we now see the boot messages, and then get a shell. Now try the `/count.sh` procedure described for QEMU: <<gdb-step-debug-kernel-post-boot>>.
 
-TODO: how to stop at `start_kernel`? gem5 listens for GDB by default, and therefore does not wait for a GDB connection to start like QEMU does. So when GDB connects we might have already passed `start_kernel`. Maybe `--debug-break=0` can be used? https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
+==== gem5 wait for GDB to connect before running
+
+By default, gem5 does not wait for GDB to connect, which means that you might go past your point of interest.
+
+This can however be enabled with the `wait_for_remote_gdb` option:
+
+....
+patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-wait-gdb.patch
+....
+
+Just just proceed as usual:
+
+....
+./run --gem5
+....
+
+TODO why is this required, on another shell:
+
+....
+./gem5-shell
+....
+
+and finally:
+
+....
+./run-gdb --gem5 start_kernel
+....
+
+If I don't connect to the other shell on baremetal, the simulation breaks with:
+
+....
+....
+
+You have to remove the patch if you want to go back to running without waiting for GDB to connect.
+
+Bibliography: https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
 
 ===== gem5 GDB step debug kernel aarch64
 
@@ -8538,7 +8723,7 @@ warn: Couldn't read data from debugger.
 4107767500: system.remote_gdb: remote gdb detached
 ....
 
-I've also tried the fix at: https://stackoverflow.com/questions/27411621/remote-g-packet-reply-is-too-long-aarch64-arm64 by adding to the link:rungdb[] script:
+I've also tried the fix at: https://stackoverflow.com/questions/27411621/remote-g-packet-reply-is-too-long-aarch64-arm64 by adding to the link:run-gdb[] script:
 
 ....
 -ex 'set tdesc filename out/aarch64/buildroot/build/gdb-7.11.1/./gdb/features/aarch64.xml'
@@ -8570,7 +8755,7 @@ I press `n`, it just runs the program until the end, instead of stopping on the 
 TODO:
 
 ....
-./rungdb-user --arch arm --gem5 gem5-1.0/gem5/util/m5/m5 main
+./run-gdb-user --arch arm --gem5 gem5-1.0/gem5/util/m5/m5 main
 ....
 
 breaks when `m5` is run on guest, but does not show the source code.
@@ -8640,7 +8825,7 @@ since boot has already happened, and the parameters are already in the RAM of th
 
 ==== gem5 checkpoint internals
 
-Checkpoints are stored inside the `m5out` directory at:
+Checkpoints are stored inside the <<m5out-directory>> at:
 
 ....
 "$(./getvar --gem5 run_dir)/m5out/cpt.<checkpoint-time>"
@@ -9042,25 +9227,51 @@ So let's explain them one by one here as we understand them:
 * `drm: Add component-aware simple encoder` allows you to see images through VNC: <<gem5-graphic-mode>>
 * `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8/50248068#5024806
 
-=== m5term
+=== m5out directory
 
-We use the `m5term` in-tree executable to connect to the terminal instead of a direct `telnet`.
+When you run gem5, it generates an `m5out` directory at:
 
-If you use `telnet` directly, it mostly works, but certain interactive features don't, e.g.:
+....
+echo $(./getvar --arch arm --gem5 m5out_dir)"
+....
 
-* up and down arrows for history havigation
-* tab to complete paths
-* `Ctrl-C` to kill processes
+The location of that directory can be set with `./gem5.opt -d`, and defaults to `./m5out`.
 
-TODO understand in detail what `m5term` does differently than `telnet`.
+The files in that directory contains some very important information about the run, and you should become familiar with every one of them.
 
-=== gem5 stats
+==== system.terminal
 
-Lets try to understand some stats better.
+Contains UART output, both from the Linux kernel or from the baremetal system.
+
+Can also be seen live on <<m5term>>.
+
+==== stats.txt
+
+This file contains important statistics about the run:
+
+....
+cat "$(./getvar --arch aarch64 m5out_dir)/stats.txt"
+....
+
+Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
+
+....
+---------- Begin Simulation Statistics ----------
+[the stats]
+---------- End Simulation Statistics   ----------
+....
+
+That file contains several important execution metrics, e.g. number of cycles and several types of cache misses:
+
+....
+system.cpu.numCycles
+system.cpu.dtb.inst_misses
+system.cpu.dtb.inst_hits
+....
 
 ==== rdtsc
 
-link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 instruction] that returns the cycle count since reset:
+Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCycles` with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
 
 ....
 ./build-buildroot --gem5 --kernel-modules && \
@@ -9092,6 +9303,68 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:packages
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
 * https://blog.regehr.org/archives/794
+
+==== config.ini
+
+The `config.ini` file, contains a very good high level description of the system:
+
+....
+less $(./getvar --arch arm --gem5 m5out_dir)"
+....
+
+That file contains a tree representation of the system, sample excerpt:
+
+....
+[root]
+type=Root
+children=system
+full_system=true
+
+[system]
+type=ArmSystem
+children=cpu cpu_clk_domain
+auto_reset_addr_64=false
+semihosting=Null
+
+[system.cpu]
+type=AtomicSimpleCPU
+children=dstage2_mmu dtb interrupts isa istage2_mmu itb tracer
+branchPred=Null
+
+[system.cpu_clk_domain]
+type=SrcClockDomain
+clock=500
+....
+
+Each node has:
+
+* a list of child nodes, e.g. `system` is a child of `root`, and both `cpu` and `cpu_clk_domain` are children of 
+* a list of parameters, e.g. `system.semihosting` is `Null`, which means that <<semihosting>> was turned off
+** the `type` parameter shows is present on every node, and it maps to a `Python` object that inherits from `SimObject`.
++
+For example, `AtomicSimpleCPU` maps is defined at link:https://github.com/gem5/gem5/blob/05c4c2b566ce351ab217b2bd7035562aa7a76570/src/cpu/simple/AtomicSimpleCPU.py#L45[src/cpu/simple/AtomicSimpleCPU.py].
+
+You can also get a simplified graphical view of the tree with:
+
+....
+xdg-open "$(./getvar --arch arm --gem5 m5out_dir)/config.dot.pdf"
+....
+
+Modifying the `config.ini` file does nothing since it gets overwritten every time.
+
+You can modify those configurations in `fs.py` easily by hacking up the `fs.py` file just before it runs, see for example: link:patches/manual/gem5-aarch64-baremetal.patch[]
+
+=== m5term
+
+We use the `m5term` in-tree executable to connect to the terminal instead of a direct `telnet`.
+
+If you use `telnet` directly, it mostly works, but certain interactive features don't, e.g.:
+
+* up and down arrows for history havigation
+* tab to complete paths
+* `Ctrl-C` to kill processes
+
+TODO understand in detail what `m5term` does differently than `telnet`.
 
 === gem5 Python scripts without rebuild
 
@@ -9140,7 +9413,7 @@ Disadvantages over `fs.py`:
 * only works for ARM, not other archs
 * not as many configuration options as `fs.py`, many things are hardcoded
 
-We setup 2 big and 2 small CPUs, but `cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html `config.ini` does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
+We setup 2 big and 2 small CPUs, but `cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html <<config-ini>> does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
 
 TODO: why is the `--dtb` required despite `fs_bigLITTLE.py` having a DTB generation capability? Without it, nothing shows on terminal, and the simulation terminates with `simulate() limit reached  @  18446744073709551615`. The magic `vmlinux.vexpress_gem5_v1.20170616` works however without a DTB.
 
@@ -9404,7 +9677,7 @@ vim "$(./getvar --arch arm run_cmd_file)"
 ./"$(./getvar --arch arm run_cmd_file)"
 ....
 
-Next, you will also want to give the relevant images to save them time, see: <<zip-img>>.
+Next, you will also want to give the relevant images to save them time, see: <<release-zip>>.
 
 Finally, do a clone of the relevant repository out of tree and reproduce the bug there, to be 100% sure that it is an actual upstream bug, and to provide developers with the cleanest possible commands.
 
@@ -9412,6 +9685,342 @@ For QEMU and Buildroot, we have the following convenient setups respectively:
 
 * https://github.com/cirosantilli/qemu-test
 * https://github.com/cirosantilli/buildroot/tree/in-tree-package-master
+
+== Baremetal
+
+=== Baremetal GDB step debug
+
+GDB step debug works on baremetal exactly as it does on the Linux kernel, except that is is even cooler here since we can easily control and understand every single instruction that is being run!
+
+For example, on the first shell:
+
+....
+./run --arch arm --baremetal prompt --debug-guest
+....
+
+then on the second shell:
+
+....
+./run-gdb --arch arm --baremetal prompt --no-continue
+....
+
+and now we are left at the very first executed instruction of our tiny bootloader: link:baremetal/lib/arm.S[]
+
+Then just use `stepi` to when jumping into main to go to the C code in link:baremetal/prompt.c[].
+
+The bootloader is used to put the hardware in its main operating mode before we run our main payload on it.
+
+You can also find executables that don't use the bootloader at all under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
+
+....
+./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --debug-guest
+....
+
+Alternatively, skip directly to the C program main function with:
+
+....
+./run-gdb --arch arm --baremetal prompt main
+....
+
+gem5 step debug requires a patch as mentioned at <<gem5-wait-for-gdb-to-connect-before-running>>:
+
+....
+patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-wait-gdb.patch
+....
+
+and then proceed as usual:
+
+....
+./run --arch arm --baremetal prompt --debug-guest --gem5
+....
+
+and on another shell:
+
+....
+./run-gdb --arch arm --baremetal prompt --gem5 --no-continue
+....
+
+`aarch64` GDB step debug is broken as mentioned at: <<gem5-gdb-step-debug-kernel-aarch64>>.
+
+=== Semihosting
+
+Semihosting is a publicly documented interface specified by ARM Holdings that allows us to do some magic operations very useful in development.
+
+Semihosting is implemented both on some real devices and on simulators such as QEMU and gem5.
+
+It is documented at: https://developer.arm.com/docs/100863/latest/introduction
+
+Example:
+
+....
+./run --arch arm --baremetal arch/arm/semihost_exit
+....
+
+makes both the QEMU and gem5 host executables exit.
+
+Source: link:baremetal/arch/arm/no_bootloader/semihost_exit.S[]
+
+That program program contains the code:
+
+....
+mov r0, #0x18
+ldr r1, =#0x20026
+svc 0x00123456
+....
+
+and we can see from the docs that `0x18` stands for the `SYS_EXIT` command.
+
+This is also how we implement the `exit(0)` system call in C for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/common.c[].
+
+Other magic operations we can do with semihosting besides exiting the on the host include:
+
+* exit
+* read and write to host stdin and stdout
+* read and write to host files
+
+Alternatives exist for some semihosting operations, e.g.:
+
+* UART IO for host stdin and stdout in both emulators and real hardware
+* <<m5ops>> for <<gem5>>, e.g. `m5 exit` makes the emulator quit
+
+The big advantage of semihosting is that it is standardized across all ARM boards, and therefore allows you to make a single image that does those magic operations instead of having to compile multiple images with different magic addresses.
+
+The downside of semihosting is that it is ARM specific. TODO is it an open standard that other vendors can implement?
+
+In QEMU, we enable semihosting with:
+
+....
+-semihosting
+....
+
+Newlib 9c84bfd47922aad4881f80243320422b621c95dc already has a semi-hosting implementation at:
+
+....
+newlib/libc/sys/arm/syscalls.c
+....
+
+TODO: how to use it? Possible through crosstool-NG? In the worst case we could just copy it.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve/40957928#40957928
+* https://balau82.wordpress.com/2010/11/04/qemu-arm-semihosting/
+
+==== gem5 semihosting
+
+TODO how to enable it? <<config-ini>> contains:
+
+....
+root.system.semihosting=Null
+....
+
+and there are no hits under `configs/`.
+
+=== gem5 baremetal carriage return
+
+TODO: our example is printing newlines without automatic carriage return `\r` as in:
+
+....
+enter a character
+                 got: a
+....
+
+We use `m5term` by default, and if we try `telnet` instead:
+
+....
+telnet localhost 3456
+....
+
+it does add the carriage returns automatically.
+
+=== Baremetal host packaged toolchain
+
+For `arm`, some baremetal examples compile fine with:
+
+....
+sudo apt-get install gcc-arm-none-eabi qemu-system-arm
+./build-baremetal --arch arm --prebuilt
+./run --arch arm --baremetal prompt --prebuilt
+....
+
+However, there are as usual limitations to using prebuilts:
+
+* certain examples fail to build with the Ubuntu packaged toolchain. E.g.: link:baremetal/exit.c[] fails with:
++
+....
+/usr/lib/gcc/arm-none-eabi/6.3.1/../../../arm-none-eabi/lib/libg.a(lib_a-fini.o): In function `__libc_fini_array':
+/build/newlib-8gJlYR/newlib-2.4.0.20160527/build/arm-none-eabi/newlib/libc/misc/../../../../../newlib/libc/misc/fini.c:33: undefined reference to `_fini'
+collect2: error: ld returned 1 exit status
+....
++
+with the prebuilt toolchain, and I'm lazy to debug.
+* there seems to to be no analogous `aarch64` Ubuntu package to `gcc-arm-none-eabi`
+
+=== C++ baremetal
+
+TODO I tried by there was an error. Not yet properly reported. Should not be hard in theory since `libstdc++` is just part of GCC, as shown at: https://stackoverflow.com/questions/21872229/how-to-edit-and-re-build-the-gcc-libstdc-c-standard-library-source/51946224#51946224
+
+=== GDB builtin CPU simulator
+
+It is incredible, but GDB also has a CPU simulator inside of it as documented at: https://sourceware.org/gdb/onlinedocs/gdb/Target-Commands.html
+
+TODO: any advantage over QEMU? I doubt it, mostly using it as as toy for now:
+
+Without running `./run`, do directly:
+
+....
+./run-gdb --arch arm --baremetal prompt --sim
+....
+
+Then inside GDB:
+
+....
+load
+starti
+....
+
+and now you can debug normally.
+
+Enabled with the crosstool-NG configuration:
+
+....
+CT_GDB_CROSS_SIM=y
+....
+
+which by grepping crosstool-NG we can see does on GDB:
+
+....
+./configure --enable-sim
+....
+
+Those are not set by default on `gdb-multiarch` in Ubuntu 16.04.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/49470659/arm-none-eabi-gdb-undefined-target-command-sim
+* http://cs107e.github.io/guides/gdb/
+
+==== GDB builtin CPU simulator userland
+
+Since I had this compiled, I also decided to try it out on userland.
+
+I was also able to run a freestanding Linux userland example on it: https://github.com/cirosantilli/arm-assembly-cheat/blob/cd232dcaf32c0ba6399b407e0b143d19b6ec15f4/v7/linux/hello.S
+
+It just ignores the `swi` however, and does not forward syscalls to the host like QEMU does.
+
+Then I tried a glibc example: https://github.com/cirosantilli/arm-assembly-cheat/blob/cd232dcaf32c0ba6399b407e0b143d19b6ec15f4/v7/mov.S
+
+First it wouldn't break, so I added `-static` to the `Makefile`, and then it started failing with:
+
+....
+Unhandled v6 thumb insn
+....
+
+Doing:
+
+....
+help architecture
+....
+
+shows ARM version up to `armv6`, so maybe `armv6` is not implemented?
+
+=== How we got some baremetal stuff to work
+
+It is nice when thing just work.
+
+But you can also learn a thing or two from how I actually made them work in the first place.
+
+==== Find the UART address
+
+Enter the QEMU console:
+
+....
+Ctrl-X C
+....
+
+Then do:
+
+....
+info mtree
+....
+
+And look for `pl011`:
+
+....
+    0000000009000000-0000000009000fff (prio 0, i/o): pl011
+....
+
+On gem5, it is easy to find it on the source. We are using the machine `RealView_PBX`, and a quick grep leads us to: https://github.com/gem5/gem5/blob/a27ce59a39ec8fa20a3c4e9fa53e9b3db1199e91/src/dev/arm/RealView.py#L615
+
+....
+class RealViewPBX(RealView):
+    uart = Pl011(pio_addr=0x10009000, int_num=44)
+....
+
+==== aarch64 NEON setup
+
+Inside link:baremetal/lib/aarch64.S[] there is a chunk of code called "NEON setup".
+
+Without that, the `printf`:
+
+....
+printf("got: %c\n", c);
+....
+
+compiled to a:
+
+....
+str    q0, [sp, #80]
+....
+
+which uses NEON registers, and goes into an exception loop.
+
+It was a bit confusing because there was a previous `printf`:
+
+....
+printf("enter a character\n");
+....
+
+which did not blow up because GCC compiles it into `puts` directly since it has no arguments, and that does not generate NEON instructions.
+
+The last instructions ran was found with:
+
+....
+while(1)
+stepi
+end
+....
+
+or by hacking the QEMU CLI to contain:
+
+.....
+-D log.log -d in_asm
+.....
+
+I could not find any previous NEON instruction executed so this led me to suspect that some NEON initialization was required:
+
+* http://infocenter.arm.com/help/topic/com.arm.doc.dai0527a/DAI0527A_baremetal_boot_code_for_ARMv8_A_processors.pdf "Bare-metal Boot Code for ARMv8-A Processors"
+* https://community.arm.com/processors/f/discussions/5409/how-to-enable-neon-in-cortex-a8
+* https://stackoverflow.com/questions/19231197/enable-neon-on-arm-cortex-a-series
+
+We then tried to copy the code from the "Bare-metal Boot Code for ARMv8-A Processors" document:
+
+....
+// Disable trapping of accessing in EL3 and EL2.
+MSR CPTR_EL3, XZR
+MSR CPTR_EL3, XZR
+// Disable access trapping in EL1 and EL0.
+MOV X1, #(0x3 << 20) // FPEN disables trapping to EL1.
+MSR CPACR_EL1, X1
+ISB
+....
+
+but it entered an exception loop at `MSR CPTR_EL3, XZR`.
+
+We then found out that QEMU starts in EL1, and so we kept just the EL1 part, and it worked. Related:
+
+* https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
+* https://stackoverflow.com/questions/37299524/neon-support-in-armv8-system-mode-qemu
 
 == Benchmark this repo
 
@@ -9785,6 +10394,16 @@ We have link:https://buildroot.org/downloads/manual/manual.html#ccache[enabled c
 * absolute paths are used and GDB can find source files
 * but builds are not reused across separated LKMC directories
 
+=== Rebuild while running
+
+Not possible because
+
+....
+Text file busy
+....
+
+openat(AT_FDCWD, "sleep.out", O_WRONLY) = -1 ETXTBSY ()
+
 === Simultaneous runs
 
 When doing long simulations sweeping across multiple system parameters, it becomes fundamental to do multiple simulations in parallel.
@@ -9821,7 +10440,7 @@ Each run gets a separate output directory. For example:
 ./run --arch aarch64 --gem5 --run-id 1 &>/dev/null &
 ....
 
-produces two separate `m5out` directories:
+produces two separate <<m5out-directory,`m5out` directories>>:
 
 ....
 echo "$(./getvar --arch aarch64 --gem5 --run-id 0 m5out_dir)"
@@ -9849,7 +10468,7 @@ Like <<cpu-architecture>>, you will need to pass the `-n` option to anything tha
 
 ....
 ./run --run-id 1
-./rungdb --run-id 1
+./run-gdb --run-id 1
 ....
 
 To run multiple gem5 checkouts, see: <<gem5-simultaneous-runs-with-build-variants>>.
@@ -9865,7 +10484,7 @@ If a port is not free, it just crashes.
 We assign a contiguous port range for each run ID.
 ** gem5 automatically increments ports until it finds a free one.
 +
-gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on `config.ini`.
+gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on <<config-ini>>.
 +
 The GDB port can be assigned on `gem5.opt --remote-gdb-port`, but it does not appear on `config.ini`.
 
@@ -9903,7 +10522,7 @@ The `git fetch --unshallow` is needed the first time because link:configure[] on
 The `--linux-build-id` option should be passed to all scripts that support it, much like `--arch` for the <<cpu-architecture>>, e.g. to step debug:
 
 .....
-./rungdb --linux-build-id v4.16
+./run-gdb --linux-build-id v4.16
 .....
 
 To run both kernels simultaneously, one on each QEMU instance, see: <<simultaneous-runs>>.
@@ -10212,7 +10831,7 @@ Shell 1:
 Shell 2:
 
 ....
-./rungdb start_kernel
+./run-gdb start_kernel
 ....
 
 Should break GDB at `start_kernel`.

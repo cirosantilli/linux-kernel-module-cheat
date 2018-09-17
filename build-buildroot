@@ -168,9 +168,9 @@ def main(args, extra_args=None):
             buildroot_configs = args.buildroot_config
             buildroot_configs.extend([
                 'BR2_JLEVEL={}'.format(nproc),
-                'BR2_DL_DIR="{}"'.format(common.dl_dir),
+                'BR2_DL_DIR="{}"'.format(common.buildroot_download_dir),
             ])
-            write_configs(buildroot_configs)
+            common.write_configs(common.buildroot_config_file, buildroot_configs)
             if not args.baseline:
                 buildroot_configs.extend([
                     'BR2_GLOBAL_PATCH_DIR="{}"'.format(
@@ -182,7 +182,7 @@ def main(args, extra_args=None):
                     'BR2_ROOTFS_OVERLAY="{}"'.format(
                         path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_overlay'))),
                     'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_post_build_script'))),
+                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs-post-build-script'))),
                     'BR2_ROOTFS_USERS_TABLES="{}"'.format(
                         path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))),
                 ])
@@ -253,7 +253,7 @@ def main(args, extra_args=None):
                     kernel_config_fragments[i] = path_relative_to_buildroot(frag)
                 buildroot_kernel_config_fragment_str = 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="{}"'.format(' '.join(kernel_config_fragments))
                 buildroot_configs.append(buildroot_kernel_config_fragment_str)
-                write_configs(buildroot_configs, buildroot_config_fragments)
+                common.write_configs(common.buildroot_config_file, buildroot_configs, buildroot_config_fragments)
                 subprocess.check_call(
                     [
                         'make',
@@ -303,22 +303,6 @@ def main(args, extra_args=None):
 
 def path_relative_to_buildroot(abspath):
     return os.path.relpath(abspath, common.buildroot_src_dir)
-
-def write_configs(buildroot_configs, buildroot_config_fragments=None):
-    """
-    Write extra configs into the Buildroot config file.
-    TODO Can't get rid of these for now with nice fragments:
-    http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
-    """
-    if buildroot_config_fragments is None:
-        buildroot_config_fragments = []
-    with open(common.buildroot_config_file, 'a') as br2_config_file:
-        for buildroot_config_fragment in buildroot_config_fragments:
-            with open(buildroot_config_fragment, 'r') as br2_config_fragment:
-                for line in br2_config_fragment:
-                    br2_config_file.write(line)
-        for buildroot_config in buildroot_configs:
-            br2_config_file.write(buildroot_config + '\n')
 
 if __name__ == '__main__':
     parser = get_argparse()

@@ -11,6 +11,7 @@ import common
 defaults = {
     'after': '',
     'before': '',
+    'sim': False,
     'no_continue': False,
     'kgdb': False,
     'no_lxsymbols': False,
@@ -33,7 +34,7 @@ def main(args, extra_args=None):
     args = common.resolve_args(defaults, args, extra_args)
     after = shlex.split(args.after)
     before = shlex.split(args.before)
-    if args.no_lxsymbols:
+    if args.no_lxsymbols or args.baremetal is not None:
         lx_symbols = []
     else:
         lx_symbols = ['-ex', 'lx-symbols ../kernel_modules-1.0/']
@@ -41,19 +42,25 @@ def main(args, extra_args=None):
         break_at = ['-ex', 'break {}'.format(args.break_at)]
     else:
         break_at = []
+    if args.baremetal is None:
+        image = common.vmlinux
+    else:
+        image = common.image
     cmd = (
-        [
-            os.path.join(common.host_bin_dir,
-            '{}-linux-gdb'.format(args.arch))
-        ] +
+        [common.get_toolchain_tool('gdb')] +
         before +
-        [
-            '-q',
-            '-ex', 'add-auto-load-safe-path {}'.format(common.linux_variant_dir),
-            '-ex', 'file {}'.format(common.vmlinux),
-            '-ex', 'target remote localhost:{}'.format(common.gdb_port),
-        ]
+        ['-q']
     )
+    if args.baremetal is None:
+        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_variant_dir)])
+    if args.sim:
+        target = 'sim'
+    else:
+        target = 'remote localhost:{}'.format(common.gdb_port)
+    cmd.extend([
+        '-ex', 'file {}'.format(image),
+        '-ex', 'target {}'.format(target),
+    ])
     if not args.kgdb:
         cmd.extend(break_at)
     if not args.no_continue:
@@ -78,7 +85,7 @@ def main(args, extra_args=None):
         # which gets put on the kernel build root when python debugging scripts are enabled.
         cmd.extend(['-ex', 'continue'] + lx_symbols)
     cmd.extend(after)
-    return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'rungdb.sh'), cwd=common.linux_variant_dir)
+    return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'), cwd=common.linux_variant_dir)
 
 if __name__ == '__main__':
     parser = common.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})
@@ -96,6 +103,12 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-k', '--kgdb', default=defaults['kgdb'], action='store_true'
+    )
+    parser.add_argument(
+        '--sim', default=defaults['sim'], action='store_true',
+        help='''Use the built-in GDB CPU simulator
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
+'''
     )
     parser.add_argument(
         '-X', '--no-lxsymbols', default=defaults['no_lxsymbols'], action='store_true'

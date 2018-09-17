@@ -30,8 +30,13 @@ bench() (
   "${root_dir}/bench-cmd" "./run --arch ${1}${extra_args}" "$common_bench_boot"
 )
 
+newline() (
+  echo >> "$common_bench_boot"
+)
+
 gem5_insts() (
   printf "instructions $(./gem5-stat --arch "$1" sim_insts)\n" >> "$common_bench_boot"
+  newline
 )
 
 qemu_insts() (
@@ -39,10 +44,7 @@ qemu_insts() (
   ./qemu-trace2txt --arch "$common_arch"
   common_qemu_trace_txt_file="$("$getvar" --arch "$common_arch" qemu_trace_txt_file)"
   printf "instructions $(wc -l "${common_qemu_trace_txt_file}" | cut -d' ' -f1)\n" >> "$common_bench_boot"
-)
-
-newline() (
-  echo >> "$common_bench_boot"
+  newline
 )
 
 rm -f "${common_bench_boot}"
@@ -55,31 +57,26 @@ newline
 if [ "$test_size" -ge 2 ]; then
   bench "${arch} --eval '/poweroff.out' --trace exec_tb"
   qemu_insts "$arch"
-  newline
   bench "$arch --eval 'm5 exit' --gem5"
   gem5_insts "$arch"
-  newline
 fi
 #bench "$arch --eval 'm5 exit' --gem5 -- --cpu-type=DerivO3CPU ${caches}"
 #gem5_insts "$arch"
-#newline
 
 arch=arm
 bench "$arch --eval '/poweroff.out'"
-newline
 if [ "$test_size" -ge 2 ]; then
   bench "$arch --eval '/poweroff.out' --trace exec_tb"
   qemu_insts "$arch"
-  newline
   #bench "$arch --eval 'm5 exit' --gem5"
   #gem5_insts "$arch"
-  #newline
 fi
-#if [ "$test_size" -ge 3 ]; then
-#  bench "$arch --eval 'm5 exit' --gem5 -- --cpu-type=HPI ${caches}"
-#  gem5_insts "$arch"
-#  newline
-#fi
+if [ "$test_size" -ge 3 ]; then
+  #bench "$arch --eval 'm5 exit' --gem5 -- --cpu-type=HPI ${caches}"
+  #gem5_insts "$arch"
+  bench "$arch --eval 'm5 exit' --gem5 --gem5-biglittle"
+  gem5_insts "$arch"
+fi
 
 arch=aarch64
 bench "$arch --eval '/poweroff.out'"
@@ -87,13 +84,10 @@ newline
 if [ "$test_size" -ge 2 ]; then
   bench "$arch --eval '/poweroff.out' --trace exec_tb"
   qemu_insts "$arch"
-  newline
   bench "$arch --eval 'm5 exit' --gem5"
   gem5_insts "$arch"
-  newline
 fi
 if [ "$test_size" -ge 3 ]; then
   bench "$arch --eval 'm5 exit' --gem5 -- --cpu-type=HPI ${caches}"
   gem5_insts "$arch"
-  newline
 fi

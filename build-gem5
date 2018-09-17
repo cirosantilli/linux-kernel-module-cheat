@@ -84,7 +84,13 @@ else:
         extra_env={'PATH': common.ccache_dir + ':' + os.environ['PATH']},
     ) == 0
     term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
+    m5term_build = os.path.join(term_src_dir, 'm5term')
     subprocess.check_call(['make', '-C', term_src_dir])
-    shutil.copy2(os.path.join(term_src_dir, 'm5term'), common.gem5_m5term)
+    if os.path.exists(common.gem5_m5term):
+        # Otherwise shutil.copy2 would fail with "Text file busy" if you
+        # tried to rebuild while running m5term:
+        # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
+        os.unlink(common.gem5_m5term)
+    shutil.copy2(m5term_build, common.gem5_m5term)
     end_time = time.time()
     common.print_time(end_time - start_time)

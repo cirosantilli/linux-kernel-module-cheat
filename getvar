@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+
+import types
+
 import common
+
 parser = common.get_argparse(argparse_args={
     'description': '''Print the value of a common.py variable.
 
@@ -14,8 +18,21 @@ For example, to get the Buildroot output directory for an ARM build, use:
 ./%(prog)s -a arm buildroot_build_dir
 ....
 
+List all available variables:
+
+....
+./%(prog)s
+....
+....
 '''
 })
-parser.add_argument('variable')
+parser.add_argument('variable', nargs='?')
 args = common.setup(parser)
-print(getattr(common, args.variable))
+if args.variable:
+    print(getattr(common, args.variable))
+else:
+    for attr in dir(common):
+        if not attr.startswith('__'):
+            val = getattr(common, attr)
+            if not callable(val) and not type(val) is types.ModuleType:
+                print('{} {}'.format(attr, val))
