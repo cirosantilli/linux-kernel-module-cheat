@@ -27,7 +27,7 @@ typedef struct {
  * @param[out] entry      the parsed entry
  * @param[in]  pagemap_fd file descriptor to an open /proc/pid/pagemap file
  * @param[in]  vaddr      virtual address to get entry for
- * @return 0 for success, 1 for failure
+ * @return                0 for success, 1 for failure
  */
 int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
 {
@@ -60,8 +60,8 @@ int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
  *
  * @param[out] paddr physical address
  * @param[in]  pid   process to convert for
- * @param[in] vaddr virtual address to get entry for
- * @return 0 for success, 1 for failure
+ * @param[in]  vaddr virtual address to get entry for
+ * @return  		 0 for success, 1 for failure
  */
 int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr)
 {

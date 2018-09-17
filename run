@@ -29,7 +29,6 @@ defaults = {
     'kgdb': False,
     'kvm': False,
     'memory': '256M',
-    'prebuilt': False,
     'record': False,
     'replay': False,
     'terminal': False,
@@ -52,7 +51,7 @@ def main(args, extra_args=None):
         kernel_cli += ' {}'.format(args.kernel_cli)
     kernel_cli_after_dash = ''
     extra_emulator_args = []
-    extra_qemu_args = []
+    extra_qemu_args = ['-semihosting']
     if args.debug_vm:
         debug_vm = ['gdb', '-q', '-ex', 'start', '--args']
     else:
@@ -98,17 +97,27 @@ def main(args, extra_args=None):
 
     def raise_rootfs_not_found():
         raise Exception('Root filesystem not found. Did you build it?\n' \
-                        'Tried to use: ' + common.rootfs_raw_file)
+                        'Tried to use: ' + common.disk_image)
+    def raise_image_not_found():
+        raise Exception('Executable image not found. Did you build it?\n' \
+                        'Tried to use: ' + common.image)
+    if common.image is None:
+        raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
     if args.gem5:
-        if not os.path.exists(common.rootfs_raw_file):
-            if not os.path.exists(common.qcow2_file):
-                raise_rootfs_not_found()
-            common.raw_to_qcow2(prebuilt=args.prebuilt, reverse=True)
-        if not os.path.exists(common.vmlinux):
+        if args.baremetal is None:
+            if not os.path.exists(common.rootfs_raw_file):
+                if not os.path.exists(common.qcow2_file):
+                    raise_rootfs_not_found()
+                common.raw_to_qcow2(prebuilt=args.prebuilt, reverse=True)
+        else:
+            if not os.path.exists(common.gem5_fake_iso):
+                os.makedirs(os.path.dirname(common.gem5_fake_iso), exist_ok=True)
+                with open(common.gem5_fake_iso, 'w') as f:
+                    f.write('a' * 512)
+        if not os.path.exists(common.image):
             # This is to run gem5 from a prebuilt download.
-            if not os.path.exists(common.linux_image):
-                raise Exception('Linux kernel image not found. Did you compile it?\n' \
-                                'Tried: ' + common.vmlinux)
+            if (not args.baremetal is None) or (not os.path.exists(common.linux_image)):
+                raise_image_not_found()
             assert common.run_cmd([os.path.join(common.extract_vmlinux, common.linux_image)]) == 0
         os.makedirs(os.path.dirname(common.gem5_readfile), exist_ok=True)
         with open(common.gem5_readfile, 'w') as readfile:
@@ -139,9 +148,9 @@ def main(args, extra_args=None):
                 os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
                 '--big-cpus', '2',
                 '--cpu-type', 'atomic',
-                '--disk', common.rootfs_raw_file,
+                '--disk', common.disk_image,
                 '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'),
-                '--kernel', common.vmlinux,
+                '--kernel', common.image,
                 '--little-cpus', '2'
             ]
         else:
@@ -152,8 +161,8 @@ def main(args, extra_args=None):
                 extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
             cmd += [
                 common.gem5_fs_file,
-                '--disk-image', common.rootfs_raw_file,
-                '--kernel', common.vmlinux,
+                '--disk-image', common.disk_image,
+                '--kernel', common.image,
                 '--mem-size', memory,
                 '--num-cpus', str(args.cpus),
                 '--script', common.gem5_readfile,
@@ -168,9 +177,13 @@ def main(args, extra_args=None):
                 cmd += [
                     '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
                     '--dtb-file', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
-                    '--machine-type', 'VExpress_GEM5_V1',
+                    '--machine-type', common.machine,
                 ]
+                if not args.baremetal is None:
+                    cmd.append('--bare-metal')
     else:
+        if not os.path.exists(common.image):
+            raise_image_not_found()
         extra_emulator_args.extend(extra_qemu_args)
         os.makedirs(common.run_dir, exist_ok=True)
         if args.prebuilt:
@@ -183,10 +196,6 @@ def main(args, extra_args=None):
         if not qemu_found:
             raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
                             'Tried to use: ' + qemu_executable)
-        if not os.path.exists(common.qcow2_file):
-            if not os.path.exists(common.rootfs_raw_file):
-                raise_rootfs_not_found()
-            common.raw_to_qcow2(prebuilt=args.prebuilt)
         if args.debug_vm:
             serial_monitor = []
         else:
@@ -201,7 +210,7 @@ def main(args, extra_args=None):
                 qemu_executable,
                 '-device', 'rtl8139,netdev=net0',
                 '-gdb', 'tcp::{}'.format(common.gdb_port),
-                '-kernel', common.linux_image,
+                '-kernel', common.image,
                 '-m', args.memory,
                 '-monitor', 'telnet::{},server,nowait'.format(common.qemu_monitor_port),
                 '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(common.qemu_hostfwd_generic_port, common.qemu_hostfwd_generic_port, common.qemu_hostfwd_ssh_port),
@@ -215,7 +224,7 @@ def main(args, extra_args=None):
             vnc
         )
         if args.initrd:
-            extra_emulator_args.extend(['-initrd', os.path.join(common.images_dir, 'rootfs.cpio')])
+            extra_emulator_args.extend(['-initrd', os.path.join(common.buildroot_images_dir, 'rootfs.cpio')])
         rr = args.record or args.replay
         if ramfs:
             # TODO why is this needed, and why any string works.
@@ -231,15 +240,20 @@ def main(args, extra_args=None):
                 root = 'root=/dev/vda'
                 rrid = ''
                 snapshot = ',snapshot'
-            extra_emulator_args.extend([
-                '-drive',
-                'file={},format=qcow2,if={}{}{}'.format(common.qcow2_file, driveif, snapshot, rrid)
-            ])
-            if rr:
+            if args.baremetal is None:
+                if not os.path.exists(common.qcow2_file):
+                    if not os.path.exists(common.rootfs_raw_file):
+                        raise_rootfs_not_found()
+                    common.raw_to_qcow2(prebuilt=args.prebuilt)
                 extra_emulator_args.extend([
-                '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay',
-                '-device', 'ide-hd,drive=img-blkreplay'
-            ])
+                    '-drive',
+                    'file={},format=qcow2,if={}{}{}'.format(common.disk_image, driveif, snapshot, rrid)
+                ])
+                if rr:
+                    extra_emulator_args.extend([
+                    '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay',
+                    '-device', 'ide-hd,drive=img-blkreplay'
+                ])
         if rr:
             extra_emulator_args.extend([
                 '-object', 'filter-replay,id=replay,netdev=net0',
@@ -251,9 +265,9 @@ def main(args, extra_args=None):
         if args.arch == 'x86_64':
             if args.kgdb:
                 kernel_cli += ' kgdboc=ttyS0,115200'
+            append = ['-append', '{} nopat {}'.format(root, kernel_cli)]
             cmd.extend([
-                '-M', 'pc',
-                '-append', '{} nopat {}'.format(root, kernel_cli),
+                '-M', common.machine,
                 '-device', 'edu',
             ])
         elif args.arch == 'arm' or args.arch == 'aarch64':
@@ -263,17 +277,19 @@ def main(args, extra_args=None):
                 cpu = 'cortex-a15'
             else:
                 cpu = 'cortex-a57'
-            # highmem=off needed since v3.0.0 due to:
-            # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+            append = ['-append', '{} {}'.format(root, kernel_cli)]
             cmd = (
                 cmd +
                 [
-                    '-M', 'virt,highmem=off',
-                    '-append', '{} {}'.format(root, kernel_cli),
+                    # highmem=off needed since v3.0.0 due to:
+                    # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+                    '-M', '{},highmem=off'.format(common.machine),
                     '-cpu', cpu,
                 ] +
                 virtio_gpu_pci
             )
+        if args.baremetal is None:
+            cmd.extend(append)
     if args.tmux:
         if args.gem5:
             subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
@@ -286,7 +302,7 @@ def main(args, extra_args=None):
             # but it cannot be used as a library properly it seems, and it is
             # slower than tmux.
             subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
-                "sleep 2;./rungdb -a '{}' -L '{}' -n '{}' {}" \
+                "sleep 2;./run-gdb -a '{}' -L '{}' -n '{}' {}" \
                 .format(args.arch, args.linux_build_id, args.run_id, args.tmux_args)
             ])
     cmd.extend(extra_emulator_args)
@@ -413,10 +429,6 @@ at the minimal ammount amount that boots all archs. Anything lower could lead
 some arch to fail to boot.
 Default: %(default)s
 '''
-    )
-    parser.add_argument(
-        '-P', '--prebuilt', default=defaults['prebuilt'], action='store_true',
-        help='Run the downloaded prebuilt images with pre-packaged host tools.'
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(

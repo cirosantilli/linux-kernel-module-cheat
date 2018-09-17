@@ -15,8 +15,14 @@ done
 shift "$(($OPTIND - 1))"
 for arch in $archs; do
   ./build-qemu --arch "$arch"
-  ./build-buildroot --arch "$arch" --gem5 --kernel-modules -l "$@"
   if "$gem5"; then
     ./build-gem5 --arch "$arch"
+  fi
+  ./build-buildroot --arch "$arch" --gem5 --kernel-modules -l "$@"
+  if [ ! "$arch" = x86_64 ]; then
+    ./build-crosstool-ng --arch "$arch"
+    ./build-baremetal --arch "$arch"
+    ./build-baremetal --arch "$arch" -g
+    ./build-baremetal --arch "$arch" -g --machine RealViewPBX
   fi
 done

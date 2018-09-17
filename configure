@@ -1,29 +1,51 @@
 #!/usr/bin/env bash
 set -eu
+apt_get=true
+baremetal=false
+baremetal_given=false
+buildroot=true
+buildroot_given=false
+linux=true
+linux_given=false
 interactive_pkgs=libsdl2-dev
 gem5=false
 gem5_given=false
 qemu=true
 qemu_given=false
 submodules_dir=submodules
-submodules=buildroot
+submodules=
 y=
 while [ $# -gt 0 ]; do
   case "$1" in
+    --baremetal)
+      baremetal=true
+      baremetal_given=true
+      shift
+    ;;
+    --buildroot)
+      buildroot_given=true
+      shift
+    ;;
     --gem5)
       gem5_given=true
       shift
     ;;
     --parsec-benchmark)
       submodules="${submodules} parsec-benchmark"
+      shift
     ;;
     --qemu)
       qemu_given=true
       shift
     ;;
+    --no-apt-get)
+      apt_get=false
+      shift
+    ;;
     --travis)
       interactive_pkgs=
       y=-y
+      shift
     ;;
     *)
       echo 'unknown option' 1>&2
@@ -37,84 +59,93 @@ fi
 if "$gem5_given"; then
   gem5=true
 fi
-
-## apt-get
-
-pkgs="\
-automake \
-bc \
-build-essential \
-coreutils \
-cpio \
-expect \
-git \
-moreutils \
-rsync \
-tmux \
-unzip \
-vinagre \
-wget \
-"
-if "$gem5"; then
-  pkgs="$pkgs \
-ccache \
-gcc-aarch64-linux-gnu \
-gcc-arm-linux-gnueabi \
-libgoogle-perftools-dev \
-protobuf-compiler \
-python-dev \
-python-pip \
-scons \
-"
+if "$baremetal_given" && ! "$buildroot_given"; then
+  buildroot=false
 fi
-command -v apt-get >/dev/null 2>&1 || {
-  cat <<EOF
+
+if "$apt_get"; then
+  pkgs="\
+  automake \
+  bc \
+  build-essential \
+  coreutils \
+  cpio \
+  expect \
+  git \
+  moreutils \
+  rsync \
+  tmux \
+  unzip \
+  vinagre \
+  wget \
+  "
+  if "$gem5"; then
+    pkgs="$pkgs \
+  ccache \
+  gcc-aarch64-linux-gnu \
+  gcc-arm-linux-gnueabi \
+  libgoogle-perftools-dev \
+  protobuf-compiler \
+  python-dev \
+  python-pip \
+  scons \
+  "
+  fi
+  command -v apt-get >/dev/null 2>&1 || {
+    cat <<EOF
 apt-get not found. You're on your own for installing dependencies.
 
 On Ubuntu they are:
 
 $pkgs
 EOF
-  exit 0
-}
+    exit 0
+  }
 
-# Without this started failing in kernel 4.15 with:
-# Makefile:932: *** "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel".  Stop.                                                       
-pkgs="$pkgs libelf-dev"
+  # Without this started failing in kernel 4.15 with:
+  # Makefile:932: *** "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel".  Stop.
+  pkgs="$pkgs libelf-dev"
 
-# https://stackoverflow.com/questions/20010199/determining-if-a-process-runs-inside-lxc-docker
-if [ -f /.dockerenv ]; then
-  # https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
-  export DEBIAN_FRONTEND=noninteractive
-  mysudo=
-  # https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list
-  sed -Ei 's/^# deb-src/deb-src/' /etc/apt/sources.list
-  y=-y
-else
-  mysudo=sudo
-fi
-$mysudo apt-get update $y
-# Building SDL for QEMU in Buildroot was rejected upstream because it adds many dependencies:
-# https://patchwork.ozlabs.org/patch/770684/
-# We are just using the host SDL for now, if it causes too much problems we might remove it.
-# libsdl2-dev needs to be installed separatedly from sudo apt-get build-dep qemu
-# because Ubuntu 16.04's QEMU uses SDL 1.
-$mysudo apt-get install $y \
-  $pkgs \
-  $interactive_pkgs \
-;
-if "$qemu"; then
-  $mysudo apt-get build-dep $y qemu
-fi
-if "$gem5"; then
-  # Generate graphs of config.ini under m5out.
-  # Not with pip directly:
-  # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
-  python -m pip install --user pydot
+  # https://stackoverflow.com/questions/20010199/determining-if-a-process-runs-inside-lxc-docker
+  if [ -f /.dockerenv ]; then
+    # https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
+    export DEBIAN_FRONTEND=noninteractive
+    mysudo=
+    # https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list
+    sed -Ei 's/^# deb-src/deb-src/' /etc/apt/sources.list
+    y=-y
+  else
+    mysudo=sudo
+  fi
+  $mysudo apt-get update $y
+  # Building SDL for QEMU in Buildroot was rejected upstream because it adds many dependencies:
+  # https://patchwork.ozlabs.org/patch/770684/
+  # We are just using the host SDL for now, if it causes too much problems we might remove it.
+  # libsdl2-dev needs to be installed separatedly from sudo apt-get build-dep qemu
+  # because Ubuntu 16.04's QEMU uses SDL 1.
+  $mysudo apt-get install $y \
+    $pkgs \
+    $interactive_pkgs \
+  ;
+  if "$qemu"; then
+    $mysudo apt-get build-dep $y qemu
+  fi
+  if "$gem5"; then
+    # Generate graphs of config.ini under m5out.
+    # Not with pip directly:
+    # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
+    python -m pip install --user pydot
+  fi
 fi
 
 ## Submodules
 
+if "$baremetal"; then
+  submodules="${submodules} crosstool-ng"
+fi
+if "$buildroot"; then
+  submodules="${submodules} buildroot"
+fi
 if "$qemu"; then
   submodules="${submodules} qemu"
 fi
@@ -154,4 +185,6 @@ submodules="$(for submodule in ${submodules}; do printf "${submodules_dir}/${sub
 # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
 #
 git submodule update --init --recursive -- ${submodules}
-git submodule update --depth 1 --init --recursive -- "${submodules_dir}/linux"
+if "$linux"; then
+  git submodule update --depth 1 --init --recursive -- "${submodules_dir}/linux"
+fi
