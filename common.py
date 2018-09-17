@@ -6,6 +6,7 @@ import copy
 import datetime
 import glob
 import imp
+import json
 import os
 import re
 import shlex
@@ -15,10 +16,10 @@ import stat
 import subprocess
 import sys
 import time
+import urllib
+import urllib.request
 
 this = sys.modules[__name__]
-
-# Default paths.
 root_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(root_dir, 'data')
 p9_dir = os.path.join(data_dir, '9p')
@@ -34,8 +35,7 @@ extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
 ccache_dir = os.path.join('/usr', 'lib', 'ccache')
-
-# Other default variables.
+github_token_file = os.path.join(data_dir, 'github-token')
 arch_map = {
     'a': 'arm',
     'A': 'aarch64',
@@ -44,6 +44,9 @@ arch_map = {
 arches = [arch_map[k] for k in arch_map]
 gem5_cpt_prefix = '^cpt\.'
 sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
+release_dir = os.path.join(this.out_dir, 'release')
+release_zip_file = os.path.join(this.release_dir, 'lkmc-{}.zip'.format(this.sha))
+github_repo_id = 'cirosantilli/linux-kernel-module-cheat'
 config_file = os.path.join(data_dir, 'config')
 if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
@@ -188,6 +191,39 @@ def get_stats(stat_re=None, stats_file=None):
 def get_toolchain_tool(tool):
     global this
     return glob.glob(os.path.join(this.host_bin_dir, '*-buildroot-*-{}'.format(tool)))[0]
+
+def github_make_request(
+        authenticate=False,
+        data=None,
+        extra_headers=None,
+        path='',
+        subdomain='api',
+        url_params=None,
+        **extra_request_args
+    ):
+    global this
+    if extra_headers is None:
+        extra_headers = {}
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    headers.update(extra_headers)
+    if authenticate:
+        with open(this.github_token_file, 'r') as f:
+            token = f.read().rstrip()
+        headers['Authorization'] = 'token ' + token
+    if url_params is not None:
+        path += '?' + urllib.parse.urlencode(url_params)
+    request = urllib.request.Request(
+        'https://' + subdomain + '.github.com/repos/' + github_repo_id + path,
+        headers=headers,
+        data=data,
+        **extra_request_args
+    )
+    response_body = urllib.request.urlopen(request).read().decode()
+    if response_body:
+        _json = json.loads(response_body)
+    else:
+        _json = {}
+    return _json
 
 def log_error(msg):
     print('error: {}'.format(msg), file=sys.stderr)
@@ -340,7 +376,7 @@ def run_cmd(
     #signal.signal(signal.SIGPIPE, sigpipe_old)
     return proc.returncode
 
-def setup(parser, **extra_args):
+def setup(parser):
     '''
     Parse the command line arguments, and setup several variables based on them.
     Typically done after getting inputs from the command line arguments.

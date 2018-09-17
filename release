@@ -1,31 +1,27 @@
 #!/usr/bin/env python3
 
+'''
+https://upload.com/cirosantilli/linux-kernel-module-cheat#release
+'''
+
 import imp
 import os
 import subprocess
 
 import common
-zip_img = imp.load_source('zip_img', os.path.join(common.root_dir, 'zip-img'))
+release_zip = imp.load_source('release_zip', os.path.join(common.root_dir, 'release-zip'))
+release_upload = imp.load_source('release_upload', os.path.join(common.root_dir, 'release-upload'))
 
-subprocess.check_call([os.path.join(common.root_dir, 'test')])
+# TODO factor those out so we don't redo the same thing multiple times.
+# subprocess.check_call([os.path.join(common.root_dir, 'test')])
+# subprocess.check_call([os.path.join(common.root_dir, ''bench-all', '-A', '-u'])
+
 # A clean release requires a full rebuild unless we hack it :-(
 # We can't just use our curent build as it contains packages we've
 # installed in random experiments. And with EXT2: we can't easily
 # know what the smallest root filesystem size is and use it either...
 # https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot
 subprocess.check_call([os.path.join(common.root_dir, 'build-all')])
-zip_img.main()
-tag = 'sha-{}'.format(common.sha)
-subprocess.check_call(['git', 'tag', '-f', tag])
-subprocess.check_call(['git', 'push', '--tags'])
-# TODO
-# - https://stackoverflow.com/questions/41022470/curl-request-to-add-file-to-github-release
-# - https://stackoverflow.com/questions/38627115/upload-files-to-github-directory-using-github-api
-# upload_basename = 'images-{}.zip'.format(common.sha)
-#curl "https://api.github.com/repos/cirosantilli/linux-kernel-module-cheat/releases/tags/${tag}/assets?access_token=$(cat data/access_token)&tag_name=${upload_basename}" \
-#  --header 'Content-Type: application/zip' \
-#  --upload-file "${common_out_dir}/${upload_basename}" \
-#  -H 'Accept: application/vnd.github.v3+json' \
-#  -X POST \
-#;
-subprocess.check_call(['./bench-all', '-A', '-u'])
+release_zip.main()
+subprocess.check_call(['git', 'push'])
+release_upload.main()

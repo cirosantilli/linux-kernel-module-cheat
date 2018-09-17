@@ -293,7 +293,7 @@ If you really want to develop semiconductors, your only choice is to join an uni
 
 ==== About the QEMU Buildroot setup
 
-link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of `make` scripts that downloads from source and compiles compatible versions of:
+link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of Make scripts that download and compile from source compatible versions of:
 
 * GCC
 * Linux kernel
@@ -553,7 +553,7 @@ Some times it works with the host QEMU:
 sudo apt-get install qemu-system-x86
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-./download-latest-release
+./release-download-latest
 unzip lkmc-*.zip
 ./run --prebuilt
 ....
@@ -9404,22 +9404,7 @@ vim "$(./getvar --arch arm run_cmd_file)"
 ./"$(./getvar --arch arm run_cmd_file)"
 ....
 
-Next, you will also want to give the relevant images to save them time. Zip the images with:
-
-....
-./build-all -G
-./zip-img
-....
-
-Source: link:zip-img[]
-
-This generates a zip file:
-
-....
-out/lkmc-*.zip
-....
-
-which you can then upload somewhere, e.g. GitHub release assets as in https://github.com/cirosantilli/linux-kernel-module-cheat/releases/tag/test-replay-arm
+Next, you will also want to give the relevant images to save them time, see: <<zip-img>>.
 
 Finally, do a clone of the relevant repository out of tree and reproduce the bug there, to be 100% sure that it is an actual upstream bug, and to provide developers with the cleanest possible commands.
 
@@ -10338,7 +10323,7 @@ This can be used to check the determinism of:
 * <<norandmaps>>
 * <<qemu-record-and-replay>>
 
-==== Releases
+==== Release
 
 This is not yet super stable, but one day maybe this script will automatically do a release:
 
@@ -10348,7 +10333,45 @@ This is not yet super stable, but one day maybe this script will automatically d
 
 Source: link:release[].
 
+When ready, that script should:
+
+* build
+* test
+* package with <<release-zip>>
+* upload to GitHub with link:release-create-github[]
+
 This should in particular enable to easily update <<prebuilt>>.
+
+===== release-zip
+
+Create a zip containing all files required for <<prebuilt>>
+
+....
+./build-all -G
+./release-zip
+....
+
+Source: link:release-zip[]
+
+This generates a zip file:
+
+....
+echo "$(./getvar release_zip_file)"
+....
+
+which you can then upload somewhere.
+
+For example, you can create or update a GitHub release and upload automatically with:
+
+....
+git push
+printf "$GITHUB_TOKEN" > "$(./getvar github_token_file)"
+./release-upload
+....
+
+Source: link:release-upload[]
+
+TODO: generalize that so that people can upload to their forks.
 
 === Fairy tale
 
