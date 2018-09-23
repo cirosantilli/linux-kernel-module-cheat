@@ -397,6 +397,7 @@ def run_cmd(
     # Ignoring the exception is not enough as it prints a warning anyways.
     #sigpipe_old = signal.getsignal(signal.SIGPIPE)
     #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
     # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
     with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
         if out_file is not None:
@@ -407,7 +408,11 @@ def run_cmd(
                     if byte:
                         if show_stdout:
                             sys.stdout.buffer.write(byte)
-                            sys.stdout.flush()
+                            try:
+                                sys.stdout.flush()
+                            except BlockingIOError:
+                                # TODO understand. Why, Python, why.
+                                pass
                         logfile.write(byte)
                     else:
                         break
