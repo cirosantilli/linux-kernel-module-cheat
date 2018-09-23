@@ -37,7 +37,6 @@ extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
 ccache_dir = os.path.join('/usr', 'lib', 'ccache')
-github_token_file = os.path.join(data_dir, 'github-token')
 arch_map = {
     'a': 'arm',
     'A': 'aarch64',
@@ -236,9 +235,7 @@ def github_make_request(
     headers = {'Accept': 'application/vnd.github.v3+json'}
     headers.update(extra_headers)
     if authenticate:
-        with open(this.github_token_file, 'r') as f:
-            token = f.read().rstrip()
-        headers['Authorization'] = 'token ' + token
+        headers['Authorization'] = 'token ' + os.environ['LKMC_GITHUB_TOKEN']
     if url_params is not None:
         path += '?' + urllib.parse.urlencode(url_params)
     request = urllib.request.Request(
