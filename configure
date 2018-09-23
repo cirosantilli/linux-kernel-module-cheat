@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu
+all=false
 apt_get=true
 baremetal=false
 baremetal_given=false
@@ -8,6 +9,7 @@ buildroot_given=false
 linux=true
 linux_given=false
 interactive_pkgs=libsdl2-dev
+parsec_benchmark_given=false
 gem5=false
 gem5_given=false
 qemu=true
@@ -17,8 +19,11 @@ submodules=
 y=
 while [ $# -gt 0 ]; do
   case "$1" in
+    --all)
+      all=true
+      shift
+    ;;
     --baremetal)
-      baremetal=true
       baremetal_given=true
       shift
     ;;
@@ -31,7 +36,7 @@ while [ $# -gt 0 ]; do
       shift
     ;;
     --parsec-benchmark)
-      submodules="${submodules} parsec-benchmark"
+      parsec_benchmark_given=true
       shift
     ;;
     --qemu)
@@ -53,14 +58,20 @@ while [ $# -gt 0 ]; do
     ;;
   esac
 done
-if "$gem5_given" && ! "$qemu_given"; then
+if ! "$all" && "$gem5_given" && ! "$qemu_given"; then
   qemu=false
 fi
-if "$gem5_given"; then
+if "$all" || "$gem5_given"; then
   gem5=true
 fi
-if "$baremetal_given" && ! "$buildroot_given"; then
+if "$all" || "$baremetal_given"; then
+  baremetal=true
+fi
+if ! "$all" && "$baremetal_given" && ! "$buildroot_given"; then
   buildroot=false
+fi
+if "$all" || "$parsec_benchmark_given"; then
+  submodules="${submodules} parsec-benchmark"
 fi
 
 if "$apt_get"; then
