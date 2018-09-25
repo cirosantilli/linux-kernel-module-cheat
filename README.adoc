@@ -10657,6 +10657,47 @@ git -C data/gem5/some-branch checkout some-branch-v2
 
 `--gem5-worktree` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
 
+===== gem5 private source trees
+
+Suppose that you are working on a private fork of gem5, but you want to use this repository to develop it as well.
+
+Simply adding your private repository as a remote to `submodules/gem5` is dangerous, as you might forget and push your private work by mistake one day.
+
+Even removing remotes is not safe enough, since `git submodule update` and other submodule commands can restore the old public remote.
+
+Instead, we provide the following safer process.
+
+First do a separate private clone of you private repository:
+
+....
+git clone https://my.private.repo.com/my-fork/gem5.git gem5-internal
+gem5_internal="$(pwd)/gem5-internal"
+....
+
+Next, when you want to build with this repository, use the `--gem5-src` argument to point this repository to the private source code:
+
+....
+cd linux-kernel-module-cheat
+./build-gem5 \
+  --gem5-build-id p/lkmc/master \
+  --gem5-src "$gem5_internal" \
+  --gem5-worktree p/lkmc/master \
+;
+./run-gem5
+  --gem5-build-id p/lkmc/master \
+  --gem5-src "$gem5_internal" \
+  --gem5-worktree p/lkmc/master \
+;
+....
+
+`p/lkmc/` is not mandatory but it provides a sane default:
+
+* `p` stands for `private`, and will separate the private from public builds
+* `lkmc` is added to prevent name conflicts with other work-trees of the private repository
+* `master`, finally, reflects that the worktree is at the `master` state of private repository
+
+This setup only creates gitignored worktrees of the private repository inside this repository, which is pretty safe, while still allowing fully use our infrastructure as usual.
+
 ===== gem5 debug build
 
 The `gem5.debug` has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
