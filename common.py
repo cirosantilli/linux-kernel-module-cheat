@@ -499,7 +499,7 @@ def setup(parser):
     this.qemu_termout_file = os.path.join(this.qemu_run_dir, 'termout.txt')
     this.qemu_rrfile = os.path.join(this.qemu_run_dir, 'rrfile')
     this.gem5_out_dir = os.path.join(this.out_dir, 'gem5')
-    this.gem5_build_dir = os.path.join(this.gem5_out_dir, args.gem5_build_id)
+    this.gem5_build_dir = os.path.join(this.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
     this.gem5_fake_iso = os.path.join(this.gem5_out_dir, 'fake.iso')
     this.gem5_m5term = os.path.join(this.gem5_build_dir, 'm5term')
     this.gem5_build_build_dir = os.path.join(this.gem5_build_dir, 'build')
