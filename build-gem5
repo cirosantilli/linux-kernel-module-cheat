@@ -30,20 +30,20 @@ else:
     if  not os.path.exists(os.path.join(common.gem5_src_dir, '.git')):
         if common.gem5_src_dir == common.gem5_default_src_dir:
             raise Exception('gem5 submodule not checked out')
-        subprocess.check_call([
+        assert common.run_cmd([
             'git',
             '-C', common.gem5_default_src_dir,
             'worktree', 'add',
             '-b', os.path.join('wt', args.gem5_build_id),
             common.gem5_src_dir
-        ])
+        ]) == 0
     if args.arch == 'x86_64':
         dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
         with open(dummy_img_path, 'wb') as dummy_img_file:
             zeroes = b'\x00' * (2 ** 16)
             for i in range(2 ** 10):
                 dummy_img_file.write(zeroes)
-        subprocess.check_call(['mkswap', dummy_img_path])
+        assert common.run_cmd(['mkswap', dummy_img_path]) == 0
         with open(os.path.join(binaries_dir, 'x86_64-vmlinux-2.6.22.9'), 'w'):
             # This file must always be present, despite --kernel overriding that default and selecting the kernel.
             # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
@@ -54,7 +54,7 @@ else:
         # dtb
         dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
         dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
-        subprocess.check_call(['make', '-C', dt_src_dir])
+        assert common.run_cmd(['make', '-C', dt_src_dir]) == 0
         os.makedirs(dt_build_dir, exist_ok=True)
         for dt in glob.glob(os.path.join(dt_src_dir, '*.dtb')):
             shutil.copy2(dt, dt_build_dir)
@@ -62,14 +62,14 @@ else:
         # Bootloader 32.
         bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
         # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
-        subprocess.check_call(['make', '-C', bootloader32_dir])
+        assert common.run_cmd(['make', '-C', bootloader32_dir]) == 0
         # bootloader
         shutil.copy2(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
 
         # Bootloader 64.
         bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
         # TODO cross_compile is ignored because the make does not use CC...
-        subprocess.check_call(['make', '-C', bootloader64_dir])
+        assert common.run_cmd(['make', '-C', bootloader64_dir]) == 0
         shutil.copy2(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
     assert common.run_cmd(
         [
@@ -81,11 +81,11 @@ else:
         ] +
         args.extra_scons_args,
         cwd=common.gem5_src_dir,
-        extra_env={'PATH': common.ccache_dir + ':' + os.environ['PATH']},
+        extra_paths=[common.ccache_dir],
     ) == 0
     term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
     m5term_build = os.path.join(term_src_dir, 'm5term')
-    subprocess.check_call(['make', '-C', term_src_dir])
+    assert common.run_cmd(['make', '-C', term_src_dir]) == 0
     if os.path.exists(common.gem5_m5term):
         # Otherwise shutil.copy2 would fail with "Text file busy" if you
         # tried to rebuild while running m5term:

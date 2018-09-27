@@ -265,7 +265,7 @@ def mkdir():
     os.makedirs(this.qemu_run_dir, exist_ok=True)
     os.makedirs(this.p9_dir, exist_ok=True)
 
-def print_cmd(cmd, cmd_file=None, extra_env=None):
+def print_cmd(cmd, cwd, cmd_file=None, extra_env=None, extra_paths=None):
     '''
     Format a command given as a list of strings so that it can
     be viewed nicely and executed by bash directly and print it to stdout.
@@ -275,12 +275,15 @@ def print_cmd(cmd, cmd_file=None, extra_env=None):
     '''
     newline_separator = ' \\\n'
     out = []
+    out.append('cd {} &&{}'.format(shlex.quote(cwd), newline_separator))
+    if extra_paths is not None:
+        out.append('PATH="{}:${{PATH}}"'.format(':'.join(extra_paths)) + newline_separator)
     for key in extra_env:
-        out.extend(['{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])), newline_separator])
+        out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])) + newline_separator)
     for arg in cmd:
-        out.extend([shlex.quote(arg), newline_separator])
-    out = ''.join(out)
-    print(out)
+        out.append(shlex.quote(arg) + newline_separator)
+    out = '  '.join(out) + ';\n'
+    print('+ ' + out, end='')
     if cmd_file is not None:
         with open(cmd_file, 'w') as f:
             f.write('#!/usr/bin/env bash\n')
@@ -343,6 +346,7 @@ def run_cmd(
         show_stdout=True,
         show_cmd=True,
         extra_env=None,
+        extra_paths=None,
         delete_env=None,
         **kwargs
     ):
@@ -380,13 +384,22 @@ def run_cmd(
         extra_env = {}
     if delete_env is None:
         delete_env = []
+    if 'cwd' in kwargs:
+        cwd = kwargs['cwd']
+    else:
+        cwd = os.getcwd()
     env = os.environ.copy()
     env.update(extra_env)
+    if extra_paths is not None:
+        path = ':'.join(extra_paths)
+        if 'PATH' in os.environ:
+            path += ':' + os.environ['PATH']
+        env['PATH'] = path
     for key in delete_env:
         if key in env:
             del env[key]
     if show_cmd:
-        print_cmd(cmd, cmd_file, extra_env=extra_env)
+        print_cmd(cmd, cwd=cwd, cmd_file=cmd_file, extra_env=extra_env, extra_paths=extra_paths)
 
     # Otherwise Ctrl + C gives:
     # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).

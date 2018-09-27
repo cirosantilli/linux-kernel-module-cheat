@@ -156,7 +156,7 @@ def main(args, extra_args=None):
                 if os.path.isdir(package_dir_abs):
                     br2_external_dirs.append(path_relative_to_buildroot(package_dir_abs))
             br2_external_str = ':'.join(br2_external_dirs)
-            subprocess.check_call(
+            assert common.run_cmd(
                 [
                     'make',
                     'O={}'.format(common.buildroot_build_dir),
@@ -164,7 +164,7 @@ def main(args, extra_args=None):
                     defconfig,
                 ],
                 cwd=common.buildroot_src_dir,
-            )
+            ) == 0
             buildroot_configs = args.buildroot_config
             buildroot_configs.extend([
                 'BR2_JLEVEL={}'.format(nproc),
@@ -254,14 +254,14 @@ def main(args, extra_args=None):
                 buildroot_kernel_config_fragment_str = 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="{}"'.format(' '.join(kernel_config_fragments))
                 buildroot_configs.append(buildroot_kernel_config_fragment_str)
                 common.write_configs(common.buildroot_config_file, buildroot_configs, buildroot_config_fragments)
-                subprocess.check_call(
+                assert common.run_cmd(
                     [
                         'make',
                         'O={}'.format(common.buildroot_build_dir),
                         'olddefconfig',
                     ],
                     cwd=common.buildroot_src_dir,
-                )
+                ) == 0
 
         # Manage Linux kernel and QEMU variants.
         def symlink_buildroot_variant(custom_dir, variant_dir):

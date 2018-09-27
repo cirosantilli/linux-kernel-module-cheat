@@ -21,7 +21,7 @@ if args.clean:
 else:
     start_time = time.time()
     os.makedirs(common.qemu_build_dir, exist_ok=True)
-    subprocess.check_call(
+    assert common.run_cmd(
         [
             os.path.join(common.qemu_src_dir, 'configure'),
             '--enable-debug',
@@ -31,8 +31,9 @@ else:
             '--with-sdlabi=2.0',
         ] +
         args.extra_config_args,
+        extra_paths=[common.ccache_dir],
         cwd=common.qemu_build_dir
-    )
+    ) == 0
     assert common.run_cmd(
         [
             'make',
@@ -40,7 +41,7 @@ else:
             '-j', str(multiprocessing.cpu_count()),
         ],
         cwd=common.qemu_build_dir,
-        extra_env={'PATH': common.ccache_dir + ':' + os.environ['PATH']},
+        extra_paths=[common.ccache_dir],
     ) == 0
     end_time = time.time()
     common.print_time(end_time - start_time)
