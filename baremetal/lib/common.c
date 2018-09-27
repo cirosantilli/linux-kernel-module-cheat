@@ -58,7 +58,7 @@ int _write(int file, char *ptr, int len) {
     return len;
 }
 
-/* Only 0 is supported for now, arm semihosting cannot handle it. */
+/* Only 0 is supported for now, arm semihosting cannot handle other values. */
 void _exit(int status) {
 #if defined(__arm__)
     __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456");
