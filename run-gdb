@@ -44,15 +44,17 @@ def main(args, extra_args=None):
         break_at = []
     if args.baremetal is None:
         image = common.vmlinux
+        allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
     else:
         image = common.image
+        allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
     cmd = (
-        [common.get_toolchain_tool('gdb')] +
+        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains)] +
         before +
         ['-q']
     )
     if args.baremetal is None:
-        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_variant_dir)])
+        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir)])
     if args.sim:
         target = 'sim'
     else:
@@ -85,7 +87,7 @@ def main(args, extra_args=None):
         # which gets put on the kernel build root when python debugging scripts are enabled.
         cmd.extend(['-ex', 'continue'] + lx_symbols)
     cmd.extend(after)
-    return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'), cwd=common.linux_variant_dir)
+    return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'), cwd=common.linux_build_dir)
 
 if __name__ == '__main__':
     parser = common.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})

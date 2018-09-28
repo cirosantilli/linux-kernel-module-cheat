@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+import multiprocessing
+import os
+import shutil
+import subprocess
+import time
+
+import common
+
+parser = common.get_argparse()
+common.add_build_arguments(parser)
+parser.add_argument(
+    'extra_make_args',
+    default=[],
+    metavar='extra-make-args',
+    nargs='*'
+)
+args = common.setup(parser)
+if args.clean:
+    common.rmrf(common.linux_build_dir)
+else:
+    start_time = time.time()
+    os.makedirs(common.linux_build_dir, exist_ok=True)
+    shutil.copy2(
+        os.path.join(common.linux_config_dir, 'buildroot-{}'.format(args.arch)),
+        os.path.join(common.linux_build_dir, '.config'),
+    )
+    tool = 'gcc'
+    gcc = common.get_toolchain_tool(tool)
+    prefix = gcc[:-len(tool)]
+    common_args = {
+        'cwd': common.linux_src_dir,
+    }
+    ccache = shutil.which('ccache')
+    if ccache is not None:
+        cc = '{} {}'.format(ccache, gcc)
+    else:
+        cc = gcc
+    common_make_args = [
+        'ARCH={}'.format(common.linux_arch),
+        'CROSS_COMPILE={}'.format(prefix),
+        'CC={}'.format(cc),
+        'O={}'.format(common.linux_build_dir),
+    ]
+    if args.verbose:
+        verbose = ['V=1']
+    else:
+        verbose = []
+    assert common.run_cmd(
+        [
+            os.path.join(common.linux_src_dir, 'scripts', 'kconfig', 'merge_config.sh'),
+            '-m',
+            '-O', common.linux_build_dir,
+            os.path.join(common.linux_build_dir, '.config'),
+            os.path.join(common.linux_config_dir, 'min'),
+            os.path.join(common.linux_config_dir, 'default'),
+        ],
+    ) == 0
+    assert common.run_cmd(
+        (
+            [
+                'make',
+                '-j', str(multiprocessing.cpu_count()),
+            ] +
+            common_make_args +
+            [
+                'olddefconfig',
+            ]
+        ),
+        **common_args,
+    ) == 0
+    assert common.run_cmd(
+        (
+            [
+                'make',
+                '-j', str(multiprocessing.cpu_count()),
+            ] +
+            common_make_args +
+            verbose +
+            args.extra_make_args
+        ),
+        **common_args,
+    ) == 0
+    end_time = time.time()
+    common.print_time(end_time - start_time)

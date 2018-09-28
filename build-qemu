@@ -21,6 +21,10 @@ if args.clean:
 else:
     start_time = time.time()
     os.makedirs(common.qemu_build_dir, exist_ok=True)
+    if args.verbose:
+        verbose = ['V=1']
+    else:
+        verbose = []
     assert common.run_cmd(
         [
             os.path.join(common.qemu_src_dir, 'configure'),
@@ -35,11 +39,14 @@ else:
         cwd=common.qemu_build_dir
     ) == 0
     assert common.run_cmd(
-        [
-            'make',
-            # TODO factor with build.
-            '-j', str(multiprocessing.cpu_count()),
-        ],
+        (
+            [
+                'make',
+                '-j', str(multiprocessing.cpu_count()),
+
+            ] +
+            verbose
+        ),
         cwd=common.qemu_build_dir,
         extra_paths=[common.ccache_dir],
     ) == 0

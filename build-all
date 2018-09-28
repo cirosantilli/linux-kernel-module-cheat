@@ -1,28 +1,89 @@
 #!/usr/bin/env bash
+
+# Build everything, or a subset of everything.
+#
+# Without any args, build everything for all archs:
+#
+#     ./build-all
+#
+# This will build QEMU, gem5, Buildroot, Linux, etc.
+# for x86_64, arm and aarch64.
+#
+# With --archs, build everything for just the given archs:
+#
+#    ./build-all --archs 'arm aarch64'
+#
+# Other options make this script build only the given projects. E.g., to build
+# just Linux and QEMU for all archs, but not gem5, Buildroot, etc.:
+#
+#    ./build-all --linux --qemu
+
 set -eu
 archs='x86_64 arm aarch64'
-gem5=true
-while getopts A:G OPT; do
-  case "$OPT" in
-    A)
-      archs="$OPTARG"
+baremetal=false
+buildroot=false
+gem5=false
+linux=false
+qemu=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --archs)
+      archs="$2"
+      shift 2
       ;;
-    G)
-      gem5=false
-      ;;
+    --baremetal)
+      baremetal=true
+      shift
+    ;;
+    --buildroot)
+      buildroot=true
+      shift
+    ;;
+    --gem5)
+      gem5=true
+      shift
+    ;;
+    --linux)
+      linux=true
+      shift
+    ;;
+    --qemu)
+      qemu=true
+      shift
+    ;;
   esac
 done
-shift "$(($OPTIND - 1))"
+if ! (
+    "$baremetal" || \
+    "$buildroot" || \
+    "$gem5" || \
+    "$linux" || \
+    "$qemu"
+  )
+then
+  baremetal=true
+  buildroot=true
+  gem5=true
+  linux=true
+  qemu=true
+fi
 for arch in $archs; do
-  ./build-qemu --arch "$arch"
-  if "$gem5"; then
-    ./build-gem5 --arch "$arch"
+  if "$qemu"; then
+    ./build-qemu --arch "$arch"
   fi
-  ./build-buildroot --arch "$arch" --gem5 --kernel-modules -l "$@"
-  if [ ! "$arch" = x86_64 ]; then
+  if "$baremetal" && [ ! "$arch" = x86_64 ]; then
     ./build-crosstool-ng --arch "$arch"
     ./build-baremetal --arch "$arch"
     ./build-baremetal --arch "$arch" --gem5
     ./build-baremetal --arch "$arch" --gem5 --machine RealViewPBX
+  fi
+  if "$buildroot"; then
+    ./build-buildroot --arch "$arch" --gem5 --kernel-modules "$@"
+  fi
+  if "$gem5"; then
+    ./build-gem5 --arch "$arch"
+  fi
+  if "$linux"; then
+    ./build-linux --arch "$arch"
   fi
 done

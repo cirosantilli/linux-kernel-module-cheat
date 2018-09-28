@@ -13,7 +13,7 @@ import common
 
 defaults = {
     'baseline': False,
-    'buildroot_bare_kernel': False,
+    'build_linux': False,
     'buildroot_config': [],
     'buildroot_config_fragment': [],
     'initramfs': False,
@@ -27,7 +27,6 @@ defaults = {
     'no_all': False,
     'nproc': None,
     'skip_configure': False,
-    'verbose': False,
     'extra_make_args': [],
 }
 
@@ -49,13 +48,23 @@ Takes precedence over any Buildroot config files.
 Pass multiple times to use multiple fragment files.'''
     )
     parser.add_argument(
+        '--build-linux', default=defaults['build_linux'], action='store_true',
+        help='''\
+Enable building the Linux kernel with Buildroot. This is done mostly
+to extract Buildroot's default kernel configurations when updating Buildroot.
+That kernel will not be use by our scripts.
+'''
+    )
+    parser.add_argument(
         '--baseline', default=defaults['baseline'], action='store_true',
         help='''Do a default-ish Buildroot defconfig build, without any of our extra options.
-Mostly to track how much slower we are than a basic build.'''
+Mostly to track how much slower we are than a basic build.
+'''
     )
     parser.add_argument(
         '-C', '--kernel-config', default=defaults['kernel_config'], action='append',
-        help='''Add a single kernel config configs to the current build.
+        help='''\
+Add a single kernel config configs to the current build.
 Example value: 'CONFIG_FORTIFY_SOURCE=y'.
 Can be used multiple times to add multiple configs.
 Takes precedence over any Buildroot config files.
@@ -63,8 +72,10 @@ Takes precedence over any Buildroot config files.
     )
     parser.add_argument(
         '-c', '--kernel-config-fragment', default=defaults['kernel_config_fragment'], action='append',
-        help='''Also use the given kernel configuration fragment file.
-Pass multiple times to use multiple fragment files.'''
+        help='''\
+Also use the given kernel configuration fragment file.
+Pass multiple times to use multiple fragment files.
+'''
     )
     parser.add_argument(
         '-I', '--initramfs', default=defaults['initramfs'], action='store_true',
@@ -78,41 +89,35 @@ Pass multiple times to use multiple fragment files.'''
     )
     parser.add_argument(
         '-K', '--kernel-custom-config-file', default=defaults['kernel_custom_config_file'],
-        help='''Ignore all default kernel configurations and use this file instead.
-Still uses options explicitly passed with `-C` and `-c` on top of it.'''
+        help='''\
+Ignore all default kernel configurations and use this file instead.
+Still uses options explicitly passed with `-C` and `-c` on top of it.
+'''
     )
     kernel_module_group.add_argument(
         '-k', '--kernel-modules', default=defaults['kernel_modules'], action='store_true',
         help='Reconfigure and rebuild the kernel modules package'
     )
     parser.add_argument(
-        '-l', '--linux-reconfigure', default=defaults['linux_reconfigure'], action='store_true',
-        help='''Reconfigure and rebuild the Linux kernel.
-Touches kernel configuration files to overcome:
-https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi'''
-    )
-    parser.add_argument(
         '--no-all', default=defaults['no_all'], action='store_true',
-        help='''Don't build the all target which normally gets build by default.
-That target builds the root filesystem and all its dependencies.'''
-    )
-    kernel_module_group.add_argument(
-        '--no-kernel-modules', default=defaults['no_kernel_modules'], action='store_true',
-        help="Don't build the kernel modules package"
+        help='''\
+Don't build the all target which normally gets build by default.
+That target builds the root filesystem and all its dependencies.
+'''
     )
     parser.add_argument(
         '--skip-configure', default=defaults['skip_configure'], action='store_true',
-        help='''Skip the Buildroot configuration. Saves a few seconds,
-but requires you to know what you are doing :-)'''
-    )
-    parser.add_argument(
-        '-v', '--verbose', default=defaults['verbose'], action='store_true',
-        help='Do a verbose build'
+        help='''\
+Skip the Buildroot configuration. Saves a few seconds,
+but requires you to know what you are doing :-)
+'''
     )
     parser.add_argument(
         'extra_make_args', default=defaults['extra_make_args'], metavar='extra-make-args', nargs='*',
-        help='''Extra arguments to be passed to the Buildroot make,
-usually extra Buildroot targets.'''
+        help='''\
+Extra arguments to be passed to the Buildroot make,
+usually extra Buildroot targets.
+'''
     )
     return parser
 
@@ -125,6 +130,7 @@ def main(args, extra_args=None):
         os.makedirs(common.out_dir, exist_ok=True)
         extra_make_args = args.extra_make_args.copy()
         if args.kernel_modules:
+            assert(args.build_linux)
             extra_make_args.append('kernel_modules-reconfigure')
         if args.linux_reconfigure:
             extra_make_args.append('linux-reconfigure')
@@ -171,6 +177,10 @@ def main(args, extra_args=None):
                 'BR2_DL_DIR="{}"'.format(common.buildroot_download_dir),
             ])
             common.write_configs(common.buildroot_config_file, buildroot_configs)
+            if args.build_linux:
+                buildroot_configs.extend([
+                    '# BR2_LINUX_KERNEL is not set',
+                ])
             if not args.baseline:
                 buildroot_configs.extend([
                     'BR2_GLOBAL_PATCH_DIR="{}"'.format(
@@ -180,13 +190,13 @@ def main(args, extra_args=None):
                     'BR2_PACKAGE_OVERRIDE_FILE="{}"'.format(
                         path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))),
                     'BR2_ROOTFS_OVERLAY="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs_overlay'))),
+                        path_relative_to_buildroot(common.rootfs_overlay_dir)),
                     'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
                         path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs-post-build-script'))),
                     'BR2_ROOTFS_USERS_TABLES="{}"'.format(
                         path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))),
                 ])
-                if not args.no_kernel_modules:
+                if args.kernel_modules:
                     buildroot_configs.append('BR2_PACKAGE_KERNEL_MODULES=y')
                 if args.gem5:
                     buildroot_configs.append('BR2_PACKAGE_GEM5=y')
@@ -241,13 +251,12 @@ def main(args, extra_args=None):
                             raise Exception('Kernel config fragment file does not exist: {}'.format(args.kernel_custom_config_file))
                         default_kernel_config_fragments = []
                     else:
-                        kernel_config_fragment_dir = os.path.join(common.root_dir, 'kernel_config')
                         default_kernel_config_fragments = ['min', 'default']
                         if args.linux_reconfigure:
                             # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-                            pathlib.Path(os.path.join(kernel_config_fragment_dir, 'min')).touch()
+                            pathlib.Path(os.path.join(common.linux_config_dir, 'min')).touch()
                     for i, default_kernel_config_fragment in enumerate(default_kernel_config_fragments):
-                        default_kernel_config_fragments[i] = os.path.join(kernel_config_fragment_dir, default_kernel_config_fragment)
+                        default_kernel_config_fragments[i] = os.path.join(common.linux_config_dir, default_kernel_config_fragment)
                 kernel_config_fragments.extend(default_kernel_config_fragments)
                 for i, frag in enumerate(kernel_config_fragments):
                     kernel_config_fragments[i] = path_relative_to_buildroot(frag)
@@ -262,17 +271,6 @@ def main(args, extra_args=None):
                     ],
                     cwd=common.buildroot_src_dir,
                 ) == 0
-
-        # Manage Linux kernel and QEMU variants.
-        def symlink_buildroot_variant(custom_dir, variant_dir):
-            if os.path.islink(custom_dir):
-                os.unlink(custom_dir)
-            elif os.path.isdir(custom_dir):
-                # Migration for existing builds.
-                shutil.move(custom_dir, variant_dir)
-            os.makedirs(variant_dir, exist_ok=True)
-            os.symlink(variant_dir, custom_dir)
-        symlink_buildroot_variant(common.linux_build_dir, common.linux_variant_dir)
 
         # Do the actual build.
         common.mkdir()

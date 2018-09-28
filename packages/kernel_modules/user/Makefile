@@ -1,12 +1,13 @@
-.PHONY: all clean
+.PHONY: all clean mkdir
 
 CFLAGS_EXTRA = -fopenmp -std=c99
 CXXFLAGS_EXTRA = -std=c++17
 CCFLAGS_EXTRA = -Wall -Werror -Wextra
 IN_EXT_C = .c
 IN_EXT_CXX = .cpp
-LIBS =
+LIBS = -lm
 OUT_EXT = .out
+OUT_DIR = .
 
 OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
 ifeq ($(BR2_PACKAGE_EIGEN),y)
@@ -30,14 +31,18 @@ ifeq ($(BR2_PACKAGE_OPENBLAS),y)
 else
 	OUTS := $(filter-out openblas$(OUT_EXT),$(OUTS))
 endif
+OUTS := $(addprefix $(OUT_DIR)/,$(OUTS))
 
-all: $(OUTS)
+all: mkdir $(OUTS)
 
-%$(OUT_EXT): %$(IN_EXT_C)
+$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_C)
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
 
-%$(OUT_EXT): %$(IN_EXT_CXX)
+$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX)
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
 
 clean:
 	rm -f *'$(OUT_EXT)'
+
+mkdir:
+	mkdir -p '$(OUT_DIR)'

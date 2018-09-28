@@ -38,6 +38,10 @@ else:
                 '-b', os.path.join('wt', args.gem5_build_id),
                 common.gem5_src_dir
             ]) == 0
+    if args.verbose:
+        verbose = ['--verbose']
+    else:
+        verbose = []
     if args.arch == 'x86_64':
         dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
         with open(dummy_img_path, 'wb') as dummy_img_file:
@@ -73,14 +77,16 @@ else:
         assert common.run_cmd(['make', '-C', bootloader64_dir]) == 0
         shutil.copy2(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
     assert common.run_cmd(
-        [
-            'scons',
-            # TODO factor with build.
-            '-j', str(multiprocessing.cpu_count()),
-            '--ignore-style',
-            common.gem5_executable
-        ] +
-        args.extra_scons_args,
+        (
+            [
+                'scons',
+                '-j', str(multiprocessing.cpu_count()),
+                '--ignore-style',
+                common.gem5_executable
+            ] +
+            verbose +
+            args.extra_scons_args
+        ),
         cwd=common.gem5_src_dir,
         extra_paths=[common.ccache_dir],
     ) == 0

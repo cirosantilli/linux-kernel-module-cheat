@@ -75,6 +75,8 @@ cd linux-kernel-module-cheat
 ./configure --qemu && \
   ./build-qemu &&
   ./build-buildroot && \
+  ./build-linux && \
+  ./build-modules && \
   ./run && \
 :;
 ....
@@ -98,7 +100,7 @@ see this: https://askubuntu.com/questions/496549/error-you-must-put-some-source-
 
 It does not work if you just download the `.zip` from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo. `./configure` then fetches only the required submodules for you.
 
-QEMU opens up and you can start playing with the kernel modules inside the simulated system:
+QEMU opens up and you can start playing with the kernel modules inside the simulated system: TODO fix path to 9p:
 
 ....
 insmod /hello.ko
@@ -210,9 +212,11 @@ pr_info("hello init hacked\n");
 and then rebuild the kernel modules and re-run to see it take effect:
 
 ....
-./build-buildroot --kernel-modules
+./build-modules
 ./run --eval-busybox 'insmod /hello.ko'
 ....
+
+TODO mention 9p
 
 Congratulations, you are now officially a kernel module hacker!
 
@@ -245,7 +249,7 @@ pr_info("I'VE HACKED THE LINUX KERNEL!!!");
 Then rebuild the Linux kernel and reboot:
 
 ....
-./build-buildroot && ./run
+./build-linux && ./run
 ....
 
 and, surely enough, your message has appeared at the beginning of the boot.
@@ -320,6 +324,8 @@ QEMU is also supported by Buildroot in-tree, see e.g.: https://github.com/buildr
 All of this makes QEMU the natural choice of default system simulator.
 
 === gem5 Buildroot setup
+
+TODO document kernel modules don't work on 9p
 
 ==== About the gem5 Buildroot setup
 
@@ -535,7 +541,6 @@ The limitations are severe however:
 * can't <<gdb,GDB step debug the kernel>>, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <<prebuilt-toolchain>>.
 +
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
-* can't create new modules or modify the existing ones, since no cross toolchain
 * you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us.
 * <<gem5>> is not currently supported, although it should not be too hard to do. Annoyances:
 +
@@ -583,6 +588,23 @@ then do whatever that checked out README says.
 
 If you are curious to see what the releases contain in detail, have a look at our <<release,release procedure>>.
 
+To build the kernel modules, simply do:
+
+....
+./build-linux -- modules_prepare
+./build-modules
+./run
+....
+
+`modules_prepare` does the minimal build procedure required on the kernel for us to be able to compile the kernel modules, and is way faster than doing a full kernel build. A full kernel build would also work however.
+
+To modify the Linux kernel, build and use it as usual:
+
+....
+./build-linux
+./run
+....
+
 ////
 For gem5, do:
 
@@ -601,11 +623,11 @@ The Linux kernel is required for `extract-vmlinux` to convert the compressed ker
 [[host]]
 === Host kernel module setup
 
-**THIS IS DANGEROUS, YOU HAVE BEEN WARNED**
+**THIS IS DANGEROUS (AND FUN), YOU HAVE BEEN WARNED**
 
 This method runs the kernel modules directly on your host computer without a VM, and saves you the compilation time and disk usage of the virtual machine method.
 
-It has however severe limitations, and you will soon see that the compilation time and disk usage are well worth it:
+It has however severe limitations:
 
 * can't control which kernel version and build options to use. So some of the modules will likely not compile because of kernel API changes, since https://stackoverflow.com/questions/37098482/how-to-build-a-linux-kernel-module-so-that-it-is-compatible-with-all-kernel-rele/45429681#45429681[the Linux kernel does not have a stable kernel module API].
 * bugs can easily break you system. E.g.:
@@ -618,20 +640,34 @@ It has however severe limitations, and you will soon see that the compilation ti
 Still interested?
 
 ....
-cd packages/kernel_modules
-./make-host.sh
+./build-modules --host
 ....
 
-If the compilation of any of the C files fails because of kernel or toolchain differences that we don't control on the host, just rename it to remove the `.c` extension and try again:
+Compilation will likely fail for some modules because of kernel or toolchain differences that we can't control on the host.
+
+The best solution is to compile just your modules with:
 
 ....
+./build-modules --host -- hello hello2
+....
+
+which is equivalent to:
+
+....
+./build-modules --host -- packages/kernel/modules/hello.c packages/kernel/modules/hello2.c
+....
+
+Or just remove the `.c` extension from the failing files and try again:
+
+....
+cd "$(./getvar kernel_modules_src_dir)"
 mv broken.c broken.c~
-./build_host
 ....
 
 Once you manage to compile, and have come to terms with the fact that this may blow up your host, try it out with:
 
 ....
+cd "$(./getvar kernel_modules_build_host_dir)"
 sudo insmod hello.ko
 
 # Our module is there.
@@ -648,15 +684,6 @@ dmesg -T
 # Not present anymore
 sudo lsmod | grep hello
 ....
-
-Once you are done with this method, you must clean up the in-tree build objects before you decide to do the right thing and move on to the superior `./build` Buildroot method:
-
-....
-cd packages/kernel_modules
-./make-host.sh clean
-....
-
-otherwise they will cause problems.
 
 ==== Hello host
 
@@ -3361,6 +3388,8 @@ although this can be useful when someone gives you a random image.
 
 [[kernel-configs-about]]
 ==== About our Linux kernel configs
+
+TODO: explain link:update-buildroot-kernel-config[]
 
 We have managed to come up with minimalistic kernel configs that work for both QEMU and gem5 (oh, the hours of bisection).
 
@@ -7276,7 +7305,7 @@ Bibliography:
 
 ==== 9P gem5
 
-Seems possible! Lets do it:
+TODO seems possible! Lets do it:
 
 * http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
 * http://gem5.org/WA-gem5
@@ -10853,23 +10882,21 @@ We use it for:
 +
 C files for example need compilation, and must go through the regular package system, e.g. through link:packages/kernel_modules/user[].
 
-=== CONTRIBUTING
+=== Test this repo
 
-==== Testing
+This section describes how to run the most complete set of tests possible.
 
-Testing that should be done for every functional patch.
+It takes too much time to be feasible for every patch, but it should be done for every release.
 
-===== Guest testing
-
-Run all tests:
+==== Automated tests
 
 ....
 ./build-all
-./test
+./test --size 3
 echo $?
 ....
 
-Should output 0.
+should output 0.
 
 Sources:
 
@@ -10893,7 +10920,7 @@ Test that the Internet works:
 
 Source: link:rootfs_overlay/test_all.sh[].
 
-===== Host testing
+===== Test GDB
 
 Shell 1:
 
@@ -10914,7 +10941,7 @@ Then proceed to do the following tests:
 * `/count.sh` and `b __x64_sys_write`
 * `insmod /timer.ko` and `b lkmc_timer_callback`
 
-==== Bisection
+=== Bisection
 
 When updating the Linux kernel, QEMU and gem5, things sometimes break.
 
@@ -10953,7 +10980,7 @@ git submodule update
 
 An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
 
-==== Update a forked submodule
+=== Update a forked submodule
 
 This is a template update procedure for submodules for which we have some patches on on top of mainline.
 
@@ -10979,7 +11006,7 @@ git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
 git commit -m "linux: update to ${next_mainline_revision}"
 ....
 
-==== Sanity checks
+=== Sanity checks
 
 Basic C and C++ hello worlds:
 
@@ -11000,7 +11027,7 @@ Sources:
 * link:packages/kernel_modules/user/hello.c[]
 * link:packages/kernel_modules/user/hello_cpp.c[]
 
-===== rand_check.out
+==== rand_check.out
 
 Print out several parameters that normally change randomly from boot to boot:
 
@@ -11015,7 +11042,7 @@ This can be used to check the determinism of:
 * <<norandmaps>>
 * <<qemu-record-and-replay>>
 
-==== Release
+=== Release
 
 Create a release:
 
@@ -11042,7 +11069,7 @@ This should in particular enable to easily update <<prebuilt>>.
 
 TODO also run tests and only release if they pass.
 
-===== release-zip
+==== release-zip
 
 Create a zip containing all files required for <<prebuilt>>
 

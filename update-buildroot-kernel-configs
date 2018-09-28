@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -eux
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+getvar="${root_dir}/getvar"
+for arch in x86_64 arm aarch64; do
+  linux_arch="$("${getvar}" --arch "$arch" linux_arch)"
+  linux_buildroot_build_dir="$("${getvar}" --arch "$arch" linux_buildroot_build_dir)"
+  linux_config_dir="$("${getvar}" --arch "$arch" linux_config_dir)"
+  "${root_dir}/build-buildroot" --baseline --build-linux --no-all -- linux-configure
+  cd "$linux_build_dir"
+  make ARCH="$linux_arch" savedefconfig
+  cp defconfig "${linux_config_dir}/buildroot-${arch}"
+done
