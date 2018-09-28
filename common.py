@@ -126,15 +126,17 @@ See the documentation for other values known to work.
         help='gem5 build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'
     )
     parser.add_argument(
-        '--gem5-src',
-        help='If given, use the gem5 directory exactly as submodules/gem5 is would normally used.'
-    )
-    parser.add_argument(
         '-N', '--gem5-worktree',
         help='''\
 gem5 git worktree to use for build and Python scripts at runtime. Automatically
 create a new git worktree with the given id if one does not exist. If not
 given, just use the submodule source.
+'''
+    )
+    parser.add_argument(
+        '--gem5-src',
+        help='''\
+Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
 '''
     )
     parser.add_argument(
@@ -528,14 +530,15 @@ def setup(parser):
     this.crosstool_ng_executable = os.path.join(this.crosstool_ng_util_dir, 'ct-ng')
     this.crosstool_ng_build_dir = os.path.join(this.crosstool_ng_buildid_dir, 'build')
     this.crosstool_ng_download_dir = os.path.join(this.crosstool_ng_out_dir, 'download')
-    if (args.gem5_src):
-        this.gem5_default_src_dir = args.gem5_src
+    this.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
+    if args.gem5_src is not None:
+        this.gem5_src_dir = args.gem5_src
+        assert(os.path.exists(args.gem5_src))
     else:
-        this.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
-    if args.gem5_worktree is not None:
-        this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
-    else:
-        this.gem5_src_dir = this.gem5_default_src_dir
+        if args.gem5_worktree is not None:
+            this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
+        else:
+            this.gem5_src_dir = this.gem5_default_src_dir
     if args.gem5:
         this.executable = this.gem5_executable
         this.run_dir = this.gem5_run_dir
