@@ -28,6 +28,7 @@ out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 packages_dir = os.path.join(root_dir, 'packages')
 kernel_modules_src_dir = os.path.join(this.packages_dir, 'kernel_modules')
+userland_src_dir = os.path.join(this.kernel_modules_src_dir, 'userland')
 submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
@@ -53,6 +54,7 @@ asm_ext = '.S'
 c_ext = '.c'
 kernel_module_ext = '.ko'
 obj_ext = '.o'
+executable_ext = '.out'
 config_file = os.path.join(data_dir, 'config')
 if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
@@ -548,10 +550,12 @@ def setup(parser):
     this.qemu_guest_build_dir = os.path.join(this.build_dir, 'qemu-custom')
     this.host_dir = os.path.join(this.buildroot_build_dir, 'host')
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
+    this.buildroot_pkg_config = os.path.join(this.host_bin_dir, 'pkg-config')
     this.buildroot_images_dir = os.path.join(this.buildroot_build_dir, 'images')
     this.rootfs_raw_file = os.path.join(this.buildroot_images_dir, 'rootfs.ext2')
     this.qcow2_file = this.rootfs_raw_file + '.qcow2'
-    this.staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
+    this.staging_dir = os.path.join(this.out_dir, 'staging', args.arch)
+    this.buildroot_staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
     this.target_dir = os.path.join(this.buildroot_build_dir, 'target')
     this.run_dir_base = os.path.join(this.out_dir, 'run')
     this.gem5_run_dir = os.path.join(this.run_dir_base, 'gem5', args.arch, str(args.run_id))
@@ -627,6 +631,7 @@ def setup(parser):
     this.kernel_modules_build_base_dir = os.path.join(this.out_dir, 'kernel_modules')
     this.kernel_modules_build_dir = os.path.join(this.kernel_modules_build_base_dir, args.arch)
     this.kernel_modules_build_host_dir = os.path.join(this.kernel_modules_build_base_dir, 'host')
+    this.userland_build_dir = os.path.join(this.out_dir, 'userland', args.arch)
 
     # Ports
     if args.port_offset is None:

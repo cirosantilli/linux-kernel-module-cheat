@@ -5,7 +5,7 @@
 
 #if defined(__aarch64__)
 
-int main() {}
+int main(void) {}
 
 #else
 
@@ -147,7 +147,7 @@ static void on_sigint(__attribute__ ((unused)) int unused)
 	need_exit = true;
 }
 
-int main()
+int main(void)
 {
 	int nl_sock;
 	int rc = EXIT_SUCCESS;

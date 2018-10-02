@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+import distutils.file_util
+import multiprocessing
+import os
+import platform
+import shutil
+import subprocess
+import time
+
+import common
+
+parser = common.get_argparse(argparse_args={
+    'description': 'Build our compiled userland examples',
+})
+common.add_build_arguments(parser)
+parser.add_argument(
+    '--has-package',
+    action='append',
+    default=[],
+    help='''\
+Indicate that a given package is present in the root filesystem, which
+allows us to build examples that rely on it.
+''',
+)
+parser.add_argument(
+    'targets',
+    default=[],
+    help='''\
+Build only the given userland programs.
+Default: build all examples that have their package dependencies met.
+For example, an OpenBLAS example can only be built if the target root filesystem
+has the OpenBLAS libraries and headers installed.
+''',
+    metavar='programs',
+    nargs='*',
+)
+args = common.setup(parser)
+if args.clean:
+    common.rmrf(common.userland_build_dir)
+else:
+    start_time = time.time()
+    os.makedirs(common.userland_build_dir, exist_ok=True)
+    allowed_toolchains = ['buildroot']
+    cc = common.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
+    cxx = common.get_toolchain_tool('g++', allowed_toolchains=allowed_toolchains)
+    assert common.run_cmd(
+        (
+            [
+                'make',
+                '-j', str(multiprocessing.cpu_count()),
+                'CC={}'.format(cc),
+                'CXX={}'.format(cxx),
+                'PKG_CONFIG={}'.format(common.buildroot_pkg_config),
+                'STAGING_DIR={}'.format(common.buildroot_staging_dir),
+                'OUT_DIR={}'.format(common.userland_build_dir),
+            ] +
+            ['HAS_{}=y'.format(package.upper()) for package in args.has_package] +
+            [os.path.join(common.userland_build_dir, os.path.splitext(os.path.split(target)[1])[0]) + common.executable_ext for target in args.targets]
+        ),
+        cwd=common.userland_src_dir,
+        extra_paths=[common.ccache_dir],
+    ) == 0
+    end_time = time.time()
+    common.print_time(end_time - start_time)

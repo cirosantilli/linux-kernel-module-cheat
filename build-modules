@@ -10,7 +10,9 @@ import time
 
 import common
 
-parser = common.get_argparse()
+parser = common.get_argparse(argparse_args={
+    'description': 'Build our Linux kernel module examples'
+})
 common.add_build_arguments(parser)
 parser.add_argument(
     '--host',
@@ -35,9 +37,6 @@ if args.clean:
 else:
     start_time = time.time()
     os.makedirs(build_dir, exist_ok=True)
-
-    # Build kernel modules.
-    #
     # I kid you not, out-of-tree build is not possible, O= does not work as for the kernel build:
     #
     # * https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
@@ -98,25 +97,6 @@ else:
             verbose
         ),
         cwd=common.kernel_modules_src_dir,
-    ) == 0
-
-    # Build userland tools.
-    if args.host:
-        allowed_toolchains = ['host']
-    else:
-        allowed_toolchains = ['buildroot']
-    cc = common.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
-    cxx = common.get_toolchain_tool('g++', allowed_toolchains=allowed_toolchains)
-    assert common.run_cmd(
-        [
-            'make',
-            '-j', str(multiprocessing.cpu_count()),
-            'CC={}'.format(cc),
-            'CXX={}'.format(cxx),
-            'OUT_DIR={}'.format(os.path.join(build_dir, 'user')),
-        ],
-        cwd=os.path.join(common.kernel_modules_src_dir, 'user'),
-        extra_paths=[common.ccache_dir],
     ) == 0
     end_time = time.time()
     common.print_time(end_time - start_time)

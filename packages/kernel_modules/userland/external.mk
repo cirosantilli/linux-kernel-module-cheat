@@ -19,21 +19,15 @@ ifeq ($(BR2_PACKAGE_OPENBLAS),y)
 endif
 
 define KERNEL_MODULES_BUILD_CMDS
-	$(MAKE) -C '$(@D)/userland' $(TARGET_CONFIGURE_OPTS) \
-	  HAS_EIGEN="$(BR2_PACKAGE_EIGEN)" \
-	  HAS_LIBDRM="$(BR2_PACKAGE_LIBDRM)" \
-	  HAS_OPENBLAS="$(BR2_PACKAGE_OPENBLAS)" \
+	$(MAKE) -C '$(@D)' $(TARGET_CONFIGURE_OPTS) \
+	  BR2_PACKAGE_EIGEN="$(BR2_PACKAGE_EIGEN)" \
+	  BR2_PACKAGE_LIBDRM="$(BR2_PACKAGE_LIBDRM)" \
+	  BR2_PACKAGE_OPENBLAS="$(BR2_PACKAGE_OPENBLAS)" \
 	;
 endef
 
 define KERNEL_MODULES_INSTALL_TARGET_CMDS
-	# The modules are already installed by the kernel-module package type
-	# under /lib/modules/**, but let's also copy the modules to the root
-	# for insmod convenience.
-	#
-	# Modules can be still be easily inserted with "modprobe module" however.
-	$(INSTALL) -D -m 0655 $(@D)/*.ko '$(TARGET_DIR)'
-	$(INSTALL) -D -m 0755 $(@D)/userland/*.out '$(TARGET_DIR)'
+	$(INSTALL) -D -m 0755 $(@D)/*.out '$(TARGET_DIR)'
 endef
 
 $(eval $(kernel-module))

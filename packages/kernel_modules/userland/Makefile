@@ -10,7 +10,7 @@ OUT_EXT = .out
 OUT_DIR = .
 
 OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
-ifeq ($(BR2_PACKAGE_EIGEN),y)
+ifeq ($(HAS_EIGEN),y)
 	CXXFLAGS_EXTRA += -I$(STAGING_DIR)/usr/include/eigen3
 	# TODO: was failing with:
 	# fatal error: Eigen/Dense: No such file or directory as of
@@ -20,26 +20,27 @@ ifeq ($(BR2_PACKAGE_EIGEN),y)
 else
 	OUTS := $(filter-out eigen_%$(OUT_EXT),$(OUTS))
 endif
-ifeq ($(BR2_PACKAGE_LIBDRM),y)
+ifeq ($(HAS_LIBDRM),y)
 	LIBS += $(shell $(PKG_CONFIG) --libs libdrm)
 	CFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags libdrm)
 else
 	OUTS := $(filter-out libdrm_%$(OUT_EXT),$(OUTS))
 endif
-ifeq ($(BR2_PACKAGE_OPENBLAS),y)
-	LIBS += -lopenblas
+ifeq ($(HAS_OPENBLAS),y)
+	LIBS += $(shell $(PKG_CONFIG) --libs openblas)
+	CFLAGS_EXTRA += $(shell $(PKG_CONFIG) --cflags openblas)
 else
-	OUTS := $(filter-out openblas$(OUT_EXT),$(OUTS))
+	OUTS := $(filter-out openblas_%$(OUT_EXT),$(OUTS))
 endif
 OUTS := $(addprefix $(OUT_DIR)/,$(OUTS))
 
 all: mkdir $(OUTS)
 
 $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_C)
-	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
+	$(CC) $(CFLAGS) $(CCFLAGS) $(CFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
 
 $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX)
-	$(CXX) $(CXXFLAGS) $(CXXFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
+	$(CXX) $(CXXFLAGS) $(CCFLAGS) $(CXXFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
 
 clean:
 	rm -f *'$(OUT_EXT)'

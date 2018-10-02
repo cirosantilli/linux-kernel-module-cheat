@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <cblas.h>
 
-int main()
+int main(void)
 {
 	double A[6] = {1.0, 2.0, 1.0, -3.0, 4.0, -1.0};
 	double B[6] = {1.0, 2.0, 1.0, -3.0, 4.0, -1.0};

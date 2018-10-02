@@ -20,7 +20,7 @@ struct msghdr msg;
 struct nlmsghdr *nlh;
 struct sockaddr_nl src_addr, dest_addr;
 
-int main()
+int main(void)
 {
 	sock_fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_USER);
 	if (sock_fd < 0) {
