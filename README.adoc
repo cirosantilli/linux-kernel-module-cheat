@@ -3578,6 +3578,63 @@ core_param(panic, panic_timeout, int, 0644);
  */
 ....
 
+==== rw
+
+By default, the root filesystem is mounted as readonly. TODO rationale?
+
+This cannot be obesrved, because by default our link:rootfs_overlay/etc/inittab[] does:
+
+....
+/bin/mount -o remount,rw /
+....
+
+Analogously, Ubuntu 18.04 does in its fstab something like:
+
+....
+UUID=/dev/sda1 / ext4 errors=remount-ro 0 1
+....
+
+which uses default mount `rw` flags.
+
+To observe the default readonly behaviour, <<replace-init,replace init>> with a raw shell:
+
+....
+./run --kernel-cli 'init=/bin/sh'
+....
+
+and then try to:
+
+....
+touch a
+....
+
+which fails with:
+
+....
+touch: a: Read-only file system
+....
+
+We can also observe the read-onlyness with:
+
+....
+mount -t proc /proc
+mount
+....
+
+which contains:
+
+....
+/dev/root on / type ext2 (ro,relatime,block_validity,barrier,user_xattr)
+....
+
+and so it is Read Only as shown by `ro`.
+
+So finally we can observe that the `rw` kernel boot paramter makes the root mounted as writable:
+
+....
+./run --kernel-cli 'init=/bin/sh rw'
+....
+
 ==== norandmaps
 
 Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
