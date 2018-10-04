@@ -119,6 +119,12 @@ def get_argparse(default_args=None, argparse_args=None):
         help='Crosstool-NG build ID. Allows you to keep multiple separate crosstool-NG builds. Default: %(default)s'
     )
     parser.add_argument(
+        '--docker', default=False, action='store_true',
+        help='''\
+Use the docker download Ubuntu root filesystem instead of the default Buildroot one.
+'''
+    )
+    parser.add_argument(
         '-g', '--gem5', default=False, action='store_true',
         help='Use gem5 instead of QEMU'
     )
@@ -552,8 +558,8 @@ def setup(parser):
     this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
     this.buildroot_pkg_config = os.path.join(this.host_bin_dir, 'pkg-config')
     this.buildroot_images_dir = os.path.join(this.buildroot_build_dir, 'images')
-    this.rootfs_raw_file = os.path.join(this.buildroot_images_dir, 'rootfs.ext2')
-    this.qcow2_file = this.rootfs_raw_file + '.qcow2'
+    this.buildroot_rootfs_raw_file = os.path.join(this.buildroot_images_dir, 'rootfs.ext2')
+    this.buildroot_qcow2_file = this.buildroot_rootfs_raw_file + '.qcow2'
     this.staging_dir = os.path.join(this.out_dir, 'staging', args.arch)
     this.buildroot_staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
     this.target_dir = os.path.join(this.buildroot_build_dir, 'target')
@@ -662,6 +668,20 @@ def setup(parser):
     this.baremetal_out_dir = os.path.join(out_dir, 'baremetal', args.arch, this.simulator_name, this.machine)
     this.baremetal_out_lib_dir = os.path.join(this.baremetal_out_dir, this.baremetal_lib_basename)
     this.baremetal_out_ext = '.elf'
+
+
+    # Docker
+    this.docker_build_dir = os.path.join(this.out_dir, 'docker', args.arch)
+    this.docker_tar_dir = os.path.join(this.docker_build_dir, 'export')
+    this.docker_tar_file = os.path.join(this.docker_build_dir, 'export.tar')
+    this.docker_rootfs_raw_file = os.path.join(this.docker_build_dir, 'export.ext2')
+    this.docker_qcow2_file = os.path.join(this.docker_rootfs_raw_file + '.qcow2')
+    if args.docker:
+        this.rootfs_raw_file = this.docker_rootfs_raw_file
+        this.qcow2_file = this.docker_qcow2_file
+    else:
+        this.rootfs_raw_file = this.buildroot_rootfs_raw_file
+        this.qcow2_file = this.buildroot_qcow2_file
 
     # Image.
     if args.baremetal is None:
