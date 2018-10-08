@@ -745,7 +745,7 @@ The main reason this setup is included in this project, despite the word "Linux"
 
 This setup allows you to make a tiny OS and that runs just a few instructions, use it to fully control the CPU to better understand the simulators for example, or develop your own OS if you are into that.
 
-You can also use C and a subset of the C standard library because we enable link:https://en.wikipedia.org/wiki/Newlib[Newlib] by default.
+You can also use C and a subset of the C standard library because we enable link:https://en.wikipedia.org/wiki/Newlib[Newlib] by default. See also: https://electronics.stackexchange.com/questions/223929/c-standard-libraries-on-bare-metal/400077#400077
 
 Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/crosstool-ng[crosstool-NG]. If you have already built <<qemu-buildroot-setup,Buildroot>> previously, you will end up with two GCCs installed. Unfortunately I don't see a solution for this, since we need separate toolchains for Newlib on baremetal and glibc on Linux: https://stackoverflow.com/questions/38956680/difference-between-arm-none-eabi-and-arm-linux-gnueabi/38989869#38989869
 
@@ -2452,7 +2452,7 @@ We disable networking by default because it starts an userland process, and we w
 Enable:
 
 ....
-/sbin/ifup -a
+ifup -a
 ....
 
 That command goes over all (`-a) the interfaces in `/etc/network/interfaces` and brings them up.
@@ -2460,7 +2460,7 @@ That command goes over all (`-a) the interfaces in `/etc/network/interfaces` and
 Disable:
 
 ....
-/sbin/ifdown -a
+ifdown -a
 ....
 
 Test:
@@ -3590,9 +3590,9 @@ core_param(panic, panic_timeout, int, 0644);
 
 ==== rw
 
-By default, the root filesystem is mounted as readonly. TODO rationale?
+By default, the Linux kernel mounts the root filesystem as readonly. TODO rationale?
 
-This cannot be obesrved, because by default our link:rootfs_overlay/etc/inittab[] does:
+This cannot be observed in the default BusyBox init, because by default our link:rootfs_overlay/etc/inittab[] does:
 
 ....
 /bin/mount -o remount,rw /
@@ -3606,13 +3606,15 @@ UUID=/dev/sda1 / ext4 errors=remount-ro 0 1
 
 which uses default mount `rw` flags.
 
-To observe the default readonly behaviour, <<replace-init,replace init>> with a raw shell:
+We have however removed those setups init setups to keep things more minimal, and replaced them with the `rw` kernel boot parameter makes the root mounted as writable.
+
+To observe the default readonly behaviour, hack the link:run[] script to remove <<replace-init,replace init>>, and then run on a raw shell:
 
 ....
 ./run --kernel-cli 'init=/bin/sh'
 ....
 
-and then try to:
+Now try to do:
 
 ....
 touch a
@@ -3638,12 +3640,6 @@ which contains:
 ....
 
 and so it is Read Only as shown by `ro`.
-
-So finally we can observe that the `rw` kernel boot paramter makes the root mounted as writable:
-
-....
-./run --kernel-cli 'init=/bin/sh rw'
-....
 
 ==== norandmaps
 
@@ -6387,9 +6383,11 @@ although we cannot change between terminals from there.
 
 Each populated TTY contains a "shell":
 
-* `-/bin/sh`: goes directly into an `sh` without a login prompt. Don't forget the dash `-`: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using
+* `-/bin/sh`: goes directly into an `sh` without a login prompt.
 +
-TODO: does not work for the `ttyS*` terminals. Why?
+The trailing dash `-` can be used on any command. It makes the command that follows take over the TTY, which is what we typically want for interactive shells: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using
++
+The `getty` executable however also does this operation and therefore dispenses the `-`.
 * `/sbin/getty` asks for password, and then gives you an `sh`
 +
 We can overcome the password prompt with the `-l /loginroot.sh` technique explained at: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using but I don't see any advantage over `-/bin/sh` currently.
@@ -7992,7 +7990,7 @@ EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
 TODO replay with network gets stuck:
 
 ....
-./qemu-rr --eval-busybox '/sbin/ifup -a;wget -S google.com;/poweroff.out;'
+./qemu-rr --eval-busybox 'ifup -a;wget -S google.com;/poweroff.out;'
 ....
 
 after the message:
@@ -9480,7 +9478,7 @@ clock=500
 
 Each node has:
 
-* a list of child nodes, e.g. `system` is a child of `root`, and both `cpu` and `cpu_clk_domain` are children of 
+* a list of child nodes, e.g. `system` is a child of `root`, and both `cpu` and `cpu_clk_domain` are children of `system`
 * a list of parameters, e.g. `system.semihosting` is `Null`, which means that <<semihosting>> was turned off
 ** the `type` parameter shows is present on every node, and it maps to a `Python` object that inherits from `SimObject`.
 +
@@ -9703,6 +9701,22 @@ which gives:
 ....
 uid=1000(user0) gid=1000(user0) groups=1000(user0)
 ....
+
+==== Login as a non-root user without password
+
+Replace on `inittab`:
+
+....
+::respawn:-/bin/sh
+....
+
+with:
+
+....
+::respawn:-/bin/login -f user0
+....
+
+`-f` forces login without asking for the password.
 
 === Add new Buildroot packages
 
@@ -11021,7 +11035,7 @@ Source: link:test-kernel-module[]
 Test that the Internet works:
 
 ....
-./run --arch x86_64 --kernel-cli '- lkmc_eval="/sbin/ifup -a;wget -S google.com;poweroff;"'
+./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
 ....
 
 Source: link:rootfs_overlay/test_all.sh[].
