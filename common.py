@@ -134,7 +134,13 @@ given, just use the submodule source.
 '''
     )
     parser.add_argument(
-        '--gem5-source',
+        '--gem5-build-dir',
+        help='''\
+Use the given directory as the gem5 build directory.
+'''
+    )
+    parser.add_argument(
+        '--gem5-source-dir',
         help='''\
 Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
 '''
@@ -514,7 +520,10 @@ def setup(parser):
     this.qemu_termout_file = os.path.join(this.qemu_run_dir, 'termout.txt')
     this.qemu_rrfile = os.path.join(this.qemu_run_dir, 'rrfile')
     this.gem5_out_dir = os.path.join(this.out_dir, 'gem5')
-    this.gem5_build_dir = os.path.join(this.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
+    if args.gem5_build_dir is None:
+        this.gem5_build_dir = os.path.join(this.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
+    else:
+        this.gem5_build_dir = args.gem5_build_dir
     this.gem5_fake_iso = os.path.join(this.gem5_out_dir, 'fake.iso')
     this.gem5_m5term = os.path.join(this.gem5_build_dir, 'm5term')
     this.gem5_build_build_dir = os.path.join(this.gem5_build_dir, 'build')
@@ -531,9 +540,9 @@ def setup(parser):
     this.crosstool_ng_build_dir = os.path.join(this.crosstool_ng_buildid_dir, 'build')
     this.crosstool_ng_download_dir = os.path.join(this.crosstool_ng_out_dir, 'download')
     this.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
-    if args.gem5_source is not None:
-        this.gem5_src_dir = args.gem5_source
-        assert(os.path.exists(args.gem5_source))
+    if args.gem5_source_dir is not None:
+        this.gem5_src_dir = args.gem5_source_dir
+        assert(os.path.exists(args.gem5_source_dir))
     else:
         if args.gem5_worktree is not None:
             this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
