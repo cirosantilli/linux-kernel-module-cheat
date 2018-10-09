@@ -134,7 +134,7 @@ given, just use the submodule source.
 '''
     )
     parser.add_argument(
-        '--gem5-src',
+        '--gem5-source',
         help='''\
 Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
 '''
@@ -531,9 +531,9 @@ def setup(parser):
     this.crosstool_ng_build_dir = os.path.join(this.crosstool_ng_buildid_dir, 'build')
     this.crosstool_ng_download_dir = os.path.join(this.crosstool_ng_out_dir, 'download')
     this.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
-    if args.gem5_src is not None:
-        this.gem5_src_dir = args.gem5_src
-        assert(os.path.exists(args.gem5_src))
+    if args.gem5_source is not None:
+        this.gem5_src_dir = args.gem5_source
+        assert(os.path.exists(args.gem5_source))
     else:
         if args.gem5_worktree is not None:
             this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
