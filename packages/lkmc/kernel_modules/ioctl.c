@@ -5,7 +5,7 @@
 #include <linux/printk.h> /* printk */
 #include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 
-#include "ioctl.h"
+#include "../ioctl.h"
 
 static struct dentry *debugfs_file;
 

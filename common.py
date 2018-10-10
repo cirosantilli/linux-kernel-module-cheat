@@ -4,6 +4,7 @@ import argparse
 import base64
 import copy
 import datetime
+import distutils.file_util
 import glob
 import imp
 import json
@@ -27,8 +28,11 @@ gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
 out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 packages_dir = os.path.join(root_dir, 'packages')
-kernel_modules_src_dir = os.path.join(this.packages_dir, 'kernel_modules')
-userland_src_dir = os.path.join(this.kernel_modules_src_dir, 'userland')
+lkmc_package_src_dir = os.path.join(this.packages_dir, 'lkmc')
+kernel_modules_subdir = 'kernel_modules'
+kernel_modules_src_dir = os.path.join(this.lkmc_package_src_dir, this.kernel_modules_subdir)
+userland_subdir = 'userland'
+userland_src_dir = os.path.join(this.lkmc_package_src_dir, this.userland_subdir)
 submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
@@ -52,10 +56,12 @@ release_zip_file = os.path.join(this.release_dir, 'lkmc-{}.zip'.format(this.sha)
 github_repo_id = 'cirosantilli/linux-kernel-module-cheat'
 asm_ext = '.S'
 c_ext = '.c'
+header_ext = '.h'
 kernel_module_ext = '.ko'
 obj_ext = '.o'
 executable_ext = '.out'
 config_file = os.path.join(data_dir, 'config')
+command_prefix = '+ '
 if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
@@ -69,6 +75,19 @@ def add_build_arguments(parser):
 
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
+
+def copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext=None):
+    os.makedirs(destdir, exist_ok=True)
+    for basename in os.listdir(srcdir):
+        src = os.path.join(srcdir, basename)
+        if os.path.isfile(src):
+            noext, ext = os.path.splitext(basename)
+            if filter_ext is not None and ext == filter_ext:
+                distutils.file_util.copy_file(
+                    src,
+                    os.path.join(destdir, basename),
+                    update=1,
+                )
 
 def gem_list_checkpoint_dirs():
     '''
@@ -334,6 +353,8 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
     newline_separator = ' \\\n'
     out = []
+    if extra_env is None:
+        extra_env = {}
     if cwd is not None:
         out.append('cd {} &&{}'.format(shlex.quote(cwd), newline_separator))
     if extra_paths is not None:
@@ -343,7 +364,7 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     for arg in cmd:
         out.append(shlex.quote(arg) + newline_separator)
     out = '  '.join(out) + ';\n'
-    print('+ ' + out, end='')
+    print(this.command_prefix + out, end='')
     if cmd_file is not None:
         with open(cmd_file, 'w') as f:
             f.write('#!/usr/bin/env bash\n')
@@ -638,6 +659,7 @@ def setup(parser):
     this.kernel_modules_build_dir = os.path.join(this.kernel_modules_build_base_dir, args.arch)
     this.kernel_modules_build_host_dir = os.path.join(this.kernel_modules_build_base_dir, 'host')
     this.userland_build_dir = os.path.join(this.out_dir, 'userland', args.arch)
+    this.out_rootfs_overlay_dir = os.path.join(this.out_dir, 'rootfs_overlay', args.arch)
 
     # Ports
     if args.port_offset is None:

@@ -1,5 +1,6 @@
 ifeq ($(OBJECT_FILES),)
-obj-m += $(addsuffix .o, $(notdir $(basename $(filter-out %.mod.c, $(wildcard $(BR2_EXTERNAL_KERNEL_MODULES_PATH)/*.c)))))
+# Hardcoding  LKMC_MODULE_SUBDIRS here because is not defined.
+obj-m += $(addsuffix .o, $(notdir $(basename $(filter-out %.mod.c, $(wildcard $(BR2_EXTERNAL_LKMC_PATH)/kernel_modules/*.c)))))
 else
 # Trying to do:
 # $(MAKE) -C '$(LINUX_DIR)' M='$(M)' hello.ko hello2.ko

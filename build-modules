@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import distutils.file_util
+import distutils.dir_util
 import multiprocessing
 import os
 import platform
@@ -12,7 +12,7 @@ import common
 
 parser = common.get_argparse(argparse_args={
     'description': '''\
-Build our Linux kernel module without using Buildroot.
+Build our Linux kernel modules without using Buildroot.
 
 See also:https://github.com/cirosantilli/linux-kernel-module-cheat#host
 '''
@@ -49,15 +49,15 @@ else:
     #
     # This copies only modified files as per:
     # https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
+    distutils.dir_util.copy_tree(
+        common.lkmc_package_src_dir,
+        os.path.join(build_dir),
+        update=1,
+    )
     all_kernel_modules = []
     for basename in os.listdir(common.kernel_modules_src_dir):
         src = os.path.join(common.kernel_modules_src_dir, basename)
         if os.path.isfile(src):
-            distutils.file_util.copy_file(
-                src,
-                os.path.join(build_dir, basename),
-                update=1,
-            )
             noext, ext = os.path.splitext(basename)
             if ext == common.c_ext:
                 all_kernel_modules.append(noext)
@@ -86,6 +86,7 @@ else:
         linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
     else:
         linux_dir = common.linux_build_dir
+    build_subdir = os.path.join(build_dir, common.kernel_modules_subdir)
     assert common.run_cmd(
         (
             [
@@ -95,12 +96,17 @@ else:
                 'CC={}'.format(cc),
                 'CROSS_COMPILE={}'.format(prefix),
                 'LINUX_DIR={}'.format(linux_dir),
-                'M={}'.format(build_dir),
+                'M={}'.format(build_subdir),
                 'OBJECT_FILES={}'.format(' '.join(object_files)),
             ] +
             verbose
         ),
-        cwd=common.kernel_modules_src_dir,
+        cwd=os.path.join(build_subdir),
     ) == 0
+    common.copy_dir_if_update_non_recursive(
+        srcdir=build_subdir,
+        destdir=common.out_rootfs_overlay_dir,
+        filter_ext=common.kernel_module_ext,
+    )
     end_time = time.time()
     common.print_time(end_time - start_time)

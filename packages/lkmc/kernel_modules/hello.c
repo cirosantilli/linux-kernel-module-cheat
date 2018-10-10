@@ -5,7 +5,7 @@
 
 static int myinit(void)
 {
-	pr_info("hello init\n");
+	pr_info("hello init 2\n");
 	/* 0 for success, any negative value means failure,
 	 * E* consts if you want to specify failure cause.
 	 * https://www.linux.com/learn/kernel-newbie-corner-loadable-kernel-modules-coming-and-going */

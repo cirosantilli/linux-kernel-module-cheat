@@ -59,7 +59,7 @@ The trade-offs are basically a balance between:
 * portability: does it work on a Windows host? Could it ever?
 * accuracy: how accurate does the simulation represent real hardware?
 * compatibility: how likely is is that all the components will work well together: emulator, compiler, kernel, standard library, ...
-* guest software availability: how wide is your choice of easily installed guest software packages?
+* guest software availability: how wide is your choice of easily installed guest software packages? See also: <<linux->>
 
 === QEMU Buildroot setup
 
@@ -86,6 +86,7 @@ The initial build will take a while (30 minutes to 2 hours) to clone and build, 
 If you don't want to wait, you could also try the following faster but much more limited methods:
 
 * <<prebuilt>>
+* <<ubuntu>>
 * <<host>>
 
 but you will soon find that they are simply not enough if you anywhere near serious about systems programming.
@@ -122,8 +123,8 @@ which are `printk` messages from `init` and `cleanup` methods of those modules.
 
 Sources:
 
-* link:packages/kernel_modules/hello.c[]
-* link:packages/kernel_modules/hello2.c[]
+* link:packages/lkmc/kernel_modules/hello.c[]
+* link:packages/lkmc/kernel_modules/hello2.c[]
 
 Quit QEMU with:
 
@@ -133,7 +134,7 @@ Ctrl-A X
 
 See also: <<quit-qemu-from-text-mode>>.
 
-All available modules can be found in the link:packages/kernel_modules/[`kernel_modules` directory].
+All available modules can be found in the link:packages/lkmc/kernel_modules[] directory.
 
 It is super easy to build for different CPU architectures, just use the `--arch` option:
 
@@ -203,7 +204,7 @@ hello /root/.profile                                                            
 
 ==== Your first kernel hack
 
-Modify link:packages/kernel_modules/hello.c[] to contain:
+Modify link:packages/lkmc/kernel_modules/hello.c[] to contain:
 
 ....
 pr_info("hello init hacked\n");
@@ -220,7 +221,7 @@ TODO mention 9p
 
 Congratulations, you are now officially a kernel module hacker!
 
-We use `./build-buildroot` because the kernel modules go inside the root filesystem, and it is Buildroot that generates and updates our root filesystem. The kernel modules are link:packages/kernel_modules[inside a Buildroot package].
+We use `./build-buildroot` because the kernel modules go inside the root filesystem, and it is Buildroot that generates and updates our root filesystem. The kernel modules are inside the Buildroot package link:packages/lkmc.
 
 `--kernel-modules` is required for the rebuild even though files were modified as explained at: <<rebuild-buildroot-packages>>.
 
@@ -620,11 +621,14 @@ sudo apt-get install qemu-utils
 The Linux kernel is required for `extract-vmlinux` to convert the compressed kernel image which QEMU understands into the raw vmlinux that gem5 understands: https://superuser.com/questions/298826/how-do-i-uncompress-vmlinuz-to-vmlinux
 ////
 
+[[ubuntu]]
 === Ubuntu guest setup
 
 ==== About the Ubuntu guest setup
 
-This setup is similar to <<prebuilt>>, but it instead downloads an Ubuntu image with Docker, and uses that as the root filesystem.
+This setup is similar to <<prebuilt>>, but instead of using Buildroot for the root filesystem, it downloads an Ubuntu image with Docker, and uses that as the root filesystem.
+
+The rationale for choice of Ubuntu as a second distribution in addition to Buildroot can be found at: <<linux-distro-choice>>
 
 Advantages over Buildroot:
 
@@ -1066,7 +1070,7 @@ Wait for the boot to end and run:
 insmod /timer.ko
 ....
 
-Source: link:packages/kernel_modules/timer.c[].
+Source: link:packages/lkmc/kernel_modules/timer.c[].
 
 This prints a message to dmesg every second.
 
@@ -1637,7 +1641,7 @@ We can set and get which cores the Linux kernel allows a program to run on with 
 ./run --cpus 2 --eval-busybox '/sched_getaffinity.out'
 ....
 
-Source: link:packages/kernel_modules/userland/sched_getaffinity.c[]
+Source: link:packages/lkmc/userland/sched_getaffinity.c[]
 
 Sample output:
 
@@ -2141,9 +2145,9 @@ traps: ring0.out[55] general protection ip:40054c sp:7fffffffec20 error:0 in rin
 
 Sources:
 
-* link:packages/kernel_modules/ring0.c[]
-* link:packages/kernel_modules/ring0.h[]
-* link:packages/kernel_modules/userland/ring0.c[]
+* link:packages/lkmc/kernel_modules/ring0.c[]
+* link:packages/lkmc/kernel_modules/ring0.h[]
+* link:packages/lkmc/userland/ring0.c[]
 
 In both cases, we attempt to run the exact same code which is shared on the `ring0.h` header file.
 
@@ -2293,7 +2297,7 @@ but why not just use our minimal `/poweroff.out` and be done with it?
 ./run --eval '/poweroff.out'
 ....
 
-Source: link:packages/kernel_modules/userland/poweroff.c[]
+Source: link:packages/lkmc/userland/poweroff.c[]
 
 This also illustrates how to shutdown the computer from C: https://stackoverflow.com/questions/28812514/how-to-shutdown-linux-using-c-or-qt-without-call-to-system
 
@@ -2305,7 +2309,7 @@ I dare you to guess what this does:
 ./run --eval '/sleep_forever.out'
 ....
 
-Source: link:packages/kernel_modules/userland/sleep_forever.c[]
+Source: link:packages/lkmc/userland/sleep_forever.c[]
 
 This executable is a convenient simple init that does not panic and sleeps instead.
 
@@ -2398,7 +2402,7 @@ TERM=linux
 asdf=qwer
 ....
 
-Source: link:packages/kernel_modules/userland/init_env_poweroff.c[].
+Source: link:packages/lkmc/userland/init_env_poweroff.c[].
 
 ==== init environment args
 
@@ -2805,7 +2809,7 @@ If you are feeling fancy, you can also insert modules with:
 modprobe hello
 ....
 
-which insmods link:packages/kernel_modules/hello.c[].
+which insmods link:packages/lkmc/kernel_modules/hello.c[].
 
 `modprobe` searches for modules under:
 
@@ -2835,8 +2839,8 @@ which teaches you how it is done from C code.
 
 Source:
 
-* link:packages/kernel_modules/userland/myinsmod.c[]
-* link:packages/kernel_modules/userland/myrmmod.c[]
+* link:packages/lkmc/userland/myinsmod.c[]
+* link:packages/lkmc/userland/myrmmod.c[]
 
 The Linux kernel offers two system calls for module insertion:
 
@@ -3768,7 +3772,7 @@ echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
 insmod /myprintk.ko
 ....
 
-Source: link:packages/kernel_modules/myprintk.c[]
+Source: link:packages/lkmc/kernel_modules/myprintk.c[]
 
 This outputs the `pr_debug` message:
 
@@ -3859,7 +3863,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/params.c[]
+* link:packages/lkmc/kernel_modules/params.c[]
 * link:rootfs_overlay/params.sh[]
 
 As shown in the example, module parameters can also be read and modified at runtime from <<sysfs>>.
@@ -3913,8 +3917,8 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/dep.c[]
-* link:packages/kernel_modules/dep2.c[]
+* link:packages/lkmc/kernel_modules/dep.c[]
+* link:packages/lkmc/kernel_modules/dep2.c[]
 * link:rootfs_overlay/dep.sh[]
 
 The kernel deduces dependencies based on the `EXPORT_SYMBOL` that each module uses.
@@ -4012,7 +4016,7 @@ name = module_info
 version = 1.0
 ....
 
-Source: link:packages/kernel_modules/module_info.c[]
+Source: link:packages/lkmc/kernel_modules/module_info.c[]
 
 Some of those are also present on sysfs:
 
@@ -4098,7 +4102,7 @@ Possible dmesg output:
 VERMAGIC_STRING = 4.17.0 SMP mod_unload modversions
 ....
 
-Source: link:packages/kernel_modules/vermagic.c[]
+Source: link:packages/lkmc/kernel_modules/vermagic.c[]
 
 If we artificially create a mismatch with `MODULE_INFO(vermagic`, the insmod fails with:
 
@@ -4112,7 +4116,7 @@ and `dmesg` says the expected and found vermagic found:
 vermagic_fail: version magic 'asdfqwer' should be '4.17.0 SMP mod_unload modversions '
 ....
 
-Source: link:packages/kernel_modules/vermagic_fail.c[]
+Source: link:packages/lkmc/kernel_modules/vermagic_fail.c[]
 
 The kernel's vermagic is defined based on compile time configurations at link:https://github.com/torvalds/linux/blob/v4.17/include/linux/vermagic.h#L35[include/linux/vermagic.h]:
 
@@ -4160,7 +4164,7 @@ init_module
 cleanup_module
 ....
 
-Source: link:packages/kernel_modules/module_init.c[]
+Source: link:packages/lkmc/kernel_modules/module_init.c[]
 
 TODO why were `module_init` and `module_exit` created? https://stackoverflow.com/questions/3218320/what-is-the-difference-between-module-init-and-init-module-in-a-linux-kernel-mod
 
@@ -4175,8 +4179,8 @@ insmod /oops.ko
 
 Source:
 
-* link:packages/kernel_modules/panic.c[]
-* link:packages/kernel_modules/oops.c[]
+* link:packages/lkmc/kernel_modules/panic.c[]
+* link:packages/lkmc/kernel_modules/oops.c[]
 
 A panic can also be generated with:
 
@@ -4513,7 +4517,7 @@ The `dump_stack` function produces a stack trace much like panic and oops, but c
 insmod /dump_stack.ko
 ....
 
-Source: link:packages/kernel_modules/dump_stack.c[]
+Source: link:packages/lkmc/kernel_modules/dump_stack.c[]
 
 ==== WARN_ON
 
@@ -4526,7 +4530,7 @@ echo 1 > /proc/sys/kernel/panic_on_warn
 insmod /warn_on.ko
 ....
 
-Source: link:packages/kernel_modules/warn_on.c[]
+Source: link:packages/lkmc/kernel_modules/warn_on.c[]
 
 Can also be activated with the `panic_on_warn` boot parameter.
 
@@ -4558,7 +4562,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/debugfs.c[]
+* link:packages/lkmc/kernel_modules/debugfs.c[]
 * link:rootfs_overlay/debugfs.sh[]
 
 Debugfs is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
@@ -4599,7 +4603,7 @@ Procfs can run all system calls, including ones that debugfs can't, e.g. <<mmap>
 
 Sources:
 
-* link:packages/kernel_modules/procfs.c[]
+* link:packages/lkmc/kernel_modules/procfs.c[]
 * link:rootfs_overlay/procfs.sh[]
 
 Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
@@ -4621,7 +4625,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/sysfs.c[]
+* link:packages/lkmc/kernel_modules/sysfs.c[]
 * link:rootfs_overlay/sysfs.sh[]
 
 Vs procfs:
@@ -4662,7 +4666,7 @@ Sources:
 
 * link:rootfs_overlay/character_device.sh[]
 * link:rootfs_overlay/mknoddev.sh[]
-* link:packages/kernel_modules/character_device.c[]
+* link:packages/lkmc/kernel_modules/character_device.c[]
 
 Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
 
@@ -4715,7 +4719,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/character_device_create.c[]
+* link:packages/lkmc/kernel_modules/character_device_create.c[]
 * link:rootfs_overlay/character_device_create.sh[]
 
 Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
@@ -4741,7 +4745,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/fops.c[]
+* link:packages/lkmc/kernel_modules/fops.c[]
 * link:rootfs_overlay/fops.sh[]
 
 Then give this a try:
@@ -4771,7 +4775,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/seq_file.c[]
+* link:packages/lkmc/kernel_modules/seq_file.c[]
 * link:rootfs_overlay/seq_file.sh[]
 
 In this example we create a debugfs file that behaves just like a file that contains:
@@ -4808,7 +4812,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/seq_file_single_open.c[]
+* link:packages/lkmc/kernel_modules/seq_file_single_open.c[]
 * link:rootfs_overlay/seq_file_single_open.sh[]
 
 This example produces a debugfs file that behaves like a file that contains:
@@ -4830,8 +4834,8 @@ Outcome: `jiffies` gets printed to stdout every second from userland.
 
 Sources:
 
-* link:packages/kernel_modules/poll.c[]
-* link:packages/kernel_modules/poll.c[]
+* link:packages/lkmc/kernel_modules/poll.c[]
+* link:packages/lkmc/kernel_modules/poll.c[]
 * link:rootfs_overlay/poll.sh[]
 
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
@@ -4859,9 +4863,9 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/ioctl.c[]
-* link:packages/kernel_modules/ioctl.h[]
-* link:packages/kernel_modules/userland/ioctl.c[]
+* link:packages/lkmc/kernel_modules/ioctl.c[]
+* link:packages/lkmc/kernel_modules/ioctl.h[]
+* link:packages/lkmc/userland/ioctl.c[]
 * link:rootfs_overlay/ioctl.sh[]
 
 `ioctl` is one of the most important methods of communication with real device drivers, which often take several fields as input.
@@ -4908,8 +4912,8 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/mmap.c[]
-* link:packages/kernel_modules/userland/mmap.c[]
+* link:packages/lkmc/kernel_modules/mmap.c[]
+* link:packages/lkmc/userland/mmap.c[]
 * link:rootfs_overlay/mmap.sh[]
 
 In this example, we make a tiny 4 byte kernel buffer available to user-space, and we then modify it on userspace, and check that the kernel can see the modification.
@@ -4944,9 +4948,9 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/anonymous_inode.c[]
-* link:packages/kernel_modules/anonymous_inode.h[]
-* link:packages/kernel_modules/userland/anonymous_inode.c[]
+* link:packages/lkmc/kernel_modules/anonymous_inode.c[]
+* link:packages/lkmc/kernel_modules/anonymous_inode.h[]
+* link:packages/lkmc/userland/anonymous_inode.c[]
 * link:rootfs_overlay/anonymous_inode.sh[]
 
 This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
@@ -4972,9 +4976,9 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/netlink.c[]
-* link:packages/kernel_modules/netlink.h[]
-* link:packages/kernel_modules/userland/netlink.c[]
+* link:packages/lkmc/kernel_modules/netlink.c[]
+* link:packages/lkmc/kernel_modules/netlink.h[]
+* link:packages/lkmc/userland/netlink.c[]
 * link:rootfs_overlay/netlink.sh[]
 
 Launch multiple user requests in parallel to stress our socket:
@@ -4999,7 +5003,7 @@ Kernel threads are managed exactly like userland threads; they also have a backi
 insmod /kthread.ko
 ....
 
-Source: link:packages/kernel_modules/kthread.c[]
+Source: link:packages/lkmc/kernel_modules/kthread.c[]
 
 Outcome: dmesg counts from `0` to `9` once every second infinitely many times:
 
@@ -5037,7 +5041,7 @@ Let's launch two threads and see if they actually run in parallel:
 insmod /kthreads.ko
 ....
 
-Source: link:packages/kernel_modules/kthreads.c[]
+Source: link:packages/lkmc/kernel_modules/kthreads.c[]
 
 Outcome: two threads count to dmesg from `0` to `9` in parallel.
 
@@ -5071,7 +5075,7 @@ Count to dmesg every one second from `0` up to `n - 1`:
 insmod /sleep.ko n=5
 ....
 
-Source: link:packages/kernel_modules/sleep.c[]
+Source: link:packages/lkmc/kernel_modules/sleep.c[]
 
 The sleep is done with a call to link:https://github.com/torvalds/linux/blob/v4.17/kernel/time/timer.c#L1984[`usleep_range`] directly inside `module_init` for simplicity.
 
@@ -5096,7 +5100,7 @@ Stop counting:
 rmmod workqueue_cheat
 ....
 
-Source: link:packages/kernel_modules/workqueue_cheat.c[]
+Source: link:packages/lkmc/kernel_modules/workqueue_cheat.c[]
 
 The workqueue thread is killed after the worker function returns.
 
@@ -5120,7 +5124,7 @@ rmmod work_from_work
 
 The sleep is done indirectly through: link:https://github.com/torvalds/linux/blob/v4.17/include/linux/workqueue.h#L522[`queue_delayed_work`], which waits the specified time before scheduling the work.
 
-Source: link:packages/kernel_modules/work_from_work.c[]
+Source: link:packages/lkmc/kernel_modules/work_from_work.c[]
 
 ==== schedule
 
@@ -5132,7 +5136,7 @@ Let's block the entire kernel! Yay:
 
 Outcome: the system hangs, the only way out is to kill the VM.
 
-Source: link:packages/kernel_modules/schedule.c[]
+Source: link:packages/lkmc/kernel_modules/schedule.c[]
 
 kthreads only allow interrupting if you call `schedule()`, and the `schedule=0` <<kernel-module-parameters,kernel module parameter>> turns it off.
 
@@ -5188,7 +5192,7 @@ Stop the count:
 rmmod wait_queue
 ....
 
-Source: link:packages/kernel_modules/wait_queue.c[]
+Source: link:packages/lkmc/kernel_modules/wait_queue.c[]
 
 This example launches three threads:
 
@@ -5216,7 +5220,7 @@ Stop counting:
 rmmod timer
 ....
 
-Source: link:packages/kernel_modules/timer.c[]
+Source: link:packages/lkmc/kernel_modules/timer.c[]
 
 Timers are callbacks that run when an interrupt happens, from the interrupt context itself.
 
@@ -5237,7 +5241,7 @@ Brute force monitor every shared interrupt that will accept us:
 ./run --eval-busybox 'insmod /irq.ko' --graphic
 ....
 
-Source: link:packages/kernel_modules/irq.c[].
+Source: link:packages/lkmc/kernel_modules/irq.c[].
 
 Now try the following:
 
@@ -5381,7 +5385,7 @@ Outcome: the test passes:
 
 Sources:
 
-* link:packages/kernel_modules/kstrto.c[]
+* link:packages/lkmc/kernel_modules/kstrto.c[]
 * link:rootfs_overlay/kstrto.sh[]
 
 Bibliography: https://stackoverflow.com/questions/6139493/how-convert-char-to-int-in-linux-kernel/49811658#49811658
@@ -5395,7 +5399,7 @@ insmod /virt_to_phys.ko
 cat /sys/kernel/debug/lkmc_virt_to_phys
 ....
 
-Source: link:packages/kernel_modules/virt_to_phys.c[]
+Source: link:packages/lkmc/kernel_modules/virt_to_phys.c[]
 
 Sample output:
 
@@ -5452,7 +5456,7 @@ First get a virtual address to play with:
 /virt_to_phys_test.out &
 ....
 
-Source: link:packages/kernel_modules/userland/virt_to_phys_test.c[]
+Source: link:packages/lkmc/userland/virt_to_phys_test.c[]
 
 Sample output:
 
@@ -5479,7 +5483,7 @@ Sample output physical address:
 0x7c7b800
 ....
 
-Source: link:packages/kernel_modules/userland/virt_to_phys_user.c[]
+Source: link:packages/lkmc/userland/virt_to_phys_user.c[]
 
 Now we can verify that `virt_to_phys_user.out` gave the correct physical address in the following ways:
 
@@ -5596,7 +5600,7 @@ vaddr pfn soft-dirty file/shared swapped present library
 7ffff78ec000 1fd4 0 1 0 1 /lib/libuClibc-1.0.30.so
 ....
 
-Source: link:packages/kernel_modules/userland/pagemap_dump.c[]
+Source: link:packages/lkmc/userland/pagemap_dump.c[]
 
 Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c
 
@@ -5672,7 +5676,7 @@ I hope to have examples of all methods some day, since I'm obsessed with visibil
 
 ==== CONFIG_PROC_EVENTS
 
-Logs proc events such as process creation to a link:packages/kernel_modules/netlink.c[netlink socket].
+Logs proc events such as process creation to a link:packages/lkmc/kernel_modules/netlink.c[netlink socket].
 
 We then have a userland program that listens to the events and prints them out:
 
@@ -5691,7 +5695,7 @@ a
 #
 ....
 
-Source: link:packages/kernel_modules/userland/proc_events.c[]
+Source: link:packages/lkmc/userland/proc_events.c[]
 
 TODO: why `exit: tid=79` shows after `exit: tid=80`?
 
@@ -5895,7 +5899,7 @@ Outcome: dmesg outputs on every fork:
 <_do_fork> post_handler: p->addr = 0x00000000e1360063, flags = 0x246
 ....
 
-Source: link:packages/kernel_modules/kprobe_example.c[]
+Source: link:packages/lkmc/kernel_modules/kprobe_example.c[]
 
 TODO: it does not work if I try to immediately launch `sleep`, why?
 
@@ -6059,7 +6063,7 @@ TODO not always reproducible. Find a more reproducible failure. I could not obse
 insmod /memcpy_overflow.ko
 ....
 
-Source: link:packages/kernel_modules/strlen_overflow.c[]
+Source: link:packages/lkmc/kernel_modules/strlen_overflow.c[]
 
 Bibliography: https://www.reddit.com/r/hacking/comments/8h4qxk/what_a_buffer_overflow_in_the_linux_kernel_looks/
 
@@ -6101,7 +6105,7 @@ UIO interface in a nutshell:
 
 Sources:
 
-* link:packages/kernel_modules/userland/uio_read.c[]
+* link:packages/lkmc/userland/uio_read.c[]
 * link:rootfs_overlay/uio_read.sh[]
 
 Bibliography:
@@ -6232,7 +6236,7 @@ Minimal example:
 ./run --kernel-cli 'init=/ctrl_alt_del.out' --graphic
 ....
 
-Source: link:packages/kernel_modules/userland/ctrl_alt_del.c[]
+Source: link:packages/lkmc/userland/ctrl_alt_del.c[]
 
 When you hit `Ctrl-Alt-Del` in the guest, our tiny init handles a `SIGINT` sent by the kernel and outputs to stdout:
 
@@ -6549,7 +6553,7 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 ./run --eval-busybox '/libdrm_modeset.out' --graphic
 ....
 
-Source: link:packages/kernel_modules/userland/libdrm_modeset.c[]
+Source: link:packages/lkmc/userland/libdrm_modeset.c[]
 
 Outcome: for a few seconds, the screen that contains the terminal gets taken over by changing colors of the rainbow.
 
@@ -6955,7 +6959,7 @@ insmod /pci_min.ko
 
 Sources:
 
-* Kernel module: link:packages/kernel_modules/pci_min.c[].
+* Kernel module: link:packages/lkmc/kernel_modules/pci_min.c[].
 * QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
 
 Outcome:
@@ -6994,7 +6998,7 @@ This tests a lot of features of the edu device, to understand the results, compa
 
 Sources:
 
-* kernel module: link:packages/kernel_modules/qemu_edu.c[]
+* kernel module: link:packages/lkmc/kernel_modules/qemu_edu.c[]
 * QEMU device: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
 * test script: link:rootfs_overlay/qemu_edu.sh[]
 
@@ -8510,7 +8514,7 @@ and then feed `bst_vs_heap.dat` into: https://github.com/cirosantilli/cpp-cheat/
 Sources:
 
 * link:bst-vs-heap[]
-* link:packages/kernel_modules/userland/bst_vs_heap.cpp[]
+* link:packages/lkmc/userland/bst_vs_heap.cpp[]
 
 ===== OpenMP
 
@@ -8520,7 +8524,7 @@ Implemented by GCC itself, so just a toolchain configuration, no external libs, 
 /openmp.out
 ....
 
-Source: link:packages/kernel_modules/userland/openmp.c[]
+Source: link:packages/lkmc/userland/openmp.c[]
 
 ===== BLAS
 
@@ -8538,7 +8542,7 @@ Outcome: the test passes:
 0
 ....
 
-Source: link:packages/kernel_modules/userland/openblas.c[]
+Source: link:packages/lkmc/userland/openblas.c[]
 
 The test performs a general matrix multiplication:
 
@@ -8584,7 +8588,7 @@ Output:
 2.5 1.5
 ....
 
-Source: link:packages/kernel_modules/userland/eigen_hello.cpp[]
+Source: link:packages/lkmc/userland/eigen_hello.cpp[]
 
 This example just creates a matrix and prints it out.
 
@@ -9270,8 +9274,8 @@ The executable `/m5ops.out` illustrates how to hard code with inline assembly th
 
 Sources:
 
-* link:packages/kernel_modules/userland/m5ops.h[]
-* link:packages/kernel_modules/userland/m5ops.c[]
+* link:packages/lkmc/userland/m5ops.h[]
+* link:packages/lkmc/userland/m5ops.c[]
 
 That executable is of course a subset of <<m5>> and useless by itself: its goal is only illustrate how to hardcode some <<m5ops>> yourself as one-liners.
 
@@ -9420,7 +9424,7 @@ Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCyc
 :;
 ....
 
-Source: link:packages/kernel_modules/userland/rdtsc.c[]
+Source: link:packages/lkmc/userland/rdtsc.c[]
 
 `rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
 
@@ -9438,7 +9442,7 @@ Bibliography:
 
 ===== pmccntr
 
-TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:packages/kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:packages/lkmc/kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
 
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
@@ -9626,7 +9630,7 @@ You will likely want to change that to:
 BR2_OPTIMIZE_3=y
 ....
 
-Our link:packages/kernel_modules/user[] package correctly forwards the Buildroot options to the build with `$(TARGET_CONFIGURE_OPTS)`, so you don't have to do any extra work.
+Our link:packages/lkmc/kernel_modules/user[] package correctly forwards the Buildroot options to the build with `$(TARGET_CONFIGURE_OPTS)`, so you don't have to do any extra work.
 
 Don't forget to do that if you are <<add-new-buildroot-packages,adding a new package>> with your own build system.
 
@@ -9722,7 +9726,7 @@ with:
 
 First, see if you can't get away without actually adding a new package, for example:
 
-* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:packages/kernel_modules/user[] and you are done
+* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:packages/lkmc/kernel_modules/user[] and you are done
 * if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-configs>>
 
 If none of those methods are flexible enough for you, you can just fork or hack up link:packages/sample_package[] the sample package to do what you want.
@@ -10439,7 +10443,7 @@ Lenovo ThinkPad link:https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51
 
 === Benchmark Internets
 
-==== 38Mbps
+==== 38Mbps internet
 
 2c12b21b304178a81c9912817b782ead0286d282:
 
@@ -10915,7 +10919,7 @@ git -C "$(./getvar buildroot_src_dir)" checkout -
 * `data`: gitignored user created data. Deleting this might lead to loss of data. Of course, if something there becomes is important enough to you, git track it.
 ** `data/9p`: see <<9p>>
 ** `data/gem5/<variant>`: see: <<gem5-build-variants>>
-* link:packages/kernel_modules[]: Buildroot package that contains our kernel modules and userland C tests
+* link:packages/lkmc[]: Buildroot package that contains our kernel modules and userland C tests
 * `out`: gitignored Build outputs. You won't lose data by deleting this folder since everything there can be re-generated, only time.
 ** `out/<arch>`: arch specific outputs
 *** `out/<arch>/buildroot`: standard Buildroot output
@@ -10963,15 +10967,9 @@ then test it out with:
 ./run --eval-busybox '/sample_package.out'
 ....
 
-In particular, our kernel modules are stored inside a Buildroot package: link:packages/kernel_modules[].
+In particular, our kernel modules are stored inside a Buildroot package: link:packages/lkmc[].
 
 ==== patches
-
-===== patches/buildroot
-
-Every `.patch` file in this directory gets applied to Buildroot before anything else is done.
-
-This directory has been made kind of useless when we decided to use our own Buildroot fork, but we've kept the functionality just in case we someday go back to upstream Buildroot.
 
 ===== patches/global
 
@@ -11000,7 +10998,7 @@ We use it for:
 * customized configuration files
 * userland module test scripts that don't need to be compiled.
 +
-C files for example need compilation, and must go through the regular package system, e.g. through link:packages/kernel_modules/user[].
+C files for example need compilation, and must go through the regular package system, e.g. through link:packages/lkmc/kernel_modules/user[].
 
 === Test this repo
 
@@ -11144,8 +11142,8 @@ hello cpp
 
 Sources:
 
-* link:packages/kernel_modules/userland/hello.c[]
-* link:packages/kernel_modules/userland/hello_cpp.c[]
+* link:packages/lkmc/userland/hello.c[]
+* link:packages/lkmc/userland/hello_cpp.c[]
 
 ==== rand_check.out
 
@@ -11155,7 +11153,7 @@ Print out several parameters that normally change randomly from boot to boot:
 ./run --eval-busybox '/rand_check.out;/poweroff.out'
 ....
 
-Source: link:packages/kernel_modules/userland/rand_check.c[]
+Source: link:packages/lkmc/userland/rand_check.c[]
 
 This can be used to check the determinism of:
 
@@ -11220,6 +11218,54 @@ Source: link:release-upload[]
 Create `LKMC_GITHUB_TOKEN` under: https://github.com/settings/tokens/new and save it to your `.bashrc`.
 
 TODO: generalize that so that people can upload to their forks.
+
+=== Linux distro choice
+
+We haven't found the ultimate distro yet, here is a summary table of trade-offs that we care about:
+
+[options="header"]
+|===
+|Distro |Packages in single Git tree |Git tracked docs |Cross build without QEMU |Prebuilt downloads |Number of packages
+
+|Buildroot 2018.05
+|y
+|y
+|y
+|n
+|2k (1)
+
+|Ubuntu 18.04
+|n
+|n
+|n
+|y
+|50k (3)
+
+|Yocto 2.5 (8)
+|?
+|y (5)
+|?
+|y (6)
+|400 (7)
+
+
+|Alpine Linux 3.8.0
+|y
+|n (1)
+|?
+|y
+|2000 (4)
+
+|===
+
+* (1): Wiki... https://wiki.alpinelinux.org/wiki/Main_Page
+* (2): `ls packages | wc`
+* (3): https://askubuntu.com/questions/120630/how-many-packages-are-in-the-main-repository
+* (4): `ls main community non-free | wc`
+* (5): yes, but on a separate Git tree... https://git.yoctoproject.org/cgit/cgit.cgi/yocto-docs/
+* (6): yes, but the initial Poky build / download still took 5 hours on <<38mbps-internet>>, and QEMU failed to boot at the end... https://bugzilla.yoctoproject.org/show_bug.cgi?id=12953
+* (7): `ls recipes-* | wc`
+* (8): Poky reference system: http://git.yoctoproject.org/cgit/cgit.cgi/poky
 
 === Fairy tale
 

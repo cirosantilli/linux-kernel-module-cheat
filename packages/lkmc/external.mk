@@ -4,21 +4,22 @@
 #
 ################################################################################
 
-KERNEL_MODULES_VERSION = 1.0
-KERNEL_MODULES_SITE = $(BR2_EXTERNAL_KERNEL_MODULES_PATH)
-KERNEL_MODULES_SITE_METHOD = local
+LKMC_VERSION = 1.0
+LKMC_SITE = $(BR2_EXTERNAL_LKMC_PATH)
+LKMC_SITE_METHOD = local
+LKMC_MODULE_SUBDIRS = kernel_modules
 
 ifeq ($(BR2_PACKAGE_EIGEN),y)
-	KERNEL_MODULES_DEPENDENCIES += eigen
+	LKMC_DEPENDENCIES += eigen
 endif
 ifeq ($(BR2_PACKAGE_LIBDRM),y)
-	KERNEL_MODULES_DEPENDENCIES += libdrm
+	LKMC_DEPENDENCIES += libdrm
 endif
 ifeq ($(BR2_PACKAGE_OPENBLAS),y)
-	KERNEL_MODULES_DEPENDENCIES += openblas
+	LKMC_DEPENDENCIES += openblas
 endif
 
-define KERNEL_MODULES_BUILD_CMDS
+define LKMC_BUILD_CMDS
 	$(MAKE) -C '$(@D)/userland' $(TARGET_CONFIGURE_OPTS) \
 	  HAS_EIGEN="$(BR2_PACKAGE_EIGEN)" \
 	  HAS_LIBDRM="$(BR2_PACKAGE_LIBDRM)" \
@@ -26,13 +27,12 @@ define KERNEL_MODULES_BUILD_CMDS
 	;
 endef
 
-define KERNEL_MODULES_INSTALL_TARGET_CMDS
+define LKMC_INSTALL_TARGET_CMDS
 	# The modules are already installed by the kernel-module package type
 	# under /lib/modules/**, but let's also copy the modules to the root
 	# for insmod convenience.
 	#
 	# Modules can be still be easily inserted with "modprobe module" however.
-	$(INSTALL) -D -m 0655 $(@D)/*.ko '$(TARGET_DIR)'
 	$(INSTALL) -D -m 0755 $(@D)/userland/*.out '$(TARGET_DIR)'
 endef
 
