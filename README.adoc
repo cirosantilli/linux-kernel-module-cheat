@@ -2433,21 +2433,65 @@ Wait, where do `HOME` and `TERM` come from? (greps the kernel). Ah, OK, the kern
 const char *envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };
 ....
 
-Furthermore, if you run something inside a shell:
+==== shell init environment
+
+On top of the Linux kernel, the BusyBox `/bin/sh` shell will also define other variables.
+
+We can explore the shenanigans that the shell adds on top of the Linux kernel with:
 
 ....
-./run --eval '/usr/bin/env'
+./run --kernel-cli 'init=/bin/sh'
 ....
 
-BusyBox also defines `SHLVL` and `PWD=`:
+From there we observe that:
+
+....
+env
+....
+
+gives:
 
 ....
 SHLVL=1
 HOME=/
 TERM=linux
-lkmc_eval=L3Vzci9iaW4vZW52
 PWD=/
 ....
+
+therefore adding `SHLVL` and `PWD` to the default kernel exported variables.
+
+Furthermore, to increase confusion, if you list all non-exported shell variables https://askubuntu.com/questions/275965/how-to-list-all-variables-names-and-their-current-values with:
+
+....
+set
+....
+
+then it shows more variables, notably:
+
+....
+PATH='/sbin:/usr/sbin:/bin:/usr/bin'
+....
+
+Finally, login shells will source some default files, notably:
+
+....
+/etc/profile
+/root/.profile
+....
+
+We currently control `/root/.profile` at link:rootfs_overlay/root/.profile[], and use the default BusyBox `/etc/profile`.
+
+The shell knows that it is a login shell if the first character of `argv[0]` is `-`, see also: https://stackoverflow.com/questions/2050961/is-argv0-name-of-executable-an-accepted-standard-or-just-a-common-conventi/42291142#42291142
+
+When we use just `init=/bin/sh`, the Linux kernel sets `argv[0]` to `/bin/sh`, which does not start with `-`.
+
+However, if you use `::respawn:-/bin/sh` on inttab described at <<tty>>, BusyBox' init sets `argv[0]` to `-`, and so does `getty`. This can be observed with:
+
+....
+cat /proc/$$/cmdline
+....
+
+where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/21063765/get-pid-in-shell-bash
 
 === Networking
 
@@ -5866,6 +5910,10 @@ TODO: what do `+` and `!` mean?
 Each `enable` under the `events/` tree enables a certain set of functions, the higher the `enable` more functions are enabled.
 
 TODO: can you get function arguments? https://stackoverflow.com/questions/27608752/does-ftrace-allow-capture-of-system-call-arguments-to-the-linux-kernel-or-only
+
+===== ftrace system calls
+
+https://stackoverflow.com/questions/29840213/how-do-i-trace-a-system-call-in-linux/51856306#51856306
 
 ===== trace-cmd
 
