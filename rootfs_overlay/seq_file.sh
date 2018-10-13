@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 f=/sys/kernel/debug/lkmc_seq_file
-insmod /seq_file.ko
+insmod seq_file.ko
 [ "$(cat "$f")" = "$(printf '0\n1\n2\n')" ]
 [ "$(cat "$f")" = "$(printf '0\n1\n2\n')" ]
 [ "$(dd if="$f" bs=1 count=2 skip=0 status=none)" = "$(printf '0\n')" ]

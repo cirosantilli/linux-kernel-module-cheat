@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
-insmod /vermagic.ko
+insmod vermagic.ko
 rmmod vermagic

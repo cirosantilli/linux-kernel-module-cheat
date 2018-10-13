@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-insmod /sysfs.ko
+insmod sysfs.ko
 f=/sys/kernel/lkmc_sysfs/foo
 # write
 printf 12345 > "$f"

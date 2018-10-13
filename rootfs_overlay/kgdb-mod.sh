@@ -1,5 +1,5 @@
 #!/bin/sh
-insmod /fops.ko
+insmod fops.ko
 cd /sys/kernel/debug/lkmc_fops
 i=0
 while true; do

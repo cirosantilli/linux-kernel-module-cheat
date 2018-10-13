@@ -10,7 +10,7 @@ lspci -k
 cat /proc/interrupts
 
 # Setup.
-insmod /pci.ko
+insmod pci.ko
 /mknoddev.sh lkmc_pci
 
 # Shows that this module owns the PCI device.

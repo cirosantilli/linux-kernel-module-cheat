@@ -74,9 +74,10 @@ git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
 ./configure --qemu && \
 ./build-qemu       && \
-./build-buildroot  && \
 ./build-linux      && \
 ./build-modules    && \
+./build-userland   && \
+./build-buildroot  && \
 ./run
 ....
 
@@ -100,7 +101,15 @@ see this: https://askubuntu.com/questions/496549/error-you-must-put-some-source-
 
 It does not work if you just download the `.zip` from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo. `./configure` then fetches only the required submodules for you.
 
-QEMU opens up and you can start playing with the kernel modules inside the simulated system: TODO fix path to 9p:
+The order of build commands matters:
+
+* `./build-linux` must come before `./build-modules` because the kernel modules depend on the Linux kernel build. We could lessen this need by calling `make modules_prepare` on the kernel tree, which does not require a full build, but this is not currently done
+* `./build-modules` and `./build-userland` must come before `./build-buildroot` because generate files that will be placed in the root filesystem. If you don't call them before, the generated files will not be in the root filesystem.
+* `build-qemu` must come before `./build-buildroot` because it builds the `qemu-img` tool that we use to convert the raw disk image into link:https://en.wikipedia.org/wiki/Qcow[qcow2] format that QEMU boots from in our setup
+
+If you mess up the order, just build things again in the right order and you will be fine.
+
+After `./run`, QEMU opens up and you can start playing with the kernel modules inside the simulated system:
 
 ....
 insmod /hello.ko

@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ex
-insmod /virt_to_phys.ko
+insmod virt_to_phys.ko
 cd /sys/kernel/debug
 cat lkmc_virt_to_phys
 # k = 0x12345678

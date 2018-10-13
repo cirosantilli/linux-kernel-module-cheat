@@ -11,7 +11,7 @@ eval "$lkmc_eval"
 # However, the kernel CLI parsing is crap, and the 4.14 docs lie.
 #
 # In particular, not all that is passed after "-" goes to an argument to init,
-# e.g. stuff with dots like "- /poweroff.out" still gets treated specially and
+# e.g. stuff with dots like "- ./poweroff.out" still gets treated specially and
 # does not go to init.
 #
 # This also likely means that the above solution is also unreliable in some cases,

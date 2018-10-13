@@ -3,7 +3,7 @@ set -e
 
 # Setup
 f=/sys/kernel/debug/lkmc_fops
-insmod /fops.ko
+insmod fops.ko
 
 # read
 [ "$(cat "$f")" = abcd ]
