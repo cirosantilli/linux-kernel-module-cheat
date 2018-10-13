@@ -73,12 +73,11 @@ Reserve 12Gb of disk and run:
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
 ./configure --qemu && \
-  ./build-qemu &&
-  ./build-buildroot && \
-  ./build-linux && \
-  ./build-modules && \
-  ./run && \
-:;
+./build-qemu       && \
+./build-buildroot  && \
+./build-linux      && \
+./build-modules    && \
+./run
 ....
 
 The initial build will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
@@ -139,18 +138,18 @@ All available modules can be found in the link:packages/lkmc/kernel_modules[] di
 It is super easy to build for different CPU architectures, just use the `--arch` option:
 
 ....
-./build-qemu --arch arm && \
-  ./build-buildroot --arch arm && \
-  ./run --arch arm && \
-:;
+./build-qemu --arch arm
+./build-buildroot --arch arm
+./run --arch arm
 ....
+
+Alternatively, set the default arch as explained at: <<default-command-line-arguments>>
 
 See also: <<cpu-architecture,CPU architectures>>.
 
 I now urge you to read the following sections which contain widely applicable information:
 
 * <<run-command-after-boot>>
-* <<default-command-line-arguments>>
 * <<rebuild-buildroot-packages>>
 * <<clean-the-build>>
 * <<build-the-documentation>>
@@ -250,7 +249,8 @@ pr_info("I'VE HACKED THE LINUX KERNEL!!!");
 Then rebuild the Linux kernel and reboot:
 
 ....
-./build-linux && ./run
+./build-linux
+./run
 ....
 
 and, surely enough, your message has appeared at the beginning of the boot.
@@ -278,7 +278,8 @@ to contain:
 then as usual rebuild and re-run:
 
 .....
-./build-qemu && ./run --eval-busybox 'grep "model name" /proc/cpuinfo'
+./build-qemu
+./run --eval-busybox 'grep "model name" /proc/cpuinfo'
 .....
 
 and once again, there is your message: QEMU communicated it to the Linux kernel, which printed it out.
@@ -351,11 +352,10 @@ See <<gem5-vs-qemu>> for a more thorough comparison.
 For the most part, if you just add the `--gem5` option or `*-gem5` suffix to all commands and everything should magically work:
 
 ....
-./configure --gem5 && \
-  ./build-gem5 && \
-  ./build-buildroot --gem5 && \
-  ./run --gem5 &&\
-:;
+./configure --gem5
+./build-gem5
+./build-buildroot --gem5
+./run --gem5
 ....
 
 If you have already built <<qemu-buildroot-setup>> previously, don't be afraid, gem5 and QEMU use almost the same root filesystem and kernel, so `./build-buildroot --gem` will be fast. It is currently only needed for the <<m5>> tool.
@@ -758,12 +758,11 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 QEMU:
 
 ....
-./configure --baremetal --qemu      && \
-./build-qemu --arch arm             && \
-./build-crosstool-ng --arch arm     && \
-./build-baremetal --arch arm        && \
-./run --arch arm --baremetal prompt && \
-:;
+./configure --baremetal --qemu
+./build-qemu --arch arm
+./build-crosstool-ng --arch arm
+./build-baremetal --arch arm
+./run --arch arm --baremetal prompt
 ....
 
 You are now left inside QEMU running the tiny baremetal system link:baremetal/prompt.c[], which uses the UART to:
@@ -813,13 +812,12 @@ Alternatively, for the sake of tab completion, we also accept full paths inside 
 To use gem5 instead of QEMU do:
 
 ....
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch && \
-./configure --baremetal --gem5             && \
-./build-gem5 --arch arm                    && \
-./build-crosstool-ng --arch arm            && \
-./build-baremetal --arch arm --gem5        && \
-./run --arch arm --baremetal prompt --gem5 && \
-:;
+patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
+./configure --baremetal --gem5
+./build-gem5 --arch arm
+./build-crosstool-ng --arch arm
+./build-baremetal --arch arm --gem5
+./run --arch arm --baremetal prompt --gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -1045,7 +1043,8 @@ From inside tmux, you can do that with `Ctrl-B C` or `Ctrl-B %`.
 To see the debugger by default instead of the terminal, run:
 
 ....
-./tmu ./run-gdb && ./run --debug-guest --gem5
+./tmu ./run-gdb
+./run --debug-guest --gem5
 ....
 
 === GDB step debug kernel module
@@ -2616,13 +2615,15 @@ So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-in
 Try it out with:
 
 ....
-./build-buildroot --initramfs -l && ./run --initramfs
+./build-buildroot --initramfs -l
+./run --initramfs
 ....
 
 The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
 
 ....
-./build-buildroot --initramfs && ./run --initramfs
+./build-buildroot --initramfs
+./run --initramfs
 ....
 
 It is interesting to see how this increases the size of the kernel image if you do a:
@@ -5952,7 +5953,8 @@ Source: link:packages/lkmc/kernel_modules/kprobe_example.c[]
 TODO: it does not work if I try to immediately launch `sleep`, why?
 
 ....
-insmod /kprobe_example.ko && sleep 4 & sleep 4 &
+insmod /kprobe_example.ko
+sleep 4 & sleep 4 &
 ....
 
 I don't think your code can refer to the surrounding kernel code however: the only visible thing is the value of the registers.
@@ -6720,7 +6722,7 @@ Looks like a more raw alternative to libdrm:
 wget \
   -O "$(./getvar kernel_modules_src_dir)/user/dri2test.c" \
   https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c \
-:;
+;
 ./build-buildroot --kernel-modules
 ....
 
@@ -7976,7 +7978,8 @@ TODO: what is the point of having two mechanisms, `-trace` and  `-d`? `-d` traci
 We can further use Binutils' `addr2line` to get the line that corresponds to each address:
 
 ....
-./trace-boot --arch x86_64 && ./trace2line --arch x86_64
+./trace-boot --arch x86_64
+./trace2line --arch x86_64
 less "$(./getvar --arch x86_64 run_dir)/trace-lines.txt"
 ....
 
@@ -8191,7 +8194,8 @@ The best way to verify all of this is to write some <<baremetal,baremetal code>>
 Trace the source lines just like <<trace-source-lines,for QEMU>> with:
 
 ....
-./trace-boot --arch aarch64 --gem5 && ./trace2line --arch aarch64 --gem5
+./trace-boot --arch aarch64 --gem5
+./trace2line --arch aarch64 --gem5
 less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"
 ....
 
@@ -8511,7 +8515,9 @@ Clock frequency: TODO how does it affect performance in benchmarks?
 Check with:
 
 ....
-m5 resetstats && sleep 10 && m5 dumpstats
+m5 resetstats
+sleep 10
+m5 dumpstats
 ....
 
 and then:
@@ -8654,10 +8660,9 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-./configure --gem5 --parsec-benchmark && \
-./build-buildroot --arch arm --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' --gem5 && \
-./run --arch arm --gem5 && \
-:;
+./configure --gem5 --parsec-benchmark
+./build-buildroot --arch arm --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' --gem5
+./run --arch arm --gem5
 ....
 
 Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
@@ -9465,11 +9470,10 @@ system.cpu.dtb.inst_hits
 Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCycles` with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
 
 ....
-./build-buildroot --gem5 && \
-./build-userland -- rdtsc && \
-./run --eval '/rdtsc.out;m5 exit;' --gem5 && \
-./gem5-stat && \
-:;
+./build-buildroot --gem5
+./build-userland -- rdtsc
+./run --eval '/rdtsc.out;m5 exit;' --gem5
+./gem5-stat
 ....
 
 Source: link:packages/lkmc/userland/rdtsc.c[]
