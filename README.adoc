@@ -10714,7 +10714,7 @@ Like <<cpu-architecture>>, you will need to pass the `-n` option to anything tha
 ./run-gdb --run-id 1
 ....
 
-To run multiple gem5 checkouts, see: <<gem5-simultaneous-runs-with-build-variants>>.
+To run multiple gem5 checkouts, see: <<gem5-worktree>>.
 
 Implementation note: we create multiple namespaces for two things:
 
@@ -10808,11 +10808,9 @@ git -C "$(./getvar gem5_src_dir)" checkout some-branch
 
 Don't forget however that gem5 has Python scripts in its source code tree, and that those must match the source code of a given build.
 
-Therefore, you can't forget to checkout to the sources to that of the corresponding build before running, unless you explicitly tell gem5 to use a non-default source tree with `--gem5-worktree`.
+Therefore, you can't forget to checkout to the sources to that of the corresponding build before running, unless you explicitly tell gem5 to use a non-default source tree with <<gem5-worktree>>. This becomes inevitable when you want to launch multiple simultaneous runs at different checkouts.
 
-This becomes inevitable when you want to launch <<gem5-simultaneous-runs-with-build-variants>>.
-
-===== gem5 simultaneous runs with build variants
+===== gem5 worktree
 
 In order to checkout multiple gem5 builds and run them simultaneously, you also need to use the `--gem5-worktree` flag:
 
@@ -10822,7 +10820,7 @@ In order to checkout multiple gem5 builds and run them simultaneously, you also 
 
 # Build another branch.
 git -C "$(./getvar linux_src_dir)" checkout some-branch
-./build-gem5 --gem5-build-id some-branch --gem5-worktree some-branch
+./build-gem5 --gem5-worktree some-branch
 
 # Restore master.
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -10832,31 +10830,31 @@ git -C "$(./getvar linux_src_dir)" checkout -
 
 # Run another branch using the worktree for the scripts,
 # without the need to check out anything.
-./run --gem5 --gem5-build-id some-branch --gem5-worktree some-branch --run-id 1 &>/dev/null &
+./run --gem5 --gem5-worktree some-branch --run-id 1 &>/dev/null &
 ....
+
+This automatically creates a link:https://git-scm.com/docs/git-worktree[Git worktree] of gem5 if one didn't exit yet. Therefore, if you want to edit the code used by `--gem5-worktree-id`, you must edit it on the worktree:
+
+....
+cd data/gem5/some-branch
+vim create-bugs
+git checkout was-working-i-think
+....
+
+We promise that the scripts sill never touch that worktree again once it has been created: it is now up to you to manage the code manually.
 
 When `--gem5-worktree` is not given, the default source tree under `submodules/gem5` is used.
 
-The `--gem5-worktree <woktree-id>` determines the location of the gem5 tree to be used for both:
+The `--gem5-worktree <woktree-id>` command determines the location of the gem5 tree to be used for both:
 
 * the input C files of the build at build time
 * the Python scripts to be used at runtime
 
 The difference between `--gem5-build-id` and `--gem5-worktree` is that `--gem5-build-id` specifies the gem5 build output directory, while `--gem5-worktree` specifies the source input directory.
 
-If `--gem5-worktree <worktree-id>` is given, the directory used is `data/gem5/<worktree-id>`, and:
+`--gem5-worktree` also sets `--gem5-build-id` by default, so that different worktrees lead to different builds by default.
 
-* if that directory does not exist, create a `git worktree` at a branch `wt/<worktree-id>` on current commit of `submodules/gem5` there.
-+
-The `wt/` branch name prefix stands for `WorkTree`, and is done to allow us to checkout to a test `some-branch` branch under `submodules/gem5` and still use `--gem5-worktree some-branch`, without conflict for the worktree branch, which can only be checked out once.
-* otherwise, leave that worktree untouched, without updating it
-
-Therefore, future builds for `worktree-id` will not automatically modify the revision of the worktree, and to do that you must manually check it out:
-
-....
-git -C data/gem5/some-branch checkout some-branch-v2
-./build-buildroot --gem5 --gem5-build-id some-branch --gem5-worktree some-branch
-....
+Each Git worktree needs a branch name, and we append the `wt/` prefix to the `--gem5-worktree` value, where `wt` stands for `WorkTree`. This is done to allow us to checkout to a test `some-branch` branch under `submodules/gem5` and still use `--gem5-worktree some-branch`, without conflict for the worktree branch, which can only be checked out once.
 
 `--gem5-worktree` is only required if you have multiple gem5 checkouts, e.g. it would not be required for multiple builds of the same tree, e.g. a <<gem5-debug-build>> and a non-debug one.
 
@@ -10895,7 +10893,7 @@ With this setup, both your private gem5 source and build are safely kept outside
 
 ===== gem5 debug build
 
-The `gem5.debug` has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
+The `gem5.debug` executable has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
 
 ....
 ./build-gem5 --arch aarch64 --gem5-build-type debug

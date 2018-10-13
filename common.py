@@ -43,6 +43,7 @@ extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
 ccache_dir = os.path.join('/usr', 'lib', 'ccache')
+default_build_id = 'default'
 arch_map = {
     'a': 'arm',
     'A': 'aarch64',
@@ -115,7 +116,6 @@ def get_argparse(default_args=None, argparse_args=None):
     for key in this.arch_map:
         arch_choices.append(key)
         arch_choices.append(this.arch_map[key])
-    default_build_id = 'default'
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         **argparse_args
@@ -172,9 +172,8 @@ See the documentation for other values known to work.
     parser.add_argument(
         '-N', '--gem5-worktree',
         help='''\
-gem5 git worktree to use for build and Python scripts at runtime. Automatically
-create a new git worktree with the given id if one does not exist. If not
-given, just use the submodule source.
+Create and use a git worktree of the gem5 submodule.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
 '''
     )
     parser.add_argument(
@@ -526,6 +525,10 @@ def setup(parser):
     args = parser.parse_args()
     if args.arch in this.arch_map:
         args.arch = this.arch_map[args.arch]
+    # Because argparse sucks:
+    # https://stackoverflow.com/questions/30487767/check-if-argparse-optional-argument-is-set-or-not
+    if args.gem5_worktree is not None and args.gem5_build_id == default_build_id:
+        args.gem5_build_id = args.gem5_worktree
     this.machine = args.machine
     if args.arch == 'arm':
         this.armv = 7
