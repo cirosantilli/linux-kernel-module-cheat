@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+
+import argparse
+import collections
+import os
+
+import common
+
+class Component():
+    def __init__(self, default_selected, build_callback):
+        self.default_selected = default_selected
+        self.build_callback = build_callback
+    def build(self, arch, dry_run):
+        self.build_callback(arch, dry_run)
+
+class BaremetalComponent(Component):
+    def __init__(self, default_selected):
+        self.default_selected = default_selected
+    def build(self, arch, dry_run):
+        common.run_cmd(['build-crosstool-ng', '--arch', arch], dry_run=dry_run)
+        common.run_cmd(['build-baremetal', '--arch', arch], dry_run=dry_run)
+        common.run_cmd(['build-baremetal', '--arch', arch, '--gem5'], dry_run=dry_run)
+        common.run_cmd(['build-baremetal', '--arch', arch, '--gem5', '--machine', 'RealViewPBX'], dry_run=dry_run)
+
+def add_bool_arg(parser, name, default=False):
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('--' + name, default=False, action='store_true')
+    group.add_argument('--no-' + name, default=False, action='store_true')
+
+def run_cmd(cmd, dry_run):
+    cmd_abs = cmd.copy()
+    cmd_abs[0] = os.path.join(common.root_dir, cmd[0])
+    common.run_cmd(cmd_abs, dry_run=dry_run)
+
+# Topological sorted on build dependencies.
+name_to_component_map = collections.OrderedDict([
+    ('baremetal', BaremetalComponent(False)),
+    ('gem5', Component(
+        False,
+        lambda arch, dry_run: run_cmd(['build-gem5', '--arch', arch], dry_run)
+    )),
+    ('qemu', Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-qemu', '--arch', arch], dry_run)
+    )),
+    ('linux', Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-linux', '--arch', arch], dry_run=dry_run)
+    )),
+    ('modules', Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-modules', '--arch', arch], dry_run=dry_run)
+    )),
+    ('userland', Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-userland', '--arch', arch], dry_run=dry_run),
+    )),
+    ('buildroot', Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-buildroot', '--arch', arch, '--gem5'], dry_run=dry_run),
+    )),
+])
+component_names = name_to_component_map.keys()
+linux_component_names = {
+    'gem5',
+    'qemu',
+    'linux',
+    'modules',
+    'userland',
+    'buildroot',
+}
+
+parser = argparse.ArgumentParser(
+    description= '''
+Shallow helper to build everything, or a subset of everything conveniently.
+
+While developing something however, you will likely want to just run the
+required sub-build commands manually to speed things up and better understand
+what is going on.
+
+Without any args, build only what is necessary for
+https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-buildroot-setup
+
+....
+./%(prog)s
+....
+
+This includes:
+
+* QEMU
+* Linux kernel
+* kernel modules and userland tools
+* Buildroot
+
+just for x86_64.
+
+To build EVERYTHING:
+
+This will build QEMU, gem5, Buildroot, Linux, etc.
+for x86_64, arm and aarch64.
+
+With --archs, build everything for just the given archs:
+
+....
+./%(prog)s --archs 'arm aarch64'
+....
+
+Other options make this script build only the given components. E.g., to build
+just Linux and QEMU for all archs, but not gem5, Buildroot, etc.:
+
+....
+./%(prog)s --linux --qemu
+....
+
+this is useful to while developing those components to prepare to quickly
+''',
+    formatter_class=argparse.RawTextHelpFormatter,
+)
+parser.add_argument('--all', default=False, action='store_true', help='''\
+Build absolutely everything.
+''')
+parser.add_argument('--all-components', default=False, action='store_true', help='''\
+Build all components within the selected archs.
+''')
+parser.add_argument('--all-linux-components', default=False, action='store_true', help='''\
+Build all Linux-releated components within the selected archs.
+Excludes for example baremetal examples.
+''')
+group = parser.add_mutually_exclusive_group(required=False)
+group.add_argument('--all-archs', default=False, action='store_true', help='''\
+Build the selected components for all archs.
+''')
+group.add_argument('--arch', choices=common.arch_choices, default=[], action='append', help='''\
+Build the selected components for this arch. Select multiple arches by
+passing this option multiple times. Default: [{}]
+'''.format(common.default_arch))
+for component in component_names:
+    add_bool_arg(parser, component)
+parser.add_argument('--dry-run', default=False, action='store_true', help='''\
+Print the commands that would be run, but don't run them.
+''')
+args = parser.parse_args()
+
+# Decide archs.
+if args.arch == []:
+    if args.all or args.all_archs:
+        archs = common.all_archs.copy()
+    else:
+        archs = set([common.default_arch])
+else:
+    archs = set()
+    for arch in args.arch:
+        if arch in common.arch_short_to_long_dict:
+            arch = common.arch_short_to_long_dict[arch]
+        archs.add(arch)
+
+# Decide components.
+selected_component_names = []
+for name in component_names:
+    component = name_to_component_map[name]
+    if (
+        args.all or
+        args.all_components or
+        (args.all_linux_components and name in linux_component_names) or
+        getattr(args, name) or
+        component.default_selected
+    ):
+        selected_component_names.append(name)
+
+for arch in archs:
+    for name in selected_component_names:
+        name_to_component_map[name].build(arch, args.dry_run)

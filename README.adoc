@@ -72,12 +72,8 @@ Reserve 12Gb of disk and run:
 ....
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-./configure --qemu && \
-./build-qemu       && \
-./build-linux      && \
-./build-modules    && \
-./build-userland   && \
-./build-buildroot  && \
+./download-dependencies
+./build
 ./run
 ....
 
@@ -95,7 +91,7 @@ If you don't want to wait, you could also try the following faster but much more
 
 but you will soon find that they are simply not enough if you anywhere near serious about systems programming.
 
-If `./configure` fails with:
+If `./download-dependencies` fails with:
 
 ....
 E: You must put some 'source' URIs in your sources.list
@@ -103,15 +99,7 @@ E: You must put some 'source' URIs in your sources.list
 
 see this: https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list/857433#857433 I don't know how to automate this step. Why, Ubuntu, why.
 
-It does not work if you just download the `.zip` from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo. `./configure` then fetches only the required submodules for you.
-
-The order of build commands matters:
-
-* `./build-linux` must come before `./build-modules` because the kernel modules depend on the Linux kernel build. We could lessen this need by calling `make modules_prepare` on the kernel tree, which does not require a full build, but this is not currently done
-* `./build-modules` and `./build-userland` must come before `./build-buildroot` because generate files that will be placed in the root filesystem. If you don't call them before, the generated files will not be in the root filesystem.
-* `build-qemu` must come before `./build-buildroot` because it builds the `qemu-img` tool that we use to convert the raw disk image into link:https://en.wikipedia.org/wiki/Qcow[qcow2] format that QEMU boots from in our setup
-
-If you mess up the order, just build things again in the right order and you will be fine.
+It does not work if you just download the `.zip` from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo. `./download-dependencies` then fetches only the required submodules for you.
 
 After `./run`, QEMU opens up and you can start playing with the kernel modules inside the simulated system:
 
@@ -243,6 +231,16 @@ Then rebuild the Linux kernel, quit QEMU and reboot the modified kernel:
 
 and, surely enough, your message has appeared at the beginning of the boot.
 
+We could have used just `./build` as in the initial build, but doing just `./build-linux` will save us a bit of time.
+
+The link:build[`./build`] script is just a lightweight wrapper, but when you start modifying components such as the Linux kernel, it is better to run individual steps directly.
+
+You can see that `./build` does `./build-linux` by running:
+
+....
+./build --dry-run
+....
+
 So you are now officially a Linux kernel hacker, way to go!
 
 ===== Your first kernel module hack
@@ -285,7 +283,7 @@ The safe way, is to fist quit QEMU, then rebuild the modules, root filesystem, a
 
 `./build-buildroot` generates the root filesystem with the modules that we compiled at `./build-modules`.
 
-`--eval-busybox` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot.
+`--eval-busybox` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
 
 If the guest and host are the same arch, typically x86_64, you can speed up boot further with <<kvm>>:
 
@@ -371,8 +369,6 @@ All of this makes QEMU the natural choice of default system simulator.
 
 === gem5 Buildroot setup
 
-TODO document kernel modules don't work on 9p
-
 ==== About the gem5 Buildroot setup
 
 This setup is like the <<qemu-buildroot-setup>>, but it uses link:http://gem5.org/[gem5] instead of QEMU as a system simulator.
@@ -393,16 +389,26 @@ See <<gem5-vs-qemu>> for a more thorough comparison.
 
 ==== gem5 Buildroot setup getting started
 
-For the most part, if you just add the `--gem5` option or `*-gem5` suffix to all commands and everything should magically work:
+For the most part, if you just add the `--gem5` option or `*-gem5` suffix to all commands and everything should magically work.
+
+If you haven't built Buildroot yet for <<qemu-buildroot-setup>>, you can build from the beginning with:
 
 ....
-./configure --gem5
-./build-gem5
+./download-dependencies --gem5
+./build --gem5 --no-qemu
 ./build-buildroot --gem5
 ./run --gem5
 ....
 
-If you have already built <<qemu-buildroot-setup>> previously, don't be afraid, gem5 and QEMU use almost the same root filesystem and kernel, so `./build-buildroot --gem` will be fast. It is currently only needed for the <<m5>> tool.
+`--no-qemu` is optional, but it makes the 
+....
+./download-dependencies --gem5
+./build-gem5 --gem5
+./build-buildroot --gem5
+./run --gem5
+....
+
+If you have already built  previously, don't be afraid: gem5 and QEMU use almost the same root filesystem and kernel, so `./build-buildroot --gem` will be fast. It is currently only needed for the <<m5>> tool.
 
 To get a terminal, either open a new shell and run:
 
@@ -802,7 +808,7 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 QEMU:
 
 ....
-./configure --baremetal --qemu
+./download-dependencies --baremetal --qemu
 ./build-qemu --arch arm
 ./build-crosstool-ng --arch arm
 ./build-baremetal --arch arm
@@ -857,7 +863,7 @@ To use gem5 instead of QEMU do:
 
 ....
 patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
-./configure --baremetal --gem5
+./download-dependencies --baremetal --gem5
 ./build-gem5 --arch arm
 ./build-crosstool-ng --arch arm
 ./build-baremetal --arch arm --gem5
@@ -8007,7 +8013,7 @@ less "$(./getvar -a "$arch" run_dir)/trace.txt"
 
 This functionality relies on the following setup:
 
-* `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
+* `./download-dependencies --enable-trace-backends=simple`. This logs in a binary format to the trace file.
 +
 It makes 3x execution faster than the default trace backend which logs human readable data to stdout.
 +
@@ -8747,7 +8753,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-./configure --gem5 --parsec-benchmark
+./download-dependencies --gem5 --parsec-benchmark
 ./build-buildroot --arch arm --buildroot-config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' --gem5
 ./run --arch arm --gem5
 ....
@@ -10189,7 +10195,7 @@ CT_GDB_CROSS_SIM=y
 which by grepping crosstool-NG we can see does on GDB:
 
 ....
-./configure --enable-sim
+./download-dependencies --enable-sim
 ....
 
 Those are not set by default on `gdb-multiarch` in Ubuntu 16.04.
@@ -10384,7 +10390,7 @@ We tried to automate it on Travis with link:.travis.yml[] but it hits the curren
 Benchmark all:
 
 ....
-./build-all
+./build --all-linux-components
 ./bench-boot
 cat "$(./getvar bench_boot)"
 ....
@@ -10464,7 +10470,7 @@ Kernel panic - not syncing: Attempted to kill the idle task!
 
 ==== Benchmark builds
 
-The build times are calculated after doing `./configure` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the <<benchmark-internets,Internet>>.
+The build times are calculated after doing `./download-dependencies` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the <<benchmark-internets,Internet>>.
 
 Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
 
@@ -11127,7 +11133,7 @@ It takes too much time to be feasible for every patch, but it should be done for
 ==== Automated tests
 
 ....
-./build-all
+./build --all-linux-components
 ./test --size 3
 echo $?
 ....
@@ -11136,7 +11142,7 @@ should output 0.
 
 Sources:
 
-* link:build-all[]
+* link:build[]
 * link:test[]
 
 Test just the kernel modules:
@@ -11307,10 +11313,10 @@ TODO also run tests and only release if they pass.
 
 ==== release-zip
 
-Create a zip containing all files required for <<prebuilt>>
+Create a zip containing all files required for <<prebuilt>>:
 
 ....
-./build-all -G
+./build --all-linux-components
 ./release-zip
 ....
 

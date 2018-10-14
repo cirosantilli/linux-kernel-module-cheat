@@ -2,6 +2,7 @@
 
 import argparse
 import base64
+import collections
 import copy
 import datetime
 import distutils.file_util
@@ -44,12 +45,17 @@ qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
 ccache_dir = os.path.join('/usr', 'lib', 'ccache')
 default_build_id = 'default'
-arch_map = {
-    'a': 'arm',
-    'A': 'aarch64',
-    'x': 'x86_64',
-}
-arches = [arch_map[k] for k in arch_map]
+arch_short_to_long_dict = collections.OrderedDict([
+    ('x', 'x86_64'),
+    ('a', 'arm'),
+    ('A', 'aarch64'),
+])
+all_archs = [arch_short_to_long_dict[k] for k in arch_short_to_long_dict]
+arch_choices = []
+for key in this.arch_short_to_long_dict:
+    arch_choices.append(key)
+    arch_choices.append(this.arch_short_to_long_dict[key])
+default_arch = 'x86_64'
 gem5_cpt_prefix = '^cpt\.'
 sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
 release_dir = os.path.join(this.out_dir, 'release')
@@ -112,16 +118,12 @@ def get_argparse(default_args=None, argparse_args=None):
         default_args = {}
     if argparse_args is None:
         argparse_args = {}
-    arch_choices = []
-    for key in this.arch_map:
-        arch_choices.append(key)
-        arch_choices.append(this.arch_map[key])
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         **argparse_args
     )
     parser.add_argument(
-        '-a', '--arch', choices=arch_choices, default='x86_64',
+        '-a', '--arch', choices=this.arch_choices, default=this.default_arch,
         help='CPU architecture. Default: %(default)s'
     )
     parser.add_argument(
@@ -166,8 +168,8 @@ See the documentation for other values known to work.
 '''
     )
     parser.add_argument(
-        '-M', '--gem5-build-id', default=default_build_id,
-        help='gem5 build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'
+        '-M', '--gem5-build-id',
+        help='gem5 build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'.format(default_build_id)
     )
     parser.add_argument(
         '-N', '--gem5-worktree',
@@ -341,7 +343,7 @@ def make_build_dirs():
 
 def make_run_dirs():
     '''
-    Make directories rquired for the run.
+    Make directories required for the run.
     The user could nuke those anytime between runs to try and clean things up.
     '''
     global this
@@ -435,6 +437,7 @@ def run_cmd(
         extra_env=None,
         extra_paths=None,
         delete_env=None,
+        dry_run=False,
         **kwargs
     ):
     '''
@@ -456,6 +459,9 @@ def run_cmd(
 
     :param extra_env: extra environment variables to add when running the command
     :type extra_env: Dict[str,str]
+
+    :param dry_run: don't run the commands, just potentially print them. Debug aid.
+    :type dry_run: Bool
     '''
     if out_file is not None:
         stdout = subprocess.PIPE
@@ -501,27 +507,30 @@ def run_cmd(
     #sigpipe_old = signal.getsignal(signal.SIGPIPE)
     #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-    # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
-    with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
-        if out_file is not None:
-            os.makedirs(os.path.split(os.path.abspath(out_file))[0], exist_ok=True)
-            with open(out_file, 'bw') as logfile:
-                while True:
-                    byte = proc.stdout.read(1)
-                    if byte:
-                        if show_stdout:
-                            sys.stdout.buffer.write(byte)
-                            try:
-                                sys.stdout.flush()
-                            except BlockingIOError:
-                                # TODO understand. Why, Python, why.
-                                pass
-                        logfile.write(byte)
-                    else:
-                        break
-    signal.signal(signal.SIGINT, sigint_old)
-    #signal.signal(signal.SIGPIPE, sigpipe_old)
-    return proc.returncode
+    if not dry_run:
+        # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
+        with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
+            if out_file is not None:
+                os.makedirs(os.path.split(os.path.abspath(out_file))[0], exist_ok=True)
+                with open(out_file, 'bw') as logfile:
+                    while True:
+                        byte = proc.stdout.read(1)
+                        if byte:
+                            if show_stdout:
+                                sys.stdout.buffer.write(byte)
+                                try:
+                                    sys.stdout.flush()
+                                except BlockingIOError:
+                                    # TODO understand. Why, Python, why.
+                                    pass
+                            logfile.write(byte)
+                        else:
+                            break
+        signal.signal(signal.SIGINT, sigint_old)
+        #signal.signal(signal.SIGPIPE, sigpipe_old)
+        return proc.returncode
+    else:
+        return 0
 
 def setup(parser):
     '''
@@ -530,11 +539,14 @@ def setup(parser):
     '''
     global this
     args = parser.parse_args()
-    if args.arch in this.arch_map:
-        args.arch = this.arch_map[args.arch]
-    # Because argparse sucks:
-    # https://stackoverflow.com/questions/30487767/check-if-argparse-optional-argument-is-set-or-not
-    if args.gem5_worktree is not None and args.gem5_build_id == default_build_id:
+    if args.arch in this.arch_short_to_long_dict:
+        args.arch = this.arch_short_to_long_dict[args.arch]
+    if args.gem5_build_id is None:
+        args.gem5_build_id = default_build_id
+        gem5_build_id_given = False
+    else:
+        gem5_build_id_given = True
+    if args.gem5_worktree is not None and not gem5_build_id_given:
         args.gem5_build_id = args.gem5_worktree
     this.machine = args.machine
     if args.arch == 'arm':
