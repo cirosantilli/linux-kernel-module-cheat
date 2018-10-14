@@ -9,9 +9,9 @@
 :toclevels: 6
 :toc-title:
 
-The perfect emulation setup to study and modify the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<gem5-buildroot-setup,gem5>>. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<docker,Docker>>. "Tested" in Ubuntu 18.04 host, x86 and ARM guests with kernel v4.18.
+The perfect emulation setup to study and modify the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<gem5-buildroot-setup,gem5>>. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>>. "Tested" in Ubuntu 18.04 host, x86 and ARM guests with kernel v4.18.
 
-TL;DR: <<qemu-buildroot-setup>>
+TL;DR: <<qemu-buildroot-setup-getting-started>>
 
 toc::[]
 
@@ -47,9 +47,9 @@ The design goals are to provide setups that are:
 
 There are several different possible setups to use this repo.
 
-Each child section of this section describes one of those setups, and the trade-offs of each.
-
 If you don't know which one to go for, start with <<qemu-buildroot-setup>>.
+
+Each child section of this section describes one of those setups, and the trade-offs of each.
 
 The trade-offs are basically a balance between:
 
@@ -59,13 +59,13 @@ The trade-offs are basically a balance between:
 * portability: does it work on a Windows host? Could it ever?
 * accuracy: how accurate does the simulation represent real hardware?
 * compatibility: how likely is is that all the components will work well together: emulator, compiler, kernel, standard library, ...
-* guest software availability: how wide is your choice of easily installed guest software packages? See also: <<linux->>
+* guest software availability: how wide is your choice of easily installed guest software packages? See also: <<linux-distro-choice>>
 
 === QEMU Buildroot setup
 
-This is the best setup if you are on Ubuntu. We tend to test this repo the most on the latest Ubuntu, and on the latest Ubuntu LTS.
+==== QEMU Buildroot setup getting started
 
-Everything will likely also work on other Linux distros if you do what install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. <<docker>> should however just work on any distro. Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just do everything from inside an Ubuntu in VirtualBox instance in that case.
+This is the best setup if you are on Ubuntu. We tend to test this repo the most on the latest Ubuntu, and on the latest Ubuntu LTS.
 
 Reserve 12Gb of disk and run:
 
@@ -80,6 +80,10 @@ cd linux-kernel-module-cheat
 ./build-buildroot  && \
 ./run
 ....
+
+Everything will likely also work on other Linux distros if you do what install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. <<docker>> should however just work on any distro.
+
+Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just do everything from inside an Ubuntu in VirtualBox instance in that case.
 
 The initial build will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
@@ -147,12 +151,12 @@ All available modules can be found in the link:packages/lkmc/kernel_modules[] di
 It is super easy to build for different CPU architectures, just use the `--arch` option:
 
 ....
-./build-qemu --arch arm
-./build-buildroot --arch arm
-./run --arch arm
+./build-qemu --arch aarch64
+./build-buildroot --arch aarch64
+./run --arch aarch64
 ....
 
-Alternatively, set the default arch as explained at: <<default-command-line-arguments>>
+But to avoid typing `--arch aarch64` so many times, set the default arch as explained at: <<default-command-line-arguments>>
 
 See also: <<cpu-architecture,CPU architectures>>.
 
@@ -210,38 +214,13 @@ hello /root/.profile                                                            
                                                                                 │(gdb)
 ....
 
-==== Your first kernel hack
+==== How to hack stuff
 
-Modify link:packages/lkmc/kernel_modules/hello.c[] to contain:
+Besides a seamless <<qemu-buildroot-setup-getting-started,initial build>>, this project also aims to make it effortless to modify and rebuild several major components of the system, to serve as an awesome development setup.
 
-....
-pr_info("hello init hacked\n");
-....
+===== Your first Linux kernel hack
 
-and then rebuild the kernel modules and re-run to see it take effect:
-
-....
-./build-modules
-./run --eval-busybox 'insmod /hello.ko'
-....
-
-TODO mention 9p
-
-Congratulations, you are now officially a kernel module hacker!
-
-We use `./build-buildroot` because the kernel modules go inside the root filesystem, and it is Buildroot that generates and updates our root filesystem. The kernel modules are inside the Buildroot package link:packages/lkmc.
-
-`--kernel-modules` is required for the rebuild even though files were modified as explained at: <<rebuild-buildroot-packages>>.
-
-The reboot after rebuild is annoying. We don't have a perfect solution for it yet, but there are some ideas cooking at: <<gem5-restore-new-script>>.
-
-Using <<KVM>> can <<benchmark-linux-kernel-boot,speed up>> the boot however if your host and guest have the same arch, e.g. on an `x86_64` host:
-
-....
-./run --kvm
-....
-
-Not satisfied with kernel modules? OK then, let's hack up the <<linux-kernel-entry-point,entry point of the>> Linux kernel itself.
+Let's hack up the <<linux-kernel-entry-point, Linux kernel entry point>>, which is an easy place to start.
 
 Open the file:
 
@@ -255,7 +234,7 @@ and find the `start_kernel` function, then add there a:
 pr_info("I'VE HACKED THE LINUX KERNEL!!!");
 ....
 
-Then rebuild the Linux kernel and reboot:
+Then rebuild the Linux kernel, quit QEMU and reboot the modified kernel:
 
 ....
 ./build-linux
@@ -264,7 +243,59 @@ Then rebuild the Linux kernel and reboot:
 
 and, surely enough, your message has appeared at the beginning of the boot.
 
-So you are now officially a kernel hacker, way to go!
+So you are now officially a Linux kernel hacker, way to go!
+
+===== Your first kernel module hack
+
+Edit link:packages/lkmc/kernel_modules/hello.c[] to contain:
+
+....
+pr_info("hello init hacked\n");
+....
+
+and rebuild with:
+
+....
+./build-modules
+....
+
+Now there are two way to test it out, the fast way, and the safe way.
+
+The fast way is, without quitting or rebooting QEMU, just directly re-insert the module with:
+
+....
+insmod /mnt/9p/out_rootfs_overlay/hello.ko
+....
+
+and the new `pr_info` message should now show on the terminal at the end of the boot.
+
+This works because we have a <<9p>> mount there setup by default, which makes a host directory available on the guest.
+
+The fast is slightly risky because your kernel module might have corrupted the kernel memory, which could affect future runs.
+
+Such failures are however unlikely, and you should be fine if you don't see anything weird happening.
+
+The safe way, is to fist quit QEMU, then rebuild the modules, root filesystem, and then reboot:
+
+....
+./build-modules
+./build-buildroot
+./run --eval-busybox 'insmod /hello.ko'
+....
+
+`./build-buildroot` generates the root filesystem with the modules that we compiled at `./build-modules`.
+
+`--eval-busybox` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot.
+
+If the guest and host are the same arch, typically x86_64, you can speed up boot further with <<kvm>>:
+
+....
+./run --kvm
+....
+
+All of this put together makes the safe procedure acceptably fast for regular development as well.
+
+===== Your first QEMU hack
 
 Not satisfied with mere software? OK then, let's hack up the QEMU x86 CPU identification:
 
@@ -307,6 +338,10 @@ The only thing you can do with open source is purely functional designs with lin
 If you really want to develop semiconductors, your only choice is to join an university or a semiconductor company that has the EDA licenses.
 
 ==== About the QEMU Buildroot setup
+
+This is our reference setup, and the best supported one, use it unless you have good reason not to.
+
+It was historically the first one we did, and all sections have been tested with this setup unless explicitly noted.
 
 link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of Make scripts that download and compile from source compatible versions of:
 
@@ -587,7 +622,7 @@ git submodule update --init --recursive "$(./getvar qemu_src_dir)"
 ./run
 ....
 
-This also allows you to <<your-first-kernel-hack,modify QEMU>> if you're into that sort of thing.
+This also allows you to <<your-first-qemu-hack,modify QEMU>> if you're into that sort of thing.
 
 To try an older prebuilt:
 
@@ -2174,7 +2209,7 @@ I've tried:
 
 ....
 ./run-toolchain --arch aarch64 gcc -- -static ~/test/hello_world.c -o "$(./getvar p9_dir)/a.out"
-./run --arch aarch64 --eval-busybox '/mnt/9p/a.out'
+./run --arch aarch64 --eval-busybox '/mnt/9p/data/a.out'
 ....
 
 but it fails with:
@@ -2441,7 +2476,7 @@ Wait, where do `HOME` and `TERM` come from? (greps the kernel). Ah, OK, the kern
 const char *envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };
 ....
 
-==== shell init environment
+==== BusyBox shell init environment
 
 On top of the Linux kernel, the BusyBox `/bin/sh` shell will also define other variables.
 
@@ -2500,48 +2535,6 @@ cat /proc/$$/cmdline
 ....
 
 where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/21063765/get-pid-in-shell-bash
-
-=== Networking
-
-We disable networking by default because it starts an userland process, and we want to keep the number of userland processes to a minimum to make the system more understandable.
-
-Enable:
-
-....
-ifup -a
-....
-
-That command goes over all (`-a) the interfaces in `/etc/network/interfaces` and brings them up.
-
-Disable:
-
-....
-ifdown -a
-....
-
-Test:
-
-....
-wget google.com
-....
-
-To enable networking by default, use the methods documented at <<init-busybox>>.
-
-==== ping
-
-`ping` does not work within QEMU by default, e.g.:
-
-....
-ping google.com
-....
-
-hangs after printing the header:
-
-....
-PING google.com (216.58.204.46): 56 data bytes
-....
-
-https://unix.stackexchange.com/questions/473448/how-to-ping-from-the-qemu-guest-to-an-external-url
 
 == initrd
 
@@ -2962,6 +2955,74 @@ kmod's `modprobe` can also load modules under different names to avoid conflicts
 ....
 sudo modprobe vmhgfs -o vm_hgfs
 ....
+
+== Filesystems
+
+=== OverlayFS
+
+link:https://en.wikipedia.org/wiki/OverlayFS[OverlayFS] is a filesystem merged in the Linux kernel in 3.18.
+
+As the name suggests, OverlayFS allows you to merge multiple directories into one. The following minimal runnable examples should give you an intuition on how it works:
+
+* https://askubuntu.com/questions/109413/how-do-i-use-overlayfs/1075564#1075564
+* https://stackoverflow.com/questions/31044982/how-to-use-multiple-lower-layers-in-overlayfs/52792397#52792397
+
+We are very interested in this filesystem because we are looking for a way to make host cross compiled executables appear on the guest root `/` without reboot.
+
+This would have several advantages:
+
+* makes it faster to test modified guest programs
+** not rebooting is fundamental for <<gem5>>, where the reboot is very costly.
+** no need to regenerate the root filesystem at all and reboot
+** overcomes the `check_bin_arch` problem: <<rpath>>
+* we could keep the base root filesystem very small, which implies:
+** less host disk usage, no need to copy the entire `out_rootfs_overlay_dir` to the image again
+** no need to worry about <<br2_target_rootfs_ext2_size>>
+
+We can already make host files appear on the guest with <<9p>>, but they appear on a subdirectory instead of the root.
+
+If they would appear on the root instead, that would be even more awesome, because you would just use the exact same paths relative to the root transparently.
+
+For example, we wouldn't have to mess around with variables such as `PATH` and `LD_LIBRARY_PATH`.
+
+The idea is to:
+
+* 9P mount our overlay directory `./getvar out_rootfs_overlay_dir` on the guest, which we already do at `/mnt/9p/out_rootfs_overlay`
+* then create an overlay with that directory and the root, and `chroot` into it.
++
+I was unable to mount directly to `/` avoid the `chroot`:
+** https://stackoverflow.com/questions/41119656/how-can-i-overlayfs-the-root-filesystem-on-linux
+** https://unix.stackexchange.com/questions/316018/how-to-use-overlayfs-to-protect-the-root-filesystem
+** https://unix.stackexchange.com/questions/420646/mount-root-as-overlayfs
+
+We already have a prototype of this running from `fstab` on guest at `/mnt/overlay`, but it has the following shortcomings:
+
+* changes to underlying filesystems are not visible on the overlay unless you remount with `mount -r remount /mnt/overlay`, as mentioned link:https://github.com/torvalds/linux/blob/v4.18/Documentation/filesystems/overlayfs.txt#L332[on the kernel docs]:
++
+....
+Changes to the underlying filesystems while part of a mounted overlay
+filesystem are not allowed.  If the underlying filesystem is changed,
+the behavior of the overlay is undefined, though it will not result in
+a crash or deadlock.
+....
++
+This makes everything very inconvenient if you are inside `chroot` action. You would have to leave `chroot`, remount, then come back.
+* the overlay does not contain sub-filesystems, e.g. `/proc`. We would have to re-mount them. But should be doable with some automation.
+
+Even more awesome than `chroot` would be to `pivot_root`, but I couldn't get that working either:
+
+* https://stackoverflow.com/questions/28015688/pivot-root-device-or-resource-busy
+* https://unix.stackexchange.com/questions/179788/pivot-root-device-or-resource-busy
+
+=== Secondary disk
+
+A simpler and possibly less overhead alternative to <<9P>> would be to generate a secondary disk image with the benchmark you want to rebuild.
+
+Then you can `umount` and re-mount on guest without reboot.
+
+We don't support this yet, but it should not be too hard to hack it up, maybe by hooking into link:rootfs-post-build-script[].
+
+This was not possible from gem5 `fs.py` as of 60600f09c25255b3c8f72da7fb49100e2682093a: https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661
 
 == Graphics
 
@@ -3408,6 +3469,215 @@ A friend told me this but I haven't tried it yet:
 
 * `xf86-video-modesetting` is likely the missing ingredient, but it does not seem possible to activate it from Buildroot currently without patching things.
 * `xf86-video-fbdev` should work as well, but we need to make sure fbdev is enabled, and maybe add some line to the `Xorg.conf`
+
+== Networking
+
+=== Enable networking
+
+We disable networking by default because it starts an userland process, and we want to keep the number of userland processes to a minimum to make the system more understandable: <<resource-tradeoff-guidelines>>
+
+To enable networking on Buildroot, simply run:
+
+....
+ifup -a
+....
+
+That command goes over all (`-a`) the interfaces in `/etc/network/interfaces` and brings them up.
+
+Then test it with:
+
+....
+wget google.com
+cat index.html
+....
+
+Disable networking with:
+
+....
+ifdown -a
+....
+
+To enable networking by default after boot, use the methods documented at <<init-busybox>>.
+
+=== ping
+
+`ping` does not work within QEMU by default, e.g.:
+
+....
+ping google.com
+....
+
+hangs after printing the header:
+
+....
+PING google.com (216.58.204.46): 56 data bytes
+....
+
+https://unix.stackexchange.com/questions/473448/how-to-ping-from-the-qemu-guest-to-an-external-url
+
+=== Guest host networking
+
+In this section we discuss how to interact between the guest and the host through networking.
+
+First ensure that you can access the external network since that is easier to get working: <<networking>>.
+
+==== Host to guest networking
+
+===== nc host to guest
+
+With `nc` we can create the most minimal example possible as a sanity check.
+
+On guest run:
+
+....
+nc -l -p 45455
+....
+
+Then on host run:
+
+....
+echo asdf | nc localhost 45455
+....
+
+`asdf` appears on the guest.
+
+This uses:
+
+* BusyBox' `nc` utility, which is enabled with `CONFIG_NC=y`
+* `nc` from the `netcat-openbsd` package on an Ubuntu 18.04 host
+
+Only this specific port works by default since we have forwarded it on the QEMU command line.
+
+We us this exact procedure to connect to <<gdbserver>>.
+
+===== ssh into guest
+
+Not enabled by default due to the build / runtime overhead. To enable, build with:
+
+....
+./build-buildroot --buildroot-config 'BR2_PACKAGE_OPENSSH=y'
+....
+
+Then inside the guest turn on sshd:
+
+....
+/sshd.sh
+....
+
+Source: link:rootfs_overlay/sshd.sh[]
+
+And finally on host:
+
+....
+ssh root@localhost -p 45456
+....
+
+Bibliography: https://unix.stackexchange.com/questions/124681/how-to-ssh-from-host-to-guest-using-qemu/307557#307557
+
+===== gem5 host to guest networking
+
+Could not do port forwarding from host to guest, and therefore could not use `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
+
+==== Guest to host networking
+
+TODO I never got this to work.
+
+There is `guestfwd`, which sounds analogous to `hostwfd` used in the other sense, but I was not able to get it working, e.g.:
+
+....
+-netdev user,hostfwd=tcp::45455-:45455,guestfwd=tcp::45456-,id=net0 \
+....
+
+gives:
+
+....
+Could not open guest forwarding device 'guestfwd.tcp.45456'
+....
+
+Bibliography: https://serverfault.com/questions/769874/how-to-forward-a-port-from-guest-to-host-in-qemu-kvm
+
+=== 9P
+
+The link:https://en.wikipedia.org/wiki/9P_(protocol)[9p protocol] allows the guest to mount a host directory.
+
+Both QEMU and <<9p-gem5>> support 9P.
+
+==== 9P vs NFS
+
+All of 9P and NFS (and sshfs) allow sharing directories between guest and host.
+
+Advantages of 9P
+
+* we haven't managed to do <<guest-to-host-networking>>, which prevents us from mounting a host directory on the guest
++
+Furthermore, this would require `sudo` on the host to mount
+* we could share a guest directory to the host, but this would require running a server on the guest, which adds <<resource-tradeoff-guidelines,simulation overhead>>
++
+Furthermore, this would be inconvenient, since what we usually want to do is to share host cross built files with the guest, and to do that we would have to copy the files over after the guest starts the server.
+* QEMU implements 9P natively, which makes it very stable and convenient, and must mean it is a simpler protocol than NFS as one would expect.
++
+This is not the case for gem5 7bfb7f3a43f382eb49853f47b140bfd6caad0fb8 unfortunately, which relies on the link:https://github.com/chaos/diod[diod] host daemon, although it is not unfeasible that future versions could implement it natively as well.
+
+Advantages of NFS:
+
+* way more widely used and therefore stable and available, not to mention that it also works on real hardware.
+* the name does not start with a digit, which is an invalid identifier in all programming languages known to man. Who in their right mind would call a software project as such? It does not even match the natural order of Plan 9; Plan then 9: P9!
+
+==== 9P getting started
+
+As usual, we have already set everything up for you. On host:
+
+....
+cd "$(./getvar p9_dir)"
+uname -a > host
+....
+
+Guest:
+
+....
+cd /mnt/9p/data
+cat host
+uname -a > guest
+....
+
+Host:
+
+....
+cat guest
+....
+
+The main ingredients for this are:
+
+* `9P` settings in our <<kernel-configs-about,kernel configs>>
+* `9p` entry on our link:rootfs_overlay/etc/fstab[]
++
+Alternatively, you could also mount your own with:
++
+....
+mkdir /mnt/my9p
+mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/my9p
+....
+* Launch QEMU with `-virtfs` as in your link:run[] script
++
+When we tried:
++
+....
+security_model=mapped
+....
++
+writes from guest failed due to user mismatch problems: https://serverfault.com/questions/342801/read-write-access-for-passthrough-9p-filesystems-with-libvirt-qemu
+
+Bibliography:
+
+* https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
+* https://wiki.qemu.org/Documentation/9psetup
+
+==== 9P gem5
+
+TODO seems possible! Lets do it:
+
+* http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
+* http://gem5.org/WA-gem5
 
 == Linux kernel
 
@@ -6888,7 +7158,7 @@ qcow2 filesystems must be used for that to work.
 To test it out, login into the VM with and run:
 
 ....
-./run --eval-busybox 'umount /mnt/9p /mnt/out;/count.sh'
+./run --eval-busybox 'umount /mnt/9p/*;/count.sh'
 ....
 
 On another shell, take a snapshot:
@@ -7409,198 +7679,6 @@ Bibliography: https://stackoverflow.com/questions/28315265/how-to-add-a-new-devi
 TODO get some working!
 
 http://gedare-csphd.blogspot.co.uk/2013/02/adding-simple-io-device-to-gem5.html
-
-=== 9P
-
-This protocol allows sharing a mountable filesystem between guest and host.
-
-With networking, it's boring, we can just use any of the old tools like sshfs and NFS.
-
-One advantage of this method over NFS is that can run without `sudo` on host, or having to pass host credentials on guest for sshfs.
-
-TODO performance compared to NFS.
-
-As usual, we have already set everything up for you. On host:
-
-....
-cd "$(./getvar p9_dir)"
-uname -a > host
-....
-
-Guest:
-
-....
-cd /mnt/9p
-cat host
-uname -a > guest
-....
-
-Host:
-
-....
-cat guest
-....
-
-The main ingredients for this are:
-
-* `9P` settings in our <<kernel-configs-about,kernel configs>>
-* `9p` entry on our link:rootfs_overlay/etc/fstab[]
-+
-Alternatively, you could also mount your own with:
-+
-....
-mkdir /mnt/my9p
-mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/my9p
-....
-* Launch QEMU with `-virtfs` as in your link:run[] script
-+
-When we tried:
-+
-....
-security_model=mapped
-....
-+
-writes from guest failed due to user mismatch problems: https://serverfault.com/questions/342801/read-write-access-for-passthrough-9p-filesystems-with-libvirt-qemu
-
-Bibliography:
-
-* https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
-* https://wiki.qemu.org/Documentation/9psetup
-
-==== 9P gem5
-
-TODO seems possible! Lets do it:
-
-* http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
-* http://gem5.org/WA-gem5
-
-==== OverlayFS
-
-It would be uber awesome if we could overlay a 9p filesystem on top of the root.
-
-That would allow us to have a second Buildroot `target/` directory, and without any extra configs, keep the root filesystem image small, which implies:
-
-* less host disk usage, no need to copy the entire `target/` to the image again
-* faster rebuild turnaround:
-** no need to regenerate the root filesystem at all and reboot
-** overcomes the `check_bin_arch` problem: <<rpath>>
-* no need to worry about <<br2_target_rootfs_ext2_size>>
-
-But TODO we didn't get it working yet:
-
-* https://stackoverflow.com/questions/41119656/how-can-i-overlayfs-the-root-filesystem-on-linux
-* https://unix.stackexchange.com/questions/316018/how-to-use-overlayfs-to-protect-the-root-filesystem
-* https://unix.stackexchange.com/questions/420646/mount-root-as-overlayfs
-
-Test with the script:
-
-....
-/overlayfs.sh
-....
-
-Source: link:rootfs_overlay/overlayfs.sh[]
-
-It shows that files from the `upper/` does not show on the root.
-
-Furthermore, if you try to mount the root elsewhere to prepare for a chroot:
-
-....
-/overlayfs.sh / /overlay
-# chroot /overlay
-....
-
-it does not work well either because sub filesystems like `/proc` do not show on the mount:
-
-....
-ls /overlay/proc
-....
-
-A less good alternative is to set `LD_LIBRARY_PATH` on the 9p mount and run executables directly from the mount.
-
-Even more awesome than `chroot` would be to `pivot_root`, but I couldn't get that working either:
-
-* https://stackoverflow.com/questions/28015688/pivot-root-device-or-resource-busy
-* https://unix.stackexchange.com/questions/179788/pivot-root-device-or-resource-busy
-
-Here is a more basic working example of OverlayFS usage: https://askubuntu.com/questions/109413/how-do-i-use-overlayfs/1075564#1075564
-
-=== Guest host networking
-
-First ensure that networking is enabled before trying out anything in this section: <<networking>>
-
-==== Host to guest networking
-
-Guest, BusyBox `nc` enabled with `CONFIG_NC=y`:
-
-....
-nc -l -p 45455
-....
-
-Host, `nc` from the `netcat-openbsd` package:
-
-....
-echo asdf | nc localhost 45455
-....
-
-Then `asdf` appears on the guest.
-
-Only this specific port works by default since we have forwarded it on the QEMU command line.
-
-We us this exact procedure to connect to <<gdbserver>>.
-
-===== ssh into guest
-
-Not enabled by default due to the build / runtime overhead. To enable, build with:
-
-....
-./build-buildroot --buildroot-config 'BR2_PACKAGE_OPENSSH=y'
-....
-
-Then inside the guest turn on sshd:
-
-....
-/sshd.sh
-....
-
-Source: link:rootfs_overlay/sshd.sh[]
-
-And finally on host:
-
-....
-ssh root@localhost -p 45456
-....
-
-Bibliography: https://unix.stackexchange.com/questions/124681/how-to-ssh-from-host-to-guest-using-qemu/307557#307557
-
-===== gem5 host to guest networking
-
-Could not do port forwarding from host to guest, and therefore could not use `gdbserver`: https://stackoverflow.com/questions/48941494/how-to-do-port-forwarding-from-guest-to-host-in-gem5
-
-==== Guest to host networking
-
-TODO. There is `guestfwd`, which sounds analogous to `hostwfd` used in the other sense, but I was not able to get it working, e.g.:
-
-....
--netdev user,hostfwd=tcp::45455-:45455,guestfwd=tcp::45456-,id=net0 \
-....
-
-gives:
-
-....
-Could not open guest forwarding device 'guestfwd.tcp.45456'
-....
-
-Bibliography: https://serverfault.com/questions/769874/how-to-forward-a-port-from-guest-to-host-in-qemu-kvm
-
-==== Secondary disk
-
-A simpler and possibly less overhead alternative to <<9P>> would be to generate a secondary disk image with the benchmark you want to rebuild.
-
-Then you can `umount` and re-mount on guest without reboot.
-
-We don't support this yet, but it should not be too hard to hack it up, maybe by hooking into link:rootfs-post-build-script[].
-
-This was not possible from gem5 `fs.py` as of 60600f09c25255b3c8f72da7fb49100e2682093a: https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661
 
 === QEMU user mode
 
@@ -10415,23 +10493,6 @@ xdg-open graph-depends.pdf
 xdg-open graph-size.pdf
 ....
 
-Our philosophy is:
-
-* keep the root filesystem as tiny as possible to make <<prebuilt>> small: only add BusyBox to have a small interactive system.
-+
-It is easy to add new packages once you have the toolchain, and if you don't there are infinitely many packages to cover and we can't cover them all.
-* enable every feature possible on the toolchain (GCC, Binutils), because changes imply Buildroot rebuilds
-* runtime is sacred. Faster systems are:
-+
---
-** easier to understand
-** run faster, which is specially for <<gem5>> which is slow
---
-+
-Runtime basically just comes down to how we configure the Linux kernel, since in the root filesystem all that matters is `init=`, and that is easy to control.
-+
-One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
-
 [[prebuilt-toolchain]]
 ====== Buildroot use prebuilt host toolchain
 
@@ -10847,7 +10908,7 @@ This automatically creates a link:https://git-scm.com/docs/git-worktree[Git work
 ....
 cd data/gem5/some-branch
 vim create-bugs
-git checkout was-working-i-think
+git add -a && git commit -m 'commit bugs'
 ....
 
 We promise that the scripts sill never touch that worktree again once it has been created: it is now up to you to manage the code manually.
@@ -11276,7 +11337,30 @@ Create `LKMC_GITHUB_TOKEN` under: https://github.com/settings/tokens/new and sav
 
 TODO: generalize that so that people can upload to their forks.
 
-=== Linux distro choice
+=== Design rationale
+
+==== Resource tradeoff guidelines
+
+Choosing which features go into our default builds means making tradeoffs, here are our guidelines:
+
+* keep the root filesystem as tiny as possible to make <<prebuilt>> small: only add BusyBox to have a small interactive system.
++
+It is easy to add new packages once you have the toolchain, and if you don't there are infinitely many packages to cover and we can't cover them all.
+* enable every feature possible on the toolchain (GCC, Binutils), because changes imply Buildroot rebuilds
+* runtime is sacred. Faster systems are:
++
+--
+** easier to understand
+** run faster, which is specially for <<gem5>> which is slow
+--
++
+Runtime basically just comes down to how we configure the Linux kernel, since in the root filesystem all that matters is `init=`, and that is easy to control.
++
+One possibility we could play with is to build loadable modules instead of built-in modules to reduce runtime, but make it easier to get started with the modules.
+
+In order to learn how to measure some of those aspects, see: <<benchmark-this-repo>>
+
+==== Linux distro choice
 
 We haven't found the ultimate distro yet, here is a summary table of trade-offs that we care about:
 

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-# Build everything, or a subset of everything.
+# Shallow helper to build everything, or a subset of everything conveniently.
+#
+# While developing something however, you will likely want to just run the
+# required sub-build commands manually to speed things up and understand what
+# is going on.
 #
 # Without any args, build everything for all archs:
 #
@@ -13,10 +17,12 @@
 #
 #    ./build-all --archs 'arm aarch64'
 #
-# Other options make this script build only the given projects. E.g., to build
+# Other options make this script build only the given components. E.g., to build
 # just Linux and QEMU for all archs, but not gem5, Buildroot, etc.:
 #
 #    ./build-all --linux --qemu
+#
+# this is useful to while developing those components to prepare to quickly
 
 set -eu
 archs='x86_64 arm aarch64'
@@ -24,7 +30,9 @@ baremetal=false
 buildroot=false
 gem5=false
 linux=false
+modules=false
 qemu=false
+userland=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --archs)
@@ -47,8 +55,16 @@ while [ $# -gt 0 ]; do
       linux=true
       shift
     ;;
+    --modules)
+      modules=true
+      shift
+    ;;
     --qemu)
       qemu=true
+      shift
+    ;;
+    --userland)
+      userland=true
       shift
     ;;
   esac
@@ -71,6 +87,15 @@ for arch in $archs; do
   if "$qemu"; then
     ./build-qemu --arch "$arch"
   fi
+  if "$linux"; then
+    ./build-linux --arch "$arch"
+  fi
+  if "$modules"; then
+    ./build-modules
+  fi
+  if "$userland"; then
+    ./build-userland
+  fi
   if "$baremetal" && [ ! "$arch" = x86_64 ]; then
     ./build-crosstool-ng --arch "$arch"
     ./build-baremetal --arch "$arch"
@@ -82,8 +107,5 @@ for arch in $archs; do
   fi
   if "$gem5"; then
     ./build-gem5 --arch "$arch"
-  fi
-  if "$linux"; then
-    ./build-linux --arch "$arch"
   fi
 done

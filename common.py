@@ -334,13 +334,20 @@ def github_make_request(
 def log_error(msg):
     print('error: {}'.format(msg), file=sys.stderr)
 
-def mkdir():
+def make_build_dirs():
     global this
     os.makedirs(this.build_dir, exist_ok=True)
     os.makedirs(this.gem5_build_dir, exist_ok=True)
+
+def make_run_dirs():
+    '''
+    Make directories rquired for the run.
+    The user could nuke those anytime between runs to try and clean things up.
+    '''
+    global this
     os.makedirs(this.gem5_run_dir, exist_ok=True)
-    os.makedirs(this.qemu_run_dir, exist_ok=True)
     os.makedirs(this.p9_dir, exist_ok=True)
+    os.makedirs(this.qemu_run_dir, exist_ok=True)
 
 def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
