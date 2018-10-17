@@ -340,6 +340,7 @@ def make_build_dirs():
     global this
     os.makedirs(this.build_dir, exist_ok=True)
     os.makedirs(this.gem5_build_dir, exist_ok=True)
+    os.makedirs(this.out_rootfs_overlay_dir, exist_ok=True)
 
 def make_run_dirs():
     '''
