@@ -400,7 +400,7 @@ If you haven't built Buildroot yet for <<qemu-buildroot-setup>>, you can build f
 ./run --gem5
 ....
 
-`--no-qemu` is optional, but it makes the 
+`--no-qemu` is optional, but it makes the build slightly faster TODO: after first build:
 ....
 ./download-dependencies --gem5
 ./build-gem5 --gem5
@@ -416,7 +416,11 @@ To get a terminal, either open a new shell and run:
 ./gem5-shell
 ....
 
-The only way to exit the shell is to kill the gem5 on the previous shell
+You can quit the shell without killing gem5 by typing tilde followed by a period:
+
+....
+~.
+....
 
 If you are inside tmux, which I highly recommend, just run gem5 with:
 
@@ -3696,31 +3700,44 @@ By default, we use a `.config` that is a mixture of:
 * Buildroot's minimal per machine `.config`, which has the minimal options needed to boot
 * our <<kernel-configs-about,kernel configs>> which enables options we want to play with
 
-Use just your own exact `.config` instead:
+To modify a single option on top of our defaults, do:
 
 ....
-./build-buildroot -K data/myconfig -l
+./build-linux --kernel-config 'CONFIG_FORTIFY_SOURCE=y'
 ....
 
-Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
-
-Modify a single option:
+Kernel modules depend on certain kernel configs, and therefore in general you might have to clean and rebuild the kernel modules after changing the kernel config:
 
 ....
-./build-buildroot -C 'CONFIG_FORTIFY_SOURCE=y' -l
+./build-modules --clean
+./build-modules
 ....
 
-Use an extra kernel config fragment file:
+and then proceed as in <<your-first-kernel-module-hack>>.
+
+You might often get way without rebuilding the kernel modules however.
+
+To use an extra kernel config fragment file on top of our defaults, do:
 
 ....
 printf '
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
-' > myconfig
-./build-buildroot -c 'myconfig' -l
+' > data/myconfig
+./build-buildroot --kernel-config-fragment 'data/myconfig'
 ....
 
-`-K`, `-c`, `-C` can all be used at the same time. Options passed via `-C` take precedence over `-c`, which takes precedence over `-K`.
+To use just your own exact `.config` instead of our defaults ones, use:
+
+....
+./build-linux --kernel-custom-config-file data/myconfig
+....
+
+The following options can all be used together, sorted by decreasing config setting power precedence:
+
+* `--kernel-config`
+* `--kernel-config-fragment`
+* `--kernel-custom-config-file`
 
 ==== Find the kernel config
 
@@ -3769,6 +3786,8 @@ although this can be useful when someone gives you a random image.
 ==== About our Linux kernel configs
 
 TODO: explain link:update-buildroot-kernel-config[]
+
+TODO Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
 
 We have managed to come up with minimalistic kernel configs that work for both QEMU and gem5 (oh, the hours of bisection).
 
@@ -7608,7 +7627,8 @@ static void arm_sysctl_write(void *opaque, hwaddr offset,
 and then rebuild with:
 
 ....
-./build-buildroot --arch arm -c kernel_config_fragment/leds -lq
+./build-buildroot --arch arm -c kernel_config_fragment/leds -l
+./build-qemu --arch arm
 ....
 
 But beware that one of the LEDs has a heartbeat trigger by default (specified on dts), so it will produce a lot of output.
