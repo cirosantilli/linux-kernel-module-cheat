@@ -80,6 +80,11 @@ def add_build_arguments(parser):
         action='store_true',
     )
 
+def add_dry_run_argument(parser):
+    parser.add_argument('--dry-run', default=False, action='store_true', help='''\
+    Print the commands that would be run, but don't run them.
+''')
+
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
 
@@ -122,6 +127,7 @@ def get_argparse(default_args=None, argparse_args=None):
         formatter_class=argparse.RawTextHelpFormatter,
         **argparse_args
     )
+    this.add_dry_run_argument(parser)
     parser.add_argument(
         '-a', '--arch', choices=this.arch_choices, default=this.default_arch,
         help='CPU architecture. Default: %(default)s'
@@ -508,7 +514,7 @@ def run_cmd(
     #sigpipe_old = signal.getsignal(signal.SIGPIPE)
     #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-    if not dry_run:
+    if not dry_run and not this.dry_run:
         # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
         with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
             if out_file is not None:
@@ -550,6 +556,7 @@ def setup(parser):
     if args.gem5_worktree is not None and not gem5_build_id_given:
         args.gem5_build_id = args.gem5_worktree
     this.machine = args.machine
+    this.dry_run = args.dry_run
     if args.arch == 'arm':
         this.armv = 7
         this.gem5_arch = 'ARM'
