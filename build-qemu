@@ -3,52 +3,52 @@
 import multiprocessing
 import os
 import subprocess
-import time
 
 import common
 
-parser = common.get_argparse()
-common.add_build_arguments(parser)
-parser.add_argument(
-    'extra_config_args',
-    default=[],
-    metavar='extra-config-args',
-    nargs='*'
-)
-args = common.setup(parser)
-if args.clean:
-    common.rmrf(common.qemu_build_dir)
-else:
-    start_time = time.time()
-    os.makedirs(common.qemu_build_dir, exist_ok=True)
-    if args.verbose:
-        verbose = ['V=1']
-    else:
-        verbose = []
-    assert common.run_cmd(
-        [
-            os.path.join(common.qemu_src_dir, 'configure'),
-            '--enable-debug',
-            '--enable-trace-backends=simple',
-            '--target-list={}-softmmu'.format(args.arch),
-            '--enable-sdl',
-            '--with-sdlabi=2.0',
-        ] +
-        args.extra_config_args,
-        extra_paths=[common.ccache_dir],
-        cwd=common.qemu_build_dir
-    ) == 0
-    assert common.run_cmd(
-        (
-            [
-                'make',
-                '-j', str(multiprocessing.cpu_count()),
+class QemuComponent(common.Component):
+    def add_parser_arguments(self, parser):
+        parser.add_argument(
+            'extra_config_args',
+            default=[],
+            metavar='extra-config-args',
+            nargs='*'
+        )
 
+    def do_build(self, args):
+        build_dir = self.get_build_dir(args)
+        os.makedirs(build_dir, exist_ok=True)
+        if args.verbose:
+            verbose = ['V=1']
+        else:
+            verbose = []
+        assert common.run_cmd(
+            [
+                os.path.join(common.qemu_src_dir, 'configure'),
+                '--enable-debug',
+                '--enable-trace-backends=simple',
+                '--target-list={}-softmmu'.format(args.arch),
+                '--enable-sdl',
+                '--with-sdlabi=2.0',
             ] +
-            verbose
-        ),
-        cwd=common.qemu_build_dir,
-        extra_paths=[common.ccache_dir],
-    ) == 0
-    end_time = time.time()
-    common.print_time(end_time - start_time)
+            args.extra_config_args,
+            extra_paths=[common.ccache_dir],
+            cwd=build_dir
+        ) == 0
+        assert common.run_cmd(
+            (
+                [
+                    'make',
+                    '-j', str(multiprocessing.cpu_count()),
+
+                ] +
+                verbose
+            ),
+            cwd=build_dir,
+            extra_paths=[common.ccache_dir],
+        ) == 0
+
+    def get_build_dir(self, args):
+        return None
+
+QemuComponent().build()

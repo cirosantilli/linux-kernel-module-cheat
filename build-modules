@@ -5,108 +5,115 @@ import multiprocessing
 import os
 import platform
 import shutil
-import subprocess
-import time
 
 import common
 
-parser = common.get_argparse(argparse_args={
-    'description': '''\
+class ModulesComponent(common.Component):
+    def add_parser_arguments(self, parser):
+        parser.add_argument(
+            'extra_make_args',
+            default=[],
+            metavar='extra-make-args',
+            nargs='*'
+        )
+        parser.add_argument(
+            '--host',
+            action='store_true',
+            default=False,
+            help='Build the Linux kernel modules for the host instead of guest',
+        )
+        parser.add_argument(
+            'kernel_modules',
+            default=[],
+            help='Which kernel modules to build. Default: build all',
+            metavar='kernel-modules',
+            nargs='*',
+        )
+
+    def do_build(self, args):
+        build_dir = self.get_build_dir(args)
+        os.makedirs(build_dir, exist_ok=True)
+        # I kid you not, out-of-tree build is not possible, O= does not work as for the kernel build:
+        #
+        # * https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
+        # * https://stackoverflow.com/questions/12244979/build-kernel-module-into-a-specific-directory
+        # * https://stackoverflow.com/questions/18386182/out-of-tree-kernel-modules-multiple-module-single-makefile-same-source-file
+        #
+        # This copies only modified files as per:
+        # https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
+        distutils.dir_util.copy_tree(
+            common.lkmc_package_src_dir,
+            os.path.join(build_dir),
+            update=1,
+        )
+        all_kernel_modules = []
+        for basename in os.listdir(common.kernel_modules_src_dir):
+            src = os.path.join(common.kernel_modules_src_dir, basename)
+            if os.path.isfile(src):
+                noext, ext = os.path.splitext(basename)
+                if ext == common.c_ext:
+                    all_kernel_modules.append(noext)
+        if args.kernel_modules == []:
+            kernel_modules = all_kernel_modules
+        else:
+            kernel_modules = map(lambda x: os.path.splitext(os.path.split(x)[1])[0], args.kernel_modules)
+        object_files = map(lambda x: x + common.obj_ext, kernel_modules)
+        tool = 'gcc'
+        if args.host:
+            allowed_toolchains = ['host']
+        else:
+            allowed_toolchains = None
+        gcc = common.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
+        prefix = gcc[:-len(tool)]
+        ccache = shutil.which('ccache')
+        if ccache is not None:
+            cc = '{} {}'.format(ccache, gcc)
+        else:
+            cc = gcc
+        if args.verbose:
+            verbose = ['V=1']
+        else:
+            verbose = []
+        if args.host:
+            linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
+        else:
+            linux_dir = common.linux_build_dir
+        build_subdir = os.path.join(build_dir, common.kernel_modules_subdir)
+        assert common.run_cmd(
+            (
+                [
+                    'make',
+                    '-j', str(multiprocessing.cpu_count()),
+                    'ARCH={}'.format(common.linux_arch),
+                    'CC={}'.format(cc),
+                    'CROSS_COMPILE={}'.format(prefix),
+                    'LINUX_DIR={}'.format(linux_dir),
+                    'M={}'.format(build_subdir),
+                    'OBJECT_FILES={}'.format(' '.join(object_files)),
+                ] +
+                verbose
+            ),
+            cwd=os.path.join(build_subdir),
+        ) == 0
+        common.copy_dir_if_update_non_recursive(
+            srcdir=build_subdir,
+            destdir=common.out_rootfs_overlay_dir,
+            filter_ext=common.kernel_module_ext,
+        )
+
+    def get_argparse_args(self):
+        return {
+                'description': '''\
 Build our Linux kernel modules without using Buildroot.
 
-See also:https://github.com/cirosantilli/linux-kernel-module-cheat#host
+See also: https://github.com/cirosantilli/linux-kernel-module-cheat#host
 '''
-})
-common.add_build_arguments(parser)
-parser.add_argument(
-    '--host',
-    action='store_true',
-    default=False,
-    help='Build the Linux kernel modules for the host instead of guest',
-)
-parser.add_argument(
-    'kernel_modules',
-    default=[],
-    help='Which kernel modules to build. Default: build all',
-    metavar='kernel-modules',
-    nargs='*',
-)
-args = common.setup(parser)
-if args.host:
-    build_dir = os.path.join(common.kernel_modules_build_host_dir)
-else:
-    build_dir = os.path.join(common.kernel_modules_build_dir)
-if args.clean:
-    common.rmrf(build_dir)
-else:
-    start_time = time.time()
-    os.makedirs(build_dir, exist_ok=True)
-    # I kid you not, out-of-tree build is not possible, O= does not work as for the kernel build:
-    #
-    # * https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
-    # * https://stackoverflow.com/questions/12244979/build-kernel-module-into-a-specific-directory
-    # * https://stackoverflow.com/questions/18386182/out-of-tree-kernel-modules-multiple-module-single-makefile-same-source-file
-    #
-    # This copies only modified files as per:
-    # https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
-    distutils.dir_util.copy_tree(
-        common.lkmc_package_src_dir,
-        os.path.join(build_dir),
-        update=1,
-    )
-    all_kernel_modules = []
-    for basename in os.listdir(common.kernel_modules_src_dir):
-        src = os.path.join(common.kernel_modules_src_dir, basename)
-        if os.path.isfile(src):
-            noext, ext = os.path.splitext(basename)
-            if ext == common.c_ext:
-                all_kernel_modules.append(noext)
-    if args.kernel_modules == []:
-        kernel_modules = all_kernel_modules
-    else:
-        kernel_modules = map(lambda x: os.path.splitext(os.path.split(x)[1])[0], args.kernel_modules)
-    object_files = map(lambda x: x + common.obj_ext, kernel_modules)
-    tool = 'gcc'
-    if args.host:
-        allowed_toolchains = ['host']
-    else:
-        allowed_toolchains = None
-    gcc = common.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
-    prefix = gcc[:-len(tool)]
-    ccache = shutil.which('ccache')
-    if ccache is not None:
-        cc = '{} {}'.format(ccache, gcc)
-    else:
-        cc = gcc
-    if args.verbose:
-        verbose = ['V=1']
-    else:
-        verbose = []
-    if args.host:
-        linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
-    else:
-        linux_dir = common.linux_build_dir
-    build_subdir = os.path.join(build_dir, common.kernel_modules_subdir)
-    assert common.run_cmd(
-        (
-            [
-                'make',
-                '-j', str(multiprocessing.cpu_count()),
-                'ARCH={}'.format(common.linux_arch),
-                'CC={}'.format(cc),
-                'CROSS_COMPILE={}'.format(prefix),
-                'LINUX_DIR={}'.format(linux_dir),
-                'M={}'.format(build_subdir),
-                'OBJECT_FILES={}'.format(' '.join(object_files)),
-            ] +
-            verbose
-        ),
-        cwd=os.path.join(build_subdir),
-    ) == 0
-    common.copy_dir_if_update_non_recursive(
-        srcdir=build_subdir,
-        destdir=common.out_rootfs_overlay_dir,
-        filter_ext=common.kernel_module_ext,
-    )
-    end_time = time.time()
-    common.print_time(end_time - start_time)
+        }
+
+    def get_build_dir(self, args):
+        if args.host:
+            return os.path.join(common.kernel_modules_build_host_dir)
+        else:
+            return os.path.join(common.kernel_modules_build_dir)
+
+ModulesComponent().build()

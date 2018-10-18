@@ -4,100 +4,99 @@ import glob
 import multiprocessing
 import os
 import pathlib
-import shutil
 import subprocess
-import time
 
 import common
 
-parser = common.get_argparse()
-common.add_build_arguments(parser)
-parser.add_argument(
-    'extra_scons_args',
-    default=[],
-    metavar='extra-scons-args',
-    nargs='*'
-)
-args = common.setup(parser)
-binaries_dir = os.path.join(common.gem5_system_dir, 'binaries')
-disks_dir = os.path.join(common.gem5_system_dir, 'disks')
-if args.clean:
-    common.rmrf(common.gem5_build_dir)
-else:
-    start_time = time.time()
-    os.makedirs(binaries_dir, exist_ok=True)
-    os.makedirs(disks_dir, exist_ok=True)
-    if args.gem5_source_dir is None:
-        if not os.path.exists(os.path.join(common.gem5_src_dir, '.git')):
-            if common.gem5_src_dir == common.gem5_default_src_dir:
-                raise Exception('gem5 submodule not checked out')
-            assert common.run_cmd([
-                'git',
-                '-C', common.gem5_default_src_dir,
-                'worktree', 'add',
-                '-b', os.path.join('wt', args.gem5_build_id),
-                common.gem5_src_dir
-            ]) == 0
-    if args.verbose:
-        verbose = ['--verbose']
-    else:
-        verbose = []
-    if args.arch == 'x86_64':
-        dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
-        with open(dummy_img_path, 'wb') as dummy_img_file:
-            zeroes = b'\x00' * (2 ** 16)
-            for i in range(2 ** 10):
-                dummy_img_file.write(zeroes)
-        assert common.run_cmd(['mkswap', dummy_img_path]) == 0
-        with open(os.path.join(binaries_dir, 'x86_64-vmlinux-2.6.22.9'), 'w'):
-            # This file must always be present, despite --kernel overriding that default and selecting the kernel.
-            # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
-            pass
-    elif args.arch == 'arm' or args.arch == 'aarch64':
-        gem5_system_src_dir = os.path.join(common.gem5_src_dir, 'system')
+class Gem5Component(common.Component):
+    def add_parser_arguments(self, parser):
+        parser.add_argument(
+            'extra_scons_args',
+            default=[],
+            metavar='extra-scons-args',
+            nargs='*'
+        )
 
-        # dtb
-        dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
-        dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
-        assert common.run_cmd(['make', '-C', dt_src_dir]) == 0
-        os.makedirs(dt_build_dir, exist_ok=True)
-        for dt in glob.glob(os.path.join(dt_src_dir, '*.dtb')):
-            shutil.copy2(dt, dt_build_dir)
+    def do_build(self, args):
+        build_dir = self.get_build_dir(args)
+        binaries_dir = os.path.join(common.gem5_system_dir, 'binaries')
+        disks_dir = os.path.join(common.gem5_system_dir, 'disks')
+        os.makedirs(binaries_dir, exist_ok=True)
+        os.makedirs(disks_dir, exist_ok=True)
+        if args.gem5_source_dir is None:
+            if not os.path.exists(os.path.join(common.gem5_src_dir, '.git')):
+                if common.gem5_src_dir == common.gem5_default_src_dir:
+                    raise Exception('gem5 submodule not checked out')
+                assert common.run_cmd([
+                    'git',
+                    '-C', common.gem5_default_src_dir,
+                    'worktree', 'add',
+                    '-b', os.path.join('wt', args.gem5_build_id),
+                    common.gem5_src_dir
+                ]) == 0
+        if args.verbose:
+            verbose = ['--verbose']
+        else:
+            verbose = []
+        if args.arch == 'x86_64':
+            dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
+            with open(dummy_img_path, 'wb') as dummy_img_file:
+                zeroes = b'\x00' * (2 ** 16)
+                for i in range(2 ** 10):
+                    dummy_img_file.write(zeroes)
+            assert common.run_cmd(['mkswap', dummy_img_path]) == 0
+            with open(os.path.join(binaries_dir, 'x86_64-vmlinux-2.6.22.9'), 'w'):
+                # This file must always be present, despite --kernel overriding that default and selecting the kernel.
+                # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
+                pass
+        elif args.arch == 'arm' or args.arch == 'aarch64':
+            gem5_system_src_dir = os.path.join(common.gem5_src_dir, 'system')
 
-        # Bootloader 32.
-        bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
-        # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
-        assert common.run_cmd(['make', '-C', bootloader32_dir]) == 0
-        # bootloader
-        shutil.copy2(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
+            # dtb
+            dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
+            dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
+            assert common.run_cmd(['make', '-C', dt_src_dir]) == 0
+            os.makedirs(dt_build_dir, exist_ok=True)
+            for dt in glob.glob(os.path.join(dt_src_dir, '*.dtb')):
+                common.cp(dt, dt_build_dir)
 
-        # Bootloader 64.
-        bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
-        # TODO cross_compile is ignored because the make does not use CC...
-        assert common.run_cmd(['make', '-C', bootloader64_dir]) == 0
-        shutil.copy2(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
-    assert common.run_cmd(
-        (
-            [
-                'scons',
-                '-j', str(multiprocessing.cpu_count()),
-                '--ignore-style',
-                common.gem5_executable
-            ] +
-            verbose +
-            args.extra_scons_args
-        ),
-        cwd=common.gem5_src_dir,
-        extra_paths=[common.ccache_dir],
-    ) == 0
-    term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
-    m5term_build = os.path.join(term_src_dir, 'm5term')
-    assert common.run_cmd(['make', '-C', term_src_dir]) == 0
-    if os.path.exists(common.gem5_m5term):
-        # Otherwise shutil.copy2 would fail with "Text file busy" if you
-        # tried to rebuild while running m5term:
-        # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
-        os.unlink(common.gem5_m5term)
-    shutil.copy2(m5term_build, common.gem5_m5term)
-    end_time = time.time()
-    common.print_time(end_time - start_time)
+            # Bootloader 32.
+            bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
+            # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
+            assert common.run_cmd(['make', '-C', bootloader32_dir]) == 0
+            # bootloader
+            common.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
+
+            # Bootloader 64.
+            bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
+            # TODO cross_compile is ignored because the make does not use CC...
+            assert common.run_cmd(['make', '-C', bootloader64_dir]) == 0
+            common.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
+        assert common.run_cmd(
+            (
+                [
+                    'scons',
+                    '-j', str(multiprocessing.cpu_count()),
+                    '--ignore-style',
+                    common.gem5_executable
+                ] +
+                verbose +
+                args.extra_scons_args
+            ),
+            cwd=common.gem5_src_dir,
+            extra_paths=[common.ccache_dir],
+        ) == 0
+        term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
+        m5term_build = os.path.join(term_src_dir, 'm5term')
+        assert common.run_cmd(['make', '-C', term_src_dir]) == 0
+        if os.path.exists(common.gem5_m5term):
+            # Otherwise common.cp would fail with "Text file busy" if you
+            # tried to rebuild while running m5term:
+            # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
+            os.unlink(common.gem5_m5term)
+        common.cp(m5term_build, common.gem5_m5term)
+
+    def get_build_dir(self, args):
+        return common.gem5_build_dir
+
+Gem5Component().build()

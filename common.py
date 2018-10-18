@@ -21,7 +21,7 @@ import time
 import urllib
 import urllib.request
 
-this = sys.modules[__name__]
+this_module = sys.modules[__name__]
 root_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(root_dir, 'data')
 p9_dir = os.path.join(data_dir, '9p')
@@ -29,17 +29,17 @@ gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
 out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 packages_dir = os.path.join(root_dir, 'packages')
-lkmc_package_src_dir = os.path.join(this.packages_dir, 'lkmc')
+lkmc_package_src_dir = os.path.join(this_module.packages_dir, 'lkmc')
 kernel_modules_subdir = 'kernel_modules'
-kernel_modules_src_dir = os.path.join(this.lkmc_package_src_dir, this.kernel_modules_subdir)
+kernel_modules_src_dir = os.path.join(this_module.lkmc_package_src_dir, this_module.kernel_modules_subdir)
 userland_subdir = 'userland'
-userland_src_dir = os.path.join(this.lkmc_package_src_dir, this.userland_subdir)
+userland_src_dir = os.path.join(this_module.lkmc_package_src_dir, this_module.userland_subdir)
 submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
 linux_src_dir = os.path.join(submodules_dir, 'linux')
-linux_config_dir = os.path.join(this.root_dir, 'kernel_config')
-rootfs_overlay_dir = os.path.join(this.root_dir, 'rootfs_overlay')
+linux_config_dir = os.path.join(this_module.root_dir, 'kernel_config')
+rootfs_overlay_dir = os.path.join(this_module.root_dir, 'rootfs_overlay')
 extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
@@ -52,14 +52,14 @@ arch_short_to_long_dict = collections.OrderedDict([
 ])
 all_archs = [arch_short_to_long_dict[k] for k in arch_short_to_long_dict]
 arch_choices = []
-for key in this.arch_short_to_long_dict:
+for key in this_module.arch_short_to_long_dict:
     arch_choices.append(key)
-    arch_choices.append(this.arch_short_to_long_dict[key])
+    arch_choices.append(this_module.arch_short_to_long_dict[key])
 default_arch = 'x86_64'
 gem5_cpt_prefix = '^cpt\.'
 sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
-release_dir = os.path.join(this.out_dir, 'release')
-release_zip_file = os.path.join(this.release_dir, 'lkmc-{}.zip'.format(this.sha))
+release_dir = os.path.join(this_module.out_dir, 'release')
+release_zip_file = os.path.join(this_module.release_dir, 'lkmc-{}.zip'.format(this_module.sha))
 github_repo_id = 'cirosantilli/linux-kernel-module-cheat'
 asm_ext = '.S'
 c_ext = '.c'
@@ -72,6 +72,40 @@ command_prefix = '+ '
 if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
+
+class Component:
+    def __init__(self):
+        pass
+
+    def build(self):
+        parser = this_module.get_argparse(argparse_args=self.get_argparse_args())
+        self.add_parser_arguments(parser)
+        this_module.add_build_arguments(parser)
+        args = this_module.setup(parser)
+        if not this_module.dry_run:
+            start_time = time.time()
+        if args.clean:
+            self.clean(args)
+        else:
+            self.do_build(args)
+        if not this_module.dry_run:
+            end_time = time.time()
+            this_module.print_time(end_time - start_time)
+
+    def add_parser_arguments(self, parser):
+        pass
+
+    def clean(self, args):
+        this_module.rmrf(self.get_build_dir(args))
+
+    def do_build(self, args):
+        raise NotImplementedError()
+
+    def get_argparse_args(self):
+        return {}
+
+    def get_build_dir(self, args):
+        raise NotImplementedError()
 
 def add_build_arguments(parser):
     parser.add_argument(
@@ -105,10 +139,10 @@ def gem_list_checkpoint_dirs():
     '''
     List checkpoint directory, oldest first.
     '''
-    global this
-    prefix_re = re.compile(this.gem5_cpt_prefix)
-    files = list(filter(lambda x: os.path.isdir(os.path.join(this.m5out_dir, x)) and prefix_re.search(x), os.listdir(this.m5out_dir)))
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(this.m5out_dir, x)))
+    global this_module
+    prefix_re = re.compile(this_module.gem5_cpt_prefix)
+    files = list(filter(lambda x: os.path.isdir(os.path.join(this_module.m5out_dir, x)) and prefix_re.search(x), os.listdir(this_module.m5out_dir)))
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(this_module.m5out_dir, x)))
     return files
 
 def get_argparse(default_args=None, argparse_args=None):
@@ -118,7 +152,7 @@ def get_argparse(default_args=None, argparse_args=None):
     :type default_args: Dict[str,str]
     :type argparse_args: Dict
     '''
-    global this
+    global this_module
     if default_args is None:
         default_args = {}
     if argparse_args is None:
@@ -127,9 +161,9 @@ def get_argparse(default_args=None, argparse_args=None):
         formatter_class=argparse.RawTextHelpFormatter,
         **argparse_args
     )
-    this.add_dry_run_argument(parser)
+    this_module.add_dry_run_argument(parser)
     parser.add_argument(
-        '-a', '--arch', choices=this.arch_choices, default=this.default_arch,
+        '-a', '--arch', choices=this_module.arch_choices, default=this_module.default_arch,
         help='CPU architecture. Default: %(default)s'
     )
     parser.add_argument(
@@ -232,8 +266,8 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
         '-v', '--verbose', default=False, action='store_true',
         help='Show full compilation commands when they are not shown by default.'
     )
-    if hasattr(this, 'configs'):
-        defaults = this.configs.copy()
+    if hasattr(this_module, 'configs'):
+        defaults = this_module.configs.copy()
     else:
         defaults = {}
     defaults.update(default_args)
@@ -245,9 +279,9 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
     return parser
 
 def get_elf_entry(elf_file_path):
-    global this
+    global this_module
     readelf_header = subprocess.check_output([
-        this.get_toolchain_tool('readelf'),
+        this_module.get_toolchain_tool('readelf'),
         '-h',
         elf_file_path
     ])
@@ -259,11 +293,11 @@ def get_elf_entry(elf_file_path):
     return int(addr, 0)
 
 def get_stats(stat_re=None, stats_file=None):
-    global this
+    global this_module
     if stat_re is None:
         stat_re = '^system.cpu[0-9]*.numCycles$'
     if stats_file is None:
-        stats_file = this.stats_file
+        stats_file = this_module.stats_file
     stat_re = re.compile(stat_re)
     ret = []
     with open(stats_file, 'r') as statfile:
@@ -275,11 +309,11 @@ def get_stats(stat_re=None, stats_file=None):
     return ret
 
 def get_toolchain_prefix(tool, allowed_toolchains=None):
-    buildroot_full_prefix = os.path.join(this.host_bin_dir, this.buildroot_toolchain_prefix)
+    buildroot_full_prefix = os.path.join(this_module.host_bin_dir, this_module.buildroot_toolchain_prefix)
     buildroot_exists = os.path.exists('{}-{}'.format(buildroot_full_prefix, tool))
-    crosstool_ng_full_prefix = os.path.join(this.crosstool_ng_bin_dir, this.crosstool_ng_toolchain_prefix)
+    crosstool_ng_full_prefix = os.path.join(this_module.crosstool_ng_bin_dir, this_module.crosstool_ng_toolchain_prefix)
     crosstool_ng_exists = os.path.exists('{}-{}'.format(crosstool_ng_full_prefix, tool))
-    host_tool = '{}-{}'.format(this.ubuntu_toolchain_prefix, tool)
+    host_tool = '{}-{}'.format(this_module.ubuntu_toolchain_prefix, tool)
     host_path = shutil.which(host_tool)
     if host_path is not None:
         host_exists = True
@@ -293,7 +327,7 @@ def get_toolchain_prefix(tool, allowed_toolchains=None):
         'host': (host_exists, host_full_prefix),
     }
     if allowed_toolchains is None:
-        if this.baremetal is None:
+        if this_module.baremetal is None:
             allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
         else:
             allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
@@ -306,7 +340,7 @@ def get_toolchain_prefix(tool, allowed_toolchains=None):
     raise Exception('Tool not found. Tried:\n' + '\n'.join(tried))
 
 def get_toolchain_tool(tool, allowed_toolchains=None):
-    return '{}-{}'.format(this.get_toolchain_prefix(tool, allowed_toolchains), tool)
+    return '{}-{}'.format(this_module.get_toolchain_prefix(tool, allowed_toolchains), tool)
 
 def github_make_request(
         authenticate=False,
@@ -317,7 +351,7 @@ def github_make_request(
         url_params=None,
         **extra_request_args
     ):
-    global this
+    global this_module
     if extra_headers is None:
         extra_headers = {}
     headers = {'Accept': 'application/vnd.github.v3+json'}
@@ -343,20 +377,20 @@ def log_error(msg):
     print('error: {}'.format(msg), file=sys.stderr)
 
 def make_build_dirs():
-    global this
-    os.makedirs(this.build_dir, exist_ok=True)
-    os.makedirs(this.gem5_build_dir, exist_ok=True)
-    os.makedirs(this.out_rootfs_overlay_dir, exist_ok=True)
+    global this_module
+    os.makedirs(this_module.build_dir, exist_ok=True)
+    os.makedirs(this_module.gem5_build_dir, exist_ok=True)
+    os.makedirs(this_module.out_rootfs_overlay_dir, exist_ok=True)
 
 def make_run_dirs():
     '''
     Make directories required for the run.
     The user could nuke those anytime between runs to try and clean things up.
     '''
-    global this
-    os.makedirs(this.gem5_run_dir, exist_ok=True)
-    os.makedirs(this.p9_dir, exist_ok=True)
-    os.makedirs(this.qemu_run_dir, exist_ok=True)
+    global this_module
+    os.makedirs(this_module.gem5_run_dir, exist_ok=True)
+    os.makedirs(this_module.p9_dir, exist_ok=True)
+    os.makedirs(this_module.qemu_run_dir, exist_ok=True)
 
 def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
@@ -379,7 +413,7 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     for arg in cmd:
         out.append(shlex.quote(arg) + newline_separator)
     out = '  '.join(out) + ';\n'
-    print(this.command_prefix + out, end='')
+    print(this_module.command_prefix + out, end='')
     if cmd_file is not None:
         with open(cmd_file, 'w') as f:
             f.write('#!/usr/bin/env bash\n')
@@ -393,15 +427,15 @@ def print_time(ellapsed_seconds):
     print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
 def raw_to_qcow2(prebuilt=False, reverse=False):
-    global this
+    global this_module
     if prebuilt:
-        qemu_img_executable = this.qemu_img_basename
+        qemu_img_executable = this_module.qemu_img_basename
     else:
-        qemu_img_executable = this.qemu_img_executable
+        qemu_img_executable = this_module.qemu_img_executable
     infmt = 'raw'
     outfmt = 'qcow2'
-    infile = this.rootfs_raw_file
-    outfile = this.qcow2_file
+    infile = this_module.rootfs_raw_file
+    outfile = this_module.qcow2_file
     if reverse:
         tmp = infmt
         infmt = outfmt
@@ -409,7 +443,7 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         tmp = infile
         infile = outfile
         outfile = tmp
-    assert this.run_cmd([
+    assert this_module.run_cmd([
         qemu_img_executable,
         # Prevent qemu-img from generating trace files like QEMU. Disgusting.
         '-T', 'pr_manager_run,file=/dev/null',
@@ -431,8 +465,14 @@ def resolve_args(defaults, args, extra_args):
     argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
     return argcopy
 
+def cp(src, dest):
+    print_cmd(['cp', src, dest])
+    if not this_module.dry_run:
+        shutil.copy2(src, dest)
+
 def rmrf(path):
-    if os.path.exists(path):
+    print_cmd(['rm', '-r', '-f', path])
+    if not this_module.dry_run and os.path.exists(path):
         shutil.rmtree(path)
 
 def run_cmd(
@@ -508,13 +548,13 @@ def run_cmd(
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     # Otherwise BrokenPipeError when piping through | grep
-    # But if I do this, my terminal gets broken at the end. Why, why, why.
+    # But if I do this_module, my terminal gets broken at the end. Why, why, why.
     # https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
     # Ignoring the exception is not enough as it prints a warning anyways.
     #sigpipe_old = signal.getsignal(signal.SIGPIPE)
     #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-    if not dry_run and not this.dry_run:
+    if not dry_run and not this_module.dry_run:
         # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
         with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
             if out_file is not None:
@@ -544,10 +584,10 @@ def setup(parser):
     Parse the command line arguments, and setup several variables based on them.
     Typically done after getting inputs from the command line arguments.
     '''
-    global this
+    global this_module
     args = parser.parse_args()
-    if args.arch in this.arch_short_to_long_dict:
-        args.arch = this.arch_short_to_long_dict[args.arch]
+    if args.arch in this_module.arch_short_to_long_dict:
+        args.arch = this_module.arch_short_to_long_dict[args.arch]
     if args.gem5_build_id is None:
         args.gem5_build_id = default_build_id
         gem5_build_id_given = False
@@ -555,144 +595,144 @@ def setup(parser):
         gem5_build_id_given = True
     if args.gem5_worktree is not None and not gem5_build_id_given:
         args.gem5_build_id = args.gem5_worktree
-    this.machine = args.machine
-    this.dry_run = args.dry_run
+    this_module.machine = args.machine
+    this_module.dry_run = args.dry_run
     if args.arch == 'arm':
-        this.armv = 7
-        this.gem5_arch = 'ARM'
-        this.mcpu = 'cortex-a15'
-        this.buildroot_toolchain_prefix = 'arm-buildroot-linux-uclibcgnueabihf'
-        this.crosstool_ng_toolchain_prefix = 'arm-unknown-eabi'
-        this.ubuntu_toolchain_prefix = 'arm-linux-gnueabihf'
+        this_module.armv = 7
+        this_module.gem5_arch = 'ARM'
+        this_module.mcpu = 'cortex-a15'
+        this_module.buildroot_toolchain_prefix = 'arm-buildroot-linux-uclibcgnueabihf'
+        this_module.crosstool_ng_toolchain_prefix = 'arm-unknown-eabi'
+        this_module.ubuntu_toolchain_prefix = 'arm-linux-gnueabihf'
         if args.gem5:
-            if this.machine is None:
-                this.machine = 'VExpress_GEM5_V1'
+            if this_module.machine is None:
+                this_module.machine = 'VExpress_GEM5_V1'
         else:
-            if this.machine is None:
-                this.machine = 'virt'
+            if this_module.machine is None:
+                this_module.machine = 'virt'
     elif args.arch == 'aarch64':
-        this.armv = 8
-        this.gem5_arch = 'ARM'
-        this.mcpu = 'cortex-a57'
-        this.buildroot_toolchain_prefix = 'aarch64-buildroot-linux-uclibc'
-        this.crosstool_ng_toolchain_prefix = 'aarch64-unknown-elf'
-        this.ubuntu_toolchain_prefix = 'aarch64-linux-gnu'
+        this_module.armv = 8
+        this_module.gem5_arch = 'ARM'
+        this_module.mcpu = 'cortex-a57'
+        this_module.buildroot_toolchain_prefix = 'aarch64-buildroot-linux-uclibc'
+        this_module.crosstool_ng_toolchain_prefix = 'aarch64-unknown-elf'
+        this_module.ubuntu_toolchain_prefix = 'aarch64-linux-gnu'
         if args.gem5:
-            if this.machine is None:
-                this.machine = 'VExpress_GEM5_V1'
+            if this_module.machine is None:
+                this_module.machine = 'VExpress_GEM5_V1'
         else:
-            if this.machine is None:
-                this.machine = 'virt'
+            if this_module.machine is None:
+                this_module.machine = 'virt'
     elif args.arch == 'x86_64':
-        this.crosstool_ng_toolchain_prefix = 'x86_64-unknown-elf'
-        this.gem5_arch = 'X86'
-        this.buildroot_toolchain_prefix = 'x86_64-buildroot-linux-uclibc'
-        this.ubuntu_toolchain_prefix = 'x86_64-linux-gnu'
+        this_module.crosstool_ng_toolchain_prefix = 'x86_64-unknown-elf'
+        this_module.gem5_arch = 'X86'
+        this_module.buildroot_toolchain_prefix = 'x86_64-buildroot-linux-uclibc'
+        this_module.ubuntu_toolchain_prefix = 'x86_64-linux-gnu'
         if args.gem5:
-            if this.machine is None:
-                this.machine = 'TODO'
+            if this_module.machine is None:
+                this_module.machine = 'TODO'
         else:
-            if this.machine is None:
-                this.machine = 'pc'
-    this.buildroot_out_dir = os.path.join(this.out_dir, 'buildroot')
-    this.buildroot_build_dir = os.path.join(this.buildroot_out_dir, 'build', args.buildroot_build_id, args.arch)
-    this.buildroot_download_dir = os.path.join(this.buildroot_out_dir, 'download')
-    this.buildroot_config_file = os.path.join(this.buildroot_build_dir, '.config')
-    this.build_dir = os.path.join(this.buildroot_build_dir, 'build')
-    this.qemu_build_dir = os.path.join(this.out_dir, 'qemu', args.qemu_build_id)
-    this.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
-    this.qemu_executable = os.path.join(this.qemu_build_dir, '{}-softmmu'.format(args.arch), this.qemu_executable_basename)
-    this.qemu_img_basename = 'qemu-img'
-    this.qemu_img_executable = os.path.join(this.qemu_build_dir, this.qemu_img_basename)
-    this.qemu_guest_build_dir = os.path.join(this.build_dir, 'qemu-custom')
-    this.host_dir = os.path.join(this.buildroot_build_dir, 'host')
-    this.host_bin_dir = os.path.join(this.host_dir, 'usr', 'bin')
-    this.buildroot_pkg_config = os.path.join(this.host_bin_dir, 'pkg-config')
-    this.buildroot_images_dir = os.path.join(this.buildroot_build_dir, 'images')
-    this.buildroot_rootfs_raw_file = os.path.join(this.buildroot_images_dir, 'rootfs.ext2')
-    this.buildroot_qcow2_file = this.buildroot_rootfs_raw_file + '.qcow2'
-    this.staging_dir = os.path.join(this.out_dir, 'staging', args.arch)
-    this.buildroot_staging_dir = os.path.join(this.buildroot_build_dir, 'staging')
-    this.target_dir = os.path.join(this.buildroot_build_dir, 'target')
-    this.run_dir_base = os.path.join(this.out_dir, 'run')
-    this.gem5_run_dir = os.path.join(this.run_dir_base, 'gem5', args.arch, str(args.run_id))
-    this.m5out_dir = os.path.join(this.gem5_run_dir, 'm5out')
-    this.stats_file = os.path.join(this.m5out_dir, 'stats.txt')
-    this.trace_txt_file = os.path.join(this.m5out_dir, 'trace.txt')
-    this.gem5_readfile = os.path.join(this.gem5_run_dir, 'readfile')
-    this.gem5_termout_file = os.path.join(this.gem5_run_dir, 'termout.txt')
-    this.qemu_run_dir = os.path.join(this.run_dir_base, 'qemu', args.arch, str(args.run_id))
-    this.qemu_trace_basename = 'trace.bin'
-    this.qemu_trace_file = os.path.join(this.qemu_run_dir, 'trace.bin')
-    this.qemu_trace_txt_file = os.path.join(this.qemu_run_dir, 'trace.txt')
-    this.qemu_termout_file = os.path.join(this.qemu_run_dir, 'termout.txt')
-    this.qemu_rrfile = os.path.join(this.qemu_run_dir, 'rrfile')
-    this.gem5_out_dir = os.path.join(this.out_dir, 'gem5')
+            if this_module.machine is None:
+                this_module.machine = 'pc'
+    this_module.buildroot_out_dir = os.path.join(this_module.out_dir, 'buildroot')
+    this_module.buildroot_build_dir = os.path.join(this_module.buildroot_out_dir, 'build', args.buildroot_build_id, args.arch)
+    this_module.buildroot_download_dir = os.path.join(this_module.buildroot_out_dir, 'download')
+    this_module.buildroot_config_file = os.path.join(this_module.buildroot_build_dir, '.config')
+    this_module.build_dir = os.path.join(this_module.buildroot_build_dir, 'build')
+    this_module.qemu_build_dir = os.path.join(this_module.out_dir, 'qemu', args.qemu_build_id)
+    this_module.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
+    this_module.qemu_executable = os.path.join(this_module.qemu_build_dir, '{}-softmmu'.format(args.arch), this_module.qemu_executable_basename)
+    this_module.qemu_img_basename = 'qemu-img'
+    this_module.qemu_img_executable = os.path.join(this_module.qemu_build_dir, this_module.qemu_img_basename)
+    this_module.qemu_guest_build_dir = os.path.join(this_module.build_dir, 'qemu-custom')
+    this_module.host_dir = os.path.join(this_module.buildroot_build_dir, 'host')
+    this_module.host_bin_dir = os.path.join(this_module.host_dir, 'usr', 'bin')
+    this_module.buildroot_pkg_config = os.path.join(this_module.host_bin_dir, 'pkg-config')
+    this_module.buildroot_images_dir = os.path.join(this_module.buildroot_build_dir, 'images')
+    this_module.buildroot_rootfs_raw_file = os.path.join(this_module.buildroot_images_dir, 'rootfs.ext2')
+    this_module.buildroot_qcow2_file = this_module.buildroot_rootfs_raw_file + '.qcow2'
+    this_module.staging_dir = os.path.join(this_module.out_dir, 'staging', args.arch)
+    this_module.buildroot_staging_dir = os.path.join(this_module.buildroot_build_dir, 'staging')
+    this_module.target_dir = os.path.join(this_module.buildroot_build_dir, 'target')
+    this_module.run_dir_base = os.path.join(this_module.out_dir, 'run')
+    this_module.gem5_run_dir = os.path.join(this_module.run_dir_base, 'gem5', args.arch, str(args.run_id))
+    this_module.m5out_dir = os.path.join(this_module.gem5_run_dir, 'm5out')
+    this_module.stats_file = os.path.join(this_module.m5out_dir, 'stats.txt')
+    this_module.trace_txt_file = os.path.join(this_module.m5out_dir, 'trace.txt')
+    this_module.gem5_readfile = os.path.join(this_module.gem5_run_dir, 'readfile')
+    this_module.gem5_termout_file = os.path.join(this_module.gem5_run_dir, 'termout.txt')
+    this_module.qemu_run_dir = os.path.join(this_module.run_dir_base, 'qemu', args.arch, str(args.run_id))
+    this_module.qemu_trace_basename = 'trace.bin'
+    this_module.qemu_trace_file = os.path.join(this_module.qemu_run_dir, 'trace.bin')
+    this_module.qemu_trace_txt_file = os.path.join(this_module.qemu_run_dir, 'trace.txt')
+    this_module.qemu_termout_file = os.path.join(this_module.qemu_run_dir, 'termout.txt')
+    this_module.qemu_rrfile = os.path.join(this_module.qemu_run_dir, 'rrfile')
+    this_module.gem5_out_dir = os.path.join(this_module.out_dir, 'gem5')
     if args.gem5_build_dir is None:
-        this.gem5_build_dir = os.path.join(this.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
+        this_module.gem5_build_dir = os.path.join(this_module.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
     else:
-        this.gem5_build_dir = args.gem5_build_dir
-    this.gem5_fake_iso = os.path.join(this.gem5_out_dir, 'fake.iso')
-    this.gem5_m5term = os.path.join(this.gem5_build_dir, 'm5term')
-    this.gem5_build_build_dir = os.path.join(this.gem5_build_dir, 'build')
-    this.gem5_executable = os.path.join(this.gem5_build_build_dir, gem5_arch, 'gem5.{}'.format(args.gem5_build_type))
-    this.gem5_system_dir = os.path.join(this.gem5_build_dir, 'system')
-    this.crosstool_ng_out_dir = os.path.join(this.out_dir, 'crosstool-ng')
-    this.crosstool_ng_buildid_dir = os.path.join(this.crosstool_ng_out_dir, 'build', args.crosstool_ng_build_id)
-    this.crosstool_ng_install_dir = os.path.join(this.crosstool_ng_buildid_dir, 'install', args.arch)
-    this.crosstool_ng_bin_dir = os.path.join(this.crosstool_ng_install_dir, 'bin')
-    this.crosstool_ng_util_dir = os.path.join(this.crosstool_ng_buildid_dir, 'util')
-    this.crosstool_ng_config = os.path.join(this.crosstool_ng_util_dir, '.config')
-    this.crosstool_ng_defconfig = os.path.join(this.crosstool_ng_util_dir, 'defconfig')
-    this.crosstool_ng_executable = os.path.join(this.crosstool_ng_util_dir, 'ct-ng')
-    this.crosstool_ng_build_dir = os.path.join(this.crosstool_ng_buildid_dir, 'build')
-    this.crosstool_ng_download_dir = os.path.join(this.crosstool_ng_out_dir, 'download')
-    this.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
+        this_module.gem5_build_dir = args.gem5_build_dir
+    this_module.gem5_fake_iso = os.path.join(this_module.gem5_out_dir, 'fake.iso')
+    this_module.gem5_m5term = os.path.join(this_module.gem5_build_dir, 'm5term')
+    this_module.gem5_build_build_dir = os.path.join(this_module.gem5_build_dir, 'build')
+    this_module.gem5_executable = os.path.join(this_module.gem5_build_build_dir, gem5_arch, 'gem5.{}'.format(args.gem5_build_type))
+    this_module.gem5_system_dir = os.path.join(this_module.gem5_build_dir, 'system')
+    this_module.crosstool_ng_out_dir = os.path.join(this_module.out_dir, 'crosstool-ng')
+    this_module.crosstool_ng_buildid_dir = os.path.join(this_module.crosstool_ng_out_dir, 'build', args.crosstool_ng_build_id)
+    this_module.crosstool_ng_install_dir = os.path.join(this_module.crosstool_ng_buildid_dir, 'install', args.arch)
+    this_module.crosstool_ng_bin_dir = os.path.join(this_module.crosstool_ng_install_dir, 'bin')
+    this_module.crosstool_ng_util_dir = os.path.join(this_module.crosstool_ng_buildid_dir, 'util')
+    this_module.crosstool_ng_config = os.path.join(this_module.crosstool_ng_util_dir, '.config')
+    this_module.crosstool_ng_defconfig = os.path.join(this_module.crosstool_ng_util_dir, 'defconfig')
+    this_module.crosstool_ng_executable = os.path.join(this_module.crosstool_ng_util_dir, 'ct-ng')
+    this_module.crosstool_ng_build_dir = os.path.join(this_module.crosstool_ng_buildid_dir, 'build')
+    this_module.crosstool_ng_download_dir = os.path.join(this_module.crosstool_ng_out_dir, 'download')
+    this_module.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
     if args.gem5_source_dir is not None:
-        this.gem5_src_dir = args.gem5_source_dir
+        this_module.gem5_src_dir = args.gem5_source_dir
         assert(os.path.exists(args.gem5_source_dir))
     else:
         if args.gem5_worktree is not None:
-            this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
+            this_module.gem5_src_dir = os.path.join(this_module.gem5_non_default_src_root_dir, args.gem5_worktree)
         else:
-            this.gem5_src_dir = this.gem5_default_src_dir
-    this.gem5_m5_src_dir = os.path.join(this.gem5_src_dir, 'util', 'm5')
-    this.gem5_m5_build_dir = os.path.join(this.out_dir, 'util', 'm5')
+            this_module.gem5_src_dir = this_module.gem5_default_src_dir
+    this_module.gem5_m5_src_dir = os.path.join(this_module.gem5_src_dir, 'util', 'm5')
+    this_module.gem5_m5_build_dir = os.path.join(this_module.out_dir, 'util', 'm5')
     if args.gem5:
-        this.executable = this.gem5_executable
-        this.run_dir = this.gem5_run_dir
-        this.termout_file = this.gem5_termout_file
+        this_module.executable = this_module.gem5_executable
+        this_module.run_dir = this_module.gem5_run_dir
+        this_module.termout_file = this_module.gem5_termout_file
     else:
-        this.executable = this.qemu_executable
-        this.run_dir = this.qemu_run_dir
-        this.termout_file = this.qemu_termout_file
-    this.gem5_config_dir = os.path.join(this.gem5_src_dir, 'configs')
-    this.gem5_se_file = os.path.join(this.gem5_config_dir, 'example', 'se.py')
-    this.gem5_fs_file = os.path.join(this.gem5_config_dir, 'example', 'fs.py')
-    this.run_cmd_file = os.path.join(this.run_dir, 'run.sh')
+        this_module.executable = this_module.qemu_executable
+        this_module.run_dir = this_module.qemu_run_dir
+        this_module.termout_file = this_module.qemu_termout_file
+    this_module.gem5_config_dir = os.path.join(this_module.gem5_src_dir, 'configs')
+    this_module.gem5_se_file = os.path.join(this_module.gem5_config_dir, 'example', 'se.py')
+    this_module.gem5_fs_file = os.path.join(this_module.gem5_config_dir, 'example', 'fs.py')
+    this_module.run_cmd_file = os.path.join(this_module.run_dir, 'run.sh')
 
     # Linux
-    this.linux_buildroot_build_dir = os.path.join(this.build_dir, 'linux-custom')
-    this.linux_build_dir = os.path.join(this.out_dir, 'linux', args.linux_build_id, args.arch)
-    this.vmlinux = os.path.join(this.linux_build_dir, "vmlinux")
+    this_module.linux_buildroot_build_dir = os.path.join(this_module.build_dir, 'linux-custom')
+    this_module.linux_build_dir = os.path.join(this_module.out_dir, 'linux', args.linux_build_id, args.arch)
+    this_module.vmlinux = os.path.join(this_module.linux_build_dir, "vmlinux")
     if args.arch == 'arm':
-        this.linux_arch = 'arm'
-        this.linux_image = os.path.join('arch', this.linux_arch, 'boot', 'zImage')
+        this_module.linux_arch = 'arm'
+        this_module.linux_image = os.path.join('arch', this_module.linux_arch, 'boot', 'zImage')
     elif args.arch == 'aarch64':
-        this.linux_arch = 'arm64'
-        this.linux_image = os.path.join('arch', this.linux_arch, 'boot', 'Image')
+        this_module.linux_arch = 'arm64'
+        this_module.linux_image = os.path.join('arch', this_module.linux_arch, 'boot', 'Image')
     elif args.arch == 'x86_64':
-        this.linux_arch = 'x86'
-        this.linux_image = os.path.join('arch', this.linux_arch, 'boot', 'bzImage')
-    this.linux_image = os.path.join(this.linux_build_dir, linux_image)
+        this_module.linux_arch = 'x86'
+        this_module.linux_image = os.path.join('arch', this_module.linux_arch, 'boot', 'bzImage')
+    this_module.linux_image = os.path.join(this_module.linux_build_dir, linux_image)
 
     # Kernel modules.
-    this.kernel_modules_build_base_dir = os.path.join(this.out_dir, 'kernel_modules')
-    this.kernel_modules_build_dir = os.path.join(this.kernel_modules_build_base_dir, args.arch)
-    this.kernel_modules_build_host_dir = os.path.join(this.kernel_modules_build_base_dir, 'host')
-    this.userland_build_dir = os.path.join(this.out_dir, 'userland', args.arch)
-    this.out_rootfs_overlay_dir = os.path.join(this.out_dir, 'rootfs_overlay', args.arch)
-    this.out_rootfs_overlay_bin_dir = os.path.join(this.out_rootfs_overlay_dir, 'bin')
+    this_module.kernel_modules_build_base_dir = os.path.join(this_module.out_dir, 'kernel_modules')
+    this_module.kernel_modules_build_dir = os.path.join(this_module.kernel_modules_build_base_dir, args.arch)
+    this_module.kernel_modules_build_host_dir = os.path.join(this_module.kernel_modules_build_base_dir, 'host')
+    this_module.userland_build_dir = os.path.join(this_module.out_dir, 'userland', args.arch)
+    this_module.out_rootfs_overlay_dir = os.path.join(this_module.out_dir, 'rootfs_overlay', args.arch)
+    this_module.out_rootfs_overlay_bin_dir = os.path.join(this_module.out_rootfs_overlay_dir, 'bin')
 
     # Ports
     if args.port_offset is None:
@@ -701,69 +741,69 @@ def setup(parser):
         except ValueError:
             args.port_offset = 0
     if args.gem5:
-        this.gem5_telnet_port = 3456 + args.port_offset
-        this.gdb_port = 7000 + args.port_offset
+        this_module.gem5_telnet_port = 3456 + args.port_offset
+        this_module.gdb_port = 7000 + args.port_offset
     else:
-        this.qemu_base_port = 45454 + 10 * args.port_offset
-        this.qemu_monitor_port = this.qemu_base_port + 0
-        this.qemu_hostfwd_generic_port = this.qemu_base_port + 1
-        this.qemu_hostfwd_ssh_port = this.qemu_base_port + 2
-        this.qemu_gdb_port = this.qemu_base_port + 3
-        this.gdb_port = this.qemu_gdb_port
+        this_module.qemu_base_port = 45454 + 10 * args.port_offset
+        this_module.qemu_monitor_port = this_module.qemu_base_port + 0
+        this_module.qemu_hostfwd_generic_port = this_module.qemu_base_port + 1
+        this_module.qemu_hostfwd_ssh_port = this_module.qemu_base_port + 2
+        this_module.qemu_gdb_port = this_module.qemu_base_port + 3
+        this_module.gdb_port = this_module.qemu_gdb_port
 
     # Baremetal.
-    this.baremetal = args.baremetal
-    this.baremetal_lib_basename = 'lib'
-    this.baremetal_src_dir = os.path.join(this.root_dir, 'baremetal')
-    this.baremetal_src_lib_dir = os.path.join(this.baremetal_src_dir, this.baremetal_lib_basename)
+    this_module.baremetal = args.baremetal
+    this_module.baremetal_lib_basename = 'lib'
+    this_module.baremetal_src_dir = os.path.join(this_module.root_dir, 'baremetal')
+    this_module.baremetal_src_lib_dir = os.path.join(this_module.baremetal_src_dir, this_module.baremetal_lib_basename)
     if args.gem5:
-        this.simulator_name = 'gem5'
+        this_module.simulator_name = 'gem5'
     else:
-        this.simulator_name = 'qemu'
-    this.baremetal_out_dir = os.path.join(out_dir, 'baremetal', args.arch, this.simulator_name, this.machine)
-    this.baremetal_out_lib_dir = os.path.join(this.baremetal_out_dir, this.baremetal_lib_basename)
-    this.baremetal_out_ext = '.elf'
+        this_module.simulator_name = 'qemu'
+    this_module.baremetal_out_dir = os.path.join(out_dir, 'baremetal', args.arch, this_module.simulator_name, this_module.machine)
+    this_module.baremetal_out_lib_dir = os.path.join(this_module.baremetal_out_dir, this_module.baremetal_lib_basename)
+    this_module.baremetal_out_ext = '.elf'
 
 
     # Docker
-    this.docker_build_dir = os.path.join(this.out_dir, 'docker', args.arch)
-    this.docker_tar_dir = os.path.join(this.docker_build_dir, 'export')
-    this.docker_tar_file = os.path.join(this.docker_build_dir, 'export.tar')
-    this.docker_rootfs_raw_file = os.path.join(this.docker_build_dir, 'export.ext2')
-    this.docker_qcow2_file = os.path.join(this.docker_rootfs_raw_file + '.qcow2')
+    this_module.docker_build_dir = os.path.join(this_module.out_dir, 'docker', args.arch)
+    this_module.docker_tar_dir = os.path.join(this_module.docker_build_dir, 'export')
+    this_module.docker_tar_file = os.path.join(this_module.docker_build_dir, 'export.tar')
+    this_module.docker_rootfs_raw_file = os.path.join(this_module.docker_build_dir, 'export.ext2')
+    this_module.docker_qcow2_file = os.path.join(this_module.docker_rootfs_raw_file + '.qcow2')
     if args.docker:
-        this.rootfs_raw_file = this.docker_rootfs_raw_file
-        this.qcow2_file = this.docker_qcow2_file
+        this_module.rootfs_raw_file = this_module.docker_rootfs_raw_file
+        this_module.qcow2_file = this_module.docker_qcow2_file
     else:
-        this.rootfs_raw_file = this.buildroot_rootfs_raw_file
-        this.qcow2_file = this.buildroot_qcow2_file
+        this_module.rootfs_raw_file = this_module.buildroot_rootfs_raw_file
+        this_module.qcow2_file = this_module.buildroot_qcow2_file
 
     # Image.
     if args.baremetal is None:
         if args.gem5:
-            this.image = this.vmlinux
-            this.disk_image = this.rootfs_raw_file
+            this_module.image = this_module.vmlinux
+            this_module.disk_image = this_module.rootfs_raw_file
         else:
-            this.image = this.linux_image
-            this.disk_image = this.qcow2_file
+            this_module.image = this_module.linux_image
+            this_module.disk_image = this_module.qcow2_file
     else:
-        this.disk_image = this.gem5_fake_iso
+        this_module.disk_image = this_module.gem5_fake_iso
         paths = [
-            os.path.join(this.baremetal_out_dir, this.baremetal),
+            os.path.join(this_module.baremetal_out_dir, this_module.baremetal),
             os.path.join(
-                this.baremetal_out_dir,
-                os.path.relpath(this.baremetal, this.baremetal_src_dir),
+                this_module.baremetal_out_dir,
+                os.path.relpath(this_module.baremetal, this_module.baremetal_src_dir),
             )
         ]
-        paths[:] = [os.path.splitext(path)[0] + this.baremetal_out_ext for path in paths]
+        paths[:] = [os.path.splitext(path)[0] + this_module.baremetal_out_ext for path in paths]
         found = False
         for path in paths:
             if os.path.exists(path):
                 found = True
                 break
-        if not found and this.baremetal != 'all':
+        if not found and this_module.baremetal != 'all':
             raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
-        this.image = path
+        this_module.image = path
     return args
 
 def write_configs(config_path, configs, config_fragments=None):
