@@ -649,6 +649,8 @@ def setup(parser):
             this.gem5_src_dir = os.path.join(this.gem5_non_default_src_root_dir, args.gem5_worktree)
         else:
             this.gem5_src_dir = this.gem5_default_src_dir
+    this.gem5_m5_src_dir = os.path.join(this.gem5_src_dir, 'util', 'm5')
+    this.gem5_m5_build_dir = os.path.join(this.out_dir, 'util', 'm5')
     if args.gem5:
         this.executable = this.gem5_executable
         this.run_dir = this.gem5_run_dir
@@ -683,6 +685,7 @@ def setup(parser):
     this.kernel_modules_build_host_dir = os.path.join(this.kernel_modules_build_base_dir, 'host')
     this.userland_build_dir = os.path.join(this.out_dir, 'userland', args.arch)
     this.out_rootfs_overlay_dir = os.path.join(this.out_dir, 'rootfs_overlay', args.arch)
+    this.out_rootfs_overlay_bin_dir = os.path.join(this.out_rootfs_overlay_dir, 'bin')
 
     # Ports
     if args.port_offset is None:

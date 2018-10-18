@@ -32,34 +32,50 @@ def run_cmd(cmd, dry_run):
     cmd_abs[0] = os.path.join(common.root_dir, cmd[0])
     common.run_cmd(cmd_abs, dry_run=dry_run)
 
-# Topological sorted on build dependencies.
-name_to_component_map = collections.OrderedDict([
-    ('baremetal', BaremetalComponent(False)),
-    ('gem5', Component(
-        False,
-        lambda arch, dry_run: run_cmd(['build-gem5', '--arch', arch], dry_run)
-    )),
-    ('qemu', Component(
-        True,
-        lambda arch, dry_run: run_cmd(['build-qemu', '--arch', arch], dry_run)
-    )),
-    ('linux', Component(
-        True,
-        lambda arch, dry_run: run_cmd(['build-linux', '--arch', arch], dry_run=dry_run)
-    )),
-    ('modules', Component(
-        True,
-        lambda arch, dry_run: run_cmd(['build-modules', '--arch', arch], dry_run=dry_run)
-    )),
-    ('userland', Component(
-        True,
-        lambda arch, dry_run: run_cmd(['build-userland', '--arch', arch], dry_run=dry_run),
-    )),
-    ('buildroot', Component(
+name_to_component_map = {
+    'baremetal': BaremetalComponent(False),
+    'buildroot': Component(
         True,
         lambda arch, dry_run: run_cmd(['build-buildroot', '--arch', arch, '--gem5'], dry_run=dry_run),
-    )),
-])
+    ),
+    'gem5': Component(
+        False,
+        lambda arch, dry_run: run_cmd(['build-gem5', '--arch', arch], dry_run)
+    ),
+    'linux': Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-linux', '--arch', arch], dry_run=dry_run)
+    ),
+    'modules': Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-modules', '--arch', arch], dry_run=dry_run)
+    ),
+    'm5': Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-m5', '--arch', arch], dry_run=dry_run)
+    ),
+    'qemu': Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-qemu', '--arch', arch], dry_run)
+    ),
+    'userland': Component(
+        True,
+        lambda arch, dry_run: run_cmd(['build-userland', '--arch', arch], dry_run=dry_run),
+    ),
+}
+# Topological sorted on build order.
+component_order = [
+    'baremetal',
+    'gem5',
+    'qemu',
+    # Need one extra one here to build the toolchain.
+    'buildroot',
+    'linux',
+    'modules',
+    'userland',
+    'm5',
+    'buildroot',
+]
 component_names = name_to_component_map.keys()
 linux_component_names = {
     'gem5',
@@ -67,6 +83,7 @@ linux_component_names = {
     'linux',
     'modules',
     'userland',
+    'm5',
     'buildroot',
 }
 
@@ -156,7 +173,7 @@ else:
 
 # Decide components.
 selected_component_names = []
-for name in component_names:
+for name in component_order:
     component = name_to_component_map[name]
     if (
         args.all or
@@ -167,6 +184,7 @@ for name in component_names:
     ):
         selected_component_names.append(name)
 
+# Do the build.
 for arch in archs:
     for name in selected_component_names:
         name_to_component_map[name].build(arch, args.dry_run)

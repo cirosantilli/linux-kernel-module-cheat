@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+
+import multiprocessing
+import os
+import platform
+import shutil
+import subprocess
+import time
+
+import common
+
+parser = common.get_argparse(argparse_args={
+    'description': 'Build the m5 executable',
+})
+common.add_build_arguments(parser)
+args = common.setup(parser)
+start_time = time.time()
+os.makedirs(common.gem5_m5_build_dir, exist_ok=True)
+allowed_toolchains = ['buildroot']
+cc = common.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
+ld = common.get_toolchain_tool('ld', allowed_toolchains=allowed_toolchains)
+if args.arch == 'x86_64':
+    arch = 'x86'
+else:
+    arch = args.arch
+assert common.run_cmd(
+    (
+        [
+            'make',
+            '-j', str(multiprocessing.cpu_count()),
+            '-f', 'Makefile.{}'.format(arch),
+            'CC={}'.format(cc),
+            'LD={}'.format(ld),
+            'PWD={}'.format(common.gem5_m5_src_dir),
+        ]
+    ),
+    cwd=common.gem5_m5_src_dir,
+) == 0
+print(common.out_rootfs_overlay_bin_dir)
+os.makedirs(common.out_rootfs_overlay_bin_dir, exist_ok=True)
+shutil.copy2(os.path.join(common.gem5_m5_src_dir, 'm5'), common.out_rootfs_overlay_bin_dir)
+end_time = time.time()
+common.print_time(end_time - start_time)
