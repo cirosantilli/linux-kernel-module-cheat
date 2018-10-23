@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import multiprocessing
 import os
 import pathlib
 import shutil
@@ -64,10 +63,6 @@ Pass multiple times to use multiple fragment files.
             '-i', '--initrd', default=self._defaults['initrd'], action='store_true',
         )
         parser.add_argument(
-            '-j', '--nproc', default=self._defaults['nproc'], type=int,
-            help='Number of processors to use for the build. Default: all.'
-        )
-        parser.add_argument(
             '-K', '--kernel-custom-config-file', default=self._defaults['kernel_custom_config_file'],
             help='''\
 Ignore all default kernel configurations and use this file instead.
@@ -113,10 +108,6 @@ usually extra Buildroot targets.
             extra_make_args.append('linux-reconfigure')
         if args.gem5:
             extra_make_args.append('gem5-reconfigure')
-        if args.nproc is None:
-            nproc = multiprocessing.cpu_count()
-        else:
-            nproc = args.nproc
         if args.arch == 'x86_64':
             defconfig = 'qemu_x86_64_defconfig'
         elif args.arch == 'arm':
@@ -144,7 +135,7 @@ usually extra Buildroot targets.
             )
             buildroot_configs = args.buildroot_config
             buildroot_configs.extend([
-                'BR2_JLEVEL={}'.format(nproc),
+                'BR2_JLEVEL={}'.format(args.nproc),
                 'BR2_DL_DIR="{}"'.format(common.buildroot_download_dir),
             ])
             common.write_configs(common.buildroot_config_file, buildroot_configs)
@@ -297,7 +288,6 @@ Run Linux on an emulator
         'kernel_custom_config_file': None,
         'kernel_modules': False,
         'no_all': False,
-        'nproc': None,
         'skip_configure': False,
         'extra_make_args': [],
     }

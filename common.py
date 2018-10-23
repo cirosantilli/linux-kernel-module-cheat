@@ -9,6 +9,7 @@ import distutils.file_util
 import glob
 import imp
 import json
+import multiprocessing
 import os
 import re
 import shlex
@@ -135,6 +136,12 @@ def add_build_arguments(parser):
         '--clean',
         help='Clean the build instead of building.',
         action='store_true',
+    )
+    parser.add_argument(
+        '-j', '--nproc',
+        help='Number of processors to use for the build. Default: use all cores.',
+        type=int,
+        default=multiprocessing.cpu_count(),
     )
 
 def add_dry_run_argument(parser):

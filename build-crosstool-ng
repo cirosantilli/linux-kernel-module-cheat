@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import multiprocessing
 import os
 
 import common
@@ -9,7 +8,6 @@ class CrosstoolNgComponent(common.Component):
     def do_build(self, args):
         common.raise_no_x86(args.arch)
         build_dir = self.get_build_dir(args)
-        nproc = multiprocessing.cpu_count()
         defconfig_dest = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
         os.makedirs(common.crosstool_ng_util_dir, exist_ok=True)
         os.makedirs(common.crosstool_ng_download_dir, exist_ok=True)
@@ -30,7 +28,7 @@ class CrosstoolNgComponent(common.Component):
         common.run_cmd(
             [
                 'make',
-                '-j', str(nproc),
+                '-j', str(args.nproc),
             ],
         )
 
@@ -58,7 +56,7 @@ class CrosstoolNgComponent(common.Component):
             [
                 common.crosstool_ng_executable,
                 'build',
-                'CT_JOBS={}'.format(str(nproc)),
+                'CT_JOBS={}'.format(str(args.nproc)),
             ],
             out_file=os.path.join(build_dir, 'lkmc.log'),
             delete_env=['LD_LIBRARY_PATH'],
