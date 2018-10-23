@@ -1,71 +1,16 @@
 #!/usr/bin/env python3
 
-import glob
 import multiprocessing
 import os
-import shutil
-import sys
-import time
 
 import common
 
-def build_dir(subpath, gcc, cflags, entry_address, bootloader_obj, common_obj, bootloader=True):
-    """
-    Build all .c and .S files in a given subpath of the baremetal source
-    directory non recursively.
-
-    Place outputs on the same subpath or the output directory.
-    """
-    in_dir = os.path.join(common.baremetal_src_dir, subpath)
-    out_dir = os.path.join(common.baremetal_out_dir, subpath)
-    os.makedirs(out_dir, exist_ok=True)
-    if bootloader:
-        bootloader_cmd = [bootloader_obj]
-    else:
-        bootloader_cmd = []
-    for in_basename in os.listdir(in_dir):
-        in_path = os.path.join(in_dir, in_basename)
-        if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (common.c_ext, common.asm_ext):
-            in_name = os.path.splitext(in_basename)[0]
-            main_obj = os.path.join(common.baremetal_out_dir, subpath, '{}{}'.format(in_name, common.obj_ext))
-            assert common.run_cmd(
-                [gcc] +
-                cflags +
-                [
-                    '-c',
-                    '-o', main_obj,
-                    os.path.join(common.baremetal_src_dir, in_path),
-                ]
-            ) == 0
-            assert common.run_cmd(
-                [gcc] +
-                cflags +
-                [
-                    '-Wl,--section-start=.text={:#x}'.format(entry_address),
-                    '-o', os.path.join(common.baremetal_out_dir, subpath, in_name + common.baremetal_out_ext),
-                    '-T', os.path.join(common.baremetal_src_dir, 'link.ld'),
-                ] +
-                bootloader_cmd +
-                [
-                    common_obj,
-                    main_obj,
-                ]
-            ) == 0
-
-def get_argparse():
-        parser = common.get_argparse(argparse_args={
-            'description': 'Build the baremetal examples with crosstool-NG'
-        })
-        common.add_build_arguments(parser)
-        return parser
-
-def main(args, extra_args=None):
-    if args.clean:
-        common.rmrf(common.baremetal_out_dir)
-    else:
+class BaremetalComponent(common.Component):
+    def do_build(self, args):
         common.raise_no_x86(args.arch)
-        bootloader_obj = os.path.join(common.baremetal_out_lib_dir, 'bootloader{}'.format(common.obj_ext))
-        common_obj = os.path.join(common.baremetal_out_lib_dir, 'common{}'.format(common.obj_ext))
+        build_dir = self.get_build_dir(args)
+        bootloader_obj = os.path.join(common.baremetal_build_lib_dir, 'bootloader{}'.format(common.obj_ext))
+        common_obj = os.path.join(common.baremetal_build_lib_dir, 'common{}'.format(common.obj_ext))
         cflags = [
             '-ggdb3',
             '-mcpu={}'.format(common.mcpu),
@@ -89,8 +34,8 @@ def main(args, extra_args=None):
         else:
             entry_address = 0x40000000
             uart_address = 0x09000000
-        os.makedirs(common.baremetal_out_dir, exist_ok=True)
-        os.makedirs(common.baremetal_out_lib_dir, exist_ok=True)
+        os.makedirs(build_dir, exist_ok=True)
+        os.makedirs(common.baremetal_build_lib_dir, exist_ok=True)
         assert common.run_cmd(
             [gcc] +
             cflags +
@@ -111,7 +56,7 @@ def main(args, extra_args=None):
                 os.path.join(common.baremetal_src_lib_dir, 'common' + common.c_ext),
             ]
         ) == 0
-        build_dir(
+        self._build_dir(
             '',
             gcc=gcc,
             cflags=cflags,
@@ -119,7 +64,7 @@ def main(args, extra_args=None):
             bootloader_obj=bootloader_obj,
             common_obj=common_obj,
         )
-        build_dir(
+        self._build_dir(
             'interactive',
             gcc=gcc,
             cflags=cflags,
@@ -129,7 +74,7 @@ def main(args, extra_args=None):
         )
         arch_dir = os.path.join('arch', args.arch)
         if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
-            build_dir(
+            self._build_dir(
                 arch_dir,
                 gcc=gcc,
                 cflags=cflags,
@@ -139,7 +84,7 @@ def main(args, extra_args=None):
             )
         arch_dir = os.path.join('arch', args.arch, 'no_bootloader')
         if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
-            build_dir(
+            self._build_dir(
                 arch_dir,
                 gcc=gcc,
                 cflags=cflags,
@@ -148,16 +93,62 @@ def main(args, extra_args=None):
                 common_obj=common_obj,
                 bootloader=False,
             )
-    return 0
+
+    def get_argparse_args(self):
+        return {
+            'description': '''\
+Build the baremetal examples with crosstool-NG.
+'''
+        }
+
+    def get_build_dir(self, args):
+        return common.baremetal_build_dir
+
+    def get_default_args(self):
+        return {'baremetal': 'all'}
+
+    def _build_dir(self, subpath, gcc, cflags, entry_address, bootloader_obj, common_obj, bootloader=True):
+        """
+        Build all .c and .S files in a given subpath of the baremetal source
+        directory non recursively.
+
+        Place outputs on the same subpath or the output directory.
+        """
+        in_dir = os.path.join(common.baremetal_src_dir, subpath)
+        out_dir = os.path.join(common.baremetal_build_dir, subpath)
+        os.makedirs(out_dir, exist_ok=True)
+        if bootloader:
+            bootloader_cmd = [bootloader_obj]
+        else:
+            bootloader_cmd = []
+        for in_basename in os.listdir(in_dir):
+            in_path = os.path.join(in_dir, in_basename)
+            if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (common.c_ext, common.asm_ext):
+                in_name = os.path.splitext(in_basename)[0]
+                main_obj = os.path.join(common.baremetal_build_dir, subpath, '{}{}'.format(in_name, common.obj_ext))
+                assert common.run_cmd(
+                    [gcc] +
+                    cflags +
+                    [
+                        '-c',
+                        '-o', main_obj,
+                        os.path.join(common.baremetal_src_dir, in_path),
+                    ]
+                ) == 0
+                assert common.run_cmd(
+                    [gcc] +
+                    cflags +
+                    [
+                        '-Wl,--section-start=.text={:#x}'.format(entry_address),
+                        '-o', os.path.join(common.baremetal_build_dir, subpath, in_name + common.baremetal_build_ext),
+                        '-T', os.path.join(common.baremetal_src_dir, 'link.ld'),
+                    ] +
+                    bootloader_cmd +
+                    [
+                        common_obj,
+                        main_obj,
+                    ]
+                ) == 0
 
 if __name__ == '__main__':
-    parser = common.get_argparse(
-        default_args={'baremetal': 'all'},
-    )
-    common.add_build_arguments(parser)
-    args = common.setup(parser)
-    start_time = time.time()
-    exit_status = main(args)
-    end_time = time.time()
-    common.print_time(end_time - start_time)
-    sys.exit(exit_status)
+    BaremetalComponent().build()

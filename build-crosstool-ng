@@ -2,81 +2,78 @@
 
 import multiprocessing
 import os
-import sys
-import time
 
 import common
 
-def get_argparse():
-    parser = common.get_argparse(argparse_args={
-        'description': 'Build crosstool-NG with Newlib for bare metal compilation'
-    })
-    common.add_build_arguments(parser)
-    return parser
+class CrosstoolNgComponent(common.Component):
+    def do_build(self, args):
+        common.raise_no_x86(args.arch)
+        build_dir = self.get_build_dir(args)
+        nproc = multiprocessing.cpu_count()
+        defconfig_dest = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
+        os.makedirs(common.crosstool_ng_util_dir, exist_ok=True)
+        os.makedirs(common.crosstool_ng_download_dir, exist_ok=True)
 
-def main(args, extra_args=None):
-    common.raise_no_x86(args.arch)
-    nproc = multiprocessing.cpu_count()
-    defconfig_dest = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
-    os.makedirs(common.crosstool_ng_util_dir, exist_ok=True)
-    os.makedirs(common.crosstool_ng_download_dir, exist_ok=True)
+        # Bootstrap out-ot-tree WONTFIX. I've tried.
+        # https://github.com/crosstool-ng/crosstool-ng/issues/1021
+        os.chdir(common.crosstool_ng_src_dir)
+        assert common.run_cmd(
+            [os.path.join(common.crosstool_ng_src_dir, 'bootstrap')],
+        ) == 0
+        os.chdir(common.crosstool_ng_util_dir)
+        assert common.run_cmd(
+            [
+                os.path.join(common.crosstool_ng_src_dir, 'configure'),
+                '--enable-local',
+            ],
+        ) == 0
+        assert common.run_cmd(
+            [
+                'make',
+                '-j', str(nproc),
+            ],
+        ) == 0
 
-    # Bootstrap out-ot-tree WONTFIX. I've tried.
-    # https://github.com/crosstool-ng/crosstool-ng/issues/1021
-    os.chdir(common.crosstool_ng_src_dir)
-    assert common.run_cmd(
-        [os.path.join(common.crosstool_ng_src_dir, 'bootstrap')],
-    ) == 0
-    os.chdir(common.crosstool_ng_util_dir)
-    assert common.run_cmd(
-        [
-            os.path.join(common.crosstool_ng_src_dir, 'configure'),
-            '--enable-local',
-        ],
-    ) == 0
-    assert common.run_cmd(
-        [
-            'make',
-            '-j', str(nproc),
-        ],
-    ) == 0
+        # Build the toolchain.
+        common.cp(
+            os.path.join(common.root_dir, 'crosstool_ng_config', args.arch),
+            defconfig_dest
+        )
+        common.write_configs(
+            common.crosstool_ng_defconfig,
+            [
+                'CT_PREFIX_DIR="{}"'.format(common.crosstool_ng_install_dir),
+                'CT_WORK_DIR="{}"'.format(build_dir),
+                'CT_LOCAL_TARBALLS_DIR="{}"'.format(common.crosstool_ng_download_dir),
+            ]
+        )
+        assert common.run_cmd(
+            [
+                common.crosstool_ng_executable,
+                'defconfig',
+            ],
+        ) == 0
+        os.unlink(defconfig_dest)
+        assert common.run_cmd(
+            [
+                common.crosstool_ng_executable,
+                'build',
+                'CT_JOBS={}'.format(str(nproc)),
+            ],
+            out_file=os.path.join(build_dir, 'lkmc.log'),
+            delete_env=['LD_LIBRARY_PATH'],
+            extra_paths=[common.ccache_dir],
+        ) == 0
 
-    # Build the toolchain.
-    common.cp(
-        os.path.join(common.root_dir, 'crosstool_ng_config', args.arch),
-        defconfig_dest
-    )
-    common.write_configs(
-        common.crosstool_ng_defconfig,
-        [
-            'CT_PREFIX_DIR="{}"'.format(common.crosstool_ng_install_dir),
-            'CT_WORK_DIR="{}"'.format(common.crosstool_ng_build_dir),
-            'CT_LOCAL_TARBALLS_DIR="{}"'.format(common.crosstool_ng_download_dir),
-        ]
-    )
-    assert common.run_cmd(
-        [
-            common.crosstool_ng_executable,
-            'defconfig',
-        ],
-    ) == 0
-    os.unlink(defconfig_dest)
-    assert common.run_cmd(
-        [
-            common.crosstool_ng_executable,
-            'build',
-            'CT_JOBS={}'.format(str(nproc)),
-        ],
-        out_file=os.path.join(common.crosstool_ng_build_dir, 'lkmc.log'),
-        delete_env=['LD_LIBRARY_PATH'],
-        extra_paths=[common.ccache_dir],
-    ) == 0
+    def get_argparse_args(self):
+        return {
+            'description': '''\
+Build crosstool-NG with Newlib for bare metal compilation'
+'''
+        }
+
+    def get_build_dir(self, args):
+        return common.crosstool_ng_build_dir
 
 if __name__ == '__main__':
-    parser = get_argparse()
-    args = common.setup(parser)
-    start_time = time.time()
-    exit_status = main(args)
-    end_time = time.time()
-    common.print_time(end_time - start_time)
-    sys.exit(exit_status)
+    CrosstoolNgComponent().build()

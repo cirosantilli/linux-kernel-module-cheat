@@ -11,128 +11,105 @@ import re
 
 import common
 
-defaults = {
-    'baseline': False,
-    'build_linux': False,
-    'buildroot_config': [],
-    'buildroot_config_fragment': [],
-    'initramfs': False,
-    'initrd': False,
-    'kernel_config': [],
-    'kernel_config_fragment': [],
-    'kernel_custom_config_file': None,
-    'kernel_modules': False,
-    'linux_reconfigure': False,
-    'no_all': False,
-    'nproc': None,
-    'skip_configure': False,
-    'extra_make_args': [],
-}
-
-def get_argparse():
-    parser = common.get_argparse(argparse_args={'description':'Run Linux on an emulator'})
-    common.add_build_arguments(parser)
-    parser.add_argument(
-        '-B', '--buildroot-config', default=defaults['buildroot_config'], action='append',
-        help='''Add a single Buildroot config to the current build.
+class BuildrootComponent(common.Component):
+    def add_parser_arguments(self, parser):
+        parser.add_argument(
+            '-B', '--buildroot-config', default=self._defaults['buildroot_config'], action='append',
+            help='''Add a single Buildroot config to the current build.
 Example value: 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'.
 Can be used multiple times to add multiple configs.
 Takes precedence over any Buildroot config files.
 '''
-    )
-    parser.add_argument(
-        '-b', '--buildroot-config-fragment', default=defaults['buildroot_config_fragment'], action='append',
-        help='''Also use the given Buildroot configuration fragment file.
-Pass multiple times to use multiple fragment files.'''
-    )
-    parser.add_argument(
-        '--build-linux', default=defaults['build_linux'], action='store_true',
-        help='''\
+        )
+        parser.add_argument(
+            '-b', '--buildroot-config-fragment', default=self._defaults['buildroot_config_fragment'], action='append',
+            help='''Also use the given Buildroot configuration fragment file.
+Pass multiple times to use multiple fragment files.
+'''
+        )
+        parser.add_argument(
+            '--build-linux', default=self._defaults['build_linux'], action='store_true',
+            help='''\
 Enable building the Linux kernel with Buildroot. This is done mostly
 to extract Buildroot's default kernel configurations when updating Buildroot.
 That kernel will not be use by our scripts.
 '''
-    )
-    parser.add_argument(
-        '--baseline', default=defaults['baseline'], action='store_true',
-        help='''Do a default-ish Buildroot defconfig build, without any of our extra options.
+        )
+        parser.add_argument(
+            '--baseline', default=self._defaults['baseline'], action='store_true',
+            help='''Do a default-ish Buildroot defconfig build, without any of our extra options.
 Mostly to track how much slower we are than a basic build.
 '''
-    )
-    parser.add_argument(
-        '-C', '--kernel-config', default=defaults['kernel_config'], action='append',
-        help='''\
+        )
+        parser.add_argument(
+            '-C', '--kernel-config', default=self._defaults['kernel_config'], action='append',
+            help='''\
 Add a single kernel config configs to the current build.
 Example value: 'CONFIG_FORTIFY_SOURCE=y'.
 Can be used multiple times to add multiple configs.
 Takes precedence over any Buildroot config files.
 '''
-    )
-    parser.add_argument(
-        '-c', '--kernel-config-fragment', default=defaults['kernel_config_fragment'], action='append',
-        help='''\
+        )
+        parser.add_argument(
+            '-c', '--kernel-config-fragment', default=self._defaults['kernel_config_fragment'], action='append',
+            help='''\
 Also use the given kernel configuration fragment file.
 Pass multiple times to use multiple fragment files.
 '''
-    )
-    parser.add_argument(
-        '-I', '--initramfs', default=defaults['initramfs'], action='store_true',
-    )
-    parser.add_argument(
-        '-i', '--initrd', default=defaults['initrd'], action='store_true',
-    )
-    parser.add_argument(
-        '-j', '--nproc', default=defaults['nproc'], type=int,
-        help='Number of processors to use for the build. Default: all.'
-    )
-    parser.add_argument(
-        '-K', '--kernel-custom-config-file', default=defaults['kernel_custom_config_file'],
-        help='''\
+        )
+        parser.add_argument(
+            '-I', '--initramfs', default=self._defaults['initramfs'], action='store_true',
+        )
+        parser.add_argument(
+            '-i', '--initrd', default=self._defaults['initrd'], action='store_true',
+        )
+        parser.add_argument(
+            '-j', '--nproc', default=self._defaults['nproc'], type=int,
+            help='Number of processors to use for the build. Default: all.'
+        )
+        parser.add_argument(
+            '-K', '--kernel-custom-config-file', default=self._defaults['kernel_custom_config_file'],
+            help='''\
 Ignore all default kernel configurations and use this file instead.
 Still uses options explicitly passed with `-C` and `-c` on top of it.
 '''
-    )
-    parser.add_argument(
-        '-k', '--kernel-modules', default=defaults['kernel_modules'], action='store_true',
-        help='''Reconfigure and rebuild the kernel modules package.
+        )
+        parser.add_argument(
+            '-k', '--kernel-modules', default=self._defaults['kernel_modules'], action='store_true',
+            help='''Reconfigure and rebuild the kernel modules package.
 Force --build-linux to true, since building the modules requires building Linux.
 '''
-    )
-    parser.add_argument(
-        '--no-all', default=defaults['no_all'], action='store_true',
-        help='''\
+        )
+        parser.add_argument(
+            '--no-all', default=self._defaults['no_all'], action='store_true',
+            help='''\
 Don't build the all target which normally gets build by default.
 That target builds the root filesystem and all its dependencies.
 '''
-    )
-    parser.add_argument(
-        '--skip-configure', default=defaults['skip_configure'], action='store_true',
-        help='''\
+        )
+        parser.add_argument(
+            '--skip-configure', default=self._defaults['skip_configure'], action='store_true',
+            help='''\
 Skip the Buildroot configuration. Saves a few seconds,
 but requires you to know what you are doing :-)
 '''
-    )
-    parser.add_argument(
-        'extra_make_args', default=defaults['extra_make_args'], metavar='extra-make-args', nargs='*',
-        help='''\
+        )
+        parser.add_argument(
+            'extra_make_args', default=self._defaults['extra_make_args'], metavar='extra-make-args', nargs='*',
+            help='''\
 Extra arguments to be passed to the Buildroot make,
 usually extra Buildroot targets.
 '''
-    )
-    return parser
+        )
 
-def main(args, extra_args=None):
-    global defaults
-    args = common.resolve_args(defaults, args, extra_args)
-    if args.clean:
-        common.rmrf(common.buildroot_build_dir)
-    else:
+    def do_build(self, args):
+        build_dir = self.get_build_dir(args)
         os.makedirs(common.out_dir, exist_ok=True)
         extra_make_args = args.extra_make_args.copy()
         if args.kernel_modules:
             args.build_linux = True
             extra_make_args.append('lkmc-reconfigure')
-        if args.linux_reconfigure:
+        if args.build_linux:
             extra_make_args.append('linux-reconfigure')
         if args.gem5:
             extra_make_args.append('gem5-reconfigure')
@@ -154,7 +131,7 @@ def main(args, extra_args=None):
             for package_dir in os.listdir(packages_dir):
                 package_dir_abs = os.path.join(packages_dir, package_dir)
                 if os.path.isdir(package_dir_abs):
-                    br2_external_dirs.append(path_relative_to_buildroot(package_dir_abs))
+                    br2_external_dirs.append(self._path_relative_to_buildroot(package_dir_abs))
             br2_external_str = ':'.join(br2_external_dirs)
             assert common.run_cmd(
                 [
@@ -178,23 +155,23 @@ def main(args, extra_args=None):
             if not args.baseline:
                 buildroot_configs.extend([
                     'BR2_GLOBAL_PATCH_DIR="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'patches', 'global'))
+                        self._path_relative_to_buildroot(os.path.join(common.root_dir, 'patches', 'global'))
                     ),
                     'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'busybox_config_fragment'))
+                        self._path_relative_to_buildroot(os.path.join(common.root_dir, 'busybox_config_fragment'))
                     ),
                     'BR2_PACKAGE_OVERRIDE_FILE="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))
+                        self._path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))
                     ),
                     'BR2_ROOTFS_OVERLAY="{} {}"'.format(
-                        path_relative_to_buildroot(common.rootfs_overlay_dir),
-                        path_relative_to_buildroot(common.out_rootfs_overlay_dir),
+                        self._path_relative_to_buildroot(common.rootfs_overlay_dir),
+                        self._path_relative_to_buildroot(common.out_rootfs_overlay_dir),
                     ),
                     'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs-post-build-script'))
+                        self._path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs-post-build-script'))
                     ),
                     'BR2_ROOTFS_USERS_TABLES="{}"'.format(
-                        path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))
+                        self._path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))
                     ),
                 ])
                 if args.kernel_modules:
@@ -246,21 +223,21 @@ def main(args, extra_args=None):
                                 'BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y',
                                 'BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"{}\"'.format(args.kernel_custom_config_file),
                             ])
-                            if args.linux_reconfigure:
+                            if args.build_linux:
                                 pathlib.Path(args.kernel_custom_config_file).touch()
                         else:
                             raise Exception('Kernel config fragment file does not exist: {}'.format(args.kernel_custom_config_file))
                         default_kernel_config_fragments = []
                     else:
                         default_kernel_config_fragments = ['min', 'default']
-                        if args.linux_reconfigure:
+                        if args.build_linux:
                             # https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
                             pathlib.Path(os.path.join(common.linux_config_dir, 'min')).touch()
                     for i, default_kernel_config_fragment in enumerate(default_kernel_config_fragments):
                         default_kernel_config_fragments[i] = os.path.join(common.linux_config_dir, default_kernel_config_fragment)
                 kernel_config_fragments.extend(default_kernel_config_fragments)
                 for i, frag in enumerate(kernel_config_fragments):
-                    kernel_config_fragments[i] = path_relative_to_buildroot(frag)
+                    kernel_config_fragments[i] = self._path_relative_to_buildroot(frag)
                 buildroot_kernel_config_fragment_str = 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="{}"'.format(' '.join(kernel_config_fragments))
                 buildroot_configs.append(buildroot_kernel_config_fragment_str)
                 common.write_configs(common.buildroot_config_file, buildroot_configs, buildroot_config_fragments)
@@ -298,16 +275,35 @@ def main(args, extra_args=None):
         if not args.no_all and os.path.exists(common.qemu_img_executable):
             common.raw_to_qcow2()
 
-        return 0
+    def get_argparse_args(self):
+        return {
+            'description': '''\
+Run Linux on an emulator
+'''
+        }
 
-def path_relative_to_buildroot(abspath):
-    return os.path.relpath(abspath, common.buildroot_src_dir)
+    def get_build_dir(self, args):
+        return common.buildroot_build_dir
+
+    _defaults = {
+        'baseline': False,
+        'build_linux': False,
+        'buildroot_config': [],
+        'buildroot_config_fragment': [],
+        'initramfs': False,
+        'initrd': False,
+        'kernel_config': [],
+        'kernel_config_fragment': [],
+        'kernel_custom_config_file': None,
+        'kernel_modules': False,
+        'no_all': False,
+        'nproc': None,
+        'skip_configure': False,
+        'extra_make_args': [],
+    }
+
+    def _path_relative_to_buildroot(self, abspath):
+        return os.path.relpath(abspath, common.buildroot_src_dir)
 
 if __name__ == '__main__':
-    parser = get_argparse()
-    args = common.setup(parser)
-    start_time = time.time()
-    exit_status = main(args)
-    end_time = time.time()
-    common.print_time(end_time - start_time)
-    sys.exit(exit_status)
+    BuildrootComponent().build()

@@ -78,7 +78,15 @@ class Component:
         pass
 
     def build(self):
-        parser = this_module.get_argparse(argparse_args=self.get_argparse_args())
+        '''
+        Parse CLI, and to the build based on it.
+
+        The actual build work is done by do_build in implementing classes.
+        '''
+        parser = this_module.get_argparse(
+            argparse_args=self.get_argparse_args(),
+            default_args=self.get_default_args(),
+        )
         self.add_parser_arguments(parser)
         this_module.add_build_arguments(parser)
         args = this_module.setup(parser)
@@ -99,13 +107,28 @@ class Component:
         this_module.rmrf(self.get_build_dir(args))
 
     def do_build(self, args):
+        '''
+        Do the actual main build work.
+        '''
         raise NotImplementedError()
 
     def get_argparse_args(self):
+        '''
+        Extra arguments for argparse.ArgumentParser.
+        '''
         return {}
 
     def get_build_dir(self, args):
+        '''
+        Build directory, gets cleaned by --clean.
+        '''
         raise NotImplementedError()
+
+    def get_default_args(self):
+        '''
+        Default values for command line arguments.
+        '''
+        return {}
 
 def add_build_arguments(parser):
     parser.add_argument(
@@ -760,10 +783,9 @@ def setup(parser):
         this_module.simulator_name = 'gem5'
     else:
         this_module.simulator_name = 'qemu'
-    this_module.baremetal_out_dir = os.path.join(out_dir, 'baremetal', args.arch, this_module.simulator_name, this_module.machine)
-    this_module.baremetal_out_lib_dir = os.path.join(this_module.baremetal_out_dir, this_module.baremetal_lib_basename)
-    this_module.baremetal_out_ext = '.elf'
-
+    this_module.baremetal_build_dir = os.path.join(out_dir, 'baremetal', args.arch, this_module.simulator_name, this_module.machine)
+    this_module.baremetal_build_lib_dir = os.path.join(this_module.baremetal_build_dir, this_module.baremetal_lib_basename)
+    this_module.baremetal_build_ext = '.elf'
 
     # Docker
     this_module.docker_build_dir = os.path.join(this_module.out_dir, 'docker', args.arch)
@@ -789,13 +811,13 @@ def setup(parser):
     else:
         this_module.disk_image = this_module.gem5_fake_iso
         paths = [
-            os.path.join(this_module.baremetal_out_dir, this_module.baremetal),
+            os.path.join(this_module.baremetal_build_dir, this_module.baremetal),
             os.path.join(
-                this_module.baremetal_out_dir,
+                this_module.baremetal_build_dir,
                 os.path.relpath(this_module.baremetal, this_module.baremetal_src_dir),
             )
         ]
-        paths[:] = [os.path.splitext(path)[0] + this_module.baremetal_out_ext for path in paths]
+        paths[:] = [os.path.splitext(path)[0] + this_module.baremetal_build_ext for path in paths]
         found = False
         for path in paths:
             if os.path.exists(path):
