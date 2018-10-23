@@ -31,12 +31,12 @@ if not args.clean:
             '--format', '{{.Names}}',
     ]).decode()
     if container_name in containers.split():
-        assert common.run_cmd([
+        common.run_cmd([
             'docker',
             'rm',
             container_name,
-        ]) == 0
-    assert common.run_cmd([
+        ])
+    common.run_cmd([
         'docker',
         'create',
         '--name', container_name,
@@ -49,27 +49,27 @@ if not args.clean:
         '-v', '{}:{}'.format(common.root_dir, target_dir),
         'ubuntu:18.04',
         'bash',
-    ]) == 0
-    assert common.run_cmd([
+    ])
+    common.run_cmd([
         'docker',
         'export',
         '-o',
         common.docker_tar_file,
         container_name,
-    ]) == 0
+    ])
     tar = tarfile.open(common.docker_tar_file)
     tar.extractall(common.docker_tar_dir)
     tar.close()
     # sudo not required in theory
     # https://askubuntu.com/questions/1046828/how-to-run-libguestfs-tools-tools-such-as-virt-make-fs-without-sudo
-    assert common.run_cmd([
+    common.run_cmd([
         'virt-make-fs',
         '--format', 'raw',
         '--size', '+1G',
         '--type', 'ext2',
         common.docker_tar_dir,
         common.docker_rootfs_raw_file,
-    ]) == 0
+    ])
     common.raw_to_qcow2(prebuilt=True)
     end_time = time.time()
     common.print_time(end_time - start_time)

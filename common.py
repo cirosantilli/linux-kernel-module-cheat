@@ -415,13 +415,10 @@ def make_run_dirs():
     os.makedirs(this_module.p9_dir, exist_ok=True)
     os.makedirs(this_module.qemu_run_dir, exist_ok=True)
 
-def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
+def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
     '''
     Format a command given as a list of strings so that it can
     be viewed nicely and executed by bash directly and print it to stdout.
-
-    Optionally save the command to cmd_file file, and add extra_env
-    environment variables to the command generated.
     '''
     newline_separator = ' \\\n'
     out = []
@@ -435,12 +432,21 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
         out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])) + newline_separator)
     for arg in cmd:
         out.append(shlex.quote(arg) + newline_separator)
-    out = '  '.join(out) + ';\n'
-    print(this_module.command_prefix + out, end='')
+    return '  '.join(out) + ';\n'
+
+def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
+    '''
+    Print cmd_to_string to stdout.
+
+    Optionally save the command to cmd_file file, and add extra_env
+    environment variables to the command generated.
+    '''
+    cmd_string = cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None)
+    print(this_module.command_prefix + cmd_string, end='')
     if cmd_file is not None:
         with open(cmd_file, 'w') as f:
             f.write('#!/usr/bin/env bash\n')
-            f.write(out)
+            f.write(cmd_string)
         st = os.stat(cmd_file)
         os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
 
@@ -466,7 +472,7 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         tmp = infile
         infile = outfile
         outfile = tmp
-    assert this_module.run_cmd([
+    this_module.run_cmd([
         qemu_img_executable,
         # Prevent qemu-img from generating trace files like QEMU. Disgusting.
         '-T', 'pr_manager_run,file=/dev/null',
@@ -475,7 +481,7 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         '-O', outfmt,
         infile,
         outfile,
-    ]) == 0
+    ])
 
 def raise_no_x86(arch):
     if (arch == 'x86_64'):
@@ -508,6 +514,7 @@ def run_cmd(
         extra_paths=None,
         delete_env=None,
         dry_run=False,
+        raise_on_failure=True,
         **kwargs
     ):
     '''
@@ -598,7 +605,10 @@ def run_cmd(
                             break
         signal.signal(signal.SIGINT, sigint_old)
         #signal.signal(signal.SIGPIPE, sigpipe_old)
-        return proc.returncode
+        returncode = proc.returncode
+        if returncode != 0 and raise_on_failure:
+            raise Exception('Command exited with status: {}'.format(returncode))
+        return returncode
     else:
         return 0
 
