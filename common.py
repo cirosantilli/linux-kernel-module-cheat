@@ -39,7 +39,7 @@ submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
 linux_src_dir = os.path.join(submodules_dir, 'linux')
-linux_config_dir = os.path.join(this_module.root_dir, 'kernel_config')
+linux_config_dir = os.path.join(this_module.root_dir, 'linux_config')
 rootfs_overlay_dir = os.path.join(this_module.root_dir, 'rootfs_overlay')
 extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
@@ -89,7 +89,17 @@ class Component:
             default_args=self.get_default_args(),
         )
         self.add_parser_arguments(parser)
-        this_module.add_build_arguments(parser)
+        parser.add_argument(
+            '--clean',
+            help='Clean the build instead of building.',
+            action='store_true',
+        )
+        parser.add_argument(
+            '-j', '--nproc',
+            help='Number of processors to use for the build. Default: use all cores.',
+            type=int,
+            default=multiprocessing.cpu_count(),
+        )
         args = this_module.setup(parser)
         if not this_module.dry_run:
             start_time = time.time()
@@ -131,22 +141,14 @@ class Component:
         '''
         return {}
 
-def add_build_arguments(parser):
-    parser.add_argument(
-        '--clean',
-        help='Clean the build instead of building.',
-        action='store_true',
-    )
-    parser.add_argument(
-        '-j', '--nproc',
-        help='Number of processors to use for the build. Default: use all cores.',
-        type=int,
-        default=multiprocessing.cpu_count(),
-    )
-
 def add_dry_run_argument(parser):
     parser.add_argument('--dry-run', default=False, action='store_true', help='''\
-    Print the commands that would be run, but don't run them.
+Print the commands that would be run, but don't run them.
+
+We aim display every command that modifies the filesystem state, and generate
+Bash equivalents even for actions taken directly in Python without shelling out.
+
+mkdir are generally omitted since those are obvious.
 ''')
 
 def base64_encode(string):
@@ -502,6 +504,7 @@ def resolve_args(defaults, args, extra_args):
     return argcopy
 
 def cp(src, dest):
+    global this_module
     print_cmd(['cp', src, dest])
     if not this_module.dry_run:
         shutil.copy2(src, dest)
@@ -851,12 +854,17 @@ def write_configs(config_path, configs, config_fragments=None):
     TODO Can't get rid of these for now with nice fragments:
     http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
     """
+    global this_module
     if config_fragments is None:
         config_fragments = []
     with open(config_path, 'a') as config_file:
         for config_fragment in config_fragments:
-            with open(config_fragment, 'r') as config_fragment:
-                for line in config_fragment:
-                    config_file.write(line)
+            with open(config_fragment, 'r') as config_fragment_file:
+                print_cmd(['cat', config_fragment, '>>', config_path])
+                if not this_module.dry_run:
+                    for line in config_fragment_file:
+                        config_file.write(line)
         for config in configs:
-            config_file.write(config + '\n')
+            print_cmd(['echo', config, '>>', config_path])
+            if not this_module.dry_run:
+                config_file.write(config + '\n')
