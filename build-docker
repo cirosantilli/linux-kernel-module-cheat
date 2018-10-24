@@ -1,75 +1,79 @@
 #!/usr/bin/env python3
 
 import os
-
-import common
 import subprocess
 import tarfile
-import time
 
-parser = common.get_argparse(argparse_args={
-    'description': '''\
+import common
+
+
+class DockerComponent(common.Component):
+    def get_argparse_args(self):
+        return {
+            'description': '''\
 Build a guest root filesystem based on prebuilt Docker Ubuntu root filesystems.
 
 See also:https://github.com/cirosantilli/linux-kernel-module-cheat#ubuntu-guest-setup
 '''
-    },
-    default_args={'docker': True},
-)
-common.add_build_arguments(parser)
-args = common.setup(parser)
-container_name = 'lkmc-guest'
-#common.rmrf(common.docker_build_dir)
-if not args.clean:
-    start_time = time.time()
-    target_dir = os.path.join('/root', 'linux-kernel-module-cheat')
-    os.makedirs(common.docker_build_dir, exist_ok=True)
-    containers = subprocess.check_output([
-            'docker',
-            'ps',
-            '-a',
-            '--format', '{{.Names}}',
-    ]).decode()
-    if container_name in containers.split():
+        }
+
+    def do_build(self, args):
+        build_dir = self.get_build_dir(args)
+        container_name = 'lkmc-guest'
+        target_dir = os.path.join('/root', 'linux-kernel-module-cheat')
+        os.makedirs(build_dir, exist_ok=True)
+        containers = subprocess.check_output([
+                'docker',
+                'ps',
+                '-a',
+                '--format', '{{.Names}}',
+        ]).decode()
+        if container_name in containers.split():
+            common.run_cmd([
+                'docker',
+                'rm',
+                container_name,
+            ])
         common.run_cmd([
             'docker',
-            'rm',
+            'create',
+            '--name', container_name,
+            '--net',
+            'host',
+            '-i',
+            '--privileged',
+            '-t',
+            '-w', target_dir,
+            '-v', '{}:{}'.format(common.root_dir, target_dir),
+            'ubuntu:18.04',
+            'bash',
+        ])
+        common.run_cmd([
+            'docker',
+            'export',
+            '-o',
+            common.docker_tar_file,
             container_name,
         ])
-    common.run_cmd([
-        'docker',
-        'create',
-        '--name', container_name,
-        '--net',
-        'host',
-        '-i',
-        '--privileged',
-        '-t',
-        '-w', target_dir,
-        '-v', '{}:{}'.format(common.root_dir, target_dir),
-        'ubuntu:18.04',
-        'bash',
-    ])
-    common.run_cmd([
-        'docker',
-        'export',
-        '-o',
-        common.docker_tar_file,
-        container_name,
-    ])
-    tar = tarfile.open(common.docker_tar_file)
-    tar.extractall(common.docker_tar_dir)
-    tar.close()
-    # sudo not required in theory
-    # https://askubuntu.com/questions/1046828/how-to-run-libguestfs-tools-tools-such-as-virt-make-fs-without-sudo
-    common.run_cmd([
-        'virt-make-fs',
-        '--format', 'raw',
-        '--size', '+1G',
-        '--type', 'ext2',
-        common.docker_tar_dir,
-        common.docker_rootfs_raw_file,
-    ])
-    common.raw_to_qcow2(prebuilt=True)
-    end_time = time.time()
-    common.print_time(end_time - start_time)
+        tar = tarfile.open(common.docker_tar_file)
+        tar.extractall(common.docker_tar_dir)
+        tar.close()
+        # sudo not required in theory
+        # https://askubuntu.com/questions/1046828/how-to-run-libguestfs-tools-tools-such-as-virt-make-fs-without-sudo
+        common.run_cmd([
+            'virt-make-fs',
+            '--format', 'raw',
+            '--size', '+1G',
+            '--type', 'ext2',
+            common.docker_tar_dir,
+            common.docker_rootfs_raw_file,
+        ])
+        common.raw_to_qcow2(prebuilt=True)
+
+    def get_build_dir(self, args):
+        return common.docker_build_dir
+
+    def get_default_args(self):
+        return {'docker': True}
+
+DockerComponent().build()
