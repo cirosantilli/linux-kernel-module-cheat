@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "../ioctl.h"
+#include "../include/ioctl.h"
 
 int main(int argc, char **argv)
 {

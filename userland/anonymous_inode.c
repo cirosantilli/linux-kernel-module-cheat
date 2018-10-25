@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h> /* sleep */
 
-#include "../anonymous_inode.h"
+#include "../include/anonymous_inode.h"
 
 int main(int argc, char **argv)
 {
