@@ -154,6 +154,17 @@ mkdir are generally omitted since those are obvious.
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
 
+def write_string_to_file(path, string, mode='w'):
+    global this_module
+    if mode == 'a':
+        redirect = '>>'
+    else:
+        redirect = '>'
+    print_cmd("cat << 'EOF' {} {}\n{}\nEOF".format(redirect, path, string))
+    if not this_module.dry_run:
+        with open(path, 'a') as f:
+            f.write(string)
+
 def copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext=None):
     os.makedirs(destdir, exist_ok=True)
     for basename in os.listdir(srcdir):
@@ -441,7 +452,7 @@ def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
         out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])) + newline_separator)
     for arg in cmd:
         out.append(shlex.quote(arg) + newline_separator)
-    return '  '.join(out) + ';\n'
+    return '  '.join(out) + ';'
 
 def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
@@ -450,8 +461,12 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     Optionally save the command to cmd_file file, and add extra_env
     environment variables to the command generated.
     '''
-    cmd_string = cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None)
-    print(this_module.command_prefix + cmd_string, end='')
+    global dry_run
+    if type(cmd) is str:
+        cmd_string = cmd
+    else:
+        cmd_string = cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None)
+    print(this_module.command_prefix + cmd_string)
     if cmd_file is not None:
         with open(cmd_file, 'w') as f:
             f.write('#!/usr/bin/env bash\n')
@@ -864,7 +879,4 @@ def write_configs(config_path, configs, config_fragments=None):
                 if not this_module.dry_run:
                     for line in config_fragment_file:
                         config_file.write(line)
-        for config in configs:
-            print_cmd(['echo', config, '>>', config_path])
-            if not this_module.dry_run:
-                config_file.write(config + '\n')
+    write_string_to_file(config_path, '\n'.join(configs), mode='a')
