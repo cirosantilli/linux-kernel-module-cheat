@@ -117,7 +117,9 @@ class Component:
         pass
 
     def clean(self, args):
-        this_module.rmrf(self.get_build_dir(args))
+        build_dir = self.get_build_dir(args)
+        if build_dir is not None:
+            this_module.rmrf(build_dir)
 
     def do_build(self, args):
         '''
@@ -133,9 +135,9 @@ class Component:
 
     def get_build_dir(self, args):
         '''
-        Build directory, gets cleaned by --clean.
+        Build directory, gets cleaned by --clean if not None.
         '''
-        raise NotImplementedError()
+        return None
 
     def get_default_args(self):
         '''

@@ -24,8 +24,8 @@ class BaremetalComponent(Component):
 
 def add_bool_arg(parser, name, default=False):
     group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('--' + name, default=False, action='store_true')
-    group.add_argument('--no-' + name, default=False, action='store_true')
+    group.add_argument('--' + name, default=False, action='store_true', dest=name)
+    group.add_argument('--no-' + name, default=False, action='store_true', dest=name)
 
 def run_cmd(cmd, dry_run):
     cmd_abs = cmd.copy()
@@ -38,9 +38,13 @@ name_to_component_map = {
         True,
         lambda arch, dry_run: run_cmd(['build-buildroot', '--arch', arch], dry_run=dry_run),
     ),
+    'copy-overlay': Component(
+        True,
+        lambda arch, dry_run: run_cmd(['copy-overlay', '--arch', arch], dry_run=dry_run)
+    ),
     'gem5': Component(
         False,
-        lambda arch, dry_run: run_cmd(['build-gem5', '--arch', arch], dry_run)
+        lambda arch, dry_run: run_cmd(['build-gem5', '--arch', arch], dry_run=dry_run)
     ),
     'linux': Component(
         True,
@@ -56,7 +60,7 @@ name_to_component_map = {
     ),
     'qemu': Component(
         True,
-        lambda arch, dry_run: run_cmd(['build-qemu', '--arch', arch], dry_run)
+        lambda arch, dry_run: run_cmd(['build-qemu', '--arch', arch], dry_run=dry_run)
     ),
     'userland': Component(
         True,
@@ -71,6 +75,7 @@ component_order = [
     # Need one extra one here to build the toolchain.
     'buildroot',
     'linux',
+    'copy-overlay',
     'modules',
     'userland',
     'm5',
@@ -81,6 +86,7 @@ linux_component_names = {
     'gem5',
     'qemu',
     'linux',
+    'copy-overlay',
     'modules',
     'userland',
     'm5',
@@ -90,6 +96,8 @@ linux_component_names = {
 parser = argparse.ArgumentParser(
     description= '''
 Shallow helper to build everything, or a subset of everything conveniently.
+
+Our build-* scripts don't build any dependencies.
 
 While developing something however, you will likely want to just run the
 required sub-build commands manually to speed things up and better understand
