@@ -24,50 +24,54 @@ class Component:
             self.dependencies = dependencies
     def build(self, arch, dry_run):
         if self.build_callback is not None:
-            self.build_callback(arch, dry_run)
+            self.build_callback(arch)
 
 def build_baremetal(arch, dry_run):
-    common.run_cmd(['build-crosstool-ng', '--arch', arch], dry_run=dry_run)
-    common.run_cmd(['build-baremetal', '--arch', arch], dry_run=dry_run)
-    common.run_cmd(['build-baremetal', '--arch', arch, '--gem5'], dry_run=dry_run)
-    common.run_cmd(['build-baremetal', '--arch', arch, '--gem5', '--machine', 'RealViewPBX'], dry_run=dry_run)
+    common.run_cmd(['build-crosstool-ng'], arch)
+    common.run_cmd(['build-baremetal'], arch)
+    common.run_cmd(['build-baremetal', '--gem5'], arch)
+    common.run_cmd(['build-baremetal', '--gem5', '--machine', 'RealViewPBX'], arch)
 
-def run_cmd(cmd, dry_run):
+def run_cmd(cmd, arch):
+    global args
     cmd_abs = cmd.copy()
     cmd_abs[0] = os.path.join(common.root_dir, cmd[0])
-    common.run_cmd(cmd_abs, dry_run=dry_run)
+    cmd_abs.extend(['--arch', arch])
+    if args.extra_args:
+        cmd_abs.append(args.extra_args)
+    common.run_cmd(cmd_abs, dry_run=args.dry_run)
 
 name_to_component_map = {
     # Leaves without dependencies.
     'baremetal': Component(
-        lambda arch, dry_run: build_baremetal(arch, dry_run),
+        lambda arch: build_baremetal(arch),
     ),
     'buildroot': Component(
-        lambda arch, dry_run: run_cmd(['build-buildroot', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-buildroot'], arch),
     ),
     'buildroot-gcc': Component(
-        lambda arch, dry_run: run_cmd(['build-buildroot', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-buildroot'], arch),
     ),
     'copy-overlay': Component(
-        lambda arch, dry_run: run_cmd(['copy-overlay', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['copy-overlay'], arch),
     ),
     'gem5': Component(
-        lambda arch, dry_run: run_cmd(['build-gem5', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-gem5'], arch),
     ),
     'linux': Component(
-        lambda arch, dry_run: run_cmd(['build-linux', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-linux'], arch),
     ),
     'modules': Component(
-        lambda arch, dry_run: run_cmd(['build-modules', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-modules'], arch),
     ),
     'm5': Component(
-        lambda arch, dry_run: run_cmd(['build-m5', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-m5'], arch),
     ),
     'qemu': Component(
-        lambda arch, dry_run: run_cmd(['build-qemu', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-qemu'], arch),
     ),
     'userland': Component(
-        lambda arch, dry_run: run_cmd(['build-userland', '--arch', arch], dry_run=dry_run),
+        lambda arch: run_cmd(['build-userland'], arch),
     ),
 
     # Dependency only nodes.
@@ -133,28 +137,33 @@ If `--arch` is given, build just for the given archs:
 ....
 
 This will build `qemu-buildroot` for arm and aarch64 only, but not `x86_64`.
+
+Clean all Linux kernel builds:
+
+....
+./build --all-archs --extra-args=--clean buildroot
+....
 ''',
     formatter_class=argparse.RawTextHelpFormatter,
 )
-
 parser.add_argument('--all', default=False, action='store_true', help='''\
 Build absolutely everything for all archs.
 ''')
 group = parser.add_mutually_exclusive_group(required=False)
-
 group.add_argument('--all-archs', default=False, action='store_true', help='''\
 Build the selected components for all archs.
 ''')
-
 group.add_argument('--arch', choices=common.arch_choices, default=[], action='append', help='''\
 Build the selected components for this arch. Select multiple arches by
 passing this option multiple times. Default: [{}]
 '''.format(common.default_arch))
-
+parser.add_argument('--extra-args', default='', help='''\
+Extra args to pass to all scripts.
+'''
+)
 parser.add_argument('components', choices=list(name_to_component_map.keys()) + [[]], default=[], nargs='*', help='''\
 Which components to build.
 '''.format(common.default_arch))
-
 common.add_dry_run_argument(parser)
 args = parser.parse_args()
 common.setup_dry_run_arguments(args)
