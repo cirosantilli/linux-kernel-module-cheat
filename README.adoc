@@ -7781,9 +7781,9 @@ Works and prints `hello`:
 ./run-toolchain --arch x86_64  gcc -- -static -o x86_64.out  "$(./getvar kernel_modules_src_dir)/user/hello.c"
 ./run-toolchain --arch arm     gcc -- -static -o arm.out     "$(./getvar kernel_modules_src_dir)/user/hello.c"
 ./run-toolchain --arch aarch64 gcc -- -static -o aarch64.out "$(./getvar kernel_modules_src_dir)/user/hello.c"
-./run-gem5-se --arch x86_64  ./x86_64.out
-./run-gem5-se --arch arm     ./arm.out
-./run-gem5-se --arch aarch64 ./aarch64.out
+./run --arch x86_64  --gem5 --gem5-script se --exec-image ./x86_64.out
+./run --arch arm     --gem5 --gem5-script se --exec-image ./arm.out
+./run --arch aarch64 --gem5 --gem5-script se --exec-image ./aarch64.out
 ....
 
 But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m/50542301#50542301
@@ -7791,9 +7791,9 @@ But I think this is unreliable, and only works because we are using uclibc which
 Ignoring that insanity, we then try it with dynamically linked executables:
 
 ....
-./run-gem5-se --arch x86_64  "$(./getvar --arch x86_64  --gem5 target_dir)/hello.out"
-./run-gem5-se --arch arm     "$(./getvar --arch arm     --gem5 target_dir)/hello.out"
-./run-gem5-se --arch aarch64 "$(./getvar --arch aarch64 --gem5 target_dir)/hello.out"
+./run --arch x86_64  --gem5 --gem5-script se --exec-image "$(./getvar --arch x86_64  --gem5 target_dir)/hello.out"
+./run --arch arm     --gem5 --gem5-script se --exec-image "$(./getvar --arch arm     --gem5 target_dir)/hello.out"
+./run --arch aarch64 --gem5 --gem5-script se --exec-image "$(./getvar --arch aarch64 --gem5 target_dir)/hello.out"
 ....
 
 But at 185c2730cc78d5adda683d76c0e3b35e7cb534f0 they fail with:
@@ -9706,7 +9706,7 @@ The out of build tree is required, because otherwise Buildroot would copy the ou
 
 By default, we use `configs/example/fs.py` script.
 
-The `--gem5-biglittle` option enables the alternative `configs/example/arm/fs_bigLITTLE.py` script instead.
+The `--gem5-script biglittle` option enables the alternative `configs/example/arm/fs_bigLITTLE.py` script instead.
 
 First apply:
 
@@ -9717,7 +9717,7 @@ patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-biglittle.patch
 then:
 
 ....
-./run --arch aarch64 --gem5 --gem5-biglittle
+./run --arch aarch64 --gem5 --gem5-script biglittle
 ....
 
 Advantages over `fs.py`:

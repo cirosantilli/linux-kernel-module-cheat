@@ -16,10 +16,11 @@ defaults = {
     'debug_vm': False,
     'eval': None,
     'extra_emulator_args': [],
-    'gem5_biglittle': False,
+    'exec_image': None,
     'gem5_exe_args': '',
     'gem5_readfile': '',
     'gem5_restore': None,
+    'gem5_script': 'fs',
     'graphic': False,
     'initramfs': False,
     'initrd': False,
@@ -138,20 +139,7 @@ def main(args, extra_args=None):
                 '-d', common.m5out_dir
             ]
         )
-        if args.gem5_biglittle:
-            if args.gem5_restore is not None:
-                cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
-                extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
-            cmd += [
-                os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
-                '--big-cpus', '2',
-                '--cpu-type', 'atomic',
-                '--disk', common.disk_image,
-                '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'),
-                '--kernel', common.image,
-                '--little-cpus', '2'
-            ]
-        else:
+        if args.gem5_script == 'fs':
             # TODO port
             if args.gem5_restore is not None:
                 cpt_dirs = common.gem_list_checkpoint_dirs()
@@ -179,6 +167,22 @@ def main(args, extra_args=None):
                 ]
                 if not args.baremetal is None:
                     cmd.append('--bare-metal')
+        elif args.gem5_script == 'biglittle':
+            if args.gem5_restore is not None:
+                cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
+                extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
+            cmd += [
+                os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
+                '--big-cpus', '2',
+                '--cpu-type', 'atomic',
+                '--disk', common.disk_image,
+                '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'),
+                '--kernel', common.image,
+                '--little-cpus', '2'
+            ]
+        elif args.gem5_script == 'se':
+            assert(args.exec_image is not None)
+            cmd += [common.gem5_se_file, '-c', args.exec_image]
     else:
         if not os.path.exists(common.image):
             raise_image_not_found()
@@ -351,6 +355,15 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#replace-init
 '''
     )
     parser.add_argument(
+        '--exec-image', default=defaults['gem5_script'],
+        help='''\
+Set which executable image to use. Currently only used for gem5 se.py
+which has no sensible default. Maybe we could also select the --baremetal
+executable with this, might be a nicer interface. We could definitely use
+this to override the default Linux kernel image.
+'''
+    )
+    parser.add_argument(
         '-e', '--kernel-cli',
         help='''\
 Pass an extra Linux kernel command line options, and place them before
@@ -389,8 +402,8 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
 '''
     )
     parser.add_argument(
-        '--gem5-biglittle', default=defaults['gem5_biglittle'], action='store_true',
-        help='Use fs_bigLITTLE.py instead of fs.py'
+        '--gem5-script', default=defaults['gem5_script'], choices=['fs', 'se', 'biglittle'],
+        help='Which gem5 script to use'
     )
     parser.add_argument(
         '--gem5-readfile', default=defaults['gem5_readfile'],
