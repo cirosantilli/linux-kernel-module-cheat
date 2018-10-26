@@ -470,7 +470,7 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     if type(cmd) is str:
         cmd_string = cmd
     else:
-        cmd_string = cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None)
+        cmd_string = cmd_to_string(cmd, cwd=cwd, extra_env=extra_env, extra_paths=extra_paths)
     print(this_module.command_prefix + cmd_string)
     if cmd_file is not None:
         with open(cmd_file, 'w') as f:
