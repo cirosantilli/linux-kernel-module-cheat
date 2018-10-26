@@ -170,6 +170,7 @@ def write_string_to_file(path, string, mode='w'):
             f.write(string)
 
 def copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext=None):
+    # TODO print rsync equivalent.
     os.makedirs(destdir, exist_ok=True)
     for basename in os.listdir(srcdir):
         src = os.path.join(srcdir, basename)
