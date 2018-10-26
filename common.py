@@ -658,7 +658,7 @@ def setup(parser):
     if args.gem5_worktree is not None and not gem5_build_id_given:
         args.gem5_build_id = args.gem5_worktree
     this_module.machine = args.machine
-    this_module.dry_run = args.dry_run
+    this_module.setup_dry_run_arguments(args)
     if args.arch == 'arm':
         this_module.armv = 7
         this_module.gem5_arch = 'ARM'
@@ -866,6 +866,9 @@ def setup(parser):
             raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
         this_module.image = path
     return args
+
+def setup_dry_run_arguments(args):
+    this_module.dry_run = args.dry_run
 
 def write_configs(config_path, configs, config_fragments=None):
     """
