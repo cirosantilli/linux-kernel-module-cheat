@@ -408,14 +408,6 @@ If you forgot to open the shell and gem5 exit, you can inspect the terminal outp
 less "$(./getvar --gem5 termout_file)"
 ....
 
-TODO: `arm` boot broken on kernel 4.18 with:
-
-....
-Internal error: Oops - undefined instruction
-....
-
-Workaround by checking out kernel 4.17 as explained at <<linux-kernel-build-variants>>. Bisected down to kernel 1d4238c56f9816ce0f9c8dbe42d7f2ad81cb6613, gem5 is not implementing the `CSDB` instruction.
-
 More gem5 information is present at: <<gem5>>
 
 Good next steps are:
@@ -2500,6 +2492,8 @@ cat /proc/$$/cmdline
 where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/21063765/get-pid-in-shell-bash
 
 == initrd
+
+TODO: broken, get working.
 
 The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
 
@@ -4618,32 +4612,27 @@ One possibility that gets close would be to use <<gdb>> to break at the `panic` 
 
 ====== Exit gem5 on panic
 
-gem5 actually detects panics and outputs:
+gem5 actually detects panics automatically by parsing kernel symbols and detecting when the PC reaches the address of the `panic` function.
 
-....
-warn: Kernel panic in simulated kernel
-....
+We enable the `system.panic_on_panic` option by default on `arm` and `aarch64`, which makes gem5 exit immediately in case of panic, which is awesome!
 
-before hanging forever.
-
-We can make gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b `fs.py` quit instead of hang with `system.panic_on_panic`:
-
-....
-patch -d "$(./getvar gem5_src_dir)" -p1 < patches/manual/gem5-panic.patch
-./run --arch arm --eval-busybox 'echo c > /proc/sysrq-trigger' --gem5
-....
-
-Source: link:patches/manual/gem5-panic.patch[].
-
-It does not seem to be exposed to `fs.py`.
-
-TODO: fs.py x86 does not have it:
+TODO: why doesn't x86 support it as well? Trying to set `system.panic_on_panic` there fails with:
 
 ....
 AttributeError: Class LinuxX86System has no parameter panic_on_panic
 ....
 
-However TODO it still exits with status 0... so we are just parsing the logs for now, as for QEMU. This seems to happen because the abort that is used to quit at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/base/logging.hh#L124[src/base/logging.hh]:
+If we don't set `system.panic_on_panic`, then gem5 prints to:
+
+....
+warn: Kernel panic in simulated kernel
+....
+
+and then hanging forever.
+
+TODO however, even with `system.panic_on_panic` the gem5 exit status is still 0... so we are just parsing the logs for now, as for QEMU.
+
+This seems to happen because the abort that is used to quit at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/base/logging.hh#L124[src/base/logging.hh]:
 
 ....
     void exit_helper() M5_ATTR_NORETURN { exit(); ::abort(); }
@@ -4670,7 +4659,7 @@ abortHandler(int sigtype)
 
 Raised on the mailing list at: https://www.mail-archive.com/gem5-users@gem5.org/msg15863.html
 
-Detection seems to be symbol based: it parses the kernel image, and triggers when the PC reaches the address of a symbol: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
+The implementation of panic detection happens at: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
 
 ....
         kernelPanicEvent = addKernelFuncEventOrPanic<Linux::KernelPanicEvent>(

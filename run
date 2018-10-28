@@ -145,26 +145,27 @@ def main(args, extra_args=None):
                 cpt_dirs = common.gem_list_checkpoint_dirs()
                 cpt_dir = cpt_dirs[-args.gem5_restore]
                 extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
-            cmd += [
+            cmd.extend([
                 common.gem5_fs_file,
                 '--disk-image', common.disk_image,
                 '--kernel', common.image,
                 '--mem-size', memory,
                 '--num-cpus', str(args.cpus),
                 '--script', common.gem5_readfile,
-            ]
+            ])
             if args.arch == 'x86_64':
                 if args.kvm:
-                    cmd += ['--cpu-type', 'X86KvmCPU']
-                cmd += ['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)]
+                    cmd.extend(['--cpu-type', 'X86KvmCPU'])
+                cmd.extend(['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)])
             elif args.arch == 'arm' or args.arch == 'aarch64':
                 # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                 # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
-                cmd += [
+                cmd.extend([
                     '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
                     '--dtb-filename', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
                     '--machine-type', common.machine,
-                ]
+                    '--param', 'system.panic_on_panic = True',
+                ])
                 if not args.baremetal is None:
                     cmd.append('--bare-metal')
                     if args.arch == 'aarch64':
@@ -175,7 +176,7 @@ def main(args, extra_args=None):
             if args.gem5_restore is not None:
                 cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
                 extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
-            cmd += [
+            cmd.extend([
                 os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
                 '--big-cpus', '2',
                 '--cpu-type', 'atomic',
@@ -183,13 +184,13 @@ def main(args, extra_args=None):
                 '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'),
                 '--kernel', common.image,
                 '--little-cpus', '2'
-            ]
+            ])
         elif args.gem5_script == 'se':
             assert(args.exec_image is not None)
-            cmd += [common.gem5_se_file, '-c', args.exec_image]
+            cmd.extend([common.gem5_se_file, '-c', args.exec_image])
         if args.debug_guest:
             # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
-            cmd += ['--param', 'system.cpu[0].wait_for_remote_gdb = True']
+            cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True'])
     else:
         if not os.path.exists(common.image):
             raise_image_not_found()
