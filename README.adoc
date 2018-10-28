@@ -3153,11 +3153,9 @@ More concretely:
 
 ....
 git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build-buildroot \
+./build-linux \
   --arch arm \
-  --gem5 \
-  -l \
-  -K linux/arch/arm/configs/gem5_defconfig \
+  --custom-config-file submodules/linux/arch/arm/configs/gem5_defconfig \
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -3219,16 +3217,14 @@ Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/
 
 ==== Graphic mode gem5 aarch64
 
-For `aarch64` we also need `-c kernel_config_fragment/display`:
+For `aarch64` we also need to configure the kernel with link:linux_config/display[]:
 
 ....
 git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
-./build-buildroot \
+./build-linux \
   --arch aarch64 \
-  -c kernel_config_fragment/display \
-  --gem5 \
-  -K linux/arch/arm64/configs/gem5_defconfig \
-  -l \
+  --config-fragment linux_config/display \
+  --custom-config-file submodules/linux/arch/arm64/configs/gem5_defconfig \
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -3243,9 +3239,9 @@ We cannot use mainline Linux because the <<gem5-arm-linux-kernel-patches>> are r
 
 gem5 emulates the link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0541c/CHDBAIDI.html[HDLCD] ARM Holdings hardware for `arm` and `aarch64`.
 
-The kernel uses HDLCD to implement the <<drm>> interface, the required kernel config options are present at: link:kernel_config_fragment/display[].
+The kernel uses HDLCD to implement the <<drm>> interface, the required kernel config options are present at: link:linux_config/display[].
 
-TODO: minimize out the `-K`. If we just remove it on `arm`: it does not work with a failing dmesg:
+TODO: minimize out the `--custom-config-file`. If we just remove it on `arm`: it does not work with a failing dmesg:
 
 ....
 [    0.066208] [drm] found ARM HDLCD version r0p0
@@ -3301,7 +3297,7 @@ Once you've seen the `CONFIG_LOGO` penguin as a sanity check, you can try to go 
 Build and run:
 
 ....
-./build-buildroot --config-fragment br2/x11
+./build-buildroot --config-fragment buildroot_config/x11
 ./run --graphic
 ....
 
@@ -3331,7 +3327,7 @@ Not sure how well that graphics stack represents real systems, but if it does it
 To x11 packages have an `xserver` prefix as in:
 
 ....
-./build-buildroot --config-fragment br2/x11 -- xserver_xorg-server-reconfigure
+./build-buildroot --config-fragment buildroot_config/x11 -- xserver_xorg-server-reconfigure
 ....
 
 the easiest way to find them out is to just list `"$(./getvar build_dir)/x*`.
@@ -3724,8 +3720,8 @@ We have managed to come up with minimalistic kernel configs that work for both Q
 
 Our configs are all based on Buildroot's configs, which were designed for QEMU, and then on top of those we also add:
 
-* link:kernel_config_fragment/min[]: minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot
-* link:kernel_config_fragment/default[]: optional configs that we add by default to our kernel build because they increase visibility, and don't significantly increase build time nor add significant runtime overhead
+* link:linux_config/min[]: minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot
+* link:linux_config/default[]: optional configs that we add by default to our kernel build because they increase visibility, and don't significantly increase build time nor add significant runtime overhead
 
 Changes to those files automatically trigger kernel reconfigures even without using the linux-reconfigure target, since timestamps are used to decide if changes happened or not.
 
@@ -6822,7 +6818,9 @@ Outcome: for a few seconds, the screen that contains the terminal gets taken ove
 TODO not working for `aarch64`, it takes over the screen for a few seconds and the kernel messages disappear, but the screen stays black all the time.
 
 ....
-./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y' --kernel-modules
+./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
+./build-userland --has-package libdrm
+./build-buildroot
 ./run --eval-busybox '/libdrm_modeset.out' --graphic
 ....
 
@@ -6863,7 +6861,7 @@ Tested on: link:http://github.com/cirosantilli/linux-kernel-module-cheat/commit/
 ==== kmscube
 
 ....
-./build-buildroot --config-fragment br2/kmscube
+./build-buildroot --config-fragment buildroot_config/kmscube
 ....
 
 Outcome: a colored spinning cube coded in OpenGL + EGL takes over your display and spins forever: https://www.youtube.com/watch?v=CqgJMgfxjsk
@@ -6932,10 +6930,10 @@ Looks like a more raw alternative to libdrm:
 ....
 ./build-buildroot --config 'BR2_PACKABE_LIBDRI2=y'
 wget \
-  -O "$(./getvar kernel_modules_src_dir)/user/dri2test.c" \
+  -O "$(./getvar userland_src_dir)/dri2test.c" \
   https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c \
 ;
-./build-buildroot --kernel-modules
+./build-userland
 ....
 
 but then I noticed that that example requires multiple files, and I don't feel like integrating it into our build.
@@ -7502,7 +7500,8 @@ where link:http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0190b/
 Then compile with:
 
 ....
-./build-buildroot --arch arm --config-fragment br2/gpio -c kernel_config_fragment/gpio -l
+./build-buildroot --arch arm --config-fragment buildroot_config/gpio
+./build-linux --config-fragment linux_config/gpio
 ....
 
 then test it out with:
@@ -7535,8 +7534,8 @@ static void arm_sysctl_write(void *opaque, hwaddr offset,
 and then rebuild with:
 
 ....
-./build-buildroot --arch arm -c kernel_config_fragment/leds -l
 ./build-qemu --arch arm
+./build-linux --arch arm --config-fragment linux_config/leds
 ....
 
 But beware that one of the LEDs has a heartbeat trigger by default (specified on dts), so it will produce a lot of output.
@@ -8687,7 +8686,7 @@ There are two ways to run PARSEC with this repo:
 
 ....
 ./download-dependencies --gem5 --parsec-benchmark
-./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' --gem5
+./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
 ./run --arch arm --gem5
 ....
 
@@ -8718,7 +8717,6 @@ Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a
   --arch arm \
   --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   --config 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
-  --gem5 \
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -8777,7 +8775,6 @@ If you still want to run this, try it out with:
   --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
   --config 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
   --config 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
-  --gem5 \
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -8803,7 +8800,7 @@ rm -rf \
   "$(./getvar buildroot_build_dir)"/images/rootfs.* \
   "$(./getvar buildroot_build_dir)"/target/parsec-* \
 ;
-./build-buildroot --arch arm --gem5
+./build-buildroot --arch arm
 ....
 
 ====== PARSEC benchmark hacking
@@ -8832,7 +8829,6 @@ Don't forget to explicitly rebuild PARSEC with:
 ./build-buildroot \
   --arch arm \
   --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  --gem5 \
   -- parsec-benchmark-reconfigure \
 ;
 ....
@@ -9459,7 +9455,6 @@ system.cpu.dtb.inst_hits
 Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCycles` with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
 
 ....
-./build-buildroot --gem5
 ./build-userland -- rdtsc
 ./run --eval '/rdtsc.out;m5 exit;' --gem5
 ./gem5-stat
@@ -9617,30 +9612,6 @@ https://stackoverflow.com/questions/52279971/how-to-run-the-gem5-unit-tests
 Not currently exposed here.
 
 == Buildroot
-
-=== Rebuild Buildroot packages
-
-After making changes to a Buildroot package, you must explicitly request it to be rebuilt.
-
-For example, if you modify the kernel modules, which is a Buildroot package, you must rebuild with:
-
-....
-./build-buildroot -- kernel_modules-reconfigure
-....
-
-where `kernel_modules` is the name of our Buildroot package that contains the kernel modules.
-
-Since rebuilding this package is such a common case, we have a shortcut for it:
-
-....
-./build-buildroot --kernel-modules
-....
-
-The rebuild must be requested explicitly, otherwise the package does not rebuild, even if its files were modified.
-
-This is because Buildroot builds dozens of packages, and just reading there Makefiles and checking the stamps generates too much overhead
-
-So you must tell Buildroot yourself about the rebuild.
 
 === Custom Buildroot configs
 
@@ -10370,8 +10341,6 @@ The build times are calculated after doing `./download-dependencies` and link:ht
 
 Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
 
-Single file change on `./build-buildroot kernel_modules-reconfigure`: 7 seconds.
-
 Buildroot automatically stores build timestamps as milliseconds since Epoch. Convert to minutes:
 
 ....
@@ -10388,7 +10357,7 @@ cat ../linux-kernel-module-cheat-regression/*/build-time.log
 ===== Find which packages are making the build slow and big
 
 ....
-./build-buildroot --skip-configure -- graph-build graph-size graph-depends
+./build-buildroot -- graph-build graph-size graph-depends
 cd "$(./getvar buildroot_build_dir)/graphs"
 xdg-open build.pie-packages.pdf
 xdg-open graph-depends.pdf
@@ -10578,7 +10547,7 @@ ls "$(./getvar buildroot_build_dir)"
 
 Note that host tools like QEMU and gem5 store all archs in a single directory to factor out build objects, so cleaning one arch will clean all of them.
 
-To only nuke one one Buildroot package, we can use the link:https://buildroot.org/downloads/manual/manual.html#pkg-build-steps[]`-dirclean`] Buildroot target:
+To only nuke only one Buildroot package, we can use the link:https://buildroot.org/downloads/manual/manual.html#pkg-build-steps[]`-dirclean`] Buildroot target:
 
 ....
 ./build-buildroot --no-all -- <package-name>-dirclean
@@ -10587,7 +10556,7 @@ To only nuke one one Buildroot package, we can use the link:https://buildroot.or
 e.g.:
 
 ....
-./build-buildroot --no-all -- kernel_modules-dirclean
+./build-buildroot --no-all -- sample_package-dirclean
 ....
 
 Verify with:
@@ -10743,12 +10712,12 @@ If you want to keep two builds around, one for the latest Linux version, and the
 
 ....
 # Build master.
-./build-buildroot
+./build-linux
 
 # Build another branch.
 git -C "$(./getvar linux_src_dir)" fetch --tags --unshallow
 git -C "$(./getvar linux_src_dir)" checkout v4.16
-./build-buildroot --linux-build-id v4.16
+./build-linux --linux-build-id v4.16
 
 # Restore master.
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -10903,42 +10872,6 @@ The price to pay for debuggability is high however: a Linux kernel boot was abou
 
 so you will likely only use this when it is unavoidable.
 
-==== Buildroot package build variants
-
-This hack-ish technique allows us to rebuild just one package at a time:
-
-....
-./build-buildroot KERNEL_MODULE_VERSION=mybranch
-....
-
-and now you can see that a new version of `kernel_modules` was built and put inside the image:
-
-....
-ls "$(./getvar build_dir)/kernel_modules-mybranch"
-....
-
-Unfortunately we don't have a nice runtime selection with `./run` implemented currently, you have to manually move packages around.
-
-TODO: is there a way to do it nicely for `*_OVERRIDE_SRCDIR` packages from link:buildroot_override[]? I tried:
-
-....
-./build-buildroot -l LINUX_VERSION=mybranch
-....
-
-but it fails with:
-
-....
-linux/linux.mk:492: *** LINUX_SITE cannot be empty when LINUX_SOURCE is not.  Stop.
-....
-
-and then tried:
-
-....
-./build-buildroot -l LINUX_VERSION=mybranch LINUX_SITE="$(pwd)/linux"
-....
-
-but it feels hackish, and the build was slower than normal, looks like the build was single threaded?
-
 ==== Buildroot build variants
 
 Allows you to have multiple versions of the GCC toolchain or root filesystem.
@@ -10948,10 +10881,10 @@ Analogous to the <<linux-kernel-build-variants>> but with the `--build-id` optio
 ....
 ./build-buildroot
 git -C "$(./getvar buildroot_src_dir)" checkout 2018.05
-./build-buildroot --build-id 2018.05
+./build-buildroot --buildroot-build-id 2018.05
 git -C "$(./getvar buildroot_src_dir)" checkout -
 ./run
-./run --build-id 2018.05
+./run --buildroot-build-id 2018.05
 ....
 
 === Directory structure
