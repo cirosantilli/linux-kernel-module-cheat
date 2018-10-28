@@ -850,15 +850,15 @@ The semihosting patch is required to enable <<semihosting>>, on which base funct
 Note that `./build-baremetal` requires the `--gem5` option, and generates separate executable images for both, as can be seen from:
 
 ....
-echo "$(./getvar --arch arm --baremetal prompt        image)"
-echo "$(./getvar --arch arm --baremetal prompt --gem5 image)"
+echo "$(./getvar --arch aarch64 --baremetal prompt        image)"
+echo "$(./getvar --arch aarch64 --baremetal prompt --gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
 
 ....
-echo "$(./getvar --arch arm        image)"
-echo "$(./getvar --arch arm --gem5 image)"
+echo "$(./getvar --arch aarch64        image)"
+echo "$(./getvar --arch aarch64 --gem5 image)"
 ....
 
 The reason for that is that on baremetal we don't parse the <<device-tree,device tress>> from memory like the Linux kernel does, which tells the kernel for example the UART address, and many other system parameters.
@@ -878,16 +878,6 @@ echo "$(./getvar --arch arm --baremetal prompt --gem5 --machine RealViewPBX     
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
-
-gem5 aarch64 baremetal currently requires you to apply a small patch before running:
-
-....
-./build-baremetal --arch aarch64 --gem5
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-aarch64-baremetal.patch
-./run --arch arm --baremetal prompt --gem5
-....
-
-Source: link:patches/manual/gem5-aarch64-baremetal.patch[]
 
 This patch is required only for baremetal because the Linux bootloader enters 32 bit mode and switches to 64 for us, but the in the baremetal system we use our own bootloader.
 
@@ -9592,9 +9582,15 @@ You can also get a simplified graphical view of the tree with:
 xdg-open "$(./getvar --arch arm --gem5 m5out_dir)/config.dot.pdf"
 ....
 
-Modifying the `config.ini` file does nothing since it gets overwritten every time.
+Modifying the `config.ini` file manually does nothing since it gets overwritten every time.
 
-You can modify those configurations in `fs.py` easily by hacking up the `fs.py` file just before it runs, see for example: link:patches/manual/gem5-aarch64-baremetal.patch[]
+Set custom configs with the `--param` option of `fs.py`, e.g. we can make gem5 wait for GDB to connect with:
+
+....
+fs.py --param 'system.cpu[0].wait_for_remote_gdb = True'
+....
+
+More complex settings involving new classes however require patching the config files, although it is easy to hack this up. See for example: link:patches/manual/gem5-semihost.patch[].
 
 === m5term
 
