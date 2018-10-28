@@ -27,7 +27,7 @@ If you don't know which one to go for, start with <<qemu-buildroot-setup-getting
 
 ==== QEMU Buildroot setup getting started
 
-This is the best setup if you are on Ubuntu. We tend to test this repo the most on the latest Ubuntu, and on the latest Ubuntu LTS.
+This setup has been mostly tested on Ubuntu. For other host operating systems see: <<supported-hosts>>.
 
 Reserve 12Gb of disk and run:
 
@@ -39,9 +39,9 @@ cd linux-kernel-module-cheat
 ./run
 ....
 
-Everything will likely also work on other Linux distros if you do what install the analogous required packages for your distro from link:configure[], but this is not currently well tested. Compatibility patches are welcome. <<docker>> should however just work on any distro.
+You don't need to clone recursively even though we have `.git` submodules: `download-dependencies` fetches just the submodules that you need for this build to save time.
 
-Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just do everything from inside an Ubuntu in VirtualBox instance in that case.
+If something goes wrong, see: <<common-build-issues>> and use our issue tracker: https://github.com/cirosantilli/linux-kernel-module-cheat/issues
 
 The initial build will take a while (30 minutes to 2 hours) to clone and build, see <<benchmark-builds>> for more details.
 
@@ -52,16 +52,6 @@ If you don't want to wait, you could also try the following faster but much more
 * <<host>>
 
 but you will soon find that they are simply not enough if you anywhere near serious about systems programming.
-
-If `./download-dependencies` fails with:
-
-....
-E: You must put some 'source' URIs in your sources.list
-....
-
-see this: https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list/857433#857433 I don't know how to automate this step. Why, Ubuntu, why.
-
-It does not work if you just download the `.zip` from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo. `./download-dependencies` then fetches only the required submodules for you.
 
 After `./run`, QEMU opens up and you can start playing with the kernel modules inside the simulated system:
 
@@ -4616,52 +4606,31 @@ One possibility that gets close would be to use <<gdb>> to break at the `panic` 
 
 ====== Exit gem5 on panic
 
-gem5 actually detects panics automatically by parsing kernel symbols and detecting when the PC reaches the address of the `panic` function.
+gem5 actually detects panics automatically by parsing kernel symbols and detecting when the PC reaches the address of the `panic` function. gem5 then prints to stdout:
+
+....
+Kernel panic in simulated kernel
+....
+
+and exits with status -6.
 
 We enable the `system.panic_on_panic` option by default on `arm` and `aarch64`, which makes gem5 exit immediately in case of panic, which is awesome!
 
-TODO: why doesn't x86 support it as well? Trying to set `system.panic_on_panic` there fails with:
+If we don't set `system.panic_on_panic`, then gem5 just hangs.
+
+TODO: why doesn't x86 support `system.panic_on_panic` as well? Trying to set `system.panic_on_panic` there fails with:
 
 ....
 AttributeError: Class LinuxX86System has no parameter panic_on_panic
 ....
 
-If we don't set `system.panic_on_panic`, then gem5 prints to:
+However, as of f9eb0b72de9029ff16091a18de109c18a9ecc30a, panic on x86 makes gem5 crash with:
 
 ....
-warn: Kernel panic in simulated kernel
+panic: i8042 "System reset" command not implemented.
 ....
 
-and then hanging forever.
-
-TODO however, even with `system.panic_on_panic` the gem5 exit status is still 0... so we are just parsing the logs for now, as for QEMU.
-
-This seems to happen because the abort that is used to quit at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/base/logging.hh#L124[src/base/logging.hh]:
-
-....
-    void exit_helper() M5_ATTR_NORETURN { exit(); ::abort(); }
-....
-
-gets handled by an abort handler at link:https://github.com/gem5/gem5/blob/ff52563a214c71fcd1e21e9f00ad839612032e3b/src/sim/init_signals.cc#L147[src/sim/init_signals.cc] which prints the backtrace and still exits 0 despite `raiseFatalSignal`?
-
-....
-/// Abort signal handler.
-void
-abortHandler(int sigtype)
-{
-    const EventQueue *const eq(curEventQueue());
-    if (eq) {
-        ccprintf(cerr, "Program aborted at tick %llu\n", eq->getCurTick());
-    } else {
-        STATIC_ERR("Program aborted\n\n");
-    }
-
-    print_backtrace();
-    raiseFatalSignal(sigtype);
-}
-....
-
-Raised on the mailing list at: https://www.mail-archive.com/gem5-users@gem5.org/msg15863.html
+which is a good side effect of an unimplemented hardware feature, since the simulation actually stops.
 
 The implementation of panic detection happens at: https://github.com/gem5/gem5/blob/1da285dfcc31b904afc27e440544d006aae25b38/src/arch/arm/linux/system.cc#L73
 
@@ -10524,6 +10493,34 @@ gem5:
 ** https://github.com/gem5/gem5/issues/25
 
 == About this repo
+
+=== Supported hosts
+
+We tend to test this repo the most on the latest Ubuntu and on the latest Ubuntu LTS.
+
+For other Linux distros, everything will likely also just work if you install the analogous required packages for your distro, just have a look at: link:configure[]. Reports and `./configure` ports are welcome and will be merged.
+
+If something does not work however, <<docker>> should just work on any Linux distro.
+
+Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just do everything from inside an Ubuntu in VirtualBox instance in that case.
+
+=== Common build issues
+
+==== You must put some 'source' URIs in your sources.list
+
+If `./download-dependencies` fails with:
+
+....
+E: You must put some 'source' URIs in your sources.list
+....
+
+see this: https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list/857433#857433 I don't know how to automate this step. Why, Ubuntu, why.
+
+==== Build from downloaded source zip files
+
+It does not work if you just download the `.zip` with the sources for this repository from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo.
+
+`./download-dependencies` then fetches only the required submodules for you.
 
 === Run command after boot
 
