@@ -32,8 +32,7 @@ Reserve 12Gb of disk and run:
 ....
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-./download-dependencies
-./build
+./download-dependencies && ./build
 ./run
 ....
 
@@ -46,7 +45,6 @@ The initial build will take a while (30 minutes to 2 hours) to clone and build, 
 If you don't want to wait, you could also try the following faster but much more limited methods:
 
 * <<prebuilt>>
-* <<ubuntu>>
 * <<host>>
 
 but you will soon find that they are simply not enough if you anywhere near serious about systems programming.
@@ -89,8 +87,7 @@ All available modules can be found in the link:kernel_modules[] directory.
 It is super easy to build for different CPU architectures, just use the `--arch` option:
 
 ....
-./build-qemu --arch aarch64
-./build-buildroot --arch aarch64
+./build --arch aarch64
 ./run --arch aarch64
 ....
 
@@ -344,22 +341,13 @@ For the most part, if you just add the `--gem5` option or `*-gem5` suffix to all
 If you haven't built Buildroot yet for <<qemu-buildroot-setup>>, you can build from the beginning with:
 
 ....
-./download-dependencies --gem5
-./build --gem5 --m5 --no-qemu
+./download-dependencies --gem5 && ./build gem5-buildroot
 ./run --gem5
 ....
 
-`--no-qemu` is optional, but it makes the build slightly faster TODO: after first build:
+If you have already built previously, don't be afraid: gem5 and QEMU use almost the same root filesystem and kernel, so `./build` will be fast.
 
-....
-./download-dependencies --gem5
-./build-gem5
-./build-m5
-./build-buildroot
-./run --gem5
-....
-
-If you have already built previously, don't be afraid: gem5 and QEMU use almost the same root filesystem and kernel, so `./build-buildroot --gem` will be fast. It is currently only needed for the <<m5>> tool.
+Remember that the gem5 boot is <<benchmark-linux-kernel-boot,considerably slower>> than QEMU since the simulation is more detailed.
 
 To get a terminal, either open a new shell and run:
 
@@ -373,7 +361,7 @@ You can quit the shell without killing gem5 by typing tilde followed by a period
 ~.
 ....
 
-If you are inside tmux, which I highly recommend, just run gem5 with:
+If you are inside <<tmux>>, which I highly recommend, just run gem5 with:
 
 ....
 ./run --gem5 --tmux
@@ -393,7 +381,7 @@ but if you look closely, the `PS1` prompt marker `#` is there already, just hit 
 If you forgot to open the shell and gem5 exit, you can inspect the terminal output post-mortem at:
 
 ....
-less "$(./getvar --gem5 termout_file)"
+less "$(./getvar --gem5 m5out_dir)/system.pc.com_1.device"
 ....
 
 More gem5 information is present at: <<gem5>>
@@ -618,6 +606,7 @@ sudo apt-get install qemu-utils
 The Linux kernel is required for `extract-vmlinux` to convert the compressed kernel image which QEMU understands into the raw vmlinux that gem5 understands: https://superuser.com/questions/298826/how-do-i-uncompress-vmlinuz-to-vmlinux
 ////
 
+////
 [[ubuntu]]
 === Ubuntu guest setup
 
@@ -655,6 +644,7 @@ sudo ./build-docker
 ....
 
 `sudo` is required for Docker operations: https://askubuntu.com/questions/477551/how-can-i-use-docker-without-sudo
+////
 
 [[host]]
 === Host kernel module setup
@@ -2485,7 +2475,7 @@ where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/2
 
 == initrd
 
-TODO: broken, get working.
+TODO: broken when we started building the Linux manually with `./build-linux` instead of Buildroot. Was working before, see e.g. 56738a1c70e50bf7b6d5fbe02372c5d277a8286f.
 
 The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
 
@@ -3669,14 +3659,14 @@ CONFIG_IKCONFIG_PROC=y
 To use just your own exact `.config` instead of our defaults ones, use:
 
 ....
-./build-linux --kernel-custom-config-file data/myconfig
+./build-linux --custom-config-file data/myconfig
 ....
 
 The following options can all be used together, sorted by decreasing config setting power precedence:
 
 * `--config`
 * `--config-fragment`
-* `--kernel-custom-config-file`
+* `--custom-config-file`
 
 ==== Find the kernel config
 
@@ -6148,7 +6138,7 @@ TODO example:
 kprobes is an instrumentation mechanism that injects arbitrary code at a given address in a trap instruction, much like GDB. Oh, the good old kernel. :-)
 
 ....
-./build-buildroot -C 'CONFIG_KPROBES=y'
+./build-linux --config 'CONFIG_KPROBES=y'
 ....
 
 Then on guest:
@@ -6310,7 +6300,10 @@ Make it harder to get hacked and easier to notice that you were, at the cost of 
 Detects buffer overflows for us:
 
 ....
-./build-buildroot -C 'CONFIG_FORTIFY_SOURCE=y' --linux-build-id fortify --kernel-modules
+./build-linux --config 'CONFIG_FORTIFY_SOURCE=y' --linux-build-id fortify
+./build-modules --clean
+./build-modules
+./build-buildroot
 ./run --eval-busybox 'insmod /strlen_overflow.ko' --linux-build-id fortify
 ....
 
