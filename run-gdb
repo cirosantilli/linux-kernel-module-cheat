@@ -11,11 +11,12 @@ import common
 defaults = {
     'after': '',
     'before': '',
-    'sim': False,
-    'no_continue': False,
-    'kgdb': False,
-    'no_lxsymbols': False,
     'break_at': None,
+    'kgdb': False,
+    'no_continue': False,
+    'no_lxsymbols': False,
+    'sim': False,
+    'user': None,
 }
 
 def main(args, extra_args=None):
@@ -34,26 +35,27 @@ def main(args, extra_args=None):
     args = common.resolve_args(defaults, args, extra_args)
     after = shlex.split(args.after)
     before = shlex.split(args.before)
-    if args.no_lxsymbols or args.baremetal is not None:
-        lx_symbols = []
-    else:
-        lx_symbols = ['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir)]
     if args.break_at is not None:
         break_at = ['-ex', 'break {}'.format(args.break_at)]
     else:
         break_at = []
-    if args.baremetal is None:
-        image = common.vmlinux
-        allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
+    linux_full_system = (args.baremetal is None and args.user is None)
+    if args.user:
+        image = args.user
+    elif args.baremetal:
+        image = args.baremetal
     else:
-        image = common.image
+        image = common.vmlinux
+    if args.baremetal:
         allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
+    else:
+        allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
     cmd = (
         [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains)] +
         before +
         ['-q']
     )
-    if args.baremetal is None:
+    if linux_full_system:
         cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir)])
     if args.sim:
         target = 'sim'
@@ -85,7 +87,9 @@ def main(args, extra_args=None):
         #
         # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
         # which gets put on the kernel build root when python debugging scripts are enabled.
-        cmd.extend(['-ex', 'continue'] + lx_symbols)
+        cmd.extend(['-ex', 'continue'])
+        if not args.no_lxsymbols and linux_full_system:
+            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir)])
     cmd.extend(after)
     return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'), cwd=common.linux_build_dir)
 
@@ -114,6 +118,9 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-s
     )
     parser.add_argument(
         '-X', '--no-lxsymbols', default=defaults['no_lxsymbols'], action='store_true'
+    )
+    parser.add_argument(
+        '--user', default=defaults['user'],
     )
     parser.add_argument(
         'break_at', nargs='?',

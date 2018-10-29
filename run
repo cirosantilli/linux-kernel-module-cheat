@@ -36,6 +36,7 @@ defaults = {
     'tmux_args': '',
     'trace': None,
     'user': None,
+    'user_before': '',
     'vnc': False,
 }
 
@@ -91,7 +92,7 @@ def main(args, extra_args=None):
         do_trace = False
         # A dummy value that is already turned on by default and does not produce large output,
         # just to prevent QEMU from emitting a warning that '' is not valid.
-        trace_type = 'pr_manager_run'
+        trace_type = 'load_file'
     else:
         do_trace = True
         trace_type = args.trace
@@ -205,6 +206,7 @@ def main(args, extra_args=None):
                     os.path.join(common.qemu_build_dir, '{}-linux-user'.format(args.arch), 'qemu-{}'.format(args.arch)),
                 ] +
                 qemu_user_and_system_options +
+                shlex.split(args.user_before) +
                 debug_args +
                 [
                     args.user
@@ -503,6 +505,12 @@ to use this option:
         help='''\
 Run the given userland executable in user mode instead of full system mode.
 In gem5, user mode is called Syscall Emulation (SE) mode and uses se.py.
+'''
+    )
+    parser.add_argument(
+        '--user-before', default=defaults['user_before'],
+        help='''\
+Arguments to pass to the QEMU user mode CLI before the program to execute.
 '''
     )
     parser.add_argument(

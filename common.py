@@ -792,6 +792,7 @@ def setup(parser):
     # Kernel modules.
     this_module.kernel_modules_build_base_dir = os.path.join(this_module.out_dir, 'kernel_modules')
     this_module.kernel_modules_build_dir = os.path.join(this_module.kernel_modules_build_base_dir, args.arch)
+    this_module.kernel_modules_build_subdir = os.path.join(this_module.kernel_modules_build_dir, kernel_modules_subdir)
     this_module.kernel_modules_build_host_dir = os.path.join(this_module.kernel_modules_build_base_dir, 'host')
     this_module.userland_build_dir = os.path.join(this_module.out_dir, 'userland', args.arch)
     this_module.out_rootfs_overlay_dir = os.path.join(this_module.out_dir, 'rootfs_overlay', args.arch)
