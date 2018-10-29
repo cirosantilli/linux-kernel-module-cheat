@@ -16,11 +16,10 @@ defaults = {
     'debug_vm': False,
     'eval': None,
     'extra_emulator_args': [],
-    'exec_image': None,
     'gem5_exe_args': '',
+    'gem5_script': 'fs',
     'gem5_readfile': '',
     'gem5_restore': None,
-    'gem5_script': 'fs',
     'graphic': False,
     'initramfs': False,
     'initrd': False,
@@ -36,6 +35,7 @@ defaults = {
     'tmux': False,
     'tmux_args': '',
     'trace': None,
+    'user': None,
     'vnc': False,
 }
 
@@ -104,6 +104,7 @@ def main(args, extra_args=None):
                         'Tried to use: ' + common.image)
     if common.image is None:
         raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
+    cmd = debug_vm.copy()
     if args.gem5:
         if args.baremetal is None:
             if not os.path.exists(common.rootfs_raw_file):
@@ -128,8 +129,7 @@ def main(args, extra_args=None):
         extra_env['M5_PATH'] = common.gem5_system_dir
         # https://stackoverflow.com/questions/52312070/how-to-modify-a-file-under-src-python-and-run-it-without-rebuilding-in-gem5/52312071#52312071
         extra_env['M5_OVERRIDE_PY_SOURCE'] = 'true'
-        cmd = (
-            debug_vm +
+        cmd.extend(
             [
                 common.executable,
                 '--debug-file=trace.txt',
@@ -139,169 +139,186 @@ def main(args, extra_args=None):
                 '-d', common.m5out_dir
             ]
         )
-        if args.gem5_script == 'fs':
-            # TODO port
-            if args.gem5_restore is not None:
-                cpt_dirs = common.gem_list_checkpoint_dirs()
-                cpt_dir = cpt_dirs[-args.gem5_restore]
-                extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
-            cmd.extend([
-                common.gem5_fs_file,
-                '--disk-image', common.disk_image,
-                '--kernel', common.image,
-                '--mem-size', memory,
-                '--num-cpus', str(args.cpus),
-                '--script', common.gem5_readfile,
-            ])
-            if args.arch == 'x86_64':
-                if args.kvm:
-                    cmd.extend(['--cpu-type', 'X86KvmCPU'])
-                cmd.extend(['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)])
-            elif args.arch == 'arm' or args.arch == 'aarch64':
-                # TODO why is it mandatory to pass mem= here? Not true for QEMU.
-                # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
+        if args.user is not None:
+            cmd.extend([common.gem5_se_file, '-c', args.user])
+        else:
+            if args.gem5_script == 'fs':
+                # TODO port
+                if args.gem5_restore is not None:
+                    cpt_dirs = common.gem_list_checkpoint_dirs()
+                    cpt_dir = cpt_dirs[-args.gem5_restore]
+                    extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
                 cmd.extend([
-                    '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
-                    '--dtb-filename', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
-                    '--machine-type', common.machine,
-                    '--param', 'system.panic_on_panic = True',
+                    common.gem5_fs_file,
+                    '--disk-image', common.disk_image,
+                    '--kernel', common.image,
+                    '--mem-size', memory,
+                    '--num-cpus', str(args.cpus),
+                    '--script', common.gem5_readfile,
                 ])
-                if not args.baremetal is None:
-                    cmd.append('--bare-metal')
-                    if args.arch == 'aarch64':
-                        # https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal/50983650#50983650
-                        cmd.extend(['--param', 'system.highest_el_is_64 = True'])
-                        cmd.extend(['--param', 'system.auto_reset_addr_64 = True'])
-        elif args.gem5_script == 'biglittle':
-            if args.gem5_restore is not None:
-                cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
-                extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
-            cmd.extend([
-                os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
-                '--big-cpus', '2',
-                '--cpu-type', 'atomic',
-                '--disk', common.disk_image,
-                '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'),
-                '--kernel', common.image,
-                '--little-cpus', '2'
-            ])
-        elif args.gem5_script == 'se':
-            assert(args.exec_image is not None)
-            cmd.extend([common.gem5_se_file, '-c', args.exec_image])
+                if args.arch == 'x86_64':
+                    if args.kvm:
+                        cmd.extend(['--cpu-type', 'X86KvmCPU'])
+                    cmd.extend(['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)])
+                elif args.arch == 'arm' or args.arch == 'aarch64':
+                    # TODO why is it mandatory to pass mem= here? Not true for QEMU.
+                    # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
+                    cmd.extend([
+                        '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
+                        '--dtb-filename', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
+                        '--machine-type', common.machine,
+                        '--param', 'system.panic_on_panic = True',
+                    ])
+                    if not args.baremetal is None:
+                        cmd.append('--bare-metal')
+                        if args.arch == 'aarch64':
+                            # https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal/50983650#50983650
+                            cmd.extend(['--param', 'system.highest_el_is_64 = True'])
+                            cmd.extend(['--param', 'system.auto_reset_addr_64 = True'])
+            elif args.gem5_script == 'biglittle':
+                if args.gem5_restore is not None:
+                    cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
+                    extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
+                cmd.extend([
+                    os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'),
+                    '--big-cpus', '2',
+                    '--cpu-type', 'atomic',
+                    '--disk', common.disk_image,
+                    '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'),
+                    '--kernel', common.image,
+                    '--little-cpus', '2'
+                ])
         if args.debug_guest:
             # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
             cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True'])
     else:
-        if not os.path.exists(common.image):
-            raise_image_not_found()
-        extra_emulator_args.extend(extra_qemu_args)
-        common.make_run_dirs()
-        if args.prebuilt:
-            qemu_executable = common.qemu_executable_basename
-            qemu_found = shutil.which(qemu_executable) is not None
-        else:
-            qemu_executable = common.qemu_executable
-            qemu_found = os.path.exists(qemu_executable)
-        if not qemu_found:
-            raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
-                            'Tried to use: ' + qemu_executable)
-        if args.debug_vm:
-            serial_monitor = []
-        else:
-            serial_monitor = ['-serial', 'mon:stdio']
-        if args.kvm:
-            extra_emulator_args.append('-enable-kvm')
-        if args.kgdb:
-            extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.gdb_port)])
-        cmd = (
-            debug_vm +
-            [
-                qemu_executable,
-                '-device', 'rtl8139,netdev=net0',
-                '-gdb', 'tcp::{}'.format(common.gdb_port),
-                '-kernel', common.image,
-                '-m', args.memory,
-                '-monitor', 'telnet::{},server,nowait'.format(common.qemu_monitor_port),
-                '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(common.qemu_hostfwd_generic_port, common.qemu_hostfwd_generic_port, common.qemu_hostfwd_ssh_port),
-                '-no-reboot',
-                '-smp', str(args.cpus),
-                '-trace', 'enable={},file={}'.format(trace_type, common.qemu_trace_file),
-                '-virtfs', 'local,path={},mount_tag=host_data,security_model=mapped,id=host_data'.format(common.p9_dir),
-                '-virtfs', 'local,path={},mount_tag=host_out,security_model=mapped,id=host_out'.format(common.out_dir),
-                '-virtfs', 'local,path={},mount_tag=host_out_rootfs_overlay,security_model=mapped,id=host_out_rootfs_overlay'.format(common.out_rootfs_overlay_dir),
-                '-virtfs', 'local,path={},mount_tag=host_rootfs_overlay,security_model=mapped,id=host_rootfs_overlay'.format(common.rootfs_overlay_dir),
-            ] +
-            serial_monitor +
-            vnc
-        )
-        if args.initrd:
-            extra_emulator_args.extend(['-initrd', os.path.join(common.buildroot_images_dir, 'rootfs.cpio')])
-        rr = args.record or args.replay
-        if ramfs:
-            # TODO why is this needed, and why any string works.
-            root = 'root=/dev/anything'
-        else:
-            if rr:
-                driveif = 'none'
-                rrid = ',id=img-direct'
-                root = 'root=/dev/sda'
-                snapshot = ''
+        qemu_user_and_system_options = [
+            '-trace', 'enable={},file={}'.format(trace_type, common.qemu_trace_file),
+        ]
+        if args.user is not None:
+            if args.debug_guest:
+                debug_args = ['-g', str(common.gdb_port)]
             else:
-                driveif = 'virtio'
-                root = 'root=/dev/vda'
-                rrid = ''
-                snapshot = ',snapshot'
-            if args.baremetal is None:
-                if not os.path.exists(common.qcow2_file):
-                    if not os.path.exists(common.rootfs_raw_file):
-                        raise_rootfs_not_found()
-                    common.raw_to_qcow2(prebuilt=args.prebuilt)
-                extra_emulator_args.extend([
-                    '-drive',
-                    'file={},format=qcow2,if={}{}{}'.format(common.disk_image, driveif, snapshot, rrid)
-                ])
-                if rr:
-                    extra_emulator_args.extend([
-                    '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay',
-                    '-device', 'ide-hd,drive=img-blkreplay'
-                ])
-        if rr:
-            extra_emulator_args.extend([
-                '-object', 'filter-replay,id=replay,netdev=net0',
-                '-icount', 'shift=7,rr={},rrfile={}'.format('record' if args.record else 'replay', common.qemu_rrfile),
-            ])
-            virtio_gpu_pci = []
-        else:
-            virtio_gpu_pci = ['-device', 'virtio-gpu-pci']
-        if args.arch == 'x86_64':
-            if args.kgdb:
-                kernel_cli += ' kgdboc=ttyS0,115200'
-            append = ['-append', '{} nopat {}'.format(root, kernel_cli)]
-            cmd.extend([
-                '-M', common.machine,
-                '-device', 'edu',
-            ])
-        elif args.arch == 'arm' or args.arch == 'aarch64':
-            extra_emulator_args.append('-semihosting')
-            if args.kgdb:
-                kernel_cli += ' kgdboc=ttyAMA0,115200'
-            if args.arch == 'arm':
-                cpu = 'cortex-a15'
-            else:
-                cpu = 'cortex-a57'
-            append = ['-append', '{} {}'.format(root, kernel_cli)]
-            cmd = (
-                cmd +
+                debug_args = []
+            cmd.extend(
                 [
-                    # highmem=off needed since v3.0.0 due to:
-                    # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
-                    '-M', '{},highmem=off'.format(common.machine),
-                    '-cpu', cpu,
+                    os.path.join(common.qemu_build_dir, '{}-linux-user'.format(args.arch), 'qemu-{}'.format(args.arch)),
                 ] +
-                virtio_gpu_pci
+                qemu_user_and_system_options +
+                debug_args +
+                [
+                    args.user
+                ]
             )
-        if args.baremetal is None:
-            cmd.extend(append)
+        else:
+            if not os.path.exists(common.image):
+                raise_image_not_found()
+            extra_emulator_args.extend(extra_qemu_args)
+            common.make_run_dirs()
+            if args.prebuilt:
+                qemu_executable = common.qemu_executable_basename
+                qemu_found = shutil.which(qemu_executable) is not None
+            else:
+                qemu_executable = common.qemu_executable
+                qemu_found = os.path.exists(qemu_executable)
+            if not qemu_found:
+                raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
+                                'Tried to use: ' + qemu_executable)
+            if args.debug_vm:
+                serial_monitor = []
+            else:
+                serial_monitor = ['-serial', 'mon:stdio']
+            if args.kvm:
+                extra_emulator_args.append('-enable-kvm')
+            if args.kgdb:
+                extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.gdb_port)])
+            cmd.extend(
+                [
+                    qemu_executable,
+                    '-device', 'rtl8139,netdev=net0',
+                    '-gdb', 'tcp::{}'.format(common.gdb_port),
+                    '-kernel', common.image,
+                    '-m', args.memory,
+                    '-monitor', 'telnet::{},server,nowait'.format(common.qemu_monitor_port),
+                    '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(common.qemu_hostfwd_generic_port, common.qemu_hostfwd_generic_port, common.qemu_hostfwd_ssh_port),
+                    '-no-reboot',
+                    '-smp', str(args.cpus),
+                    '-virtfs', 'local,path={},mount_tag=host_data,security_model=mapped,id=host_data'.format(common.p9_dir),
+                    '-virtfs', 'local,path={},mount_tag=host_out,security_model=mapped,id=host_out'.format(common.out_dir),
+                    '-virtfs', 'local,path={},mount_tag=host_out_rootfs_overlay,security_model=mapped,id=host_out_rootfs_overlay'.format(common.out_rootfs_overlay_dir),
+                    '-virtfs', 'local,path={},mount_tag=host_rootfs_overlay,security_model=mapped,id=host_rootfs_overlay'.format(common.rootfs_overlay_dir),
+                ] +
+                qemu_user_and_system_options +
+                serial_monitor +
+                vnc
+            )
+            if args.initrd:
+                extra_emulator_args.extend(['-initrd', os.path.join(common.buildroot_images_dir, 'rootfs.cpio')])
+            rr = args.record or args.replay
+            if ramfs:
+                # TODO why is this needed, and why any string works.
+                root = 'root=/dev/anything'
+            else:
+                if rr:
+                    driveif = 'none'
+                    rrid = ',id=img-direct'
+                    root = 'root=/dev/sda'
+                    snapshot = ''
+                else:
+                    driveif = 'virtio'
+                    root = 'root=/dev/vda'
+                    rrid = ''
+                    snapshot = ',snapshot'
+                if args.baremetal is None:
+                    if not os.path.exists(common.qcow2_file):
+                        if not os.path.exists(common.rootfs_raw_file):
+                            raise_rootfs_not_found()
+                        common.raw_to_qcow2(prebuilt=args.prebuilt)
+                    extra_emulator_args.extend([
+                        '-drive',
+                        'file={},format=qcow2,if={}{}{}'.format(common.disk_image, driveif, snapshot, rrid)
+                    ])
+                    if rr:
+                        extra_emulator_args.extend([
+                        '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay',
+                        '-device', 'ide-hd,drive=img-blkreplay'
+                    ])
+            if rr:
+                extra_emulator_args.extend([
+                    '-object', 'filter-replay,id=replay,netdev=net0',
+                    '-icount', 'shift=7,rr={},rrfile={}'.format('record' if args.record else 'replay', common.qemu_rrfile),
+                ])
+                virtio_gpu_pci = []
+            else:
+                virtio_gpu_pci = ['-device', 'virtio-gpu-pci']
+            if args.arch == 'x86_64':
+                if args.kgdb:
+                    kernel_cli += ' kgdboc=ttyS0,115200'
+                append = ['-append', '{} nopat {}'.format(root, kernel_cli)]
+                cmd.extend([
+                    '-M', common.machine,
+                    '-device', 'edu',
+                ])
+            elif args.arch == 'arm' or args.arch == 'aarch64':
+                extra_emulator_args.append('-semihosting')
+                if args.kgdb:
+                    kernel_cli += ' kgdboc=ttyAMA0,115200'
+                if args.arch == 'arm':
+                    cpu = 'cortex-a15'
+                else:
+                    cpu = 'cortex-a57'
+                append = ['-append', '{} {}'.format(root, kernel_cli)]
+                cmd.extend(
+                    [
+                        # highmem=off needed since v3.0.0 due to:
+                        # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+                        '-M', '{},highmem=off'.format(common.machine),
+                        '-cpu', cpu,
+                    ] +
+                    virtio_gpu_pci
+                )
+            if args.baremetal is None:
+                cmd.extend(append)
     if args.tmux:
         if args.gem5:
             subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
@@ -363,15 +380,6 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#replace-init
 '''
     )
     parser.add_argument(
-        '--exec-image', default=defaults['gem5_script'],
-        help='''\
-Set which executable image to use. Currently only used for gem5 se.py
-which has no sensible default. Maybe we could also select the --baremetal
-executable with this, might be a nicer interface. We could definitely use
-this to override the default Linux kernel image.
-'''
-    )
-    parser.add_argument(
         '-e', '--kernel-cli',
         help='''\
 Pass an extra Linux kernel command line options, and place them before
@@ -410,7 +418,7 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
 '''
     )
     parser.add_argument(
-        '--gem5-script', default=defaults['gem5_script'], choices=['fs', 'se', 'biglittle'],
+        '--gem5-script', default=defaults['gem5_script'], choices=['fs', 'biglittle'],
         help='Which gem5 script to use'
     )
     parser.add_argument(
@@ -488,6 +496,13 @@ to use this option:
 * on the split:
 ** if on QEMU and `-d` is given, GDB
 ** if on gem5, the gem5 terminal
+'''
+    )
+    parser.add_argument(
+        '--user', default=defaults['user'],
+        help='''\
+Run the given userland executable in user mode instead of full system mode.
+In gem5, user mode is called Syscall Emulation (SE) mode and uses se.py.
 '''
     )
     parser.add_argument(

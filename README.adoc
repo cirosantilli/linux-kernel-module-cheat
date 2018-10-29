@@ -7647,7 +7647,7 @@ The reason this is cool, is that `ls` is not statically compiled, but since we h
 In other words, much cooler than:
 
 ....
-./run-toolchain --arch arm gcc -- -static "$(./getvar kernel_modules_src_dir)/user/hello.c"
+./run-toolchain --arch arm gcc -- -static "$(./getvar userland_src_dir)/hello.c"
 qemu-arm a.out
 ....
 
@@ -7686,9 +7686,22 @@ FATAL: kernel too old
 
 but it must be using the kernel version given by glibc, since we didn't hit that error on uclibc.
 
+==== QEMU user mode integration
+
+We have a nice user mode integration under way.
+
+It is already usable with:
+
+....
+./build-qemu --user
+./run --user path/to/static/executable -- arg1 "arg 2" arg3
+....
+
+TODO: factor <<qemu-user-mode>> with this:
+
 ==== gem5 syscall emulation mode
 
-Analogous to <<qemu-user-mode>>, but less usable.
+Analogous to <<qemu-user-mode>>, but less usable:
 
 * https://stackoverflow.com/questions/48986597/when-should-you-use-full-system-fs-vs-syscall-emulation-se-with-userland-program
 * https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
@@ -7698,12 +7711,12 @@ First we try some `-static` sanity checks.
 Works and prints `hello`:
 
 ....
-./run-toolchain --arch x86_64  gcc -- -static -o x86_64.out  "$(./getvar kernel_modules_src_dir)/user/hello.c"
-./run-toolchain --arch arm     gcc -- -static -o arm.out     "$(./getvar kernel_modules_src_dir)/user/hello.c"
-./run-toolchain --arch aarch64 gcc -- -static -o aarch64.out "$(./getvar kernel_modules_src_dir)/user/hello.c"
-./run --arch x86_64  --gem5 --gem5-script se --exec-image ./x86_64.out
-./run --arch arm     --gem5 --gem5-script se --exec-image ./arm.out
-./run --arch aarch64 --gem5 --gem5-script se --exec-image ./aarch64.out
+./run-toolchain --arch x86_64  gcc -- -static -o x86_64.out  "$(./getvar userland_src_dir)/hello.c"
+./run-toolchain --arch arm     gcc -- -static -o arm.out     "$(./getvar userland_src_dir)/hello.c"
+./run-toolchain --arch aarch64 gcc -- -static -o aarch64.out "$(./getvar userland_src_dir)/hello.c"
+./run --arch x86_64  --gem5 --user ./x86_64.out
+./run --arch arm     --gem5 --user ./arm.out
+./run --arch aarch64 --gem5 --user ./aarch64.out
 ....
 
 But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m/50542301#50542301
@@ -7711,9 +7724,9 @@ But I think this is unreliable, and only works because we are using uclibc which
 Ignoring that insanity, we then try it with dynamically linked executables:
 
 ....
-./run --arch x86_64  --gem5 --gem5-script se --exec-image "$(./getvar --arch x86_64  --gem5 target_dir)/hello.out"
-./run --arch arm     --gem5 --gem5-script se --exec-image "$(./getvar --arch arm     --gem5 target_dir)/hello.out"
-./run --arch aarch64 --gem5 --gem5-script se --exec-image "$(./getvar --arch aarch64 --gem5 target_dir)/hello.out"
+./run --arch x86_64  --gem5 --user "$(./getvar --arch x86_64  --gem5 target_dir)/hello.out"
+./run --arch arm     --gem5 --user "$(./getvar --arch arm     --gem5 target_dir)/hello.out"
+./run --arch aarch64 --gem5 --user "$(./getvar --arch aarch64 --gem5 target_dir)/hello.out"
 ....
 
 But at 185c2730cc78d5adda683d76c0e3b35e7cb534f0 they fail with:
@@ -7736,6 +7749,12 @@ Then I was told that it is has never been tested outside of x86_64:
 * https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
 * https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html
 
+===== gem5 syscall emulation mode CLI options
+
+....
+./run --gem5 --user ./aarch64.out -- --options 'op1 "op 2" op3'
+....
+
 ==== User mode vs full system benchmark
 
 Let's see if user mode runs considerably faster than full system or not.
@@ -7743,16 +7762,21 @@ Let's see if user mode runs considerably faster than full system or not.
 gem5 user mode:
 
 ....
+./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y' --arch arm
 make \
+  -B \
   -C "$(./getvar --arch arm build_dir)/dhrystone-2" \
   CC="$(./run-toolchain --arch arm --dry gcc)" \
   CFLAGS=-static \
 ;
 time \
-  "$(./getvar --arch arm --gem5 exec)" \
-  "$(./getvar --arch arm gem5_se_file)" \
-  -c "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
-  -o 100000 \
+  ./run \
+  --arch arm \
+  --gem5 \
+  --user \
+  "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
+  -- \
+  --options 100000 \
 ;
 ....
 

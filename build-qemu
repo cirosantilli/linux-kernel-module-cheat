@@ -7,6 +7,12 @@ import common
 class QemuComponent(common.Component):
     def add_parser_arguments(self, parser):
         parser.add_argument(
+            '--user',
+            default=False,
+            action='store_true',
+            help='Build QEMU user mode instead of system.',
+        )
+        parser.add_argument(
             'extra_config_args',
             default=[],
             metavar='extra-config-args',
@@ -20,12 +26,16 @@ class QemuComponent(common.Component):
             verbose = ['V=1']
         else:
             verbose = []
+        if args.user:
+            target_list = '{}-linux-user'.format(args.arch)
+        else:
+            target_list = '{}-softmmu'.format(args.arch)
         common.run_cmd(
             [
                 os.path.join(common.qemu_src_dir, 'configure'),
                 '--enable-debug',
                 '--enable-trace-backends=simple',
-                '--target-list={}-softmmu'.format(args.arch),
+                '--target-list={}'.format(target_list),
                 '--enable-sdl',
                 '--with-sdlabi=2.0',
             ] +
