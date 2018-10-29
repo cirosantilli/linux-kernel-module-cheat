@@ -153,6 +153,14 @@ hello /root/.profile                                                            
 
 Besides a seamless <<qemu-buildroot-setup-getting-started,initial build>>, this project also aims to make it effortless to modify and rebuild several major components of the system, to serve as an awesome development setup.
 
+While developing individual components, you will most often want to use specific build commands such as `./build-linux` instead of the more generic `./build` helper.
+
+You can see what `./build` does with:
+
+....
+./build --dry-run
+....
+
 ===== Your first Linux kernel hack
 
 Let's hack up the <<linux-kernel-entry-point, Linux kernel entry point>>, which is an easy place to start.
@@ -181,12 +189,6 @@ and, surely enough, your message has appeared at the beginning of the boot.
 We could have used just `./build` as in the initial build, but doing just `./build-linux` will save us a bit of time.
 
 The link:build[`./build`] script is just a lightweight wrapper, but when you start modifying components such as the Linux kernel, it is better to run individual steps directly.
-
-You can see that `./build` does `./build-linux` by running:
-
-....
-./build --dry-run
-....
 
 So you are now officially a Linux kernel hacker, way to go!
 
@@ -228,7 +230,13 @@ The safe way, is to fist quit QEMU, then rebuild the modules, root filesystem, a
 ./run --eval-busybox 'insmod /hello.ko'
 ....
 
-`./build-buildroot` generates the root filesystem with the modules that we compiled at `./build-modules`.
+`./build-buildroot` is required after `./build-modules` because it generates the root filesystem with the modules that we compiled at `./build-modules`.
+
+You can see that `./build` does that as well, by running:
+
+....
+./build --dry-run
+....
 
 `--eval-busybox` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
 
@@ -1059,8 +1067,8 @@ Shell 2:
 In GDB, hit `Ctrl-C`, and note how it says:
 
 ....
-scanning for modules in /linux-kernel-module-cheat//out/x86_64/buildroot/build/linux-custom
-loading @0xffffffffc0000000: ../kernel_modules-1.0//timer.ko
+scanning for modules in /full/path/to/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules
+loading @0xffffffffc0000000: /full/path/to/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules/timer.ko
 ....
 
 That's `lx-symbols` working! Now simply:
@@ -1076,9 +1084,9 @@ and we now control the callback from GDB!
 
 Just don't forget to remove your breakpoints after `rmmod`, or they will point to stale memory locations.
 
-TODO: why does `break work_func` for `insmod kthread.ko` not break the first time I `insmod`, but breaks the second time?
+TODO: why does `break work_func` for `insmod kthread.ko` not very well? Sometimes it breaks but not others.
 
-==== GDB step debug kernel module ARM
+==== GDB step debug kernel module insmodded by init on ARM
 
 TODO on `arm` 51e31cdc2933a774c2a0dc62664ad8acec1d2dbe it does not always work, and `lx-symbols` fails with the message:
 
@@ -1130,7 +1138,7 @@ so it is close to the failing `0xbf0000cc`.
 `readelf`:
 
 ....
-./run-toolchain readelf -- -s "$(./getvar build_dir)/kernel_modules-1.0/hello.ko"
+./run-toolchain readelf -- -s "$(./getvar kernel_modules_build_subdir)/hello.ko"
 ....
 
 does not give any interesting hits at `cc`, no symbol was placed that far.
@@ -1147,6 +1155,8 @@ Possibly asked at:
 * https://stackoverflow.com/questions/11888412/debug-the-init-module-call-of-a-linux-kernel-module
 
 ===== GDB module_init step into it
+
+This is the best method we've found so far.
 
 The kernel calls `module_init` synchronously, therefore it is not hard to step into that call.
 
@@ -1204,7 +1214,7 @@ Now let's find the offset of `myinit`:
 
 ....
 ./run-toolchain readelf -- \
-  -s "$(./getvar build_dir)/kernel_modules-1.0/fops.ko" | \
+  -s "$(./getvar kernel_modules_build_subdir)/fops.ko" | \
   grep myinit
 ....
 
@@ -1341,6 +1351,8 @@ And then search for a line of type:
 
 === GDB step debug early boot
 
+TODO sucessfully debu the very first instruction that the Linux kernel runs, before `start_kernel`!
+
 Break at the very first instruction executed by QEMU:
 
 ....
@@ -1359,6 +1371,8 @@ Maybe it is because they are being copied around at specific locations instead o
 See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
 
 <<gem5-tracing>> with `--debug-flags=Exec` does show the right symbols however! So in the worst case, we can just read their source. Amazing.
+
+TODO: try out `CONFIG_HAVE_KERNEL_UNCOMPRESSED=y` from Linux v4.19 and see if it gives us any extra visibility.
 
 ==== GDB step debug early boot by address
 
@@ -1434,7 +1448,7 @@ since GDB does not know that libc is loaded.
 * Shell 2:
 +
 ....
-./run-gdb-user kernel_modules-1.0/user/sleep_forever.out main
+./run-gdb-user "$(./getvar userland_build_dir)/sleep_forever.out" main
 ....
 
 TODO not working as of f8c0502bb2680f2dbe7c1f3d7958f60265347005, does not break. Bisect on recent QEMU and kernel. Debug by creating an executable that prints the address of `main`.
@@ -1487,7 +1501,7 @@ Non-init process:
 * Shell 2:
 +
 ....
-./run-gdb-user kernel_modules-1.0/user/myinsmod.out main
+./run-gdb-user "$(./getvar userland_build_dir)/myinsmod.out" main
 ....
 * Shell 1 after the boot finishes:
 +
@@ -1509,7 +1523,7 @@ TODO: on QEMU bfba11afddae2f7b2c1335b4e23133e9cd3c9126, it works on `x86_64` and
 * Shell 2: wait for boot to finish, and run:
 +
 ....
-./run-gdb-user --arch arm kernel_modules-1.0/user/hello.out main
+./run-gdb-user --arch arm "$(./getvar userland_build_dir)/hello.out" main
 ....
 * Shell 1:
 +
@@ -1527,7 +1541,7 @@ We have also double checked the address with:
 
 ....
 ./run-toolchain --arch arm readelf -- \
-  -s "$(./getvar --arch arm build_dir)/kernel_modules-1.0/fops.ko" | \
+  -s "$(./getvar --arch arm kernel_modules_build_subdir)/fops.ko" | \
   grep main
 ....
 
@@ -1607,7 +1621,9 @@ See also: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/19
 
 === GDB view ARM system registers
 
-Not possible as of QEMU 3.0.0 it seems: https://stackoverflow.com/questions/46415059/how-to-observe-aarch64-system-registers-in-qemu
+`info all-registers` shows some of them.
+
+The implementation is described at: https://stackoverflow.com/questions/46415059/how-to-observe-aarch64-system-registers-in-qemu/53043044#53043044
 
 === GDB step debug multicore
 
@@ -1673,7 +1689,7 @@ We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and cor
 on another shell:
 
 ....
-./run-gdb-user kernel_modules-1.0/user/sched_getaffinity.out main
+./run-gdb-user "$(./getvar userland_build_dir)/sched_getaffinity.out" main
 ....
 
 Then, inside GDB:
@@ -1704,7 +1720,7 @@ TODO we then tried:
 and:
 
 ....
-./run-gdb-user kernel_modules-1.0/user/sched_getaffinity_threads.out
+./run-gdb-user "$(./getvar userland_build_dir)/sched_getaffinity_threads.out"
 ....
 
 to switch between two simultaneous live threads with different affinities, it just didn't break on our threads:
@@ -1966,7 +1982,7 @@ Source: link:rootfs_overlay/gdbserver.sh[].
 Host:
 
 ....
-./run-gdbserver kernel_modules-1.0/user/myinsmod.out
+./run-gdbserver "$(./getvar userland_build_dir)/myinsmod.out"
 ....
 
 You can find the executable with:
@@ -2001,7 +2017,7 @@ An implementation overview can be found at: https://reverseengineering.stackexch
 As usual, different archs work with:
 
 ....
-./run-gdbserver --arch arm kernel_modules-1.0/user/myinsmod.out
+./run-gdbserver --arch arm "$(./getvar userland_build_dir)/myinsmod.out"
 ....
 
 === gdbserver BusyBox
@@ -3155,7 +3171,7 @@ More concretely:
 git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
 ./build-linux \
   --arch arm \
-  --custom-config-file submodules/linux/arch/arm/configs/gem5_defconfig \
+  --custom-config-file "$(./getvar linux_src_dir)/arch/arm/configs/gem5_defconfig" \
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -3224,7 +3240,7 @@ git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
 ./build-linux \
   --arch aarch64 \
   --config-fragment linux_config/display \
-  --custom-config-file submodules/linux/arch/arm64/configs/gem5_defconfig \
+  --custom-config-file "$(./getvar linux_src_dir)/arch/arm64/configs/gem5_defconfig" \
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_src_dir)" checkout -
@@ -4558,7 +4574,7 @@ The exact same thing can be done post mortem with:
 ./run-toolchain gdb -- \
   -batch \
   -ex 'info line *(myinit+0x1d)' \
-  "$(./getvar build_dir)/kernel_modules-1.0/panic.ko" \
+  "$(./getvar kernel_modules_build_subdir)/panic.ko" \
 ;
 ....
 
@@ -5859,7 +5875,7 @@ Meaning of the flags:
 * `vaddr`: first virtual address of a page the belongs to the process. Notably:
 +
 ....
-./run-toolchain readelf -- -l "$(./getvar build_dir)/kernel_modules-1.0/user/virt_to_phys_test.out"
+./run-toolchain readelf -- -l "$(./getvar userland_build_dir)/virt_to_phys_test.out"
 ....
 +
 contains:
@@ -6267,7 +6283,7 @@ TODO `--arch arm` and `--arch aarch64` does not count firmware instructions prop
 * We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
 +
 ....
-./run-gdb-user kernel_modules-1.0/user/poweroff.out main
+./run-gdb-user "$(./getvar userland_build_dir)/poweroff.out" main
 ....
 +
 And get that from the traces, e.g. if the address is `4003a0`, then we search:
@@ -7649,12 +7665,12 @@ GDB step debugging is also possible with:
 
 ....
 cd "$(./getvar --arch arm target_dir)"
-qemu-arm -g 1234 -L . ../build/kernel_modules-1.0/user/myinsmod.out
+qemu-arm -g 1234 -L . "$(./getvar userland_build_dir)/myinsmod.out"
 ../host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gdb \
   --nh \
   -ex 'set architecture arm' \
   -ex 'set sysroot .' \
-  -ex 'file ../build/kernel_modules-1.0/user/myinsmod.out' \
+  -ex "file $(./getvar userland_build_dir)/myinsmod.out" \
   -ex 'target remote localhost:1234' \
   -ex 'break main' \
   -ex 'continue' \
@@ -8243,6 +8259,8 @@ This started happening when we switched to building QEMU through Buildroot, and 
 Using text mode is another workaround if you don't need GUI features.
 
 == gem5
+
+Getting started at: <<gem5-buildroot-setup>>.
 
 === gem5 vs QEMU
 
@@ -9623,7 +9641,13 @@ We provide the following mechanisms:
 For example, if you decide to <<enable-buildroot-compiler-optimizations>> after an initial build is finished, you must <<clean-the-build>> and rebuild:
 
 ....
-./build-buildroot --config 'BR2_OPTIMIZE_3=y' kernel_modules-dirclean kernel_modules-reconfigure
+./build-buildroot \
+  --config 'BR2_OPTIMIZE_3=y' \
+  --config 'BR2_SAMPLE_PACKAGE=y' \
+  --
+  sample_package-dirclean \
+  sample_package-reconfigure \
+;
 ....
 
 as explained at: https://buildroot.org/downloads/manual/manual.html#rebuild-pkg
@@ -9659,9 +9683,10 @@ Then, you have two choices:
 ....
 ./build-buildroot \
   --config 'BR2_OPTIMIZE_3=y' \
+  --config 'BR2_SAMPLE_PACKAGE=y' \
   -- \
-  kernel_modules-dirclean \
-  kernel_modules-reconfigure \
+  sample_package-dirclean \
+  sample_package-reconfigure \
 ;
 ....
 +
