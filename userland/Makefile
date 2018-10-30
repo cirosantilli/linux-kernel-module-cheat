@@ -1,8 +1,8 @@
 .PHONY: all clean mkdir
 
-CFLAGS_EXTRA = -fopenmp -std=c99
-CXXFLAGS_EXTRA = -std=c++17
-CCFLAGS_EXTRA = -Wall -Werror -Wextra
+CFLAGS = -fopenmp -std=c99 $(CCFLAGS) $(CFLAGS_EXTRA)
+CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
+CCFLAGS = -ggdb3 -O0 -Wall -Werror -Wextra -Wno-unused-function $(CCFLAGS_EXTRA)
 IN_EXT_C = .c
 IN_EXT_CXX = .cpp
 LIBS = -lm
@@ -37,10 +37,10 @@ OUTS := $(addprefix $(OUT_DIR)/,$(OUTS))
 all: mkdir $(OUTS)
 
 $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_C)
-	$(CC) $(CFLAGS) $(CCFLAGS) $(CFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
+	$(CC) $(CFLAGS) -o '$@' '$<' $(LIBS)
 
 $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX)
-	$(CXX) $(CXXFLAGS) $(CCFLAGS) $(CXXFLAGS_EXTRA) -o '$@' '$<' $(LIBS)
+	$(CXX) $(CXXFLAGS) -o '$@' '$<' $(LIBS)
 
 clean:
 	rm -f *'$(OUT_EXT)'

@@ -7631,149 +7631,123 @@ http://gedare-csphd.blogspot.co.uk/2013/02/adding-simple-io-device-to-gem5.html
 
 === QEMU user mode
 
-This has nothing to do with the Linux kernel, but it is cool:
+==== QEMU user mode introduction
+
+QEMU user mode is a QEMU mode that can execute userland executables of another arch directly.
+
+Instead of simulating the full system, it translates normal instructions like in full system mode, but magically forwards system calls to the host OS.
+
+This has the following portability implications:
+
+* TODO confirm: host OS == guest OS?
+* TODO confirm: the host Linux kernel should be newer than the kernel the executable was built for.
++
+It may still work even if that is not the case, but could fail is a missing system call is reached.
++
+The target Linux kernel of the executable is a GCC toolchain build-time configuration.
+
+QEMU user mode completely bypasses the kernel that we've built: all it takes is the userland executable. Therefore it cannot be easily used to develop the Linux kernel.
+
+=== QEMU user mode getting started
+
+You can run statically linked executables simply with:
 
 ....
-sudo apt-get install qemu-user
-./build-buildroot --arch arm
-cd "$(./getvar target_dir)"
-qemu-arm -L . bin/ls
-....
-
-This uses QEMU's user-mode emulation mode that allows us to run cross-compiled userland programs directly on the host.
-
-The reason this is cool, is that `ls` is not statically compiled, but since we have the Buildroot image, we are still able to find the shared linker and the shared library at the given path.
-
-In other words, much cooler than:
-
-....
-./run-toolchain --arch arm gcc -- -static "$(./getvar userland_src_dir)/hello.c"
-qemu-arm a.out
-....
-
-It is also possible to compile QEMU user mode from source with `BR2_PACKAGE_HOST_QEMU_LINUX_USER_MODE=y`, but then your compilation will likely fail with:
-
-....
-package/qemu/qemu.mk:110: *** "Refusing to build qemu-user: target Linux version newer than host's.".  Stop.
-....
-
-since we are using a bleeding edge kernel, which is a sanity check in the Buildroot QEMU package.
-
-Anyways, this warns us that the userland emulation will likely not be reliable, which is good to know. TODO: where is it documented the host kernel must be as new as the target one?
-
-GDB step debugging is also possible with:
-
-....
-cd "$(./getvar --arch arm target_dir)"
-qemu-arm -g 1234 -L . "$(./getvar userland_build_dir)/myinsmod.out"
-../host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gdb \
-  --nh \
-  -ex 'set architecture arm' \
-  -ex 'set sysroot .' \
-  -ex "file $(./getvar userland_build_dir)/myinsmod.out" \
-  -ex 'target remote localhost:1234' \
-  -ex 'break main' \
-  -ex 'continue' \
-  -ex 'layout split' \
+./build-qemu --arch arm --user
+./build-userland --arch arm --userland-build-id static --make-args='CCFLAGS_EXTRA=-static'
+./run \
+  --arch arm \
+  --user "$(./getvar --arch arm --userland-build-id static userland_build_dir)/hello.out" \
 ;
 ....
 
-link:https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m[crosstool-ng] tests show that QEMU also has a runtime check for the kernel version which can fail as:
+QEMU user mode also supports dynamically linked ones.
+
+We just have to point it to the root filesystem with the `-L` option so that it can find the libraries.
+
+Here we run:
 
 ....
-FATAL: kernel too old
+ls . ..
 ....
 
-but it must be using the kernel version given by glibc, since we didn't hit that error on uclibc.
-
-==== QEMU user mode integration
-
-We have a nice user mode integration under way.
-
-It is already usable with:
+with the ARM dynamically linked Buildroot `ls`:
 
 ....
-./build-qemu --user
-./run --user path/to/static/executable -- arg1 "arg 2" arg3
+./build-buildroot --arch arm
+./run \
+  --arch arm \
+  --user "$(./getvar --arch arm target_dir)/bin/ls" \
+  --user-before="-L $(./getvar --arch arm target_dir)" \
+  -- \
+  . .. \
+;
 ....
 
-TODO: factor <<qemu-user-mode>> with this:
+==== QEMU user mode GDB
 
-===== QEMU user mode GDB
-
-It's nice when the obvious works, right?
+It's nice when the <<gdb,obvious>> works, right?
 
 ....
-./run --debug-guest --user ./x86_64.out
+./run \
+  --arch arm \
+  --debug-guest \
+  --user "$(./getvar --arch arm --userland-build-id static userland_build_dir)/hello.out" \
+;
 ....
 
 and on another shell:
 
 ....
-./run-gdb --user ./x86_64.out main
+./run-gdb \
+  --arch arm \
+  --user "$(./getvar --arch arm --userland-build-id static userland_build_dir)/hello.out" \
+  main \
+;
 ....
 
-or to stop at the very first instruction of a freestanding program:
-
-....
-./run-gdb --no-continue --user ./x86_64.out
-....
+or to stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
 
 ==== gem5 syscall emulation mode
 
-Analogous to <<qemu-user-mode>>, but less usable:
+Analogous to <<qemu-user-mode>>, but less robust:
 
 * https://stackoverflow.com/questions/48986597/when-should-you-use-full-system-fs-vs-syscall-emulation-se-with-userland-program
 * https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
 
-First we try some `-static` sanity checks.
+As of 185c2730cc78d5adda683d76c0e3b35e7cb534f0, dynamically linked executables only work on x86, and they can only use the host libraries, which is ugly:
 
-Works and prints `hello`:
+* https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
+* https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html
 
-....
-./run-toolchain --arch x86_64  gcc -- -static -o x86_64.out  "$(./getvar userland_src_dir)/hello.c"
-./run-toolchain --arch arm     gcc -- -static -o arm.out     "$(./getvar userland_src_dir)/hello.c"
-./run-toolchain --arch aarch64 gcc -- -static -o aarch64.out "$(./getvar userland_src_dir)/hello.c"
-./run --arch x86_64  --gem5 --user ./x86_64.out
-./run --arch arm     --gem5 --user ./arm.out
-./run --arch aarch64 --gem5 --user ./aarch64.out
-....
-
-But I think this is unreliable, and only works because we are using uclibc which does not check the kernel version as glibc does: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m/50542301#50542301
-
-Ignoring that insanity, we then try it with dynamically linked executables:
-
-....
-./run --arch x86_64  --gem5 --user "$(./getvar --arch x86_64  --gem5 target_dir)/hello.out"
-./run --arch arm     --gem5 --user "$(./getvar --arch arm     --gem5 target_dir)/hello.out"
-./run --arch aarch64 --gem5 --user "$(./getvar --arch aarch64 --gem5 target_dir)/hello.out"
-....
-
-But at 185c2730cc78d5adda683d76c0e3b35e7cb534f0 they fail with:
+If you try dynamically linked executables on ARM, they fail with:
 
 ....
 fatal: Unable to open dynamic executable's interpreter.
 ....
 
-and `cd "$(./getvar --arch aarch64 target_dir)` did not help.
-
-The current FAQ says it is not possible to use dynamic executables: http://gem5.org/Frequently_Asked_Questions but I don't trust it, and then these presentations mention it:
-
-* http://www.gem5.org/wiki/images/0/0c/2015_ws_08_dynamic-linker.pdf
-* http://research.cs.wisc.edu/multifacet/papers/learning_gem5_tutorial.pdf
-
-but I could not find how to actually use it.
-
-Then I was told that it is has never been tested outside of x86_64:
-
-* https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
-* https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html
-
-===== gem5 syscall emulation mode CLI options
+So let's just play with some static ones:
 
 ....
-./run --gem5 --user ./x86_64.out -- --options 'op1 "op 2" op3'
+./build-userland --arch aarch64 --userland-build-id static --make-args='CCFLAGS_EXTRA=-static'
+./run --arch aarch64 --gem5 --user "$(./getvar --arch aarch64 --userland-build-id static userland_build_dir)/hello.out"
 ....
+
+CLI options may be passed as:
+
+....
+./run \
+  --arch aarch64 \
+  --gem5 \
+  --user "$(./getvar --arch aarch64 --userland-build-id static userland_build_dir)/print_argv.out" \
+  -- \
+  --options 'asdf "qw er"' \
+;
+....
+
+Source: link:userland/print_argv.c[]
+
+TODO: how to escape spaces?
 
 ==== User mode vs full system benchmark
 

@@ -311,6 +311,9 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
         help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
     )
     parser.add_argument(
+        '--userland-build-id', default=default_build_id
+    )
+    parser.add_argument(
         '-v', '--verbose', default=False, action='store_true',
         help='Show full compilation commands when they are not shown by default.'
     )
@@ -794,7 +797,7 @@ def setup(parser):
     this_module.kernel_modules_build_dir = os.path.join(this_module.kernel_modules_build_base_dir, args.arch)
     this_module.kernel_modules_build_subdir = os.path.join(this_module.kernel_modules_build_dir, kernel_modules_subdir)
     this_module.kernel_modules_build_host_dir = os.path.join(this_module.kernel_modules_build_base_dir, 'host')
-    this_module.userland_build_dir = os.path.join(this_module.out_dir, 'userland', args.arch)
+    this_module.userland_build_dir = os.path.join(this_module.out_dir, 'userland', args.userland_build_id, args.arch)
     this_module.out_rootfs_overlay_dir = os.path.join(this_module.out_dir, 'rootfs_overlay', args.arch)
     this_module.out_rootfs_overlay_bin_dir = os.path.join(this_module.out_rootfs_overlay_dir, 'bin')
 
