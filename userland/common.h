@@ -34,14 +34,16 @@ int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
 	size_t nread;
 	ssize_t ret;
 	uint64_t data;
+	uintptr_t vpn;
 
+	vpn = vaddr / sysconf(_SC_PAGE_SIZE);
 	nread = 0;
 	while (nread < sizeof(data)) {
 		ret = pread(
 			pagemap_fd,
 			&data,
-			sizeof(data),
-			(vaddr / sysconf(_SC_PAGE_SIZE)) * sizeof(data) + nread
+			sizeof(data) - nread,
+			vpn * sizeof(data) + nread
 		);
 		nread += ret;
 		if (ret <= 0) {
@@ -61,7 +63,7 @@ int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
  * @param[out] paddr physical address
  * @param[in]  pid   process to convert for
  * @param[in]  vaddr virtual address to get entry for
- * @return  		 0 for success, 1 for failure
+ * @return           0 for success, 1 for failure
  */
 int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr)
 {

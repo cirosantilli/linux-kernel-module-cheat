@@ -2,6 +2,7 @@
 
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 
@@ -19,6 +20,10 @@ allows us to build examples that rely on it.
 ''',
         )
         parser.add_argument(
+            '--make-args',
+            default='',
+        )
+        parser.add_argument(
             'targets',
             default=[],
             help='''\
@@ -27,7 +32,6 @@ Default: build all examples that have their package dependencies met.
 For example, an OpenBLAS example can only be built if the target root filesystem
 has the OpenBLAS libraries and headers installed.
 ''',
-            metavar='programs',
             nargs='*',
         )
 
@@ -49,6 +53,7 @@ has the OpenBLAS libraries and headers installed.
                     'OUT_DIR={}'.format(build_dir),
                 ] +
                 ['HAS_{}=y'.format(package.upper()) for package in args.has_package] +
+                shlex.split(args.make_args) +
                 [os.path.join(build_dir, os.path.splitext(os.path.split(target)[1])[0]) + common.executable_ext for target in args.targets]
             ),
             cwd=common.userland_src_dir,
