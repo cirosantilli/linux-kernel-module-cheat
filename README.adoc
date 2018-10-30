@@ -795,13 +795,17 @@ which will run respectively:
 
 which just make the emulator quit via <<semihosting>>.
 
-Alternatively, for the sake of tab completion, we also accept full paths inside `baremetal`:
+Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`:
 
 ....
 ./run --arch arm --baremetal baremetal/exit.c
-./run --arch arm --baremetal "$(pwd)/baremetal/exit.c"
 ./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.c
-./run --arch arm --baremetal "$(pwd)/baremetal/arch/arm/semihost_exit.c"
+....
+
+Absolute paths however as used as is an must point to the actual executable:
+
+....
+./run --arch arm --baremetal "$(./getvar --arch arm baremetal_build_dir)/exit.elf"
 ....
 
 To use gem5 instead of QEMU do:
@@ -1002,7 +1006,7 @@ This automatically clears the GDB pane, and starts a new one.
 Pass extra GDB arguments with:
 
 ....
-./run --debug-guest --tmux --tmux-args start_kernel
+./run --debug-guest --tmux=start_kernel
 ....
 
 See the tmux manual for further details:
@@ -4665,7 +4669,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-busybox 'insmod /dump_stack.ko' --debug-guest --tmux --tmux-args dump_stack
+./run --eval-busybox 'insmod /dump_stack.ko' --debug-guest --tmux=dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -7650,49 +7654,54 @@ QEMU user mode completely bypasses the kernel that we've built: all it takes is 
 
 === QEMU user mode getting started
 
-You can run statically linked executables simply with:
-
 ....
-./build-qemu --arch arm --user
-./build-userland --arch arm --userland-build-id static --make-args='CCFLAGS_EXTRA=-static'
-./run \
-  --arch arm \
-  --user "$(./getvar --arch arm --userland-build-id static userland_build_dir)/hello.out" \
-;
-....
-
-QEMU user mode also supports dynamically linked ones.
-
-We just have to point it to the root filesystem with the `-L` option so that it can find the libraries.
-
-Here we run:
-
-....
-ls . ..
-....
-
-with the ARM dynamically linked Buildroot `ls`:
-
-....
+./build-userland --arch arm
 ./build-buildroot --arch arm
 ./run \
   --arch arm \
-  --user "$(./getvar --arch arm target_dir)/bin/ls" \
-  --user-before="-L $(./getvar --arch arm target_dir)" \
+  --userland print_argv \
   -- \
-  . .. \
+  asdf qwer \
+;
+....
+
+This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `--baremetal`>>.
+
+QEMU user mode also supports dynamically linked executables.
+
+This requires point it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
+
+We pass `-L` by default, so everything just works:
+
+You can also try statically linked executables with:
+
+....
+./build-qemu --arch arm --userland
+./build-userland \
+  --arch arm \
+  --make-args='CCFLAGS_EXTRA=-static' \
+  --userland-build-id static \
+;
+./run \
+  --arch arm \
+  --userland-build-id static \
+  --userland print_argv \
+  -- \
+  asdf qwer \
 ;
 ....
 
 ==== QEMU user mode GDB
 
-It's nice when the <<gdb,obvious>> works, right?
+It's nice when <<gdb,the obvious>> just works, right?
 
 ....
 ./run \
   --arch arm \
   --debug-guest \
-  --user "$(./getvar --arch arm --userland-build-id static userland_build_dir)/hello.out" \
+  --userland print_argv \
+  -- \
+  asdf qwer \
 ;
 ....
 
@@ -7701,7 +7710,7 @@ and on another shell:
 ....
 ./run-gdb \
   --arch arm \
-  --user "$(./getvar --arch arm --userland-build-id static userland_build_dir)/hello.out" \
+  --userland print_argv \
   main \
 ;
 ....
@@ -7729,25 +7738,43 @@ fatal: Unable to open dynamic executable's interpreter.
 So let's just play with some static ones:
 
 ....
-./build-userland --arch aarch64 --userland-build-id static --make-args='CCFLAGS_EXTRA=-static'
-./run --arch aarch64 --gem5 --user "$(./getvar --arch aarch64 --userland-build-id static userland_build_dir)/hello.out"
-....
-
-CLI options may be passed as:
-
-....
+./build-userland \
+  --arch aarch64 \
+  --userland-build-id static \
+  --make-args='CCFLAGS_EXTRA=-static' \
+;
 ./run \
   --arch aarch64 \
   --gem5 \
-  --user "$(./getvar --arch aarch64 --userland-build-id static userland_build_dir)/print_argv.out" \
+  --userland print_argv \
+  --userland-build-id static \
   -- \
   --options 'asdf "qw er"' \
 ;
 ....
 
-Source: link:userland/print_argv.c[]
-
 TODO: how to escape spaces?
+
+Step debug also works:
+
+....
+./run \
+  --arch arm \
+  --debug-guest \
+  --gem5 \
+  --userland print_argv \
+  --userland-build-id static \
+  -- \
+  --options 'asdf "qw er"' \
+;
+./run-gdb \
+  --arch arm \
+  --gem5 \
+  --userland print_argv \
+  --userland-build-id static \
+  main \
+;
+....
 
 ==== User mode vs full system benchmark
 
@@ -7767,7 +7794,7 @@ time \
   ./run \
   --arch arm \
   --gem5 \
-  --user \
+  --userland \
   "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
   -- \
   --options 100000 \

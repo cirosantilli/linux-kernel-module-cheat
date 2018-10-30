@@ -32,11 +32,10 @@ defaults = {
     'record': False,
     'replay': False,
     'terminal': False,
-    'tmux': False,
-    'tmux_args': '',
+    'tmux': None,
     'trace': None,
-    'user': None,
-    'user_before': '',
+    'userland': None,
+    'userland_before': '',
     'vnc': False,
 }
 
@@ -140,8 +139,8 @@ def main(args, extra_args=None):
                 '-d', common.m5out_dir
             ]
         )
-        if args.user is not None:
-            cmd.extend([common.gem5_se_file, '-c', args.user])
+        if args.userland is not None:
+            cmd.extend([common.gem5_se_file, '-c', common.resolve_userland(args.userland)])
         else:
             if args.gem5_script == 'fs':
                 # TODO port
@@ -196,7 +195,7 @@ def main(args, extra_args=None):
         qemu_user_and_system_options = [
             '-trace', 'enable={},file={}'.format(trace_type, common.qemu_trace_file),
         ]
-        if args.user is not None:
+        if args.userland is not None:
             if args.debug_guest:
                 debug_args = ['-g', str(common.gdb_port)]
             else:
@@ -204,12 +203,13 @@ def main(args, extra_args=None):
             cmd.extend(
                 [
                     os.path.join(common.qemu_build_dir, '{}-linux-user'.format(args.arch), 'qemu-{}'.format(args.arch)),
+                    '-L', common.target_dir,
                 ] +
                 qemu_user_and_system_options +
-                shlex.split(args.user_before) +
+                shlex.split(args.userland_before) +
                 debug_args +
                 [
-                    args.user
+                    common.resolve_userland(args.userland)
                 ]
             )
         else:
@@ -321,11 +321,11 @@ def main(args, extra_args=None):
                 )
             if args.baremetal is None:
                 cmd.extend(append)
-    if args.tmux:
+    if args.tmux is not None:
         if args.gem5:
             subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
                 'sleep 2;./gem5-shell -n {} {}' \
-                .format(args.run_id, args.tmux_args)
+                .format(args.run_id, args.tmux)
             ])
         elif args.debug_guest:
             # TODO find a nicer way to forward all those args automatically.
@@ -333,8 +333,13 @@ def main(args, extra_args=None):
             # but it cannot be used as a library properly it seems, and it is
             # slower than tmux.
             subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
-                "sleep 2;./run-gdb -a '{}' -L '{}' -n '{}' {}" \
-                .format(args.arch, args.linux_build_id, args.run_id, args.tmux_args)
+                "sleep 2;./run-gdb --arch '{}' --linux-build-id '{}' --run-id '{}' {}" \
+                .format(
+                    args.arch,
+                    args.linux_build_id,
+                    args.run_id,
+                    args.tmux
+                )
             ])
     cmd.extend(extra_emulator_args)
     cmd.extend(args.extra_emulator_args)
@@ -486,31 +491,34 @@ gem5 Python scripts.
 '''
     )
     parser.add_argument(
-        '-U', '--tmux-args', default=defaults['tmux_args'],
-        help='Pass extra parameters to the program running on the `-u` tmux split'
-    )
-    parser.add_argument(
-        '-u', '--tmux', default=defaults['tmux'], action='store_true',
+        '-t', '--tmux', default=defaults['tmux'], nargs='?', action='store', const='',
         help='''\
-Create a tmUx split the window. You must already be inside of a `tmux` session
+Create a tmux split the window. You must already be inside of a `tmux` session
 to use this option:
 * on the main window, run the emulator as usual
 * on the split:
 ** if on QEMU and `-d` is given, GDB
 ** if on gem5, the gem5 terminal
+If values are given to this option, pass those as parameters
+to the program running on the split.
 '''
     )
     parser.add_argument(
-        '--user', default=defaults['user'],
+        '--userland', default=defaults['userland'],
         help='''\
-Run the given userland executable in user mode instead of full system mode.
-In gem5, user mode is called Syscall Emulation (SE) mode and uses se.py.
+Run the given userland executable in user mode instead of booting the Linux kernel
+in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
+uses se.py.
+
+Path resolution is similar to --baremetal.
 '''
     )
     parser.add_argument(
-        '--user-before', default=defaults['user_before'],
+        '--userland-before', default=defaults['userland_before'],
         help='''\
-Arguments to pass to the QEMU user mode CLI before the program to execute.
+Pass these Krguments to the QEMU user mode CLI before the program to execute.
+This is required with --userland since arguments that come at the end are interpreted
+as command line arguments to that executable.
 '''
     )
     parser.add_argument(

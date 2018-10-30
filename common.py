@@ -35,6 +35,7 @@ kernel_modules_subdir = 'kernel_modules'
 kernel_modules_src_dir = os.path.join(this_module.root_dir, this_module.kernel_modules_subdir)
 userland_subdir = 'userland'
 userland_src_dir = os.path.join(this_module.root_dir, this_module.userland_subdir)
+userland_build_ext = '.out'
 include_subdir = 'include'
 include_src_dir = os.path.join(this_module.root_dir, this_module.include_subdir)
 submodules_dir = os.path.join(root_dir, 'submodules')
@@ -69,7 +70,6 @@ c_ext = '.c'
 header_ext = '.h'
 kernel_module_ext = '.ko'
 obj_ext = '.o'
-executable_ext = '.out'
 config_file = os.path.join(data_dir, 'config')
 command_prefix = '+ '
 if os.path.exists(config_file):
@@ -215,8 +215,15 @@ def get_argparse(default_args=None, argparse_args=None):
         help='CPU architecture. Default: %(default)s'
     )
     parser.add_argument(
-        '--baremetal',
-        help='Use Baremetal examples instead of Linux kernel ones'
+        '-b', '--baremetal',
+        help='''\
+Use the given baremetal executable instead of the Linux kernel.
+
+If the path is absolute, it is used as is.
+
+If the path is relative, we assume that it points to a source code
+inside baremetal/ and then try to use corresponding executable.
+'''
     )
     parser.add_argument(
         '--buildroot-build-id',
@@ -307,7 +314,7 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
         help='QEMU build ID. Allows you to keep multiple separate QEMU builds. Default: %(default)s'
     )
     parser.add_argument(
-        '-t', '--gem5-build-type', default='opt',
+        '--gem5-build-type', default='opt',
         help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
     )
     parser.add_argument(
@@ -854,26 +861,46 @@ def setup(parser):
             this_module.disk_image = this_module.qcow2_file
     else:
         this_module.disk_image = this_module.gem5_fake_iso
-        paths = [
-            os.path.join(this_module.baremetal_build_dir, this_module.baremetal),
-            os.path.join(
+        if args.baremetal == 'all':
+            path = args.baremetal
+        else:
+            path = this_module.resolve_executable(
+                args.baremetal,
+                this_module.baremetal_src_dir,
                 this_module.baremetal_build_dir,
-                os.path.relpath(this_module.baremetal, this_module.baremetal_src_dir),
+                this_module.baremetal_build_ext,
             )
-        ]
-        paths[:] = [os.path.splitext(path)[0] + this_module.baremetal_build_ext for path in paths]
-        found = False
-        for path in paths:
-            if os.path.exists(path):
-                found = True
-                break
-        if not found and this_module.baremetal != 'all':
-            raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
         this_module.image = path
     return args
 
 def setup_dry_run_arguments(args):
     this_module.dry_run = args.dry_run
+
+def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
+    if os.path.isabs(in_path):
+        return in_path
+    else:
+        paths = [
+            os.path.join(magic_out_dir, in_path),
+            os.path.join(
+                magic_out_dir,
+                os.path.relpath(in_path, magic_in_dir),
+            )
+        ]
+        paths[:] = [os.path.splitext(path)[0] + out_ext for path in paths]
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
+
+def resolve_userland(path):
+    global this_module
+    return this_module.resolve_executable(
+        path,
+        this_module.userland_src_dir,
+        this_module.userland_build_dir,
+        this_module.userland_build_ext,
+    )
 
 def write_configs(config_path, configs, config_fragments=None):
     """

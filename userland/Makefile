@@ -2,6 +2,8 @@
 
 CFLAGS = -fopenmp -std=c99 $(CCFLAGS) $(CFLAGS_EXTRA)
 CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
+# -Wno-unused-function for function definitions on headers,
+#  because we are lazy to make a shared object. TODO.
 CCFLAGS = -ggdb3 -O0 -Wall -Werror -Wextra -Wno-unused-function $(CCFLAGS_EXTRA)
 IN_EXT_C = .c
 IN_EXT_CXX = .cpp
