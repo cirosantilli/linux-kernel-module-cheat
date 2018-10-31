@@ -3,6 +3,7 @@
 import distutils.dir_util
 import os
 import platform
+import shlex
 import shutil
 
 import common
@@ -10,9 +11,8 @@ import common
 class ModulesComponent(common.Component):
     def add_parser_arguments(self, parser):
         parser.add_argument(
-            'extra_make_args',
-            default=[],
-            metavar='extra-make-args',
+            '--make-args',
+            default='',
             nargs='*'
         )
         parser.add_argument(
@@ -65,8 +65,10 @@ class ModulesComponent(common.Component):
         tool = 'gcc'
         if args.host:
             allowed_toolchains = ['host']
+            build_subdir = common.kernel_modules_build_host_subdir
         else:
             allowed_toolchains = None
+            build_subdir = common.kernel_modules_build_subdir
         gcc = common.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
         prefix = gcc[:-len(tool)]
         ccache = shutil.which('ccache')
@@ -91,18 +93,20 @@ class ModulesComponent(common.Component):
                     'CC={}'.format(cc),
                     'CROSS_COMPILE={}'.format(prefix),
                     'LINUX_DIR={}'.format(linux_dir),
-                    'M={}'.format(common.kernel_modules_build_subdir),
+                    'M={}'.format(build_subdir),
                     'OBJECT_FILES={}'.format(' '.join(object_files)),
                 ] +
+                shlex.split(args.make_args) +
                 verbose
             ),
-            cwd=os.path.join(build_subdir),
+            cwd=os.path.join(common.kernel_modules_build_subdir),
         )
-        common.copy_dir_if_update_non_recursive(
-            srcdir=build_subdir,
-            destdir=common.out_rootfs_overlay_dir,
-            filter_ext=common.kernel_module_ext,
-        )
+        if not args.host:
+            common.copy_dir_if_update_non_recursive(
+                srcdir=common.kernel_modules_build_subdir,
+                destdir=common.out_rootfs_overlay_dir,
+                filter_ext=common.kernel_module_ext,
+            )
 
     def get_argparse_args(self):
         return {
