@@ -98,7 +98,6 @@ See also: <<cpu-architecture,CPU architectures>>.
 I now urge you to read the following sections which contain widely applicable information:
 
 * <<run-command-after-boot>>
-* <<rebuild-buildroot-packages>>
 * <<clean-the-build>>
 * <<build-the-documentation>>
 * Linux kernel
@@ -1079,6 +1078,7 @@ Just don't forget to remove your breakpoints after `rmmod`, or they will point t
 
 TODO: why does `break work_func` for `insmod kthread.ko` not very well? Sometimes it breaks but not others.
 
+[[gdb-step-debug-kernel-module-arm]]
 ==== GDB step debug kernel module insmodded by init on ARM
 
 TODO on `arm` 51e31cdc2933a774c2a0dc62664ad8acec1d2dbe it does not always work, and `lx-symbols` fails with the message:
@@ -1969,7 +1969,7 @@ instead of `kgdboc=ttyS0,115200`, you enter a different debugging mode called KD
 
 TODO is there any advantage of using KDB over GDB? Except for the fact that you need potentially less setup?
 
-TODO: only works in <<graphic-mode>>. On the serial, prompt hangs, and the characters I type don't show up at all.
+TODO: only works in <<graphics,graphic mode>>. On the serial, prompt hangs, and the characters I type don't show up at all.
 
 In QEMU:
 
@@ -2832,6 +2832,242 @@ We have only tested / supported it on x86, but it is rumoured that QEMU and gem5
 The main use case for `-enable-kvm` in this repository is to test if something that takes a long time to run is functionally correct.
 
 For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
+
+== User mode simulation
+
+Both QEMU and gem5 have an user mode simulation mode in addition to full system simulation that we consider elsewhere in this project.
+
+In QEMU, it is called just <<qemu-user-mode,"user mode">>, and in gem5 it is called <<gem5-syscall-emulation-mode,syscall emulation mode>>.
+
+In both, the basic idea is the same.
+
+User mode simulation takes regular userland executables of any arch as input and executes them directly, without booting a kernel.
+
+Instead of simulating the full system, it translates normal instructions like in full system mode, but magically forwards system calls to the host OS.
+
+Advantages over full system simulation:
+
+* the simulation may <<user-mode-vs-full-system-benchmark,run faster>> since you don't have to simulate the Linux kernel and several device models
+* you don't need to build your own kernel or root filesystem, which saves time. You still need a toolchain however, but the pre-packaged ones may work fine.
+
+Disadvantages:
+
+* lower guest to host portability:
+** TODO confirm: host OS == guest OS?
+** TODO confirm: the host Linux kernel should be newer than the kernel the executable was built for.
++
+It may still work even if that is not the case, but could fail is a missing system call is reached.
++
+The target Linux kernel of the executable is a GCC toolchain build-time configuration.
+* cannot be used to test the Linux kernel, and results are less representative of a real system since we are faking more
+
+=== QEMU user mode
+
+First let's run a dynamically linked executable built with the Buildroot toolchain:
+
+....
+./build-qemu --arch arm --userland
+./build-userland --arch arm
+./build-buildroot --arch arm
+./run \
+  --arch arm \
+  --userland print_argv \
+  -- \
+  asdf qwer \
+;
+....
+
+This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `--baremetal`>>.
+
+`./build-userland` is further documented at: <<userland-directory>>.
+
+Running dynamically linked executables in QEMU requires pointing it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
+
+We pass `-L` by default, so everything just works:
+
+You can also try statically linked executables with:
+
+....
+./build-userland \
+  --arch arm \
+  --make-args='CCFLAGS_EXTRA=-static' \
+  --userland-build-id static \
+;
+./run \
+  --arch arm \
+  --userland-build-id static \
+  --userland print_argv \
+  -- \
+  asdf qwer \
+;
+....
+
+Or you can run statically linked built by the host packaged toolchain with:
+
+....
+./build-userland \
+  --arch arm \
+  --host \
+  --make-args='-B CFLAGS_EXTRA=-static' \
+  --userland-build-id host-static \
+;
+./run \
+  --arch arm \
+  --userland-build-id host-static \
+  --userland print_argv \
+  -- \
+  asdf qwer \
+;
+....
+
+TODO expose dynamically linked executables built by the host toolchain. It also works, we just have to use e.g. `-L /usr/aarch64-linux-gnu`, so it's not really hard, I'm just lazy.
+
+==== QEMU user mode GDB
+
+It's nice when <<gdb,the obvious>> just works, right?
+
+....
+./run \
+  --arch arm \
+  --debug-guest \
+  --userland print_argv \
+  -- \
+  asdf qwer \
+;
+....
+
+and on another shell:
+
+....
+./run-gdb \
+  --arch arm \
+  --userland print_argv \
+  main \
+;
+....
+
+or to stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
+
+=== gem5 syscall emulation mode
+
+Less robust than QEMU's, but still usable:
+
+* https://stackoverflow.com/questions/48986597/when-should-you-use-full-system-fs-vs-syscall-emulation-se-with-userland-program
+* https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
+
+There are much more unimplemented syscalls in gem5 than in QEMU. Many of those are trivial to implement however.
+
+As of 185c2730cc78d5adda683d76c0e3b35e7cb534f0, dynamically linked executables only work on x86, and they can only use the host libraries, which is ugly:
+
+* https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
+* https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html
+
+If you try dynamically linked executables on ARM, they fail with:
+
+....
+fatal: Unable to open dynamic executable's interpreter.
+....
+
+So let's just play with some static ones:
+
+....
+./build-userland \
+  --arch aarch64 \
+  --userland-build-id static \
+  --make-args='CCFLAGS_EXTRA=-static' \
+;
+./run \
+  --arch aarch64 \
+  --gem5 \
+  --userland print_argv \
+  --userland-build-id static \
+  -- \
+  --options 'asdf "qw er"' \
+;
+....
+
+TODO: how to escape spaces?
+
+Step debug also works:
+
+....
+./run \
+  --arch arm \
+  --debug-guest \
+  --gem5 \
+  --userland print_argv \
+  --userland-build-id static \
+  -- \
+  --options 'asdf "qw er"' \
+;
+./run-gdb \
+  --arch arm \
+  --gem5 \
+  --userland print_argv \
+  --userland-build-id static \
+  main \
+;
+....
+
+==== User mode vs full system benchmark
+
+Let's see if user mode runs considerably faster than full system or not.
+
+gem5 user mode:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y' --arch arm
+make \
+  -B \
+  -C "$(./getvar --arch arm build_dir)/dhrystone-2" \
+  CC="$(./run-toolchain --arch arm --dry gcc)" \
+  CFLAGS=-static \
+;
+time \
+  ./run \
+  --arch arm \
+  --gem5 \
+  --userland \
+  "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
+  -- \
+  --options 100000 \
+;
+....
+
+gem5 full system:
+
+....
+time \
+  ./run \
+  --arch arm \
+  --eval-busybox '/gem5.sh' \
+  --gem5
+  --gem5-readfile 'dhrystone 100000' \
+;
+....
+
+QEMU user mode:
+
+....
+time qemu-arm "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" 100000000
+....
+
+QEMU full system:
+
+....
+time \
+  ./run \
+  --arch arm \
+  --eval-busybox 'time dhrystone 100000000;/poweroff.out' \
+;
+....
+
+Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
+
+* gem5 user: 33 seconds
+* gem5 full system: 51 seconds
+* QEMU user: 45 seconds
+* QEMU full system: 223 seconds
 
 == Kernel module utilities
 
@@ -7669,211 +7905,6 @@ TODO get some working!
 
 http://gedare-csphd.blogspot.co.uk/2013/02/adding-simple-io-device-to-gem5.html
 
-=== QEMU user mode
-
-==== QEMU user mode introduction
-
-QEMU user mode is a QEMU mode that can execute userland executables of another arch directly.
-
-Instead of simulating the full system, it translates normal instructions like in full system mode, but magically forwards system calls to the host OS.
-
-This has the following portability implications:
-
-* TODO confirm: host OS == guest OS?
-* TODO confirm: the host Linux kernel should be newer than the kernel the executable was built for.
-+
-It may still work even if that is not the case, but could fail is a missing system call is reached.
-+
-The target Linux kernel of the executable is a GCC toolchain build-time configuration.
-
-QEMU user mode completely bypasses the kernel that we've built: all it takes is the userland executable. Therefore it cannot be easily used to develop the Linux kernel.
-
-=== QEMU user mode getting started
-
-....
-./build-userland --arch arm
-./build-buildroot --arch arm
-./run \
-  --arch arm \
-  --userland print_argv \
-  -- \
-  asdf qwer \
-;
-....
-
-This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `--baremetal`>>.
-
-`./build-userland` is further documented at: <<userland-directory>>.
-
-As we've just seen, QEMU user mode supports dynamically linked executables.
-
-This requires point it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
-
-We pass `-L` by default, so everything just works:
-
-You can also try statically linked executables with:
-
-....
-./build-qemu --arch arm --userland
-./build-userland \
-  --arch arm \
-  --make-args='CCFLAGS_EXTRA=-static' \
-  --userland-build-id static \
-;
-./run \
-  --arch arm \
-  --userland-build-id static \
-  --userland print_argv \
-  -- \
-  asdf qwer \
-;
-....
-
-==== QEMU user mode GDB
-
-It's nice when <<gdb,the obvious>> just works, right?
-
-....
-./run \
-  --arch arm \
-  --debug-guest \
-  --userland print_argv \
-  -- \
-  asdf qwer \
-;
-....
-
-and on another shell:
-
-....
-./run-gdb \
-  --arch arm \
-  --userland print_argv \
-  main \
-;
-....
-
-or to stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
-
-==== gem5 syscall emulation mode
-
-Analogous to <<qemu-user-mode>>, but less robust:
-
-* https://stackoverflow.com/questions/48986597/when-should-you-use-full-system-fs-vs-syscall-emulation-se-with-userland-program
-* https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
-
-As of 185c2730cc78d5adda683d76c0e3b35e7cb534f0, dynamically linked executables only work on x86, and they can only use the host libraries, which is ugly:
-
-* https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
-* https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html
-
-If you try dynamically linked executables on ARM, they fail with:
-
-....
-fatal: Unable to open dynamic executable's interpreter.
-....
-
-So let's just play with some static ones:
-
-....
-./build-userland \
-  --arch aarch64 \
-  --userland-build-id static \
-  --make-args='CCFLAGS_EXTRA=-static' \
-;
-./run \
-  --arch aarch64 \
-  --gem5 \
-  --userland print_argv \
-  --userland-build-id static \
-  -- \
-  --options 'asdf "qw er"' \
-;
-....
-
-TODO: how to escape spaces?
-
-Step debug also works:
-
-....
-./run \
-  --arch arm \
-  --debug-guest \
-  --gem5 \
-  --userland print_argv \
-  --userland-build-id static \
-  -- \
-  --options 'asdf "qw er"' \
-;
-./run-gdb \
-  --arch arm \
-  --gem5 \
-  --userland print_argv \
-  --userland-build-id static \
-  main \
-;
-....
-
-==== User mode vs full system benchmark
-
-Let's see if user mode runs considerably faster than full system or not.
-
-gem5 user mode:
-
-....
-./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y' --arch arm
-make \
-  -B \
-  -C "$(./getvar --arch arm build_dir)/dhrystone-2" \
-  CC="$(./run-toolchain --arch arm --dry gcc)" \
-  CFLAGS=-static \
-;
-time \
-  ./run \
-  --arch arm \
-  --gem5 \
-  --userland \
-  "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
-  -- \
-  --options 100000 \
-;
-....
-
-gem5 full system:
-
-....
-time \
-  ./run \
-  --arch arm \
-  --eval-busybox '/gem5.sh' \
-  --gem5
-  --gem5-readfile 'dhrystone 100000' \
-;
-....
-
-QEMU user mode:
-
-....
-time qemu-arm "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" 100000000
-....
-
-QEMU full system:
-
-....
-time \
-  ./run \
-  --arch arm \
-  --eval-busybox 'time dhrystone 100000000;/poweroff.out' \
-;
-....
-
-Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
-
-* gem5 user: 33 seconds
-* gem5 full system: 51 seconds
-* QEMU user: 45 seconds
-* QEMU full system: 223 seconds
-
 === QEMU monitor
 
 The QEMU monitor is a terminal that allows you to send text commands to the QEMU VM: https://en.wikibooks.org/wiki/QEMU/Monitor
@@ -11065,14 +11096,14 @@ or more cleanly out of tree:
 
 ....
 ./build-userland --host --userland-build-id host
-$(./getvar --userland-build-id host userland_build_dir)/hello.out
+"$(./getvar --userland-build-id host userland_build_dir)/hello.out"
 ....
 
 Extra make flags may be passed as:
 
 ....
-./build-userland --host --userland-build-id host-static --make-args="-B CFLAGS_EXTRA=-static"
-$(./getvar --userland-build-id host-static userland_build_dir)/hello.out
+./build-userland --host --userland-build-id host-static --make-args='-B CFLAGS_EXTRA=-static'
+"$(./getvar --userland-build-id host-static userland_build_dir)/hello.out"
 ....
 
 This for example would both force a rebuild due to `-B` and link statically due to `CFLAGS_EXTRA=-static`.
