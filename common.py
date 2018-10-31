@@ -670,6 +670,7 @@ def setup(parser):
         args.gem5_build_id = args.gem5_worktree
     this_module.machine = args.machine
     this_module.setup_dry_run_arguments(args)
+    this_module.is_arm = False
     if args.arch == 'arm':
         this_module.armv = 7
         this_module.gem5_arch = 'ARM'
@@ -683,6 +684,7 @@ def setup(parser):
         else:
             if this_module.machine is None:
                 this_module.machine = 'virt'
+        this_module.is_arm = True
     elif args.arch == 'aarch64':
         this_module.armv = 8
         this_module.gem5_arch = 'ARM'
@@ -696,6 +698,7 @@ def setup(parser):
         else:
             if this_module.machine is None:
                 this_module.machine = 'virt'
+        this_module.is_arm = True
     elif args.arch == 'x86_64':
         this_module.crosstool_ng_toolchain_prefix = 'x86_64-unknown-elf'
         this_module.gem5_arch = 'X86'

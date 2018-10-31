@@ -1832,34 +1832,68 @@ It is useless with QEMU since we already have full system visibility with `-gdb`
 
 Cheaper than JTAG (free) and easier to setup (all you need is serial), but with less visibility as it depends on the kernel working, so e.g.: dies on panic, does not see boot sequence.
 
-Usage:
+First run the kernel with:
 
 ....
 ./run --kgdb
-./run-gdb --kgdb
 ....
 
-In GDB:
+this passes the following options on the kernel CLI:
 
 ....
-c
+kgdbwait kgdboc=ttyS1,115200
 ....
 
-In QEMU:
+`kgdbwait` tells the kernel to wait for KGDB to connect.
+
+So the kernel sets things up enough for KGDB to start working, and then boot pauses waiting for connection:
+
+....
+<6>[    4.866050] Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
+<6>[    4.893205] 00:05: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+<6>[    4.916271] 00:06: ttyS1 at I/O 0x2f8 (irq = 3, base_baud = 115200) is a 16550A
+<6>[    4.987771] KGDB: Registered I/O driver kgdboc
+<2>[    4.996053] KGDB: Waiting for connection from remote gdb...
+
+Entering kdb (current=0x(____ptrval____), pid 1) on processor 0 due to Keyboard Entry
+[0]kdb>
+....
+
+KGDB expects the connection at `ttyS1`, our second serial port after `ttyS0` which contains the terminal.
+
+So now we can connect to the serial port with GDB:
+
+....
+./run-gdb --kgdb --no-continue
+....
+
+Once GDB connects, it is left inside the function `kgdb_breakpoint`.
+
+So now we can set breakpoints and continue as usual.
+
+For example, in GDB:
+
+....
+continue
+....
+
+Then in QEMU:
 
 ....
 /count.sh &
 /kgdb.sh
 ....
 
-In GDB:
+link:rootfs_overlay:kgdb.sh[] pauses the kernel for KGDB, and gives control back to GDB.
+
+And now in GDB we do the usual:
 
 ....
-b __x64_sys_write
-c
-c
-c
-c
+break __x64_sys_write
+continue
+continue
+continue
+continue
 ....
 
 And now you can count from GDB!
@@ -1873,9 +1907,11 @@ See also:
 
 === KGDB ARM
 
-GDB not connecting to KGDB in ARM. Possibly linked to `-serial stdio`. See also: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
+GDB not connecting to KGDB in `arm` and `aarch64`.
 
-Main shell just falls on:
+Main question: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
+
+The main console just hangs on:
 
 ....
 Entering kdb (current=0xf8ce07d3, pid 1) due to Keyboard Entry
@@ -1892,6 +1928,8 @@ warning: unrecognized item "timeout" in "qSupported" response
 Ignoring packet error, continuing...
 Remote replied unexpectedly to 'vMustReplyEmpty': timeout
 ....
+
+I wanted to try to and run run KGDB on a second serial to see if it makes a difference, but QEMU `-M virt` does not seem to support it: https://stackoverflow.com/questions/53080745/can-qemu-m-virt-on-arm-aarch64-have-multiple-serial-ttys-like-such-as-pl011-t
 
 === KGDB kernel modules
 

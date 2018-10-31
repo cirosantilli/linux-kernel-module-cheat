@@ -81,11 +81,22 @@ def main(args, extra_args=None):
         kernel_cli += ' {}=/eval_base64.sh'.format(initarg)
         kernel_cli_after_dash += ' lkmc_eval="{}"'.format(common.base64_encode(args.eval))
     if not args.graphic:
-        if args.arch == 'x86_64':
-            kernel_cli += ' console=ttyS0'
-        else:
-            kernel_cli += ' console=ttyAMA0'
         extra_qemu_args.append('-nographic')
+    console = None
+    console_type = None
+    console_count = 0
+    if args.arch == 'x86_64':
+        console_type = 'ttyS'
+    elif common.is_arm:
+        console_type = 'ttyAMA'
+    console = '{}{}'.format(console_type, console_count)
+    if not (args.arch == 'x86_64' and args.graphic):
+        console_count += 1
+        kernel_cli += ' console={}'.format(console)
+    extra_console = '{}{}'.format(console_type, console_count)
+    console_count += 1
+    if args.kgdb:
+        kernel_cli += ' kgdboc={},115200'.format(console)
     if kernel_cli_after_dash:
         kernel_cli += " -{}".format(kernel_cli_after_dash)
     extra_env = {}
@@ -161,12 +172,12 @@ def main(args, extra_args=None):
                 if args.arch == 'x86_64':
                     if args.kvm:
                         cmd.extend(['--cpu-type', 'X86KvmCPU'])
-                    cmd.extend(['--command-line', 'earlyprintk=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)])
-                elif args.arch == 'arm' or args.arch == 'aarch64':
+                    cmd.extend(['--command-line', 'earlyprintk={} lpj=7999923 root=/dev/sda {}'.format(console, kernel_cli)])
+                elif common.is_arm:
                     # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                     # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                     cmd.extend([
-                        '--command-line', 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
+                        '--command-line', 'earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli),
                         '--dtb-filename', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)),
                         '--machine-type', common.machine,
                         '--param', 'system.panic_on_panic = True',
@@ -295,17 +306,13 @@ def main(args, extra_args=None):
             else:
                 virtio_gpu_pci = ['-device', 'virtio-gpu-pci']
             if args.arch == 'x86_64':
-                if args.kgdb:
-                    kernel_cli += ' kgdboc=ttyS1,115200'
                 append = ['-append', '{} nopat {}'.format(root, kernel_cli)]
                 cmd.extend([
                     '-M', common.machine,
                     '-device', 'edu',
                 ])
-            elif args.arch == 'arm' or args.arch == 'aarch64':
+            elif common.is_arm:
                 extra_emulator_args.append('-semihosting')
-                if args.kgdb:
-                    kernel_cli += ' kgdboc=ttyAMA0,115200'
                 if args.arch == 'arm':
                     cpu = 'cortex-a15'
                 else:
