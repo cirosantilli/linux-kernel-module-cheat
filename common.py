@@ -823,6 +823,7 @@ def setup(parser):
         this_module.qemu_hostfwd_generic_port = this_module.qemu_base_port + 1
         this_module.qemu_hostfwd_ssh_port = this_module.qemu_base_port + 2
         this_module.qemu_gdb_port = this_module.qemu_base_port + 3
+        this_module.extra_serial_port = this_module.qemu_base_port + 4
         this_module.gdb_port = this_module.qemu_gdb_port
 
     # Baremetal.

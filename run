@@ -83,6 +83,8 @@ def main(args, extra_args=None):
     if not args.graphic:
         if args.arch == 'x86_64':
             kernel_cli += ' console=ttyS0'
+        else:
+            kernel_cli += ' console=ttyAMA0'
         extra_qemu_args.append('-nographic')
     if kernel_cli_after_dash:
         kernel_cli += " -{}".format(kernel_cli_after_dash)
@@ -159,7 +161,7 @@ def main(args, extra_args=None):
                 if args.arch == 'x86_64':
                     if args.kvm:
                         cmd.extend(['--cpu-type', 'X86KvmCPU'])
-                    cmd.extend(['--command-line', 'earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)])
+                    cmd.extend(['--command-line', 'earlyprintk=ttyS0 lpj=7999923 root=/dev/sda {}'.format(kernel_cli)])
                 elif args.arch == 'arm' or args.arch == 'aarch64':
                     # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                     # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
@@ -232,8 +234,7 @@ def main(args, extra_args=None):
                 serial_monitor = ['-serial', 'mon:stdio']
             if args.kvm:
                 extra_emulator_args.append('-enable-kvm')
-            if args.kgdb:
-                extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.gdb_port)])
+            extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.extra_serial_port)])
             cmd.extend(
                 [
                     qemu_executable,
@@ -295,7 +296,7 @@ def main(args, extra_args=None):
                 virtio_gpu_pci = ['-device', 'virtio-gpu-pci']
             if args.arch == 'x86_64':
                 if args.kgdb:
-                    kernel_cli += ' kgdboc=ttyS0,115200'
+                    kernel_cli += ' kgdboc=ttyS1,115200'
                 append = ['-append', '{} nopat {}'.format(root, kernel_cli)]
                 cmd.extend([
                     '-M', common.machine,

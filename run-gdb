@@ -60,7 +60,11 @@ def main(args, extra_args=None):
     if args.sim:
         target = 'sim'
     else:
-        target = 'remote localhost:{}'.format(common.gdb_port)
+        if args.kgdb:
+            port = common.extra_serial_port
+        else:
+            port = common.gdb_port
+        target = 'remote localhost:{}'.format(port)
     cmd.extend([
         '-ex', 'file {}'.format(image),
         '-ex', 'target {}'.format(target),
@@ -91,7 +95,14 @@ def main(args, extra_args=None):
         if not args.no_lxsymbols and linux_full_system:
             cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir)])
     cmd.extend(after)
-    return common.run_cmd(cmd, cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'), cwd=common.linux_build_dir)
+    # I would rather have cwd be out_rootfs_overlay_dir,
+    # but then lx-symbols cannot fine the vmlinux and fails with:
+    # vmlinux: No such file or directory.
+    return common.run_cmd(
+        cmd,
+        cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'),
+        cwd=common.linux_build_dir
+    )
 
 if __name__ == '__main__':
     parser = common.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})
