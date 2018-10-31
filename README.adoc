@@ -1995,7 +1995,7 @@ And you are back in KDB. Now you can:
 
 And you will break whenever `__x64_sys_write` is hit.
 
-TODO: `bp __x64_sys_write` is failing with `illegal numeric value` as of 10dd9178c6dccf1964002cc9368a5aa83b345487. I think it worked before.
+TODO: `bp __x64_sys_write` is failing with `illegal numeric value` as of 10dd9178c6dccf1964002cc9368a5aa83b345487. I think it worked before, so needs bisection.
 
 The other KDB commands allow you to instruction steps, view memory, registers and some higher level kernel runtime data.
 
@@ -7703,7 +7703,9 @@ QEMU user mode completely bypasses the kernel that we've built: all it takes is 
 
 This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `--baremetal`>>.
 
-QEMU user mode also supports dynamically linked executables.
+`./build-userland` is further documented at: <<userland-directory>>.
+
+As we've just seen, QEMU user mode supports dynamically linked executables.
 
 This requires point it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
 
@@ -11034,13 +11036,6 @@ They contain data structs and magic constant for kernel to userland communicatio
 
 Userland test programs.
 
-It is possible to build and run those examples directly on your host:
-
-....
-cd userland
-make
-....
-
 For usage in the guest, build with:
 
 ....
@@ -11057,11 +11052,47 @@ In order to place them in the root filesystem image itself, you must also run:
 ./build-buildroot
 ....
 
-To force rebuild all examples, pass the `-B` option to `make`:
+It is possible to build and run those examples directly on your host:
 
 ....
-./build-buildroot --make-args=-B
+cd userland
+make
+./hello.out
+make clean
 ....
+
+or more cleanly out of tree:
+
+....
+./build-userland --host --userland-build-id host
+$(./getvar --userland-build-id host userland_build_dir)/hello.out
+....
+
+Extra make flags may be passed as:
+
+....
+./build-userland --host --userland-build-id host-static --make-args="-B CFLAGS_EXTRA=-static"
+$(./getvar --userland-build-id host-static userland_build_dir)/hello.out
+....
+
+This for example would both force a rebuild due to `-B` and link statically due to `CFLAGS_EXTRA=-static`.
+
+TODO: OpenMP does not like `-static`:
+
+....
+/usr/lib/gcc/x86_64-linux-gnu/5/libgomp.a(target.o): In function `gomp_target_init':
+(.text+0xba): warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+....
+
+See: https://stackoverflow.com/questions/23869981/linking-openmp-statically-with-gcc
+
+It is also possible to build other architectures with the host toolchain for other archs than your host arch:
+
+....
+./build-userland --arch arm --host --userland-build-id host
+....
+
+You won't be able to run those executables directly, but this is interesting if you are playing around with <<qemu-user-mode>>.
 
 ==== packages directory
 
@@ -11109,18 +11140,26 @@ These are typically patches that don't contain fundamental functionality, so we 
 
 ==== rootfs_overlay
 
-Copied into the target filesystem.
-
-We use it for:
+We use this directory for:
 
 * customized configuration files
 * userland module test scripts that don't need to be compiled.
 +
 C files for example need compilation, and must go through the regular package system, e.g. through link:kernel_modules/user[].
 
-This directory gets <<9p>> mounted on the guest at: `/mnt/9p/rootfs_overlay`
+This directory is copied into the target filesystem by link:copy-overlay[], which then it visible via <<9p>> on the guest at:
 
-Furthermore, link:copy-overlay[] copies it to our generated overlay, which appears on the guest at `/mnt/9p/out_rootfs_overlay`.
+....
+ls /mnt/9p/out_rootfs_overlay
+....
+
+Furthermore, since this directory does not require compilation, we also make it <<9p>> available to the guest directly even without `copy-overlay` at:
+
+....
+ls /mnt/9p/rootfs_overlay
+....
+
+This way you can just hack away the scripts and try them out immediately without any further operations.
 
 === Test this repo
 

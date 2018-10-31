@@ -264,7 +264,9 @@ See the documentation for other values known to work.
     )
     parser.add_argument(
         '-M', '--gem5-build-id',
-        help='gem5 build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'.format(default_build_id)
+        help='''\
+gem5 build ID. Allows you to keep multiple separate gem5 builds. Default: {}
+'''.format(default_build_id)
     )
     parser.add_argument(
         '-N', '--gem5-worktree',
@@ -298,7 +300,7 @@ Default: %(default)s
         help='''\
 Use prebuilt packaged host utilities as much as possible instead
 of the ones we built ourselves. Saves build time, but decreases
-the likelihood of compatibility.
+the likelihood of incompatibilities.
 '''
     )
     parser.add_argument(
@@ -318,7 +320,7 @@ Default: the run ID (-n) if that is an integer, otherwise 0.
         help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
     )
     parser.add_argument(
-        '--userland-build-id', default=default_build_id
+        '--userland-build-id', default=None
     )
     parser.add_argument(
         '-v', '--verbose', default=False, action='store_true',
@@ -666,6 +668,11 @@ def setup(parser):
         gem5_build_id_given = False
     else:
         gem5_build_id_given = True
+    if args.userland_build_id is None:
+        args.userland_build_id = default_build_id
+        this_module.userland_build_id_given = False
+    else:
+        this_module.userland_build_id_given = True
     if args.gem5_worktree is not None and not gem5_build_id_given:
         args.gem5_build_id = args.gem5_worktree
     this_module.machine = args.machine

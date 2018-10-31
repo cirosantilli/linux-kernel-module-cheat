@@ -20,6 +20,15 @@ allows us to build examples that rely on it.
 ''',
         )
         parser.add_argument(
+            '--host',
+            action='store_true',
+            default=False,
+            help='''\
+Build the userland programs for the host instead of guest.
+Use the host packaged cross toolchain.
+''',
+        )
+        parser.add_argument(
             '--make-args',
             default='',
         )
@@ -38,7 +47,10 @@ has the OpenBLAS libraries and headers installed.
     def do_build(self, args):
         build_dir = self.get_build_dir(args)
         os.makedirs(build_dir, exist_ok=True)
-        allowed_toolchains = ['buildroot']
+        if args.host:
+            allowed_toolchains = ['host']
+        else:
+            allowed_toolchains = ['buildroot']
         cc = common.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
         cxx = common.get_toolchain_tool('g++', allowed_toolchains=allowed_toolchains)
         common.run_cmd(
