@@ -752,10 +752,10 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 QEMU:
 
 ....
-./download-dependencies --baremetal --qemu
-./build-qemu --arch arm
-./build-crosstool-ng --arch arm
-./build-baremetal --arch arm
+./download-dependencies --baremetal --qemu && \
+./build-qemu --arch arm && \
+./build-crosstool-ng --arch arm && \
+./build-baremetal --arch arm && \
 ./run --arch arm --baremetal prompt
 ....
 
@@ -1907,9 +1907,15 @@ continue
 continue
 ....
 
+As of Linux v 4.19, the function is called `sys_write` in `arm`, and `__arm64_sys_write` in `aarch64`. One good way to find it if the name changes as it recently did is to try:
+
+....
+rbreak .*sys_write
+....
+
 And now you can count from GDB!
 
-If you do: `b __x64_sys_write` immediately after `./run-gdb --kgdb`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
+If you do: `break __x64_sys_write` immediately after `./run-gdb --kgdb`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
 
 See also:
 
@@ -1949,7 +1955,7 @@ Tested on d089c4660615abaf5ae16255fc0195cf989ce437.
 In QEMU:
 
 ....
-/kgdb-mod.sh
+insmod /timer.ko
 ....
 
 Source: link:rootfs_overlay/kgdb-mod.sh[].
@@ -1958,7 +1964,7 @@ In GDB:
 
 ....
 lx-symbols ../kernel_modules-1.0/
-break fop_write
+break lkmc_timer_callback
 continue
 continue
 continue
@@ -1972,13 +1978,9 @@ TODO: if I `-ex lx-symbols` to the `gdb` command, just like done for QEMU `-gdb`
 
 If you modify `run` to use:
 
-....
--append kgdboc=kbd
-....
+Advantage over KGDB: you can do everything in one serial. This can actually be important if you only have one serial for both shell and .
 
-instead of `kgdboc=ttyS0,115200`, you enter a different debugging mode called KDB.
-
-TODO is there any advantage of using KDB over GDB? Except for the fact that you need potentially less setup?
+Disadvantage: not as much functionality as GDB, especially when you use Python scripts.
 
 TODO: only works in <<graphics,graphic mode>>. On the serial, prompt hangs, and the characters I type don't show up at all.
 
@@ -11259,8 +11261,8 @@ Should break GDB at `start_kernel`.
 
 Then proceed to do the following tests:
 
-* `/count.sh` and `b __x64_sys_write`
-* `insmod /timer.ko` and `b lkmc_timer_callback`
+* `/count.sh` and `break __x64_sys_write`
+* `insmod /timer.ko` and `break lkmc_timer_callback`
 
 === Bisection
 

@@ -27,6 +27,7 @@ defaults = {
     'kernel_cli_after_dash': None,
     'eval_busybox': None,
     'kgdb': False,
+    'kdb': False,
     'kvm': False,
     'memory': '256M',
     'record': False,
@@ -93,8 +94,12 @@ def main(args, extra_args=None):
         kernel_cli += ' console={}'.format(console)
     extra_console = '{}{}'.format(console_type, console_count)
     console_count += 1
-    if args.kgdb:
-        kernel_cli += ' kgdbwait kgdboc={},115200'.format(console)
+    if args.kdb or args.kgdb:
+        kernel_cli += ' kgdbwait'
+        if args.kdb:
+            kernel_cli += ' kgdboc={},115200'.format(console)
+        if args.kgdb:
+            kernel_cli += ' kgdboc={},115200'.format(extra_console)
     if kernel_cli_after_dash:
         kernel_cli += " -{}".format(kernel_cli_after_dash)
     extra_env = {}
@@ -451,7 +456,10 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
         help='Use KVM. Only works if guest arch == host arch'
     )
     parser.add_argument(
-        '-k', '--kgdb', default=defaults['kgdb'], action='store_true'
+        '--kgdb', default=defaults['kgdb'], action='store_true'
+    )
+    parser.add_argument(
+        '--kdb', default=defaults['kdb'], action='store_true'
     )
     parser.add_argument(
         '-l', '--gem5-restore', type=int,
