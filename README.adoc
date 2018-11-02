@@ -295,31 +295,10 @@ This is our reference setup, and the best supported one, use it unless you have 
 
 It was historically the first one we did, and all sections have been tested with this setup unless explicitly noted.
 
-link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of Make scripts that download and compile from source compatible versions of:
+Read the following sections for further introductory material:
 
-* GCC
-* Linux kernel
-* C standard library: Buildroot supports several implementations, we use link:https://en.wikipedia.org/wiki/GNU_C_Library[glibc] by default
-* link:https://en.wikipedia.org/wiki/BusyBox[BusyBox]: provides the shell and basic command line utilities
-
-It therefore produces a pristine, blob-less, debuggable setup, where all moving parts are configured to work perfectly together.
-
-The downsides of Buildroot are:
-
-* the first build takes a while, but it is well worth it
-* the selection of software packages is relatively limited if compared to Debian, e.g. no Java or Python package in guest out of the box.
-+
-In theory, any software can be packaged, and the Buildroot side is easy.
-+
-The hard part is dealing with crappy third party build systems and huge dependency chains.
-
-link:https://en.wikipedia.org/wiki/QEMU[QEMU] is a system simulator: it simulates a CPU and devices such as interrupt handlers, timers, UART, screen, keyboard, etc.
-
-QEMU is the leading cross arch system simulator as of 2018. It is even the default Android simulator that developers get with Android Studio 3 to develop apps without real hardware.
-
-QEMU is also supported by Buildroot in-tree, see e.g.: https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_aarch64_virt_defconfig We however just build our own manually with link:build-qemu[], as it gives more flexibility, and building QEMU is very easy!
-
-All of this makes QEMU the natural choice of default system simulator.
+* <<introduction-to-qemu>>
+* <<introduction-to-buildroot>>
 
 === gem5 Buildroot setup
 
@@ -7357,7 +7336,25 @@ kill %1
 
 == QEMU
 
-Some QEMU specific features to play with and limitations to cry over.
+=== Introduction to QEMU
+
+link:https://en.wikipedia.org/wiki/QEMU[QEMU] is a system simulator: it simulates a CPU and devices such as interrupt handlers, timers, UART, screen, keyboard, etc.
+
+If you are familiar with link:https://en.wikipedia.org/wiki/VirtualBox[VirtualBox], then QEMU then basically does the same thing: it opens a "window" inside your desktop that can run an operating system inside your operating system.
+
+Also both can use very similar techniques: either link:lhttps://en.wikipedia.org/wiki/Binary_translation[binary translation] or <<KVM>>. VirtualBox' binary translator is / was based on QEMU's it seems: https://en.wikipedia.org/wiki/VirtualBox#Software-based_virtualization
+
+The huge advantage of QEMU over VirtualBox is that is supports cross arch simulation, e.g. simulate an ARM guest on an x86 host.
+
+QEMU is likely the leading cross arch system simulator as of 2018. It is even the default Android simulator that developers get with Android Studio 3 to develop apps without real hardware.
+
+Another advantage of QEMU over virtual box is that it doesn't have Oracle' hands all all over it, more like RedHat + ARM.
+
+Another advantage of QEMU is that is has no nice configuration GUI. Because who needs GUIs when you have 50 million semi-documented CLI options? Android Studio adds a custom GUI configuration tool on top of it.
+
+QEMU is also supported by Buildroot in-tree, see e.g.: https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_aarch64_virt_defconfig We however just build our own manually with link:build-qemu[], as it gives more flexibility, and building QEMU is very easy!
+
+All of this makes QEMU the natural choice of reference system simulator for this repo.
 
 === Disk persistency
 
@@ -9810,6 +9807,40 @@ https://stackoverflow.com/questions/52279971/how-to-run-the-gem5-unit-tests
 Not currently exposed here.
 
 == Buildroot
+
+=== Introduction to Buildroot
+
+link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of Make scripts that download and compile from source compatible versions of:
+
+* GCC
+* Linux kernel
+* C standard library: Buildroot supports several implementations, we use link:https://en.wikipedia.org/wiki/GNU_C_Library[glibc] by default
+* link:https://en.wikipedia.org/wiki/BusyBox[BusyBox]: provides the shell and basic command line utilities
+
+It therefore produces a pristine, blob-less, debuggable setup, where all moving parts are configured to work perfectly together.
+
+Perhaps the awesomeness of Buildroot only sinks in once you notice that all it takes is 4 commands as explained at https://stackoverflow.com/questions/47557262/how-to-download-the-torvalds-linux-kernel-master-recompile-it-and-boot-it-wi/49349237#49349237
+
+....
+git clone https://github.com/buildroot/buildroot
+cd buildroot
+git checkout 2018.02
+make qemu_aarch64_virt_defconfig
+make olddefconfig
+time make BR2_JLEVEL="$(nproc)"
+qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -smp 1 -kernel output/images/Image -append "root=/dev/vda console=ttyAMA0" -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 -drive file=output/images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0
+....
+
+This repo basically wraps around that, and tries to make everything even more awesome for kernel developers.
+
+The downsides of Buildroot are:
+
+* the first build takes a while, but it is well worth it
+* the selection of software packages is relatively limited if compared to Debian, e.g. no Java or Python package in guest out of the box.
++
+In theory, any software can be packaged, and the Buildroot side is easy.
++
+The hard part is dealing with crappy third party build systems and huge dependency chains.
 
 === Custom Buildroot configs
 
