@@ -4041,38 +4041,50 @@ although this can be useful when someone gives you a random image.
 [[kernel-configs-about]]
 ==== About our Linux kernel configs
 
-TODO: explain link:update-buildroot-kernel-config[]
+All our Linux kernel configs are stored under link:linux_config/[].
 
-TODO: mention `--dry-run`
+To find out which kernel configs are being used, simply run:
 
-TODO Beware that Buildroot can `sed` override some of the configurations we make no matter what, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on, so you might want to double check as explained at <<find-the-kernel-config>>. TODO check if there is a way to prevent that patching and maybe patch Buildroot for it, it is too fuzzy. People should be able to just build with whatever `.config` they want.
+....
+./build-linux --dry-run
+....
 
-We have managed to come up with minimalistic kernel configs that work for both QEMU and gem5 (oh, the hours of bisection).
+and look for the `merge_config.sh` call. This script from the Linux kernel tree, as the name suggests, merges multiple configuration files into one as explained at: https://unix.stackexchange.com/questions/224887/how-to-script-make-menuconfig-to-automate-linux-kernel-build-configuration/450407#450407
 
-Our configs are all based on Buildroot's configs, which were designed for QEMU, and then on top of those we also add:
+For each arch, the base of our configs are named as:
 
-* link:linux_config/min[]: minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot
-* link:linux_config/default[]: optional configs that we add by default to our kernel build because they increase visibility, and don't significantly increase build time nor add significant runtime overhead
+....
+linux_config/buildroot-<arch>
+....
 
-Changes to those files automatically trigger kernel reconfigures even without using the linux-reconfigure target, since timestamps are used to decide if changes happened or not.
+e.g.: link:linux_config/buildroot-x86_64[].
 
-Having the same config working for both QEMU and gem5 means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.
+These configs are extracted directly from a Buildroot build with link:update-buildroot-kernel-config[].
 
-To see Buildroot's base configs, have a look at `buildroot/configs/qemu_x86_64_defconfig`, which our `./build` script uses.
+Note that Buildroot can `sed` override some of the configurations, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on. For this reason, those configs are not simply copy pasted from Buildroot files, but rather from a Buildroot kernel build, and then minimized with `make savedefconfig`.
 
-That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux-4.11.config"`, which points to the base config file used.
+On top of those, we add the following by default:
 
-`arm`, on the other hand, uses `buildroot/configs/qemu_arm_vexpress_defconfig`, which contains `BR2_LINUX_KERNEL_DEFCONFIG="vexpress"`, and therefore just does a `make vexpress_defconfig`.
+* link:linux_config/min[]: minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot on all archs
++
+Having the same config working for both QEMU and gem5 (oh, the hours of bisection) means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.
++
+* link:linux_config/default[]: other optional configs that we enable by default because they increase visibility, or expose some cool feature, and don't significantly increase build time nor add significant runtime overhead
+
+===== About Buildroot's kernel configs
+
+To see Buildroot's base configs, start from link:https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_x86_64_defconfig[`buildroot/configs/qemu_x86_64_defconfig`].
+
+That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux-4.15.config"`, which points to the base config file used: link:https://github.com/buildroot/buildroot/blob/2018.05/board/qemu/x86_64/linux-4.15.config[board/qemu/x86_64/linux-4.15.config].
+
+`arm`, on the other hand, uses link:https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_arm_vexpress_defconfig[`buildroot/configs/qemu_arm_vexpress_defconfig`], which contains `BR2_LINUX_KERNEL_DEFCONFIG="vexpress"`, and therefore just does a `make vexpress_defconfig`, and gets its config from the Linux kernel tree itself.
+
+===== Notable alternate gem5 kernel configs
 
 Other configs which we had previously tested at 4e0d9af81fcce2ce4e777cb82a1990d7c2ca7c1e are:
 
-* Jason's magic `x86_64` config: http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config which is referenced at: link:http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html[]. QEMU boots with that by removing `# CONFIG_VIRTIO_PCI is not set`
 * `arm` and `aarch64` configs present in the official ARM gem5 Linux kernel fork: https://gem5.googlesource.com/arm/linux, e.g. for arm v4.9: link:https://gem5.googlesource.com/arm/linux/+/917e007a4150d26a0aa95e4f5353ba72753669c7/arch/arm/configs/gem5_defconfig[]. The patches there are just simple optimizations and instrumentation, but they are not needed to boot.
-
-On one hand, we would like to have our configs as a single git file tracked on this repo, to be able to easily refer people ot them. However, that would lose use the ability to:
-
-* reuse Buildroot's configs
-* split our configs into `min` and `default`
+* Jason's magic `x86_64` config: http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config which is referenced at: link:http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html[]. QEMU boots with that by removing `# CONFIG_VIRTIO_PCI is not set`
 
 === Kernel version
 
