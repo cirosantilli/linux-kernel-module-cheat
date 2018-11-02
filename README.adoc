@@ -175,11 +175,15 @@ Then rebuild the Linux kernel, quit QEMU and reboot the modified kernel:
 ./run
 ....
 
-and, surely enough, your message has appeared at the beginning of the boot.
+and, surely enough, your message has appeared at the beginning of the boot:
+
+....
+<6>[    0.000000] I'VE HACKED THE LINUX KERNEL!!!
+....
 
 So you are now officially a Linux kernel hacker, way to go!
 
-We could have used just link:build[] as in the <<qemu-buildroot-getting-started,initial build>> instead of link:build-linux[], but building just the required individual components is preferred during development:
+We could have used just link:build[] to rebuild the kernel as in the <<qemu-buildroot-setup-getting-started,initial build>> instead of link:build-linux[], but building just the required individual components is preferred during development:
 
 * saves a few seconds from parsing Make scripts and reading timestamps
 * makes it easier to understand what is being done in more detail
@@ -9850,7 +9854,7 @@ For example, if you decide to <<enable-buildroot-compiler-optimizations>> after 
 ....
 ./build-buildroot \
   --config 'BR2_OPTIMIZE_3=y' \
-  --config 'BR2_SAMPLE_PACKAGE=y' \
+  --config 'BR2_PACKAGE_SAMPLE_PACKAGE=y' \
   --
   sample_package-dirclean \
   sample_package-reconfigure \
@@ -9890,7 +9894,7 @@ Then, you have two choices:
 ....
 ./build-buildroot \
   --config 'BR2_OPTIMIZE_3=y' \
-  --config 'BR2_SAMPLE_PACKAGE=y' \
+  --config 'BR2_PACKAGE_SAMPLE_PACKAGE=y' \
   -- \
   sample_package-dirclean \
   sample_package-reconfigure \
@@ -9979,9 +9983,9 @@ First, see if you can't get away without actually adding a new package, for exam
 * if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:kernel_modules/user[] and you are done
 * if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-configs>>
 
-If none of those methods are flexible enough for you, you can just fork or hack up link:packages/sample_package[] the sample package to do what you want.
+If none of those methods are flexible enough for you, you can just fork or hack up link:buildroot_packages/sample_package[] the sample package to do what you want.
 
-For how to use that package, see: <<packages-directory>>.
+For how to use that package, see: <<buildroot_packages-directory>>.
 
 Then iterate trying to do what you want and reading the manual until it works: https://buildroot.org/downloads/manual/manual.html
 
@@ -11148,35 +11152,6 @@ git -C "$(./getvar buildroot_src_dir)" checkout -
 
 === Directory structure
 
-* `data`: gitignored user created data. Deleting this might lead to loss of data. Of course, if something there becomes is important enough to you, git track it.
-** `data/9p`: see <<9p>>
-** `data/gem5/<variant>`: see: <<gem5-build-variants>>
-* link:packages/lkmc[]: Buildroot package that contains our kernel modules and userland C tests
-* `out`: gitignored Build outputs. You won't lose data by deleting this folder since everything there can be re-generated, only time.
-** `out/<arch>`: arch specific outputs
-*** `out/<arch>/buildroot`: standard Buildroot output
-**** `out/<arch>/buildroot/build/linux-custom`: symlink to a variant, custom madness that we do on top of Buildroot: <<linux-kernel-build-variants>>
-**** `out/<arch>/buildroot/build/linux-custom.<variant>`: what `linux-custom` points to
-*** `out/<arch>/qemu`: QEMU runtime outputs
-*** `out/<arch>/qemu/<run-id>/run.sh`: full CLI used to run QEMU. See: <<report-upstream-bugs>>
-*** `out/<arch>/gem5/<run-id>/`: gem5 runtime outputs
-**** `out/<arch>/gem5/<run-id>/m5out`
-**** `out/<arch>/gem5/<run-id>/run.sh`: full CLI used to run gem5. See: <<report-upstream-bugs>>
-** `out/common`: cross arch outputs, for when we can gain a lot of time and space by sharing things that are common across different archs.
-*** `out/common/dl/`: Buildroot caches downloaded source there due to `BR2_DL_DIR`
-*** `out/common/gem5/`: `arm` and `aarch64` have the same build.
-**** `out/common/gem5/<gem5-variant>/`: gem5 build output. In common to share the ARM and aarch64 builds.
-***** `out/common/gem5/<gem5-variant>/build/`: main build outputs, including the `gem5.opt` executable and object files
-***** `out/common/gem5/<gem5-variant>/system/`: `M5_PATH` directory, with DTBs and bootloaders
-
-==== gem5 directory
-
-We Build the gem5 emulator through Buildroot basically just to reuse its timestamping system to avoid rebuilds.
-
-There is also the `m5` tool that we must build through Buildroot ans install on the root filesystem, but we could just make two separate builds.
-
-This directory has the following structure:
-
 ==== include directory
 
 link:include/[] contains headers that are shared across both kernel modules and userland structures.
@@ -11245,20 +11220,14 @@ It is also possible to build other architectures with the host toolchain for oth
 
 You won't be able to run those executables directly, but this is interesting if you are playing around with <<qemu-user-mode>>.
 
-==== packages directory
+==== buildroot_packages directory
 
 Every directory inside it is a Buildroot package.
 
 Those packages get automatically added to Buildroot's `BR2_EXTERNAL`, so all you need to do is to turn them on during build, e.g.:
 
 ....
-./build-buildroot --config 'BR2_SAMPLE_PACKAGE=y'
-....
-
-or force a rebuild after the first one with:
-
-....
-./build-buildroot --config 'BR2_SAMPLE_PACKAGE=y' -- sample_package-reconfigure
+./build-buildroot --config 'BR2_PACKAGE_SAMPLE_PACKAGE=y'
 ....
 
 then test it out with:
@@ -11267,9 +11236,25 @@ then test it out with:
 ./run --eval-busybox '/sample_package.out'
 ....
 
-In particular, our kernel modules are stored inside a Buildroot package: link:packages/lkmc[].
+and you should see:
 
-==== patches
+....
+hello sample_package
+....
+
+Source: link:buildroot_packages/sample_package/sample_package.c[]
+
+You can force a rebuild with:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_SAMPLE_PACKAGE=y' -- sample_package-reconfigure
+....
+
+Buildroot packages are convenient, but in general, if a package if very important to you, but not really mergeable back to Buildroot, you might want to just use a custom build script for it, and point it to the Buildroot toolchain, and then use `BR2_ROOTFS_OVERLAY`, much like we do for <<userland-directory>>.
+
+A custom build script can give you more flexibility: e.g. the package can be made work with other root filesystems more easily, have better <<9p>> support, and rebuild faster as it evades some Buildroot boilerplate.
+
+==== patches directory
 
 ===== patches/global
 
