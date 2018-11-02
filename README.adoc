@@ -1059,8 +1059,8 @@ Shell 2:
 In GDB, hit `Ctrl-C`, and note how it says:
 
 ....
-scanning for modules in /full/path/to/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules
-loading @0xffffffffc0000000: /full/path/to/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules/timer.ko
+scanning for modules in /root/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules
+loading @0xffffffffc0000000: /root/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules/timer.ko
 ....
 
 That's `lx-symbols` working! Now simply:
@@ -1839,9 +1839,9 @@ See also: https://stackoverflow.com/questions/13496389/gdb-remote-protocol-how-t
 
 KGDB is kernel dark magic that allows you to GDB the kernel on real hardware without any extra hardware support.
 
-It is useless with QEMU since we already have full system visibility with `-gdb`, but this is a good way to learn it.
+It is useless with QEMU since we already have full system visibility with `-gdb`. So the goal of this setup is just to prepare you for what to expect when you will be in the treches of real hardware.
 
-Cheaper than JTAG (free) and easier to setup (all you need is serial), but with less visibility as it depends on the kernel working, so e.g.: dies on panic, does not see boot sequence.
+KGDB is cheaper than JTAG (free) and easier to setup (all you need is serial), but with less visibility as it depends on the kernel working, so e.g.: dies on panic, does not see boot sequence.
 
 First run the kernel with:
 
@@ -1872,7 +1872,9 @@ Entering kdb (current=0x(____ptrval____), pid 1) on processor 0 due to Keyboard 
 
 KGDB expects the connection at `ttyS1`, our second serial port after `ttyS0` which contains the terminal.
 
-So now we can connect to the serial port with GDB:
+The last line is the KDB prompt, and is covered at: <<kdb>>. Typing now shows nothing because that prompt is expecting input from `ttyS1`.
+
+Instad, we connect to the serial port `ttyS1` with GDB:
 
 ....
 ./run-gdb --kgdb --no-continue
@@ -1924,31 +1926,11 @@ See also:
 
 === KGDB ARM
 
-GDB not connecting to KGDB in `arm` and `aarch64`.
+TODO: we would need a second serial for KGDB to work, but it is not currently supported on `arm` and `aarch64` with `-M virt` that we use: https://unix.stackexchange.com/questions/479085/can-qemu-m-virt-on-arm-aarch64-have-multiple-serial-ttys-like-such-as-pl011-t/479340#479340
 
-Main question: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
+One possible workaround for this would be to use <<kdb-arm>>.
 
-The main console just hangs on:
-
-....
-Entering kdb (current=0xf8ce07d3, pid 1) due to Keyboard Entry
-kdb>
-....
-
-and GDB shell gives:
-
-....
-Reading symbols from vmlinux...done.
-Remote debugging using localhost:1234
-Ignoring packet error, continuing...
-warning: unrecognized item "timeout" in "qSupported" response
-Ignoring packet error, continuing...
-Remote replied unexpectedly to 'vMustReplyEmpty': timeout
-....
-
-I wanted to try to and run run KGDB on a second serial to see if it makes a difference, but QEMU `-M virt` does not seem to support it: https://stackoverflow.com/questions/53080745/can-qemu-m-virt-on-arm-aarch64-have-multiple-serial-ttys-like-such-as-pl011-t
-
-Tested on d089c4660615abaf5ae16255fc0195cf989ce437.
+Main more generic question: https://stackoverflow.com/questions/14155577/how-to-use-kgdb-on-arm
 
 === KGDB kernel modules
 
@@ -1976,43 +1958,96 @@ TODO: if I `-ex lx-symbols` to the `gdb` command, just like done for QEMU `-gdb`
 
 === KDB
 
-If you modify `run` to use:
+KDB is a way to use KDB directly in your main console, without GDB.
 
 Advantage over KGDB: you can do everything in one serial. This can actually be important if you only have one serial for both shell and .
 
-Disadvantage: not as much functionality as GDB, especially when you use Python scripts.
+Disadvantage: not as much functionality as GDB, especially when you use Python scripts. Notably, TODO confirm you can't see the the kernel source code and line step as from GDB, since the kernel source is not available on guest (ah, if only debugging information supported full source, or if the kernel had a crazy mechanism to embed it).
 
-TODO: only works in <<graphics,graphic mode>>. On the serial, prompt hangs, and the characters I type don't show up at all.
+Run QEMU as:
 
-In QEMU:
+....
+./run --kdb
+....
+
+This passes `kgdboc=ttyS0` to the Linux CLI, therefore using our main console. Then QEMU:
 
 ....
 [0]kdb> go
 ....
 
-Boot finishes, then:
+And now the `kdb>` prompt is responsive because it is listening to the main console.
+
+After boot finishes, run the usual:
 
 ....
+/count.sh &
 /kgdb.sh
 ....
 
-Source: link:rootfs_overlay/kgdb-mod.sh[].
-
-And you are back in KDB. Now you can:
+And you are back in KDB. Now you can count with:
 
 ....
-[0]kdb> help
 [0]kdb> bp __x64_sys_write
+[0]kdb> go
+[0]kdb> go
+[0]kdb> go
 [0]kdb> go
 ....
 
 And you will break whenever `__x64_sys_write` is hit.
 
-TODO: `bp __x64_sys_write` is failing with `illegal numeric value` as of 10dd9178c6dccf1964002cc9368a5aa83b345487. I think it worked before, so needs bisection.
+You can get see further commands with:
+
+....
+[0]kdb> help
+....
 
 The other KDB commands allow you to instruction steps, view memory, registers and some higher level kernel runtime data.
 
-But TODO I don't think you can see where you are in the kernel source code and line step as from GDB, since the kernel source is not available on guest (ah, if only debugging information supported full source).
+==== KDB graphic
+
+You can also use KDB directly from the <<graphics,graphic>> window with:
+
+....
+./run --graphic --kdb
+....
+
+This setup could be used to debug the kernel on machines without serial, such as modern desktops.
+
+This works because `--graphics` This adds `kbd` (which stands for `KeyBoarD`!) to `kgdboc`.
+
+==== KDB ARM
+
+TODO neither `arm` and `aarch64` are working as of 1cd1e58b023791606498ca509256cc48e95e4f5b + 1.
+
+`arm` seems to place and hit the breakpoint correctly, but no matter how many `go` commands I do, the `count.sh` stdout simply does not show.
+
+`aarch64` seems to place the breakpoint correctly, but after the first `go` the kernel oopses with warning:
+
+....
+WARNING: CPU: 0 PID: 46 at /root/linux-kernel-module-cheat/submodules/linux/kernel/smp.c:416 smp_call_function_many+0xdc/0x358
+....
+
+and stack trace:
+
+....
+smp_call_function_many+0xdc/0x358
+kick_all_cpus_sync+0x30/0x38
+kgdb_flush_swbreak_addr+0x3c/0x48
+dbg_deactivate_sw_breakpoints+0x7c/0xb8
+kgdb_cpu_enter+0x284/0x6a8
+kgdb_handle_exception+0x138/0x240
+kgdb_brk_fn+0x2c/0x40
+brk_handler+0x7c/0xc8
+do_debug_exception+0xa4/0x1c0
+el1_dbg+0x18/0x78
+__arm64_sys_write+0x0/0x30
+el0_svc_handler+0x74/0x90
+el0_svc+0x8/0xc
+....
+
+My theory is that every serious ARM developer has either serial or JTAG, and no one ever tests this, and the kernel code is just broken.
 
 == gdbserver
 
@@ -8876,7 +8911,7 @@ Large input may also require tweaking:
 The easiest thing to do, is to link:https://superuser.com/questions/231002/how-can-i-search-within-the-output-buffer-of-a-tmux-shell/1253137#1253137[scroll up on the host shell] after the build, and look for a line of type:
 
 ....
-Running /full/path/to/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800
+Running /root/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800
 ....
 
 and then tweak the command found in `test.sh` accordingly.

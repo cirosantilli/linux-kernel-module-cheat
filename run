@@ -89,15 +89,19 @@ def main(args, extra_args=None):
     elif common.is_arm:
         console_type = 'ttyAMA'
     console = '{}{}'.format(console_type, console_count)
+    console_count += 1
     if not (args.arch == 'x86_64' and args.graphic):
-        console_count += 1
         kernel_cli += ' console={}'.format(console)
     extra_console = '{}{}'.format(console_type, console_count)
     console_count += 1
     if args.kdb or args.kgdb:
         kernel_cli += ' kgdbwait'
         if args.kdb:
-            kernel_cli += ' kgdboc={},115200'.format(console)
+            if args.graphic:
+                kdb_cmd = 'kbd,'
+            else:
+                kdb_cmd = ''
+            kernel_cli += ' kgdboc={}{},115200'.format(kdb_cmd, console)
         if args.kgdb:
             kernel_cli += ' kgdboc={},115200'.format(extra_console)
     if kernel_cli_after_dash:
@@ -249,6 +253,20 @@ def main(args, extra_args=None):
             if args.kvm:
                 extra_emulator_args.append('-enable-kvm')
             extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.extra_serial_port)])
+            virtfs_data = [
+                (common.p9_dir, 'host_data'),
+                (common.out_dir, 'host_out'),
+                (common.out_rootfs_overlay_dir, 'host_out_rootfs_overlay'),
+                (common.rootfs_overlay_dir, 'host_rootfs_overlay'),
+            ]
+            virtfs_cmd = []
+            for virtfs_dir, virtfs_tag in virtfs_data:
+                if os.path.exists(virtfs_dir):
+                    virtfs_cmd.extend([
+                        '-virtfs',
+                        'local,path={virtfs_dir},mount_tag={virtfs_tag},security_model=mapped,id={virtfs_tag}' \
+                            .format(virtfs_dir=virtfs_dir, virtfs_tag=virtfs_tag
+                    )])
             cmd.extend(
                 [
                     qemu_executable,
@@ -260,11 +278,8 @@ def main(args, extra_args=None):
                     '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(common.qemu_hostfwd_generic_port, common.qemu_hostfwd_generic_port, common.qemu_hostfwd_ssh_port),
                     '-no-reboot',
                     '-smp', str(args.cpus),
-                    '-virtfs', 'local,path={},mount_tag=host_data,security_model=mapped,id=host_data'.format(common.p9_dir),
-                    '-virtfs', 'local,path={},mount_tag=host_out,security_model=mapped,id=host_out'.format(common.out_dir),
-                    '-virtfs', 'local,path={},mount_tag=host_out_rootfs_overlay,security_model=mapped,id=host_out_rootfs_overlay'.format(common.out_rootfs_overlay_dir),
-                    '-virtfs', 'local,path={},mount_tag=host_rootfs_overlay,security_model=mapped,id=host_rootfs_overlay'.format(common.rootfs_overlay_dir),
                 ] +
+                virtfs_cmd +
                 qemu_user_and_system_options +
                 serial_monitor +
                 vnc
@@ -518,7 +533,7 @@ to the program running on the split.
 '''
     )
     parser.add_argument(
-        '--userland', default=defaults['userland'],
+        '-u', '--userland', default=defaults['userland'],
         help='''\
 Run the given userland executable in user mode instead of booting the Linux kernel
 in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
