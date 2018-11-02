@@ -13,7 +13,7 @@ import common
 defaults = {
     'cpus': 1,
     'debug_guest': False,
-    'debug_vm': False,
+    'debug_vm': None,
     'eval': None,
     'extra_emulator_args': [],
     'gem5_exe_args': '',
@@ -54,8 +54,9 @@ def main(args, extra_args=None):
     kernel_cli_after_dash = ''
     extra_emulator_args = []
     extra_qemu_args = []
-    if args.debug_vm:
-        debug_vm = ['gdb', '-q', '-ex', 'start', '--args']
+    if args.debug_vm is not None:
+        print(args.debug_vm)
+        debug_vm = ['gdb', '-q'] + shlex.split(args.debug_vm) + ['--args']
     else:
         debug_vm = []
     if args.debug_guest:
@@ -398,7 +399,7 @@ def get_argparse():
         help='Number of guest CPUs to emulate. Default: %(default)s'
     )
     parser.add_argument(
-        '-D', '--debug-vm', default=defaults['debug_vm'], action='store_true',
+        '-D', '--debug-vm', default=defaults['debug_vm'], nargs='?', action='store', const='',
         help='Run GDB on the emulator itself.'
     )
     kvm_group.add_argument(
