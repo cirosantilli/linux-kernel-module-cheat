@@ -858,10 +858,10 @@ For more information on baremetal, see the section: <<baremetal>>. The following
 
 === GDB step debug kernel boot
 
-`--debug-guest` makes QEMU wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
+`--wait-gdb` makes QEMU and gem5 wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
 
 ....
-./run --debug-guest
+./run --wait-gdb
 ....
 
 Say you want to break at `start_kernel`. So on another shell:
@@ -900,7 +900,7 @@ So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, 
 
 === GDB step debug kernel post-boot
 
-Let's observe the kernel as it reacts to some userland actions.
+Let's observe the kernel `write` system call as it reacts to some userland actions.
 
 Start QEMU with just:
 
@@ -934,7 +934,13 @@ continue
 
 And you now control the counting on the first shell from GDB!
 
-Before v4.17, the symbol name was just `sys_write`, the change happened at link:https://github.com/torvalds/linux/commit/d5a00528b58cdb2c71206e18bd021e34c4eab878[d5a00528b58cdb2c71206e18bd021e34c4eab878]. aarch64 still uses just `sys_write`.
+Before v4.17, the symbol name was just `sys_write`, the change happened at link:https://github.com/torvalds/linux/commit/d5a00528b58cdb2c71206e18bd021e34c4eab878[d5a00528b58cdb2c71206e18bd021e34c4eab878]. As of Linux v 4.19, the function is called `sys_write` in `arm`, and `__arm64_sys_write` in `aarch64`. One good way to find it if the name changes again is to try:
+
+....
+rbreak .*sys_write
+....
+
+or just have a quick look at the sources!
 
 When you hit `Ctrl-C`, if we happen to be inside kernel code at that point, which is very likely if there are no heavy background tasks waiting, and we are just waiting on a `sleep` type system call of the command prompt, we can already see the source for the random place inside the kernel where we stopped.
 
@@ -951,7 +957,7 @@ tmux
 Now that you are inside a shell inside tmux, run:
 
 ....
-./run --debug-guest --tmux
+./run --wait-gdb --tmux
 ....
 
 Gives splits the terminal into two panes:
@@ -969,7 +975,7 @@ Now you can navigate with the usual tmux shortcuts:
 To start again, switch back to the QEMU pane, kill the emulator, and re-run:
 
 ....
-./run --debug-guest --tmux
+./run --wait-gdb --tmux
 ....
 
 This automatically clears the GDB pane, and starts a new one.
@@ -977,7 +983,7 @@ This automatically clears the GDB pane, and starts a new one.
 Pass extra GDB arguments with:
 
 ....
-./run --debug-guest --tmux=start_kernel
+./run --wait-gdb --tmux=start_kernel
 ....
 
 See the tmux manual for further details:
@@ -1004,7 +1010,7 @@ To see the debugger by default instead of the terminal, run:
 
 ....
 ./tmu ./run-gdb
-./run --debug-guest --gem5
+./run --wait-gdb --gem5
 ....
 
 === GDB step debug kernel module
@@ -1209,7 +1215,7 @@ so the offset address is `0x240` and we deduce that the function will be placed 
 Now we can just do a fresh boot on shell 1:
 
 ....
-./run --eval 'insmod /fops.ko;/poweroff.out' --debug-guest
+./run --eval 'insmod /fops.ko;/poweroff.out' --wait-gdb
 ....
 
 and on shell 2:
@@ -1370,7 +1376,7 @@ less "$(./getvar --arch arm trace_txt_file)"
 and break there:
 
 ....
-./run --arch arm --debug-guest
+./run --arch arm --wait-gdb
 ./run-gdb --arch arm '*0x1000'
 ....
 
@@ -1419,18 +1425,30 @@ since GDB does not know that libc is loaded.
 
 ==== GDB step debug userland custom init
 
+This is the userland debug setup most likely to work, since at init time there is only one userland executable running.
+
+For executables from the <<userland-directory>> such as link:userland/count.c[]:
+
 * Shell 1:
 +
 ....
-./run --debug-guest --kernel-cli 'init=/sleep_forever.out'
+./run --wait-gdb --kernel-cli 'init=/count.out'
 ....
 * Shell 2:
 +
 ....
+./run-gdb-user count main
+....
++
+Alternatively, we could also pass the full path to the executable:
++
+....
 ./run-gdb-user "$(./getvar userland_build_dir)/sleep_forever.out" main
 ....
++
+Path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
 
-TODO not working as of f8c0502bb2680f2dbe7c1f3d7958f60265347005, does not break. Bisect on recent QEMU and kernel. Debug by creating an executable that prints the address of `main`.
+Then, as soon as boot ends, we are left inside a debug session that looks just like what `gdbserver` would produce.
 
 ==== GDB step debug userland BusyBox init
 
@@ -1439,12 +1457,12 @@ BusyBox custom init process:
 * Shell 1:
 +
 ....
-./run --debug-guest --kernel-cli 'init=/bin/ls'
+./run --wait-gdb --kernel-cli 'init=/bin/ls'
 ....
 * Shell 2:
 +
 ....
-./run-gdb-user busybox-1.26.2/busybox ls_main
+./run-gdb-user "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox ls_main
 ....
 
 This follows BusyBox' convention of calling the main for each executable as `<exec>_main` since the `busybox` executable has many "mains".
@@ -1454,15 +1472,15 @@ BusyBox default init process:
 * Shell 1:
 +
 ....
-./run --debug-guest
+./run --wait-gdb
 ....
 * Shell 2:
 +
 ....
-./run-gdb-user busybox-1.26.2/busybox init_main
+./run-gdb-user "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox init_main
 ....
 
-This cannot be debugged in another way without modifying the source, or `/sbin/init` exits early with:
+`init` cannot be debugged with <<gdbserver>> without modifying the source, or else `/sbin/init` exits early with:
 
 ....
 "must be run as PID 1"
@@ -1475,12 +1493,12 @@ Non-init process:
 * Shell 1:
 +
 ....
-./run --debug-guest
+./run --wait-gdb
 ....
 * Shell 2:
 +
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/myinsmod.out" main
+./run-gdb-user myinsmod main
 ....
 * Shell 1 after the boot finishes:
 +
@@ -1490,31 +1508,21 @@ Non-init process:
 
 This is the least reliable setup as there might be other processes that use the given virtual address.
 
-===== GDB step debug userland non-init without --debug-guest
+===== GDB step debug userland non-init without --wait-gdb
 
-TODO: on QEMU bfba11afddae2f7b2c1335b4e23133e9cd3c9126, it works on `x86_64` and `aarch64` but fails on arm as follows:
-
-* Shell 1:
-+
-....
-./run --arch arm
-....
-* Shell 2: wait for boot to finish, and run:
-+
-....
-./run-gdb-user --arch arm "$(./getvar userland_build_dir)/hello.out" main
-....
-* Shell 1:
-+
-....
-/hello.out
-....
-
-The problem is that the `b main` that we do inside `./run-gdb-user` says:
+TODO: without `--wait-gdb` and the `break main` that we do inside `./run-gdb-user` says:
 
 ....
 Cannot access memory at address 0x10604
 ....
+
+and then GDB never breaks. Tested at ac8663a44a450c3eadafe14031186813f90c21e4 + 1.
+
+The exact behaviour seems to depend on the architecture:
+
+* `arm`: happens always
+* `x86_64`: appears to happen only if you try to connect GDB as fast as possible, before init has been reached.
+* `aarch64`: could not observe the problem
 
 We have also double checked the address with:
 
@@ -1660,7 +1668,7 @@ We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and cor
 ....
 ./run \
   --cpus 2 \
-  --debug-guest \
+  --wait-gdb \
   --eval-busybox 'i=0; while true; do taskset -c $i,$i /sched_getaffinity.out; i=$((! $i)); done' \
 ;
 ....
@@ -1904,13 +1912,7 @@ continue
 continue
 ....
 
-As of Linux v 4.19, the function is called `sys_write` in `arm`, and `__arm64_sys_write` in `aarch64`. One good way to find it if the name changes as it recently did is to try:
-
-....
-rbreak .*sys_write
-....
-
-And now you can count from GDB!
+And now you can count from KGDB!
 
 If you do: `break __x64_sys_write` immediately after `./run-gdb --kgdb`, it fails with `KGDB: BP remove failed: <address>`. I think this is because it would break too early on the boot sequence, and KGDB is not yet ready.
 
@@ -2050,7 +2052,7 @@ First build `gdbserver` into the root filesystem:
 ./build-buildroot --config 'BR2_PACKAGE_GDB=y'
 ....
 
-Then on guest:
+Then on guest, to debug link:userland/myinsmod.c[]:
 
 ....
 /gdbserver.sh /myinsmod.out /hello.ko
@@ -2058,50 +2060,23 @@ Then on guest:
 
 Source: link:rootfs_overlay/gdbserver.sh[].
 
-Host:
+And on host:
+
+....
+./run-gdbserver myinsmod
+....
+
+or alternatively with the full path:
 
 ....
 ./run-gdbserver "$(./getvar userland_build_dir)/myinsmod.out"
 ....
 
-You can find the executable with:
-
-....
-find "$(./getvar build_dir)" -name myinsmod.out
-....
-
-TODO: automate the path finding:
-
-* using the executable from under `$(./getvar target_dir)` would be easier as the path is the same as in guest, but unfortunately those executables are stripped to make the guest smaller. `BR2_STRIP_none=y` should disable stripping, but make the image way larger.
-* `$(./getvar staging_dir)` would be even better than the target dir as Buildroot docs say that this directory contains binaries before they were stripped. However, only a few binaries are pre-installed there by default, and it seems to be a manual per package thing.
-+
-E.g. `pciutils` has for `lspci`:
-+
-....
-define PCIUTILS_INSTALL_STAGING_CMDS
-    $(TARGET_MAKE_ENV) $(MAKE1) -C $(@D) $(PCIUTILS_MAKE_OPTS) \
-        PREFIX=$(STAGING_DIR)/usr SBINDIR=$(STAGING_DIR)/usr/bin \
-        install install-lib install-pcilib
-endef
-....
-+
-and the docs describe the `*_INSTALL_STAGING` per package config, which is normally set for shared library packages.
-+
-Feature request: https://bugs.busybox.net/show_bug.cgi?id=10386
-
-An implementation overview can be found at: https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-mips-elf-with-qemu-toolchain/16214#16214
-
-=== gdbserver different archs
-
-As usual, different archs work with:
-
-....
-./run-gdbserver --arch arm "$(./getvar userland_build_dir)/myinsmod.out"
-....
+https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-arm-mips-elf-with-qemu-toolchain/16214#16214
 
 === gdbserver BusyBox
 
-BusyBox executables are all symlinks, so if you do on guest:
+Analogous to <<gdb-step-debug-userland-processes>>:
 
 ....
 /gdbserver.sh ls
@@ -2110,25 +2085,41 @@ BusyBox executables are all symlinks, so if you do on guest:
 on host you need:
 
 ....
-./run-gdbserver busybox-1.26.2/busybox
+./run-gdbserver "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox ls_main
 ....
 
-=== gdbserver shared libraries
+=== gdbserver libc
 
-Our setup gives you the rare opportunity to step debug libc and other system libraries e.g. with:
+Our setup gives you the rare opportunity to step debug libc and other system libraries.
 
-....
-b open
-c
-....
-
-Or simply by stepping into calls:
+For example in the guest:
 
 ....
-s
+/gdbserver.sh /count.out
 ....
 
-This is made possible by the GDB command:
+Then on host:
+
+....
+./run-gdbserver count
+....
+
+and inside GDB:
+
+....
+break sleep
+continue
+....
+
+And you are now left inside the `sleep` function of our default libc implementation uclibc link:https://cgit.uclibc-ng.org/cgi/cgit/uclibc-ng.git/tree/libc/unistd/sleep.c?h=v1.0.30#n91[`libc/unistd/sleep.c`]!
+
+You can also step into the `sleep` call:
+
+....
+step
+....
+
+This is made possible by the GDB command that we use by default:
 
 ....
 set sysroot ${common_buildroot_build_dir}/staging
@@ -2158,7 +2149,7 @@ To use `arm` instead of x86 for example:
 Debug:
 
 ....
-./run --arch arm --debug-guest
+./run --arch arm --wait-gdb
 # On another terminal.
 ./run-gdb --arch arm
 ....
@@ -2916,7 +2907,7 @@ First let's run a dynamically linked executable built with the Buildroot toolcha
 ;
 ....
 
-This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `--baremetal`>>.
+This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
 
 `./build-userland` is further documented at: <<userland-directory>>.
 
@@ -2968,7 +2959,7 @@ It's nice when <<gdb,the obvious>> just works, right?
 ....
 ./run \
   --arch arm \
-  --debug-guest \
+  --wait-gdb \
   --userland print_argv \
   -- \
   asdf qwer \
@@ -3032,7 +3023,7 @@ Step debug also works:
 ....
 ./run \
   --arch arm \
-  --debug-guest \
+  --wait-gdb \
   --gem5 \
   --userland print_argv \
   --userland-build-id static \
@@ -3058,7 +3049,7 @@ gem5 user mode:
 ./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y' --arch arm
 make \
   -B \
-  -C "$(./getvar --arch arm build_dir)/dhrystone-2" \
+  -C "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2" \
   CC="$(./run-toolchain --arch arm --dry gcc)" \
   CFLAGS=-static \
 ;
@@ -3067,7 +3058,7 @@ time \
   --arch arm \
   --gem5 \
   --userland \
-  "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" \
+  "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
   -- \
   --options 100000 \
 ;
@@ -3088,7 +3079,7 @@ time \
 QEMU user mode:
 
 ....
-time qemu-arm "$(./getvar --arch arm build_dir)/dhrystone-2/dhrystone" 100000000
+time qemu-arm "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" 100000000
 ....
 
 QEMU full system:
@@ -3661,7 +3652,7 @@ To x11 packages have an `xserver` prefix as in:
 ./build-buildroot --config-fragment buildroot_config/x11 -- xserver_xorg-server-reconfigure
 ....
 
-the easiest way to find them out is to just list `"$(./getvar build_dir)/x*`.
+the easiest way to find them out is to just list `"$(./getvar buildroot_build_build_dir)/x*`.
 
 TODO as of: c2696c978d6ca88e8b8599c92b1beeda80eb62b2 I noticed that `startx` leads to a <<bug_on>>:
 
@@ -4410,7 +4401,7 @@ and it shows as enabled:
 
 ....
 # grep myprintk /sys/kernel/debug/dynamic_debug/control
-/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./myprintk.c:12 [myprintk]myinit =p "pr_debug\012"
+/root/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules/panic.c:12 [myprintk]myinit =p "pr_debug\012"
 ....
 
 Enable `pr_debug` for boot messages as well, before we can reach userland and write to `/proc`:
@@ -4681,7 +4672,7 @@ contains:
 and:
 
 ....
-./run-toolchain readelf -- -x .modinfo "$(./getvar build_dir)/module_info.ko"
+./run-toolchain readelf -- -x .modinfo "$(./getvar buildroot_build_build_dir)/module_info.ko"
 ....
 
 gives:
@@ -4890,7 +4881,7 @@ info line *(myinit+0x1d)
 which gives us the correct line:
 
 ....
-Line 7 of "/linux-kernel-module-cheat/out/x86_64/buildroot/build/kernel_modules-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
+Line 7 of "/root/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules/panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
 ....
 
 as explained at: https://stackoverflow.com/questions/8545931/using-gdb-to-convert-addresses-to-lines/27576029#27576029
@@ -4992,7 +4983,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-busybox 'insmod /dump_stack.ko' --debug-guest --tmux=dump_stack
+./run --eval-busybox 'insmod /dump_stack.ko' --wait-gdb --tmux=dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -5094,7 +5085,7 @@ info line *(myinit+0x18)
 which gives us the correct line:
 
 ....
-Line 7 of "/linux-kernel-module-cheat/out/arm/buildroot/build/kernel_modules-1.0/./panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
+Line 7 of "/root/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modules/panic.c" starts at address 0xbf00001c <myinit+28> and ends at 0xbf00002c <myexit>.
 ....
 
 This-did not work on `arm` due to <<gdb-step-debug-kernel-module-arm>> so we need to either:
@@ -6848,7 +6839,7 @@ cad
 To map between `man 2 reboot` and the uclibc `RB_*` magic constants see:
 
 ....
-less "$(./getvar build_dir)"/uclibc-*/include/sys/reboot.h"
+less "$(./getvar buildroot_build_build_dir)"/uclibc-*/include/sys/reboot.h"
 ....
 
 The procfs mechanism is documented at:
@@ -8315,7 +8306,7 @@ QEMU replays support checkpointing, and this allows for a simplistic "reverse de
 
 ....
 ./run --eval-busybox '/rand_check.out;/poweroff.out;' --record
-./run --eval-busybox '/rand_check.out;/poweroff.out;' --replay --debug-guest
+./run --eval-busybox '/rand_check.out;/poweroff.out;' --replay --wait-gdb
 ....
 
 On another shell:
@@ -8841,7 +8832,7 @@ The test performs a general matrix multiplication:
 This can be deduced from the Fortran interfaces at
 
 ....
-less "$(./getvar build_dir)"/openblas-*/reference/dgemmf.f
+less "$(./getvar buildroot_build_build_dir)"/openblas-*/reference/dgemmf.f
 ....
 
 which we can map to our call as:
@@ -9074,7 +9065,7 @@ Kernel command line:
 Analogous <<gdb,to QEMU>>, on the first shell:
 
 ....
-./run --arch arm --debug-guest --gem5
+./run --arch arm --wait-gdb --gem5
 ....
 
 On the second shell:
@@ -9753,7 +9744,7 @@ We use the `m5term` in-tree executable to connect to the terminal instead of a d
 
 If you use `telnet` directly, it mostly works, but certain interactive features don't, e.g.:
 
-* up and down arrows for history havigation
+* up and down arrows for history navigation
 * tab to complete paths
 * `Ctrl-C` to kill processes
 
@@ -9763,7 +9754,7 @@ TODO understand in detail what `m5term` does differently than `telnet`.
 
 We have made a crazy setup that allows you to just `cd` into `submodules/gem5`, and edit Python scripts directly there.
 
-This is not normally possible with Buildroot, since normal Buildroot packages first copy files to the output directory (`$(./getvar -a <arch> build_dir)/<pkg>`), and then build there.
+This is not normally possible with Buildroot, since normal Buildroot packages first copy files to the output directory (`$(./getvar -a <arch> buildroot_build_build_dir)/<pkg>`), and then build there.
 
 So if you modified the Python scripts with this setup, you would still need to `./build` to copy the modified files over.
 
@@ -10131,7 +10122,7 @@ GDB step debug works on baremetal exactly as it does on the Linux kernel, except
 For example, on the first shell:
 
 ....
-./run --arch arm --baremetal prompt --debug-guest
+./run --arch arm --baremetal prompt --wait-gdb
 ....
 
 then on the second shell:
@@ -10149,7 +10140,7 @@ The bootloader is used to put the hardware in its main operating mode before we 
 You can also find executables that don't use the bootloader at all under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
 ....
-./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --debug-guest
+./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb
 ....
 
 Alternatively, skip directly to the C program main function with:
@@ -10161,7 +10152,7 @@ Alternatively, skip directly to the C program main function with:
 and then proceed as usual:
 
 ....
-./run --arch arm --baremetal prompt --debug-guest --gem5
+./run --arch arm --baremetal prompt --wait-gdb --gem5
 ....
 
 and on another shell:
@@ -10592,7 +10583,7 @@ Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 wi
 Buildroot automatically stores build timestamps as milliseconds since Epoch. Convert to minutes:
 
 ....
-awk -F: 'NR==1{start=$1}; END{print ($1 - start)/(60000.0)}' "$(./getvar build_dir)/build-time.log"
+awk -F: 'NR==1{start=$1}; END{print ($1 - start)/(60000.0)}' "$(./getvar buildroot_build_build_dir)/build-time.log"
 ....
 
 Or to conveniently do a clean build without affecting your current one:
@@ -10837,7 +10828,7 @@ e.g.:
 Verify with:
 
 ....
-ls "$(./getvar build_dir)"
+ls "$(./getvar buildroot_build_build_dir)"
 ....
 
 === ccache
@@ -11352,7 +11343,7 @@ Source: link:rootfs_overlay/test_all.sh[].
 Shell 1:
 
 ....
-./run --debug-guest
+./run --wait-gdb
 ....
 
 Shell 2:

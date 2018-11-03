@@ -12,7 +12,7 @@ import common
 
 defaults = {
     'cpus': 1,
-    'debug_guest': False,
+    'wait_gdb': False,
     'debug_vm': None,
     'eval': None,
     'extra_emulator_args': [],
@@ -59,7 +59,7 @@ def main(args, extra_args=None):
         debug_vm = ['gdb', '-q'] + shlex.split(args.debug_vm) + ['--args']
     else:
         debug_vm = []
-    if args.debug_guest:
+    if args.wait_gdb:
         extra_qemu_args.append('-S')
     if args.eval_busybox is not None:
         kernel_cli_after_dash += ' lkmc_eval_base64="{}"'.format(common.base64_encode(args.eval_busybox))
@@ -209,7 +209,7 @@ def main(args, extra_args=None):
                     '--kernel', common.image,
                     '--little-cpus', '2'
                 ])
-        if args.debug_guest:
+        if args.wait_gdb:
             # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
             cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True'])
     else:
@@ -217,7 +217,7 @@ def main(args, extra_args=None):
             '-trace', 'enable={},file={}'.format(trace_type, common.qemu_trace_file),
         ]
         if args.userland is not None:
-            if args.debug_guest:
+            if args.wait_gdb:
                 debug_args = ['-g', str(common.gdb_port)]
             else:
                 debug_args = []
@@ -354,7 +354,7 @@ def main(args, extra_args=None):
                 'sleep 2;./gem5-shell -n {} {}' \
                 .format(args.run_id, args.tmux)
             ])
-        elif args.debug_guest:
+        elif args.wait_gdb:
             # TODO find a nicer way to forward all those args automatically.
             # Part of me wants to: https://github.com/jonathanslenders/pymux
             # but it cannot be used as a library properly it seems, and it is
@@ -401,10 +401,6 @@ def get_argparse():
     parser.add_argument(
         '-D', '--debug-vm', default=defaults['debug_vm'], nargs='?', action='store', const='',
         help='Run GDB on the emulator itself.'
-    )
-    kvm_group.add_argument(
-        '-d', '--debug-guest', default=defaults['debug_guest'], action='store_true',
-        help='Wait for GDB to connect before starting execution'
     )
     parser.add_argument(
         '-E', '--eval',
@@ -550,6 +546,10 @@ Pass these Krguments to the QEMU user mode CLI before the program to execute.
 This is required with --userland since arguments that come at the end are interpreted
 as command line arguments to that executable.
 '''
+    )
+    kvm_group.add_argument(
+        '-w', '--wait-gdb', default=defaults['wait_gdb'], action='store_true',
+        help='Wait for GDB to connect before starting execution'
     )
     parser.add_argument(
         '-x', '--graphic', default=defaults['graphic'], action='store_true',

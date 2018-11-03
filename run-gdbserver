@@ -13,13 +13,16 @@ parser.add_argument(
     'executable',
     help='Path to the executable to be debugged relative to the Buildroot build directory.'
 )
+parser.add_argument(
+    'break_at', default='main', nargs='?'
+)
 args = common.setup(parser)
 sys.exit(subprocess.Popen([
   common.get_toolchain_tool('gdb'),
   '-q',
   '-ex', 'set sysroot {}'.format(common.buildroot_staging_dir),
   '-ex', 'target remote localhost:{}'.format(common.qemu_hostfwd_generic_port),
-  '-ex', 'tbreak main',
+  '-ex', 'tbreak {}'.format(args.break_at),
   '-ex', 'continue',
-  os.path.join(common.build_dir, args.executable),
+  os.path.join(common.buildroot_build_build_dir, common.resolve_userland(args.executable)),
 ]).wait())

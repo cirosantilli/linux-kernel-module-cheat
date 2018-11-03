@@ -437,7 +437,7 @@ def log_error(msg):
 
 def make_build_dirs():
     global this_module
-    os.makedirs(this_module.build_dir, exist_ok=True)
+    os.makedirs(this_module.buildroot_build_build_dir, exist_ok=True)
     os.makedirs(this_module.gem5_build_dir, exist_ok=True)
     os.makedirs(this_module.out_rootfs_overlay_dir, exist_ok=True)
 
@@ -720,13 +720,12 @@ def setup(parser):
     this_module.buildroot_build_dir = os.path.join(this_module.buildroot_out_dir, 'build', args.buildroot_build_id, args.arch)
     this_module.buildroot_download_dir = os.path.join(this_module.buildroot_out_dir, 'download')
     this_module.buildroot_config_file = os.path.join(this_module.buildroot_build_dir, '.config')
-    this_module.build_dir = os.path.join(this_module.buildroot_build_dir, 'build')
+    this_module.buildroot_build_build_dir = os.path.join(this_module.buildroot_build_dir, 'build')
     this_module.qemu_build_dir = os.path.join(this_module.out_dir, 'qemu', args.qemu_build_id)
     this_module.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
     this_module.qemu_executable = os.path.join(this_module.qemu_build_dir, '{}-softmmu'.format(args.arch), this_module.qemu_executable_basename)
     this_module.qemu_img_basename = 'qemu-img'
     this_module.qemu_img_executable = os.path.join(this_module.qemu_build_dir, this_module.qemu_img_basename)
-    this_module.qemu_guest_build_dir = os.path.join(this_module.build_dir, 'qemu-custom')
     this_module.host_dir = os.path.join(this_module.buildroot_build_dir, 'host')
     this_module.host_bin_dir = os.path.join(this_module.host_dir, 'usr', 'bin')
     this_module.buildroot_pkg_config = os.path.join(this_module.host_bin_dir, 'pkg-config')
@@ -794,7 +793,7 @@ def setup(parser):
     this_module.run_cmd_file = os.path.join(this_module.run_dir, 'run.sh')
 
     # Linux
-    this_module.linux_buildroot_build_dir = os.path.join(this_module.build_dir, 'linux-custom')
+    this_module.linux_buildroot_build_dir = os.path.join(this_module.buildroot_build_build_dir, 'linux-custom')
     this_module.linux_build_dir = os.path.join(this_module.out_dir, 'linux', args.linux_build_id, args.arch)
     this_module.vmlinux = os.path.join(this_module.linux_build_dir, "vmlinux")
     if args.arch == 'arm':

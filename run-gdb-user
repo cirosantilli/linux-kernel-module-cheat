@@ -18,18 +18,20 @@ parser.add_argument(
     help='Path to the executable to be debugged relative to the Buildroot build directory.'
 )
 parser.add_argument(
-    'break',
+    'break_at',
     default=None,
     help='Break at this point, e.g. main.',
     nargs='?'
 )
 args = common.setup(parser)
-addr = common.get_elf_entry(os.path.join(common.build_dir, args.executable))
+executable = common.resolve_userland(args.executable)
+addr = common.get_elf_entry(os.path.join(common.buildroot_build_build_dir, executable))
 extra_args = {}
-extra_args['before'] = '-ex \"add-symbol-file {} {}\"'.format(args.executable, hex(addr))
+extra_args['before'] = '-ex \"add-symbol-file {} {}\"'.format(executable, hex(addr))
 # Or else lx-symbols throws for arm:
 # gdb.MemoryError: Cannot access memory at address 0xbf0040cc
 # TODO understand better.
 # Also, lx-symbols overrides the add-symbol-file commands.
 extra_args['no_lxsymbols'] = True
+extra_args['break_at'] = args.break_at
 sys.exit(rungdb.main(args, extra_args))
