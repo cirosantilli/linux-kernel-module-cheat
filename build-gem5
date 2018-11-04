@@ -26,14 +26,14 @@ class Gem5Component(common.Component):
                 if common.gem5_src_dir == common.gem5_default_src_dir:
                     raise Exception('gem5 submodule not checked out')
                 common.run_cmd([
-                    'git',
-                    '-C', common.gem5_default_src_dir,
-                    'worktree', 'add',
-                    '-b', os.path.join('wt', args.gem5_build_id),
-                    common.gem5_src_dir
+                    'git', common.Newline,
+                    '-C', common.gem5_default_src_dir, common.Newline,
+                    'worktree', 'add', common.Newline,
+                    '-b', os.path.join('wt', args.gem5_build_id), common.Newline,
+                    common.gem5_src_dir, common.Newline,
                 ])
         if args.verbose:
-            verbose = ['--verbose']
+            verbose = ['--verbose', common.Newline]
         else:
             verbose = []
         if args.arch == 'x86_64':
@@ -53,7 +53,10 @@ class Gem5Component(common.Component):
             # dtb
             dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
             dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
-            common.run_cmd(['make', '-C', dt_src_dir])
+            common.run_cmd([
+                'make', common.Newline,
+                '-C', dt_src_dir, common.Newline,
+            ])
             common.copy_dir_if_update_non_recursive(
                 srcdir=dt_src_dir,
                 destdir=dt_build_dir,
@@ -63,25 +66,31 @@ class Gem5Component(common.Component):
             # Bootloader 32.
             bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
             # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
-            common.run_cmd(['make', '-C', bootloader32_dir])
+            common.run_cmd([
+                'make', common.Newline,
+                '-C', bootloader32_dir, common.Newline,
+            ])
             # bootloader
             common.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
 
             # Bootloader 64.
             bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
             # TODO cross_compile is ignored because the make does not use CC...
-            common.run_cmd(['make', '-C', bootloader64_dir])
+            common.run_cmd([
+                'make', common.Newline,
+                '-C', bootloader64_dir, common.Newline
+            ])
             common.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
         common.run_cmd(
             (
                 [
-                    'scons',
-                    '-j', str(args.nproc),
-                    '--ignore-style',
-                    common.gem5_executable
+                    'scons', common.Newline,
+                    '-j', str(args.nproc), common.Newline,
+                    '--ignore-style', common.Newline,
+                    common.gem5_executable, common.Newline,
                 ] +
                 verbose +
-                args.extra_scons_args
+                common.add_newlines(args.extra_scons_args)
             ),
             cwd=common.gem5_src_dir,
             extra_paths=[common.ccache_dir],

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import shlex
 import sys
 import signal
 import subprocess
@@ -33,10 +32,10 @@ def main(args, extra_args=None):
     '''
     global defaults
     args = common.resolve_args(defaults, args, extra_args)
-    after = shlex.split(args.after)
-    before = shlex.split(args.before)
+    after = common.shlex_split(args.after)
+    before = common.shlex_split(args.before)
     if args.break_at is not None:
-        break_at = ['-ex', 'break {}'.format(args.break_at)]
+        break_at = ['-ex', 'break {}'.format(args.break_at), common.Newline]
     else:
         break_at = []
     linux_full_system = (args.baremetal is None and args.userland is None)
@@ -51,12 +50,12 @@ def main(args, extra_args=None):
     else:
         allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
     cmd = (
-        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains)] +
+        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), common.Newline] +
         before +
-        ['-q']
+        ['-q', common.Newline]
     )
     if linux_full_system:
-        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir)])
+        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir), common.Newline])
     if args.sim:
         target = 'sim'
     else:
@@ -66,8 +65,8 @@ def main(args, extra_args=None):
             port = common.gdb_port
         target = 'remote localhost:{}'.format(port)
     cmd.extend([
-        '-ex', 'file {}'.format(image),
-        '-ex', 'target {}'.format(target),
+        '-ex', 'file {}'.format(image), common.Newline,
+        '-ex', 'target {}'.format(target), common.Newline,
     ])
     if not args.kgdb:
         cmd.extend(break_at)
@@ -91,9 +90,9 @@ def main(args, extra_args=None):
         #
         # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
         # which gets put on the kernel build root when python debugging scripts are enabled.
-        cmd.extend(['-ex', 'continue'])
+        cmd.extend(['-ex', 'continue', common.Newline])
         if not args.no_lxsymbols and linux_full_system:
-            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir)])
+            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir), common.Newline])
     cmd.extend(after)
     # I would rather have cwd be out_rootfs_overlay_dir,
     # but then lx-symbols cannot fine the vmlinux and fails with:

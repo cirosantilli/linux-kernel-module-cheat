@@ -59,11 +59,11 @@ usually extra Buildroot targets.
     def do_build(self, args):
         build_dir = self.get_build_dir(args)
         os.makedirs(common.out_dir, exist_ok=True)
-        extra_make_args = args.extra_make_args.copy()
+        extra_make_args = common.add_newlines(args.extra_make_args)
         if args.build_linux:
-            extra_make_args.append('linux-reconfigure')
+            extra_make_args.extend(['linux-reconfigure', common.Newline])
         if args.gem5:
-            extra_make_args.append('gem5-reconfigure')
+            extra_make_args.extend(['gem5-reconfigure', common.Newline])
         if args.arch == 'x86_64':
             defconfig = 'qemu_x86_64_defconfig'
         elif args.arch == 'arm':
@@ -78,10 +78,10 @@ usually extra Buildroot targets.
         br2_external_str = ':'.join(br2_external_dirs)
         common.run_cmd(
             [
-                'make',
-                'O={}'.format(common.buildroot_build_dir),
-                'BR2_EXTERNAL={}'.format(br2_external_str),
-                defconfig,
+                'make', common.Newline,
+                'O={}'.format(common.buildroot_build_dir), common.Newline,
+                'BR2_EXTERNAL={}'.format(br2_external_str), common.Newline,
+                defconfig, common.Newline,
             ],
             cwd=common.buildroot_src_dir,
         )
@@ -122,22 +122,22 @@ usually extra Buildroot targets.
         common.write_configs(common.buildroot_config_file, configs, config_fragments)
         common.run_cmd(
             [
-                'make',
-                'O={}'.format(common.buildroot_build_dir),
-                'olddefconfig',
+                'make', common.Newline,
+                'O={}'.format(common.buildroot_build_dir), common.Newline,
+                'olddefconfig', common.Newline,
             ],
             cwd=common.buildroot_src_dir,
         )
         common.make_build_dirs()
         if not args.no_all:
-            extra_make_args.append('all')
+            extra_make_args.extend(['all', common.Newline])
         common.run_cmd(
             [
-                'make',
-                'LKMC_GEM5_SRCDIR="{}"'.format(common.gem5_src_dir),
-                'LKMC_PARSEC_BENCHMARK_SRCDIR="{}"'.format(common.parsec_benchmark_src_dir),
-                'O={}'.format(common.buildroot_build_dir),
-                'V={}'.format(int(args.verbose)),
+                'make', common.Newline,
+                'LKMC_GEM5_SRCDIR="{}"'.format(common.gem5_src_dir), common.Newline,
+                'LKMC_PARSEC_BENCHMARK_SRCDIR="{}"'.format(common.parsec_benchmark_src_dir), common.Newline,
+                'O={}'.format(common.buildroot_build_dir), common.Newline,
+                'V={}'.format(int(args.verbose)), common.Newline,
             ] +
             extra_make_args
             ,

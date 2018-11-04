@@ -8,6 +8,7 @@ import datetime
 import distutils.file_util
 import glob
 import imp
+import itertools
 import json
 import multiprocessing
 import os
@@ -144,6 +145,13 @@ class Component:
         '''
         return {}
 
+class Newline:
+    '''
+    Singleton class. Can be used in print_cmd to print out nicer command lines
+    with -key on the same line as "-key value".
+    '''
+    pass
+
 def add_dry_run_argument(parser):
     parser.add_argument('--dry-run', default=False, action='store_true', help='''\
 Print the commands that would be run, but don't run them.
@@ -153,6 +161,12 @@ Bash equivalents even for actions taken directly in Python without shelling out.
 
 mkdir are generally omitted since those are obvious.
 ''')
+
+def add_newlines(cmd):
+    out = []
+    for arg in cmd:
+        out.extend([arg, this_module.Newline])
+    return out
 
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
@@ -456,19 +470,29 @@ def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
     Format a command given as a list of strings so that it can
     be viewed nicely and executed by bash directly and print it to stdout.
     '''
-    newline_separator = ' \\\n'
+    last_newline = ' \\\n'
+    newline_separator = last_newline + '  '
     out = []
     if extra_env is None:
         extra_env = {}
     if cwd is not None:
-        out.append('cd {} &&{}'.format(shlex.quote(cwd), newline_separator))
+        out.append('cd {} &&'.format(shlex.quote(cwd)))
     if extra_paths is not None:
-        out.append('PATH="{}:${{PATH}}"'.format(':'.join(extra_paths)) + newline_separator)
+        out.append('PATH="{}:${{PATH}}"'.format(':'.join(extra_paths)))
     for key in extra_env:
-        out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])) + newline_separator)
+        out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])))
+    cmd_quote = []
+    has_newline = False
     for arg in cmd:
-        out.append(shlex.quote(arg) + newline_separator)
-    return '  '.join(out) + ';'
+        if arg == this_module.Newline:
+            cmd_quote.append(arg)
+            has_newline = True
+        else:
+            cmd_quote.append(shlex.quote(arg))
+    if has_newline:
+        cmd_quote = [' '.join(list(y)) for x, y in itertools.groupby(cmd_quote, lambda z: z == this_module.Newline) if not x]
+    out.extend(cmd_quote)
+    return newline_separator.join(out) + last_newline + ';'
 
 def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
@@ -476,6 +500,9 @@ def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
 
     Optionally save the command to cmd_file file, and add extra_env
     environment variables to the command generated.
+
+    If cmd contains at least one common.Newline, newlines are only added on common.Newline.
+    Otherwise, newlines are added automatically after every word.
     '''
     global dry_run
     if type(cmd) is str:
@@ -513,14 +540,14 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         infile = outfile
         outfile = tmp
     this_module.run_cmd([
-        qemu_img_executable,
+        qemu_img_executable, this_module.Newline,
         # Prevent qemu-img from generating trace files like QEMU. Disgusting.
-        '-T', 'pr_manager_run,file=/dev/null',
-        'convert',
-        '-f', infmt,
-        '-O', outfmt,
-        infile,
-        outfile,
+        '-T', 'pr_manager_run,file=/dev/null', this_module.Newline,
+        'convert', this_module.Newline,
+        '-f', infmt, this_module.Newline,
+        '-O', outfmt, this_module.Newline,
+        infile, this_module.Newline,
+        outfile, this_module.Newline,
     ])
 
 def raise_no_x86(arch):
@@ -563,7 +590,7 @@ def run_cmd(
 
     Wait until the command finishes execution.
 
-    :param cmd: command to run
+    :param cmd: command to run. common.Newline entries are magic get skipped.
     :type cmd: List[str]
 
     :param cmd_file: if not None, write the command to be run to that file
@@ -625,6 +652,7 @@ def run_cmd(
     #sigpipe_old = signal.getsignal(signal.SIGPIPE)
     #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
+    cmd = [x for x in cmd if x != this_module.Newline]
     if not dry_run and not this_module.dry_run:
         # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
         with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
@@ -885,6 +913,14 @@ def setup(parser):
 
 def setup_dry_run_arguments(args):
     this_module.dry_run = args.dry_run
+
+def shlex_split(string):
+    '''
+    shlex_split, but also add Newline after every word.
+
+    Not perfect since it does not group arguments, but I don't see a solution.
+    '''
+    return this_module.add_newlines(shlex.split(string))
 
 def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
     if os.path.isabs(in_path):
