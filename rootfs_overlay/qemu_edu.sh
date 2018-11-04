@@ -10,7 +10,7 @@ lspci -k
 cat /proc/interrupts
 
 # Setup.
-insmod pci.ko
+insmod qemu_edu.ko
 /mknoddev.sh lkmc_pci
 
 # Shows that this module owns the PCI device.
@@ -49,7 +49,7 @@ sleep 1
 
 # Teardown.
 rm /dev/lkmc_pci
-rmmod pci
+rmmod qemu_edu
 
 # Interrupt counts after we generate our interrupts.
 # Compare with before.
