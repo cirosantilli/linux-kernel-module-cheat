@@ -244,6 +244,10 @@ inside baremetal/ and then try to use corresponding executable.
         help='Buildroot build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'
     )
     parser.add_argument(
+        '--buildroot-linux', default=False, action='store_true',
+        help='Boot with the Buildroot Linux kernel instead of our custom built one. Mostly for sanity checks.'
+    )
+    parser.add_argument(
         '--crosstool-ng-build-id', default=default_build_id,
         help='Crosstool-NG build ID. Allows you to keep multiple separate crosstool-NG builds. Default: %(default)s'
     )
@@ -749,6 +753,8 @@ def setup(parser):
     this_module.buildroot_download_dir = os.path.join(this_module.buildroot_out_dir, 'download')
     this_module.buildroot_config_file = os.path.join(this_module.buildroot_build_dir, '.config')
     this_module.buildroot_build_build_dir = os.path.join(this_module.buildroot_build_dir, 'build')
+    this_module.buildroot_linux_build_dir = os.path.join(this_module.buildroot_build_build_dir, 'linux-custom')
+    this_module.buildroot_vmlinux = os.path.join(this_module.buildroot_linux_build_dir, "vmlinux")
     this_module.qemu_build_dir = os.path.join(this_module.out_dir, 'qemu', args.qemu_build_id)
     this_module.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
     this_module.qemu_executable = os.path.join(this_module.qemu_build_dir, '{}-softmmu'.format(args.arch), this_module.qemu_executable_basename)
@@ -823,17 +829,24 @@ def setup(parser):
     # Linux
     this_module.linux_buildroot_build_dir = os.path.join(this_module.buildroot_build_build_dir, 'linux-custom')
     this_module.linux_build_dir = os.path.join(this_module.out_dir, 'linux', args.linux_build_id, args.arch)
-    this_module.vmlinux = os.path.join(this_module.linux_build_dir, "vmlinux")
+    this_module.lkmc_vmlinux = os.path.join(this_module.linux_build_dir, "vmlinux")
     if args.arch == 'arm':
         this_module.linux_arch = 'arm'
-        this_module.linux_image = os.path.join('arch', this_module.linux_arch, 'boot', 'zImage')
+        this_module.linux_image_prefix = os.path.join('arch', this_module.linux_arch, 'boot', 'zImage')
     elif args.arch == 'aarch64':
         this_module.linux_arch = 'arm64'
-        this_module.linux_image = os.path.join('arch', this_module.linux_arch, 'boot', 'Image')
+        this_module.linux_image_prefix = os.path.join('arch', this_module.linux_arch, 'boot', 'Image')
     elif args.arch == 'x86_64':
         this_module.linux_arch = 'x86'
-        this_module.linux_image = os.path.join('arch', this_module.linux_arch, 'boot', 'bzImage')
-    this_module.linux_image = os.path.join(this_module.linux_build_dir, linux_image)
+        this_module.linux_image_prefix = os.path.join('arch', this_module.linux_arch, 'boot', 'bzImage')
+    this_module.lkmc_linux_image = os.path.join(this_module.linux_build_dir, this_module.linux_image_prefix)
+    this_module.buildroot_linux_image = os.path.join(this_module.buildroot_linux_build_dir, linux_image_prefix)
+    if args.buildroot_linux:
+        this_module.vmlinux = this_module.buildroot_vmlinux
+        this_module.linux_image = this_module.buildroot_linux_image
+    else:
+        this_module.vmlinux = this_module.lkmc_vmlinux
+        this_module.linux_image = this_module.lkmc_linux_image
 
     # Kernel modules.
     this_module.kernel_modules_build_base_dir = os.path.join(this_module.out_dir, 'kernel_modules')

@@ -225,7 +225,7 @@ The fast is slightly risky because your kernel module might have corrupted the k
 
 Such failures are however unlikely, and you should be fine if you don't see anything weird happening.
 
-The safe way, is to fist quit QEMU, then rebuild the modules, root filesystem, and then reboot:
+The safe way, is to fist quit QEMU, then rebuild the modules, put them in the root filesystem, and then reboot:
 
 ....
 ./build-modules
@@ -3109,28 +3109,6 @@ link:https://git.busybox.net/busybox/tree/modutils/insmod.c?h=1_29_3[Provided by
 ./run --eval-busybox 'insmod /hello.ko'
 ....
 
-=== modprobe
-
-If you are feeling fancy, you can also insert modules with:
-
-....
-modprobe hello
-....
-
-which insmods link:kernel_modules/hello.c[].
-
-`modprobe` searches for modules under:
-
-....
-ls /lib/modules/*/extra/
-....
-
-Kernel modules built from the Linux mainline tree with `CONFIG_SOME_MOD=m`, are automatically available with `modprobe`, e.g.:
-
-....
-modprobe dummy-irq irq=1
-....
-
 === myinsmod
 
 If you are feeling raw, you can insert and remove modules with our own minimal module inserter and remover!
@@ -3171,11 +3149,39 @@ ____
 
 Bibliography: https://stackoverflow.com/questions/5947286/how-to-load-linux-kernel-modules-from-c-code
 
+=== modprobe
+
+Implemented as a BusyBox applet by default: https://git.busybox.net/busybox/tree/modutils/modprobe.c?h=1_29_stable
+
+`modprobe` searches for modules installed under:
+
+....
+ls /lib/modules/<kernel_version>
+....
+
+and specified in the `modules.order` file.
+
+This is the default install path for `CONFIG_SOME_MOD=m` modules built with `make modules_install` in the Linux kernel tree, with root path given by `INSTALL_MOD_PATH`, and therefore canonical in that sense.
+
+Currently, there are only two kinds of kernel modules that you can try out with `modprobe`:
+
+* modules built with Buildroot, see: <<kernel_modules-package>>
+* modules built from the kernel tree itself, see: <<dummy-irq>>
+
+We are not installing out custom `./build-modules` modules there, because:
+
+* we don't know the right way. Why is there no `install` or `install_modules` target for kernel modules?
++
+This can of course be solved by running Buildroot in verbose mode, and copying whatever it is doing.
++
+See also: https://askubuntu.com/questions/299676/how-to-install-3rd-party-module-so-that-it-is-loaded-on-boot
+* we would have to think how to not have to include the kernel modules twice in the root filesystem, but still have <<9p>> working for fast development as described at: <<your-first-kernel-module-hack>>
+
 === kmod
 
-https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
+The more "reference" kernel.org implementation of `lsmod`, `insmod`, `rmmod`, etc.: https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
 
-Multi-call executable that implements: `lsmod`, `insmod`, `rmmod`, and other tools on desktop distros such as Ubuntu 16.04, where e.g.:
+Default implementation on desktop distros such as Ubuntu 16.04, where e.g.:
 
 ....
 ls -l /bin/lsmod
@@ -3199,11 +3205,7 @@ contains:
 ii  kmod                                        22-1ubuntu5                                         amd64        tools for managing Linux kernel modules
 ....
 
-BusyBox also implements its own version of those executables. There are some differences.
-
-Buildroot also has a kmod package, but we are not using it since BusyBox' version is good enough so far.
-
-This page will only describe features that differ from kmod to the BusyBox implementation.
+BusyBox also implements its own version of those executables, see e.g. <<modprobe>>. Here we will only describe features that differ from kmod to the BusyBox implementation.
 
 ==== module-init-tools
 
@@ -4550,7 +4552,7 @@ ffffffffc0002300 B lkmc_dep     [dep]
 
 This requires `CONFIG_KALLSYMS_ALL=y`.
 
-Dependency information is stored by the kernel module build system in the `.ko` files' <<modinfo>>, e.g.:
+Dependency information is stored by the kernel module build system in the `.ko` files' <<module_info>>, e.g.:
 
 ....
 modinfo /dep2.ko
@@ -4592,16 +4594,51 @@ TODO: what for, and at which point point does Buildroot / BusyBox generate that 
 
 ===== Kernel module dependencies with modprobe
 
-Unlike `insmod`, `modprobe` deals with kernel module dependencies for us:
+Unlike `insmod`, <<modprobe>> deals with kernel module dependencies for us.
+
+First get <<kernel_modules-package>> working.
+
+Then, for example:
 
 ....
-modprobe dep2
+modprobe buildroot_dep2
 ....
+
+outputs to dmesg:
+
+....
+42
+....
+
+and then:
+
+....
+lsmod
+....
+
+outputs:
+
+....
+Module                  Size  Used by    Tainted: G
+buildroot_dep2         16384  0
+buildroot_dep          16384  1 buildroot_dep2
+....
+
+Sources:
+
+* link:buildroot_packages/kernel_modules/buildroot_dep.c[]
+* link:buildroot_packages/kernel_modules/buildroot_dep2.c[]
 
 Removal also removes required modules that have zero usage count:
 
 ....
-modprobe -r dep2
+modprobe -r buildroot_dep2
+....
+
+`modprobe` uses information from the `modules.dep` file to decide the required dependencies. That file contains:
+
+....
+extra/buildroot_dep2.ko: extra/buildroot_dep.ko
 ....
 
 Bibliography:
@@ -4609,9 +4646,7 @@ Bibliography:
 * https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe
 * https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe
 
-`modprobe` seems to use information contained in the kernel module itself for the dependencies since `modprobe dep2` still works even if we modify `modules.dep` to remove the dependency.
-
-==== modinfo
+==== MODULE_INFO
 
 Module metadata is stored on module files at compile time. Some of the fields can be retrieved through the `THIS_MODULE` `struct module`:
 
@@ -4700,7 +4735,7 @@ Bibliography:
 
 ==== vermagic
 
-Vermagic is a magic string present in the kernel and on <<modinfo>> of kernel modules. It is used to verify that the kernel module was compiled against a compatible kernel version and relevant configuration:
+Vermagic is a magic string present in the kernel and on <<module_info>> of kernel modules. It is used to verify that the kernel module was compiled against a compatible kernel version and relevant configuration:
 
 ....
 insmod /vermagic.ko
@@ -11249,6 +11284,8 @@ You won't be able to run those executables directly, but this is interesting if 
 
 ==== buildroot_packages directory
 
+Source: link:buildroot_packages/[]
+
 Every directory inside it is a Buildroot package.
 
 Those packages get automatically added to Buildroot's `BR2_EXTERNAL`, so all you need to do is to turn them on during build, e.g.:
@@ -11280,6 +11317,38 @@ You can force a rebuild with:
 Buildroot packages are convenient, but in general, if a package if very important to you, but not really mergeable back to Buildroot, you might want to just use a custom build script for it, and point it to the Buildroot toolchain, and then use `BR2_ROOTFS_OVERLAY`, much like we do for <<userland-directory>>.
 
 A custom build script can give you more flexibility: e.g. the package can be made work with other root filesystems more easily, have better <<9p>> support, and rebuild faster as it evades some Buildroot boilerplate.
+
+===== kernel_modules package
+
+Source: link:buildroot_packages/kernel_modules/[]
+
+An example of how to kernel modules in Buildroot.
+
+Procedure described in detail at: https://stackoverflow.com/questions/40307328/how-to-add-a-linux-kernel-driver-module-as-a-buildroot-package/43874273#43874273
+
+Usage:
+
+....
+rm -rf "$(./getvar out_rootfs_overlay_dir)/lib/modules"
+./build-buildroot \
+  --build-linux \
+  --config 'BR2_PACKAGE_KERNEL_MODULES=y' \
+  -- \
+  kernel_modules-reconfigure \
+;
+....
+
+Then test one of the modules with:
+
+....
+./run --buildroot-linux --eval-busybox 'modprobe buildroot_hello'
+....
+
+Source: link:buildroot_packages/kernel_modules/buildroot_hello.c[]
+
+The `rm -rf` is required otherwise our `modules.order` generated by `./build-linux` and installed with `BR2_ROOTFS_OVERLAY` overwrites the Buildroot generated one.
+
+`./build-buildroot --build-linux` and `./run --buildroot-linux` are needed because the Buildroot kernel modules must use the Buildroot Linux kernel at build and run time.
 
 ==== patches directory
 
