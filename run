@@ -10,6 +10,7 @@ import time
 import common
 
 defaults = {
+    'background': False,
     'cpus': 1,
     'wait_gdb': False,
     'debug_vm': None,
@@ -251,7 +252,10 @@ def main(args, extra_args=None):
             if args.debug_vm:
                 serial_monitor = []
             else:
-                serial_monitor = ['-serial', 'mon:stdio', common.Newline]
+                if args.background:
+                    serial_monitor = ['-serial', 'file:{}'.format(common.qemu_background_serial_file), common.Newline]
+                else:
+                    serial_monitor = ['-serial', 'mon:stdio', common.Newline]
             if args.kvm:
                 extra_emulator_args.extend(['-enable-kvm', common.Newline])
             extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(common.extra_serial_port), common.Newline])
@@ -398,6 +402,17 @@ def get_argparse():
     init_group = parser.add_mutually_exclusive_group()
     kvm_group = parser.add_mutually_exclusive_group()
     parser.add_argument(
+        '--background', default=defaults['background'], action='store_true',
+        help='''\
+Send QEMU output to a file instead of the terminal so it does not require a
+terminal attached to run on the background. Interactive input cannot be given.
+TODO: use a port instead. If only there was a way to redirect a serial to multiple
+places, both to a port and a file? We use the file currently to be able to have
+any output at all.
+https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-both-a-file-and-the-terminal-or-a-port
+'''
+    )
+    parser.add_argument(
         '-c', '--cpus', default=defaults['cpus'], type=int,
         help='Number of guest CPUs to emulate. Default: %(default)s'
     )
@@ -513,7 +528,8 @@ rare and don't affect performance, because `./configure
     )
     init_group.add_argument(
         '--terminal', default=defaults['terminal'], action='store_true',
-        help='''Output to the terminal, don't pipe to tee as the default.
+        help='''\
+Output to the terminal, don't pipe to tee as the default.
 Does not save the output to a file, but allows you to use debuggers.
 Set automatically by --debug-vm, but you still need this option to debug
 gem5 Python scripts.

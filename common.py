@@ -875,6 +875,7 @@ def setup(parser):
         this_module.qemu_gdb_port = this_module.qemu_base_port + 3
         this_module.extra_serial_port = this_module.qemu_base_port + 4
         this_module.gdb_port = this_module.qemu_gdb_port
+        this_module.qemu_background_serial_file = os.path.join(this_module.qemu_run_dir, 'background.log')
 
     # Baremetal.
     this_module.baremetal = args.baremetal
