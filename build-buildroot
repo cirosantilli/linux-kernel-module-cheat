@@ -49,6 +49,15 @@ That target builds the root filesystem and all its dependencies.
 '''
         )
         parser.add_argument(
+            '--no-overlay', default=self._defaults['no_all'], action='store_true',
+            help='''\
+Don't add our overlay which contains all files we build without going through Buildroot.
+This prevents us from overwriting certain Buildroot files. Remember however that you must
+still rebuild the Buildroot package that provides those files to actually put the Buildroot
+files on the root filesystem.
+'''
+        )
+        parser.add_argument(
             'extra_make_args', default=self._defaults['extra_make_args'], metavar='extra-make-args', nargs='*',
             help='''\
 Extra arguments to be passed to the Buildroot make,
@@ -106,9 +115,6 @@ usually extra Buildroot targets.
                 'BR2_PACKAGE_OVERRIDE_FILE="{}"'.format(
                     self._path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))
                 ),
-                'BR2_ROOTFS_OVERLAY="{}"'.format(
-                    self._path_relative_to_buildroot(common.out_rootfs_overlay_dir),
-                ),
                 'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
                     self._path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs-post-build-script'))
                 ),
@@ -116,6 +122,10 @@ usually extra Buildroot targets.
                     self._path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))
                 ),
             ])
+            if not args.no_overlay:
+                configs.append('BR2_ROOTFS_OVERLAY="{}"'.format(
+                    self._path_relative_to_buildroot(common.out_rootfs_overlay_dir)
+                ))
             config_fragments = [
                 os.path.join(common.root_dir, 'buildroot_config', 'default')
             ] + args.config_fragment
