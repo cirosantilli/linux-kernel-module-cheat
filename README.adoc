@@ -10721,22 +10721,28 @@ tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt
 
 This is the critical development parameter, and is dominated by the link time of huge binaries.
 
-In order to benchmark it better, do a run with:
+In order to benchmark it better, make a comment only change to:
 
 ....
-./build-gem5 -v
+vim submodules/gem5/src/sim/main.cc
+....
+
+then rebuild with:
+
+....
+./build-gem5 --arch aarch64 --verbose
 ....
 
 and then copy the link command to a separate Bash file. Then you can time and modify it easily.
 
-Some approximate refrence values on P51:
+Some approximate refrence values on <<p51>>:
 
 * `opt`
-** unmodified: 15 seconds
-** hack with `-fwith-ld=gold`: 7.5 seconds. Huge improvement!
+** unmodified: 10 seconds
+** hack with `-fuse-ld=gold`: 6 seconds. Huge improvement!
 * `debug`
-** unmodified: 30 seconds. Why two times slower than unmodified?
-** hack with `-fwith-ld=gold`: `internal error in read_cie, at ../../gold/ehframe.cc:919` on Ubuntu 18.04 all GCC. TODO report.
+** unmodified: 14 seconds. Why two times slower than unmodified?
+** hack with `-fuse-ld=gold`: `internal error in read_cie, at ../../gold/ehframe.cc:919` on Ubuntu 18.04 all GCC. TODO report.
 * `fast`
 ** `--force-lto`: 1 minute. Slower as expected, since more optimizations are done at link time. `--force-lto` is only used for `fast`, and it adds `-flto` to the build.
 
