@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <sys/stat.h>
 
 enum {
@@ -75,4 +76,9 @@ void _exit(int status) {
 		"hlt 0xf000\n"
     );
 #endif
+}
+
+void assert_fail() {
+	puts("lkmc_test_fail");
+	exit(1);
 }

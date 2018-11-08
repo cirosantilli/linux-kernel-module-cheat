@@ -739,10 +739,10 @@ QEMU:
 ./build-qemu --arch arm && \
 ./build-crosstool-ng --arch arm && \
 ./build-baremetal --arch arm && \
-./run --arch arm --baremetal prompt
+./run --arch arm --baremetal interactive/prompt
 ....
 
-You are now left inside QEMU running the tiny baremetal system link:baremetal/prompt.c[], which uses the UART to:
+You are now left inside QEMU running the tiny baremetal system link:baremetal/interactive/prompt.c[], which uses the UART to:
 
 * print characters to the terminal
 * read characters from your keyboard
@@ -798,7 +798,7 @@ patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
 ./build-gem5 --arch arm
 ./build-crosstool-ng --arch arm
 ./build-baremetal --arch arm --gem5
-./run --arch arm --baremetal prompt --gem5
+./run --arch arm --baremetal interactive/prompt --gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -814,8 +814,8 @@ The semihosting patch is required to enable <<semihosting>>, on which base funct
 Note that `./build-baremetal` requires the `--gem5` option, and generates separate executable images for both, as can be seen from:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal prompt        image)"
-echo "$(./getvar --arch aarch64 --baremetal prompt --gem5 image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt        image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
@@ -831,14 +831,14 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 
 ....
 ./build-baremetal --arch arm --gem5 --machine RealViewPBX
-./run --arch arm --baremetal prompt --gem5 --machine RealViewPBX
+./run --arch arm --baremetal interactive/prompt --gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch arm --baremetal prompt --gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch arm --baremetal prompt --gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch arm --baremetal interactive/prompt --gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch arm --baremetal interactive/prompt --gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
@@ -1877,7 +1877,7 @@ KGDB expects the connection at `ttyS1`, our second serial port after `ttyS0` whi
 
 The last line is the KDB prompt, and is covered at: <<kdb>>. Typing now shows nothing because that prompt is expecting input from `ttyS1`.
 
-Instad, we connect to the serial port `ttyS1` with GDB:
+Instead, we connect to the serial port `ttyS1` with GDB:
 
 ....
 ./run-gdb --kgdb --no-continue
@@ -10155,18 +10155,18 @@ GDB step debug works on baremetal exactly as it does on the Linux kernel, except
 For example, on the first shell:
 
 ....
-./run --arch arm --baremetal prompt --wait-gdb
+./run --arch arm --baremetal interactive/prompt --wait-gdb
 ....
 
 then on the second shell:
 
 ....
-./run-gdb --arch arm --baremetal prompt --no-continue
+./run-gdb --arch arm --baremetal interactive/prompt --no-continue
 ....
 
 and now we are left at the very first executed instruction of our tiny bootloader: link:baremetal/lib/arm.S[]
 
-Then just use `stepi` to when jumping into main to go to the C code in link:baremetal/prompt.c[].
+Then just use `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
 
 The bootloader is used to put the hardware in its main operating mode before we run our main payload on it.
 
@@ -10179,19 +10179,19 @@ You can also find executables that don't use the bootloader at all under `bareme
 Alternatively, skip directly to the C program main function with:
 
 ....
-./run-gdb --arch arm --baremetal prompt main
+./run-gdb --arch arm --baremetal interactive/prompt main
 ....
 
 and then proceed as usual:
 
 ....
-./run --arch arm --baremetal prompt --wait-gdb --gem5
+./run --arch arm --baremetal interactive/prompt --wait-gdb --gem5
 ....
 
 and on another shell:
 
 ....
-./run-gdb --arch arm --baremetal prompt --gem5 --no-continue
+./run-gdb --arch arm --baremetal interactive/prompt --gem5 --no-continue
 ....
 
 `aarch64` GDB step debug is broken as mentioned at: <<gem5-gdb-step-debug-kernel-aarch64>>.
@@ -10284,7 +10284,7 @@ For `arm`, some baremetal examples compile fine with:
 ....
 sudo apt-get install gcc-arm-none-eabi qemu-system-arm
 ./build-baremetal --arch arm --prebuilt
-./run --arch arm --baremetal prompt --prebuilt
+./run --arch arm --baremetal interactive/prompt --prebuilt
 ....
 
 However, there are as usual limitations to using prebuilts:
@@ -10313,7 +10313,7 @@ TODO: any advantage over QEMU? I doubt it, mostly using it as as toy for now:
 Without running `./run`, do directly:
 
 ....
-./run-gdb --arch arm --baremetal prompt --sim
+./run-gdb --arch arm --baremetal interactive/prompt --sim
 ....
 
 Then inside GDB:
