@@ -2,4 +2,5 @@
 mystart:
     ldr sp, =stack_top
     bl main
-    b .
+    mov r0, #0
+    bl exit

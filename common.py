@@ -72,6 +72,7 @@ kernel_module_ext = '.ko'
 obj_ext = '.o'
 config_file = os.path.join(data_dir, 'config')
 command_prefix = '+ '
+magic_fail_string = b'lkmc_test_fail'
 if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
@@ -774,6 +775,7 @@ def setup(parser):
     this_module.m5out_dir = os.path.join(this_module.gem5_run_dir, 'm5out')
     this_module.stats_file = os.path.join(this_module.m5out_dir, 'stats.txt')
     this_module.trace_txt_file = os.path.join(this_module.m5out_dir, 'trace.txt')
+    this_module.gem5_guest_terminal_file = os.path.join(this_module.m5out_dir, 'system.terminal')
     this_module.gem5_readfile = os.path.join(this_module.gem5_run_dir, 'readfile')
     this_module.gem5_termout_file = os.path.join(this_module.gem5_run_dir, 'termout.txt')
     this_module.qemu_run_dir = os.path.join(this_module.run_dir_base, 'qemu', args.arch, str(args.run_id))
@@ -782,6 +784,7 @@ def setup(parser):
     this_module.qemu_trace_txt_file = os.path.join(this_module.qemu_run_dir, 'trace.txt')
     this_module.qemu_termout_file = os.path.join(this_module.qemu_run_dir, 'termout.txt')
     this_module.qemu_rrfile = os.path.join(this_module.qemu_run_dir, 'rrfile')
+    this_module.qemu_guest_terminal_file = os.path.join(this_module.m5out_dir, qemu_termout_file)
     this_module.gem5_out_dir = os.path.join(this_module.out_dir, 'gem5')
     if args.gem5_build_dir is None:
         this_module.gem5_build_dir = os.path.join(this_module.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
@@ -817,10 +820,12 @@ def setup(parser):
         this_module.executable = this_module.gem5_executable
         this_module.run_dir = this_module.gem5_run_dir
         this_module.termout_file = this_module.gem5_termout_file
+        this_module.guest_terminal_file = gem5_guest_terminal_file
     else:
         this_module.executable = this_module.qemu_executable
         this_module.run_dir = this_module.qemu_run_dir
         this_module.termout_file = this_module.qemu_termout_file
+        this_module.guest_terminal_file = qemu_guest_terminal_file
     this_module.gem5_config_dir = os.path.join(this_module.gem5_src_dir, 'configs')
     this_module.gem5_se_file = os.path.join(this_module.gem5_config_dir, 'example', 'se.py')
     this_module.gem5_fs_file = os.path.join(this_module.gem5_config_dir, 'example', 'fs.py')

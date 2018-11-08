@@ -8,4 +8,5 @@ mystart:
     ldr x0, =stack_top
     mov sp, x0
     bl main
-    b .
+    mov x0, #0
+    bl exit
