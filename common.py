@@ -657,7 +657,7 @@ def run_cmd(
     #sigpipe_old = signal.getsignal(signal.SIGPIPE)
     #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-    cmd = [x for x in cmd if x != this_module.Newline]
+    cmd = this_module.strip_newlines(cmd)
     if not dry_run and not this_module.dry_run:
         # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
         with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
@@ -927,19 +927,12 @@ def setup(parser):
                 this_module.baremetal_build_dir,
                 this_module.baremetal_build_ext,
             )
+            this_module.source_path = glob.glob(os.path.splitext(os.path.join(
+                this_module.baremetal_src_dir,
+                os.path.relpath(path, this_module.baremetal_build_dir)
+            ))[0] + '.*')[0]
         this_module.image = path
     return args
-
-def setup_dry_run_arguments(args):
-    this_module.dry_run = args.dry_run
-
-def shlex_split(string):
-    '''
-    shlex_split, but also add Newline after every word.
-
-    Not perfect since it does not group arguments, but I don't see a solution.
-    '''
-    return this_module.add_newlines(shlex.split(string))
 
 def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
     if os.path.isabs(in_path):
@@ -966,6 +959,20 @@ def resolve_userland(path):
         this_module.userland_build_dir,
         this_module.userland_build_ext,
     )
+
+def setup_dry_run_arguments(args):
+    this_module.dry_run = args.dry_run
+
+def shlex_split(string):
+    '''
+    shlex_split, but also add Newline after every word.
+
+    Not perfect since it does not group arguments, but I don't see a solution.
+    '''
+    return this_module.add_newlines(shlex.split(string))
+
+def strip_newlines(cmd):
+    return [x for x in cmd if x != this_module.Newline]
 
 def write_configs(config_path, configs, config_fragments=None):
     """

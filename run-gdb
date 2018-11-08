@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import imp
 import os
-import sys
 import signal
 import subprocess
+import sys
 
 import common
 
@@ -14,9 +15,69 @@ defaults = {
     'kgdb': False,
     'no_continue': False,
     'no_lxsymbols': False,
+    'test': False,
     'sim': False,
     'userland': None,
 }
+
+class GdbTestcase:
+    def __init__(
+        self,
+        source_path,
+        test_script_path,
+        cmd,
+        debug=False
+    ):
+        '''
+        :param debug: if True, print extra debug information to help understand
+                    why a test is not working
+        '''
+        self.prompt = '\(gdb\) '
+        self.source_path = source_path
+        common.print_cmd(cmd)
+        cmd = common.strip_newlines(cmd)
+        import pexpect
+        self.child = pexpect.spawn(
+            cmd[0],
+            cmd[1:],
+            encoding='utf-8'
+        )
+        if debug:
+            self.child.logfile = sys.stdout
+        self.child.setecho(False)
+        self.child.expect(self.prompt)
+        test = imp.load_source('test', test_script_path)
+        test.test(self)
+        self.child.sendcontrol('d')
+        self.child.close()
+
+    def before(self):
+        return self.child.before.rstrip()
+
+    def continue_to(self, lineid):
+        line_number = self.find_line(lineid)
+        self.sendline('tbreak {}'.format(line_number))
+        self.sendline('continue')
+
+    def get_int(self, int_id):
+        self.sendline('printf "%d\\n", {}'.format(int_id))
+        return int(self.before())
+
+    def find_line(self, lineid):
+        '''
+        Search for the first line that contains a comment line
+        that ends in /* test-gdb-<lineid> */ and return the line number.
+        '''
+        lineend = '/* test-gdb-' + lineid + ' */'
+        with open(self.source_path, 'r') as f:
+            for i, line in enumerate(f):
+                if line.rstrip().endswith(lineend):
+                    return i + 1
+        return -1
+
+    def sendline(self, line):
+        self.child.sendline(line)
+        self.child.expect(self.prompt)
 
 def main(args, extra_args=None):
     '''
@@ -34,6 +95,14 @@ def main(args, extra_args=None):
     args = common.resolve_args(defaults, args, extra_args)
     after = common.shlex_split(args.after)
     before = common.shlex_split(args.before)
+    no_continue = args.no_continue
+    if args.test:
+        no_continue = True
+        before.extend([
+            '-q', common.Newline,
+            '-nh', common.Newline,
+            '-ex', 'set confirm off', common.Newline
+        ])
     if args.break_at is not None:
         break_at = ['-ex', 'break {}'.format(args.break_at), common.Newline]
     else:
@@ -43,6 +112,7 @@ def main(args, extra_args=None):
         image = common.resolve_userland(args.userland)
     elif args.baremetal:
         image = common.image
+        test_script_path = os.path.splitext(common.source_path)[0] + '.py'
     else:
         image = common.vmlinux
     if args.baremetal:
@@ -70,7 +140,7 @@ def main(args, extra_args=None):
     ])
     if not args.kgdb:
         cmd.extend(break_at)
-    if not args.no_continue:
+    if not no_continue:
         # ## lx-symbols
         #
         # ### lx-symbols after continue
@@ -94,14 +164,21 @@ def main(args, extra_args=None):
         if not args.no_lxsymbols and linux_full_system:
             cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir), common.Newline])
     cmd.extend(after)
-    # I would rather have cwd be out_rootfs_overlay_dir,
-    # but then lx-symbols cannot fine the vmlinux and fails with:
-    # vmlinux: No such file or directory.
-    return common.run_cmd(
-        cmd,
-        cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'),
-        cwd=common.linux_build_dir
-    )
+    if args.test:
+        GdbTestcase(
+            common.source_path,
+            test_script_path,
+            cmd
+        )
+    else:
+        # I would rather have cwd be out_rootfs_overlay_dir,
+        # but then lx-symbols cannot fine the vmlinux and fails with:
+        # vmlinux: No such file or directory.
+        return common.run_cmd(
+            cmd,
+            cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'),
+            cwd=common.linux_build_dir
+        )
 
 if __name__ == '__main__':
     parser = common.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})
@@ -128,6 +205,13 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-s
     )
     parser.add_argument(
         '-X', '--no-lxsymbols', default=defaults['no_lxsymbols'], action='store_true'
+    )
+    parser.add_argument(
+        '--test', default=defaults['test'], action='store_true',
+        help='''\
+Run an expect test case instead of interactive usage. For baremetal and userland,
+the script is a .py file next to the source code.
+'''
     )
     parser.add_argument(
         '--userland', default=defaults['userland'],

@@ -2,5 +2,4 @@
 
 void main(void) {
 	puts("hello");
-	return;
 }

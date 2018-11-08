@@ -61,6 +61,13 @@ int _write(int file, char *ptr, int len) {
 
 /* Only 0 is supported for now, arm semihosting cannot handle other values. */
 void _exit(int status) {
+#if defined(GEM5)
+#if defined(__arm__)
+	__asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);");
+#elif defined(__aarch64__)
+	__asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);");
+#endif
+#else
 #if defined(__arm__)
     __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456");
 #elif defined(__aarch64__)
@@ -75,6 +82,7 @@ void _exit(int status) {
 		"mov w0, #0x18\n" \
 		"hlt 0xf000\n"
     );
+#endif
 #endif
 }
 

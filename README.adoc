@@ -767,24 +767,22 @@ Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<a
 
 ....
 ./run --arch arm --baremetal exit
-./run --arch arm --baremetal arch/arm/semihost_exit
+./run --arch arm --baremetal arch/arm/add
 ....
 
 which will run respectively:
 
 * link:baremetal/exit.c[]
-* link:baremetal/arch/arm/m5exit.S[]
-
-which just make the emulator quit via <<semihosting>>.
+* link:baremetal/arch/arm/add.S[]
 
 Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`:
 
 ....
 ./run --arch arm --baremetal baremetal/exit.c
-./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.c
+./run --arch arm --baremetal baremetal/arch/arm/add.S
 ....
 
-Absolute paths however as used as is an must point to the actual executable:
+Absolute paths however are used as is and must point to the actual executable:
 
 ....
 ./run --arch arm --baremetal "$(./getvar --arch arm baremetal_build_dir)/exit.elf"
@@ -793,7 +791,6 @@ Absolute paths however as used as is an must point to the actual executable:
 To use gem5 instead of QEMU do:
 
 ....
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
 ./download-dependencies --baremetal --gem5
 ./build-gem5 --arch arm
 ./build-crosstool-ng --arch arm
@@ -808,8 +805,6 @@ and then <<qemu-buildroot-setup,as usual>> open a shell with:
 ....
 
 TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
-
-The semihosting patch is required to enable <<semihosting>>, on which base functionality such as `exit()` depends, see also: https://stackoverflow.com/questions/52475268/how-to-enable-arm-semihosting-in-gem5/52475269#52475269
 
 Note that `./build-baremetal` requires the `--gem5` option, and generates separate executable images for both, as can be seen from:
 
@@ -10200,17 +10195,15 @@ and on another shell:
 
 Semihosting is a publicly documented interface specified by ARM Holdings that allows us to do some magic operations very useful in development.
 
-Semihosting is implemented both on some real devices and on simulators such as QEMU and gem5.
+Semihosting is implemented both on some real devices and on simulators such as QEMU and <<gem5-semihosting>>.
 
 It is documented at: https://developer.arm.com/docs/100863/latest/introduction
 
-Example:
+For example, the following code makes QEMU exit:
 
 ....
 ./run --arch arm --baremetal arch/arm/semihost_exit
 ....
-
-makes both the QEMU and gem5 host executables exit.
 
 Source: link:baremetal/arch/arm/no_bootloader/semihost_exit.S[]
 
@@ -10224,11 +10217,10 @@ svc 0x00123456
 
 and we can see from the docs that `0x18` stands for the `SYS_EXIT` command.
 
-This is also how we implement the `exit(0)` system call in C for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/common.c[].
+This is also how we implement the `exit(0)` system call in C for QEMU for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/common.c[].
 
 Other magic operations we can do with semihosting besides exiting the on the host include:
 
-* exit
 * read and write to host stdin and stdout
 * read and write to host files
 
@@ -10259,6 +10251,16 @@ Bibliography:
 
 * https://stackoverflow.com/questions/31990487/how-to-cleanly-exit-qemu-after-executing-bare-metal-program-without-user-interve/40957928#40957928
 * https://balau82.wordpress.com/2010/11/04/qemu-arm-semihosting/
+
+==== gem5 semihosting
+
+For gem5, you need:
+
+....
+patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
+....
+
+https://stackoverflow.com/questions/52475268/how-to-enable-arm-semihosting-in-gem5/52475269#52475269
 
 === gem5 baremetal carriage return
 
