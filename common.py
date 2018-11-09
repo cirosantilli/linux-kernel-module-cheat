@@ -928,10 +928,15 @@ def setup(parser):
                 this_module.baremetal_build_dir,
                 this_module.baremetal_build_ext,
             )
-            this_module.source_path = glob.glob(os.path.splitext(os.path.join(
+            source_path_noext = os.path.splitext(os.path.join(
                 this_module.baremetal_src_dir,
                 os.path.relpath(path, this_module.baremetal_build_dir)
-            ))[0] + '.*')[0]
+            ))[0]
+            for ext in [c_ext, asm_ext]:
+                source_path = source_path_noext + ext
+                if os.path.exists(source_path):
+                    this_module.source_path = source_path
+                    break
         this_module.image = path
     return args
 

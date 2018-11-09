@@ -26,10 +26,10 @@ class GdbTestcase:
         source_path,
         test_script_path,
         cmd,
-        debug=False
+        verbose=False
     ):
         '''
-        :param debug: if True, print extra debug information to help understand
+        :param verbose: if True, print extra debug information to help understand
                     why a test is not working
         '''
         self.prompt = '\(gdb\) '
@@ -42,9 +42,10 @@ class GdbTestcase:
             cmd[1:],
             encoding='utf-8'
         )
-        if debug:
+        if verbose:
             self.child.logfile = sys.stdout
         self.child.setecho(False)
+        self.child.waitnoecho()
         self.child.expect(self.prompt)
         test = imp.load_source('test', test_script_path)
         test.test(self)
@@ -103,6 +104,10 @@ def main(args, extra_args=None):
             '-nh', common.Newline,
             '-ex', 'set confirm off', common.Newline
         ])
+    elif args.verbose:
+        # The output of this would affect the tests.
+        # https://stackoverflow.com/questions/13496389/gdb-remote-protocol-how-to-analyse-packets
+        before.extend(['-ex', 'set debug remote 1', common.Newline])
     if args.break_at is not None:
         break_at = ['-ex', 'break {}'.format(args.break_at), common.Newline]
     else:
@@ -168,7 +173,8 @@ def main(args, extra_args=None):
         GdbTestcase(
             common.source_path,
             test_script_path,
-            cmd
+            cmd,
+            verbose=args.verbose,
         )
     else:
         # I would rather have cwd be out_rootfs_overlay_dir,
