@@ -41,6 +41,7 @@ include_src_dir = os.path.join(this_module.root_dir, this_module.include_subdir)
 submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
+crosstool_ng_supported_archs = set(['arm', 'aarch64'])
 linux_src_dir = os.path.join(submodules_dir, 'linux')
 linux_config_dir = os.path.join(this_module.root_dir, 'linux_config')
 rootfs_overlay_dir = os.path.join(this_module.root_dir, 'rootfs_overlay')
@@ -168,6 +169,10 @@ def add_newlines(cmd):
     for arg in cmd:
         out.extend([arg, this_module.Newline])
     return out
+
+def assert_crosstool_ng_supports_arch(arch):
+    if arch not in this_module.crosstool_ng_supported_archs:
+        raise Exception('arch not yet supported: ' + arch)
 
 def base64_encode(string):
     return base64.b64encode(string.encode()).decode()
@@ -554,10 +559,6 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         infile, this_module.Newline,
         outfile, this_module.Newline,
     ])
-
-def raise_no_x86(arch):
-    if (arch == 'x86_64'):
-        raise Exception('x86_64 not yet supported')
 
 def resolve_args(defaults, args, extra_args):
     if extra_args is None:

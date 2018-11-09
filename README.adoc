@@ -736,9 +736,7 @@ QEMU:
 
 ....
 ./download-dependencies --baremetal --qemu && \
-./build-qemu --arch arm && \
-./build-crosstool-ng --arch arm && \
-./build-baremetal --arch arm && \
+./build --arch arm qemu-baremetal
 ./run --arch arm --baremetal interactive/prompt
 ....
 
@@ -761,7 +759,19 @@ got: c
 new alloc of 4 bytes at address 0x0x4000a2c8
 ....
 
-`./build-baremetal` is the command that actually builds the baremetal system for us. It uses crosstool-NG, so that command must be preceded by `./build-crosstool-ng`.
+To modify that program, edit:
+
+....
+vim baremetal/interactive/prompt.c
+....
+
+and run:
+
+....
+./build-baremetal --arch arm
+....
+
+`./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements. `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
 
 Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image. You can run a different image with commands such as:
 
@@ -791,10 +801,8 @@ Absolute paths however are used as is and must point to the actual executable:
 To use gem5 instead of QEMU do:
 
 ....
-./download-dependencies --baremetal --gem5
-./build-gem5 --arch arm
-./build-crosstool-ng --arch arm
-./build-baremetal --arch arm --gem5
+./download-dependencies --baremetal --gem5 && \
+./build gem5-baremetal
 ./run --arch arm --baremetal interactive/prompt --gem5
 ....
 
@@ -11410,7 +11418,8 @@ It takes too much time to be feasible for every patch, but it should be done for
 ==== Automated tests
 
 ....
-./build-bench-boot --size 3 && ./test --size 3
+./build-test --size 3 && \
+./test --size 3
 echo $?
 ....
 
@@ -11418,7 +11427,7 @@ should output 0.
 
 Sources:
 
-* link:build[]
+* link:build-test[]
 * link:test[]
 
 Test just the kernel modules:
@@ -11439,6 +11448,20 @@ Test that the Internet works:
 Source: link:rootfs_overlay/test_all.sh[].
 
 ===== Test GDB
+
+We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests for the baremetal programs!
+
+....
+./build-test-gdb && \
+./test-gdb
+....
+
+Sources:
+
+* link:build-test-gdb[]
+* link:test-gdb[]
+
+For the Linux kenel, do the following manual tests for now.
 
 Shell 1:
 

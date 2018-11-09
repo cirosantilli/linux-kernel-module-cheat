@@ -16,21 +16,24 @@ class Component:
     and buildroot optionally depends on qemu to build the qcow2 version
     of the image.
     '''
-    def __init__(self, build_callback=None, dependencies=None):
+    def __init__(
+        self,
+        build_callback=None,
+        dependencies=None,
+        supported_archs=None,
+    ):
         self.build_callback = build_callback
+        self.supported_archs = supported_archs
         if dependencies is None:
             self.dependencies = []
         else:
             self.dependencies = dependencies
     def build(self, arch):
-        if self.build_callback is not None:
+        if (
+            (self.build_callback is not None) and
+            (self.supported_archs is None or arch in self.supported_archs)
+        ):
             self.build_callback(arch)
-
-def build_baremetal(arch):
-    run_cmd(['build-crosstool-ng'], arch)
-    run_cmd(['build-baremetal'], arch)
-    run_cmd(['build-baremetal', '--gem5'], arch)
-    run_cmd(['build-baremetal', '--gem5', '--machine', 'RealViewPBX'], arch)
 
 def run_cmd(cmd, arch):
     global args
@@ -43,8 +46,17 @@ def run_cmd(cmd, arch):
 
 name_to_component_map = {
     # Leaves without dependencies.
-    'baremetal': Component(
-        lambda arch: build_baremetal(arch),
+    'baremetal-qemu': Component(
+        lambda arch: run_cmd(['build-baremetal'], arch),
+        supported_archs=common.crosstool_ng_supported_archs,
+    ),
+    'baremetal-gem5': Component(
+        lambda arch: run_cmd(['build-baremetal', '--gem5'], arch),
+        supported_archs=common.crosstool_ng_supported_archs,
+    ),
+    'baremetal-gem5-pbx': Component(
+        lambda arch: run_cmd(['build-baremetal', '--gem5', '--machine', 'RealViewPBX'], arch),
+        supported_archs=common.crosstool_ng_supported_archs,
     ),
     'buildroot': Component(
         lambda arch: run_cmd(['build-buildroot'], arch),
@@ -54,6 +66,10 @@ name_to_component_map = {
     ),
     'copy-overlay': Component(
         lambda arch: run_cmd(['copy-overlay'], arch),
+    ),
+    'crosstool-ng': Component(
+        lambda arch: run_cmd(['build-crosstool-ng'], arch),
+        supported_archs=common.crosstool_ng_supported_archs,
     ),
     'gem5': Component(
         lambda arch: run_cmd(['build-gem5'], arch),
@@ -84,11 +100,26 @@ name_to_component_map = {
     ),
 
     # Dependency only nodes.
+    'all': Component(dependencies=[
+        'all-linux',
+        'all-baremetal',
+    ]),
+    'all-baremetal': Component(dependencies=[
+            'qemu-baremetal',
+            'gem5-baremetal',
+            'baremetal-gem5-pbx',
+        ],
+        supported_archs=common.crosstool_ng_supported_archs,
+    ),
     'all-linux': Component(dependencies=[
         'qemu-gem5-buildroot',
         'gem5-debug',
         'gem5-fast',
         'qemu-user',
+    ]),
+    'baremetal': Component(dependencies=[
+        'baremetal-gem5',
+        'baremetal-qemu',
     ]),
     'gem5-buildroot': Component(dependencies=[
         'buildroot-gcc',
@@ -97,11 +128,21 @@ name_to_component_map = {
         'overlay',
         'gem5',
     ]),
+    'gem5-baremetal': Component(dependencies=[
+        'gem5',
+        'crosstool-ng',
+        'baremetal-gem5',
+    ]),
     'overlay': Component(dependencies=[
         'copy-overlay',
         'modules',
         'userland',
         'buildroot',
+    ]),
+    'qemu-baremetal': Component(dependencies=[
+        'qemu',
+        'crosstool-ng',
+        'baremetal-qemu',
     ]),
     'qemu-buildroot': Component(dependencies=[
         'qemu',
@@ -116,10 +157,6 @@ name_to_component_map = {
     'release': Component(dependencies=[
         'qemu-buildroot',
     ]),
-    'all': Component(dependencies=[
-        'all-linux',
-        'baremetal',
-    ])
 }
 parser = argparse.ArgumentParser(
     description= '''\
@@ -168,11 +205,11 @@ parser.add_argument('--all', default=False, action='store_true', help='''\
 Build absolutely everything for all archs.
 ''')
 group = parser.add_mutually_exclusive_group(required=False)
-group.add_argument('--all-archs', default=False, action='store_true', help='''\
+group.add_argument('-A', '--all-archs', default=False, action='store_true', help='''\
 Build the selected components for all archs.
 ''')
-group.add_argument('--arch', choices=common.arch_choices, default=[], action='append', help='''\
-Build the selected components for this arch. Select multiple arches by
+group.add_argument('-a', '--arch', choices=common.arch_choices, default=[], action='append', help='''\
+Build the selected components for this arch. Select multiple archs by
 passing this option multiple times. Default: [{}]
 '''.format(common.default_arch))
 parser.add_argument('--extra-args', default='', help='''\

@@ -99,14 +99,21 @@ g++-arm-linux-gnueabihf \
 git \
 libguestfs-tools \
 moreutils \
+python3-pip \
 rsync \
 tmux \
 unzip \
 vinagre \
 wget \
 "
+  # gem5 users Python 2.
+  pip2_pkgs="\
+"
+  pip3_pkgs="\
+pexpect==4.6.0 \
+"
   if "$gem5"; then
-    pkgs="${pkgs} \
+    pkgs="${pkgs}\
 ccache \
 diod \
 libgoogle-perftools-dev \
@@ -114,6 +121,9 @@ protobuf-compiler \
 python-dev \
 python-pip \
 scons \
+"
+    pip2_pkgs="${pip2_pkgs}\
+pydot \
 "
   fi
   if "$baremetal"; then
@@ -171,12 +181,13 @@ EOF
   if "$qemu"; then
     $mysudo apt-get build-dep $y qemu
   fi
+  # Generate graphs of config.ini under m5out.
+  # Not with pip directly:
+  # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
   if "$gem5"; then
-    # Generate graphs of config.ini under m5out.
-    # Not with pip directly:
-    # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
-    python -m pip install --user pydot
+    python -m pip install --user $pip2_pkgs
   fi
+  python3 -m pip install --user $pip3_pkgs
 fi
 
 ## Submodules
