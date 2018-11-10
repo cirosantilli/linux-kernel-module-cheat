@@ -1,24 +1,44 @@
-#!/usr/bin/env expect
-# Ee have to use expect since QEMU 2.12: just piping commands
-# into telnet stopped working at that version.
-spawn telnet localhost 45454
-set prompt "\n(qemu) "
-expect $prompt
-if {$argc > 0} {
-  send "[concat [join $argv " "]]\r"
-  expect $prompt
-} else {
-  interact
-}
+#!/usr/bin/env python3
 
-# In order to treat input from stdin, we would need to differentiate between input from pipe vs terminal.
-# For bash we can do it as:
-# https://stackoverflow.com/questions/911168/how-to-detect-if-my-shell-script-is-running-through-a-pipe
-# but no one knows for Tcl:
-# https://stackoverflow.com/questions/43660612/how-to-check-if-stdin-stdout-are-connected-to-a-terminal-in-tcl
-# One option would also be to have a bash wrapper that calls this tcl script.
-# Related: https://stackoverflow.com/questions/10237872/expect-redirect-stdin
-#while {[gets stdin line] > 0} {
-  #expect $prompt
-  #send "$line\r"
-#}
+import os
+import sys
+import telnetlib
+
+import common
+
+prompt = b'\n(qemu) '
+
+parser = common.get_argparse({
+    'description': '''\
+Run a command on the QEMU monitor of a running QEMU instance
+
+If the stdin is a terminal, open an interact shell. Otherwise,
+run commands from stdin and quit.
+'''
+})
+parser.add_argument(
+    'command',
+    help='If given, run this command and quit',
+    nargs='*',
+)
+args = common.setup(parser)
+
+def write_and_read(tn, cmd, prompt):
+    tn.write(cmd.encode('utf-8'))
+    return '\n'.join(tn.read_until(prompt).decode('utf-8').splitlines()[1:])[:-len(prompt)]
+
+with telnetlib.Telnet('localhost', common.qemu_monitor_port) as tn:
+    # Couldn't disable server echo, so just removing the write for now.
+    # https://stackoverflow.com/questions/12421799/how-to-disable-telnet-echo-in-python-telnetlib
+    # sock = tn.get_socket()
+    # sock.send(telnetlib.IAC + telnetlib.WILL + telnetlib.ECHO)
+    if os.isatty(sys.stdin.fileno()):
+        if args.command == []:
+            print(tn.read_until(prompt).decode('utf-8'), end='')
+            tn.interact()
+        else:
+            tn.read_until(prompt)
+            print(write_and_read(tn, ' '.join(args.command) + '\n', prompt))
+    else:
+        tn.read_until(prompt)
+        print(write_and_read(tn, sys.stdin.read() + '\n', prompt))
