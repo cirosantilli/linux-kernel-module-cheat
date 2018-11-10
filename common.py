@@ -492,17 +492,21 @@ def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
     for key in extra_env:
         out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])))
     cmd_quote = []
-    has_newline = False
+    newline_count = 0
     for arg in cmd:
         if arg == this_module.Newline:
             cmd_quote.append(arg)
-            has_newline = True
+            newline_count += 1
         else:
             cmd_quote.append(shlex.quote(arg))
-    if has_newline:
+    if newline_count > 0:
         cmd_quote = [' '.join(list(y)) for x, y in itertools.groupby(cmd_quote, lambda z: z == this_module.Newline) if not x]
     out.extend(cmd_quote)
-    return newline_separator.join(out) + last_newline + ';'
+    if newline_count == 1 and cmd[-1] == this_module.Newline:
+        ending = ''
+    else:
+        ending = last_newline + ';'
+    return newline_separator.join(out) + ending
 
 def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
