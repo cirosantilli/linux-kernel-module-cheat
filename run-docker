@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
 set -eu
-cmd="${1:-start}"
+cmd="$1"
+shift
 container_name=lkmc
 target_dir=/root/linux-kernel-module-cheat
-if [ "$cmd" = start ]; then
-  sudo docker start -ai "$container_name"
-elif [ "$cmd" = sh ]; then
-  # https://stackoverflow.com/questions/39794509/how-to-open-multiple-terminals-in-docker
-  sudo docker exec -it "$container_name" bash "$@"
-elif [ "$cmd" = setup ]; then
+if [ "$cmd" = create ]; then
   # --privileged for KVM:
   # https://stackoverflow.com/questions/48422001/launching-qemu-kvm-from-inside-docker-container
-  sudo docker run --name "$container_name" --net host -i --privileged -t -w "${target_dir}" -v "$(pwd):${target_dir}" ubuntu:18.04 bash
-elif [ "$cmd" = DELETE ]; then
+  sudo docker create --name "$container_name" --net host -i --privileged -t -w "${target_dir}" -v "$(pwd):${target_dir}" ubuntu:18.04 bash
+elif [ "$cmd" = start ]; then
+  sudo docker start "$container_name"
+elif [ "$cmd" = stop ]; then
+  sudo docker stop "$container_name"
+elif [ "$cmd" = sh ]; then
+  if [ "$#" -gt 0 ]; then
+    c=-c
+  fi
+  # https://stackoverflow.com/questions/39794509/how-to-open-multiple-terminals-in-docker
+  sudo docker exec -it "$container_name" bash $c "$*"
+elif [ "$cmd" = DESTROY ]; then
   sudo docker rm "$container_name"
 else
   echo "error: unknown action: ${cmd}" 1>&2

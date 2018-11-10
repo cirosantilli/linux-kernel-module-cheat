@@ -24,11 +24,16 @@ import urllib
 import urllib.request
 
 this_module = sys.modules[__name__]
+# https://stackoverflow.com/questions/20010199/how-to-determine-if-a-process-runs-inside-lxc-docker
+in_docker = os.path.exists('/.dockerenv')
 root_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(root_dir, 'data')
 p9_dir = os.path.join(data_dir, '9p')
 gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
-out_dir = os.path.join(root_dir, 'out')
+if in_docker:
+    out_dir = os.path.join(root_dir, 'out.docker')
+else:
+    out_dir = os.path.join(root_dir, 'out')
 bench_boot = os.path.join(out_dir, 'bench-boot.txt')
 packages_dir = os.path.join(root_dir, 'buildroot_packages')
 kernel_modules_subdir = 'kernel_modules'

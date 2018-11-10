@@ -117,11 +117,13 @@ def main(args, extra_args=None):
         trace_type = args.trace
 
     def raise_rootfs_not_found():
-        raise Exception('Root filesystem not found. Did you build it?\n' \
-                        'Tried to use: ' + common.disk_image)
+        if not args.dry_run:
+            raise Exception('Root filesystem not found. Did you build it?\n' \
+                            'Tried to use: ' + common.disk_image)
     def raise_image_not_found():
-        raise Exception('Executable image not found. Did you build it?\n' \
-                        'Tried to use: ' + common.image)
+        if not args.dry_run:
+            raise Exception('Executable image not found. Did you build it?\n' \
+                            'Tried to use: ' + common.image)
     if common.image is None:
         raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
     cmd = debug_vm.copy()
@@ -247,7 +249,7 @@ def main(args, extra_args=None):
             else:
                 qemu_executable = common.qemu_executable
                 qemu_found = os.path.exists(qemu_executable)
-            if not qemu_found:
+            if not qemu_found and not args.dry_run:
                 raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
                                 'Tried to use: ' + qemu_executable)
             if args.debug_vm:
@@ -392,19 +394,20 @@ def main(args, extra_args=None):
         panic_msg = b'Kernel panic - not syncing'
     panic_re = re.compile(panic_msg)
     error_string_found = False
-    with open(common.termout_file, 'br') as logfile:
-        for line in logfile:
-            if panic_re.search(line):
-                error_string_found = True
-    with open(common.guest_terminal_file, 'br') as logfile:
-        lines = logfile.readlines()
-        if lines:
-            last_line = lines[-1]
-            if last_line.rstrip() == common.magic_fail_string:
-                error_string_found = True
-    if error_string_found:
-        common.log_error('simulation error detected by parsing logs')
-        return 1
+    if out_file is not None and not args.dry_run:
+        with open(common.termout_file, 'br') as logfile:
+            for line in logfile:
+                if panic_re.search(line):
+                    error_string_found = true
+        with open(common.guest_terminal_file, 'br') as logfile:
+            lines = logfile.readlines()
+            if lines:
+                last_line = lines[-1]
+                if last_line.rstrip() == common.magic_fail_string:
+                    error_string_found = true
+        if error_string_found:
+            common.log_error('simulation error detected by parsing logs')
+            return 1
     return 0
 
 def get_argparse():
@@ -447,7 +450,7 @@ Example: `./run -a arm -e 'init=/poweroff.out'`
 '''
     )
     parser.add_argument(
-        '-F', '--eval-busybox',
+        '-F', '--eval-after-init',
         help='''\
 Pass a base64 encoded command line parameter that gets evalled by the Busybox init.
 See: https://github.com/cirosantilli/linux-kernel-module-cheat#init-busybox

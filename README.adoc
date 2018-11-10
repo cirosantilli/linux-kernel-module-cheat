@@ -32,7 +32,7 @@ Reserve 12Gb of disk and run:
 ....
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
-./download-dependencies && ./build
+./build --download-dependencies
 ./run
 ....
 
@@ -331,7 +331,7 @@ For the most part, if you just add the `--gem5` option or `*-gem5` suffix to all
 If you haven't built Buildroot yet for <<qemu-buildroot-setup>>, you can build from the beginning with:
 
 ....
-./download-dependencies --gem5 && ./build gem5-buildroot
+./build --download-dependencies gem5-buildroot
 ./run --gem5
 ....
 
@@ -387,58 +387,55 @@ Good next steps are:
 
 This repository has been tested inside clean link:https://en.wikipedia.org/wiki/Docker_(software)[Docker] containers.
 
-This is a good option if you are on a Linux host, but the native setup failed due to your weird host distribution, and you have better things to do with your life than to debug it.
+This is a good option if you are on a Linux host, but the native setup failed due to your weird host distribution, and you have better things to do with your life than to debug it. See also: <<supported-hosts>>.
 
-Buildroot is the most complex thing we build, and therefore the most likely to break, so running inside Docker is specially relevant to run:
-
-* <<qemu-buildroot-setup>>
-* <<gem5-buildroot-setup>>
-
-Before anything, you must get rid of any host build files on `out/` if you have any. A simple way to do this it to:
+For example, to do a <<qemu-buildroot-setup>> inside Docker, run:
 
 ....
-mv out out.host
+sudo apt-get install docker && \
+./run-docker create && \
+./run-docker start && \
+./run-docker sh ./build --download-dependencies && \
+./run-docker sh
 ....
 
-A cleaner option is to make a separate clone of this repository just for Docker, although this will require another submodule update.
-
-Then install Docker, e.g. on Ubuntu:
+You are now left inside a shell in the Docker! From there, just run as usual:
 
 ....
-sudo apt-get install docker
+./run
 ....
 
-The very first time you launch Docker, create the container with:
+Command breakdown:
 
+* `./run-docker create`: create the container.
++
+Needed only the very first time you use Docker, or if you run `./run-docker DESTROY` to restart for scratch, or save some disk space.
++
+The container name is `lkmc` and shows up in the list of all containers:
++
 ....
-./run-docker setup
+docker ps -a
 ....
+* `./run-docker start`: start the container as daemon on the background.
++
+Needed only after reboot, or if you call `stop` to save CPU or memory resources.
++
+The container can now be seen on the list of running containers:
++
+....
+docker ps
+....
+* `./run-docker sh`: open a shell on a previously started Docker daemon.
++
+Quit the shell as usual with `Ctrl`
++
+Can be called multiple times to open multiple shells.
 
-You are now left inside a shell in the Docker guest.
-
-From there, run the exact same commands that you would on a native install.
-
-The host git top level directory is mounted inside the guest, which means for example that you can use your host's GUI text editor directly on the files.
-
-Just don't forget that if you nuke that directory on the guest, then it gets nuked on the host as well!
-
-Trying to run the output from Docker from host won't however, I think the main reason is that the absolute paths inside Docker are different than the host ones, but even if we fix that there will likely be other problems.
+The host git top level directory is mounted inside the guest with a link:https://stackoverflow.com/questions/23439126/how-to-mount-a-host-directory-in-a-docker-container[Docker volume], which means for example that you can use your host's GUI text editor directly on the files. Just don't forget that if you nuke that directory on the guest, then it gets nuked on the host as well!
 
 TODO make files created inside Docker be owned by the current user in host instead of `root`: https://stackoverflow.com/questions/23544282/what-is-the-best-way-to-manage-permissions-for-docker-shared-volumes
 
-Quit and stop the container:
-
-....
-Ctrl-D
-....
-
-Restart the container:
-
-....
-./run-docker
-....
-
-In order to use functionality such as <<gdb>>, you need a second shell inside the container. You can either do that with:
+In order to use functionality such as <<gdb>> from inside Docker, you need a second shell inside the container. You can either do that from another shell with:
 
 ....
 ./run-docker sh
@@ -454,13 +451,7 @@ You can start a second shell and run a command in it at the same time with:
 
 Docker stops if and only if you quit the initial shell, you can quit this one without consequences.
 
-If you mistakenly run `./run-docker` twice, it opens two mirrored terminals. To quit one of them do link:https://stackoverflow.com/questions/19688314/how-do-you-attach-and-detach-from-dockers-process[]:
-
-....
-Ctrl-P Ctrl-Q
-....
-
-To use <<qemu-graphic-mode>> from Docker:
+To use <<qemu-graphic-mode>> from Docker, run:
 
 ....
 ./run --graphic --vnc
@@ -473,28 +464,19 @@ sudo apt-get install vinagre
 ./vnc
 ....
 
-Destroy the docker container:
+When you do:
 
 ....
-./run-docker DELETE
+./run-docker DESTROY
 ....
 
-Since we mount the guest's working directory on the host git top-level, you will likely not lose data from doing this, just the `apt-get` installs.
+you don't really destroy the build, since we mount the guest's working directory on the host git top-level, so you basically just get rid of the `apt-get` installs.
 
-To get back to a host build, don't forget to clean up `out/` again:
-
-....
-mv out out.docker
-mv out.host out
-....
-
-After this, to start using Docker again will you need another:
+To actually delete the Docker build, run:
 
 ....
-./run-docker setup
+# sudo rm -rf out.docker
 ....
-
-Tested on: a760cb1196161e913a94684e03cfeaebf71f0cdd
 
 [[prebuilt]]
 === Prebuilt Buildroot setup
@@ -735,8 +717,7 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 QEMU:
 
 ....
-./download-dependencies --baremetal --qemu && \
-./build --arch arm qemu-baremetal
+./build --arch arm --download-dependencies qemu-baremetal
 ./run --arch arm --baremetal interactive/prompt
 ....
 
@@ -801,8 +782,7 @@ Absolute paths however are used as is and must point to the actual executable:
 To use gem5 instead of QEMU do:
 
 ....
-./download-dependencies --baremetal --gem5 && \
-./build gem5-baremetal
+./build --download-dependencies gem5-baremetal
 ./run --arch arm --baremetal interactive/prompt --gem5
 ....
 
@@ -8181,7 +8161,7 @@ less "$(./getvar -a "$arch" run_dir)/trace.txt"
 
 This functionality relies on the following setup:
 
-* `./download-dependencies --enable-trace-backends=simple`. This logs in a binary format to the trace file.
+* `./configure --enable-trace-backends=simple`. This logs in a binary format to the trace file.
 +
 It makes 3x execution faster than the default trace backend which logs human readable data to stdout.
 +
@@ -8923,7 +8903,7 @@ There are two ways to run PARSEC with this repo:
 ====== PARSEC benchmark without parsecmgmt
 
 ....
-./download-dependencies --gem5 --parsec-benchmark
+./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
 ./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
 ./run --arch arm --gem5
 ....
@@ -10348,7 +10328,7 @@ CT_GDB_CROSS_SIM=y
 which by grepping crosstool-NG we can see does on GDB:
 
 ....
-./download-dependencies --enable-sim
+./configure --enable-sim
 ....
 
 Those are not set by default on `gdb-multiarch` in Ubuntu 16.04.
@@ -10647,7 +10627,7 @@ Kernel panic - not syncing: Attempted to kill the idle task!
 
 ==== Benchmark builds
 
-The build times are calculated after doing `./download-dependencies` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the <<benchmark-internets,Internet>>.
+The build times are calculated after doing `./configure` and link:https://buildroot.org/downloads/manual/manual.html#_offline_builds[`make source`], which downloads the sources, and basically benchmarks the <<benchmark-internets,Internet>>.
 
 Sample build time at 2c12b21b304178a81c9912817b782ead0286d282: 28 minutes, 15 with full ccache hits. Breakdown: 19% GCC, 13% Linux kernel, 7% uclibc, 6% host-python, 5% host-qemu, 5% host-gdb, 2% host-binutils
 
@@ -10801,7 +10781,15 @@ gem5:
 
 We tend to test this repo the most on the latest Ubuntu and on the latest link:https://askubuntu.com/questions/16366/whats-the-difference-between-a-long-term-support-release-and-a-normal-release[Ubuntu LTS].
 
-For other Linux distros, everything will likely also just work if you install the analogous required packages for your distro, just have a look at: link:download-dependencies[]. `./download-dependencies` ports to new systems are welcome and will be merged.
+For other Linux distros, everything will likely also just work if you install the analogous required packages for your distro, find them out with:
+
+....
+./build --download-dependencies --dry-run
+....
+
+which just prints what `build` would do quickly without doing anything.
+
+Ports to new host systems are welcome and will be merged.
 
 If something does not work however, <<docker>> should just work on any Linux distro.
 
@@ -10811,7 +10799,7 @@ Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make 
 
 ==== You must put some 'source' URIs in your sources.list
 
-If `./download-dependencies` fails with:
+If `./build --download-dependencies` fails with:
 
 ....
 E: You must put some 'source' URIs in your sources.list
@@ -10823,7 +10811,7 @@ see this: https://askubuntu.com/questions/496549/error-you-must-put-some-source-
 
 It does not work if you just download the `.zip` with the sources for this repository from GitHub because we use link:.gitmodules[Git submodules], you must clone this repo.
 
-`./download-dependencies` then fetches only the required submodules for you.
+`./build --download-dependencies` then fetches only the required submodules for you.
 
 === Run command after boot
 
@@ -11072,7 +11060,7 @@ git -C "$(./getvar linux_src_dir)" checkout -
 ./run --linux-build-id v4.16
 ....
 
-The `git fetch --unshallow` is needed the first time because link:download-dependencies[] only does a shallow clone of the Linux kernel to save space and time, see also: https://stackoverflow.com/questions/6802145/how-to-convert-a-git-shallow-clone-to-a-full-clone
+The `git fetch --unshallow` is needed the first time because `./build --download-dependencies` only does a shallow clone of the Linux kernel to save space and time, see also: https://stackoverflow.com/questions/6802145/how-to-convert-a-git-shallow-clone-to-a-full-clone
 
 The `--linux-build-id` option should be passed to all scripts that support it, much like `--arch` for the <<cpu-architecture>>, e.g. to step debug:
 
