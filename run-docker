@@ -1,26 +1,67 @@
-#!/usr/bin/env bash
-set -eu
-cmd="$1"
-shift
-container_name=lkmc
-target_dir=/root/linux-kernel-module-cheat
-if [ "$cmd" = create ]; then
-  # --privileged for KVM:
-  # https://stackoverflow.com/questions/48422001/launching-qemu-kvm-from-inside-docker-container
-  sudo docker create --name "$container_name" --net host -i --privileged -t -w "${target_dir}" -v "$(pwd):${target_dir}" ubuntu:18.04 bash
-elif [ "$cmd" = start ]; then
-  sudo docker start "$container_name"
-elif [ "$cmd" = stop ]; then
-  sudo docker stop "$container_name"
-elif [ "$cmd" = sh ]; then
-  if [ "$#" -gt 0 ]; then
-    c=-c
-  fi
-  # https://stackoverflow.com/questions/39794509/how-to-open-multiple-terminals-in-docker
-  sudo docker exec -it "$container_name" bash $c "$*"
-elif [ "$cmd" = DESTROY ]; then
-  sudo docker rm "$container_name"
-else
-  echo "error: unknown action: ${cmd}" 1>&2
-  exit 2
-fi
+#!/usr/bin/env python3
+
+import argparse
+import os
+
+import common
+
+container_name = common.repo_short_id
+container_hostname = common.repo_short_id
+image_name = common.repo_short_id
+target_dir = '/root/{}'.format(common.repo_short_id)
+docker = ['sudo', 'docker']
+def sh(args):
+    if args:
+        sh_args = ['-c'] + args
+    else:
+        sh_args = []
+    common.run_cmd(
+        docker +
+        [
+            'exec',
+            '-i',
+            '-t',
+            container_name,
+            'bash',
+        ] +
+        sh_args +
+        [common.Newline],
+    )
+cmd_action_map = {
+    'create': lambda args:
+        # --privileged for KVM:
+        # https://stackoverflow.com/questions/48422001/launching-qemu-kvm-from-inside-docker-container
+        common.run_cmd(
+            docker +
+            [
+                'create', common.Newline,
+                '--hostname', container_hostname, common.Newline,
+                '-i', common.Newline,
+                '--name', container_name, common.Newline,
+                '--net', 'host', common.Newline,
+                '--privileged', common.Newline,
+                '-t', common.Newline,
+                '-w', target_dir, common.Newline,
+                '-v', '{}:{}'.format(os.getcwd(), target_dir), common.Newline,
+                'ubuntu:18.04', common.Newline,
+                'bash', common.Newline,
+            ]
+        ),
+    'start': lambda args:
+        common.run_cmd(docker + [ 'start', container_name, common.Newline])
+    ,
+    'stop': lambda args:
+        common.run_cmd(docker + ['stop', container_name, common.Newline])
+    ,
+    'sh': lambda args: sh(args),
+    'DESTROY': lambda args:
+        common.run_cmd(docker + [ 'rm', container_name, common.Newline])
+    ,
+}
+parser = argparse.ArgumentParser()
+parser.add_argument('cmd', choices=cmd_action_map)
+parser.add_argument('args', nargs='*')
+common.add_dry_run_argument(parser)
+args = parser.parse_args()
+common.setup_dry_run_arguments(args)
+cmd_action_map[args.cmd](args.args)

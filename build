@@ -368,17 +368,18 @@ if args.download_dependencies:
             }
             apt_get_pkgs.difference_update(interacive_pkgs)
         if common.in_docker:
-            sudo = ['sudo']
+            sudo = []
             # https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
             os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
             # https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list
-            with open(os.path.join('/etc', 'apt', 'sources.list'), 'r') as f:
+            sources_path = os.path.join('/etc', 'apt', 'sources.list')
+            with open(sources_path, 'r') as f:
                 sources_txt = f.read()
-            sources_txt = re.sub('^# deb-src ' 'deb-src ', sources_txt)
-            with open(os.path.join('/etc', 'apt', 'sources.list'), 'w') as f:
+            sources_txt = re.sub('^# deb-src ', 'deb-src ', sources_txt, flags=re.MULTILINE)
+            with open(sources_path, 'w') as f:
                 f.write(sources_txt)
         else:
-            sudo = []
+            sudo = ['sudo']
         if common.in_docker or args.travis:
             y = ['-y']
         else:

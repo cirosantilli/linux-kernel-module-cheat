@@ -24,6 +24,7 @@ import urllib
 import urllib.request
 
 this_module = sys.modules[__name__]
+repo_short_id = 'lkmc'
 # https://stackoverflow.com/questions/20010199/how-to-determine-if-a-process-runs-inside-lxc-docker
 in_docker = os.path.exists('/.dockerenv')
 root_dir = os.path.dirname(os.path.abspath(__file__))
