@@ -392,10 +392,9 @@ This is a good option if you are on a Linux host, but the native setup failed du
 For example, to do a <<qemu-buildroot-setup>> inside Docker, run:
 
 ....
-sudo apt-get install docker && \
+sudo apt-get install docker
 ./run-docker create && \
-./run-docker start && \
-./run-docker sh ./build --download-dependencies && \
+./run-docker sh -- ./build --download-dependencies
 ./run-docker sh
 ....
 
@@ -405,35 +404,50 @@ You are now left inside a shell in the Docker! From there, just run as usual:
 ./run
 ....
 
+The host git top level directory is mounted inside the guest with a link:https://stackoverflow.com/questions/23439126/how-to-mount-a-host-directory-in-a-docker-container[Docker volume], which means for example that you can use your host's GUI text editor directly on the files. Just don't forget that if you nuke that directory on the guest, then it gets nuked on the host as well!
+
 Command breakdown:
 
-* `./run-docker create`: create the container.
+* `./run-docker create`: create the image and container.
 +
 Needed only the very first time you use Docker, or if you run `./run-docker DESTROY` to restart for scratch, or save some disk space.
 +
-The container name is `lkmc` and shows up in the list of all containers:
+The image and container name is `lkmc`. The container shows under:
 +
 ....
 docker ps -a
 ....
-* `./run-docker start`: start the container as daemon on the background.
 +
-Needed only after reboot, or if you run `./run-docker stop` to save CPU or memory resources.
-+
-The container can now be seen on the list of running containers:
+and the image shows under:
 +
 ....
-docker ps
+docker images
 ....
-* `./run-docker sh`: open a shell on a previously started Docker daemon.
+* `./run-docker sh`: open a shell on the container.
++
+If it has not been started previously, start it. This can also be done explicitly with:
++
+....
+./run-docker start
+....
 +
 Quit the shell as usual with `Ctrl-D`
 +
-Can be called multiple times from different host terminals to open multiple shells.
+This can be called multiple times from different host terminals to open multiple shells.
+* `./run-docker stop`: stop the container.
++
+This might save a bit of CPU and RAM once you stop working on this project, but it should not be a lot.
+* `./run-docker DESTROY`: delete the container and image.
++
+This doesn't really clean the build, since we mount the guest's working directory on the host git top-level, so you basically just got rid of the `apt-get` installs.
++
+To actually delete the Docker build, run on host:
++
+....
+# sudo rm -rf out.docker
+....
 
-The host git top level directory is mounted inside the guest with a link:https://stackoverflow.com/questions/23439126/how-to-mount-a-host-directory-in-a-docker-container[Docker volume], which means for example that you can use your host's GUI text editor directly on the files. Just don't forget that if you nuke that directory on the guest, then it gets nuked on the host as well!
-
-In order to use functionality such as <<gdb>> from inside Docker, you need a second shell inside the container. You can either do that from another shell with:
+To use <<gdb>> from inside Docker, you need a second shell inside the container. You can either do that from another shell with:
 
 ....
 ./run-docker sh
@@ -441,13 +455,11 @@ In order to use functionality such as <<gdb>> from inside Docker, you need a sec
 
 or even better, by starting a <<tmux>> session inside the container. We install `tmux` by default in the container.
 
-You can start a second shell and run a command in it at the same time with:
+You can also start a second shell and run a command in it at the same time with:
 
 ....
-./run-docker sh ./run-gdb start_kernel
+./run-docker sh -- ./run-gdb start_kernel
 ....
-
-Docker stops if and only if you quit the initial shell, you can quit this one without consequences.
 
 To use <<qemu-graphic-mode>> from Docker, run:
 
@@ -462,21 +474,11 @@ sudo apt-get install vinagre
 ./vnc
 ....
 
-When you do:
+TODO make files created inside Docker be owned by the current user in host instead of `root`:
 
-....
-./run-docker DESTROY
-....
-
-you don't really destroy the build, since we mount the guest's working directory on the host git top-level, so you basically just get rid of the `apt-get` installs.
-
-To actually delete the Docker build, run:
-
-....
-# sudo rm -rf out.docker
-....
-
-TODO make files created inside Docker be owned by the current user in host instead of `root`: https://stackoverflow.com/questions/23544282/what-is-the-best-way-to-manage-permissions-for-docker-shared-volumes
+* https://stackoverflow.com/questions/33681396/how-do-i-write-to-a-volume-container-as-non-root-in-docker
+* https://stackoverflow.com/questions/23544282/what-is-the-best-way-to-manage-permissions-for-docker-shared-volumes
+* https://stackoverflow.com/questions/31779802/shared-volume-file-permissions-ownership-docker
 
 [[prebuilt]]
 === Prebuilt Buildroot setup
@@ -717,8 +719,8 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 QEMU:
 
 ....
-./build --arch arm --download-dependencies qemu-baremetal
-./run --arch arm --baremetal interactive/prompt
+./build --arch aarch64 --download-dependencies qemu-baremetal
+./run --arch aarch64 --baremetal interactive/prompt
 ....
 
 You are now left inside QEMU running the tiny baremetal system link:baremetal/interactive/prompt.c[], which uses the UART to:
@@ -749,7 +751,7 @@ vim baremetal/interactive/prompt.c
 and run:
 
 ....
-./build-baremetal --arch arm
+./build-baremetal --arch aarch64
 ....
 
 `./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements. `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
@@ -757,33 +759,33 @@ and run:
 Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image. You can run a different image with commands such as:
 
 ....
-./run --arch arm --baremetal exit
-./run --arch arm --baremetal arch/arm/add
+./run --arch aarch64 --baremetal exit
+./run --arch aarch64 --baremetal arch/aarch64/add
 ....
 
 which will run respectively:
 
 * link:baremetal/exit.c[]
-* link:baremetal/arch/arm/add.S[]
+* link:baremetal/arch/aarch64/add.S[]
 
 Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`:
 
 ....
-./run --arch arm --baremetal baremetal/exit.c
-./run --arch arm --baremetal baremetal/arch/arm/add.S
+./run --arch aarch64 --baremetal baremetal/exit.c
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
 ....
 
 Absolute paths however are used as is and must point to the actual executable:
 
 ....
-./run --arch arm --baremetal "$(./getvar --arch arm baremetal_build_dir)/exit.elf"
+./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 baremetal_build_dir)/exit.elf"
 ....
 
 To use gem5 instead of QEMU do:
 
 ....
 ./build --download-dependencies gem5-baremetal
-./run --arch arm --baremetal interactive/prompt --gem5
+./run --arch aarch64 --baremetal interactive/prompt --gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -813,15 +815,15 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 `gem5` also supports the `RealViewPBX` machine, which represents an older hardware compared to the default `VExpress_GEM5_V1`:
 
 ....
-./build-baremetal --arch arm --gem5 --machine RealViewPBX
-./run --arch arm --baremetal interactive/prompt --gem5 --machine RealViewPBX
+./build-baremetal --arch aarch64 --gem5 --machine RealViewPBX
+./run --arch aarch64 --baremetal interactive/prompt --gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch arm --baremetal interactive/prompt --gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch arm --baremetal interactive/prompt --gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.

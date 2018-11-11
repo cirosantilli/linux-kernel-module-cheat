@@ -57,6 +57,28 @@ def run_cmd(cmd, arch):
 buildroot_component = Component(
     lambda arch: run_cmd(['build-buildroot'], arch),
     submodules = {'buildroot'},
+    # https://buildroot.org/downloads/manual/manual.html#requirement
+    apt_get_pkgs={
+        'bash',
+        'bc',
+        'binutils',
+        'build-essential',
+        'bzip2',
+        'cpio',
+        'g++',
+        'gcc',
+        'graphviz',
+        'gzip',
+        'make',
+        'patch',
+        'perl',
+        'python-matplotlib',
+        'python3',
+        'rsync',
+        'sed',
+        'tar',
+        'unzip',
+    },
 )
 
 name_to_component_map = {
@@ -86,6 +108,7 @@ name_to_component_map = {
             'bison',
             'docbook2x',
             'flex',
+            'gawk',
             'gcc',
             'gperf',
             'help2man',
@@ -124,6 +147,13 @@ name_to_component_map = {
     'linux': Component(
         lambda arch: run_cmd(['build-linux'], arch),
         submodules_shallow={'linux'},
+        apt_get_pkgs={
+            'bison',
+            'flex',
+            # Without this started failing in kernel 4.15 with:
+            # Makefile:932: *** "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel".  Stop.
+            'libelf-dev',
+        },
     ),
     'modules': Component(
         lambda arch: run_cmd(['build-modules'], arch),
@@ -317,29 +347,13 @@ for component_name in components:
 
 if args.download_dependencies:
     apt_get_pkgs = {
-        # TODO: figure out what needs those exactly.
-        'automake',
-        'build-essential',
-        'coreutils',
-        'cpio',
-        'libguestfs-tools',
-        'moreutils', # ts
-        'rsync',
-        'unzip',
-        'wget',
-
-        # Linux kernel build dependencies.
-        'bison',
-        'flex',
-        # Without this started failing in kernel 4.15 with:
-        # Makefile:932: *** "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel".  Stop.
-        'libelf-dev',
-
-        # Our misc stuff.
+        # Core requirements for this repo.
         'git',
+        'moreutils', # ts
         'python3-pip',
         'tmux',
         'vinagre',
+        'wget',
 
         # Userland.
         'gcc-aarch64-linux-gnu',
