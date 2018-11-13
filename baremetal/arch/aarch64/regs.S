@@ -3,7 +3,6 @@
  * - read x30 */
 .global main
 main:
-    /* test-gdb-before-x29 */
     mov x0, #1
     /* test-gdb-x0 */
     mov x1, #2
