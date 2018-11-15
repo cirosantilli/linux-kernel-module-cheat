@@ -5,7 +5,7 @@ CFLAGS = -fopenmp -std=c99 $(CCFLAGS) $(CFLAGS_EXTRA)
 CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
 # -Wno-unused-function for function definitions on headers,
 #  because we are lazy to make a shared object. TODO.
-COMMON_DIR = ..
+COMMON_DIR = $(CURDIR)/..
 COMMON_BASENAME = common
 COMMON_OBJ = $(OUT_DIR)/$(COMMON_BASENAME)$(OBJ_EXT)
 IN_EXT_C = .c
@@ -13,7 +13,9 @@ IN_EXT_CXX = .cpp
 LIBS = -lm
 OBJ_EXT = .o
 OUT_EXT = .out
-OUT_DIR = .
+OUT_DIR = $(CURDIR)
+
+-include params.mk
 
 OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
 ifeq ($(HAS_EIGEN),y)
@@ -41,6 +43,9 @@ endif
 OUTS := $(addprefix $(OUT_DIR)/,$(OUTS))
 
 all: mkdir $(OUTS)
+	for subdir in $(SUBDIRS); do \
+	  $(MAKE) -C $${subdir} OUT_DIR="$(OUT_DIR)/$$subdir"; \
+	done
 
 $(COMMON_OBJ): $(COMMON_DIR)/$(COMMON_BASENAME)$(IN_EXT_C)
 	$(CC) $(CFLAGS) -c -o '$@' '$<' $(LIBS)
@@ -53,6 +58,9 @@ $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX) $(COMMON_OBJ)
 
 clean:
 	rm -f *'$(OBJ_EXT)' *'$(OUT_EXT)'
+	for subdir in $(SUBDIRS); do \
+	  $(MAKE) -C $${subdir} clean; \
+	done
 
 mkdir:
 	mkdir -p '$(OUT_DIR)'
