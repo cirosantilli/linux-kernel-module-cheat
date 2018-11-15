@@ -87,11 +87,11 @@ All available modules can be found in the link:kernel_modules[] directory.
 It is super easy to build for different CPU architectures, just use the `--arch` option:
 
 ....
-./build --arch aarch64
+./build --arch aarch64 --download-dependencies qemu-buildroot
 ./run --arch aarch64
 ....
 
-To avoid typing `--arch aarch64` so many times, set the default arch as explained at: <<default-command-line-arguments>>
+To avoid typing `--arch aarch64` many times, you set the default arch as explained at: <<default-command-line-arguments>>
 
 See also: <<cpu-architecture,CPU architectures>>.
 
@@ -221,11 +221,11 @@ and the new `pr_info` message should now show on the terminal at the end of the 
 
 This works because we have a <<9p>> mount there setup by default, which makes a host directory available on the guest.
 
-The fast is slightly risky because your kernel module might have corrupted the kernel memory, which could affect future runs.
+The fast method is slightly risky because your kernel module might have corrupted the kernel memory, which could affect future runs.
 
 Such failures are however unlikely, and you should be fine if you don't see anything weird happening.
 
-The safe way, is to fist quit QEMU, then rebuild the modules, put them in the root filesystem, and then reboot:
+The safe way, is to fist quit QEMU, rebuild the modules, put them in the root filesystem, and then reboot:
 
 ....
 ./build-modules
@@ -310,7 +310,11 @@ Read the following sections for further introductory material:
 
 This setup is like the <<qemu-buildroot-setup>>, but it uses link:http://gem5.org/[gem5] instead of QEMU as a system simulator.
 
-QEMU tries to run as fast as possible and give correct results at the end, but it does not tell us how many CPU cycles it takes to do something, just the number of instructions it ran, and this cannot be used to estimate system performance. This is known as a functional simulation.
+QEMU tries to run as fast as possible and give correct results at the end, but it does not tell us how many CPU cycles it takes to do something, just the number of instructions it ran.
+
+The number of instructions executed is a very poor estimator of performance because in modern computers, a lot of time is spent waiting for memory requests rather than the instructions themselves.
+
+This kind of simulation is known as functional simulation.
 
 gem5 on the other hand, can simulate the system in more detail than QEMU, including:
 
@@ -351,13 +355,13 @@ You can quit the shell without killing gem5 by typing tilde followed by a period
 ~.
 ....
 
-If you are inside <<tmux>>, which I highly recommend, just run gem5 with:
+If you are inside <<tmux>>, which I highly recommend, you can both run gem5 stdout and open the guest terminal on a split window with:
 
 ....
 ./run --gem5 --tmux
 ....
 
-This will open up a split terminal by default so that you can see both the gem5 stdout and the terminal. See also: <<tmux-gem5>>.
+See also: <<tmux-gem5>>.
 
 At the end of boot, it might not be very clear that you have the shell since some <<printk>> messages may appear in front of the prompt like this:
 
