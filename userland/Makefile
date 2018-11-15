@@ -1,13 +1,17 @@
 .PHONY: all clean mkdir
 
+CCFLAGS = -ggdb3 -I$(COMMON_DIR) -O0 -Wall -Werror -Wextra -Wno-unused-function $(CCFLAGS_EXTRA) $(CCFLAGS_SCRIPT)
 CFLAGS = -fopenmp -std=c99 $(CCFLAGS) $(CFLAGS_EXTRA)
 CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
 # -Wno-unused-function for function definitions on headers,
 #  because we are lazy to make a shared object. TODO.
-CCFLAGS = -ggdb3 -O0 -Wall -Werror -Wextra -Wno-unused-function $(CCFLAGS_EXTRA)
+COMMON_DIR = ..
+COMMON_BASENAME = common
+COMMON_OBJ = $(OUT_DIR)/$(COMMON_BASENAME)$(OBJ_EXT)
 IN_EXT_C = .c
 IN_EXT_CXX = .cpp
 LIBS = -lm
+OBJ_EXT = .o
 OUT_EXT = .out
 OUT_DIR = .
 
@@ -38,14 +42,17 @@ OUTS := $(addprefix $(OUT_DIR)/,$(OUTS))
 
 all: mkdir $(OUTS)
 
-$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_C)
-	$(CC) $(CFLAGS) -o '$@' '$<' $(LIBS)
+$(COMMON_OBJ): $(COMMON_DIR)/$(COMMON_BASENAME)$(IN_EXT_C)
+	$(CC) $(CFLAGS) -c -o '$@' '$<' $(LIBS)
 
-$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX)
+$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_C) $(COMMON_OBJ)
+	$(CC) $(CFLAGS) $(COMMON_OBJ) -o '$@' '$<' $(LIBS)
+
+$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX) $(COMMON_OBJ)
 	$(CXX) $(CXXFLAGS) -o '$@' '$<' $(LIBS)
 
 clean:
-	rm -f *'$(OUT_EXT)'
+	rm -f *'$(OBJ_EXT)' *'$(OUT_EXT)'
 
 mkdir:
 	mkdir -p '$(OUT_DIR)'

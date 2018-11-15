@@ -1,5 +1,6 @@
 #include <stdio.h>
 
-void main(void) {
+int main(void) {
 	puts("hello");
+	return 0;
 }

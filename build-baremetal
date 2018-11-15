@@ -9,9 +9,16 @@ class BaremetalComponent(common.Component):
         common.assert_crosstool_ng_supports_arch(args.arch)
         build_dir = self.get_build_dir(args)
         bootloader_obj = os.path.join(common.baremetal_build_lib_dir, 'bootloader{}'.format(common.obj_ext))
-        common_obj = os.path.join(common.baremetal_build_lib_dir, 'common{}'.format(common.obj_ext))
+        common_basename_noext = 'common'
+        common_src = os.path.join(common.root_dir, common_basename_noext + common.c_ext)
+        common_obj = os.path.join(common.baremetal_build_lib_dir, common_basename_noext + common.obj_ext)
+        syscalls_basename_noext = 'syscalls'
+        syscalls_src = os.path.join(common.baremetal_src_lib_dir, syscalls_basename_noext + common.c_ext)
+        syscalls_obj = os.path.join(common.baremetal_build_lib_dir, syscalls_basename_noext + common.obj_ext)
+        common_objs = [common_obj, syscalls_obj]
         cflags = [
             '-I', common.baremetal_src_lib_dir, common.Newline,
+            '-I', common.root_dir, common.Newline,
             '-O0', common.Newline,
             '-ggdb3', common.Newline,
             '-mcpu={}'.format(common.mcpu), common.Newline,
@@ -46,23 +53,27 @@ class BaremetalComponent(common.Component):
                 os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(args.arch, common.asm_ext)), common.Newline,
             ]
         )
-        common.run_cmd(
-            [gcc,  common.Newline] +
-            cflags +
-            [
-                '-c', common.Newline,
-                '-D', 'UART0_ADDR={:#x}'.format(uart_address), common.Newline,
-                '-o', common_obj, common.Newline,
-                os.path.join(common.baremetal_src_lib_dir, 'common' + common.c_ext), common.Newline,
-            ]
-        )
+        for src, obj in [
+            (common_src, common_obj),
+            (syscalls_src, syscalls_obj),
+        ]:
+            common.run_cmd(
+                [gcc,  common.Newline] +
+                cflags +
+                [
+                    '-c', common.Newline,
+                    '-D', 'UART0_ADDR={:#x}'.format(uart_address), common.Newline,
+                    '-o', obj, common.Newline,
+                    src, common.Newline,
+                ]
+            )
         self._build_dir(
             '',
             gcc=gcc,
             cflags=cflags,
             entry_address=entry_address,
             bootloader_obj=bootloader_obj,
-            common_obj=common_obj,
+            common_objs=common_objs,
         )
         self._build_dir(
             'interactive',
@@ -70,7 +81,7 @@ class BaremetalComponent(common.Component):
             cflags=cflags,
             entry_address=entry_address,
             bootloader_obj=bootloader_obj,
-            common_obj=common_obj,
+            common_objs=common_objs,
         )
         arch_dir = os.path.join('arch', args.arch)
         if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
@@ -80,7 +91,7 @@ class BaremetalComponent(common.Component):
                 cflags=cflags,
                 entry_address=entry_address,
                 bootloader_obj=bootloader_obj,
-                common_obj=common_obj,
+                common_objs=common_objs,
             )
         arch_dir = os.path.join('arch', args.arch, 'no_bootloader')
         if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
@@ -90,7 +101,7 @@ class BaremetalComponent(common.Component):
                 cflags=cflags,
                 entry_address=entry_address,
                 bootloader_obj=bootloader_obj,
-                common_obj=common_obj,
+                common_objs=common_objs,
                 bootloader=False,
             )
 
@@ -107,7 +118,16 @@ Build the baremetal examples with crosstool-NG.
     def get_default_args(self):
         return {'baremetal': 'all'}
 
-    def _build_dir(self, subpath, gcc, cflags, entry_address, bootloader_obj, common_obj, bootloader=True):
+    def _build_dir(
+            self,
+            subpath,
+            gcc,
+            cflags,
+            entry_address,
+            bootloader_obj,
+            common_objs,
+            bootloader=True
+        ):
         """
         Build all .c and .S files in a given subpath of the baremetal source
         directory non recursively.
@@ -144,8 +164,8 @@ Build the baremetal examples with crosstool-NG.
                         '-T', os.path.join(common.baremetal_src_dir, 'link.ld'), common.Newline,
                     ] +
                     bootloader_cmd +
+                    common.add_newlines(common_objs) +
                     [
-                        common_obj, common.Newline,
                         main_obj, common.Newline,
                     ]
                 )

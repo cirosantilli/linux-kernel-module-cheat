@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void main(void) {
+int main(void) {
 	exit(0);
 }
 

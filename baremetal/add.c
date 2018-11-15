@@ -1,6 +1,6 @@
 #include <common.h>
 
-void main(void) {
+int main(void) {
 	int i, j, k;
 	i = 1;
     /* test-gdb-op1 */
@@ -9,5 +9,5 @@ void main(void) {
 	k = i + j;
     /* test-gdb-result */
 	if (k != 3)
-		assert_fail();
+		common_assert_fail();
 }

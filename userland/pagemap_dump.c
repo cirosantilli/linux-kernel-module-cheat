@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "common.h" /* pagemap_get_entry */
+#include "common_userland.h" /* pagemap_get_entry */
 
 int main(int argc, char **argv)
 {

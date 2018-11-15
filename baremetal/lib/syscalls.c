@@ -86,8 +86,3 @@ void _exit(int status) {
 #endif
 #endif
 }
-
-void assert_fail() {
-	puts("lkmc_test_fail");
-	exit(1);
-}

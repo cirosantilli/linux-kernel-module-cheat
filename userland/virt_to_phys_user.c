@@ -4,7 +4,7 @@
 #include <stdio.h> /* printf */
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE, strtoull */
 
-#include "common.h" /* virt_to_phys_user */
+#include "common_userland.h" /* virt_to_phys_user */
 
 int main(int argc, char **argv)
 {

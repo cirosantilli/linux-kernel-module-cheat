@@ -7,6 +7,6 @@ main:
     /* test-gdb-result */
     cmp r1, #3
     beq 1f
-    bl assert_fail
+    bl common_assert_fail
 1:
     bx lr

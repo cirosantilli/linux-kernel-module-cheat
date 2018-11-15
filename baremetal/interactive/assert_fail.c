@@ -1,6 +1,6 @@
 #include <common.h>
 
-void main(void) {
-	assert_fail();
+int main(void) {
+	common_assert_fail();
 }
 

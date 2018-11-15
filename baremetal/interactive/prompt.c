@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void main(void) {
+int main(void) {
     char c;
     char *ptr = NULL;
     size_t alloc_size = 1;
@@ -19,4 +19,3 @@ void main(void) {
         }
     }
 }
-

@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 #include <unistd.h> /* sysconf */
 
-#include "common.h" /* virt_to_phys_user */
+#include "common_userland.h" /* virt_to_phys_user */
 
 enum { BUFFER_SIZE = 4 };
 
