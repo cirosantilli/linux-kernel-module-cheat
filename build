@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+import platform
 import re
 import os
 
@@ -345,7 +346,6 @@ for component_name in components:
             selected_components.append(component)
             todo.extend(component.dependencies)
 
-
 if args.download_dependencies:
     apt_get_pkgs = {
         # Core requirements for this repo.
@@ -355,13 +355,20 @@ if args.download_dependencies:
         'tmux',
         'vinagre',
         'wget',
-
-        # Userland.
-        'gcc-aarch64-linux-gnu',
-        'gcc-arm-linux-gnueabihf',
-        'g++-aarch64-linux-gnu',
-        'g++-arm-linux-gnueabihf',
     }
+    # E.e. on an ARM host, the package gcc-arm-linux-gnueabihf
+    # is called just gcc.
+    processor = platform.processor()
+    if processor != 'arm':
+        apt_get_pkgs.update({
+            'gcc-arm-linux-gnueabihf',
+            'g++-arm-linux-gnueabihf',
+        })
+    if processor != 'aarch64':
+        apt_get_pkgs.update({
+            'gcc-aarch64-linux-gnu',
+            'g++-aarch64-linux-gnu',
+        })
     apt_build_deps = set()
     submodules = set()
     submodules_shallow = set()
