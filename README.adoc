@@ -505,14 +505,14 @@ The limitations are severe however:
 * can't <<gdb,GDB step debug the kernel>>, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <<prebuilt-toolchain>>.
 +
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
-* you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us.
+* you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us anyways.
 * <<gem5>> is not currently supported, although it should not be too hard to do. Annoyances:
 +
 ** there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself
 ** it does not handle <<gem5-qcow2,qcow2>>, and we haven't gotten <<squashfs>> to work yet, therefore we would have to either distribute large ext2 images, or constantly fight with <<br2_target_rootfs_ext2_size>>
 ** QEMU uses `bzImage` and gem5 the raw `vmlinux`, and we don't want to distribute the same thing twice...
 +
-And our attempt at using link:https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux[`extract-vmlinux`] failed for `aarch64` with:
+Our attempt at using link:https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux[`extract-vmlinux`] to convert between them failed for `aarch64` with:
 +
 ....
 run-detectors: unable to find an interpreter for
@@ -2824,7 +2824,9 @@ gem5 can generate DTBs on ARM with `--generate-dtb`, but we don't use that featu
 
 == KVM
 
-You can make QEMU or gem5 <<benchmark-linux-kernel-boot,run faster>> by passing enabling KVM with:
+link:https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine[KVM] is Linux kernel interface that <<benchmark-linux-kernel-boot,greatly speeds up>> execution of virtual machines.
+
+You can make QEMU or gem5  by passing enabling KVM with:
 
 ....
 ./run --kvm
@@ -2836,21 +2838,19 @@ but it was broken in gem5 with pending patches: https://www.mail-archive.com/gem
 panic: KVM: Failed to enter virtualized mode (hw reason: 0x80000021)
 ....
 
-KVM uses the link:https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine[KVM Linux kernel feature] of the host to run most instructions natively.
+KVM works by running userland instructions natively directly on the real hardware instead of running a software simulation of those instructions.
+
+Therefore, KVM only works if you the host architecture is the same as the guest architecture. This means that this will likely only work for x86 guests since almost all development machines are x86 nowadays. Unless you are link:https://www.youtube.com/watch?v=8ItXpmLsINs[running an ARM desktop for some weird reason] :-)
 
 We don't enable KVM by default because:
 
-* only works if the architecture of the guest equals that of the host.
-+
-We have only tested / supported it on x86, but it is rumoured that QEMU and gem5 also have ARM KVM support if you are link:https://www.youtube.com/watch?v=8ItXpmLsINs[running an ARM desktop for some weird reason] :-)
-* limits visibility, since more things are running natively:
+* it limits visibility, since more things are running natively:
 ** can't use GDB
 ** can't do instruction tracing
-* kernel boots are already fast enough without `-enable-kvm`
+** on gem5, you lose cycle counts and therefor any notion of performance
+* QEMU kernel boots are already fast enough for most purposes without it
 
-The main use case for `-enable-kvm` in this repository is to test if something that takes a long time to run is functionally correct.
-
-For example, when porting a benchmark to Buildroot, you can first use QEMU's KVM to test that benchmarks is producing the correct results, before analysing them more deeply in gem5, which runs much slower.
+One important use case for KVM is to fast forward gem5 execution, often to skip boot, take a <<gem5-checkpoint>>, and then move on to a more detailed and slow simulation
 
 == User mode simulation
 
