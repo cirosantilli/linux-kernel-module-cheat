@@ -84,11 +84,11 @@ if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
 
-class Component:
+class BuildComponent:
     def __init__(self):
         pass
 
-    def build(self):
+    def main(self):
         '''
         Parse CLI, and to the build based on it.
 
