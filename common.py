@@ -84,7 +84,7 @@ if os.path.exists(config_file):
     config = imp.load_source('config', config_file)
     configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
 
-class BuildComponent:
+class BuildComponent(Component):
     def __init__(self):
         pass
 
