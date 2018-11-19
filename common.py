@@ -538,8 +538,11 @@ def print_time(ellapsed_seconds):
 
 def raw_to_qcow2(prebuilt=False, reverse=False):
     if prebuilt:
+        disable_trace = []
         qemu_img_executable = common.qemu_img_basename
     else:
+        # Prevent qemu-img from generating trace files like QEMU. Disgusting.
+        disable_trace = ['-T', 'pr_manager_run,file=/dev/null', common.Newline,]
         qemu_img_executable = common.qemu_img_executable
     infmt = 'raw'
     outfmt = 'qcow2'
@@ -552,16 +555,19 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         tmp = infile
         infile = outfile
         outfile = tmp
-    common.run_cmd([
-        qemu_img_executable, common.Newline,
-        # Prevent qemu-img from generating trace files like QEMU. Disgusting.
-        '-T', 'pr_manager_run,file=/dev/null', common.Newline,
-        'convert', common.Newline,
-        '-f', infmt, common.Newline,
-        '-O', outfmt, common.Newline,
-        infile, common.Newline,
-        outfile, common.Newline,
-    ])
+    common.run_cmd(
+        [
+            qemu_img_executable, common.Newline,
+            'convert', common.Newline,
+        ] +
+        disable_trace +
+        [
+            '-f', infmt, common.Newline,
+            '-O', outfmt, common.Newline,
+            infile, common.Newline,
+            outfile, common.Newline,
+        ]
+    )
 
 def resolve_args(defaults, args, extra_args):
     if extra_args is None:
