@@ -498,7 +498,9 @@ Our prebuilts currently include:
 * Linux kernel
 * root filesystem
 
-Advantage: saves time and disk space on the initial install, which is expensive in largely due to building the toolchain.
+For more details, see our our <<release,release procedure>>.
+
+Advantage of this setup: saves time and disk space on the initial install, which is expensive in largely due to building the toolchain.
 
 The limitations are severe however:
 
@@ -522,18 +524,21 @@ This setup might be good enough for those developing simulators, as that require
 
 ==== Prebuilt Buildroot setup getting started
 
-Some times it works with the host QEMU:
+Checkout to the latest tag and use the Ubuntu packaged QEMU:
 
 ....
 sudo apt-get install qemu-system-x86
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat
 cd linux-kernel-module-cheat
+git checkout "$(git rev-list --tags --max-count=1)"
 ./release-download-latest
 unzip lkmc-*.zip
 ./run --prebuilt
 ....
 
-but to be sure, build your own at a tested revision:
+You have to checkout to the latest tag to ensure that the scripts match the release format: https://stackoverflow.com/questions/1404796/how-to-get-the-latest-tag-name-in-current-branch-in-git
+
+Be saner and use our custom built QEMU instead:
 
 ....
 git submodule update --init --recursive "$(./getvar qemu_src_dir)"
@@ -543,16 +548,7 @@ git submodule update --init --recursive "$(./getvar qemu_src_dir)"
 
 This also allows you to <<your-first-qemu-hack,modify QEMU>> if you're into that sort of thing.
 
-To try an older prebuilt:
-
-* download it from: link:https://github.com/cirosantilli/linux-kernel-module-cheat/releases[]
-* checkout this repo to match the SHA of the release
-
-then do whatever that checked out README says.
-
-If you are curious to see what the releases contain in detail, have a look at our <<release,release procedure>>.
-
-To build the kernel modules, simply do:
+To build the kernel modules as in <<your-first-kernel-module-hack>> do:
 
 ....
 ./build-linux -- modules_prepare
@@ -561,6 +557,8 @@ To build the kernel modules, simply do:
 ....
 
 `modules_prepare` does the minimal build procedure required on the kernel for us to be able to compile the kernel modules, and is way faster than doing a full kernel build. A full kernel build would also work however.
+
+This command automatically falls back to the Ubuntu packaged GCC since you don't have the Buildroot toolchain.
 
 To modify the Linux kernel, build and use it as usual:
 
