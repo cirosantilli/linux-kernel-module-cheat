@@ -1,5 +1,6 @@
 .PHONY: all clean mkdir
 
+ARCH = $(shell uname -m)
 CCFLAGS = -ggdb3 -I$(COMMON_DIR) -O0 -Wall -Werror -Wextra -Wno-unused-function $(CCFLAGS_EXTRA) $(CCFLAGS_SCRIPT)
 CFLAGS = -fopenmp -std=c99 $(CCFLAGS) $(CFLAGS_EXTRA)
 CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
@@ -8,6 +9,7 @@ CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
 COMMON_DIR = $(CURDIR)/..
 COMMON_BASENAME = common
 COMMON_OBJ = $(OUT_DIR)/$(COMMON_BASENAME)$(OBJ_EXT)
+IN_EXT_ASM = .S
 IN_EXT_C = .c
 IN_EXT_CXX = .cpp
 LIBS = -lm
@@ -17,7 +19,7 @@ OUT_DIR = $(CURDIR)
 
 -include params.mk
 
-OUTS := $(foreach IN_EXT,$(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
+OUTS := $(foreach IN_EXT,$(IN_EXT_ASM) $(IN_EXT_C) $(IN_EXT_CXX),$(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT)))))
 ifeq ($(HAS_EIGEN),y)
 	CXXFLAGS_EXTRA += -I$(STAGING_DIR)/usr/include/eigen3
 	# TODO: was failing with:
@@ -49,6 +51,9 @@ all: mkdir $(OUTS)
 
 $(COMMON_OBJ): $(COMMON_DIR)/$(COMMON_BASENAME)$(IN_EXT_C)
 	$(CC) $(CFLAGS) -c -o '$@' '$<' $(LIBS)
+
+$(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_ASM) $(COMMON_OBJ)
+	$(CC) $(CFLAGS) $(COMMON_OBJ) -o '$@' '$<' $(LIBS)
 
 $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_C) $(COMMON_OBJ)
 	$(CC) $(CFLAGS) $(COMMON_OBJ) -o '$@' '$<' $(LIBS)
