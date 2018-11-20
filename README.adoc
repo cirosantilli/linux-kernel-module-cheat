@@ -10396,19 +10396,77 @@ help architecture
 
 shows ARM version up to `armv6`, so maybe `armv6` is not implemented?
 
-=== ARM EL
+=== ARM exception level
 
-Find the ARM EL: https://stackoverflow.com/questions/31787617/what-is-the-current-execution-mode-exception-level-etc
+ARM exception levels are analogous to x86 <<ring0,rings>>.
 
-Prints the EL at the beginning of a baremetal simulation:
+Print the EL at the beginning of a baremetal simulation:
 
 ....
+./run --arch arm --baremetal arch/arm/el
 ./run --arch aarch64 --baremetal arch/aarch64/el
 ....
 
-Source: link:baremetal/arch/aarch64/el.c[]
+Sources:
 
-The lower ELs are not mandatory, and in gem5 at least you can configure the lowest EL with configuration options TODO which, example.
+* link:baremetal/arch/arm/el.c[]
+* link:baremetal/arch/aarch64/el.c[]
+
+The instructions that find the ARM EL are explained at: https://stackoverflow.com/questions/31787617/what-is-the-current-execution-mode-exception-level-etc
+
+The lower ELs are not mandated by the architecture, and can be controlled through command line options in QEMU and gem5.
+
+In QEMU, you can configure the lowest EL as explained at https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
+
+....
+./run --arch arm --baremetal arch/arm/el
+./run --arch arm --baremetal arch/arm/el -- -machine virtualization=on
+./run --arch arm --baremetal arch/arm/el -- -machine secure=on
+./run --arch aarch64 --baremetal arch/aarch64/el
+./run --arch aarch64 --baremetal arch/aarch64/el -- -machine virtualization=on
+./run --arch aarch64 --baremetal arch/aarch64/el -- -machine secure=on
+....
+
+outputs respectively:
+
+....
+19
+19
+19
+1
+2
+3
+....
+
+TODO: why is `arm` stuck at `19` which equals Supervisor mode?
+
+In gem5, you can configure the lowest EL with:
+
+....
+./run --arch arm --baremetal arch/arm/el --gem5
+cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --gem5 -- --param 'system.have_virtualization = True'
+cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --gem5 -- --param 'system.have_security = True'
+cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --gem5
+cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --gem5 -- --param 'system.have_virtualization = True'
+cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --gem5 -- --param 'system.have_security = True'
+cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
+....
+
+output:
+
+....
+19
+26
+19
+1
+2
+3
+....
 
 === How we got some baremetal stuff to work
 
