@@ -230,7 +230,7 @@ The safe way, is to fist quit QEMU, rebuild the modules, put them in the root fi
 ....
 ./build-modules
 ./build-buildroot
-./run --eval-busybox 'insmod /hello.ko'
+./run --eval-after 'insmod /hello.ko'
 ....
 
 `./build-buildroot` is required after `./build-modules` because it generates the root filesystem with the modules that we compiled at `./build-modules`.
@@ -241,7 +241,7 @@ You can see that `./build` does that as well, by running:
 ./build --dry-run
 ....
 
-`--eval-busybox` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
+`--eval-after` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
 
 If the guest and host are the same arch, typically x86_64, you can speed up boot further with <<kvm>>:
 
@@ -275,7 +275,7 @@ then as usual rebuild and re-run:
 
 .....
 ./build-qemu
-./run --eval-busybox 'grep "model name" /proc/cpuinfo'
+./run --eval-after 'grep "model name" /proc/cpuinfo'
 .....
 
 and once again, there is your message: QEMU communicated it to the Linux kernel, which printed it out.
@@ -1081,7 +1081,7 @@ It is kind of random: if you just `insmod` manually and then immediately `./run-
 But this fails most of the time: shell 1:
 
 ....
-./run --arch arm --eval-busybox 'insmod /hello.ko'
+./run --arch arm --eval-after 'insmod /hello.ko'
 ....
 
 shell 2:
@@ -1170,7 +1170,7 @@ So once we find the address the first time, we can just reuse it afterwards, as 
 Do a fresh boot and get the module:
 
 ....
-./run --eval-busybox '/pr_debug.sh;insmod /fops.ko;/poweroff.out'
+./run --eval-after '/pr_debug.sh;insmod /fops.ko;/poweroff.out'
 ....
 
 The boot must be fresh, because the load address changes every time we insert, even after removing previous modules.
@@ -1606,7 +1606,7 @@ The implementation is described at: https://stackoverflow.com/questions/46415059
 We can set and get which cores the Linux kernel allows a program to run on with `sched_getaffinity` and `sched_setaffinity`:
 
 ....
-./run --cpus 2 --eval-busybox '/sched_getaffinity.out'
+./run --cpus 2 --eval-after '/sched_getaffinity.out'
 ....
 
 Source: link:userland/sched_getaffinity.c[]
@@ -1636,7 +1636,7 @@ The number of cores is modified as explained at: <<number-of-cores>>
   --config 'BR2_PACKAGE_UTIL_LINUX=y' \
   --config 'BR2_PACKAGE_UTIL_LINUX_SCHEDUTILS=y' \
 ;
-./run --eval-busybox 'taskset -c 1,1 /sched_getaffinity.out'
+./run --eval-after 'taskset -c 1,1 /sched_getaffinity.out'
 ....
 
 output:
@@ -1658,7 +1658,7 @@ We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and cor
 ./run \
   --cpus 2 \
   --wait-gdb \
-  --eval-busybox 'i=0; while true; do taskset -c $i,$i /sched_getaffinity.out; i=$((! $i)); done' \
+  --eval-after 'i=0; while true; do taskset -c $i,$i /sched_getaffinity.out; i=$((! $i)); done' \
 ;
 ....
 
@@ -1690,7 +1690,7 @@ We should also try it out with kernel modules: https://stackoverflow.com/questio
 TODO we then tried:
 
 ....
-./run --cpus 2 --eval-busybox '/sched_getaffinity_threads.out'
+./run --cpus 2 --eval-after '/sched_getaffinity_threads.out'
 ....
 
 and:
@@ -2217,7 +2217,7 @@ I've tried:
 
 ....
 ./run-toolchain --arch aarch64 gcc -- -static ~/test/hello_world.c -o "$(./getvar p9_dir)/a.out"
-./run --arch aarch64 --eval-busybox '/mnt/9p/data/a.out'
+./run --arch aarch64 --eval-after '/mnt/9p/data/a.out'
 ....
 
 but it fails with:
@@ -2373,7 +2373,7 @@ This executable is a convenient simple init that does not panic and sleeps inste
 Get a reasonable answer to "how long does boot take?":
 
 ....
-./run --eval-busybox '/time_boot.out'
+./run --eval-after '/time_boot.out'
 ....
 
 Dmesg contains a message of type:
@@ -2389,10 +2389,10 @@ Bibliography: https://stackoverflow.com/questions/12683169/measure-time-taken-fo
 [[init-busybox]]
 === Run command at the end of BusyBox init
 
-Use the `--eval-busybox` option is for you rely on something that BusyBox' init set up for you like `/etc/fstab`:
+Use the `--eval-after` option is for you rely on something that BusyBox' init set up for you like `/etc/fstab`:
 
 ....
-./run --eval-busybox 'echo asdf;ls /proc;ls /sys;echo qwer'
+./run --eval-after 'echo asdf;ls /proc;ls /sys;echo qwer'
 ....
 
 After the commands run, you are left on an interactive shell.
@@ -2405,7 +2405,7 @@ The above command is basically equivalent to:
 
 where the `lkmc_eval` option gets evaled by our default link:rootfs_overlay/etc/init.d/S98[S98] startup script.
 
-Except that `--eval-busybox` is smarter and uses `base64` encoding.
+Except that `--eval-after` is smarter and uses `base64` encoding.
 
 Alternatively, you can also add the comamdns to run to a new `init.d` entry to run at the end o the BusyBox init:
 
@@ -3059,7 +3059,7 @@ gem5 full system:
 time \
   ./run \
   --arch arm \
-  --eval-busybox '/gem5.sh' \
+  --eval-after '/gem5.sh' \
   --gem5
   --gem5-readfile 'dhrystone 100000' \
 ;
@@ -3077,7 +3077,7 @@ QEMU full system:
 time \
   ./run \
   --arch arm \
-  --eval-busybox 'time dhrystone 100000000;/poweroff.out' \
+  --eval-after 'time dhrystone 100000000;/poweroff.out' \
 ;
 ....
 
@@ -3095,7 +3095,7 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 link:https://git.busybox.net/busybox/tree/modutils/insmod.c?h=1_29_3[Provided by BusyBox]:
 
 ....
-./run --eval-busybox 'insmod /hello.ko'
+./run --eval-after 'insmod /hello.ko'
 ....
 
 === myinsmod
@@ -4271,8 +4271,8 @@ and so it is Read Only as shown by `ro`.
 Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
 
 ....
-./run --eval-busybox '/rand_check.out;/poweroff.out'
-./run --eval-busybox '/rand_check.out;/poweroff.out'
+./run --eval-after '/rand_check.out;/poweroff.out'
+./run --eval-after '/rand_check.out;/poweroff.out'
 ....
 
 If we remove it from our link:run[] script by hacking it up, the addresses shown by `rand_check.out` vary across boots.
@@ -5027,7 +5027,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-busybox 'insmod /dump_stack.ko' --wait-gdb --tmux=dump_stack
+./run --eval-after 'insmod /dump_stack.ko' --wait-gdb --tmux=dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -5759,7 +5759,7 @@ Source: link:kernel_modules/work_from_work.c[]
 Let's block the entire kernel! Yay:
 
 .....
-./run --eval-busybox 'dmesg -n 1;insmod /schedule.ko schedule=0'
+./run --eval-after 'dmesg -n 1;insmod /schedule.ko schedule=0'
 .....
 
 Outcome: the system hangs, the only way out is to kill the VM.
@@ -5773,7 +5773,7 @@ Sleep functions like `usleep_range` also end up calling schedule.
 If we allow `schedule()` to be called, then the system becomes responsive:
 
 .....
-./run --eval-busybox 'dmesg -n 1;insmod /schedule.ko schedule=1'
+./run --eval-after 'dmesg -n 1;insmod /schedule.ko schedule=1'
 .....
 
 
@@ -5786,7 +5786,7 @@ dmesg -w
 The system also responds if we <<number-of-cores,add another core>>:
 
 ....
-./run --cpus 2 --eval-busybox 'dmesg -n 1;insmod /schedule.ko schedule=0'
+./run --cpus 2 --eval-after 'dmesg -n 1;insmod /schedule.ko schedule=0'
 ....
 
 ==== Wait queues
@@ -5866,7 +5866,7 @@ Bibliography:
 Brute force monitor every shared interrupt that will accept us:
 
 ....
-./run --eval-busybox 'insmod /irq.ko' --graphic
+./run --eval-after 'insmod /irq.ko' --graphic
 ....
 
 Source: link:kernel_modules/irq.c[].
@@ -6678,7 +6678,7 @@ Detects buffer overflows for us:
 ./build-modules --clean
 ./build-modules
 ./build-buildroot
-./run --eval-busybox 'insmod /strlen_overflow.ko' --linux-build-id fortify
+./run --eval-after 'insmod /strlen_overflow.ko' --linux-build-id fortify
 ....
 
 Possible dmesg output:
@@ -7186,7 +7186,7 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 ....
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
 ./build-userland --has-package libdrm -- libdrm_modeset
-./run --eval-busybox '/libdrm_modeset.out' --graphic
+./run --eval-after '/libdrm_modeset.out' --graphic
 ....
 
 Source: link:userland/libdrm_modeset.c[]
@@ -7199,7 +7199,7 @@ TODO not working for `aarch64`, it takes over the screen for a few seconds and t
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
 ./build-userland --has-package libdrm
 ./build-buildroot
-./run --eval-busybox '/libdrm_modeset.out' --graphic
+./run --eval-after '/libdrm_modeset.out' --graphic
 ....
 
 <<kmscube>> however worked, which means that it must be a bug with this demo?
@@ -7224,7 +7224,7 @@ Try creating new displays:
 to see multiple `/dev/dri/cardN`, and then use a different display with:
 
 ....
-./run --eval-busybox '/libdrm_modeset.out' --graphic
+./run --eval-after '/libdrm_modeset.out' --graphic
 ....
 
 Bibliography:
@@ -7412,14 +7412,14 @@ For QEMU, this is done by passing the `snapshot` option to `-drive`, and for gem
 If you hack up our link:run[] script to remove that option, then:
 
 ....
-./run --eval-busybox 'date >f;poweroff'
+./run --eval-after 'date >f;poweroff'
 
 ....
 
 followed by:
 
 ....
-./run --eval-busybox 'cat f'
+./run --eval-after 'cat f'
 ....
 
 gives the date, because `poweroff` without `-n` syncs before shutdown.
@@ -7485,7 +7485,7 @@ qcow2 filesystems must be used for that to work.
 To test it out, login into the VM with and run:
 
 ....
-./run --eval-busybox 'umount /mnt/9p/*;/count.sh'
+./run --eval-after 'umount /mnt/9p/*;/count.sh'
 ....
 
 On another shell, take a snapshot:
@@ -8279,15 +8279,15 @@ This awesome feature allows you to examine a single run as many times as you wou
 
 ....
 # Record a run.
-./run --eval-busybox '/rand_check.out;/poweroff.out;' --record
+./run --eval-after '/rand_check.out;/poweroff.out;' --record
 # Replay the run.
-./run --eval-busybox '/rand_check.out;/poweroff.out;' --replay
+./run --eval-after '/rand_check.out;/poweroff.out;' --replay
 ....
 
 A convenient shortcut to do both at once to test the feature is:
 
 ....
-./qemu-rr --eval-busybox '/rand_check.out;/poweroff.out;'
+./qemu-rr --eval-after '/rand_check.out;/poweroff.out;'
 ....
 
 By comparing the terminal output of both runs, we can see that they are the exact same, including things which normally differ across runs:
@@ -8314,7 +8314,7 @@ EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
 TODO replay with network gets stuck:
 
 ....
-./qemu-rr --eval-busybox 'ifup -a;wget -S google.com;/poweroff.out;'
+./qemu-rr --eval-after 'ifup -a;wget -S google.com;/poweroff.out;'
 ....
 
 after the message:
@@ -8333,7 +8333,7 @@ Then, when I tried with <<initrd>> and no disk:
 
 ....
 ./build-buildroot --arch aarch64 -i
-./qemu-rr --arch aarch64 --eval-busybox '/rand_check.out;/poweroff.out;' -i
+./qemu-rr --arch aarch64 --eval-after '/rand_check.out;/poweroff.out;' -i
 ....
 
 QEMU crashes with:
@@ -8353,8 +8353,8 @@ TODO get working.
 QEMU replays support checkpointing, and this allows for a simplistic "reverse debugging" implementation proposed at https://lists.gnu.org/archive/html/qemu-devel/2018-06/msg00478.html on the unmerged link:https://github.com/ispras/qemu/tree/rr-180725[]:
 
 ....
-./run --eval-busybox '/rand_check.out;/poweroff.out;' --record
-./run --eval-busybox '/rand_check.out;/poweroff.out;' --replay --wait-gdb
+./run --eval-after '/rand_check.out;/poweroff.out;' --record
+./run --eval-after '/rand_check.out;/poweroff.out;' --replay --wait-gdb
 ....
 
 On another shell:
@@ -8827,7 +8827,7 @@ Usage:
 ....
 ./run \
   --arch aarch64 \
-  --eval-busybox '/gem5.sh' \
+  --eval-after '/gem5.sh' \
   --gem5 \
   --gem5-readfile '/bst_vs_heap.out' \
 ;
@@ -8858,7 +8858,7 @@ Buildroot supports it, which makes everything just trivial:
 ....
 ./build-buildroot --config 'BR2_PACKAGE_OPENBLAS=y'
 ./build-userland --has-package openblas -- openblas_hello
-./run --eval-busybox '/openblas_hello.out; echo $?'
+./run --eval-after '/openblas_hello.out; echo $?'
 ....
 
 Outcome: the test passes:
@@ -8903,7 +8903,7 @@ Header only linear algebra library with a mainline Buildroot package:
 Just create an array and print it:
 
 ....
-./run --eval-busybox '/eigen_hello.out'
+./run --eval-after '/eigen_hello.out'
 ....
 
 Output:
@@ -10921,10 +10921,10 @@ It does not work if you just download the `.zip` with the sources for this repos
 
 === Run command after boot
 
-If you just want to run a command after boot ends without thinking much about it, just use the `--eval-busybox` option, e.g.:
+If you just want to run a command after boot ends without thinking much about it, just use the `--eval-after` option, e.g.:
 
 ....
-./run --eval-busybox 'echo hello'
+./run --eval-after 'echo hello'
 ....
 
 This option passes the command to our init scripts through <<kernel-command-line-parameters>>, and uses a few clever tricks along the way to make it just work.
@@ -11409,7 +11409,7 @@ Those packages get automatically added to Buildroot's `BR2_EXTERNAL`, so all you
 then test it out with:
 
 ....
-./run --eval-busybox '/sample_package.out'
+./run --eval-after '/sample_package.out'
 ....
 
 and you should see:
@@ -11451,7 +11451,7 @@ Usage:
 Then test one of the modules with:
 
 ....
-./run --buildroot-linux --eval-busybox 'modprobe buildroot_hello'
+./run --buildroot-linux --eval-after 'modprobe buildroot_hello'
 ....
 
 Source: link:buildroot_packages/kernel_modules/buildroot_hello.c[]
@@ -11686,7 +11686,7 @@ Sources:
 Print out several parameters that normally change randomly from boot to boot:
 
 ....
-./run --eval-busybox '/rand_check.out;/poweroff.out'
+./run --eval-after '/rand_check.out;/poweroff.out'
 ....
 
 Source: link:userland/rand_check.c[]
