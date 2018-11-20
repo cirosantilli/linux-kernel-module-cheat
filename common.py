@@ -558,10 +558,10 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
     common.run_cmd(
         [
             qemu_img_executable, common.Newline,
-            'convert', common.Newline,
         ] +
         disable_trace +
         [
+            'convert', common.Newline,
             '-f', infmt, common.Newline,
             '-O', outfmt, common.Newline,
             infile, common.Newline,
