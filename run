@@ -185,6 +185,8 @@ def main(args, extra_args=None):
                         cmd.extend(['--cpu-type', 'X86KvmCPU', common.Newline])
                     cmd.extend(['--command-line', 'earlyprintk={} lpj=7999923 root=/dev/sda {}'.format(console, kernel_cli), common.Newline])
                 elif common.is_arm:
+                    if args.kvm:
+                        cmd.extend(['--cpu-type', 'ArmV8KvmCPU', common.Newline])
                     # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                     # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                     cmd.extend([
@@ -202,13 +204,17 @@ def main(args, extra_args=None):
                             cmd.extend(['--param', 'system.highest_el_is_64 = True', common.Newline])
                             cmd.extend(['--param', 'system.auto_reset_addr = True', common.Newline])
             elif args.gem5_script == 'biglittle':
+                if args.kvm:
+                    cpu_type = 'kvm'
+                else:
+                    cpu_type = 'atomic'
                 if args.gem5_restore is not None:
                     cpt_dir = common.gem_list_checkpoint_dirs()[-args.gem5_restore]
                     extra_emulator_args.extend(['--restore-from', os.path.join(common.m5out_dir, cpt_dir)])
                 cmd.extend([
                     os.path.join(common.gem5_src_dir, 'configs', 'example', 'arm', 'fs_bigLITTLE.py'), common.Newline,
                     '--big-cpus', '2', common.Newline,
-                    '--cpu-type', 'atomic', common.Newline,
+                    '--cpu-type', cpu_type, common.Newline,
                     '--disk', common.disk_image, common.Newline,
                     '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), common.Newline,
                     '--kernel', common.image, common.Newline,
