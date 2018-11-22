@@ -10217,11 +10217,9 @@ then on the second shell:
 ./run-gdb --arch arm --baremetal interactive/prompt --no-continue
 ....
 
-and now we are left at the very first executed instruction of our tiny bootloader: link:baremetal/lib/arm.S[]
+and now we are left at the very first executed instruction of our tiny <<baremetal-bootloaders>>.
 
 Then just use `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
-
-The bootloader is used to put the hardware in its main operating mode before we run our main payload on it.
 
 You can also find executables that don't use the bootloader at all under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
@@ -10230,8 +10228,6 @@ You can also find executables that don't use the bootloader at all under `bareme
 ....
 
 The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.
-
-However, those examples tend to be less portable, so we use examples with the bootloader for the most part.
 
 Alternatively, skip directly to the C program main function with:
 
@@ -10252,6 +10248,33 @@ and on another shell:
 ....
 
 `aarch64` GDB step debug is broken as mentioned at: <<gem5-gdb-step-debug-kernel-aarch64>>.
+
+=== Baremetal bootloaders
+
+As can be seen from <<baremetal-gdb-step-debug>>, all examples under link:baremetal/[], with the exception of `baremetal/arch/<arch>/no_bootloader`, start from our tiny bootloaders:
+
+* link:baremetal/lib/arm.S[]
+* link:baremetal/lib/aarch64.S[]
+
+Out simplistic bootloaders basically setup up just enough system state to allow calling:
+
+* C functions such as `exit` from the assembly examples
+* the `main` of C examples itself
+
+The most important things that we setup in the bootloaders are:
+
+* the stack pointer
+* NEON: <<aarch64-baremetal-neon-setup>>
+* TODO: we don't do this currently but maybe we should setup BSS
+
+The C functions that become available as a result are:
+
+* Newlib functions implemented at link:baremetal/lib/syscalls.c[]
+* non-Newlib functions implemented at link:common.c[]
+
+It is not possible to call those C functions from the examples that don't use a bootloader.
+
+For this reason, we tend to create examples with bootloaders, as it is easier to write them portably.
 
 === Semihosting
 
@@ -10512,7 +10535,7 @@ output:
 
 ==== ARM multicore
 
-TODO get working: CPU 1 not waking up:
+TODO get working on QEMU, CPU 1 not waking up. gem5 works:
 
 ....
 ./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2
@@ -10523,6 +10546,14 @@ Source: link:baremetal/arch/aarch64/multicore.S[]
 CPU 0 of this program enters a spinlock loop: it repeatedly checks if a given memory address is `1`.
 
 So, we need CPU 1 to come to the rescue to that memory address be `1`, otherwise CPU 0 will be stuck there forever.
+
+Don't believe me? Then try:
+
+....
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1
+....
+
+and watch it hang forever.
 
 Bibliography:
 
