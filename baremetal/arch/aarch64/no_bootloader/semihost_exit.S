@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#semihosting */
+
 .global mystart
 mystart:
     mov x1, #0x26
