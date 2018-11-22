@@ -508,17 +508,7 @@ The limitations are severe however:
 +
 Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.
 * you won't get the latest version of this repository. Our <<travis>> attempt to automate builds failed, and storing a release for every commit would likely make GitHub mad at us anyways.
-* <<gem5>> is not currently supported, although it should not be too hard to do. Annoyances:
-+
-** there is no Debian package for it, so you have to compile your own, so you might as well just build the image itself
-** it does not handle <<gem5-qcow2,qcow2>>, and we haven't gotten <<squashfs>> to work yet, therefore we would have to either distribute large ext2 images, or constantly fight with <<br2_target_rootfs_ext2_size>>
-** QEMU uses `bzImage` and gem5 the raw `vmlinux`, and we don't want to distribute the same thing twice...
-+
-Our attempt at using link:https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux[`extract-vmlinux`] to convert between them failed for `aarch64` with:
-+
-....
-run-detectors: unable to find an interpreter for
-....
+* <<gem5>> is not currently supported. The major blocking point is how to avoid distributing the kernel images twice: once for gem5 which uses `vmlinux`, and once for QEMU which uses `arch/*` images, see also: <<vmlinux-vs-bzimage-vs-zimage-vs-image>>.
 
 This setup might be good enough for those developing simulators, as that requires less image modification. But once again, if you are serious about this, why not just let your computer build the <<qemu-buildroot-setup,full featured setup>> while you take a coffee or a nap? :-)
 
@@ -1344,7 +1334,7 @@ See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operati
 
 <<gem5-tracing>> with `--debug-flags=Exec` does show the right symbols however! So in the worst case, we can just read their source. Amazing.
 
-v4.19 also added a `CONFIG_HAVE_KERNEL_UNCOMPRESSED=y` option for having the kernel uncompressed which could make following the startup easier, but it is only available on s390. `aarch64` however is already uncompressed by default, so might be the easiest one: https://unix.stackexchange.com/questions/5518/what-is-the-difference-between-the-following-kernel-makefile-terms-vmlinux-vml/482978#482978
+v4.19 also added a `CONFIG_HAVE_KERNEL_UNCOMPRESSED=y` option for having the kernel uncompressed which could make following the startup easier, but it is only available on s390. `aarch64` however is already uncompressed by default, so might be the easiest one. See also: <<vmlinux-vs-bzimage-vs-zimage-vs-image>>.
 
 ==== GDB step debug early boot by address
 
@@ -7403,6 +7393,27 @@ kill %1
 ....
 
 `stress -c 1 -t 1` makes gem5 irresponsive for a very long time.
+
+== Linux kernel build system
+
+=== vmlinux vs bzImage vs zImage vs Image
+
+Between all archs on QEMU and gem5 we touch all of those kernel built output files.
+
+We are trying to maintain a description of each at: https://unix.stackexchange.com/questions/5518/what-is-the-difference-between-the-following-kernel-makefile-terms-vmlinux-vml/482978#482978
+
+QEMU does not seem able to boot ELF files like `vmlinux`, only `objdump` code: https://superuser.com/questions/1376944/can-qemu-boot-linux-from-vmlinux-instead-of-bzimage
+
+Converting `arch/*` images to `vmlinux` is possible in x86 with link:https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux[`extract-vmlinux`]. But for arm it fails with:
+
+....
+run-detectors: unable to find an interpreter for
+....
+
+as mentioned at:
+
+* https://unix.stackexchange.com/questions/352215/how-do-i-extract-vmlinux-from-an-arm-image
+* https://raspberrypi.stackexchange.com/questions/88621/why-doesnt-extract-vmlinux-work-with-raspbians-boot-kernel-img
 
 == QEMU
 
