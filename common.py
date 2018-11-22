@@ -193,6 +193,39 @@ def write_string_to_file(path, string, mode='w'):
         with open(path, 'a') as f:
             f.write(string)
 
+def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
+    '''
+    Format a command given as a list of strings so that it can
+    be viewed nicely and executed by bash directly and print it to stdout.
+    '''
+    last_newline = ' \\\n'
+    newline_separator = last_newline + '  '
+    out = []
+    if extra_env is None:
+        extra_env = {}
+    if cwd is not None:
+        out.append('cd {} &&'.format(shlex.quote(cwd)))
+    if extra_paths is not None:
+        out.append('PATH="{}:${{PATH}}"'.format(':'.join(extra_paths)))
+    for key in extra_env:
+        out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])))
+    cmd_quote = []
+    newline_count = 0
+    for arg in cmd:
+        if arg == common.Newline:
+            cmd_quote.append(arg)
+            newline_count += 1
+        else:
+            cmd_quote.append(shlex.quote(arg))
+    if newline_count > 0:
+        cmd_quote = [' '.join(list(y)) for x, y in itertools.groupby(cmd_quote, lambda z: z == common.Newline) if not x]
+    out.extend(cmd_quote)
+    if newline_count == 1 and cmd[-1] == common.Newline:
+        ending = ''
+    else:
+        ending = last_newline + ';'
+    return newline_separator.join(out) + ending
+
 def copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext=None):
     # TODO print rsync equivalent.
     os.makedirs(destdir, exist_ok=True)
@@ -206,6 +239,11 @@ def copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext=None):
                     os.path.join(destdir, basename),
                     update=1,
                 )
+
+def cp(src, dest):
+    print_cmd(['cp', src, dest])
+    if not common.dry_run:
+        shutil.copy2(src, dest)
 
 def gem_list_checkpoint_dirs():
     '''
@@ -475,38 +513,13 @@ def make_run_dirs():
     os.makedirs(common.p9_dir, exist_ok=True)
     os.makedirs(common.qemu_run_dir, exist_ok=True)
 
-def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
-    '''
-    Format a command given as a list of strings so that it can
-    be viewed nicely and executed by bash directly and print it to stdout.
-    '''
-    last_newline = ' \\\n'
-    newline_separator = last_newline + '  '
-    out = []
-    if extra_env is None:
-        extra_env = {}
-    if cwd is not None:
-        out.append('cd {} &&'.format(shlex.quote(cwd)))
-    if extra_paths is not None:
-        out.append('PATH="{}:${{PATH}}"'.format(':'.join(extra_paths)))
-    for key in extra_env:
-        out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])))
-    cmd_quote = []
-    newline_count = 0
-    for arg in cmd:
-        if arg == common.Newline:
-            cmd_quote.append(arg)
-            newline_count += 1
-        else:
-            cmd_quote.append(shlex.quote(arg))
-    if newline_count > 0:
-        cmd_quote = [' '.join(list(y)) for x, y in itertools.groupby(cmd_quote, lambda z: z == common.Newline) if not x]
-    out.extend(cmd_quote)
-    if newline_count == 1 and cmd[-1] == common.Newline:
-        ending = ''
-    else:
-        ending = last_newline + ';'
-    return newline_separator.join(out) + ending
+def need_rebuild(srcs, dst):
+    if not os.path.exists(dst):
+        return True
+    for src in srcs:
+        if os.path.getmtime(src) > os.path.getmtime(dst):
+            return True
+    return False
 
 def print_cmd(cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
     '''
@@ -575,11 +588,6 @@ def resolve_args(defaults, args, extra_args):
     argcopy = copy.copy(args)
     argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
     return argcopy
-
-def cp(src, dest):
-    print_cmd(['cp', src, dest])
-    if not common.dry_run:
-        shutil.copy2(src, dest)
 
 def rmrf(path):
     print_cmd(['rm', '-r', '-f', path])

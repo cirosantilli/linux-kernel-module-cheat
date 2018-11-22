@@ -1,7 +1,7 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-multicore */
 
-.global mystart
-mystart:
+.global main
+main:
     /* Reset spinlock. */
     mov x0, #0
     ldr x1, =spinlock
@@ -21,15 +21,7 @@ mystart:
     ldr x0, spinlock
     cbz x0, 1b
 
-    /* Semihost exit. */
-    mov x1, #0x26
-    movk x1, #2, lsl #16
-    str x1, [sp,#0]
-    mov x0, #0
-    str x0, [sp,#8]
-    mov x1, sp
-    mov w0, #0x18
-    hlt 0xf000
+    ret
 
 spinlock:
     .skip 8

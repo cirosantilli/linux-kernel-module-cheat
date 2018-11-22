@@ -44,29 +44,32 @@ class BaremetalComponent(common.Component):
             uart_address = 0x09000000
         os.makedirs(build_dir, exist_ok=True)
         os.makedirs(common.baremetal_build_lib_dir, exist_ok=True)
-        common.run_cmd(
-            [gcc,  common.Newline] +
-            cflags +
-            [
-                '-c', common.Newline,
-                '-o', bootloader_obj, common.Newline,
-                os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(args.arch, common.asm_ext)), common.Newline,
-            ]
-        )
-        for src, obj in [
-            (common_src, common_obj),
-            (syscalls_src, syscalls_obj),
-        ]:
+        src = os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(args.arch, common.asm_ext))
+        if common.need_rebuild([src], bootloader_obj):
             common.run_cmd(
                 [gcc,  common.Newline] +
                 cflags +
                 [
                     '-c', common.Newline,
-                    '-D', 'UART0_ADDR={:#x}'.format(uart_address), common.Newline,
-                    '-o', obj, common.Newline,
+                    '-o', bootloader_obj, common.Newline,
                     src, common.Newline,
                 ]
             )
+        for src, obj in [
+            (common_src, common_obj),
+            (syscalls_src, syscalls_obj),
+        ]:
+            if common.need_rebuild([src], obj):
+                common.run_cmd(
+                    [gcc,  common.Newline] +
+                    cflags +
+                    [
+                        '-c', common.Newline,
+                        '-D', 'UART0_ADDR={:#x}'.format(uart_address), common.Newline,
+                        '-o', obj, common.Newline,
+                        src, common.Newline,
+                    ]
+                )
         self._build_dir(
             '',
             gcc=gcc,
@@ -137,38 +140,39 @@ Build the baremetal examples with crosstool-NG.
         in_dir = os.path.join(common.baremetal_src_dir, subpath)
         out_dir = os.path.join(common.baremetal_build_dir, subpath)
         os.makedirs(out_dir, exist_ok=True)
+        common_objs = common_objs.copy()
         if bootloader:
-            bootloader_cmd = [bootloader_obj, common.Newline]
-        else:
-            bootloader_cmd = []
+            common_objs.append(bootloader_obj)
         for in_basename in os.listdir(in_dir):
             in_path = os.path.join(in_dir, in_basename)
             if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (common.c_ext, common.asm_ext):
                 in_name = os.path.splitext(in_basename)[0]
                 main_obj = os.path.join(common.baremetal_build_dir, subpath, '{}{}'.format(in_name, common.obj_ext))
-                common.run_cmd(
-                    [gcc,  common.Newline] +
-                    cflags +
-                    [
-                        '-c', common.Newline,
-                        '-o', main_obj, common.Newline,
-                        os.path.join(common.baremetal_src_dir, in_path), common.Newline,
-                    ]
-                )
-                common.run_cmd(
-                    [gcc,  common.Newline] +
-                    cflags +
-                    [
-                        '-Wl,--section-start=.text={:#x}'.format(entry_address), common.Newline,
-                        '-o', os.path.join(common.baremetal_build_dir, subpath, in_name + common.baremetal_build_ext), common.Newline,
-                        '-T', os.path.join(common.baremetal_src_dir, 'link.ld'), common.Newline,
-                    ] +
-                    bootloader_cmd +
-                    common.add_newlines(common_objs) +
-                    [
-                        main_obj, common.Newline,
-                    ]
-                )
+                src = os.path.join(common.baremetal_src_dir, in_path)
+                if common.need_rebuild([src], main_obj):
+                    common.run_cmd(
+                        [gcc,  common.Newline] +
+                        cflags +
+                        [
+                            '-c', common.Newline,
+                            '-o', main_obj, common.Newline,
+                            src, common.Newline,
+                        ]
+                    )
+                objs = common_objs + [main_obj]
+                out = os.path.join(common.baremetal_build_dir, subpath, in_name + common.baremetal_build_ext)
+                link_script = os.path.join(common.baremetal_src_dir, 'link.ld')
+                if common.need_rebuild(objs + [link_script], out):
+                    common.run_cmd(
+                        [gcc,  common.Newline] +
+                        cflags +
+                        [
+                            '-Wl,--section-start=.text={:#x}'.format(entry_address), common.Newline,
+                            '-o', out, common.Newline,
+                            '-T', link_script, common.Newline,
+                        ] +
+                        common.add_newlines(objs)
+                    )
 
 if __name__ == '__main__':
     BaremetalComponent().build()
