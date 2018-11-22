@@ -249,13 +249,14 @@ def main(args, extra_args=None):
                 raise_image_not_found()
             extra_emulator_args.extend(extra_qemu_args)
             common.make_run_dirs()
-            if args.prebuilt:
+            if args.prebuilt or not os.path.exists(common.qemu_executable):
                 qemu_executable = common.qemu_executable_basename
-                qemu_found = shutil.which(qemu_executable) is not None
+                qemu_executable_prebuilt = True
             else:
                 qemu_executable = common.qemu_executable
-                qemu_found = os.path.exists(qemu_executable)
-            if not qemu_found and not args.dry_run:
+                qemu_executable_prebuilt = False
+            qemu_executable = shutil.which(qemu_executable)
+            if qemu_executable is None:
                 raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
                                 'Tried to use: ' + qemu_executable)
             if args.debug_vm:
@@ -296,10 +297,11 @@ def main(args, extra_args=None):
                     '-smp', str(args.cpus), common.Newline,
                 ] +
                 virtfs_cmd +
-                qemu_user_and_system_options +
                 serial_monitor +
                 vnc
             )
+            if not qemu_executable_prebuilt:
+                cmd.extend(qemu_user_and_system_options)
             if args.initrd:
                 extra_emulator_args.extend(['-initrd', os.path.join(common.buildroot_images_dir, 'rootfs.cpio')])
             rr = args.record or args.replay

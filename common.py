@@ -537,7 +537,7 @@ def print_time(ellapsed_seconds):
     print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
 def raw_to_qcow2(prebuilt=False, reverse=False):
-    if prebuilt:
+    if prebuilt or not os.path.exists(common.qemu_img_executable):
         disable_trace = []
         qemu_img_executable = common.qemu_img_basename
     else:
