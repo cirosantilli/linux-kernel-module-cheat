@@ -8203,10 +8203,19 @@ The most interesting are events which show instructions that QEMU ran, for which
 
 Under the hood, this uses QEMU's `-trace` option.
 
-You can then inspect the instructions with:
+You can then inspect the address of each instruction run:
 
 ....
 less "$(./getvar --arch x86_64 run_dir)/trace.txt"
+....
+
+Sample output excerpt:
+
+....
+exec_tb 0.000 pid=10692 tb=0x7fb4f8000040 pc=0xfffffff0
+exec_tb 35.391 pid=10692 tb=0x7fb4f8000180 pc=0xfe05b
+exec_tb 21.047 pid=10692 tb=0x7fb4f8000340 pc=0xfe066
+exec_tb 12.197 pid=10692 tb=0x7fb4f8000480 pc=0xfe06a
 ....
 
 Get the list of available trace events:
@@ -8214,6 +8223,8 @@ Get the list of available trace events:
 ....
 ./run --trace help
 ....
+
+TODO: any way to show the actualy disassembled instruction executed directly from there? Possible with <<qemu-d-tracing>>.
 
 Enable other specific trace events:
 
@@ -8276,7 +8287,25 @@ IN:
 
 TODO: after `IN:`, symbol names are meant to show, which is awesome, but I don't get any. I do see them however when running a bare metal example from: https://github.com/cirosantilli/newlib-examples/tree/900a9725947b1f375323c7da54f69e8049158881
 
-TODO: what is the point of having two mechanisms, `-trace` and  `-d`? `-d` tracing is cool because it does not require a messy recompile, and it can also show symbols.
+TODO: what is the point of having two mechanisms, `-trace` and `-d`? `-d` tracing is cool because it does not require a messy recompile, and it can also show symbols.
+
+==== QEMU trace register values
+
+TODO: is it possible to show the register values for each instruction?
+
+This would include the memory values read into the registers.
+
+Asked at: https://superuser.com/questions/1377764/how-to-trace-the-register-values-of-executed-instructions-in-qemu
+
+Seems impossible due to optimizations that QEMU does:
+
+* https://lists.gnu.org/archive/html/qemu-devel/2015-06/msg07479.html
+* https://lists.gnu.org/archive/html/qemu-devel/2014-04/msg02856.html
+* https://lists.gnu.org/archive/html/qemu-devel/2012-08/msg03057.html
+
+PANDA can list memory addresses, so I bet it can also decode the instructions: https://github.com/panda-re/panda/blob/883c85fa35f35e84a323ed3d464ff40030f06bd6/panda/docs/LINE_Censorship.md I wonder why they don't just upstream those things to QEMU's tracing: https://github.com/panda-re/panda/issues/290
+
+gem5 can do it: <<gem5-tracing>>.
 
 ==== Trace source lines
 
@@ -8421,18 +8450,6 @@ TODO: is there any way to distinguish which instruction runs on each core? Doing
 ....
 
 just appears to output both cores intertwined without any clear differentiation.
-
-==== QEMU trace decode instructions
-
-TODO: is is possible to show which instructions ran at each point in time, in addition to the address of the instruction with `exec_tb` shows? Hopefully dissembled, not just the instruction memory.
-
-PANDA can list memory addresses, so I bet it can also decode the instructions: https://github.com/panda-re/panda/blob/883c85fa35f35e84a323ed3d464ff40030f06bd6/panda/docs/LINE_Censorship.md I wonder why they don't just upstream those things to QEMU's tracing: https://github.com/panda-re/panda/issues/290
-
-Memory access on vanilla seem impossible due to optimizations that QEMU does:
-
-* https://lists.gnu.org/archive/html/qemu-devel/2015-06/msg07479.html
-* https://lists.gnu.org/archive/html/qemu-devel/2014-04/msg02856.html
-* https://lists.gnu.org/archive/html/qemu-devel/2012-08/msg03057.html
 
 ==== gem5 tracing
 
@@ -10554,6 +10571,8 @@ Don't believe me? Then try:
 ....
 
 and watch it hang forever.
+
+When GDB step debugging, switch between cores with the usual `thread` commands, see also: <<gdb-step-debug-multicore-userland>>.
 
 Bibliography:
 

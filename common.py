@@ -794,7 +794,7 @@ def setup(parser):
     common.gem5_run_dir = os.path.join(common.run_dir_base, 'gem5', args.arch, str(args.run_id))
     common.m5out_dir = os.path.join(common.gem5_run_dir, 'm5out')
     common.stats_file = os.path.join(common.m5out_dir, 'stats.txt')
-    common.trace_txt_file = os.path.join(common.m5out_dir, 'trace.txt')
+    common.gem5_trace_txt_file = os.path.join(common.m5out_dir, 'trace.txt')
     common.gem5_guest_terminal_file = os.path.join(common.m5out_dir, 'system.terminal')
     common.gem5_readfile = os.path.join(common.gem5_run_dir, 'readfile')
     common.gem5_termout_file = os.path.join(common.gem5_run_dir, 'termout.txt')
@@ -841,11 +841,13 @@ def setup(parser):
         common.run_dir = common.gem5_run_dir
         common.termout_file = common.gem5_termout_file
         common.guest_terminal_file = gem5_guest_terminal_file
+        common.trace_txt_file = gem5_trace_txt_file
     else:
         common.executable = common.qemu_executable
         common.run_dir = common.qemu_run_dir
         common.termout_file = common.qemu_termout_file
         common.guest_terminal_file = qemu_guest_terminal_file
+        common.trace_txt_file = qemu_trace_txt_file
     common.gem5_config_dir = os.path.join(common.gem5_src_dir, 'configs')
     common.gem5_se_file = os.path.join(common.gem5_config_dir, 'example', 'se.py')
     common.gem5_fs_file = os.path.join(common.gem5_config_dir, 'example', 'fs.py')
