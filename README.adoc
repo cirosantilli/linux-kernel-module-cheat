@@ -10557,17 +10557,16 @@ output:
 
 ==== ARM multicore
 
-TODO get working on QEMU, CPU 1 not waking up. gem5 works:
-
 ....
 ./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --gem5
 ....
 
 Source: link:baremetal/arch/aarch64/multicore.S[]
 
 CPU 0 of this program enters a spinlock loop: it repeatedly checks if a given memory address is `1`.
 
-So, we need CPU 1 to come to the rescue to that memory address be `1`, otherwise CPU 0 will be stuck there forever.
+So, we need CPU 1 to come to the rescue and set that memory address to `1`, otherwise CPU 0 will be stuck there forever!
 
 Don't believe me? Then try:
 
@@ -10583,6 +10582,17 @@ Bibliography:
 
 * https://stackoverflow.com/questions/20055754/arm-start-wakeup-bringup-the-other-cpu-cores-aps-and-pass-execution-start-addre
 * https://stackoverflow.com/questions/980999/what-does-multicore-assembly-language-look-like/33651438#33651438
+
+===== WFE and SEV
+
+The `WFE` and `SEV` instructions are just hints: a compliant implementation can treat them as NOPs.
+
+However, likely no implementation likely does (TODO confirm), since:
+
+* `WFE` puts the core in a low power mode
+* `SEV` wakes up cores from a low power mode
+
+and power consumption is key in ARM applications.
 
 === How we got some baremetal stuff to work
 
