@@ -367,25 +367,29 @@ def main(args, extra_args=None):
             if args.baremetal is None:
                 cmd.extend(append)
     if args.tmux is not None:
+        tmux_args = '--run-id {}'.format(args.run_id)
         if common.emulator == 'gem5':
-            subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
-                'sleep 2;./gem5-shell -n {} {}' \
-                .format(args.run_id, args.tmux)
-            ])
+            tmux_cmd = './gem5-shell'
         elif args.wait_gdb:
+            tmux_cmd = './run-gdb'
             # TODO find a nicer way to forward all those args automatically.
             # Part of me wants to: https://github.com/jonathanslenders/pymux
             # but it cannot be used as a library properly it seems, and it is
             # slower than tmux.
-            subprocess.Popen([os.path.join(common.root_dir, 'tmu'),
-                "sleep 2;./run-gdb --arch '{}' --linux-build-id '{}' --run-id '{}' {}" \
-                .format(
-                    args.arch,
-                    args.linux_build_id,
-                    args.run_id,
-                    args.tmux
-                )
-            ])
+            tmux_args += " --arch {} --linux-build-id '{}' --run-id '{}'".format(
+                args.arch,
+                args.linux_build_id,
+                args.run_id,
+            )
+            if args.baremetal:
+                tmux_args += " --baremetal '{}'".format(args.baremetal)
+            if args.userland:
+                tmux_args += " --userland '{}'".format(args.userland)
+        tmux_args += ' {}'.format(args.tmux)
+        subprocess.Popen([
+            os.path.join(common.root_dir, 'tmu'),
+            "sleep 2;{} {}".format(tmux_cmd, tmux_args)
+        ])
     cmd.extend(extra_emulator_args)
     cmd.extend(args.extra_emulator_args)
     if debug_vm or args.terminal:

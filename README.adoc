@@ -2900,11 +2900,11 @@ The target Linux kernel of the executable is a GCC toolchain build-time configur
 First let's run a dynamically linked executable built with the Buildroot toolchain:
 
 ....
-./build-qemu --arch arm --userland
-./build-userland --arch arm
-./build-buildroot --arch arm
+./build-qemu --arch aarch64 --userland
+./build-userland --arch aarch64
+./build-buildroot --arch aarch64
 ./run \
-  --arch arm \
+  --arch aarch64 \
   --userland print_argv \
   -- \
   asdf qwer \
@@ -2923,12 +2923,12 @@ You can also try statically linked executables with:
 
 ....
 ./build-userland \
-  --arch arm \
+  --arch aarch64 \
   --make-args='CCFLAGS_EXTRA=-static' \
   --userland-build-id static \
 ;
 ./run \
-  --arch arm \
+  --arch aarch64 \
   --userland-build-id static \
   --userland print_argv \
   -- \
@@ -2940,13 +2940,13 @@ Or you can run statically linked built by the host packaged toolchain with:
 
 ....
 ./build-userland \
-  --arch arm \
+  --arch aarch64 \
   --host \
   --make-args='-B CFLAGS_EXTRA=-static' \
   --userland-build-id host-static \
 ;
 ./run \
-  --arch arm \
+  --arch aarch64 \
   --userland-build-id host-static \
   --userland print_argv \
   -- \
@@ -2962,9 +2962,9 @@ It's nice when <<gdb,the obvious>> just works, right?
 
 ....
 ./run \
-  --arch arm \
-  --wait-gdb \
+  --arch aarch64 \
   --userland print_argv \
+  --wait-gdb \
   -- \
   asdf qwer \
 ;
@@ -2974,13 +2974,26 @@ and on another shell:
 
 ....
 ./run-gdb \
-  --arch arm \
+  --arch aarch64 \
   --userland print_argv \
   main \
 ;
 ....
 
-or to stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
+Or alternatively, if you are using <<tmux>>, do everything in one go with:
+
+....
+./run \
+  --arch aarch64 \
+  --userland print_argv \
+  --tmux=main \
+  --wait-gdb \
+  -- \
+  asdf qwer \
+;
+....
+
+To stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
 
 === gem5 syscall emulation mode
 
@@ -10231,40 +10244,32 @@ For example, on the first shell:
 then on the second shell:
 
 ....
-./run-gdb --arch arm --baremetal interactive/prompt --no-continue
+./run-gdb --arch arm --baremetal interactive/prompt -- main
 ....
 
-and now we are left at the very first executed instruction of our tiny <<baremetal-bootloaders>>.
-
-Then just use `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
-
-You can also find executables that don't use the bootloader at all under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
+Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb
+./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux=main
+....
+
+Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
+
+....
+./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux=--no-continue
+....
+
+Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
+
+This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
+
+....
+./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb --tmux=--no-continue
 ....
 
 The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.
 
-Alternatively, skip directly to the C program main function with:
-
-....
-./run-gdb --arch arm --baremetal interactive/prompt main
-....
-
-and then proceed as usual:
-
-....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --gem5
-....
-
-and on another shell:
-
-....
-./run-gdb --arch arm --baremetal interactive/prompt --gem5 --no-continue
-....
-
-`aarch64` GDB step debug is broken as mentioned at: <<gem5-gdb-step-debug-kernel-aarch64>>.
+`aarch64` gem5 GDB step debug is broken as mentioned at: <<gem5-gdb-step-debug-kernel-aarch64>>.
 
 === Baremetal bootloaders
 
