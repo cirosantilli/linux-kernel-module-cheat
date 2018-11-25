@@ -2,11 +2,14 @@
 
 .global mystart
 mystart:
-    mov x1, #0x26
-    movk x1, #2, lsl #16
-    str x1, [sp,#0]
+    mov x1, 0x26
+    movk x1, 2, lsl 16
+    ldr x2, =semihost_args
+    str x1, [x2, 0]
     mov x0, #0
-    str x0, [sp,#8]
-    mov x1, sp
-    mov w0, #0x18
+    str x0, [x2, 8]
+    mov x1, x2
+    mov w0, 0x18
     hlt 0xf000
+semihost_args:
+    .skip 16

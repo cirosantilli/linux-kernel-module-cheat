@@ -128,7 +128,7 @@ def main(args, extra_args=None):
         raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
     cmd = debug_vm.copy()
     if common.emulator == 'gem5':
-        if args.baremetal is None:
+        if common.baremetal is None:
             if not os.path.exists(common.rootfs_raw_file):
                 if not os.path.exists(common.qcow2_file):
                     raise_rootfs_not_found()
@@ -139,7 +139,7 @@ def main(args, extra_args=None):
                 common.write_string_to_file(common.gem5_fake_iso, 'a' * 512)
         if not os.path.exists(common.image):
             # This is to run gem5 from a prebuilt download.
-            if (not args.baremetal is None) or (not os.path.exists(common.linux_image)):
+            if (not common.baremetal is None) or (not os.path.exists(common.linux_image)):
                 raise_image_not_found()
             common.run_cmd([os.path.join(common.extract_vmlinux, common.linux_image)])
         os.makedirs(os.path.dirname(common.gem5_readfile), exist_ok=True)
@@ -194,15 +194,17 @@ def main(args, extra_args=None):
                         '--dtb-filename', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}cpu.dtb'.format(common.armv, args.cpus)), common.Newline,
                         '--machine-type', common.machine, common.Newline,
                     ])
-                    if args.baremetal is None:
+                    if common.baremetal is None:
                         cmd.extend([
                             '--param', 'system.panic_on_panic = True', common.Newline])
                     else:
-                        cmd.extend(['--bare-metal', common.Newline])
+                        cmd.extend([
+                            '--bare-metal', common.Newline,
+                            '--param', 'system.auto_reset_addr = True', common.Newline,
+                        ])
                         if args.arch == 'aarch64':
                             # https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal/50983650#50983650
                             cmd.extend(['--param', 'system.highest_el_is_64 = True', common.Newline])
-                            cmd.extend(['--param', 'system.auto_reset_addr = True', common.Newline])
             elif args.gem5_script == 'biglittle':
                 if args.kvm:
                     cpu_type = 'kvm'
@@ -319,7 +321,7 @@ def main(args, extra_args=None):
                     root = 'root=/dev/vda'
                     rrid = ''
                     snapshot = ',snapshot'
-                if args.baremetal is None:
+                if common.baremetal is None:
                     if not os.path.exists(common.qcow2_file):
                         if not os.path.exists(common.rootfs_raw_file):
                             raise_rootfs_not_found()
@@ -364,7 +366,7 @@ def main(args, extra_args=None):
                     ] +
                     virtio_gpu_pci
                 )
-            if args.baremetal is None:
+            if common.baremetal is None:
                 cmd.extend(append)
     if args.tmux is not None:
         tmux_args = '--run-id {}'.format(args.run_id)
@@ -381,8 +383,8 @@ def main(args, extra_args=None):
                 args.linux_build_id,
                 args.run_id,
             )
-            if args.baremetal:
-                tmux_args += " --baremetal '{}'".format(args.baremetal)
+            if common.baremetal:
+                tmux_args += " --baremetal '{}'".format(common.baremetal)
             if args.userland:
                 tmux_args += " --userland '{}'".format(args.userland)
         tmux_args += ' {}'.format(args.tmux)

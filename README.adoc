@@ -10560,9 +10560,14 @@ output:
 ....
 ./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2
 ./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --gem5
+./run --arch arm --baremetal arch/aarch64/multicore --cpus 2
+./run --arch arm --baremetal arch/aarch64/multicore --cpus 2 --gem5
 ....
 
-Source: link:baremetal/arch/aarch64/multicore.S[]
+Sources:
+
+* link:baremetal/arch/aarch64/multicore.S[]
+* link:baremetal/arch/arm/multicore.S[]
 
 CPU 0 of this program enters a spinlock loop: it repeatedly checks if a given memory address is `1`.
 
@@ -10575,6 +10580,26 @@ Don't believe me? Then try:
 ....
 
 and watch it hang forever.
+
+Note that if you try the same thing on gem5:
+
+....
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1 --gem5
+....
+
+then the gem5 actually exits, but with a different message:
+
+....
+Exiting @ tick 18446744073709551615 because simulate() limit reached
+....
+
+as opposed to the expected:
+
+....
+Exiting @ tick 36500 because m5_exit instruction encountered
+....
+
+since gem5 is able to detect when nothing will ever happen, and exits.
 
 When GDB step debugging, switch between cores with the usual `thread` commands, see also: <<gdb-step-debug-multicore-userland>>.
 
@@ -10593,6 +10618,81 @@ However, likely no implementation likely does (TODO confirm), since:
 * `SEV` wakes up cores from a low power mode
 
 and power consumption is key in ARM applications.
+
+In QEMU 3.0.0, `SEV` is a NOPs, and `WFE` might be, but I'm not sure, see: https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423
+
+....
+    case 2: /* WFE */
+        if (!(tb_cflags(s->base.tb) & CF_PARALLEL)) {
+            s->base.is_jmp = DISAS_WFE;
+        }
+        return;
+    case 4: /* SEV */
+    case 5: /* SEVL */
+        /* we treat all as NOP at least for now */
+        return;
+....
+
+TODO: what does the WFE code do? How can it not be a NOP if SEV is a NOP? https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate.c#L4609 might explain why, but it is Chinese to me (I only understand 30% ;-)):
+
+....
+ * For WFI we will halt the vCPU until an IRQ. For WFE and YIELD we
+ * only call the helper when running single threaded TCG code to ensure
+ * the next round-robin scheduled vCPU gets a crack. In MTTCG mode we
+ * just skip this instruction. Currently the SEV/SEVL instructions
+ * which are *one* of many ways to wake the CPU from WFE are not
+ * implemented so we can't sleep like WFI does.
+ */
+....
+
+For gem5 however, if we comment out the `SVE` instruction, then it actually exits with `simulate() limit reached`, so the CPU truly never wakes up, which is a more realistic behaviour.
+
+The following Raspberry Pi bibliography helped us get this sample up and running:
+
+* https://github.com/bztsrc/raspi3-tutorial/tree/a3f069b794aeebef633dbe1af3610784d55a0efa/02_multicorec
+* https://github.com/dwelch67/raspberrypi/tree/a09771a1d5a0b53d8e7a461948dc226c5467aeec/multi00
+* https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart64.S
+* https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart32.S
+
+===== PSCI
+
+In QEMU, CPU 1 starts in a halted state. This can be observed from GDB, where:
+
+....
+info threads
+....
+
+shows something like:
+
+....
+* 1    Thread 1 (CPU#0 [running]) mystart
+  2    Thread 2 (CPU#1 [halted ]) mystart
+....
+
+To wake up CPU 1 on QEMU, we must use the Power State Coordination Interface (PSCI) which is documented at: link:https://developer.arm.com/docs/den0022/latest/arm-power-state-coordination-interface-platform-design-document[].
+
+This interface uses `HVC` calls, and the calling convention is documented at "SMC CALLING CONVENTION" link:https://developer.arm.com/docs/den0028/latest[].
+
+If we boot the Linux kernel on QEMU and <<get-device-tree-from-a-running-kernel,dump the auto-generated device tree>>, we observe that it contains the address of the PSCI CPU_ON call:
+
+....
+        psci {
+                method = "hvc";
+                compatible = "arm,psci-0.2", "arm,psci";
+                cpu_on = <0xc4000003>;
+                migrate = <0xc4000005>;
+                cpu_suspend = <0xc4000001>;
+                cpu_off = <0x84000002>;
+        };
+....
+
+The Linux kernel wakes up the secondary cores in this exact same way at: https://github.com/torvalds/linux/blob/v4.19/drivers/firmware/psci.c#L122 We first actually got it working here by grepping the kernel and step debugging that call :-)
+
+In gem5, CPU 1 starts woken up from the start, so PSCI is not needed. TODO gem5 actually blows up if we try to do the `hvc` call, understand why.
+
+===== DMB
+
+TODO: create and study a minimal examples in gem5 where the `DMB` instruction leads to less cycles: https://stackoverflow.com/questions/15491751/real-life-use-cases-of-barriers-dsb-dmb-isb-in-arm
 
 === How we got some baremetal stuff to work
 

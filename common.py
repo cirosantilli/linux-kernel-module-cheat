@@ -931,7 +931,7 @@ def setup(parser):
         common.qcow2_file = common.buildroot_qcow2_file
 
     # Image.
-    if args.baremetal is None:
+    if common.baremetal is None:
         if common.emulator == 'gem5':
             common.image = common.vmlinux
             common.disk_image = common.rootfs_raw_file
@@ -940,11 +940,11 @@ def setup(parser):
             common.disk_image = common.qcow2_file
     else:
         common.disk_image = common.gem5_fake_iso
-        if args.baremetal == 'all':
-            path = args.baremetal
+        if common.baremetal == 'all':
+            path = common.baremetal
         else:
             path = common.resolve_executable(
-                args.baremetal,
+                common.baremetal,
                 common.baremetal_src_dir,
                 common.baremetal_build_dir,
                 common.baremetal_build_ext,

@@ -7,10 +7,12 @@ main:
     ldr x1, =spinlock
     str x0, [x1]
 
-    /* Read cpu id into x1. */
+    /* Read cpu id into x1.
+     * TODO: cores beyond 4th?
+     */
     mrs x1, mpidr_el1
-    and x1, x1, 3
-    cbz x1, cpu0_only
+    ands x1, x1, 3
+    beq cpu0_only
 cpu1_only:
     /* Only CPU 1 reaches this point and sets the spinlock. */
     mov x0, 1
@@ -35,8 +37,7 @@ cpu0_only:
 
 #if !defined(GEM5)
     /* Wake up CPU 1 from initial sleep!
-     * In gem5, CPU 1 starts woken up from the start,
-     * so this is not needed.
+     * See:https://github.com/cirosantilli/linux-kernel-module-cheat#psci
      */
     /* Function identifier: PCSI CPU_ON. */
     ldr w0, =0xc4000003
