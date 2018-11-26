@@ -39,7 +39,7 @@ cpu0_only:
     /* Wake up CPU 1 from initial sleep!
      * See:https://github.com/cirosantilli/linux-kernel-module-cheat#psci
      */
-    /* Function identifier: PCSI CPU_ON. */
+    /* PCSI function identifier: CPU_ON. */
     ldr w0, =0xc4000003
     /* Argument 1: target_cpu */
     mov x1, 1

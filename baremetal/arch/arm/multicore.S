@@ -20,7 +20,7 @@ cpu1_sleep_forever:
     b cpu1_sleep_forever
 cpu0_only:
 #if !defined(GEM5)
-    /* PCSI CPU_ON. */
+    /* PSCI CPU_ON. */
     ldr r0, =0x84000003
     mov r1, #1
     ldr r2, =cpu1_only
