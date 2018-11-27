@@ -8351,7 +8351,7 @@ TODO do even more awesome offline post-mortem analysis things, such as:
 
 ==== QEMU record and replay
 
-QEMU runs are not deterministic by default, however it does support a record and replay mechanism that allows you to replay a previous run deterministically:
+QEMU runs, unlike gem5, are not deterministic by default, however it does support a record and replay mechanism that allows you to replay a previous run deterministically.
 
 This awesome feature allows you to examine a single run as many times as you would like until you understand everything:
 
@@ -8410,8 +8410,8 @@ TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a wor
 Then, when I tried with <<initrd>> and no disk:
 
 ....
-./build-buildroot --arch aarch64 -i
-./qemu-rr --arch aarch64 --eval-after '/rand_check.out;/poweroff.out;' -i
+./build-buildroot --arch aarch64 --initrd
+./qemu-rr --arch aarch64 --eval-after '/rand_check.out;/poweroff.out;' --initrd
 ....
 
 QEMU crashes with:
@@ -8466,14 +8466,20 @@ just appears to output both cores intertwined without any clear differentiation.
 
 ==== gem5 tracing
 
-gem5 unlike QEMU is deterministic by default without needing to replay traces
-
-But it also provides a tracing mechanism documented at: link:http://www.gem5.org/Trace_Based_Debugging[] to allow easily inspecting certain aspects of the system:
+gem5 provides also provides a tracing mechanism documented at: link:http://www.gem5.org/Trace_Based_Debugging[]:
 
 ....
 ./run --arch aarch64 --eval 'm5 exit' --gem5 --trace Exec
 less "$(./getvar --arch aarch64 run_dir)/trace.txt"
 ....
+
+Output the trace to stdout instead of a file:
+
+....
+./run --arch aarch64 --eval 'm5 exit' --gem5 --trace Exec --trace-stdout
+....
+
+This would produce a lot of output however, so you will likely not want that when tracing a Linux kernel boot instructions. But it can be very convenient for smaller traces.
 
 List all available debug flags:
 
@@ -8487,6 +8493,8 @@ but to understand most of them you have to look at the source code:
 less "$(./getvar gem5_src_dir)/src/cpu/SConscript"
 less "$(./getvar gem5_src_dir)/src/cpu/exetrace.cc"
 ....
+
+The traces are generated from `DPRINTF(<trace-id>` calls scattered throughout the code.
 
 As can be seen on the `Sconstruct`, `Exec` is just an alias that enables a set of flags.
 
@@ -11779,6 +11787,11 @@ We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests fo
 ./test-gdb
 ....
 
+Sources:
+
+* link:build-test-gdb[]
+* link:test-gdb[]
+
 Not all of them  are passing right now due to: <<gem5-gdb-step-debug-kernel-aarch64>>.
 
 If something goes wrong, re-run the test commands manually and use `--verbose` to understand what happened:
@@ -11794,10 +11807,19 @@ and possibly repeat the GDB steps manually with the usual:
 ./run-gdb --arch arm --baremetal add --no-continue --verbose
 ....
 
-Sources:
+To debug GDB problems on gem5, you might want to enable the following <<gem5-tracing,tracing>> options:
 
-* link:build-test-gdb[]
-* link:test-gdb[]
+....
+./run \
+  --arch arm \
+  --baremetal add \
+  --wait-gdb \
+  --trace GDBRecv,GDBSend \
+  --trace-stdout \
+;
+....
+
+====== Test GDB Linux kernel
 
 For the Linux kernel, do the following manual tests for now.
 
