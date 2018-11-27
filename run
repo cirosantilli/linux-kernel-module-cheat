@@ -35,6 +35,7 @@ defaults = {
     'terminal': False,
     'tmux': None,
     'trace': None,
+    'trace_stdout': False,
     'userland': None,
     'userland_before': '',
     'vnc': False,
@@ -151,10 +152,14 @@ def main(args, extra_args=None):
         extra_env['M5_PATH'] = common.gem5_system_dir
         # https://stackoverflow.com/questions/52312070/how-to-modify-a-file-under-src-python-and-run-it-without-rebuilding-in-gem5/52312071#52312071
         extra_env['M5_OVERRIDE_PY_SOURCE'] = 'true'
+        if args.trace_stdout:
+            debug_file = 'cout'
+        else:
+            debug_file = 'trace.txt'
         cmd.extend(
             [
                 common.executable, common.Newline,
-                '--debug-file=trace.txt', common.Newline,
+                '--debug-file', debug_file, common.Newline,
                 '--listener-mode', 'on', common.Newline,
                 '--outdir', common.m5out_dir, common.Newline,
             ] +
@@ -553,6 +558,12 @@ disabled, while QEMU tracing is enabled but uses default traces that are very
 rare and don't affect performance, because `./configure
 --enable-trace-backends=simple` seems to enable some traces by default, e.g.
 `pr_manager_run`, and I don't know how to get rid of them.
+'''
+    )
+    parser.add_argument(
+        '--trace-stdout', default=defaults['trace_stdout'], action='store_true',
+        help='''\
+Output trace to stdout instead of a file. Only works for gem5 currently.
 '''
     )
     init_group.add_argument(
