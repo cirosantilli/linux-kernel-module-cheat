@@ -5,38 +5,40 @@ import pathlib
 import subprocess
 
 import common
+from cli_function import Argument
 
-class Gem5Component(common.Component):
-    def add_parser_arguments(self, parser):
-        parser.add_argument(
-            'extra_scons_args',
-            default=[],
-            metavar='extra-scons-args',
-            nargs='*'
-        )
+class Main(common.BuildCliFunction):
+    def do_get_arguments(self):
+        return [
+            Argument(
+                'extra_scons_args',
+                metavar='extra-scons-args',
+                nargs='*',
+            )
+        ]
 
-    def do_build(self, args):
-        build_dir = self.get_build_dir(args)
-        binaries_dir = os.path.join(common.gem5_system_dir, 'binaries')
-        disks_dir = os.path.join(common.gem5_system_dir, 'disks')
+    def do_main(self, **kwargs):
+        build_dir = self.get_build_dir(**kwargs)
+        binaries_dir = os.path.join(kwargs['gem5_system_dir'], 'binaries')
+        disks_dir = os.path.join(kwargs['gem5_system_dir'], 'disks')
         os.makedirs(binaries_dir, exist_ok=True)
         os.makedirs(disks_dir, exist_ok=True)
-        if args.gem5_source_dir is None:
-            if not os.path.exists(os.path.join(common.gem5_src_dir, '.git')):
-                if common.gem5_src_dir == common.gem5_default_src_dir:
+        if kwargs['gem5_source_dir'] is None:
+            if not os.path.exists(os.path.join(kwargs['gem5_src_dir'], '.git')):
+                if kwargs['gem5_src_dir'] == kwargs['gem5_default_src_dir']:
                     raise Exception('gem5 submodule not checked out')
                 common.run_cmd([
                     'git', common.Newline,
-                    '-C', common.gem5_default_src_dir, common.Newline,
+                    '-C', kwargs['gem5_default_src_dir'], common.Newline,
                     'worktree', 'add', common.Newline,
-                    '-b', os.path.join('wt', args.gem5_build_id), common.Newline,
-                    common.gem5_src_dir, common.Newline,
+                    '-b', os.path.join('wt', kwargs['gem5_build_id']), common.Newline,
+                    kwargs['gem5_src_dir'], common.Newline,
                 ])
-        if args.verbose:
+        if kwargs['verbose']:
             verbose = ['--verbose', common.Newline]
         else:
             verbose = []
-        if args.arch == 'x86_64':
+        if kwargs['arch'] == 'x86_64':
             dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
             with open(dummy_img_path, 'wb') as dummy_img_file:
                 zeroes = b'\x00' * (2 ** 16)
@@ -47,12 +49,12 @@ class Gem5Component(common.Component):
                 # This file must always be present, despite --kernel overriding that default and selecting the kernel.
                 # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
                 pass
-        elif args.arch == 'arm' or args.arch == 'aarch64':
-            gem5_system_src_dir = os.path.join(common.gem5_src_dir, 'system')
+        elif kwargs['arch'] == 'arm' or kwargs['arch'] == 'aarch64':
+            gem5_system_src_dir = os.path.join(kwargs['gem5_src_dir'], 'system')
 
             # dtb
             dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
-            dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
+            dt_build_dir = os.path.join(kwargs['gem5_system_dir'], 'arm', 'dt')
             common.run_cmd([
                 'make', common.Newline,
                 '-C', dt_src_dir, common.Newline,
@@ -86,29 +88,29 @@ class Gem5Component(common.Component):
             (
                 [
                     'scons', common.Newline,
-                    '-j', str(args.nproc), common.Newline,
+                    '-j', str(kwargs['nproc']), common.Newline,
                     '--gold-linker', common.Newline,
                     '--ignore-style', common.Newline,
-                    common.gem5_executable, common.Newline,
+                    kwargs['gem5_executable'], common.Newline,
                 ] +
                 verbose +
-                common.add_newlines(args.extra_scons_args)
+                common.add_newlines(kwargs['extra_scons_args'])
             ),
-            cwd=common.gem5_src_dir,
-            extra_paths=[common.ccache_dir],
+            cwd=kwargs['gem5_src_dir'],
+            extra_paths=[kwargs['ccache_dir']],
         )
-        term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
+        term_src_dir = os.path.join(kwargs['gem5_src_dir'], 'util/term')
         m5term_build = os.path.join(term_src_dir, 'm5term')
         common.run_cmd(['make', '-C', term_src_dir])
-        if os.path.exists(common.gem5_m5term):
+        if os.path.exists(kwargs['gem5_m5term']):
             # Otherwise common.cp would fail with "Text file busy" if you
             # tried to rebuild while running m5term:
             # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
-            os.unlink(common.gem5_m5term)
-        common.cp(m5term_build, common.gem5_m5term)
+            os.unlink(kwargs['gem5_m5term'])
+        common.cp(m5term_build, kwargs['gem5_m5term'])
 
-    def get_build_dir(self, args):
-        return common.gem5_build_dir
+    def get_build_dir(self, **kwargs):
+        return kwargs['gem5_build_dir']
 
 if __name__ == '__main__':
-    Gem5Component().build()
+    Main().cli()

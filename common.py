@@ -2,6 +2,7 @@
 
 import argparse
 import base64
+import cli_function
 import collections
 import copy
 import datetime
@@ -80,78 +81,99 @@ obj_ext = '.o'
 config_file = os.path.join(data_dir, 'config')
 command_prefix = '+ '
 magic_fail_string = b'lkmc_test_fail'
-if os.path.exists(config_file):
-    config = imp.load_source('config', config_file)
-    configs = {x:getattr(config, x) for x in dir(config) if not x.startswith('__')}
 
-class Component:
-    def __init__(self):
-        pass
+class LkmcCliFunction(cli_function.CliFunction):
+    '''
+    Common functionality shared across our CLI functions:
 
-    def build(self):
+    * command timing
+    * some common flags, e.g.: --arch, --dry-run
+    '''
+    def get_arguments(self):
+        return [
+            cli_function.Argument(
+                longname='--dry-run',
+                default=False,
+                help='''\
+Print the commands that would be run, but don't run them.
+
+We aim display every command that modifies the filesystem state, and generate
+Bash equivalents even for actions taken directly in Python without shelling out.
+
+mkdir are generally omitted since those are obvious
+'''
+            )
+        ]
+
+    def main(self, **kwargs):
         '''
         Parse CLI, and to the build based on it.
 
-        The actual build work is done by do_build in implementing classes.
+        The actual build work is done by timed_main in implementing classes.
         '''
-        parser = common.get_argparse(
-            argparse_args=self.get_argparse_args(),
-            default_args=self.get_default_args(),
-        )
-        self.add_parser_arguments(parser)
-        parser.add_argument(
-            '--clean',
-            help='Clean the build instead of building.',
-            action='store_true',
-        )
-        parser.add_argument(
-            '-j', '--nproc',
-            help='Number of processors to use for the build. Default: use all cores.',
-            type=int,
-            default=multiprocessing.cpu_count(),
-        )
-        args = common.setup(parser)
-        if not common.dry_run:
+        if not kwargs['dry_run']:
             start_time = time.time()
-        if args.clean:
-            self.clean(args)
-        else:
-            self.do_build(args)
-        if not common.dry_run:
+        self.timed_main(**kwargs)
+        if not kwargs['dry_run']:
             end_time = time.time()
             common.print_time(end_time - start_time)
 
-    def add_parser_arguments(self, parser):
-        pass
+    def timed_main(self, **kwargs):
+        raise NotImplementedError()
 
-    def clean(self, args):
-        build_dir = self.get_build_dir(args)
+class BuildCliFunction(LkmcCliFunction):
+    '''
+    A CLI function with common facilities to build stuff, e.g.:
+
+    * `--clean` to clean the build directory
+    * `--nproc` to set he number of build threads
+    '''
+    def clean(self, **kwargs):
+        build_dir = self.get_build_dir(kwargs)
         if build_dir is not None:
             common.rmrf(build_dir)
 
-    def do_build(self, args):
+    def get_arguments(self):
+        return super().get_arguments() + [
+            cli_function.Argument(
+                longname='--clean',
+                default=False,
+                help='Clean the build instead of building.',
+            ),
+            cli_function.Argument(
+                shortname='-j',
+                longname='--nproc',
+                default=multiprocessing.cpu_count(),
+                type=int,
+                help='Number of processors to use for the build. Default: use all cores.',
+            ),
+        ] + self.do_get_arguments()
+
+    def do_get_arguments(self):
+        return []
+
+    def do_main(self, **kwargs):
         '''
         Do the actual main build work.
         '''
         raise NotImplementedError()
 
-    def get_argparse_args(self):
-        '''
-        Extra arguments for argparse.ArgumentParser.
-        '''
-        return {}
-
-    def get_build_dir(self, args):
+    def get_build_dir(self, **kwargs):
         '''
         Build directory, gets cleaned by --clean if not None.
         '''
         return None
 
-    def get_default_args(self):
+    def timed_main(self, **kwargs):
         '''
-        Default values for command line arguments.
+        Parse CLI, and to the build based on it.
+
+        The actual build work is done by do_build in implementing classes.
         '''
-        return {}
+        if kwargs['clean']:
+            self.clean(kwargs)
+        else:
+            self.do_main(**kwargs)
 
 class Newline:
     '''
@@ -159,16 +181,6 @@ class Newline:
     with -key on the same line as "-key value".
     '''
     pass
-
-def add_dry_run_argument(parser):
-    parser.add_argument('--dry-run', default=False, action='store_true', help='''\
-Print the commands that would be run, but don't run them.
-
-We aim display every command that modifies the filesystem state, and generate
-Bash equivalents even for actions taken directly in Python without shelling out.
-
-mkdir are generally omitted since those are obvious.
-''')
 
 def add_newlines(cmd):
     out = []
@@ -254,7 +266,7 @@ def gem_list_checkpoint_dirs():
     files.sort(key=lambda x: os.path.getmtime(os.path.join(common.m5out_dir, x)))
     return files
 
-def get_argparse(default_args=None, argparse_args=None):
+def get_argparse(default_args=None):
     '''
     Return an argument parser with common arguments set.
 
@@ -265,10 +277,6 @@ def get_argparse(default_args=None, argparse_args=None):
         default_args = {}
     if argparse_args is None:
         argparse_args = {}
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawTextHelpFormatter,
-        **argparse_args
-    )
     common.add_dry_run_argument(parser)
     emulator_group = parser.add_mutually_exclusive_group(required=False)
     parser.add_argument(
@@ -392,17 +400,6 @@ to allow overriding configs from the CLI.
         '-v', '--verbose', default=False, action='store_true',
         help='Show full compilation commands when they are not shown by default.'
     )
-    if hasattr(common, 'configs'):
-        defaults = common.configs.copy()
-    else:
-        defaults = {}
-    defaults.update(default_args)
-    # A bit ugly as it actually changes the defaults shown on --help, but we can't do any better
-    # because it is impossible to check if arguments were given or not...
-    # - https://stackoverflow.com/questions/30487767/check-if-argparse-optional-argument-is-set-or-not
-    # - https://stackoverflow.com/questions/3609852/which-is-the-best-way-to-allow-configuration-options-be-overridden-at-the-comman
-    parser.set_defaults(**defaults)
-    return parser
 
 def get_elf_entry(elf_file_path):
     readelf_header = subprocess.check_output([
@@ -708,7 +705,6 @@ def setup(parser):
     Parse the command line arguments, and setup several variables based on them.
     Typically done after getting inputs from the command line arguments.
     '''
-    args = parser.parse_args()
     if args.qemu or not args.gem5:
         common.emulator = 'qemu'
     else:
