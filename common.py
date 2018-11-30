@@ -2,7 +2,6 @@
 
 import argparse
 import base64
-import cli_function
 import collections
 import copy
 import datetime
@@ -24,77 +23,86 @@ import time
 import urllib
 import urllib.request
 
+import cli_function
+
 common = sys.modules[__name__]
-repo_short_id = 'lkmc'
+
+# Fixed parameters that don't depend on CLI arguments.
+consts = {}
+consts['repo_short_id'] = 'lkmc'
 # https://stackoverflow.com/questions/20010199/how-to-determine-if-a-process-runs-inside-lxc-docker
-in_docker = os.path.exists('/.dockerenv')
-root_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(root_dir, 'data')
-p9_dir = os.path.join(data_dir, '9p')
-gem5_non_default_src_root_dir = os.path.join(data_dir, 'gem5')
-if in_docker:
-    out_dir = os.path.join(root_dir, 'out.docker')
+consts['in_docker'] = os.path.exists('/.dockerenv')
+consts['root_dir'] = os.path.dirname(os.path.abspath(__file__))
+consts['data_dir'] = os.path.join(consts['root_dir'], 'data')
+consts['p9_dir'] = os.path.join(consts['data_dir'], '9p')
+consts['gem5_non_default_src_root_dir'] = os.path.join(consts['data_dir'], 'gem5')
+if consts['in_docker']:
+    consts['out_dir'] = os.path.join(consts['root_dir'], 'out.docker')
 else:
-    out_dir = os.path.join(root_dir, 'out')
-bench_boot = os.path.join(out_dir, 'bench-boot.txt')
-packages_dir = os.path.join(root_dir, 'buildroot_packages')
-kernel_modules_subdir = 'kernel_modules'
-kernel_modules_src_dir = os.path.join(common.root_dir, common.kernel_modules_subdir)
-userland_subdir = 'userland'
-userland_src_dir = os.path.join(common.root_dir, common.userland_subdir)
-userland_build_ext = '.out'
-include_subdir = 'include'
-include_src_dir = os.path.join(common.root_dir, common.include_subdir)
-submodules_dir = os.path.join(root_dir, 'submodules')
-buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
-crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
-crosstool_ng_supported_archs = set(['arm', 'aarch64'])
-linux_src_dir = os.path.join(submodules_dir, 'linux')
-linux_config_dir = os.path.join(common.root_dir, 'linux_config')
-rootfs_overlay_dir = os.path.join(common.root_dir, 'rootfs_overlay')
-extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
-qemu_src_dir = os.path.join(submodules_dir, 'qemu')
-parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
-ccache_dir = os.path.join('/usr', 'lib', 'ccache')
-default_build_id = 'default'
-arch_short_to_long_dict = collections.OrderedDict([
+    consts['out_dir'] = os.path.join(consts['root_dir'], 'out')
+consts['bench_boot'] = os.path.join(consts['out_dir'], 'bench-boot.txt')
+consts['packages_dir'] = os.path.join(consts['root_dir'], 'buildroot_packages')
+consts['kernel_modules_subdir'] = 'kernel_modules'
+consts['kernel_modules_src_dir'] = os.path.join(consts['root_dir'], consts['kernel_modules_subdir'])
+consts['userland_subdir'] = 'userland'
+consts['userland_src_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
+consts['userland_build_ext'] = '.out'
+consts['include_subdir'] = 'include'
+consts['include_src_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
+consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
+consts['buildroot_src_dir'] = os.path.join(consts['submodules_dir'], 'buildroot')
+consts['crosstool_ng_src_dir'] = os.path.join(consts['submodules_dir'], 'crosstool-ng')
+consts['crosstool_ng_supported_archs'] = set(['arm', 'aarch64'])
+consts['linux_src_dir'] = os.path.join(consts['submodules_dir'], 'linux')
+consts['linux_config_dir'] = os.path.join(consts['root_dir'], 'linux_config')
+consts['rootfs_overlay_dir'] = os.path.join(consts['root_dir'], 'rootfs_overlay')
+consts['extract_vmlinux'] = os.path.join(consts['linux_src_dir'], 'scripts', 'extract-vmlinux')
+consts['qemu_src_dir'] = os.path.join(consts['submodules_dir'], 'qemu')
+consts['parsec_benchmark_src_dir'] = os.path.join(consts['submodules_dir'], 'parsec-benchmark')
+consts['ccache_dir'] = os.path.join('/usr', 'lib', 'ccache')
+consts['default_build_id'] = 'default'
+consts['arch_short_to_long_dict'] = collections.OrderedDict([
     ('x', 'x86_64'),
     ('a', 'arm'),
     ('A', 'aarch64'),
 ])
-all_archs = [arch_short_to_long_dict[k] for k in arch_short_to_long_dict]
-arch_choices = []
-for key in common.arch_short_to_long_dict:
-    arch_choices.append(key)
-    arch_choices.append(common.arch_short_to_long_dict[key])
-default_arch = 'x86_64'
-gem5_cpt_prefix = '^cpt\.'
-sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
-release_dir = os.path.join(common.out_dir, 'release')
-release_zip_file = os.path.join(common.release_dir, 'lkmc-{}.zip'.format(common.sha))
-github_repo_id = 'cirosantilli/linux-kernel-module-cheat'
-asm_ext = '.S'
-c_ext = '.c'
-header_ext = '.h'
-kernel_module_ext = '.ko'
-obj_ext = '.o'
-config_file = os.path.join(data_dir, 'config')
-command_prefix = '+ '
-magic_fail_string = b'lkmc_test_fail'
+consts['all_archs'] = [consts['arch_short_to_long_dict'][k] for k in consts['arch_short_to_long_dict']]
+consts['arch_choices'] = []
+for key in consts['arch_short_to_long_dict']:
+    consts['arch_choices'].append(key)
+    consts['arch_choices'].append(consts['arch_short_to_long_dict'][key])
+consts['default_arch'] = 'x86_64'
+consts['gem5_cpt_prefix'] = '^cpt\.'
+consts['sha'] = subprocess.check_output(['git', '-C', consts['root_dir'], 'log', '-1', '--format=%H']).decode().rstrip()
+consts['release_dir'] = os.path.join(consts['out_dir'], 'release')
+consts['release_zip_file'] = os.path.join(consts['release_dir'], 'lkmc-{}.zip'.format(consts['sha']))
+consts['github_repo_id'] = 'cirosantilli/linux-kernel-module-cheat'
+consts['asm_ext'] = '.S'
+consts['c_ext'] = '.c'
+consts['header_ext'] = '.h'
+consts['kernel_module_ext'] = '.ko'
+consts['obj_ext'] = '.o'
+consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
+consts['command_prefix'] = '+ '
+consts['magic_fail_string'] = b'lkmc_test_fail'
 
 class LkmcCliFunction(cli_function.CliFunction):
     '''
     Common functionality shared across our CLI functions:
 
     * command timing
-    * some common flags, e.g.: --arch, --dry-run
+    * some common flags, e.g.: --arch, --dry-run, --verbose
     '''
-    def get_arguments(self):
-        return [
-            cli_function.Argument(
-                longname='--dry-run',
-                default=False,
-                help='''\
+    def __init__(self):
+        super().__init__(config_file=common.consts['config_file'])
+        self.add_argument(
+            '-a', '--arch', choices=common.arch_choices, default=common.default_arch,
+            help='CPU architecture. Default: %(default)s'
+        )
+        self.add_argument(
+            '--dry-run',
+            default=False,
+            help='''\
 Print the commands that would be run, but don't run them.
 
 We aim display every command that modifies the filesystem state, and generate
@@ -102,14 +110,15 @@ Bash equivalents even for actions taken directly in Python without shelling out.
 
 mkdir are generally omitted since those are obvious
 '''
-            )
-        ]
+        )
+        self.add_argument(
+            '-v', '--verbose', default=False, action='store_true',
+            help='Show full compilation commands when they are not shown by default.'
+        )
 
     def main(self, **kwargs):
         '''
-        Parse CLI, and to the build based on it.
-
-        The actual build work is done by timed_main in implementing classes.
+        Time the main of the derived class.
         '''
         if not kwargs['dry_run']:
             start_time = time.time()
@@ -128,40 +137,33 @@ class BuildCliFunction(LkmcCliFunction):
     * `--clean` to clean the build directory
     * `--nproc` to set he number of build threads
     '''
+    def __init__(self):
+        super().__init__()
+        self.add_argument(
+            '--clean',
+            default=False,
+            help='Clean the build instead of building.',
+        ),
+        self.add_argument(
+            '-j',
+            '--nproc',
+            default=multiprocessing.cpu_count(),
+            type=int,
+            help='Number of processors to use for the build. Default: use all cores.',
+        )
+
     def clean(self, **kwargs):
         build_dir = self.get_build_dir(kwargs)
         if build_dir is not None:
             common.rmrf(build_dir)
 
-    def get_arguments(self):
-        return super().get_arguments() + [
-            cli_function.Argument(
-                longname='--clean',
-                default=False,
-                help='Clean the build instead of building.',
-            ),
-            cli_function.Argument(
-                shortname='-j',
-                longname='--nproc',
-                default=multiprocessing.cpu_count(),
-                type=int,
-                help='Number of processors to use for the build. Default: use all cores.',
-            ),
-        ] + self.do_get_arguments()
-
-    def do_get_arguments(self):
-        return []
-
-    def do_main(self, **kwargs):
+    def build(self, **kwargs):
         '''
         Do the actual main build work.
         '''
         raise NotImplementedError()
 
     def get_build_dir(self, **kwargs):
-        '''
-        Build directory, gets cleaned by --clean if not None.
-        '''
         return None
 
     def timed_main(self, **kwargs):
@@ -173,12 +175,12 @@ class BuildCliFunction(LkmcCliFunction):
         if kwargs['clean']:
             self.clean(kwargs)
         else:
-            self.do_main(**kwargs)
+            self.build(**kwargs)
 
 class Newline:
     '''
     Singleton class. Can be used in print_cmd to print out nicer command lines
-    with -key on the same line as "-key value".
+    with --key on the same line as "--key value".
     '''
     pass
 
@@ -277,12 +279,7 @@ def get_argparse(default_args=None):
         default_args = {}
     if argparse_args is None:
         argparse_args = {}
-    common.add_dry_run_argument(parser)
     emulator_group = parser.add_mutually_exclusive_group(required=False)
-    parser.add_argument(
-        '-a', '--arch', choices=common.arch_choices, default=common.default_arch,
-        help='CPU architecture. Default: %(default)s'
-    )
     parser.add_argument(
         '-b', '--baremetal',
         help='''\
@@ -396,10 +393,6 @@ to allow overriding configs from the CLI.
     parser.add_argument(
         '--userland-build-id', default=None
     )
-    parser.add_argument(
-        '-v', '--verbose', default=False, action='store_true',
-        help='Show full compilation commands when they are not shown by default.'
-    )
 
 def get_elf_entry(elf_file_path):
     readelf_header = subprocess.check_output([
@@ -448,7 +441,7 @@ def get_toolchain_prefix(tool, allowed_toolchains=None):
         'host': (host_exists, host_full_prefix),
     }
     if allowed_toolchains is None:
-        if common.baremetal is None:
+        if common['baremetal'] is None:
             allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
         else:
             allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
@@ -700,15 +693,14 @@ def run_cmd(
     else:
         return 0
 
-def setup(parser):
+def calculate_kwargs(**kwargs):
     '''
-    Parse the command line arguments, and setup several variables based on them.
-    Typically done after getting inputs from the command line arguments.
+    Update the kwargs from the command line with derived arguments.
     '''
     if args.qemu or not args.gem5:
-        common.emulator = 'qemu'
+        common['emulator'] = 'qemu'
     else:
-        common.emulator = 'gem5'
+        common['emulator'] = 'gem5'
     if args.arch in common.arch_short_to_long_dict:
         args.arch = common.arch_short_to_long_dict[args.arch]
     if args.gem5_build_id is None:
@@ -723,56 +715,56 @@ def setup(parser):
         common.userland_build_id_given = True
     if args.gem5_worktree is not None and not gem5_build_id_given:
         args.gem5_build_id = args.gem5_worktree
-    common.machine = args.machine
+    common['machine'] = args.machine
     common.setup_dry_run_arguments(args)
     common.is_arm = False
     if args.arch == 'arm':
-        common.armv = 7
+        common['armv'] = 7
         common.gem5_arch = 'ARM'
-        common.mcpu = 'cortex-a15'
+        common['mcpu'] = 'cortex-a15'
         common.buildroot_toolchain_prefix = 'arm-buildroot-linux-uclibcgnueabihf'
         common.crosstool_ng_toolchain_prefix = 'arm-unknown-eabi'
         common.ubuntu_toolchain_prefix = 'arm-linux-gnueabihf'
-        if common.emulator == 'gem5':
-            if common.machine is None:
-                common.machine = 'VExpress_GEM5_V1'
+        if common['emulator'] == 'gem5':
+            if common['machine'] is None:
+                common['machine'] = 'VExpress_GEM5_V1'
         else:
-            if common.machine is None:
-                common.machine = 'virt'
+            if common['machine'] is None:
+                common['machine'] = 'virt'
         common.is_arm = True
     elif args.arch == 'aarch64':
-        common.armv = 8
+        common['armv'] = 8
         common.gem5_arch = 'ARM'
-        common.mcpu = 'cortex-a57'
+        common['mcpu'] = 'cortex-a57'
         common.buildroot_toolchain_prefix = 'aarch64-buildroot-linux-uclibc'
         common.crosstool_ng_toolchain_prefix = 'aarch64-unknown-elf'
         common.ubuntu_toolchain_prefix = 'aarch64-linux-gnu'
-        if common.emulator == 'gem5':
-            if common.machine is None:
-                common.machine = 'VExpress_GEM5_V1'
+        if common['emulator'] == 'gem5':
+            if common['machine'] is None:
+                common['machine'] = 'VExpress_GEM5_V1'
         else:
-            if common.machine is None:
-                common.machine = 'virt'
+            if common['machine'] is None:
+                common['machine'] = 'virt'
         common.is_arm = True
     elif args.arch == 'x86_64':
         common.crosstool_ng_toolchain_prefix = 'x86_64-unknown-elf'
         common.gem5_arch = 'X86'
         common.buildroot_toolchain_prefix = 'x86_64-buildroot-linux-uclibc'
         common.ubuntu_toolchain_prefix = 'x86_64-linux-gnu'
-        if common.emulator == 'gem5':
-            if common.machine is None:
-                common.machine = 'TODO'
+        if common['emulator'] == 'gem5':
+            if common['machine'] is None:
+                common['machine'] = 'TODO'
         else:
-            if common.machine is None:
-                common.machine = 'pc'
-    common.buildroot_out_dir = os.path.join(common.out_dir, 'buildroot')
+            if common['machine'] is None:
+                common['machine'] = 'pc'
+    common.buildroot_out_dir = os.path.join(consts['out_dir'], 'buildroot')
     common.buildroot_build_dir = os.path.join(common.buildroot_out_dir, 'build', args.buildroot_build_id, args.arch)
     common.buildroot_download_dir = os.path.join(common.buildroot_out_dir, 'download')
     common.buildroot_config_file = os.path.join(common.buildroot_build_dir, '.config')
     common.buildroot_build_build_dir = os.path.join(common.buildroot_build_dir, 'build')
     common.buildroot_linux_build_dir = os.path.join(common.buildroot_build_build_dir, 'linux-custom')
     common.buildroot_vmlinux = os.path.join(common.buildroot_linux_build_dir, "vmlinux")
-    common.qemu_build_dir = os.path.join(common.out_dir, 'qemu', args.qemu_build_id)
+    common.qemu_build_dir = os.path.join(consts['out_dir'], 'qemu', args.qemu_build_id)
     common.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
     common.qemu_executable = os.path.join(common.qemu_build_dir, '{}-softmmu'.format(args.arch), common.qemu_executable_basename)
     common.qemu_img_basename = 'qemu-img'
@@ -783,10 +775,10 @@ def setup(parser):
     common.buildroot_images_dir = os.path.join(common.buildroot_build_dir, 'images')
     common.buildroot_rootfs_raw_file = os.path.join(common.buildroot_images_dir, 'rootfs.ext2')
     common.buildroot_qcow2_file = common.buildroot_rootfs_raw_file + '.qcow2'
-    common.staging_dir = os.path.join(common.out_dir, 'staging', args.arch)
+    common.staging_dir = os.path.join(consts['out_dir'], 'staging', args.arch)
     common.buildroot_staging_dir = os.path.join(common.buildroot_build_dir, 'staging')
     common.target_dir = os.path.join(common.buildroot_build_dir, 'target')
-    common.run_dir_base = os.path.join(common.out_dir, 'run')
+    common.run_dir_base = os.path.join(consts['out_dir'], 'run')
     common.gem5_run_dir = os.path.join(common.run_dir_base, 'gem5', args.arch, str(args.run_id))
     common.m5out_dir = os.path.join(common.gem5_run_dir, 'm5out')
     common.stats_file = os.path.join(common.m5out_dir, 'stats.txt')
@@ -801,7 +793,7 @@ def setup(parser):
     common.qemu_termout_file = os.path.join(common.qemu_run_dir, 'termout.txt')
     common.qemu_rrfile = os.path.join(common.qemu_run_dir, 'rrfile')
     common.qemu_guest_terminal_file = os.path.join(common.m5out_dir, qemu_termout_file)
-    common.gem5_out_dir = os.path.join(common.out_dir, 'gem5')
+    common.gem5_out_dir = os.path.join(consts['out_dir'], 'gem5')
     if args.gem5_build_dir is None:
         common.gem5_build_dir = os.path.join(common.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
     else:
@@ -811,7 +803,7 @@ def setup(parser):
     common.gem5_build_build_dir = os.path.join(common.gem5_build_dir, 'build')
     common.gem5_executable = os.path.join(common.gem5_build_build_dir, gem5_arch, 'gem5.{}'.format(args.gem5_build_type))
     common.gem5_system_dir = os.path.join(common.gem5_build_dir, 'system')
-    common.crosstool_ng_out_dir = os.path.join(common.out_dir, 'crosstool-ng')
+    common.crosstool_ng_out_dir = os.path.join(consts['out_dir'], 'crosstool-ng')
     common.crosstool_ng_buildid_dir = os.path.join(common.crosstool_ng_out_dir, 'build', args.crosstool_ng_build_id)
     common.crosstool_ng_install_dir = os.path.join(common.crosstool_ng_buildid_dir, 'install', args.arch)
     common.crosstool_ng_bin_dir = os.path.join(common.crosstool_ng_install_dir, 'bin')
@@ -831,15 +823,15 @@ def setup(parser):
         else:
             common.gem5_src_dir = common.gem5_default_src_dir
     common.gem5_m5_src_dir = os.path.join(common.gem5_src_dir, 'util', 'm5')
-    common.gem5_m5_build_dir = os.path.join(common.out_dir, 'util', 'm5')
-    if common.emulator == 'gem5':
-        common.executable = common.gem5_executable
+    common.gem5_m5_build_dir = os.path.join(consts['out_dir'], 'util', 'm5')
+    if common['emulator'] == 'gem5':
+        common['executable'] = common.gem5_executable
         common.run_dir = common.gem5_run_dir
         common.termout_file = common.gem5_termout_file
         common.guest_terminal_file = gem5_guest_terminal_file
         common.trace_txt_file = gem5_trace_txt_file
     else:
-        common.executable = common.qemu_executable
+        common['executable'] = common.qemu_executable
         common.run_dir = common.qemu_run_dir
         common.termout_file = common.qemu_termout_file
         common.guest_terminal_file = qemu_guest_terminal_file
@@ -851,7 +843,7 @@ def setup(parser):
 
     # Linux
     common.linux_buildroot_build_dir = os.path.join(common.buildroot_build_build_dir, 'linux-custom')
-    common.linux_build_dir = os.path.join(common.out_dir, 'linux', args.linux_build_id, args.arch)
+    common.linux_build_dir = os.path.join(consts['out_dir'], 'linux', args.linux_build_id, args.arch)
     common.lkmc_vmlinux = os.path.join(common.linux_build_dir, "vmlinux")
     if args.arch == 'arm':
         common.linux_arch = 'arm'
@@ -865,20 +857,20 @@ def setup(parser):
     common.lkmc_linux_image = os.path.join(common.linux_build_dir, common.linux_image_prefix)
     common.buildroot_linux_image = os.path.join(common.buildroot_linux_build_dir, linux_image_prefix)
     if args.buildroot_linux:
-        common.vmlinux = common.buildroot_vmlinux
+        common['vmlinux'] = common.buildroot_vmlinux
         common.linux_image = common.buildroot_linux_image
     else:
-        common.vmlinux = common.lkmc_vmlinux
+        common['vmlinux'] = common.lkmc_vmlinux
         common.linux_image = common.lkmc_linux_image
 
     # Kernel modules.
-    common.kernel_modules_build_base_dir = os.path.join(common.out_dir, 'kernel_modules')
+    common.kernel_modules_build_base_dir = os.path.join(consts['out_dir'], 'kernel_modules')
     common.kernel_modules_build_dir = os.path.join(common.kernel_modules_build_base_dir, args.arch)
     common.kernel_modules_build_subdir = os.path.join(common.kernel_modules_build_dir, kernel_modules_subdir)
     common.kernel_modules_build_host_dir = os.path.join(common.kernel_modules_build_base_dir, 'host')
     common.kernel_modules_build_host_subdir = os.path.join(common.kernel_modules_build_host_dir, kernel_modules_subdir)
-    common.userland_build_dir = os.path.join(common.out_dir, 'userland', args.userland_build_id, args.arch)
-    common.out_rootfs_overlay_dir = os.path.join(common.out_dir, 'rootfs_overlay', args.arch)
+    common.userland_build_dir = os.path.join(consts['out_dir'], 'userland', args.userland_build_id, args.arch)
+    common.out_rootfs_overlay_dir = os.path.join(consts['out_dir'], 'rootfs_overlay', args.arch)
     common.out_rootfs_overlay_bin_dir = os.path.join(common.out_rootfs_overlay_dir, 'bin')
 
     # Ports
@@ -887,7 +879,7 @@ def setup(parser):
             args.port_offset = int(args.run_id)
         except ValueError:
             args.port_offset = 0
-    if common.emulator == 'gem5':
+    if common['emulator'] == 'gem5':
         common.gem5_telnet_port = 3456 + args.port_offset
         common.gdb_port = 7000 + args.port_offset
     else:
@@ -901,20 +893,20 @@ def setup(parser):
         common.qemu_background_serial_file = os.path.join(common.qemu_run_dir, 'background.log')
 
     # Baremetal.
-    common.baremetal = args.baremetal
+    common['baremetal'] = args.baremetal
     common.baremetal_lib_basename = 'lib'
-    common.baremetal_src_dir = os.path.join(common.root_dir, 'baremetal')
+    common.baremetal_src_dir = os.path.join(consts['root_dir'], 'baremetal')
     common.baremetal_src_lib_dir = os.path.join(common.baremetal_src_dir, common.baremetal_lib_basename)
-    if common.emulator == 'gem5':
+    if common['emulator'] == 'gem5':
         common.simulator_name = 'gem5'
     else:
         common.simulator_name = 'qemu'
-    common.baremetal_build_dir = os.path.join(out_dir, 'baremetal', args.arch, common.simulator_name, common.machine)
+    common.baremetal_build_dir = os.path.join(out_dir, 'baremetal', args.arch, common.simulator_name, common['machine'])
     common.baremetal_build_lib_dir = os.path.join(common.baremetal_build_dir, common.baremetal_lib_basename)
     common.baremetal_build_ext = '.elf'
 
     # Docker
-    common.docker_build_dir = os.path.join(common.out_dir, 'docker', args.arch)
+    common.docker_build_dir = os.path.join(consts['out_dir'], 'docker', args.arch)
     common.docker_tar_dir = os.path.join(common.docker_build_dir, 'export')
     common.docker_tar_file = os.path.join(common.docker_build_dir, 'export.tar')
     common.docker_rootfs_raw_file = os.path.join(common.docker_build_dir, 'export.ext2')
@@ -927,20 +919,20 @@ def setup(parser):
         common.qcow2_file = common.buildroot_qcow2_file
 
     # Image.
-    if common.baremetal is None:
-        if common.emulator == 'gem5':
-            common.image = common.vmlinux
+    if common['baremetal'] is None:
+        if common['emulator'] == 'gem5':
+            common['image'] = common['vmlinux']
             common.disk_image = common.rootfs_raw_file
         else:
-            common.image = common.linux_image
+            common['image'] = common.linux_image
             common.disk_image = common.qcow2_file
     else:
         common.disk_image = common.gem5_fake_iso
-        if common.baremetal == 'all':
-            path = common.baremetal
+        if common['baremetal'] == 'all':
+            path = common['baremetal']
         else:
             path = common.resolve_executable(
-                common.baremetal,
+                common['baremetal'],
                 common.baremetal_src_dir,
                 common.baremetal_build_dir,
                 common.baremetal_build_ext,
@@ -954,7 +946,7 @@ def setup(parser):
                 if os.path.exists(source_path):
                     common.source_path = source_path
                     break
-        common.image = path
+        common['image'] = path
     return args
 
 def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):

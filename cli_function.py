@@ -7,13 +7,19 @@ import os
 class Argument:
     def __init__(
             self,
-            longname,
-            shortname=None,
+            long_or_short_1,
+            long_or_short_2=None,
             default=None,
             help=None,
             nargs=None,
             **kwargs
         ):
+            if long_or_short_2 is None:
+                shortname = None
+                longname = long_or_short_1
+            else:
+                shortname = long_or_short_1
+                longname = long_or_short_2
             self.args = []
             # argparse is crappy and cannot tell us if arguments were given or not.
             # We need that information to decide if the config file should override argparse or not.
@@ -83,25 +89,23 @@ class CliFunction:
 
         :type arguments: Dict
         '''
-        arguments = self._get_arguments()
         args_with_defaults = args.copy()
         # Add missing args from config file.
         if 'config_file' in args_with_defaults and args_with_defaults['config_file'] is not None:
             config_file = args_with_defaults['config_file']
         else:
-            config_file = self.default_config
+            config_file = self._config_file
         if os.path.exists(config_file):
-            all_keys = {argument.key for argument in arguments}
             config_configs = {}
             config = imp.load_source('config', config_file)
             config.set_args(config_configs)
             for key in config_configs:
-                if key not in all_keys:
+                if key not in self._all_keys:
                     raise Exception('Unknown key in config file: ' + key)
                 if (not key in args_with_defaults) or args_with_defaults[key] is None:
                     args_with_defaults[key] = config_configs[key]
         # Add missing args from hard-coded defaults.
-        for argument in arguments:
+        for argument in self._arguments:
             key = argument.key
             if (not key in args_with_defaults) or args_with_defaults[key] is None:
                 if argument.optional:
@@ -110,24 +114,26 @@ class CliFunction:
                     raise Exception('Value not given for mandatory argument: ' + key)
         return self.main(**args_with_defaults)
 
-    def __init__(self):
-        self.default_config = 'config.py'
-
-    def _get_arguments(self):
-        '''
-        Define the arguments that the function takes.
-
-        :rtype: List[Argument]
-        '''
-        args = self.get_arguments()
-        config_file = self.get_config_file()
-        if config_file is not None:
-            args.append(Argument(
-                longname='--config-file',
-                default=config_file,
+    def __init__(self, config_file=None):
+        self._all_keys = set()
+        self._arguments = []
+        self.description = None
+        self._config_file = config_file
+        if self._config_file is not None:
+            self.add_argument(
+                '--config-file',
+                default=self._config_file,
                 help='Path to the configuration file to use'
-            ))
-        return args
+            )
+
+    def add_argument(
+            self,
+            *args,
+            **kwargs
+        ):
+            argument = Argument(*args, **kwargs)
+            self._arguments.append(argument)
+            self._all_keys.add(argument.key)
 
     def cli(self, args=None):
         '''
@@ -135,35 +141,13 @@ class CliFunction:
         to get all arguments.
         '''
         parser = argparse.ArgumentParser(
-            description=self.get_description(),
+            description=self.description,
             formatter_class=argparse.RawTextHelpFormatter,
         )
-        for argument in self._get_arguments():
+        for argument in self._arguments:
             parser.add_argument(*argument.args, **argument.kwargs)
         args = parser.parse_args(args=args)
         return self(**vars(args))
-
-    def get_arguments(self):
-        '''
-        Define the arguments that the function takes.
-
-        :rtype: List[Argument]
-        '''
-        raise NotImplementedError
-
-    def get_config_file(self):
-        '''
-        :rtype: Union[None,str]
-        '''
-        return None
-
-    def get_description(self):
-        '''
-        argparse.ArgumentParser() description.
-
-        :rtype: Union[Any,str]
-        '''
-        return None
 
     def main(self, arguments):
         '''
@@ -175,15 +159,18 @@ class CliFunction:
 
 if __name__ == '__main__':
     class OneCliFunction(CliFunction):
-        def get_arguments(self):
-            return [
-                Argument(shortname='-a', longname='--asdf', default='A', help='Help for asdf'),
-                Argument(shortname='-q', longname='--qwer', default='Q', help='Help for qwer'),
-                Argument(shortname='-b', longname='--bool', default=True, help='Help for bool'),
-                Argument(longname='pos-mandatory', help='Help for pos-mandatory', type=int),
-                Argument(longname='pos-optional', default=0, help='Help for pos-optional', type=int),
-                Argument(longname='args-star', help='Help for args-star', nargs='*'),
-            ]
+        def __init__(self):
+            super().__init__(config_file='cli_function_config_file.py')
+            self.add_argument('-a', '--asdf', default='A', help='Help for asdf'),
+            self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
+            self.add_argument('-b', '--bool', default=True, help='Help for bool'),
+            self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
+            self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
+            self.add_argument('args-star', help='Help for args-star', nargs='*'),
+            self.description = '''\
+Description of this
+amazing function!
+'''
         def main(self, **kwargs):
             return \
                 kwargs['asdf'], \
@@ -192,13 +179,6 @@ if __name__ == '__main__':
                 kwargs['pos_optional'], \
                 kwargs['pos_mandatory'], \
                 kwargs['args_star']
-        def get_config_file(self):
-            return 'test_config.py'
-        def get_description(self):
-            return '''\
-Description of this
-amazing function!
-'''
 
     # Code calls.
     assert OneCliFunction()(pos_mandatory=1) == ('A', 'Q', True, 0, 1, [])
