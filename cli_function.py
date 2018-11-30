@@ -59,6 +59,7 @@ class Argument:
             )
             self.kwargs.update(kwargs)
             self.default = default
+            self.longname = longname
 
     def __str__(self):
         return str(self.args) + ' ' + str(self.kwargs)
@@ -76,7 +77,8 @@ class CliFunction:
     * fix some argparse.ArgumentParser() annoyances:
     ** allow dashes in positional arguments:
        https://stackoverflow.com/questions/12834785/having-options-in-argparse-with-a-dash
-    ** boolean defaults automatically use store_true or store_false
+    ** boolean defaults automatically use store_true or store_false, and add a --no-* CLI
+       option to invert them if set from the config
 
     This somewhat duplicates: https://click.palletsprojects.com but:
 
@@ -135,7 +137,7 @@ class CliFunction:
             self._arguments.append(argument)
             self._all_keys.add(argument.key)
 
-    def cli(self, args=None):
+    def cli(self, cli_args=None):
         '''
         Call the function from the CLI. Parse command line arguments
         to get all arguments.
@@ -146,10 +148,19 @@ class CliFunction:
         )
         for argument in self._arguments:
             parser.add_argument(*argument.args, **argument.kwargs)
-        args = parser.parse_args(args=args)
+            if argument.is_bool:
+                new_longname = '--no' + argument.longname[1:]
+                argument.kwargs['default'] = not argument.default
+                if argument.default:
+                    action = 'store_true'
+                else:
+                    action = 'store_false'
+                argument.kwargs['action'] = action
+                parser.add_argument(new_longname, dest=argument.key, **argument.kwargs)
+        args = parser.parse_args(args=cli_args)
         return self(**vars(args))
 
-    def main(self, arguments):
+    def main(self, **kwargs):
         '''
         Do the main function call work.
 
@@ -160,10 +171,11 @@ class CliFunction:
 if __name__ == '__main__':
     class OneCliFunction(CliFunction):
         def __init__(self):
-            super().__init__(config_file='cli_function_config_file.py')
+            super().__init__(config_file='cli_function_test_config.py')
             self.add_argument('-a', '--asdf', default='A', help='Help for asdf'),
             self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
             self.add_argument('-b', '--bool', default=True, help='Help for bool'),
+            self.add_argument('--bool-cli', default=False, help='Help for bool'),
             self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
             self.add_argument('args-star', help='Help for args-star', nargs='*'),
@@ -172,19 +184,17 @@ Description of this
 amazing function!
 '''
         def main(self, **kwargs):
-            return \
-                kwargs['asdf'], \
-                kwargs['qwer'], \
-                kwargs['bool'], \
-                kwargs['pos_optional'], \
-                kwargs['pos_mandatory'], \
-                kwargs['args_star']
+            del kwargs['config_file']
+            return kwargs
 
     # Code calls.
-    assert OneCliFunction()(pos_mandatory=1) == ('A', 'Q', True, 0, 1, [])
-    assert OneCliFunction()(pos_mandatory=1, asdf='B') == ('B', 'Q', True, 0, 1, [])
-    assert OneCliFunction()(pos_mandatory=1, bool=False) == ('A', 'Q', False, 0, 1, [])
-    assert OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R', bool=False) == ('B', 'R', False, 0, 1, [])
+    assert OneCliFunction()(pos_mandatory=1)                                 == {'asdf': 'A', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1, asdf='B')                       == {'asdf': 'B', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1, bool=False)                     == {'asdf': 'A', 'qwer': 'Q', 'bool': False, 'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R', bool=False) == {'asdf': 'B', 'qwer': 'R', 'bool': False, 'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+
+    # Force a boolean value set on the config to be False on CLI.
+    assert OneCliFunction().cli(['--no-bool-cli', '1'])['bool_cli'] is False
 
     # CLI call.
     print(OneCliFunction().cli())
