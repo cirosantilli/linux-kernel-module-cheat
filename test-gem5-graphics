@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Quick and dirty implementation, relies on configs.
+# Check that the third image matches a reference penguin SHA.
+# https://softwarerecs.stackexchange.com/questions/9774/command-line-tool-to-check-whether-two-images-are-exactly-the-same-graphically/9779#9779
+set -eux
+rm -rf "$(./getvar "$@" m5out_dir)/frames_system.vncserver"
+./run --eval 'm5 exit' --tmux "$@" -- --frame-capture
+gz="$(echo "$(./getvar m5out_dir)/frames_system.vncserver/fb.000002."*.gz)"
+png="${gz%.*}"
+gunzip --keep "$gz"
+[ "$(identify -format '%#' "$png")" = dc41b947487026acdceae8a757259d5a1a4752fd97c1da9ce6df9b49013babed ]

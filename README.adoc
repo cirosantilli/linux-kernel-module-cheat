@@ -1704,7 +1704,7 @@ Bibliography:
 
 We source the Linux kernel GDB scripts by default for `lx-symbols`, but they also contains some other goodies worth looking into.
 
-Those scripts basically parse some in-kernel datastructures to offer greater visibility with GDB.
+Those scripts basically parse some in-kernel data structures to offer greater visibility with GDB.
 
 All defined commands are prefixed by `lx-`, so to get a full list just try to tab complete that.
 
@@ -3532,7 +3532,7 @@ and when we connect it shows a message:
 info: VNC client attached
 ....
 
-Alternatively, you can also view the frames with `--frame-capture`:
+Alternatively, you can also dump each new frame to an image file with `--frame-capture`:
 
 ....
 ./run \
@@ -3543,9 +3543,15 @@ Alternatively, you can also view the frames with `--frame-capture`:
 ;
 ....
 
-This option dumps one compressed PNG whenever the screen image changes inside `m5out`, indexed by the cycle ID. This allows for more controlled experiments.
+This creates on compressed PNG whenever the screen image changes inside the <<m5out-directory>> with filename of type:
 
-It is fun to see how we get one new frame whenever the white underscore cursor appears and reappears under the penguin.
+....
+frames_system.vncserver/fb.<frame-index>.<timestamp>.png.gz
+....
+
+It is fun to see how we get one new frame whenever the white underscore cursor appears and reappears under the penguin!
+
+The last frame is always available uncompressed at: `system.framebuffer.png`.
 
 TODO <<kmscube>> failed on `aarch64` with:
 
@@ -3573,6 +3579,28 @@ git -C "$(./getvar linux_src_dir)" checkout -
 ....
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
+
+==== gem5 graphic mode DP650
+
+TODO get working. There is an unmerged patchset at: https://gem5-review.googlesource.com/c/public/gem5/+/11036/1
+
+The DP650 is a newer display hardware than HDLCD. TODO is its interface publicly documented anywhere? Since it has a gem5 model and link:https://github.com/torvalds/linux/blob/v4.19/drivers/gpu/drm/arm/Kconfig#L39[in-tree Linux kernel support], that information cannot be secret?
+
+The key option to enable support in Linux is `DRM_MALI_DISPLAY=y` which we enable at link:linux_config/display[].
+
+....
+./build-linux
+git -C "$(./getvar linux_src_dir)" fetch https://gem5.googlesource.com/arm/linux gem5/v4.15:gem5/v4.15
+git -C "$(./getvar linux_src_dir)" checkout gem5/v4.15
+./build-linux \
+  --arch aarch64 \
+  --config-fragment linux_config/display \
+  --custom-config-file "$(./getvar linux_src_dir)/arch/arm64/configs/gem5_defconfig" \
+  --linux-build-id gem5-v4.15 \
+;
+git -C "$(./getvar linux_src_dir)" checkout -
+./run --arch aarch64 --dp650 --gem5 --linux-build-id gem5-v4.15
+....
 
 ==== Graphic mode gem5 internals
 
@@ -9333,7 +9361,7 @@ since boot has already happened, and the parameters are already in the RAM of th
 Checkpoints are stored inside the <<m5out-directory>> at:
 
 ....
-"$(./getvar --gem5 run_dir)/m5out/cpt.<checkpoint-time>"
+"$(./getvar --gem5 m5out_dir)/cpt.<checkpoint-time>"
 ....
 
 where `<checkpoint-time>` is the cycle number at which the checkpoint was taken.

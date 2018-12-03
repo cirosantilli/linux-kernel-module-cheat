@@ -313,6 +313,10 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
         help='Linux build ID. Allows you to keep multiple separate Linux builds. Default: %(default)s'
     )
     parser.add_argument(
+        '--linux-build-dir',
+        help='Select the directory that contains the Linux kernel build. Overrides linux-build-id.'
+    )
+    parser.add_argument(
         '--machine',
         help='''Machine type.
 QEMU default: virt
@@ -856,8 +860,11 @@ def setup(parser):
 
     # Linux
     common.linux_buildroot_build_dir = os.path.join(common.buildroot_build_build_dir, 'linux-custom')
-    common.linux_build_dir = os.path.join(common.out_dir, 'linux', args.linux_build_id, args.arch)
-    common.lkmc_vmlinux = os.path.join(common.linux_build_dir, "vmlinux")
+    if args.linux_build_dir is None:
+        common.linux_build_dir = os.path.join(common.out_dir, 'linux', args.linux_build_id, args.arch)
+    else:
+        common.linux_build_dir = args.linux_build_dir
+    common.lkmc_vmlinux = os.path.join(common.linux_build_dir, 'vmlinux')
     if args.arch == 'arm':
         common.linux_arch = 'arm'
         common.linux_image_prefix = os.path.join('arch', common.linux_arch, 'boot', 'zImage')
