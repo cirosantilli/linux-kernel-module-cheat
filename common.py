@@ -48,10 +48,8 @@ submodules_dir = os.path.join(root_dir, 'submodules')
 buildroot_src_dir = os.path.join(submodules_dir, 'buildroot')
 crosstool_ng_src_dir = os.path.join(submodules_dir, 'crosstool-ng')
 crosstool_ng_supported_archs = set(['arm', 'aarch64'])
-linux_src_dir = os.path.join(submodules_dir, 'linux')
 linux_config_dir = os.path.join(common.root_dir, 'linux_config')
 rootfs_overlay_dir = os.path.join(common.root_dir, 'rootfs_overlay')
-extract_vmlinux = os.path.join(linux_src_dir, 'scripts', 'extract-vmlinux')
 qemu_src_dir = os.path.join(submodules_dir, 'qemu')
 parsec_benchmark_src_dir = os.path.join(submodules_dir, 'parsec-benchmark')
 ccache_dir = os.path.join('/usr', 'lib', 'ccache')
@@ -315,6 +313,12 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
     parser.add_argument(
         '--linux-build-dir',
         help='Select the directory that contains the Linux kernel build. Overrides linux-build-id.'
+    )
+    parser.add_argument(
+        '--linux-source-dir',
+        help='''\
+Use the given directory as the Linux source tree.
+'''
     )
     parser.add_argument(
         '--machine',
@@ -859,6 +863,11 @@ def setup(parser):
     common.run_cmd_file = os.path.join(common.run_dir, 'run.sh')
 
     # Linux
+    if args.linux_source_dir is None:
+        common.linux_source_dir = os.path.join(submodules_dir, 'linux')
+    else:
+        common.linux_source_dir = args.linux_source_dir
+    common.extract_vmlinux = os.path.join(linux_source_dir, 'scripts', 'extract-vmlinux')
     common.linux_buildroot_build_dir = os.path.join(common.buildroot_build_build_dir, 'linux-custom')
     if args.linux_build_dir is None:
         common.linux_build_dir = os.path.join(common.out_dir, 'linux', args.linux_build_id, args.arch)
