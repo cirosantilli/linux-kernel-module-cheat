@@ -31,6 +31,13 @@ Still uses options explicitly passed with `--config` and
 '''
         )
         parser.add_argument(
+            '--custom-config-file-gem5', default=False, action='store_true',
+            help='''\
+Use the gem5 Linux kernel fork config as the custom config file.
+Ignore --custom-config-file.
+'''
+        )
+        parser.add_argument(
             '--config-only', default=False, action='store_true',
             help='''\
 Configure the kernel, but don't build it.
@@ -77,10 +84,14 @@ Configure the kernel, but don't build it.
             'CC={}'.format(cc), common.Newline,
             'O={}'.format(build_dir), common.Newline,
         ] + verbose
-        if args.custom_config_file is not None:
-            if not os.path.exists(args.custom_config_file):
+        if args.custom_config_file_gem5:
+            custom_config_file = os.path.join(common.linux_source_dir, 'arch', common.linux_arch, 'configs', 'gem5_defconfig')
+        else:
+            custom_config_file = args.custom_config_file
+        if custom_config_file is not None:
+            if not os.path.exists(custom_config_file):
                 raise Exception('config fragment file does not exist: {}'.format(args.custom_config_file))
-            base_config_file = args.custom_config_file
+            base_config_file = custom_config_file
             config_fragments = []
         else:
             base_config_file = os.path.join(common.linux_config_dir, 'buildroot-{}'.format(args.arch))
