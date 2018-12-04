@@ -3488,17 +3488,14 @@ TODO could not get it working on `x86_64`, only ARM.
 
 Overview: https://stackoverflow.com/questions/50364863/how-to-get-graphical-gui-output-and-user-touch-keyboard-mouse-input-in-a-ful/50364864#50364864
 
-More concretely:
+More concretely, first build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
 
 ....
-git -C "$(./getvar linux_source_dir)" fetch https://gem5.googlesource.com/arm/linux gem5/v4.15:gem5/v4.15
-git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
 ./build-linux \
   --arch arm \
   --custom-config-file-gem5 \
   --linux-build-id gem5-v4.15 \
 ;
-git -C "$(./getvar linux_source_dir)" checkout -
 ./run --arch arm --gem5 --linux-build-id gem5-v4.15
 ....
 
@@ -3588,17 +3585,9 @@ The DP650 is a newer display hardware than HDLCD. TODO is its interface publicly
 
 The key option to enable support in Linux is `DRM_MALI_DISPLAY=y` which we enable at link:linux_config/display[].
 
+Build the kernel exactly as for <<graphic-mode-gem5-aarch64>> and then run with:
+
 ....
-./build-linux
-git -C "$(./getvar linux_source_dir)" fetch https://gem5.googlesource.com/arm/linux gem5/v4.15:gem5/v4.15
-git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
-./build-linux \
-  --arch aarch64 \
-  --config-fragment linux_config/display \
-  --custom-config-file "$(./getvar linux_source_dir)/arch/arm64/configs/gem5_defconfig" \
-  --linux-build-id gem5-v4.15 \
-;
-git -C "$(./getvar linux_source_dir)" checkout -
 ./run --arch aarch64 --dp650 --gem5 --linux-build-id gem5-v4.15
 ....
 
@@ -4121,8 +4110,8 @@ That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux
 
 Other configs which we had previously tested at 4e0d9af81fcce2ce4e777cb82a1990d7c2ca7c1e are:
 
-* `arm` and `aarch64` configs present in the official ARM gem5 Linux kernel fork: https://gem5.googlesource.com/arm/linux, e.g. for arm v4.9: link:https://gem5.googlesource.com/arm/linux/+/917e007a4150d26a0aa95e4f5353ba72753669c7/arch/arm/configs/gem5_defconfig[]. The patches there are just simple optimizations and instrumentation, but they are not needed to boot.
-* Jason's magic `x86_64` config: http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config which is referenced at: link:http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html[]. QEMU boots with that by removing `# CONFIG_VIRTIO_PCI is not set`
+* `arm` and `aarch64` configs present in the official ARM gem5 Linux kernel fork: <<gem5-arm-linux-kernel-patches>>. Some of the configs present there are added by the patches.
+* Jason's magic `x86_64` config: http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config which is referenced at: link:http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html[]. QEMU boots with that by removing `# CONFIG_VIRTIO_PCI is not set`.
 
 === Kernel version
 
@@ -8729,6 +8718,19 @@ getconf _NPROCESSORS_CONF
 
 https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8
 
+Build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
+
+....
+./run \
+  --arch aarch64 \
+  --linux-build-id gem5-v4.15 \
+  --gem5 \
+  --cpus 16 \
+  -- \
+  --param 'system.realview.gic.gem5_extensions = True' \
+;
+....
+
 ===== gem5 cache size
 
 https://stackoverflow.com/questions/49624061/how-to-run-gem5-simulator-in-fs-mode-without-cache/49634544#49634544
@@ -9751,14 +9753,31 @@ What they mean: https://stackoverflow.com/questions/50583962/what-are-the-gem5-a
 
 === gem5 arm Linux kernel patches
 
-https://gem5.googlesource.com/arm/linux/ contains an ARM Linux kernel fork with a few gem5 specific Linux kernel patches on top of mainline created by ARM Holdings.
+https://gem5.googlesource.com/arm/linux/ contains an ARM Linux kernel forks with a few gem5 specific Linux kernel patches on top of mainline created by ARM Holdings on top of a few upstream kernel releases.
 
-Those patches look interesting, but it is obviously not possible to understand what they actually do from their commit message.
+The patches are optional: the vanilla kernel does boot. But they add some interesting gem5-specific optimizations, instrumentations and device support.
 
-So let's explain them one by one here as we understand them:
+The patches also <<notable-alternate-gem5-kernel-configs,add defconfigs>> that are known to work well with gem5.
+
+E.g. for arm v4.9 there is: link:https://gem5.googlesource.com/arm/linux/+/917e007a4150d26a0aa95e4f5353ba72753669c7/arch/arm/configs/gem5_defconfig[].
+
+In order to use those patches and their associated configs, and, we recommend using <<linux-kernel-build-variants>> as:
+
+....
+git -C "$(./getvar linux_source_dir)" fetch https://gem5.googlesource.com/arm/linux gem5/v4.15:gem5/v4.15
+git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
+./build-linux \
+  --arch aarch64 \
+  --custom-config-file-gem5 \
+  --linux-build-id gem5-v4.15 \
+;
+git -C "$(./getvar linux_source_dir)" checkout -
+....
+
+It is obviously not possible to understand what they actually do from their commit message, so let's explain them one by one here as we understand them:
 
 * `drm: Add component-aware simple encoder` allows you to see images through VNC: <<gem5-graphic-mode>>
-* `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8/50248068#5024806
+* `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: <<gem5-arm-more-than-8-cores>>
 
 === m5out directory
 
