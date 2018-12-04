@@ -306,6 +306,9 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
 '''
     )
     parser.add_argument(
+        '--dp650', default=False, action='store_true'
+    )
+    parser.add_argument(
         '-L', '--linux-build-id', default=default_build_id,
         help='Linux build ID. Allows you to keep multiple separate Linux builds. Default: %(default)s'
     )
@@ -737,12 +740,6 @@ def setup(parser):
         common.buildroot_toolchain_prefix = 'arm-buildroot-linux-uclibcgnueabihf'
         common.crosstool_ng_toolchain_prefix = 'arm-unknown-eabi'
         common.ubuntu_toolchain_prefix = 'arm-linux-gnueabihf'
-        if common.emulator == 'gem5':
-            if common.machine is None:
-                common.machine = 'VExpress_GEM5_V1'
-        else:
-            if common.machine is None:
-                common.machine = 'virt'
         common.is_arm = True
     elif args.arch == 'aarch64':
         common.armv = 8
@@ -751,12 +748,6 @@ def setup(parser):
         common.buildroot_toolchain_prefix = 'aarch64-buildroot-linux-uclibc'
         common.crosstool_ng_toolchain_prefix = 'aarch64-unknown-elf'
         common.ubuntu_toolchain_prefix = 'aarch64-linux-gnu'
-        if common.emulator == 'gem5':
-            if common.machine is None:
-                common.machine = 'VExpress_GEM5_V1'
-        else:
-            if common.machine is None:
-                common.machine = 'virt'
         common.is_arm = True
     elif args.arch == 'x86_64':
         common.crosstool_ng_toolchain_prefix = 'x86_64-unknown-elf'
@@ -769,6 +760,16 @@ def setup(parser):
         else:
             if common.machine is None:
                 common.machine = 'pc'
+    if is_arm:
+        if common.emulator == 'gem5':
+            if common.machine is None:
+                if args.dp650:
+                    common.machine = 'VExpress_GEM5_V1_DPU'
+                else:
+                    common.machine = 'VExpress_GEM5_V1'
+        else:
+            if common.machine is None:
+                common.machine = 'virt'
     common.buildroot_out_dir = os.path.join(common.out_dir, 'buildroot')
     common.buildroot_build_dir = os.path.join(common.buildroot_out_dir, 'build', args.buildroot_build_id, args.arch)
     common.buildroot_download_dir = os.path.join(common.buildroot_out_dir, 'download')
