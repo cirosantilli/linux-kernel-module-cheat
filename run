@@ -200,9 +200,17 @@ def main(args, extra_args=None):
                         # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                         # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                         '--command-line', 'earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli), common.Newline,
-                        '--dtb-filename', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}{}cpu.dtb'.format(common.armv, dp650_cmd, args.cpus)), common.Newline,
                         '--machine-type', common.machine, common.Newline,
                     ])
+                    dtb = None
+                    if args.dtb is not None:
+                        dtb = args.dtb
+                    elif args.dp650:
+                        dtb = os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}{}cpu.dtb'.format(common.armv, dp650_cmd, args.cpus)), common.Newline,
+                    if dtb is None:
+                        cmd.extend(['--generate-dtb', common.Newline])
+                    else:
+                        cmd.extend(['--dtb-filename', dtb, common.Newline])
                     if common.baremetal is None:
                         cmd.extend([
                             '--param', 'system.panic_on_panic = True', common.Newline
@@ -228,10 +236,11 @@ def main(args, extra_args=None):
                     '--big-cpus', '2', common.Newline,
                     '--cpu-type', cpu_type, common.Newline,
                     '--disk', common.disk_image, common.Newline,
-                    '--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), common.Newline,
                     '--kernel', common.image, common.Newline,
                     '--little-cpus', '2', common.Newline,
                 ])
+                if args.dtb:
+                    cmd.extend(['--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), common.Newline,])
         if args.wait_gdb:
             # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
             cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True', common.Newline])
@@ -312,6 +321,8 @@ def main(args, extra_args=None):
                 serial_monitor +
                 vnc
             )
+            if args.dtb is not None:
+                cmd.extend(['-dtb', args.dtb, common.Newline])
             if not qemu_executable_prebuilt:
                 cmd.extend(qemu_user_and_system_options)
             if args.initrd:
@@ -457,6 +468,13 @@ https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-bo
     parser.add_argument(
         '-D', '--debug-vm', default=defaults['debug_vm'], nargs='?', action='store', const='',
         help='Run GDB on the emulator itself.'
+    )
+    parser.add_argument(
+        '--dtb',
+        help='''\
+Use the specified DTB file. If not given, let the emulator generate a DTB for us,
+which is what you usually want.
+'''
     )
     parser.add_argument(
         '-E', '--eval',
