@@ -66,7 +66,9 @@ for key in common.arch_short_to_long_dict:
     arch_choices.append(common.arch_short_to_long_dict[key])
 default_arch = 'x86_64'
 gem5_cpt_prefix = '^cpt\.'
-sha = subprocess.check_output(['git', '-C', root_dir, 'log', '-1', '--format=%H']).decode().rstrip()
+def git_sha(repo_path):
+    return subprocess.check_output(['git', '-C', repo_path, 'log', '-1', '--format=%H']).decode().rstrip()
+sha = common.git_sha(root_dir)
 release_dir = os.path.join(common.out_dir, 'release')
 release_zip_file = os.path.join(common.release_dir, 'lkmc-{}.zip'.format(common.sha))
 github_repo_id = 'cirosantilli/linux-kernel-module-cheat'
