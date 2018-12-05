@@ -40,6 +40,12 @@ if consts['in_docker']:
     consts['out_dir'] = os.path.join(consts['root_dir'], 'out.docker')
 else:
     consts['out_dir'] = os.path.join(consts['root_dir'], 'out')
+consts['gem5_out_dir'] = os.path.join(consts['out_dir'], 'gem5')
+consts['kernel_modules_build_base_dir'] = os.path.join(consts['out_dir'], 'kernel_modules')
+consts['buildroot_out_dir'] = os.path.join(consts['out_dir'], 'buildroot')
+consts['gem5_m5_build_dir'] = os.path.join(consts['out_dir'], 'util', 'm5')
+consts['run_dir_base'] = os.path.join(consts['out_dir'], 'run')
+consts['crosstool_ng_out_dir'] = os.path.join(consts['out_dir'], 'crosstool-ng')
 consts['bench_boot'] = os.path.join(consts['out_dir'], 'bench-boot.txt')
 consts['packages_dir'] = os.path.join(consts['root_dir'], 'buildroot_packages')
 consts['kernel_modules_subdir'] = 'kernel_modules'
@@ -55,6 +61,7 @@ consts['crosstool_ng_src_dir'] = os.path.join(consts['submodules_dir'], 'crossto
 consts['crosstool_ng_supported_archs'] = set(['arm', 'aarch64'])
 consts['linux_src_dir'] = os.path.join(consts['submodules_dir'], 'linux')
 consts['linux_config_dir'] = os.path.join(consts['root_dir'], 'linux_config')
+consts['gem5_default_src_dir'] = os.path.join(consts['submodules_dir'], 'gem5')
 consts['rootfs_overlay_dir'] = os.path.join(consts['root_dir'], 'rootfs_overlay')
 consts['extract_vmlinux'] = os.path.join(consts['linux_src_dir'], 'scripts', 'extract-vmlinux')
 consts['qemu_src_dir'] = os.path.join(consts['submodules_dir'], 'qemu')
@@ -85,6 +92,7 @@ consts['obj_ext'] = '.o'
 consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
 consts['command_prefix'] = '+ '
 consts['magic_fail_string'] = b'lkmc_test_fail'
+consts['baremetal_lib_basename'] = 'lib'
 
 class LkmcCliFunction(cli_function.CliFunction):
     '''
@@ -96,8 +104,8 @@ class LkmcCliFunction(cli_function.CliFunction):
     def __init__(self):
         super().__init__(config_file=common.consts['config_file'])
         self.add_argument(
-            '-a', '--arch', choices=common.arch_choices, default=common.default_arch,
-            help='CPU architecture. Default: %(default)s'
+            '-a', '--arch', choices=consts['arch_choices'], default=consts['default_arch'],
+            help='CPU architecture.'
         )
         self.add_argument(
             '--dry-run',
@@ -122,6 +130,8 @@ mkdir are generally omitted since those are obvious
         '''
         if not kwargs['dry_run']:
             start_time = time.time()
+        kwargs.update(common.consts)
+        kwargs = set_kwargs(kwargs)
         self.timed_main(**kwargs)
         if not kwargs['dry_run']:
             end_time = time.time()
@@ -149,7 +159,7 @@ class BuildCliFunction(LkmcCliFunction):
             '--nproc',
             default=multiprocessing.cpu_count(),
             type=int,
-            help='Number of processors to use for the build. Default: use all cores.',
+            help='Number of processors to use for the build.',
         )
 
     def clean(self, **kwargs):
@@ -183,6 +193,37 @@ class Newline:
     with --key on the same line as "--key value".
     '''
     pass
+
+def add_args_gem5(parser):
+    parser.add_argument(
+        '--gem5-build-dir',
+        help='''\
+Use the given directory as the gem5 build directory.
+'''
+    )
+    parser.add_argument(
+        '-M', '--gem5-build-id',
+        help='''\
+gem5 build ID. Allows you to keep multiple separate gem5 builds.
+'''
+    )
+    parser.add_argument(
+        '--gem5-build-type', default='opt',
+        help='gem5 build type, most often used for "debug" builds.'
+    )
+    parser.add_argument(
+        '--gem5-source-dir',
+        help='''\
+Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
+'''
+    )
+    parser.add_argument(
+        '-N', '--gem5-worktree',
+        help='''\
+Create and use a git worktree of the gem5 submodule.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
+'''
+    )
 
 def add_newlines(cmd):
     out = []
@@ -293,16 +334,16 @@ inside baremetal/ and then try to use corresponding executable.
     )
     parser.add_argument(
         '--buildroot-build-id',
-        default=default_build_id,
-        help='Buildroot build ID. Allows you to keep multiple separate gem5 builds. Default: %(default)s'
+        default=consts['default_build_id'],
+        help='Buildroot build ID. Allows you to keep multiple separate gem5 builds.'
     )
     parser.add_argument(
         '--buildroot-linux', default=False, action='store_true',
         help='Boot with the Buildroot Linux kernel instead of our custom built one. Mostly for sanity checks.'
     )
     parser.add_argument(
-        '--crosstool-ng-build-id', default=default_build_id,
-        help='Crosstool-NG build ID. Allows you to keep multiple separate crosstool-NG builds. Default: %(default)s'
+        '--crosstool-ng-build-id', default=consts['default_build_id'],
+        help='Crosstool-NG build ID. Allows you to keep multiple separate crosstool-NG builds.'
     )
     parser.add_argument(
         '--docker', default=False, action='store_true',
@@ -311,8 +352,8 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
 '''
     )
     parser.add_argument(
-        '-L', '--linux-build-id', default=default_build_id,
-        help='Linux build ID. Allows you to keep multiple separate Linux builds. Default: %(default)s'
+        '-L', '--linux-build-id', default=consts['default_build_id'],
+        help='Linux build ID. Allows you to keep multiple separate Linux builds.'
     )
     parser.add_argument(
         '--machine',
@@ -324,43 +365,13 @@ See the documentation for other values known to work.
     )
     emulator_group.add_argument(
         '-g', '--gem5', default=False, action='store_true',
-        help='Use gem5 instead of QEMU. Default: False'
-    )
-    parser.add_argument(
-        '--gem5-build-dir',
-        help='''\
-Use the given directory as the gem5 build directory.
-'''
-    )
-    parser.add_argument(
-        '-M', '--gem5-build-id',
-        help='''\
-gem5 build ID. Allows you to keep multiple separate gem5 builds. Default: {}
-'''.format(default_build_id)
-    )
-    parser.add_argument(
-        '--gem5-build-type', default='opt',
-        help='gem5 build type, most often used for "debug" builds. Default: %(default)s'
-    )
-    parser.add_argument(
-        '--gem5-source-dir',
-        help='''\
-Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
-'''
-    )
-    parser.add_argument(
-        '-N', '--gem5-worktree',
-        help='''\
-Create and use a git worktree of the gem5 submodule.
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
-'''
+        help='Use gem5 instead of QEMU.'
     )
     parser.add_argument(
         '-n', '--run-id', default='0',
         help='''\
 ID for run outputs such as gem5's m5out. Allows you to do multiple runs,
 and then inspect separate outputs later in different output directories.
-Default: %(default)s
 '''
     )
     parser.add_argument(
@@ -375,8 +386,7 @@ the likelihood of incompatibilities.
         '--port-offset', type=int,
         help='''\
 Increase the ports to be used such as for GDB by an offset to run multiple
-instances in parallel.
-Default: the run ID (-n) if that is an integer, otherwise 0.
+instances in parallel. Default: the run ID (-n) if that is an integer, otherwise 0.
 '''
     )
     emulator_group.add_argument(
@@ -387,8 +397,8 @@ to allow overriding configs from the CLI.
 '''
     )
     parser.add_argument(
-        '-Q', '--qemu-build-id', default=default_build_id,
-        help='QEMU build ID. Allows you to keep multiple separate QEMU builds. Default: %(default)s'
+        '-Q', '--qemu-build-id', default=consts['default_build_id'],
+        help='QEMU build ID. Allows you to keep multiple separate QEMU builds.'
     )
     parser.add_argument(
         '--userland-build-id', default=None
@@ -693,262 +703,6 @@ def run_cmd(
     else:
         return 0
 
-def calculate_kwargs(**kwargs):
-    '''
-    Update the kwargs from the command line with derived arguments.
-    '''
-    if args.qemu or not args.gem5:
-        common['emulator'] = 'qemu'
-    else:
-        common['emulator'] = 'gem5'
-    if args.arch in common.arch_short_to_long_dict:
-        args.arch = common.arch_short_to_long_dict[args.arch]
-    if args.gem5_build_id is None:
-        args.gem5_build_id = default_build_id
-        gem5_build_id_given = False
-    else:
-        gem5_build_id_given = True
-    if args.userland_build_id is None:
-        args.userland_build_id = default_build_id
-        common.userland_build_id_given = False
-    else:
-        common.userland_build_id_given = True
-    if args.gem5_worktree is not None and not gem5_build_id_given:
-        args.gem5_build_id = args.gem5_worktree
-    common['machine'] = args.machine
-    common.setup_dry_run_arguments(args)
-    common.is_arm = False
-    if args.arch == 'arm':
-        common['armv'] = 7
-        common.gem5_arch = 'ARM'
-        common['mcpu'] = 'cortex-a15'
-        common.buildroot_toolchain_prefix = 'arm-buildroot-linux-uclibcgnueabihf'
-        common.crosstool_ng_toolchain_prefix = 'arm-unknown-eabi'
-        common.ubuntu_toolchain_prefix = 'arm-linux-gnueabihf'
-        if common['emulator'] == 'gem5':
-            if common['machine'] is None:
-                common['machine'] = 'VExpress_GEM5_V1'
-        else:
-            if common['machine'] is None:
-                common['machine'] = 'virt'
-        common.is_arm = True
-    elif args.arch == 'aarch64':
-        common['armv'] = 8
-        common.gem5_arch = 'ARM'
-        common['mcpu'] = 'cortex-a57'
-        common.buildroot_toolchain_prefix = 'aarch64-buildroot-linux-uclibc'
-        common.crosstool_ng_toolchain_prefix = 'aarch64-unknown-elf'
-        common.ubuntu_toolchain_prefix = 'aarch64-linux-gnu'
-        if common['emulator'] == 'gem5':
-            if common['machine'] is None:
-                common['machine'] = 'VExpress_GEM5_V1'
-        else:
-            if common['machine'] is None:
-                common['machine'] = 'virt'
-        common.is_arm = True
-    elif args.arch == 'x86_64':
-        common.crosstool_ng_toolchain_prefix = 'x86_64-unknown-elf'
-        common.gem5_arch = 'X86'
-        common.buildroot_toolchain_prefix = 'x86_64-buildroot-linux-uclibc'
-        common.ubuntu_toolchain_prefix = 'x86_64-linux-gnu'
-        if common['emulator'] == 'gem5':
-            if common['machine'] is None:
-                common['machine'] = 'TODO'
-        else:
-            if common['machine'] is None:
-                common['machine'] = 'pc'
-    common.buildroot_out_dir = os.path.join(consts['out_dir'], 'buildroot')
-    common.buildroot_build_dir = os.path.join(common.buildroot_out_dir, 'build', args.buildroot_build_id, args.arch)
-    common.buildroot_download_dir = os.path.join(common.buildroot_out_dir, 'download')
-    common.buildroot_config_file = os.path.join(common.buildroot_build_dir, '.config')
-    common.buildroot_build_build_dir = os.path.join(common.buildroot_build_dir, 'build')
-    common.buildroot_linux_build_dir = os.path.join(common.buildroot_build_build_dir, 'linux-custom')
-    common.buildroot_vmlinux = os.path.join(common.buildroot_linux_build_dir, "vmlinux")
-    common.qemu_build_dir = os.path.join(consts['out_dir'], 'qemu', args.qemu_build_id)
-    common.qemu_executable_basename = 'qemu-system-{}'.format(args.arch)
-    common.qemu_executable = os.path.join(common.qemu_build_dir, '{}-softmmu'.format(args.arch), common.qemu_executable_basename)
-    common.qemu_img_basename = 'qemu-img'
-    common.qemu_img_executable = os.path.join(common.qemu_build_dir, common.qemu_img_basename)
-    common.host_dir = os.path.join(common.buildroot_build_dir, 'host')
-    common.host_bin_dir = os.path.join(common.host_dir, 'usr', 'bin')
-    common.buildroot_pkg_config = os.path.join(common.host_bin_dir, 'pkg-config')
-    common.buildroot_images_dir = os.path.join(common.buildroot_build_dir, 'images')
-    common.buildroot_rootfs_raw_file = os.path.join(common.buildroot_images_dir, 'rootfs.ext2')
-    common.buildroot_qcow2_file = common.buildroot_rootfs_raw_file + '.qcow2'
-    common.staging_dir = os.path.join(consts['out_dir'], 'staging', args.arch)
-    common.buildroot_staging_dir = os.path.join(common.buildroot_build_dir, 'staging')
-    common.target_dir = os.path.join(common.buildroot_build_dir, 'target')
-    common.run_dir_base = os.path.join(consts['out_dir'], 'run')
-    common.gem5_run_dir = os.path.join(common.run_dir_base, 'gem5', args.arch, str(args.run_id))
-    common.m5out_dir = os.path.join(common.gem5_run_dir, 'm5out')
-    common.stats_file = os.path.join(common.m5out_dir, 'stats.txt')
-    common.gem5_trace_txt_file = os.path.join(common.m5out_dir, 'trace.txt')
-    common.gem5_guest_terminal_file = os.path.join(common.m5out_dir, 'system.terminal')
-    common.gem5_readfile = os.path.join(common.gem5_run_dir, 'readfile')
-    common.gem5_termout_file = os.path.join(common.gem5_run_dir, 'termout.txt')
-    common.qemu_run_dir = os.path.join(common.run_dir_base, 'qemu', args.arch, str(args.run_id))
-    common.qemu_trace_basename = 'trace.bin'
-    common.qemu_trace_file = os.path.join(common.qemu_run_dir, 'trace.bin')
-    common.qemu_trace_txt_file = os.path.join(common.qemu_run_dir, 'trace.txt')
-    common.qemu_termout_file = os.path.join(common.qemu_run_dir, 'termout.txt')
-    common.qemu_rrfile = os.path.join(common.qemu_run_dir, 'rrfile')
-    common.qemu_guest_terminal_file = os.path.join(common.m5out_dir, qemu_termout_file)
-    common.gem5_out_dir = os.path.join(consts['out_dir'], 'gem5')
-    if args.gem5_build_dir is None:
-        common.gem5_build_dir = os.path.join(common.gem5_out_dir, args.gem5_build_id, args.gem5_build_type)
-    else:
-        common.gem5_build_dir = args.gem5_build_dir
-    common.gem5_fake_iso = os.path.join(common.gem5_out_dir, 'fake.iso')
-    common.gem5_m5term = os.path.join(common.gem5_build_dir, 'm5term')
-    common.gem5_build_build_dir = os.path.join(common.gem5_build_dir, 'build')
-    common.gem5_executable = os.path.join(common.gem5_build_build_dir, gem5_arch, 'gem5.{}'.format(args.gem5_build_type))
-    common.gem5_system_dir = os.path.join(common.gem5_build_dir, 'system')
-    common.crosstool_ng_out_dir = os.path.join(consts['out_dir'], 'crosstool-ng')
-    common.crosstool_ng_buildid_dir = os.path.join(common.crosstool_ng_out_dir, 'build', args.crosstool_ng_build_id)
-    common.crosstool_ng_install_dir = os.path.join(common.crosstool_ng_buildid_dir, 'install', args.arch)
-    common.crosstool_ng_bin_dir = os.path.join(common.crosstool_ng_install_dir, 'bin')
-    common.crosstool_ng_util_dir = os.path.join(common.crosstool_ng_buildid_dir, 'util')
-    common.crosstool_ng_config = os.path.join(common.crosstool_ng_util_dir, '.config')
-    common.crosstool_ng_defconfig = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
-    common.crosstool_ng_executable = os.path.join(common.crosstool_ng_util_dir, 'ct-ng')
-    common.crosstool_ng_build_dir = os.path.join(common.crosstool_ng_buildid_dir, 'build')
-    common.crosstool_ng_download_dir = os.path.join(common.crosstool_ng_out_dir, 'download')
-    common.gem5_default_src_dir = os.path.join(submodules_dir, 'gem5')
-    if args.gem5_source_dir is not None:
-        common.gem5_src_dir = args.gem5_source_dir
-        assert(os.path.exists(args.gem5_source_dir))
-    else:
-        if args.gem5_worktree is not None:
-            common.gem5_src_dir = os.path.join(common.gem5_non_default_src_root_dir, args.gem5_worktree)
-        else:
-            common.gem5_src_dir = common.gem5_default_src_dir
-    common.gem5_m5_src_dir = os.path.join(common.gem5_src_dir, 'util', 'm5')
-    common.gem5_m5_build_dir = os.path.join(consts['out_dir'], 'util', 'm5')
-    if common['emulator'] == 'gem5':
-        common['executable'] = common.gem5_executable
-        common.run_dir = common.gem5_run_dir
-        common.termout_file = common.gem5_termout_file
-        common.guest_terminal_file = gem5_guest_terminal_file
-        common.trace_txt_file = gem5_trace_txt_file
-    else:
-        common['executable'] = common.qemu_executable
-        common.run_dir = common.qemu_run_dir
-        common.termout_file = common.qemu_termout_file
-        common.guest_terminal_file = qemu_guest_terminal_file
-        common.trace_txt_file = qemu_trace_txt_file
-    common.gem5_config_dir = os.path.join(common.gem5_src_dir, 'configs')
-    common.gem5_se_file = os.path.join(common.gem5_config_dir, 'example', 'se.py')
-    common.gem5_fs_file = os.path.join(common.gem5_config_dir, 'example', 'fs.py')
-    common.run_cmd_file = os.path.join(common.run_dir, 'run.sh')
-
-    # Linux
-    common.linux_buildroot_build_dir = os.path.join(common.buildroot_build_build_dir, 'linux-custom')
-    common.linux_build_dir = os.path.join(consts['out_dir'], 'linux', args.linux_build_id, args.arch)
-    common.lkmc_vmlinux = os.path.join(common.linux_build_dir, "vmlinux")
-    if args.arch == 'arm':
-        common.linux_arch = 'arm'
-        common.linux_image_prefix = os.path.join('arch', common.linux_arch, 'boot', 'zImage')
-    elif args.arch == 'aarch64':
-        common.linux_arch = 'arm64'
-        common.linux_image_prefix = os.path.join('arch', common.linux_arch, 'boot', 'Image')
-    elif args.arch == 'x86_64':
-        common.linux_arch = 'x86'
-        common.linux_image_prefix = os.path.join('arch', common.linux_arch, 'boot', 'bzImage')
-    common.lkmc_linux_image = os.path.join(common.linux_build_dir, common.linux_image_prefix)
-    common.buildroot_linux_image = os.path.join(common.buildroot_linux_build_dir, linux_image_prefix)
-    if args.buildroot_linux:
-        common['vmlinux'] = common.buildroot_vmlinux
-        common.linux_image = common.buildroot_linux_image
-    else:
-        common['vmlinux'] = common.lkmc_vmlinux
-        common.linux_image = common.lkmc_linux_image
-
-    # Kernel modules.
-    common.kernel_modules_build_base_dir = os.path.join(consts['out_dir'], 'kernel_modules')
-    common.kernel_modules_build_dir = os.path.join(common.kernel_modules_build_base_dir, args.arch)
-    common.kernel_modules_build_subdir = os.path.join(common.kernel_modules_build_dir, kernel_modules_subdir)
-    common.kernel_modules_build_host_dir = os.path.join(common.kernel_modules_build_base_dir, 'host')
-    common.kernel_modules_build_host_subdir = os.path.join(common.kernel_modules_build_host_dir, kernel_modules_subdir)
-    common.userland_build_dir = os.path.join(consts['out_dir'], 'userland', args.userland_build_id, args.arch)
-    common.out_rootfs_overlay_dir = os.path.join(consts['out_dir'], 'rootfs_overlay', args.arch)
-    common.out_rootfs_overlay_bin_dir = os.path.join(common.out_rootfs_overlay_dir, 'bin')
-
-    # Ports
-    if args.port_offset is None:
-        try:
-            args.port_offset = int(args.run_id)
-        except ValueError:
-            args.port_offset = 0
-    if common['emulator'] == 'gem5':
-        common.gem5_telnet_port = 3456 + args.port_offset
-        common.gdb_port = 7000 + args.port_offset
-    else:
-        common.qemu_base_port = 45454 + 10 * args.port_offset
-        common.qemu_monitor_port = common.qemu_base_port + 0
-        common.qemu_hostfwd_generic_port = common.qemu_base_port + 1
-        common.qemu_hostfwd_ssh_port = common.qemu_base_port + 2
-        common.qemu_gdb_port = common.qemu_base_port + 3
-        common.extra_serial_port = common.qemu_base_port + 4
-        common.gdb_port = common.qemu_gdb_port
-        common.qemu_background_serial_file = os.path.join(common.qemu_run_dir, 'background.log')
-
-    # Baremetal.
-    common['baremetal'] = args.baremetal
-    common.baremetal_lib_basename = 'lib'
-    common.baremetal_src_dir = os.path.join(consts['root_dir'], 'baremetal')
-    common.baremetal_src_lib_dir = os.path.join(common.baremetal_src_dir, common.baremetal_lib_basename)
-    if common['emulator'] == 'gem5':
-        common.simulator_name = 'gem5'
-    else:
-        common.simulator_name = 'qemu'
-    common.baremetal_build_dir = os.path.join(out_dir, 'baremetal', args.arch, common.simulator_name, common['machine'])
-    common.baremetal_build_lib_dir = os.path.join(common.baremetal_build_dir, common.baremetal_lib_basename)
-    common.baremetal_build_ext = '.elf'
-
-    # Docker
-    common.docker_build_dir = os.path.join(consts['out_dir'], 'docker', args.arch)
-    common.docker_tar_dir = os.path.join(common.docker_build_dir, 'export')
-    common.docker_tar_file = os.path.join(common.docker_build_dir, 'export.tar')
-    common.docker_rootfs_raw_file = os.path.join(common.docker_build_dir, 'export.ext2')
-    common.docker_qcow2_file = os.path.join(common.docker_rootfs_raw_file + '.qcow2')
-    if args.docker:
-        common.rootfs_raw_file = common.docker_rootfs_raw_file
-        common.qcow2_file = common.docker_qcow2_file
-    else:
-        common.rootfs_raw_file = common.buildroot_rootfs_raw_file
-        common.qcow2_file = common.buildroot_qcow2_file
-
-    # Image.
-    if common['baremetal'] is None:
-        if common['emulator'] == 'gem5':
-            common['image'] = common['vmlinux']
-            common.disk_image = common.rootfs_raw_file
-        else:
-            common['image'] = common.linux_image
-            common.disk_image = common.qcow2_file
-    else:
-        common.disk_image = common.gem5_fake_iso
-        if common['baremetal'] == 'all':
-            path = common['baremetal']
-        else:
-            path = common.resolve_executable(
-                common['baremetal'],
-                common.baremetal_src_dir,
-                common.baremetal_build_dir,
-                common.baremetal_build_ext,
-            )
-            source_path_noext = os.path.splitext(os.path.join(
-                common.baremetal_src_dir,
-                os.path.relpath(path, common.baremetal_build_dir)
-            ))[0]
-            for ext in [c_ext, asm_ext]:
-                source_path = source_path_noext + ext
-                if os.path.exists(source_path):
-                    common.source_path = source_path
-                    break
-        common['image'] = path
-    return args
-
 def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
     if os.path.isabs(in_path):
         return in_path
@@ -974,8 +728,270 @@ def resolve_userland(path):
         common.userland_build_ext,
     )
 
-def setup_dry_run_arguments(args):
-    common.dry_run = args.dry_run
+def set_kwargs(kwargs):
+    '''
+    Update the kwargs from the command line with derived arguments.
+    '''
+    def join(*paths):
+        '''
+        This is bad, we should just find a nice way to lazily evaluate the kwargs.
+        '''
+        if None in paths:
+            return None
+        else:
+            return os.path.join(*paths)
+    kwargs = collections.defaultdict(lambda: None, **kwargs)
+    if kwargs['qemu'] or not kwargs['gem5']:
+        kwargs['emulator'] = 'qemu'
+    else:
+        kwargs['emulator'] = 'gem5'
+    if kwargs['arch'] in kwargs['arch_short_to_long_dict']:
+        kwargs['arch'] = kwargs['arch_short_to_long_dict'][kwargs['arch']]
+    if kwargs['gem5_build_id'] is None:
+        kwargs['gem5_build_id'] = kwargs['default_build_id']
+        gem5_build_id_given = False
+    else:
+        gem5_build_id_given = True
+    if kwargs['userland_build_id'] is None:
+        kwargs['userland_build_id'] = kwargs['default_build_id']
+        kwargs['userland_build_id_given'] = False
+    else:
+        kwargs['userland_build_id_given'] = True
+    if kwargs['gem5_worktree'] is not None and not gem5_build_id_given:
+        kwargs['gem5_build_id'] = kwargs['gem5_worktree']
+    kwargs['is_arm'] = False
+    if kwargs['arch'] == 'arm':
+        kwargs['armv'] = 7
+        kwargs['gem5_arch'] = 'ARM'
+        kwargs['mcpu'] = 'cortex-a15'
+        kwargs['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-uclibcgnueabihf'
+        kwargs['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
+        kwargs['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
+        if kwargs['emulator'] == 'gem5':
+            if kwargs['machine'] is None:
+                kwargs['machine'] = 'VExpress_GEM5_V1'
+        else:
+            if kwargs['machine'] is None:
+                kwargs['machine'] = 'virt'
+        kwargs['is_arm'] = True
+    elif kwargs['arch'] == 'aarch64':
+        kwargs['armv'] = 8
+        kwargs['gem5_arch'] = 'ARM'
+        kwargs['mcpu'] = 'cortex-a57'
+        kwargs['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-uclibc'
+        kwargs['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
+        kwargs['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
+        if kwargs['emulator'] == 'gem5':
+            if kwargs['machine'] is None:
+                kwargs['machine'] = 'VExpress_GEM5_V1'
+        else:
+            if kwargs['machine'] is None:
+                kwargs['machine'] = 'virt'
+        kwargs['is_arm'] = True
+    elif kwargs['arch'] == 'x86_64':
+        kwargs['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
+        kwargs['gem5_arch'] = 'X86'
+        kwargs['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-uclibc'
+        kwargs['ubuntu_toolchain_prefix'] = 'x86_64-linux-gnu'
+        if kwargs['emulator'] == 'gem5':
+            if kwargs['machine'] is None:
+                kwargs['machine'] = 'TODO'
+        else:
+            if kwargs['machine'] is None:
+                kwargs['machine'] = 'pc'
+    if 'buildroot_build_id' in kwargs:
+        kwargs['buildroot_build_dir'] = join(kwargs['buildroot_out_dir'], 'build', kwargs['buildroot_build_id'], kwargs['arch'])
+        kwargs['buildroot_download_dir'] = join(kwargs['buildroot_out_dir'], 'download')
+        kwargs['buildroot_config_file'] = join(kwargs['buildroot_build_dir'], '.config')
+        kwargs['buildroot_build_build_dir'] = join(kwargs['buildroot_build_dir'], 'build')
+        kwargs['buildroot_linux_build_dir'] = join(kwargs['buildroot_build_build_dir'], 'linux-custom')
+        kwargs['buildroot_vmlinux'] = join(kwargs['buildroot_linux_build_dir'], "vmlinux")
+        kwargs['host_dir'] = join(kwargs['buildroot_build_dir'], 'host')
+        kwargs['host_bin_dir'] = join(kwargs['host_dir'], 'usr', 'bin')
+        kwargs['buildroot_pkg_config'] = join(kwargs['host_bin_dir'], 'pkg-config')
+        kwargs['buildroot_images_dir'] = join(kwargs['buildroot_build_dir'], 'images')
+        kwargs['buildroot_rootfs_raw_file'] = join(kwargs['buildroot_images_dir'], 'rootfs.ext2')
+        kwargs['buildroot_qcow2_file'] = kwargs['buildroot_rootfs_raw_file'] + '.qcow2'
+        kwargs['staging_dir'] = join(kwargs['out_dir'], 'staging', kwargs['arch'])
+        kwargs['buildroot_staging_dir'] = join(kwargs['buildroot_build_dir'], 'staging')
+        kwargs['target_dir'] = join(kwargs['buildroot_build_dir'], 'target')
+        kwargs['linux_buildroot_build_dir'] = join(kwargs['buildroot_build_build_dir'], 'linux-custom')
+    if 'qemu_build_id' in kwargs:
+        kwargs['qemu_build_dir'] = join(kwargs['out_dir'], 'qemu', kwargs['qemu_build_id'])
+        kwargs['qemu_executable_basename'] = 'qemu-system-{}'.format(kwargs['arch'])
+        kwargs['qemu_executable'] = join(kwargs['qemu_build_dir'], '{}-softmmu'.format(kwargs['arch']), kwargs['qemu_executable_basename'])
+        kwargs['qemu_img_basename'] = 'qemu-img'
+        kwargs['qemu_img_executable'] = join(kwargs['qemu_build_dir'], kwargs['qemu_img_basename'])
+        kwargs['qemu_termout_file'] = join(kwargs['qemu_run_dir'], 'termout.txt')
+
+    # gem5 build
+    if 'gem5_build_id' in kwargs:
+        if kwargs['gem5_build_dir'] is None:
+            kwargs['gem5_build_dir'] = join(kwargs['gem5_out_dir'], kwargs['gem5_build_id'], kwargs['gem5_build_type'])
+        kwargs['gem5_fake_iso'] = join(kwargs['gem5_out_dir'], 'fake.iso')
+        kwargs['gem5_m5term'] = join(kwargs['gem5_build_dir'], 'm5term')
+        kwargs['gem5_build_build_dir'] = join(kwargs['gem5_build_dir'], 'build')
+        kwargs['gem5_executable'] = join(kwargs['gem5_build_build_dir'], kwargs['gem5_arch'], 'gem5.{}'.format(kwargs['gem5_build_type']))
+        kwargs['gem5_system_dir'] = join(kwargs['gem5_build_dir'], 'system')
+
+    # gem5 source
+    if kwargs['gem5_source_dir'] is not None:
+        assert os.path.exists(kwargs['gem5_source_dir'])
+    else:
+        if kwargs['gem5_worktree'] is not None:
+            kwargs['gem5_source_dir'] = join(kwargs['gem5_non_default_src_root_dir'], kwargs['gem5_worktree'])
+        else:
+            kwargs['gem5_source_dir'] = kwargs['gem5_default_src_dir']
+    kwargs['gem5_m5_source_dir'] = join(kwargs['gem5_source_dir'], 'util', 'm5')
+    kwargs['gem5_config_dir'] = join(kwargs['gem5_source_dir'], 'configs')
+    kwargs['gem5_se_file'] = join(kwargs['gem5_config_dir'], 'example', 'se.py')
+    kwargs['gem5_fs_file'] = join(kwargs['gem5_config_dir'], 'example', 'fs.py')
+
+    if 'crosstool_ng_build_id' in kwargs:
+        kwargs['crosstool_ng_buildid_dir'] = join(kwargs['crosstool_ng_out_dir'], 'build', kwargs['crosstool_ng_build_id'])
+        kwargs['crosstool_ng_install_dir'] = join(kwargs['crosstool_ng_buildid_dir'], 'install', kwargs['arch'])
+        kwargs['crosstool_ng_bin_dir'] = join(kwargs['crosstool_ng_install_dir'], 'bin')
+        kwargs['crosstool_ng_util_dir'] = join(kwargs['crosstool_ng_buildid_dir'], 'util')
+        kwargs['crosstool_ng_config'] = join(kwargs['crosstool_ng_util_dir'], '.config')
+        kwargs['crosstool_ng_defconfig'] = join(kwargs['crosstool_ng_util_dir'], 'defconfig')
+        kwargs['crosstool_ng_executable'] = join(kwargs['crosstool_ng_util_dir'], 'ct-ng')
+        kwargs['crosstool_ng_build_dir'] = join(kwargs['crosstool_ng_buildid_dir'], 'build')
+        kwargs['crosstool_ng_download_dir'] = join(kwargs['crosstool_ng_out_dir'], 'download')
+    if 'run_id' in kwargs:
+        kwargs['qemu_guest_terminal_file'] = join(kwargs['m5out_dir'], kwargs['qemu_termout_file'])
+        kwargs['gem5_run_dir'] = join(kwargs['run_dir_base'], 'gem5', kwargs['arch'], str(kwargs['run_id']))
+        kwargs['m5out_dir'] = join(kwargs['gem5_run_dir'], 'm5out')
+        kwargs['stats_file'] = join(kwargs['m5out_dir'], 'stats.txt')
+        kwargs['gem5_trace_txt_file'] = join(kwargs['m5out_dir'], 'trace.txt')
+        kwargs['gem5_guest_terminal_file'] = join(kwargs['m5out_dir'], 'system.terminal')
+        kwargs['gem5_readfile'] = join(kwargs['gem5_run_dir'], 'readfile')
+        kwargs['gem5_termout_file'] = join(kwargs['gem5_run_dir'], 'termout.txt')
+        kwargs['qemu_run_dir'] = join(kwargs['run_dir_base'], 'qemu', kwargs['arch'], str(kwargs['run_id']))
+        kwargs['qemu_trace_basename'] = 'trace.bin'
+        kwargs['qemu_trace_file'] = join(kwargs['qemu_run_dir'], 'trace.bin')
+        kwargs['qemu_trace_txt_file'] = join(kwargs['qemu_run_dir'], 'trace.txt')
+        kwargs['qemu_rrfile'] = join(kwargs['qemu_run_dir'], 'rrfile')
+        kwargs['gem5_out_dir'] = join(kwargs['out_dir'], 'gem5')
+
+        # Ports
+        if kwargs['port_offset'] is None:
+            try:
+                kwargs['port_offset'] = int(kwargs['run_id'])
+            except ValueError:
+                kwargs['port_offset'] = 0
+        if kwargs['emulator'] == 'gem5':
+            kwargs['gem5_telnet_port'] = 3456 + kwargs['port_offset']
+            kwargs['gdb_port'] = 7000 + kwargs['port_offset']
+        else:
+            kwargs['qemu_base_port'] = 45454 + 10 * kwargs['port_offset']
+            kwargs['qemu_monitor_port'] = kwargs['qemu_base_port'] + 0
+            kwargs['qemu_hostfwd_generic_port'] = kwargs['qemu_base_port'] + 1
+            kwargs['qemu_hostfwd_ssh_port'] = kwargs['qemu_base_port'] + 2
+            kwargs['qemu_gdb_port'] = kwargs['qemu_base_port'] + 3
+            kwargs['extra_serial_port'] = kwargs['qemu_base_port'] + 4
+            kwargs['gdb_port'] = kwargs['qemu_gdb_port']
+            kwargs['qemu_background_serial_file'] = join(kwargs['qemu_run_dir'], 'background.log')
+
+    # gem5 QEMU polymorphism.
+    if kwargs['emulator'] == 'gem5':
+        kwargs['executable'] = kwargs['gem5_executable']
+        kwargs['run_dir'] = kwargs['gem5_run_dir']
+        kwargs['termout_file'] = kwargs['gem5_termout_file']
+        kwargs['guest_terminal_file'] = gem5_guest_terminal_file
+        kwargs['trace_txt_file'] = gem5_trace_txt_file
+    else:
+        kwargs['executable'] = kwargs['qemu_executable']
+        kwargs['run_dir'] = kwargs['qemu_run_dir']
+        kwargs['termout_file'] = kwargs['qemu_termout_file']
+        kwargs['guest_terminal_file'] = kwargs['qemu_guest_terminal_file']
+        kwargs['trace_txt_file'] = kwargs['qemu_trace_txt_file']
+    kwargs['run_cmd_file'] = join(kwargs['run_dir'], 'run.sh')
+
+    # Linux kernl.
+    if 'linux_build_id' in kwargs:
+        kwargs['linux_build_dir'] = join(kwargs['out_dir'], 'linux', kwargs['linux_build_id'], kwargs['arch'])
+        kwargs['lkmc_vmlinux'] = join(kwargs['linux_build_dir'], "vmlinux")
+        if kwargs['arch'] == 'arm':
+            kwargs['linux_arch'] = 'arm'
+            kwargs['linux_image_prefix'] = join('arch', kwargs['linux_arch'], 'boot', 'zImage')
+        elif kwargs['arch'] == 'aarch64':
+            kwargs['linux_arch'] = 'arm64'
+            kwargs['linux_image_prefix'] = join('arch', kwargs['linux_arch'], 'boot', 'Image')
+        elif kwargs['arch'] == 'x86_64':
+            kwargs['linux_arch'] = 'x86'
+            kwargs['linux_image_prefix'] = join('arch', kwargs['linux_arch'], 'boot', 'bzImage')
+        kwargs['lkmc_linux_image'] = join(kwargs['linux_build_dir'], kwargs['linux_image_prefix'])
+        kwargs['buildroot_linux_image'] = join(kwargs['buildroot_linux_build_dir'], linux_image_prefix)
+        if kwargs['buildroot_linux']:
+            kwargs['vmlinux'] = kwargs['buildroot_vmlinux']
+            kwargs['linux_image'] = kwargs['buildroot_linux_image']
+        else:
+            kwargs['vmlinux'] = kwargs['lkmc_vmlinux']
+            kwargs['linux_image'] = kwargs['lkmc_linux_image']
+
+    # Kernel modules.
+    kwargs['kernel_modules_build_dir'] = join(kwargs['kernel_modules_build_base_dir'], kwargs['arch'])
+    kwargs['kernel_modules_build_subdir'] = join(kwargs['kernel_modules_build_dir'], kwargs['kernel_modules_subdir'])
+    kwargs['kernel_modules_build_host_dir'] = join(kwargs['kernel_modules_build_base_dir'], 'host')
+    kwargs['kernel_modules_build_host_subdir'] = join(kwargs['kernel_modules_build_host_dir'], kwargs['kernel_modules_subdir'])
+    kwargs['userland_build_dir'] = join(kwargs['out_dir'], 'userland', kwargs['userland_build_id'], kwargs['arch'])
+    kwargs['out_rootfs_overlay_dir'] = join(kwargs['out_dir'], 'rootfs_overlay', kwargs['arch'])
+    kwargs['out_rootfs_overlay_bin_dir'] = join(kwargs['out_rootfs_overlay_dir'], 'bin')
+
+    # Baremetal.
+    kwargs['baremetal_src_dir'] = join(kwargs['root_dir'], 'baremetal')
+    kwargs['baremetal_src_lib_dir'] = join(kwargs['baremetal_src_dir'], kwargs['baremetal_lib_basename'])
+    if kwargs['emulator'] == 'gem5':
+        kwargs['simulator_name'] = 'gem5'
+    else:
+        kwargs['simulator_name'] = 'qemu'
+    kwargs['baremetal_build_dir'] = join(kwargs['out_dir'], 'baremetal', kwargs['arch'], kwargs['simulator_name'], kwargs['machine'])
+    kwargs['baremetal_build_lib_dir'] = join(kwargs['baremetal_build_dir'], kwargs['baremetal_lib_basename'])
+    kwargs['baremetal_build_ext'] = '.elf'
+
+    # Docker
+    kwargs['docker_build_dir'] = join(kwargs['out_dir'], 'docker', kwargs['arch'])
+    kwargs['docker_tar_dir'] = join(kwargs['docker_build_dir'], 'export')
+    kwargs['docker_tar_file'] = join(kwargs['docker_build_dir'], 'export.tar')
+    kwargs['docker_rootfs_raw_file'] = join(kwargs['docker_build_dir'], 'export.ext2')
+    kwargs['docker_qcow2_file'] = join(kwargs['docker_rootfs_raw_file'] + '.qcow2')
+    if kwargs['docker']:
+        kwargs['rootfs_raw_file'] = kwargs['docker_rootfs_raw_file']
+        kwargs['qcow2_file'] = kwargs['docker_qcow2_file']
+    else:
+        kwargs['rootfs_raw_file'] = kwargs['buildroot_rootfs_raw_file']
+        kwargs['qcow2_file'] = kwargs['buildroot_qcow2_file']
+
+    # Image.
+    if kwargs['baremetal'] is None:
+        if kwargs['emulator'] == 'gem5':
+            kwargs['image'] = kwargs['vmlinux']
+            kwargs['disk_image'] = kwargs['rootfs_raw_file']
+        else:
+            kwargs['image'] = kwargs['linux_image']
+            kwargs['disk_image'] = kwargs['qcow2_file']
+    else:
+        kwargs['disk_image'] = kwargs['gem5_fake_iso']
+        if kwargs['baremetal'] == 'all':
+            path = kwargs['baremetal']
+        else:
+            path = kwargs.resolve_executable(
+                kwargs['baremetal'],
+                kwargs['baremetal_src_dir'],
+                kwargs['baremetal_build_dir'],
+                kwargs['baremetal_build_ext'],
+            )
+            source_path_noext = os.path.splitext(join(
+                kwargs['baremetal_src_dir'],
+                os.path.relpath(path, kwargs['baremetal_build_dir'])
+            ))[0]
+            for ext in [c_ext, asm_ext]:
+                source_path = source_path_noext + ext
+                if os.path.exists(source_path):
+                    kwargs['source_path'] = source_path
+                    break
+        kwargs['image'] = path
+    return dict(kwargs)
 
 def shlex_split(string):
     '''

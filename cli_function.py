@@ -30,10 +30,12 @@ class Argument:
             if longname[0] == '-':
                 self.args.append(longname)
                 self.key = longname.lstrip('-').replace('-', '_')
+                self.is_option = True
             else:
                 self.key = longname.replace('-', '_')
                 self.args.append(self.key)
                 self.kwargs['metavar'] = longname
+                self.is_option = False
                 if default is not None and nargs is None:
                     self.kwargs['nargs'] = '?'
             if nargs is not None:
@@ -55,6 +57,7 @@ class Argument:
             self.optional = (
                 default is not None or
                 self.is_bool or
+                self.is_option or
                 nargs in ('?', '*', '+')
             )
             self.kwargs.update(kwargs)
@@ -150,13 +153,16 @@ class CliFunction:
             parser.add_argument(*argument.args, **argument.kwargs)
             if argument.is_bool:
                 new_longname = '--no' + argument.longname[1:]
-                argument.kwargs['default'] = not argument.default
+                kwargs = argument.kwargs.copy()
+                kwargs['default'] = not argument.default
                 if argument.default:
                     action = 'store_true'
                 else:
                     action = 'store_false'
-                argument.kwargs['action'] = action
-                parser.add_argument(new_longname, dest=argument.key, **argument.kwargs)
+                kwargs['action'] = action
+                if 'help' in kwargs:
+                    del kwargs['help']
+                parser.add_argument(new_longname, dest=argument.key, **kwargs)
         args = parser.parse_args(args=cli_args)
         return self(**vars(args))
 
@@ -176,6 +182,7 @@ if __name__ == '__main__':
             self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
             self.add_argument('-b', '--bool', default=True, help='Help for bool'),
             self.add_argument('--bool-cli', default=False, help='Help for bool'),
+            self.add_argument('--no-default', help='Help for no-bool'),
             self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
             self.add_argument('args-star', help='Help for args-star', nargs='*'),
@@ -188,10 +195,10 @@ amazing function!
             return kwargs
 
     # Code calls.
-    assert OneCliFunction()(pos_mandatory=1)                                 == {'asdf': 'A', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
-    assert OneCliFunction()(pos_mandatory=1, asdf='B')                       == {'asdf': 'B', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
-    assert OneCliFunction()(pos_mandatory=1, bool=False)                     == {'asdf': 'A', 'qwer': 'Q', 'bool': False, 'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
-    assert OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R', bool=False) == {'asdf': 'B', 'qwer': 'R', 'bool': False, 'bool_cli': True, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1)                                 == {'asdf': 'A', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1, asdf='B')                       == {'asdf': 'B', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1, bool=False)                     == {'asdf': 'A', 'qwer': 'Q', 'bool': False, 'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    assert OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R', bool=False) == {'asdf': 'B', 'qwer': 'R', 'bool': False, 'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
 
     # Force a boolean value set on the config to be False on CLI.
     assert OneCliFunction().cli(['--no-bool-cli', '1'])['bool_cli'] is False

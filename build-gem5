@@ -15,6 +15,7 @@ class Main(common.BuildCliFunction):
             metavar='extra-scons-args',
             nargs='*',
         )
+        common.add_args_gem5(self)
 
     def build(self, **kwargs):
         build_dir = self.get_build_dir(**kwargs)
@@ -23,15 +24,15 @@ class Main(common.BuildCliFunction):
         os.makedirs(binaries_dir, exist_ok=True)
         os.makedirs(disks_dir, exist_ok=True)
         if kwargs['gem5_source_dir'] is None:
-            if not os.path.exists(os.path.join(kwargs['gem5_src_dir'], '.git')):
-                if kwargs['gem5_src_dir'] == kwargs['gem5_default_src_dir']:
+            if not os.path.exists(os.path.join(kwargs['gem5_source_dir'], '.git')):
+                if kwargs['gem5_source_dir'] == kwargs['gem5_default_src_dir']:
                     raise Exception('gem5 submodule not checked out')
                 common.run_cmd([
                     'git', common.Newline,
                     '-C', kwargs['gem5_default_src_dir'], common.Newline,
                     'worktree', 'add', common.Newline,
                     '-b', os.path.join('wt', kwargs['gem5_build_id']), common.Newline,
-                    kwargs['gem5_src_dir'], common.Newline,
+                    kwargs['gem5_source_dir'], common.Newline,
                 ])
         if kwargs['verbose']:
             verbose = ['--verbose', common.Newline]
@@ -49,7 +50,7 @@ class Main(common.BuildCliFunction):
                 # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
                 pass
         elif kwargs['arch'] == 'arm' or kwargs['arch'] == 'aarch64':
-            gem5_system_src_dir = os.path.join(kwargs['gem5_src_dir'], 'system')
+            gem5_system_src_dir = os.path.join(kwargs['gem5_source_dir'], 'system')
 
             # dtb
             dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
@@ -95,10 +96,10 @@ class Main(common.BuildCliFunction):
                 verbose +
                 common.add_newlines(kwargs['extra_scons_args'])
             ),
-            cwd=kwargs['gem5_src_dir'],
+            cwd=kwargs['gem5_source_dir'],
             extra_paths=[kwargs['ccache_dir']],
         )
-        term_src_dir = os.path.join(kwargs['gem5_src_dir'], 'util/term')
+        term_src_dir = os.path.join(kwargs['gem5_source_dir'], 'util/term')
         m5term_build = os.path.join(term_src_dir, 'm5term')
         common.run_cmd(['make', '-C', term_src_dir])
         if os.path.exists(kwargs['gem5_m5term']):
