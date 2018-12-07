@@ -5,7 +5,7 @@ import pathlib
 import subprocess
 
 import common
-from cli_function import Argument
+from shell_helpers import LF
 
 class Main(common.BuildCliFunction):
     def __init__(self):
@@ -15,7 +15,6 @@ class Main(common.BuildCliFunction):
             metavar='extra-scons-args',
             nargs='*',
         )
-        common.add_args_gem5(self)
 
     def build(self, **kwargs):
         build_dir = self.get_build_dir(**kwargs)
@@ -27,15 +26,15 @@ class Main(common.BuildCliFunction):
             if not os.path.exists(os.path.join(kwargs['gem5_source_dir'], '.git')):
                 if kwargs['gem5_source_dir'] == kwargs['gem5_default_src_dir']:
                     raise Exception('gem5 submodule not checked out')
-                common.run_cmd([
-                    'git', common.Newline,
-                    '-C', kwargs['gem5_default_src_dir'], common.Newline,
-                    'worktree', 'add', common.Newline,
-                    '-b', os.path.join('wt', kwargs['gem5_build_id']), common.Newline,
-                    kwargs['gem5_source_dir'], common.Newline,
+                self.sh.run_cmd([
+                    'git', LF,
+                    '-C', kwargs['gem5_default_src_dir'], LF,
+                    'worktree', 'add', LF,
+                    '-b', os.path.join('wt', kwargs['gem5_build_id']), LF,
+                    kwargs['gem5_source_dir'], LF,
                 ])
         if kwargs['verbose']:
-            verbose = ['--verbose', common.Newline]
+            verbose = ['--verbose', LF]
         else:
             verbose = []
         if kwargs['arch'] == 'x86_64':
@@ -44,7 +43,7 @@ class Main(common.BuildCliFunction):
                 zeroes = b'\x00' * (2 ** 16)
                 for i in range(2 ** 10):
                     dummy_img_file.write(zeroes)
-            common.run_cmd(['mkswap', dummy_img_path])
+            self.sh.run_cmd(['mkswap', dummy_img_path])
             with open(os.path.join(binaries_dir, 'x86_64-vmlinux-2.6.22.9'), 'w'):
                 # This file must always be present, despite --kernel overriding that default and selecting the kernel.
                 # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
@@ -55,9 +54,9 @@ class Main(common.BuildCliFunction):
             # dtb
             dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
             dt_build_dir = os.path.join(kwargs['gem5_system_dir'], 'arm', 'dt')
-            common.run_cmd([
-                'make', common.Newline,
-                '-C', dt_src_dir, common.Newline,
+            self.sh.run_cmd([
+                'make', LF,
+                '-C', dt_src_dir, LF,
             ])
             common.copy_dir_if_update_non_recursive(
                 srcdir=dt_src_dir,
@@ -68,46 +67,46 @@ class Main(common.BuildCliFunction):
             # Bootloader 32.
             bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
             # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
-            common.run_cmd([
-                'make', common.Newline,
-                '-C', bootloader32_dir, common.Newline,
-                'CROSS_COMPILE=arm-linux-gnueabihf-', common.Newline,
+            self.sh.run_cmd([
+                'make', LF,
+                '-C', bootloader32_dir, LF,
+                'CROSS_COMPILE=arm-linux-gnueabihf-', LF,
             ])
             # bootloader
-            common.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
+            self.sh.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
 
             # Bootloader 64.
             bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
             # TODO cross_compile is ignored because the make does not use CC...
-            common.run_cmd([
-                'make', common.Newline,
-                '-C', bootloader64_dir, common.Newline
+            self.sh.run_cmd([
+                'make', LF,
+                '-C', bootloader64_dir, LF
             ])
-            common.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
-        common.run_cmd(
+            self.sh.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
+        self.sh.run_cmd(
             (
                 [
-                    'scons', common.Newline,
-                    '-j', str(kwargs['nproc']), common.Newline,
-                    '--gold-linker', common.Newline,
-                    '--ignore-style', common.Newline,
-                    kwargs['gem5_executable'], common.Newline,
+                    'scons', LF,
+                    '-j', str(kwargs['nproc']), LF,
+                    '--gold-linker', LF,
+                    '--ignore-style', LF,
+                    kwargs['gem5_executable'], LF,
                 ] +
                 verbose +
-                common.add_newlines(kwargs['extra_scons_args'])
+                self.sh.add_newlines(kwargs['extra_scons_args'])
             ),
             cwd=kwargs['gem5_source_dir'],
             extra_paths=[kwargs['ccache_dir']],
         )
         term_src_dir = os.path.join(kwargs['gem5_source_dir'], 'util/term')
         m5term_build = os.path.join(term_src_dir, 'm5term')
-        common.run_cmd(['make', '-C', term_src_dir])
+        self.sh.run_cmd(['make', '-C', term_src_dir])
         if os.path.exists(kwargs['gem5_m5term']):
-            # Otherwise common.cp would fail with "Text file busy" if you
+            # Otherwise self.sh.cp would fail with "Text file busy" if you
             # tried to rebuild while running m5term:
             # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
             os.unlink(kwargs['gem5_m5term'])
-        common.cp(m5term_build, kwargs['gem5_m5term'])
+        self.sh.cp(m5term_build, kwargs['gem5_m5term'])
 
     def get_build_dir(self, **kwargs):
         return kwargs['gem5_build_dir']

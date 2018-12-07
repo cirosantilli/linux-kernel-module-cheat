@@ -195,10 +195,28 @@ amazing function!
             return kwargs
 
     # Code calls.
-    assert OneCliFunction()(pos_mandatory=1)                                 == {'asdf': 'A', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
-    assert OneCliFunction()(pos_mandatory=1, asdf='B')                       == {'asdf': 'B', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
-    assert OneCliFunction()(pos_mandatory=1, bool=False)                     == {'asdf': 'A', 'qwer': 'Q', 'bool': False, 'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
-    assert OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R', bool=False) == {'asdf': 'B', 'qwer': 'R', 'bool': False, 'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    default = OneCliFunction()(pos_mandatory=1)
+    assert default == {'asdf': 'A', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+
+    # asdf
+    out = OneCliFunction()(pos_mandatory=1, asdf='B')
+    assert out['asdf'] == 'B'
+    out['asdf'] = default['asdf']
+    assert(out == default)
+
+    # asdf and qwer
+    out = OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R')
+    assert out['asdf'] == 'B'
+    assert out['qwer'] == 'R'
+    out['asdf'] = default['asdf']
+    out['qwer'] = default['qwer']
+    assert(out == default)
+
+    # bool
+    out = OneCliFunction()(pos_mandatory=1, bool=False)
+    assert out['bool'] == False
+    out['bool'] = default['bool']
+    assert(out == default)
 
     # Force a boolean value set on the config to be False on CLI.
     assert OneCliFunction().cli(['--no-bool-cli', '1'])['bool_cli'] is False
