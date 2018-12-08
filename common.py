@@ -162,10 +162,10 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
 Linux build ID. Allows you to keep multiple separate Linux builds.
 '''
         )
-        parser.add_argument(
+        self.add_argument(
             '--initramfs', default=False, action='store_true',
         )
-        parser.add_argument(
+        self.add_argument(
             '--initrd', default=False, action='store_true',
         )
 
@@ -473,7 +473,7 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         qemu_img_executable = common.qemu_img_basename
     else:
         # Prevent qemu-img from generating trace files like QEMU. Disgusting.
-        disable_trace = ['-T', 'pr_manager_run,file=/dev/null', common.Newline,]
+        disable_trace = ['-T', 'pr_manager_run,file=/dev/null', LF,]
         qemu_img_executable = common.qemu_img_executable
     infmt = 'raw'
     outfmt = 'qcow2'
@@ -488,15 +488,15 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         outfile = tmp
     self.sh.run_cmd(
         [
-            qemu_img_executable, common.Newline,
+            qemu_img_executable, LF,
         ] +
         disable_trace +
         [
-            'convert', common.Newline,
-            '-f', infmt, common.Newline,
-            '-O', outfmt, common.Newline,
-            infile, common.Newline,
-            outfile, common.Newline,
+            'convert', LF,
+            '-f', infmt, LF,
+            '-O', outfmt, LF,
+            infile, LF,
+            outfile, LF,
         ]
     )
 

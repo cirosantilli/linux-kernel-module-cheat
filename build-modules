@@ -58,13 +58,13 @@ Use the host packaged cross toolchain.
                 noext, ext = os.path.splitext(basename)
                 if ext == common.c_ext:
                     all_kernel_modules.append(noext)
-        if args.kernel_modules == []:
+        if kwargs['kernel_modules'] == []:
             kernel_modules = all_kernel_modules
         else:
-            kernel_modules = map(lambda x: os.path.splitext(os.path.split(x)[1])[0], args.kernel_modules)
+            kernel_modules = map(lambda x: os.path.splitext(os.path.split(x)[1])[0], kwargs['kernel_modules'])
         object_files = map(lambda x: x + common.obj_ext, kernel_modules)
         tool = 'gcc'
-        if args.host:
+        if kwargs['host']:
             allowed_toolchains = ['host']
             build_subdir = common.kernel_modules_build_host_subdir
         else:
@@ -77,32 +77,32 @@ Use the host packaged cross toolchain.
             cc = '{} {}'.format(ccache, gcc)
         else:
             cc = gcc
-        if args.verbose:
+        if kwargs['verbose']:
             verbose = ['V=1']
         else:
             verbose = []
-        if args.host:
+        if kwargs['host']:
             linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
         else:
             linux_dir = common.linux_build_dir
         self.sh.run_cmd(
             (
                 [
-                    'make', common.Newline,
-                    '-j', str(args.nproc), common.Newline,
-                    'ARCH={}'.format(common.linux_arch), common.Newline,
-                    'CC={}'.format(cc), common.Newline,
-                    'CROSS_COMPILE={}'.format(prefix), common.Newline,
-                    'LINUX_DIR={}'.format(linux_dir), common.Newline,
-                    'M={}'.format(build_subdir), common.Newline,
-                    'OBJECT_FILES={}'.format(' '.join(object_files)), common.Newline,
+                    'make', LF,
+                    '-j', str(kwargs['nproc']), LF,
+                    'ARCH={}'.format(common.linux_arch), LF,
+                    'CC={}'.format(cc), LF,
+                    'CROSS_COMPILE={}'.format(prefix), LF,
+                    'LINUX_DIR={}'.format(linux_dir), LF,
+                    'M={}'.format(build_subdir), LF,
+                    'OBJECT_FILES={}'.format(' '.join(object_files)), LF,
                 ] +
-                common.shlex_split(args.make_args) +
+                common.shlex_split(kwargs['make_args']) +
                 verbose
             ),
             cwd=os.path.join(common.kernel_modules_build_subdir),
         )
-        if not args.host:
+        if not kwargs['host']:
             common.copy_dir_if_update_non_recursive(
                 srcdir=common.kernel_modules_build_subdir,
                 destdir=common.out_rootfs_overlay_dir,
@@ -119,7 +119,7 @@ See also: https://github.com/cirosantilli/linux-kernel-module-cheat#host
         }
 
     def get_build_dir(self, args):
-        if args.host:
+        if kwargs['host']:
             return os.path.join(common.kernel_modules_build_host_dir)
         else:
             return os.path.join(common.kernel_modules_build_dir)

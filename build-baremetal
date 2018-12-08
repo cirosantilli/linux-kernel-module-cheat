@@ -6,7 +6,7 @@ import common
 
 class BaremetalComponent(common.Component):
     def do_build(self, args):
-        common.assert_crosstool_ng_supports_arch(args.arch)
+        common.assert_crosstool_ng_supports_arch(kwargs['arch'])
         build_dir = self.get_build_dir(args)
         bootloader_obj = os.path.join(common.baremetal_build_lib_dir, 'bootloader{}'.format(common.obj_ext))
         common_basename_noext = 'common'
@@ -17,14 +17,14 @@ class BaremetalComponent(common.Component):
         syscalls_obj = os.path.join(common.baremetal_build_lib_dir, syscalls_basename_noext + common.obj_ext)
         common_objs = [common_obj, syscalls_obj]
         cflags = [
-            '-I', common.baremetal_src_lib_dir, common.Newline,
-            '-I', common.root_dir, common.Newline,
-            '-O0', common.Newline,
-            '-ggdb3', common.Newline,
-            '-mcpu={}'.format(common.mcpu), common.Newline,
-            '-nostartfiles', common.Newline,
+            '-I', common.baremetal_src_lib_dir, LF,
+            '-I', common.root_dir, LF,
+            '-O0', LF,
+            '-ggdb3', LF,
+            '-mcpu={}'.format(common.mcpu), LF,
+            '-nostartfiles', LF,
         ]
-        if args.prebuilt:
+        if kwargs['prebuilt']:
             gcc = 'arm-none-eabi-gcc'
         else:
             os.environ['PATH'] = common.crosstool_ng_bin_dir + os.environ['PATH']
@@ -38,21 +38,21 @@ class BaremetalComponent(common.Component):
                 uart_address = 0x10009000
             else:
                 raise Exception('unknown machine: ' + common.machine)
-            cflags.extend(['-D', 'GEM5'.format(uart_address), common.Newline])
+            cflags.extend(['-D', 'GEM5'.format(uart_address), LF])
         else:
             entry_address = 0x40000000
             uart_address = 0x09000000
         os.makedirs(build_dir, exist_ok=True)
         os.makedirs(common.baremetal_build_lib_dir, exist_ok=True)
-        src = os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(args.arch, common.asm_ext))
+        src = os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(kwargs['arch'], common.asm_ext))
         if common.need_rebuild([src], bootloader_obj):
             self.sh.run_cmd(
-                [gcc,  common.Newline] +
+                [gcc,  LF] +
                 cflags +
                 [
-                    '-c', common.Newline,
-                    '-o', bootloader_obj, common.Newline,
-                    src, common.Newline,
+                    '-c', LF,
+                    '-o', bootloader_obj, LF,
+                    src, LF,
                 ]
             )
         for src, obj in [
@@ -61,13 +61,13 @@ class BaremetalComponent(common.Component):
         ]:
             if common.need_rebuild([src], obj):
                 self.sh.run_cmd(
-                    [gcc,  common.Newline] +
+                    [gcc,  LF] +
                     cflags +
                     [
-                        '-c', common.Newline,
-                        '-D', 'UART0_ADDR={:#x}'.format(uart_address), common.Newline,
-                        '-o', obj, common.Newline,
-                        src, common.Newline,
+                        '-c', LF,
+                        '-D', 'UART0_ADDR={:#x}'.format(uart_address), LF,
+                        '-o', obj, LF,
+                        src, LF,
                     ]
                 )
         self._build_dir(
@@ -86,7 +86,7 @@ class BaremetalComponent(common.Component):
             bootloader_obj=bootloader_obj,
             common_objs=common_objs,
         )
-        arch_dir = os.path.join('arch', args.arch)
+        arch_dir = os.path.join('arch', kwargs['arch'])
         if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
             self._build_dir(
                 arch_dir,
@@ -96,7 +96,7 @@ class BaremetalComponent(common.Component):
                 bootloader_obj=bootloader_obj,
                 common_objs=common_objs,
             )
-        arch_dir = os.path.join('arch', args.arch, 'no_bootloader')
+        arch_dir = os.path.join('arch', kwargs['arch'], 'no_bootloader')
         if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
             self._build_dir(
                 arch_dir,
@@ -151,12 +151,12 @@ Build the baremetal examples with crosstool-NG.
                 src = os.path.join(common.baremetal_src_dir, in_path)
                 if common.need_rebuild([src], main_obj):
                     self.sh.run_cmd(
-                        [gcc,  common.Newline] +
+                        [gcc,  LF] +
                         cflags +
                         [
-                            '-c', common.Newline,
-                            '-o', main_obj, common.Newline,
-                            src, common.Newline,
+                            '-c', LF,
+                            '-o', main_obj, LF,
+                            src, LF,
                         ]
                     )
                 objs = common_objs + [main_obj]
@@ -164,12 +164,12 @@ Build the baremetal examples with crosstool-NG.
                 link_script = os.path.join(common.baremetal_src_dir, 'link.ld')
                 if common.need_rebuild(objs + [link_script], out):
                     self.sh.run_cmd(
-                        [gcc,  common.Newline] +
+                        [gcc,  LF] +
                         cflags +
                         [
-                            '-Wl,--section-start=.text={:#x}'.format(entry_address), common.Newline,
-                            '-o', out, common.Newline,
-                            '-T', link_script, common.Newline,
+                            '-Wl,--section-start=.text={:#x}'.format(entry_address), LF,
+                            '-o', out, LF,
+                            '-T', link_script, LF,
                         ] +
                         common.add_newlines(objs)
                     )

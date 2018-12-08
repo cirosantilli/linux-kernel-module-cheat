@@ -6,7 +6,7 @@ import common
 
 class CrosstoolNgComponent(common.Component):
     def do_build(self, args):
-        common.assert_crosstool_ng_supports_arch(args.arch)
+        common.assert_crosstool_ng_supports_arch(kwargs['arch'])
         build_dir = self.get_build_dir(args)
         defconfig_dest = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
         os.makedirs(common.crosstool_ng_util_dir, exist_ok=True)
@@ -16,25 +16,25 @@ class CrosstoolNgComponent(common.Component):
         # https://github.com/crosstool-ng/crosstool-ng/issues/1021
         os.chdir(common.crosstool_ng_src_dir)
         self.sh.run_cmd(
-            [os.path.join(common.crosstool_ng_src_dir, 'bootstrap'), common.Newline],
+            [os.path.join(common.crosstool_ng_src_dir, 'bootstrap'), LF],
         )
         os.chdir(common.crosstool_ng_util_dir)
         self.sh.run_cmd(
             [
-                os.path.join(common.crosstool_ng_src_dir, 'configure'), common.Newline,
-                '--enable-local', common.Newline,
+                os.path.join(common.crosstool_ng_src_dir, 'configure'), LF,
+                '--enable-local', LF,
             ],
         )
         self.sh.run_cmd(
             [
-                'make', common.Newline,
-                '-j', str(args.nproc), common.Newline,
+                'make', LF,
+                '-j', str(kwargs['nproc']), LF,
             ],
         )
 
         # Build the toolchain.
         self.sh.cp(
-            os.path.join(common.root_dir, 'crosstool_ng_config', args.arch),
+            os.path.join(common.root_dir, 'crosstool_ng_config', kwargs['arch']),
             defconfig_dest
         )
         common.write_configs(
@@ -47,16 +47,16 @@ class CrosstoolNgComponent(common.Component):
         )
         self.sh.run_cmd(
             [
-                common.crosstool_ng_executable, common.Newline,
-                'defconfig', common.Newline,
+                common.crosstool_ng_executable, LF,
+                'defconfig', LF,
             ],
         )
         os.unlink(defconfig_dest)
         self.sh.run_cmd(
             [
-                common.crosstool_ng_executable, common.Newline,
-                'build', common.Newline,
-                'CT_JOBS={}'.format(str(args.nproc)), common.Newline,
+                common.crosstool_ng_executable, LF,
+                'build', LF,
+                'CT_JOBS={}'.format(str(kwargs['nproc'])), LF,
             ],
             out_file=os.path.join(build_dir, 'lkmc.log'),
             delete_env=['LD_LIBRARY_PATH'],

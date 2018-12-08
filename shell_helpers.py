@@ -95,7 +95,7 @@ class ShellHelpers:
         Optionally save the command to cmd_file file, and add extra_env
         environment variables to the command generated.
 
-        If cmd contains at least one LF, newlines are only added on common.Newline.
+        If cmd contains at least one LF, newlines are only added on LF.
         Otherwise, newlines are added automatically after every word.
         '''
         if type(cmd) is str:

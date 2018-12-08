@@ -98,31 +98,31 @@ def main(args, extra_args=None):
     '''
     global defaults
     args = common.resolve_args(defaults, args, extra_args)
-    after = common.shlex_split(args.after)
-    before = common.shlex_split(args.before)
-    no_continue = args.no_continue
-    if args.test:
+    after = common.shlex_split(kwargs['after'])
+    before = common.shlex_split(kwargs['before'])
+    no_continue = kwargs['no_continue']
+    if kwargs['test']:
         no_continue = True
         before.extend([
-            '-q', common.Newline,
-            '-nh', common.Newline,
-            '-ex', 'set confirm off', common.Newline
+            '-q', LF,
+            '-nh', LF,
+            '-ex', 'set confirm off', LF
         ])
-    elif args.verbose:
+    elif kwargs['verbose']:
         # The output of this would affect the tests.
         # https://stackoverflow.com/questions/13496389/gdb-remote-protocol-how-to-analyse-packets
         # Also be opinionated and set remotetimeout to allow you to step debug the emulator at the same time.
         before.extend([
-            '-ex', 'set debug remote 1', common.Newline,
-            '-ex', 'set remotetimeout 99999', common.Newline,
+            '-ex', 'set debug remote 1', LF,
+            '-ex', 'set remotetimeout 99999', LF,
         ])
-    if args.break_at is not None:
-        break_at = ['-ex', 'break {}'.format(args.break_at), common.Newline]
+    if kwargs['break_at'] is not None:
+        break_at = ['-ex', 'break {}'.format(kwargs['break_at']), LF]
     else:
         break_at = []
-    linux_full_system = (common.baremetal is None and args.userland is None)
-    if args.userland:
-        image = common.resolve_userland(args.userland)
+    linux_full_system = (common.baremetal is None and kwargs['userland'] is None)
+    if kwargs['userland']:
+        image = common.resolve_userland(kwargs['userland'])
     elif common.baremetal:
         image = common.image
         test_script_path = os.path.splitext(common.source_path)[0] + '.py'
@@ -133,25 +133,25 @@ def main(args, extra_args=None):
     else:
         allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
     cmd = (
-        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), common.Newline] +
+        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), LF] +
         before +
-        ['-q', common.Newline]
+        ['-q', LF]
     )
     if linux_full_system:
-        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir), common.Newline])
-    if args.sim:
+        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir), LF])
+    if kwargs['sim']:
         target = 'sim'
     else:
-        if args.kgdb:
+        if kwargs['kgdb']:
             port = common.extra_serial_port
         else:
             port = common.gdb_port
         target = 'remote localhost:{}'.format(port)
     cmd.extend([
-        '-ex', 'file {}'.format(image), common.Newline,
-        '-ex', 'target {}'.format(target), common.Newline,
+        '-ex', 'file {}'.format(image), LF,
+        '-ex', 'target {}'.format(target), LF,
     ])
-    if not args.kgdb:
+    if not kwargs['kgdb']:
         cmd.extend(break_at)
     if not no_continue:
         # ## lx-symbols
@@ -173,16 +173,16 @@ def main(args, extra_args=None):
         #
         # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
         # which gets put on the kernel build root when python debugging scripts are enabled.
-        cmd.extend(['-ex', 'continue', common.Newline])
-        if not args.no_lxsymbols and linux_full_system:
-            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir), common.Newline])
+        cmd.extend(['-ex', 'continue', LF])
+        if not kwargs['no_lxsymbols'] and linux_full_system:
+            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir), LF])
     cmd.extend(after)
-    if args.test:
+    if kwargs['test']:
         GdbTestcase(
             common.source_path,
             test_script_path,
             cmd,
-            verbose=args.verbose,
+            verbose=kwargs['verbose'],
         )
     else:
         # I would rather have cwd be out_rootfs_overlay_dir,

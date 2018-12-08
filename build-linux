@@ -4,6 +4,7 @@ import os
 import shutil
 
 import common
+from shell_helpers import LF
 
 class LinuxComponent(common.Component):
     def __init__(self, parser):
@@ -45,7 +46,7 @@ Configure the kernel, but don't build it.
 
     def build(self, **kwargs):
         build_dir = self.get_build_dir(**kwargs)
-        if args.initrd or args.initramfs:
+        if kwargs['initrd'] or kwargs['initramfs']:
             raise Exception('just trolling, --initrd and --initramfs are broken for now')
         os.makedirs(build_dir, exist_ok=True)
         tool = 'gcc'
@@ -59,32 +60,32 @@ Configure the kernel, but don't build it.
             cc = '{} {}'.format(ccache, gcc)
         else:
             cc = gcc
-        if args.verbose:
+        if kwargs['verbose']:
             verbose = ['V=1']
         else:
             verbose = []
         common_make_args = [
-            'make', common.Newline,
-            '-j', str(args.nproc), common.Newline,
-            'ARCH={}'.format(common.linux_arch), common.Newline,
-            'CROSS_COMPILE={}'.format(prefix), common.Newline,
-            'CC={}'.format(cc), common.Newline,
-            'O={}'.format(build_dir), common.Newline,
+            'make', LF,
+            '-j', str(kwargs['nproc']), LF,
+            'ARCH={}'.format(common.linux_arch), LF,
+            'CROSS_COMPILE={}'.format(prefix), LF,
+            'CC={}'.format(cc), LF,
+            'O={}'.format(build_dir), LF,
         ] + verbose
-        if args.custom_config_file is not None:
-            if not os.path.exists(args.custom_config_file):
-                raise Exception('config fragment file does not exist: {}'.format(args.custom_config_file))
-            base_config_file = args.custom_config_file
+        if kwargs['custom_config_file'] is not None:
+            if not os.path.exists(kwargs['custom_config_file']):
+                raise Exception('config fragment file does not exist: {}'.format(kwargs['custom_config_file']))
+            base_config_file = kwargs['custom_config_file']
             config_fragments = []
         else:
-            base_config_file = os.path.join(common.linux_config_dir, 'buildroot-{}'.format(args.arch))
+            base_config_file = os.path.join(common.linux_config_dir, 'buildroot-{}'.format(kwargs['arch']))
             config_fragments = ['min', 'default']
             for i, config_fragment in enumerate(config_fragments):
                 config_fragments[i] = os.path.join(common.linux_config_dir, config_fragment)
-        config_fragments.extend(args.config_fragment)
-        if args.config != []:
+        config_fragments.extend(kwargs['config_fragment'])
+        if kwargs['config'] != []:
             cli_config_fragment_path = os.path.join(build_dir, 'lkmc_cli_config_fragment')
-            cli_config_str = '\n'.join(args.config)
+            cli_config_str = '\n'.join(kwargs['config'])
             common.write_string_to_file(cli_config_fragment_path, cli_config_str)
             config_fragments.append(cli_config_fragment_path)
         self.sh.cp(
@@ -93,25 +94,25 @@ Configure the kernel, but don't build it.
         )
         self.sh.run_cmd(
             [
-                os.path.join(common.linux_src_dir, 'scripts', 'kconfig', 'merge_config.sh'), common.Newline,
-                '-m', common.Newline,
-                '-O', build_dir, common.Newline,
-                os.path.join(build_dir, '.config'), common.Newline,
+                os.path.join(common.linux_src_dir, 'scripts', 'kconfig', 'merge_config.sh'), LF,
+                '-m', LF,
+                '-O', build_dir, LF,
+                os.path.join(build_dir, '.config'), LF,
             ] +
             common.add_newlines(config_fragments)
         )
         self.sh.run_cmd(
             (
                 common_make_args +
-                ['olddefconfig', common.Newline]
+                ['olddefconfig', LF]
             ),
             **common_args
         )
-        if not args.config_only:
+        if not kwargs['config_only']:
             self.sh.run_cmd(
                 (
                     common_make_args +
-                    common.add_newlines(args.extra_make_args)
+                    common.add_newlines(kwargs['extra_make_args'])
                 ),
                 **common_args
             )
@@ -119,8 +120,8 @@ Configure the kernel, but don't build it.
                 (
                     common_make_args +
                     [
-                        'INSTALL_MOD_PATH={}'.format(common.out_rootfs_overlay_dir), common.Newline,
-                        'modules_install', common.Newline,
+                        'INSTALL_MOD_PATH={}'.format(common.out_rootfs_overlay_dir), LF,
+                        'modules_install', LF,
                     ]
                 ),
                 **common_args

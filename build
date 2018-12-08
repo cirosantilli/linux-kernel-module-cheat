@@ -51,9 +51,9 @@ def run_cmd(cmd, arch):
     cmd_abs = cmd.copy()
     cmd_abs[0] = os.path.join(common.root_dir, cmd[0])
     cmd_abs.extend(['--arch', arch])
-    if args.extra_args:
-        cmd_abs.append(args.extra_args)
-    self.sh.run_cmd(cmd_abs, dry_run=args.dry_run)
+    if kwargs['extra_args']:
+        cmd_abs.append(kwargs['extra_args'])
+    self.sh.run_cmd(cmd_abs, dry_run=kwargs['dry_run'])
 
 buildroot_component = Component(
     lambda arch: run_cmd(['build-buildroot'], arch),
@@ -320,21 +320,21 @@ args = parser.parse_args()
 common.setup_dry_run_arguments(args)
 
 # Decide archs.
-if args.arch == []:
-    if args.all or args.all_archs:
+if kwargs['arch'] == []:
+    if kwargs['all'] or kwargs['all_archs']:
         archs = common.all_archs.copy()
     else:
         archs = set([common.default_arch])
 else:
     archs = set()
-    for arch in args.arch:
+    for arch in kwargs['arch']:
         if arch in common.arch_short_to_long_dict:
             arch = common.arch_short_to_long_dict[arch]
         archs.add(arch)
 
 # Decide components.
-components = args.components
-if args.all:
+components = kwargs['components']
+if kwargs['all']:
     components = ['all']
 elif components == []:
     components = ['qemu-buildroot']
@@ -350,7 +350,7 @@ for component_name in components:
             selected_components.append(component)
             todo.extend(component.dependencies)
 
-if args.download_dependencies:
+if kwargs['download_dependencies']:
     apt_get_pkgs = {
         # Core requirements for this repo.
         'git',
@@ -388,7 +388,7 @@ if args.download_dependencies:
         python2_pkgs.update(component.python2_pkgs)
         python3_pkgs.update(component.python3_pkgs)
     if apt_get_pkgs or apt_build_deps:
-        if args.travis:
+        if kwargs['travis']:
             interacive_pkgs = {
                 'libsdl2-dev',
             }
@@ -406,34 +406,34 @@ if args.download_dependencies:
                 f.write(sources_txt)
         else:
             sudo = ['sudo']
-        if common.in_docker or args.travis:
+        if common.in_docker or kwargs['travis']:
             y = ['-y']
         else:
             y = []
         self.sh.run_cmd(
-            sudo + ['apt-get', 'update', common.Newline]
+            sudo + ['apt-get', 'update', LF]
         )
         if apt_get_pkgs:
             self.sh.run_cmd(
-                sudo + ['apt-get', 'install'] + y + [common.Newline] +
+                sudo + ['apt-get', 'install'] + y + [LF] +
                 common.add_newlines(sorted(apt_get_pkgs))
             )
         if apt_build_deps:
             self.sh.run_cmd(
                 sudo +
-                ['apt-get', 'build-dep'] + y + [common.Newline] +
+                ['apt-get', 'build-dep'] + y + [LF] +
                 common.add_newlines(sorted(apt_build_deps))
             )
     if python2_pkgs:
         self.sh.run_cmd(
-            ['python', '-m', 'pip', 'install', '--user', common.Newline] +
+            ['python', '-m', 'pip', 'install', '--user', LF] +
             common.add_newlines(sorted(python2_pkgs))
         )
     if python3_pkgs:
         # Not with pip executable directly:
         # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
         self.sh.run_cmd(
-            ['python3', '-m', 'pip', 'install', '--user', common.Newline] +
+            ['python3', '-m', 'pip', 'install', '--user', LF] +
             common.add_newlines(sorted(python3_pkgs))
         )
     git_cmd_common = ['git', 'submodule', 'update', '--init', '--recursive']
@@ -449,7 +449,7 @@ if args.download_dependencies:
         #
         # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
         self.sh.run_cmd(
-            git_cmd_common + ['--', common.Newline] +
+            git_cmd_common + ['--', LF] +
             common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules)])
         )
     if submodules_shallow:
@@ -473,7 +473,7 @@ if args.download_dependencies:
         # * https://unix.stackexchange.com/questions/338578/why-is-the-git-clone-of-the-linux-kernel-source-code-much-larger-than-the-extrac
         #
         self.sh.run_cmd(
-            git_cmd_common + ['--depth', '1', '--', common.Newline] +
+            git_cmd_common + ['--depth', '1', '--', LF] +
             common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules_shallow)])
         )
 
