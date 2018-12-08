@@ -162,6 +162,12 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
 Linux build ID. Allows you to keep multiple separate Linux builds.
 '''
         )
+        parser.add_argument(
+            '--initramfs', default=False, action='store_true',
+        )
+        parser.add_argument(
+            '--initrd', default=False, action='store_true',
+        )
 
         # Baremetal.
         self.add_argument(
@@ -271,7 +277,7 @@ to allow overriding configs from the CLI.
             common.print_time(end_time - start_time)
 
     def run_cmd(self, *args, **kwargs):
-        common.run_cmd(*args, **kwargs)
+        self.sh.run_cmd(*args, **kwargs)
 
     def timed_main(self, **kwargs):
         raise NotImplementedError()
@@ -480,7 +486,7 @@ def raw_to_qcow2(prebuilt=False, reverse=False):
         tmp = infile
         infile = outfile
         outfile = tmp
-    common.run_cmd(
+    self.sh.run_cmd(
         [
             qemu_img_executable, common.Newline,
         ] +

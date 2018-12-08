@@ -21,8 +21,6 @@ defaults = {
     'gem5_readfile': '',
     'gem5_restore': None,
     'graphic': False,
-    'initramfs': False,
-    'initrd': False,
     'kernel_cli': None,
     'kernel_cli_after_dash': None,
     'eval_after': None,
@@ -142,7 +140,7 @@ def main(args, extra_args=None):
             # This is to run gem5 from a prebuilt download.
             if (not common.baremetal is None) or (not os.path.exists(common.linux_image)):
                 raise_image_not_found()
-            common.run_cmd([os.path.join(common.extract_vmlinux, common.linux_image)])
+            self.sh.run_cmd([os.path.join(common.extract_vmlinux, common.linux_image)])
         os.makedirs(os.path.dirname(common.gem5_readfile), exist_ok=True)
         common.write_string_to_file(common.gem5_readfile, args.gem5_readfile)
         memory = '{}B'.format(args.memory)
@@ -403,7 +401,7 @@ def main(args, extra_args=None):
         out_file = None
     else:
         out_file = common.termout_file
-    common.run_cmd(cmd, cmd_file=common.run_cmd_file, out_file=out_file, extra_env=extra_env)
+    self.sh.run_cmd(cmd, cmd_file=common.run_cmd_file, out_file=out_file, extra_env=extra_env)
     # Check if guest panicked.
     if common.emulator == 'gem5':
         # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
@@ -506,14 +504,6 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
     parser.add_argument(
         '--gem5-readfile', default=defaults['gem5_readfile'],
         help='Set the contents of m5 readfile to this string.'
-    )
-    init_group.add_argument(
-        '-I', '--initramfs', default=defaults['initramfs'], action='store_true',
-        help='Use initramfs instead of a root filesystem'
-    )
-    init_group.add_argument(
-        '-i', '--initrd', default=defaults['initrd'], action='store_true',
-        help='Use initrd instead of a root filesystem'
     )
     kvm_group.add_argument(
         '-K', '--kvm', default=defaults['kvm'], action='store_true',

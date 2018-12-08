@@ -53,7 +53,7 @@ def run_cmd(cmd, arch):
     cmd_abs.extend(['--arch', arch])
     if args.extra_args:
         cmd_abs.append(args.extra_args)
-    common.run_cmd(cmd_abs, dry_run=args.dry_run)
+    self.sh.run_cmd(cmd_abs, dry_run=args.dry_run)
 
 buildroot_component = Component(
     lambda arch: run_cmd(['build-buildroot'], arch),
@@ -410,29 +410,29 @@ if args.download_dependencies:
             y = ['-y']
         else:
             y = []
-        common.run_cmd(
+        self.sh.run_cmd(
             sudo + ['apt-get', 'update', common.Newline]
         )
         if apt_get_pkgs:
-            common.run_cmd(
+            self.sh.run_cmd(
                 sudo + ['apt-get', 'install'] + y + [common.Newline] +
                 common.add_newlines(sorted(apt_get_pkgs))
             )
         if apt_build_deps:
-            common.run_cmd(
+            self.sh.run_cmd(
                 sudo +
                 ['apt-get', 'build-dep'] + y + [common.Newline] +
                 common.add_newlines(sorted(apt_build_deps))
             )
     if python2_pkgs:
-        common.run_cmd(
+        self.sh.run_cmd(
             ['python', '-m', 'pip', 'install', '--user', common.Newline] +
             common.add_newlines(sorted(python2_pkgs))
         )
     if python3_pkgs:
         # Not with pip executable directly:
         # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
-        common.run_cmd(
+        self.sh.run_cmd(
             ['python3', '-m', 'pip', 'install', '--user', common.Newline] +
             common.add_newlines(sorted(python3_pkgs))
         )
@@ -448,7 +448,7 @@ if args.download_dependencies:
         # * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
         #
         # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
-        common.run_cmd(
+        self.sh.run_cmd(
             git_cmd_common + ['--', common.Newline] +
             common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules)])
         )
@@ -472,7 +472,7 @@ if args.download_dependencies:
         # * https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
         # * https://unix.stackexchange.com/questions/338578/why-is-the-git-clone-of-the-linux-kernel-source-code-much-larger-than-the-extrac
         #
-        common.run_cmd(
+        self.sh.run_cmd(
             git_cmd_common + ['--depth', '1', '--', common.Newline] +
             common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules_shallow)])
         )
