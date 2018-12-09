@@ -34,8 +34,8 @@ class GdbTestcase:
         '''
         self.prompt = '\(gdb\) '
         self.source_path = source_path
-        common.print_cmd(cmd)
-        cmd = common.strip_newlines(cmd)
+        self.print_cmd(cmd)
+        cmd = self.strip_newlines(cmd)
         import pexpect
         self.child = pexpect.spawn(
             cmd[0],
@@ -97,9 +97,9 @@ def main(args, extra_args=None):
     :rtype: int
     '''
     global defaults
-    args = common.resolve_args(defaults, args, extra_args)
-    after = common.shlex_split(kwargs['after'])
-    before = common.shlex_split(kwargs['before'])
+    args = self.resolve_args(defaults, args, extra_args)
+    after = self.sh.shlex_split(kwargs['after'])
+    before = self.sh.shlex_split(kwargs['before'])
     no_continue = kwargs['no_continue']
     if kwargs['test']:
         no_continue = True
@@ -122,7 +122,7 @@ def main(args, extra_args=None):
         break_at = []
     linux_full_system = (kwargs['baremetal'] is None and kwargs['userland'] is None)
     if kwargs['userland']:
-        image = common.resolve_userland(kwargs['userland'])
+        image = self.resolve_userland(kwargs['userland'])
     elif kwargs['baremetal']:
         image = kwargs['image']
         test_script_path = os.path.splitext(kwargs['source_path'])[0] + '.py'
@@ -133,7 +133,7 @@ def main(args, extra_args=None):
     else:
         allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
     cmd = (
-        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), LF] +
+        [self.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), LF] +
         before +
         ['-q', LF]
     )
@@ -195,7 +195,7 @@ def main(args, extra_args=None):
         )
 
 if __name__ == '__main__':
-    parser = common.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})
+    parser = self.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})
     parser.add_argument(
         '-A', '--after', default=defaults['after'],
         help='Pass extra arguments to GDB, to be appended after all other arguments'
@@ -205,23 +205,23 @@ if __name__ == '__main__':
         help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
     )
     parser.add_argument(
-        '-C', '--no-continue', default=defaults['no_continue'], action='store_true',
+        '-C', '--no-continue', default=defaults['no_continue'],
         help="Don't run continue after connecting"
     )
     parser.add_argument(
-        '-k', '--kgdb', default=defaults['kgdb'], action='store_true'
+        '-k', '--kgdb', default=defaults['kgdb'],
     )
     parser.add_argument(
-        '--sim', default=defaults['sim'], action='store_true',
+        '--sim', default=defaults['sim'],
         help='''Use the built-in GDB CPU simulator
 See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
 '''
     )
     parser.add_argument(
-        '-X', '--no-lxsymbols', default=defaults['no_lxsymbols'], action='store_true'
+        '-X', '--no-lxsymbols', default=defaults['no_lxsymbols'],
     )
     parser.add_argument(
-        '--test', default=defaults['test'], action='store_true',
+        '--test', default=defaults['test'],
         help='''\
 Run an expect test case instead of interactive usage. For baremetal and userland,
 the script is a .py file next to the source code.
@@ -234,5 +234,5 @@ the script is a .py file next to the source code.
         'break_at', nargs='?',
         help='Extra options to append at the end of the emulator command line'
     )
-    args = common.setup(parser)
+    args = self.setup(parser)
     sys.exit(main(args))

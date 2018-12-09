@@ -41,15 +41,17 @@ class Argument:
             if nargs is not None:
                 self.kwargs['nargs'] = nargs
             if default is True:
-                self.kwargs['action'] = 'store_false'
+                bool_action = 'store_false'
                 self.is_bool = True
             elif default is False:
-                self.kwargs['action'] = 'store_true'
+                bool_action = 'store_true'
                 self.is_bool = True
             else:
                 self.is_bool = False
                 if default is None and nargs in ('*', '+'):
                     default = []
+            if self.is_bool and not 'action' in kwargs:
+                self.kwargs['action'] = bool_action
             if help is not None:
                 if not self.is_bool and default:
                     help += ' Default: {}'.format(default)
@@ -131,6 +133,9 @@ class CliFunction:
                 help='Path to the configuration file to use'
             )
 
+    def __str__(self):
+        return '\n'.join(str(arg) for arg in self._arguments)
+
     def add_argument(
             self,
             *args,
@@ -155,11 +160,10 @@ class CliFunction:
                 new_longname = '--no' + argument.longname[1:]
                 kwargs = argument.kwargs.copy()
                 kwargs['default'] = not argument.default
-                if argument.default:
-                    action = 'store_true'
-                else:
-                    action = 'store_false'
-                kwargs['action'] = action
+                if kwargs['action'] == 'store_false':
+                    kwargs['action'] = 'store_true'
+                elif kwargs['action'] == 'store_true':
+                    kwargs['action'] = 'store_false'
                 if 'help' in kwargs:
                     del kwargs['help']
                 parser.add_argument(new_longname, dest=argument.key, **kwargs)
@@ -188,6 +192,7 @@ amazing function!
             self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
             self.add_argument('-b', '--bool', default=True, help='Help for bool'),
             self.add_argument('--bool-cli', default=False, help='Help for bool'),
+            self.add_argument('--bool-nargs', default=False, nargs='?', action='store', const='')
             self.add_argument('--no-default', help='Help for no-bool'),
             self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
@@ -196,32 +201,62 @@ amazing function!
             del kwargs['config_file']
             return kwargs
 
-    # Code calls.
-    default = OneCliFunction()(pos_mandatory=1)
-    assert default == {'asdf': 'A', 'qwer': 'Q', 'bool': True,  'bool_cli': True, 'no_default': None, 'pos_mandatory': 1, 'pos_optional': 0, 'args_star': []}
+    one_cli_function = OneCliFunction()
+
+    # Default code call.
+    default = one_cli_function(pos_mandatory=1)
+    assert default == {
+        'asdf': 'A',
+        'qwer': 'Q',
+        'bool': True,
+        'bool_nargs': False,
+        'bool_cli': True,
+        'no_default': None,
+        'pos_mandatory': 1,
+        'pos_optional': 0,
+        'args_star': []
+    }
+
+    # Default CLI call.
+    out = one_cli_function.cli(['1'])
+    assert out == default
 
     # asdf
-    out = OneCliFunction()(pos_mandatory=1, asdf='B')
+    out = one_cli_function(pos_mandatory=1, asdf='B')
     assert out['asdf'] == 'B'
     out['asdf'] = default['asdf']
     assert(out == default)
 
     # asdf and qwer
-    out = OneCliFunction()(pos_mandatory=1, asdf='B', qwer='R')
+    out = one_cli_function(pos_mandatory=1, asdf='B', qwer='R')
     assert out['asdf'] == 'B'
     assert out['qwer'] == 'R'
     out['asdf'] = default['asdf']
     out['qwer'] = default['qwer']
     assert(out == default)
 
-    # bool
-    out = OneCliFunction()(pos_mandatory=1, bool=False)
-    assert out['bool'] == False
-    out['bool'] = default['bool']
-    assert(out == default)
+    if '--bool':
+        out = one_cli_function(pos_mandatory=1, bool=False)
+        cli_out = one_cli_function.cli(['--bool', '1'])
+        assert out == cli_out
+        assert out['bool'] == False
+        out['bool'] = default['bool']
+        assert(out == default)
+
+    if '--bool-nargs':
+
+        out = one_cli_function(pos_mandatory=1, bool_nargs=True)
+        assert out['bool_nargs'] == True
+        out['bool_nargs'] = default['bool_nargs']
+        assert(out == default)
+
+        out = one_cli_function(pos_mandatory=1, bool_nargs='asdf')
+        assert out['bool_nargs'] == 'asdf'
+        out['bool_nargs'] = default['bool_nargs']
+        assert(out == default)
 
     # Force a boolean value set on the config to be False on CLI.
-    assert OneCliFunction().cli(['--no-bool-cli', '1'])['bool_cli'] is False
+    assert one_cli_function.cli(['--no-bool-cli', '1'])['bool_cli'] is False
 
     # CLI call.
-    print(OneCliFunction().cli())
+    print(one_cli_function.cli())

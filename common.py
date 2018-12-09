@@ -13,7 +13,6 @@ import os
 import re
 import shutil
 import signal
-import stat
 import subprocess
 import sys
 import time
@@ -120,7 +119,7 @@ mkdir are generally omitted since those are obvious
 '''
         )
         self.add_argument(
-            '-v', '--verbose', default=False, action='store_true',
+            '-v', '--verbose', default=False,
             help='Show full compilation commands when they are not shown by default.'
         )
 
@@ -163,10 +162,10 @@ Linux build ID. Allows you to keep multiple separate Linux builds.
 '''
         )
         self.add_argument(
-            '--initramfs', default=False, action='store_true',
+            '--initramfs', default=False,
         )
         self.add_argument(
-            '--initrd', default=False, action='store_true',
+            '--initrd', default=False,
         )
 
         # Baremetal.
@@ -189,7 +188,7 @@ inside baremetal/ and then try to use corresponding executable.
             help='Buildroot build ID. Allows you to keep multiple separate gem5 builds.'
         )
         self.add_argument(
-            '--buildroot-linux', default=False, action='store_true',
+            '--buildroot-linux', default=False,
             help='Boot with the Buildroot Linux kernel instead of our custom built one. Mostly for sanity checks.'
         )
 
@@ -199,7 +198,7 @@ inside baremetal/ and then try to use corresponding executable.
             help='Crosstool-NG build ID. Allows you to keep multiple separate crosstool-NG builds.'
         )
         self.add_argument(
-            '--docker', default=False, action='store_true',
+            '--docker', default=False,
             help='''\
 Use the docker download Ubuntu root filesystem instead of the default Buildroot one.
 '''
@@ -234,7 +233,7 @@ and then inspect separate outputs later in different output directories.
 '''
         )
         self.add_argument(
-            '-P', '--prebuilt', default=False, action='store_true',
+            '-P', '--prebuilt', default=False,
             help='''\
 Use prebuilt packaged host utilities as much as possible instead
 of the ones we built ourselves. Saves build time, but decreases
@@ -251,11 +250,11 @@ instances in parallel. Default: the run ID (-n) if that is an integer, otherwise
 
         # Misc.
         self.add_argument(
-            '-g', '--gem5', default=False, action='store_true',
+            '-g', '--gem5', default=False,
             help='Use gem5 instead of QEMU.'
         )
         self.add_argument(
-            '--qemu', default=False, action='store_true',
+            '--qemu', default=False,
             help='''\
 Use QEMU as the emulator. This option exists in addition to --gem5
 to allow overriding configs from the CLI.
@@ -426,6 +425,7 @@ to allow overriding configs from the CLI.
             env['executable'] = env['qemu_executable']
             env['run_dir'] = env['qemu_run_dir']
             env['termout_file'] = env['qemu_termout_file']
+            env['guest_terminal_file'] = env['qemu_termout_file']
             env['trace_txt_file'] = env['qemu_trace_txt_file']
         env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
 
@@ -497,7 +497,7 @@ to allow overriding configs from the CLI.
             if env['baremetal'] == 'all':
                 path = env['baremetal']
             else:
-                path = resolve_executable(
+                path = self.resolve_executable(
                     env['baremetal'],
                     env['baremetal_src_dir'],
                     env['baremetal_build_dir'],
@@ -515,6 +515,23 @@ to allow overriding configs from the CLI.
             env['image'] = path
         self.env = env
 
+    def assert_crosstool_ng_supports_arch(self, arch):
+        if arch not in self.env['crosstool_ng_supported_archs']:
+            raise Exception('arch not yet supported: ' + arch)
+
+    @staticmethod
+    def base64_encode(string):
+        return base64.b64encode(string.encode()).decode()
+
+    def gem_list_checkpoint_dirs(self):
+        '''
+        List checkpoint directory, oldest first.
+        '''
+        prefix_re = re.compile(self.env['gem5_cpt_prefix'])
+        files = list(filter(lambda x: os.path.isdir(os.path.join(self.env['m5out_dir'], x)) and prefix_re.search(x), os.listdir(self.env['m5out_dir'])))
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(self.env['m5out_dir'], x)))
+        return files
+
     def get_elf_entry(self, elf_file_path):
         readelf_header = subprocess.check_output([
             self.get_toolchain_tool('readelf'),
@@ -527,6 +544,21 @@ to allow overriding configs from the CLI.
                 addr = line.split()[-1]
                 break
         return int(addr, 0)
+
+    def get_stats(self, stat_re=None, stats_file=None):
+        if stat_re is None:
+            stat_re = '^system.cpu[0-9]*.numCycles$'
+        if stats_file is None:
+            stats_file = self.env['stats_file']
+        stat_re = re.compile(stat_re)
+        ret = []
+        with open(stats_file, 'r') as statfile:
+            for line in statfile:
+                if line[0] != '-':
+                    cols = line.split()
+                    if len(cols) > 1 and stat_re.search(cols[0]):
+                        ret.append(cols[1])
+        return ret
 
     def get_toolchain_prefix(self, tool, allowed_toolchains=None):
         buildroot_full_prefix = os.path.join(self.env['host_bin_dir'], self.env['buildroot_toolchain_prefix'])
@@ -562,6 +594,41 @@ to allow overriding configs from the CLI.
     def get_toolchain_tool(self, tool, allowed_toolchains=None):
         return '{}-{}'.format(self.get_toolchain_prefix(tool, allowed_toolchains), tool)
 
+    @staticmethod
+    def github_make_request(
+            authenticate=False,
+            data=None,
+            extra_headers=None,
+            path='',
+            subdomain='api',
+            url_params=None,
+            **extra_request_args
+        ):
+        if extra_headers is None:
+            extra_headers = {}
+        headers = {'Accept': 'application/vnd.github.v3+json'}
+        headers.update(extra_headers)
+        if authenticate:
+            headers['Authorization'] = 'token ' + os.environ['LKMC_GITHUB_TOKEN']
+        if url_params is not None:
+            path += '?' + urllib.parse.urlencode(url_params)
+        request = urllib.request.Request(
+            'https://' + subdomain + '.github.com/repos/' + github_repo_id + path,
+            headers=headers,
+            data=data,
+            **extra_request_args
+        )
+        response_body = urllib.request.urlopen(request).read().decode()
+        if response_body:
+            _json = json.loads(response_body)
+        else:
+            _json = {}
+        return _json
+
+    @staticmethod
+    def log_error(msg):
+        print('error: {}'.format(msg), file=sys.stderr)
+
     def main(self, **kwargs):
         '''
         Time the main of the derived class.
@@ -571,13 +638,107 @@ to allow overriding configs from the CLI.
         kwargs.update(consts)
         self._init_env(kwargs)
         self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
-        self.timed_main()
+        ret = self.timed_main()
         if not kwargs['dry_run']:
             end_time = time.time()
-            print_time(end_time - start_time)
+            self.print_time(end_time - start_time)
+        return ret
 
-    def run_cmd(self, *args, **kwargs):
-        self.sh.run_cmd(*args, **kwargs)
+    def make_build_dirs(self):
+        os.makedirs(self.env['buildroot_build_build_dir'], exist_ok=True)
+        os.makedirs(self.env['gem5_build_dir'], exist_ok=True)
+        os.makedirs(self.env['out_rootfs_overlay_dir'], exist_ok=True)
+
+    def make_run_dirs(self):
+        '''
+        Make directories required for the run.
+        The user could nuke those anytime between runs to try and clean things up.
+        '''
+        os.makedirs(self.env['gem5_run_dir'], exist_ok=True)
+        os.makedirs(self.env['p9_dir'], exist_ok=True)
+        os.makedirs(self.env['qemu_run_dir'], exist_ok=True)
+
+    @staticmethod
+    def need_rebuild(srcs, dst):
+        if not os.path.exists(dst):
+            return True
+        for src in srcs:
+            if os.path.getmtime(src) > os.path.getmtime(dst):
+                return True
+        return False
+
+    @staticmethod
+    def print_time(ellapsed_seconds):
+        hours, rem = divmod(ellapsed_seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
+
+    def raw_to_qcow2(eslf, prebuilt=False, reverse=False):
+        if prebuilt or not os.path.exists(self.env['qemu_img_executable']):
+            disable_trace = []
+            qemu_img_executable = self.env['qemu_img_basename']
+        else:
+            # Prevent qemu-img from generating trace files like QEMU. Disgusting.
+            disable_trace = ['-T', 'pr_manager_run,file=/dev/null', LF,]
+            qemu_img_executable = self.env['qemu_img_executable']
+        infmt = 'raw'
+        outfmt = 'qcow2'
+        infile = self.env['rootfs_raw_file']
+        outfile = self.env['qcow2_file']
+        if reverse:
+            tmp = infmt
+            infmt = outfmt
+            outfmt = tmp
+            tmp = infile
+            infile = outfile
+            outfile = tmp
+        self.sh.run_cmd(
+            [
+                qemu_img_executable, LF,
+            ] +
+            disable_trace +
+            [
+                'convert', LF,
+                '-f', infmt, LF,
+                '-O', outfmt, LF,
+                infile, LF,
+                outfile, LF,
+            ]
+        )
+
+    @staticmethod
+    def resolve_args(defaults, args, extra_args):
+        if extra_args is None:
+            extra_args = {}
+        argcopy = copy.copy(args)
+        argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
+        return argcopy
+
+    @staticmethod
+    def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
+        if os.path.isabs(in_path):
+            return in_path
+        else:
+            paths = [
+                os.path.join(magic_out_dir, in_path),
+                os.path.join(
+                    magic_out_dir,
+                    os.path.relpath(in_path, magic_in_dir),
+                )
+            ]
+            paths[:] = [os.path.splitext(path)[0] + out_ext for path in paths]
+            for path in paths:
+                if os.path.exists(path):
+                    return path
+            raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
+
+    def resolve_userland(self, path):
+        return self.resolve_executable(
+            path,
+            self.env['userland_src_dir'],
+            self.env['userland_build_dir'],
+            self.env['userland_build_ext'],
+        )
 
     def timed_main(self):
         '''
@@ -628,162 +789,6 @@ class BuildCliFunction(LkmcCliFunction):
         The actual build work is done by do_build in implementing classes.
         '''
         if self.env['clean']:
-            self.clean()
+            return self.clean()
         else:
-            self.build()
-
-def assert_crosstool_ng_supports_arch(arch):
-    if arch not in kwargs['crosstool_ng_supported_archs']:
-        raise Exception('arch not yet supported: ' + arch)
-
-def base64_encode(string):
-    return base64.b64encode(string.encode()).decode()
-
-def gem_list_checkpoint_dirs():
-    '''
-    List checkpoint directory, oldest first.
-    '''
-    prefix_re = re.compile(kwargs['gem5_cpt_prefix'])
-    files = list(filter(lambda x: os.path.isdir(os.path.join(kwargs['m5out_dir'], x)) and prefix_re.search(x), os.listdir(kwargs['m5out_dir'])))
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(kwargs['m5out_dir'], x)))
-    return files
-
-def get_stats(stat_re=None, stats_file=None):
-    if stat_re is None:
-        stat_re = '^system.cpu[0-9]*.numCycles$'
-    if stats_file is None:
-        stats_file = kwargs['stats_file']
-    stat_re = re.compile(stat_re)
-    ret = []
-    with open(stats_file, 'r') as statfile:
-        for line in statfile:
-            if line[0] != '-':
-                cols = line.split()
-                if len(cols) > 1 and stat_re.search(cols[0]):
-                    ret.append(cols[1])
-    return ret
-
-def github_make_request(
-        authenticate=False,
-        data=None,
-        extra_headers=None,
-        path='',
-        subdomain='api',
-        url_params=None,
-        **extra_request_args
-    ):
-    if extra_headers is None:
-        extra_headers = {}
-    headers = {'Accept': 'application/vnd.github.v3+json'}
-    headers.update(extra_headers)
-    if authenticate:
-        headers['Authorization'] = 'token ' + os.environ['LKMC_GITHUB_TOKEN']
-    if url_params is not None:
-        path += '?' + urllib.parse.urlencode(url_params)
-    request = urllib.request.Request(
-        'https://' + subdomain + '.github.com/repos/' + github_repo_id + path,
-        headers=headers,
-        data=data,
-        **extra_request_args
-    )
-    response_body = urllib.request.urlopen(request).read().decode()
-    if response_body:
-        _json = json.loads(response_body)
-    else:
-        _json = {}
-    return _json
-
-def log_error(msg):
-    print('error: {}'.format(msg), file=sys.stderr)
-
-def make_build_dirs():
-    os.makedirs(kwargs['buildroot_build_build_dir'], exist_ok=True)
-    os.makedirs(kwargs['gem5_build_dir'], exist_ok=True)
-    os.makedirs(kwargs['out_rootfs_overlay_dir'], exist_ok=True)
-
-def make_run_dirs():
-    '''
-    Make directories required for the run.
-    The user could nuke those anytime between runs to try and clean things up.
-    '''
-    os.makedirs(kwargs['gem5_run_dir'], exist_ok=True)
-    os.makedirs(kwargs['p9_dir'], exist_ok=True)
-    os.makedirs(kwargs['qemu_run_dir'], exist_ok=True)
-
-def need_rebuild(srcs, dst):
-    if not os.path.exists(dst):
-        return True
-    for src in srcs:
-        if os.path.getmtime(src) > os.path.getmtime(dst):
-            return True
-    return False
-
-def print_time(ellapsed_seconds):
-    hours, rem = divmod(ellapsed_seconds, 3600)
-    minutes, seconds = divmod(rem, 60)
-    print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
-
-def raw_to_qcow2(prebuilt=False, reverse=False):
-    if prebuilt or not os.path.exists(kwargs['qemu_img_executable']):
-        disable_trace = []
-        qemu_img_executable = kwargs['qemu_img_basename']
-    else:
-        # Prevent qemu-img from generating trace files like QEMU. Disgusting.
-        disable_trace = ['-T', 'pr_manager_run,file=/dev/null', LF,]
-        qemu_img_executable = kwargs['qemu_img_executable']
-    infmt = 'raw'
-    outfmt = 'qcow2'
-    infile = kwargs['rootfs_raw_file']
-    outfile = kwargs['qcow2_file']
-    if reverse:
-        tmp = infmt
-        infmt = outfmt
-        outfmt = tmp
-        tmp = infile
-        infile = outfile
-        outfile = tmp
-    self.sh.run_cmd(
-        [
-            qemu_img_executable, LF,
-        ] +
-        disable_trace +
-        [
-            'convert', LF,
-            '-f', infmt, LF,
-            '-O', outfmt, LF,
-            infile, LF,
-            outfile, LF,
-        ]
-    )
-
-def resolve_args(defaults, args, extra_args):
-    if extra_args is None:
-        extra_args = {}
-    argcopy = copy.copy(args)
-    argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
-    return argcopy
-
-def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
-    if os.path.isabs(in_path):
-        return in_path
-    else:
-        paths = [
-            os.path.join(magic_out_dir, in_path),
-            os.path.join(
-                magic_out_dir,
-                os.path.relpath(in_path, magic_in_dir),
-            )
-        ]
-        paths[:] = [os.path.splitext(path)[0] + out_ext for path in paths]
-        for path in paths:
-            if os.path.exists(path):
-                return path
-        raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
-
-def resolve_userland(path):
-    return resolve_executable(
-        path,
-        kwargs['userland_src_dir'],
-        kwargs['userland_build_dir'],
-        kwargs['userland_build_ext'],
-    )
+            return self.build()

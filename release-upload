@@ -24,7 +24,7 @@ def main():
 
     # Check the release already exists.
     try:
-        _json = common.github_make_request(path='/releases/tags/' + tag)
+        _json = self.github_make_request(path='/releases/tags/' + tag)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             release_exists = False
@@ -36,7 +36,7 @@ def main():
 
     # Create release if not yet created.
     if not release_exists:
-        _json = common.github_make_request(
+        _json = self.github_make_request(
             authenticate=True,
             data=json.dumps({
                 'tag_name': tag,
@@ -50,12 +50,12 @@ def main():
     asset_name = os.path.split(upload_path)[1]
 
     # Clear the prebuilts for a upload.
-    _json = common.github_make_request(
+    _json = self.github_make_request(
         path=('/releases/' + str(release_id) + '/assets'),
     )
     for asset in _json:
         if asset['name'] == asset_name:
-            _json = common.github_make_request(
+            _json = self.github_make_request(
                 authenticate=True,
                 path=('/releases/assets/' + str(asset['id'])),
                 method='DELETE',
@@ -65,7 +65,7 @@ def main():
     # Upload the prebuilt.
     with open(upload_path, 'br') as myfile:
         content = myfile.read()
-    _json = common.github_make_request(
+    _json = self.github_make_request(
         authenticate=True,
         data=content,
         extra_headers={'Content-Type': 'application/zip'},

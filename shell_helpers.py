@@ -6,7 +6,9 @@ import os
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
+import sys
 
 class LF:
     '''

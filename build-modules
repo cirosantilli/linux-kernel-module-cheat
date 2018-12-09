@@ -7,7 +7,7 @@ import shutil
 
 import common
 
-class ModulesComponent(common.Component):
+class ModulesComponent(self.Component):
     def add_parser_arguments(self, parser):
         parser.add_argument(
             '--make-args',
@@ -15,7 +15,6 @@ class ModulesComponent(common.Component):
         )
         parser.add_argument(
             '--host',
-            action='store_true',
             default=False,
             help='''\
 Build the Linux kernel modules for the host instead of guest.
@@ -70,7 +69,7 @@ Use the host packaged cross toolchain.
         else:
             allowed_toolchains = None
             build_subdir = kwargs['kernel_modules_build_subdir']
-        gcc = common.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
+        gcc = self.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
         prefix = gcc[:-len(tool)]
         ccache = shutil.which('ccache')
         if ccache is not None:
@@ -97,13 +96,13 @@ Use the host packaged cross toolchain.
                     'M={}'.format(build_subdir), LF,
                     'OBJECT_FILES={}'.format(' '.join(object_files)), LF,
                 ] +
-                common.shlex_split(kwargs['make_args']) +
+                self.sh.shlex_split(kwargs['make_args']) +
                 verbose
             ),
             cwd=os.path.join(kwargs['kernel_modules_build_subdir']),
         )
         if not kwargs['host']:
-            common.copy_dir_if_update_non_recursive(
+            self.copy_dir_if_update_non_recursive(
                 srcdir=kwargs['kernel_modules_build_subdir'],
                 destdir=kwargs['out_rootfs_overlay_dir'],
                 filter_ext=kwargs['kernel_module_ext'],
