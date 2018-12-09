@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import distutils.file_util
 import itertools
 import os
 import shlex
 import shutil
 import signal
+import subprocess
 
 class LF:
     '''
@@ -227,8 +229,8 @@ class ShellHelpers:
     def strip_newlines(self, cmd):
         return [x for x in cmd if x != LF]
 
-    def rmrf(path):
-        self.print_cmd(['rm', '-r', '-f', path])
+    def rmrf(self, path):
+        self.print_cmd(['rm', '-r', '-f', path, LF])
         if not self.dry_run and os.path.exists(path):
             shutil.rmtree(path)
 

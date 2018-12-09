@@ -8,43 +8,43 @@ class BaremetalComponent(common.Component):
     def do_build(self, args):
         common.assert_crosstool_ng_supports_arch(kwargs['arch'])
         build_dir = self.get_build_dir(args)
-        bootloader_obj = os.path.join(common.baremetal_build_lib_dir, 'bootloader{}'.format(common.obj_ext))
+        bootloader_obj = os.path.join(kwargs['baremetal_build_lib_dir'], 'bootloader{}'.format(kwargs['obj_ext']))
         common_basename_noext = 'common'
-        common_src = os.path.join(common.root_dir, common_basename_noext + common.c_ext)
-        common_obj = os.path.join(common.baremetal_build_lib_dir, common_basename_noext + common.obj_ext)
+        common_src = os.path.join(kwargs['root_dir'], common_basename_noext + kwargs['c_ext'])
+        common_obj = os.path.join(kwargs['baremetal_build_lib_dir'], common_basename_noext + kwargs['obj_ext'])
         syscalls_basename_noext = 'syscalls'
-        syscalls_src = os.path.join(common.baremetal_src_lib_dir, syscalls_basename_noext + common.c_ext)
-        syscalls_obj = os.path.join(common.baremetal_build_lib_dir, syscalls_basename_noext + common.obj_ext)
+        syscalls_src = os.path.join(kwargs['baremetal_src_lib_dir'], syscalls_basename_noext + kwargs['c_ext'])
+        syscalls_obj = os.path.join(kwargs['baremetal_build_lib_dir'], syscalls_basename_noext + kwargs['obj_ext'])
         common_objs = [common_obj, syscalls_obj]
         cflags = [
-            '-I', common.baremetal_src_lib_dir, LF,
-            '-I', common.root_dir, LF,
+            '-I', kwargs['baremetal_src_lib_dir'], LF,
+            '-I', kwargs['root_dir'], LF,
             '-O0', LF,
             '-ggdb3', LF,
-            '-mcpu={}'.format(common.mcpu), LF,
+            '-mcpu={}'.format(kwargs['mcpu']), LF,
             '-nostartfiles', LF,
         ]
         if kwargs['prebuilt']:
             gcc = 'arm-none-eabi-gcc'
         else:
-            os.environ['PATH'] = common.crosstool_ng_bin_dir + os.environ['PATH']
+            os.environ['PATH'] = kwargs['crosstool_ng_bin_dir'] + os.environ['PATH']
             gcc = common.get_toolchain_tool('gcc', allowed_toolchains=['crosstool-ng'])
-        if common.emulator == 'gem5':
-            if common.machine == 'VExpress_GEM5_V1':
+        if kwargs['emulator'] == 'gem5':
+            if kwargs['machine'] == 'VExpress_GEM5_V1':
                 entry_address = 0x80000000
                 uart_address = 0x1c090000
-            elif common.machine == 'RealViewPBX':
+            elif kwargs['machine'] == 'RealViewPBX':
                 entry_address = 0x10000
                 uart_address = 0x10009000
             else:
-                raise Exception('unknown machine: ' + common.machine)
+                raise Exception('unknown machine: ' + kwargs['machine'])
             cflags.extend(['-D', 'GEM5'.format(uart_address), LF])
         else:
             entry_address = 0x40000000
             uart_address = 0x09000000
         os.makedirs(build_dir, exist_ok=True)
-        os.makedirs(common.baremetal_build_lib_dir, exist_ok=True)
-        src = os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(kwargs['arch'], common.asm_ext))
+        os.makedirs(kwargs['baremetal_build_lib_dir'], exist_ok=True)
+        src = os.path.join(kwargs['baremetal_src_lib_dir'], '{}{}'.format(kwargs['arch'], kwargs['asm_ext']))
         if common.need_rebuild([src], bootloader_obj):
             self.sh.run_cmd(
                 [gcc,  LF] +
@@ -87,7 +87,7 @@ class BaremetalComponent(common.Component):
             common_objs=common_objs,
         )
         arch_dir = os.path.join('arch', kwargs['arch'])
-        if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
+        if os.path.isdir(os.path.join(kwargs['baremetal_src_dir'], arch_dir)):
             self._build_dir(
                 arch_dir,
                 gcc=gcc,
@@ -97,7 +97,7 @@ class BaremetalComponent(common.Component):
                 common_objs=common_objs,
             )
         arch_dir = os.path.join('arch', kwargs['arch'], 'no_bootloader')
-        if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
+        if os.path.isdir(os.path.join(kwargs['baremetal_src_dir'], arch_dir)):
             self._build_dir(
                 arch_dir,
                 gcc=gcc,
@@ -116,7 +116,7 @@ Build the baremetal examples with crosstool-NG.
         }
 
     def get_build_dir(self, args):
-        return common.baremetal_build_dir
+        return kwargs['baremetal_build_dir']
 
     def get_default_args(self):
         return {'baremetal': 'all'}
@@ -137,18 +137,18 @@ Build the baremetal examples with crosstool-NG.
 
         Place outputs on the same subpath or the output directory.
         """
-        in_dir = os.path.join(common.baremetal_src_dir, subpath)
-        out_dir = os.path.join(common.baremetal_build_dir, subpath)
+        in_dir = os.path.join(kwargs['baremetal_src_dir'], subpath)
+        out_dir = os.path.join(kwargs['baremetal_build_dir'], subpath)
         os.makedirs(out_dir, exist_ok=True)
         common_objs = common_objs.copy()
         if bootloader:
             common_objs.append(bootloader_obj)
         for in_basename in os.listdir(in_dir):
             in_path = os.path.join(in_dir, in_basename)
-            if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (common.c_ext, common.asm_ext):
+            if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (kwargs['c_ext'], kwargs['asm_ext']):
                 in_name = os.path.splitext(in_basename)[0]
-                main_obj = os.path.join(common.baremetal_build_dir, subpath, '{}{}'.format(in_name, common.obj_ext))
-                src = os.path.join(common.baremetal_src_dir, in_path)
+                main_obj = os.path.join(kwargs['baremetal_build_dir'], subpath, '{}{}'.format(in_name, kwargs['obj_ext']))
+                src = os.path.join(kwargs['baremetal_src_dir'], in_path)
                 if common.need_rebuild([src], main_obj):
                     self.sh.run_cmd(
                         [gcc,  LF] +
@@ -160,8 +160,8 @@ Build the baremetal examples with crosstool-NG.
                         ]
                     )
                 objs = common_objs + [main_obj]
-                out = os.path.join(common.baremetal_build_dir, subpath, in_name + common.baremetal_build_ext)
-                link_script = os.path.join(common.baremetal_src_dir, 'link.ld')
+                out = os.path.join(kwargs['baremetal_build_dir'], subpath, in_name + kwargs['baremetal_build_ext'])
+                link_script = os.path.join(kwargs['baremetal_src_dir'], 'link.ld')
                 if common.need_rebuild(objs + [link_script], out):
                     self.sh.run_cmd(
                         [gcc,  LF] +
@@ -171,7 +171,7 @@ Build the baremetal examples with crosstool-NG.
                             '-o', out, LF,
                             '-T', link_script, LF,
                         ] +
-                        common.add_newlines(objs)
+                        self.sh.add_newlines(objs)
                     )
 
 if __name__ == '__main__':

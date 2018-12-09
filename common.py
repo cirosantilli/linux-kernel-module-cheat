@@ -5,7 +5,6 @@ import base64
 import collections
 import copy
 import datetime
-import distutils.file_util
 import glob
 import imp
 import json
@@ -99,8 +98,9 @@ class LkmcCliFunction(cli_function.CliFunction):
     * command timing
     * some common flags, e.g.: --arch, --dry-run, --verbose
     '''
-    def __init__(self):
-        super().__init__(config_file=common.consts['config_file'])
+    def __init__(self, *args, **kwargs):
+        kwargs['config_file'] = consts['config_file']
+        super().__init__(*args, **kwargs)
 
         # Args for all scripts.
         self.add_argument(
@@ -262,24 +262,327 @@ to allow overriding configs from the CLI.
 '''
         )
 
+    def _init_env(self, env):
+        '''
+        Update the kwargs from the command line with derived arguments.
+        '''
+        def join(*paths):
+            return os.path.join(*paths)
+        if env['qemu'] or not env['gem5']:
+            env['emulator'] = 'qemu'
+        else:
+            env['emulator'] = 'gem5'
+        if env['arch'] in env['arch_short_to_long_dict']:
+            env['arch'] = env['arch_short_to_long_dict'][env['arch']]
+        if env['userland_build_id'] is None:
+            env['userland_build_id'] = env['default_build_id']
+            env['userland_build_id_given'] = False
+        else:
+            env['userland_build_id_given'] = True
+        if env['gem5_worktree'] is not None and env['gem5_build_id'] is None:
+            env['gem5_build_id'] = env['gem5_worktree']
+        env['is_arm'] = False
+        if env['arch'] == 'arm':
+            env['armv'] = 7
+            env['gem5_arch'] = 'ARM'
+            env['mcpu'] = 'cortex-a15'
+            env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-uclibcgnueabihf'
+            env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
+            env['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
+            if env['emulator'] == 'gem5':
+                if env['machine'] is None:
+                    env['machine'] = 'VExpress_GEM5_V1'
+            else:
+                if env['machine'] is None:
+                    env['machine'] = 'virt'
+            env['is_arm'] = True
+        elif env['arch'] == 'aarch64':
+            env['armv'] = 8
+            env['gem5_arch'] = 'ARM'
+            env['mcpu'] = 'cortex-a57'
+            env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-uclibc'
+            env['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
+            env['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
+            if env['emulator'] == 'gem5':
+                if env['machine'] is None:
+                    env['machine'] = 'VExpress_GEM5_V1'
+            else:
+                if env['machine'] is None:
+                    env['machine'] = 'virt'
+            env['is_arm'] = True
+        elif env['arch'] == 'x86_64':
+            env['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
+            env['gem5_arch'] = 'X86'
+            env['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-uclibc'
+            env['ubuntu_toolchain_prefix'] = 'x86_64-linux-gnu'
+            if env['emulator'] == 'gem5':
+                if env['machine'] is None:
+                    env['machine'] = 'TODO'
+            else:
+                if env['machine'] is None:
+                    env['machine'] = 'pc'
+
+        # Buildroot
+        env['buildroot_build_dir'] = join(env['buildroot_out_dir'], 'build', env['buildroot_build_id'], env['arch'])
+        env['buildroot_download_dir'] = join(env['buildroot_out_dir'], 'download')
+        env['buildroot_config_file'] = join(env['buildroot_build_dir'], '.config')
+        env['buildroot_build_build_dir'] = join(env['buildroot_build_dir'], 'build')
+        env['buildroot_linux_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
+        env['buildroot_vmlinux'] = join(env['buildroot_linux_build_dir'], "vmlinux")
+        env['host_dir'] = join(env['buildroot_build_dir'], 'host')
+        env['host_bin_dir'] = join(env['host_dir'], 'usr', 'bin')
+        env['buildroot_pkg_config'] = join(env['host_bin_dir'], 'pkg-config')
+        env['buildroot_images_dir'] = join(env['buildroot_build_dir'], 'images')
+        env['buildroot_rootfs_raw_file'] = join(env['buildroot_images_dir'], 'rootfs.ext2')
+        env['buildroot_qcow2_file'] = env['buildroot_rootfs_raw_file'] + '.qcow2'
+        env['staging_dir'] = join(env['out_dir'], 'staging', env['arch'])
+        env['buildroot_staging_dir'] = join(env['buildroot_build_dir'], 'staging')
+        env['target_dir'] = join(env['buildroot_build_dir'], 'target')
+        env['linux_buildroot_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
+
+        # QEMU
+        env['qemu_build_dir'] = join(env['out_dir'], 'qemu', env['qemu_build_id'])
+        env['qemu_executable_basename'] = 'qemu-system-{}'.format(env['arch'])
+        env['qemu_executable'] = join(env['qemu_build_dir'], '{}-softmmu'.format(env['arch']), env['qemu_executable_basename'])
+        env['qemu_img_basename'] = 'qemu-img'
+        env['qemu_img_executable'] = join(env['qemu_build_dir'], env['qemu_img_basename'])
+
+        # gem5
+        if env['gem5_build_dir'] is None:
+            env['gem5_build_dir'] = join(env['gem5_out_dir'], env['gem5_build_id'], env['gem5_build_type'])
+        env['gem5_fake_iso'] = join(env['gem5_out_dir'], 'fake.iso')
+        env['gem5_m5term'] = join(env['gem5_build_dir'], 'm5term')
+        env['gem5_build_build_dir'] = join(env['gem5_build_dir'], 'build')
+        env['gem5_executable'] = join(env['gem5_build_build_dir'], env['gem5_arch'], 'gem5.{}'.format(env['gem5_build_type']))
+        env['gem5_system_dir'] = join(env['gem5_build_dir'], 'system')
+
+        # gem5 source
+        if env['gem5_source_dir'] is not None:
+            assert os.path.exists(env['gem5_source_dir'])
+        else:
+            if env['gem5_worktree'] is not None:
+                env['gem5_source_dir'] = join(env['gem5_non_default_src_root_dir'], env['gem5_worktree'])
+            else:
+                env['gem5_source_dir'] = env['gem5_default_src_dir']
+        env['gem5_m5_source_dir'] = join(env['gem5_source_dir'], 'util', 'm5')
+        env['gem5_config_dir'] = join(env['gem5_source_dir'], 'configs')
+        env['gem5_se_file'] = join(env['gem5_config_dir'], 'example', 'se.py')
+        env['gem5_fs_file'] = join(env['gem5_config_dir'], 'example', 'fs.py')
+
+        # crosstool-ng
+        env['crosstool_ng_buildid_dir'] = join(env['crosstool_ng_out_dir'], 'build', env['crosstool_ng_build_id'])
+        env['crosstool_ng_install_dir'] = join(env['crosstool_ng_buildid_dir'], 'install', env['arch'])
+        env['crosstool_ng_bin_dir'] = join(env['crosstool_ng_install_dir'], 'bin')
+        env['crosstool_ng_util_dir'] = join(env['crosstool_ng_buildid_dir'], 'util')
+        env['crosstool_ng_config'] = join(env['crosstool_ng_util_dir'], '.config')
+        env['crosstool_ng_defconfig'] = join(env['crosstool_ng_util_dir'], 'defconfig')
+        env['crosstool_ng_executable'] = join(env['crosstool_ng_util_dir'], 'ct-ng')
+        env['crosstool_ng_build_dir'] = join(env['crosstool_ng_buildid_dir'], 'build')
+        env['crosstool_ng_download_dir'] = join(env['crosstool_ng_out_dir'], 'download')
+
+        # run
+        env['gem5_run_dir'] = join(env['run_dir_base'], 'gem5', env['arch'], str(env['run_id']))
+        env['m5out_dir'] = join(env['gem5_run_dir'], 'm5out')
+        env['stats_file'] = join(env['m5out_dir'], 'stats.txt')
+        env['gem5_trace_txt_file'] = join(env['m5out_dir'], 'trace.txt')
+        env['gem5_guest_terminal_file'] = join(env['m5out_dir'], 'system.terminal')
+        env['gem5_readfile'] = join(env['gem5_run_dir'], 'readfile')
+        env['gem5_termout_file'] = join(env['gem5_run_dir'], 'termout.txt')
+        env['qemu_run_dir'] = join(env['run_dir_base'], 'qemu', env['arch'], str(env['run_id']))
+        env['qemu_termout_file'] = join(env['qemu_run_dir'], 'termout.txt')
+        env['qemu_trace_basename'] = 'trace.bin'
+        env['qemu_trace_file'] = join(env['qemu_run_dir'], 'trace.bin')
+        env['qemu_trace_txt_file'] = join(env['qemu_run_dir'], 'trace.txt')
+        env['qemu_rrfile'] = join(env['qemu_run_dir'], 'rrfile')
+        env['gem5_out_dir'] = join(env['out_dir'], 'gem5')
+
+        # Ports
+        if env['port_offset'] is None:
+            try:
+                env['port_offset'] = int(env['run_id'])
+            except ValueError:
+                env['port_offset'] = 0
+        if env['emulator'] == 'gem5':
+            env['gem5_telnet_port'] = 3456 + env['port_offset']
+            env['gdb_port'] = 7000 + env['port_offset']
+        else:
+            env['qemu_base_port'] = 45454 + 10 * env['port_offset']
+            env['qemu_monitor_port'] = env['qemu_base_port'] + 0
+            env['qemu_hostfwd_generic_port'] = env['qemu_base_port'] + 1
+            env['qemu_hostfwd_ssh_port'] = env['qemu_base_port'] + 2
+            env['qemu_gdb_port'] = env['qemu_base_port'] + 3
+            env['extra_serial_port'] = env['qemu_base_port'] + 4
+            env['gdb_port'] = env['qemu_gdb_port']
+            env['qemu_background_serial_file'] = join(env['qemu_run_dir'], 'background.log')
+
+        # gem5 QEMU polymorphism.
+        if env['emulator'] == 'gem5':
+            env['executable'] = env['gem5_executable']
+            env['run_dir'] = env['gem5_run_dir']
+            env['termout_file'] = env['gem5_termout_file']
+            env['guest_terminal_file'] = env['gem5_guest_terminal_file']
+            env['trace_txt_file'] = env['gem5_trace_txt_file']
+        else:
+            env['executable'] = env['qemu_executable']
+            env['run_dir'] = env['qemu_run_dir']
+            env['termout_file'] = env['qemu_termout_file']
+            env['trace_txt_file'] = env['qemu_trace_txt_file']
+        env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
+
+        # Linux kernl.
+        if 'linux_build_id' in env:
+            env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
+            env['lkmc_vmlinux'] = join(env['linux_build_dir'], "vmlinux")
+            if env['arch'] == 'arm':
+                env['linux_arch'] = 'arm'
+                env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'zImage')
+            elif env['arch'] == 'aarch64':
+                env['linux_arch'] = 'arm64'
+                env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'Image')
+            elif env['arch'] == 'x86_64':
+                env['linux_arch'] = 'x86'
+                env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'bzImage')
+            env['lkmc_linux_image'] = join(env['linux_build_dir'], env['linux_image_prefix'])
+            env['buildroot_linux_image'] = join(env['buildroot_linux_build_dir'], env['linux_image_prefix'])
+            if env['buildroot_linux']:
+                env['vmlinux'] = env['buildroot_vmlinux']
+                env['linux_image'] = env['buildroot_linux_image']
+            else:
+                env['vmlinux'] = env['lkmc_vmlinux']
+                env['linux_image'] = env['lkmc_linux_image']
+
+        # Kernel modules.
+        env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])
+        env['kernel_modules_build_subdir'] = join(env['kernel_modules_build_dir'], env['kernel_modules_subdir'])
+        env['kernel_modules_build_host_dir'] = join(env['kernel_modules_build_base_dir'], 'host')
+        env['kernel_modules_build_host_subdir'] = join(env['kernel_modules_build_host_dir'], env['kernel_modules_subdir'])
+        env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
+        env['out_rootfs_overlay_dir'] = join(env['out_dir'], 'rootfs_overlay', env['arch'])
+        env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_dir'], 'bin')
+
+        # Baremetal.
+        env['baremetal_src_dir'] = join(env['root_dir'], 'baremetal')
+        env['baremetal_src_lib_dir'] = join(env['baremetal_src_dir'], env['baremetal_lib_basename'])
+        if env['emulator'] == 'gem5':
+            env['simulator_name'] = 'gem5'
+        else:
+            env['simulator_name'] = 'qemu'
+        env['baremetal_build_dir'] = join(env['out_dir'], 'baremetal', env['arch'], env['simulator_name'], env['machine'])
+        env['baremetal_build_lib_dir'] = join(env['baremetal_build_dir'], env['baremetal_lib_basename'])
+        env['baremetal_build_ext'] = '.elf'
+
+        # Docker
+        env['docker_build_dir'] = join(env['out_dir'], 'docker', env['arch'])
+        env['docker_tar_dir'] = join(env['docker_build_dir'], 'export')
+        env['docker_tar_file'] = join(env['docker_build_dir'], 'export.tar')
+        env['docker_rootfs_raw_file'] = join(env['docker_build_dir'], 'export.ext2')
+        env['docker_qcow2_file'] = join(env['docker_rootfs_raw_file'] + '.qcow2')
+        if env['docker']:
+            env['rootfs_raw_file'] = env['docker_rootfs_raw_file']
+            env['qcow2_file'] = env['docker_qcow2_file']
+        else:
+            env['rootfs_raw_file'] = env['buildroot_rootfs_raw_file']
+            env['qcow2_file'] = env['buildroot_qcow2_file']
+
+        # Image.
+        if env['baremetal'] is None:
+            if env['emulator'] == 'gem5':
+                env['image'] = env['vmlinux']
+                env['disk_image'] = env['rootfs_raw_file']
+            else:
+                env['image'] = env['linux_image']
+                env['disk_image'] = env['qcow2_file']
+        else:
+            env['disk_image'] = env['gem5_fake_iso']
+            if env['baremetal'] == 'all':
+                path = env['baremetal']
+            else:
+                path = resolve_executable(
+                    env['baremetal'],
+                    env['baremetal_src_dir'],
+                    env['baremetal_build_dir'],
+                    env['baremetal_build_ext'],
+                )
+                source_path_noext = os.path.splitext(join(
+                    env['baremetal_src_dir'],
+                    os.path.relpath(path, env['baremetal_build_dir'])
+                ))[0]
+                for ext in [c_ext, asm_ext]:
+                    source_path = source_path_noext + ext
+                    if os.path.exists(source_path):
+                        env['source_path'] = source_path
+                        break
+            env['image'] = path
+        self.env = env
+
+    def get_elf_entry(self, elf_file_path):
+        readelf_header = subprocess.check_output([
+            self.get_toolchain_tool('readelf'),
+            '-h',
+            elf_file_path
+        ])
+        for line in readelf_header.decode().split('\n'):
+            split = line.split()
+            if line.startswith('  Entry point address:'):
+                addr = line.split()[-1]
+                break
+        return int(addr, 0)
+
+    def get_toolchain_prefix(self, tool, allowed_toolchains=None):
+        buildroot_full_prefix = os.path.join(self.env['host_bin_dir'], self.env['buildroot_toolchain_prefix'])
+        buildroot_exists = os.path.exists('{}-{}'.format(buildroot_full_prefix, tool))
+        crosstool_ng_full_prefix = os.path.join(self.env['crosstool_ng_bin_dir'], self.env['crosstool_ng_toolchain_prefix'])
+        crosstool_ng_exists = os.path.exists('{}-{}'.format(crosstool_ng_full_prefix, tool))
+        host_tool = '{}-{}'.format(self.env['ubuntu_toolchain_prefix'], tool)
+        host_path = shutil.which(host_tool)
+        if host_path is not None:
+            host_exists = True
+            host_full_prefix = host_path[:-(len(tool)+1)]
+        else:
+            host_exists = False
+            host_full_prefix = None
+        known_toolchains = {
+            'crosstool-ng': (crosstool_ng_exists, crosstool_ng_full_prefix),
+            'buildroot': (buildroot_exists, buildroot_full_prefix),
+            'host': (host_exists, host_full_prefix),
+        }
+        if allowed_toolchains is None:
+            if self.env['baremetal'] is None:
+                allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
+            else:
+                allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
+        tried = []
+        for toolchain in allowed_toolchains:
+            exists, prefix = known_toolchains[toolchain]
+            tried.append('{}-{}'.format(prefix, tool))
+            if exists:
+                return prefix
+        raise Exception('Tool not found. Tried:\n' + '\n'.join(tried))
+
+    def get_toolchain_tool(self, tool, allowed_toolchains=None):
+        return '{}-{}'.format(self.get_toolchain_prefix(tool, allowed_toolchains), tool)
+
     def main(self, **kwargs):
         '''
         Time the main of the derived class.
         '''
         if not kwargs['dry_run']:
             start_time = time.time()
-        kwargs.update(common.consts)
-        kwargs = set_kwargs(kwargs)
-        self.sh = shell_helpers.ShellHelpers(dry_run=kwargs['dry_run'])
-        self.timed_main(**kwargs)
+        kwargs.update(consts)
+        self._init_env(kwargs)
+        self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
+        self.timed_main()
         if not kwargs['dry_run']:
             end_time = time.time()
-            common.print_time(end_time - start_time)
+            print_time(end_time - start_time)
 
     def run_cmd(self, *args, **kwargs):
         self.sh.run_cmd(*args, **kwargs)
 
-    def timed_main(self, **kwargs):
+    def timed_main(self):
+        '''
+        Main action of the derived class.
+        '''
         raise NotImplementedError()
 
 class BuildCliFunction(LkmcCliFunction):
@@ -289,8 +592,8 @@ class BuildCliFunction(LkmcCliFunction):
     * `--clean` to clean the build directory
     * `--nproc` to set he number of build threads
     '''
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.add_argument(
             '--clean',
             default=False,
@@ -304,33 +607,33 @@ class BuildCliFunction(LkmcCliFunction):
             help='Number of processors to use for the build.',
         )
 
-    def clean(self, **kwargs):
-        build_dir = self.get_build_dir(kwargs)
+    def clean(self):
+        build_dir = self.get_build_dir()
         if build_dir is not None:
-            common.rmrf(build_dir)
+            self.sh.rmrf(build_dir)
 
-    def build(self, **kwargs):
+    def build(self):
         '''
         Do the actual main build work.
         '''
         raise NotImplementedError()
 
-    def get_build_dir(self, **kwargs):
+    def get_build_dir(self):
         return None
 
-    def timed_main(self, **kwargs):
+    def timed_main(self):
         '''
         Parse CLI, and to the build based on it.
 
         The actual build work is done by do_build in implementing classes.
         '''
-        if kwargs['clean']:
-            self.clean(kwargs)
+        if self.env['clean']:
+            self.clean()
         else:
-            self.build(**kwargs)
+            self.build()
 
 def assert_crosstool_ng_supports_arch(arch):
-    if arch not in common.crosstool_ng_supported_archs:
+    if arch not in kwargs['crosstool_ng_supported_archs']:
         raise Exception('arch not yet supported: ' + arch)
 
 def base64_encode(string):
@@ -340,29 +643,16 @@ def gem_list_checkpoint_dirs():
     '''
     List checkpoint directory, oldest first.
     '''
-    prefix_re = re.compile(common.gem5_cpt_prefix)
-    files = list(filter(lambda x: os.path.isdir(os.path.join(common.m5out_dir, x)) and prefix_re.search(x), os.listdir(common.m5out_dir)))
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(common.m5out_dir, x)))
+    prefix_re = re.compile(kwargs['gem5_cpt_prefix'])
+    files = list(filter(lambda x: os.path.isdir(os.path.join(kwargs['m5out_dir'], x)) and prefix_re.search(x), os.listdir(kwargs['m5out_dir'])))
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(kwargs['m5out_dir'], x)))
     return files
-
-def get_elf_entry(elf_file_path):
-    readelf_header = subprocess.check_output([
-        common.get_toolchain_tool('readelf'),
-        '-h',
-        elf_file_path
-    ])
-    for line in readelf_header.decode().split('\n'):
-        split = line.split()
-        if line.startswith('  Entry point address:'):
-            addr = line.split()[-1]
-            break
-    return int(addr, 0)
 
 def get_stats(stat_re=None, stats_file=None):
     if stat_re is None:
         stat_re = '^system.cpu[0-9]*.numCycles$'
     if stats_file is None:
-        stats_file = common.stats_file
+        stats_file = kwargs['stats_file']
     stat_re = re.compile(stat_re)
     ret = []
     with open(stats_file, 'r') as statfile:
@@ -372,40 +662,6 @@ def get_stats(stat_re=None, stats_file=None):
                 if len(cols) > 1 and stat_re.search(cols[0]):
                     ret.append(cols[1])
     return ret
-
-def get_toolchain_prefix(tool, allowed_toolchains=None):
-    buildroot_full_prefix = os.path.join(common.host_bin_dir, common.buildroot_toolchain_prefix)
-    buildroot_exists = os.path.exists('{}-{}'.format(buildroot_full_prefix, tool))
-    crosstool_ng_full_prefix = os.path.join(common.crosstool_ng_bin_dir, common.crosstool_ng_toolchain_prefix)
-    crosstool_ng_exists = os.path.exists('{}-{}'.format(crosstool_ng_full_prefix, tool))
-    host_tool = '{}-{}'.format(common.ubuntu_toolchain_prefix, tool)
-    host_path = shutil.which(host_tool)
-    if host_path is not None:
-        host_exists = True
-        host_full_prefix = host_path[:-(len(tool)+1)]
-    else:
-        host_exists = False
-        host_full_prefix = None
-    known_toolchains = {
-        'crosstool-ng': (crosstool_ng_exists, crosstool_ng_full_prefix),
-        'buildroot': (buildroot_exists, buildroot_full_prefix),
-        'host': (host_exists, host_full_prefix),
-    }
-    if allowed_toolchains is None:
-        if common['baremetal'] is None:
-            allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
-        else:
-            allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
-    tried = []
-    for toolchain in allowed_toolchains:
-        exists, prefix = known_toolchains[toolchain]
-        tried.append('{}-{}'.format(prefix, tool))
-        if exists:
-            return prefix
-    raise Exception('Tool not found. Tried:\n' + '\n'.join(tried))
-
-def get_toolchain_tool(tool, allowed_toolchains=None):
-    return '{}-{}'.format(common.get_toolchain_prefix(tool, allowed_toolchains), tool)
 
 def github_make_request(
         authenticate=False,
@@ -441,18 +697,18 @@ def log_error(msg):
     print('error: {}'.format(msg), file=sys.stderr)
 
 def make_build_dirs():
-    os.makedirs(common.buildroot_build_build_dir, exist_ok=True)
-    os.makedirs(common.gem5_build_dir, exist_ok=True)
-    os.makedirs(common.out_rootfs_overlay_dir, exist_ok=True)
+    os.makedirs(kwargs['buildroot_build_build_dir'], exist_ok=True)
+    os.makedirs(kwargs['gem5_build_dir'], exist_ok=True)
+    os.makedirs(kwargs['out_rootfs_overlay_dir'], exist_ok=True)
 
 def make_run_dirs():
     '''
     Make directories required for the run.
     The user could nuke those anytime between runs to try and clean things up.
     '''
-    os.makedirs(common.gem5_run_dir, exist_ok=True)
-    os.makedirs(common.p9_dir, exist_ok=True)
-    os.makedirs(common.qemu_run_dir, exist_ok=True)
+    os.makedirs(kwargs['gem5_run_dir'], exist_ok=True)
+    os.makedirs(kwargs['p9_dir'], exist_ok=True)
+    os.makedirs(kwargs['qemu_run_dir'], exist_ok=True)
 
 def need_rebuild(srcs, dst):
     if not os.path.exists(dst):
@@ -468,17 +724,17 @@ def print_time(ellapsed_seconds):
     print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
 def raw_to_qcow2(prebuilt=False, reverse=False):
-    if prebuilt or not os.path.exists(common.qemu_img_executable):
+    if prebuilt or not os.path.exists(kwargs['qemu_img_executable']):
         disable_trace = []
-        qemu_img_executable = common.qemu_img_basename
+        qemu_img_executable = kwargs['qemu_img_basename']
     else:
         # Prevent qemu-img from generating trace files like QEMU. Disgusting.
         disable_trace = ['-T', 'pr_manager_run,file=/dev/null', LF,]
-        qemu_img_executable = common.qemu_img_executable
+        qemu_img_executable = kwargs['qemu_img_executable']
     infmt = 'raw'
     outfmt = 'qcow2'
-    infile = common.rootfs_raw_file
-    outfile = common.qcow2_file
+    infile = kwargs['rootfs_raw_file']
+    outfile = kwargs['qcow2_file']
     if reverse:
         tmp = infmt
         infmt = outfmt
@@ -525,263 +781,9 @@ def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
         raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
 
 def resolve_userland(path):
-    return common.resolve_executable(
+    return resolve_executable(
         path,
-        common.userland_src_dir,
-        common.userland_build_dir,
-        common.userland_build_ext,
+        kwargs['userland_src_dir'],
+        kwargs['userland_build_dir'],
+        kwargs['userland_build_ext'],
     )
-
-def set_kwargs(kwargs):
-    '''
-    Update the kwargs from the command line with derived arguments.
-    '''
-    def join(*paths):
-        return os.path.join(*paths)
-    kwargs = collections.defaultdict(lambda: None, **kwargs)
-    if kwargs['qemu'] or not kwargs['gem5']:
-        kwargs['emulator'] = 'qemu'
-    else:
-        kwargs['emulator'] = 'gem5'
-    if kwargs['arch'] in kwargs['arch_short_to_long_dict']:
-        kwargs['arch'] = kwargs['arch_short_to_long_dict'][kwargs['arch']]
-    if kwargs['userland_build_id'] is None:
-        kwargs['userland_build_id'] = kwargs['default_build_id']
-        kwargs['userland_build_id_given'] = False
-    else:
-        kwargs['userland_build_id_given'] = True
-    if kwargs['gem5_worktree'] is not None and kwargs['gem5_build_id'] is None:
-        kwargs['gem5_build_id'] = kwargs['gem5_worktree']
-    kwargs['is_arm'] = False
-    if kwargs['arch'] == 'arm':
-        kwargs['armv'] = 7
-        kwargs['gem5_arch'] = 'ARM'
-        kwargs['mcpu'] = 'cortex-a15'
-        kwargs['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-uclibcgnueabihf'
-        kwargs['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
-        kwargs['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
-        if kwargs['emulator'] == 'gem5':
-            if kwargs['machine'] is None:
-                kwargs['machine'] = 'VExpress_GEM5_V1'
-        else:
-            if kwargs['machine'] is None:
-                kwargs['machine'] = 'virt'
-        kwargs['is_arm'] = True
-    elif kwargs['arch'] == 'aarch64':
-        kwargs['armv'] = 8
-        kwargs['gem5_arch'] = 'ARM'
-        kwargs['mcpu'] = 'cortex-a57'
-        kwargs['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-uclibc'
-        kwargs['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
-        kwargs['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
-        if kwargs['emulator'] == 'gem5':
-            if kwargs['machine'] is None:
-                kwargs['machine'] = 'VExpress_GEM5_V1'
-        else:
-            if kwargs['machine'] is None:
-                kwargs['machine'] = 'virt'
-        kwargs['is_arm'] = True
-    elif kwargs['arch'] == 'x86_64':
-        kwargs['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
-        kwargs['gem5_arch'] = 'X86'
-        kwargs['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-uclibc'
-        kwargs['ubuntu_toolchain_prefix'] = 'x86_64-linux-gnu'
-        if kwargs['emulator'] == 'gem5':
-            if kwargs['machine'] is None:
-                kwargs['machine'] = 'TODO'
-        else:
-            if kwargs['machine'] is None:
-                kwargs['machine'] = 'pc'
-
-    # Buildroot
-    kwargs['buildroot_build_dir'] = join(kwargs['buildroot_out_dir'], 'build', kwargs['buildroot_build_id'], kwargs['arch'])
-    kwargs['buildroot_download_dir'] = join(kwargs['buildroot_out_dir'], 'download')
-    kwargs['buildroot_config_file'] = join(kwargs['buildroot_build_dir'], '.config')
-    kwargs['buildroot_build_build_dir'] = join(kwargs['buildroot_build_dir'], 'build')
-    kwargs['buildroot_linux_build_dir'] = join(kwargs['buildroot_build_build_dir'], 'linux-custom')
-    kwargs['buildroot_vmlinux'] = join(kwargs['buildroot_linux_build_dir'], "vmlinux")
-    kwargs['host_dir'] = join(kwargs['buildroot_build_dir'], 'host')
-    kwargs['host_bin_dir'] = join(kwargs['host_dir'], 'usr', 'bin')
-    kwargs['buildroot_pkg_config'] = join(kwargs['host_bin_dir'], 'pkg-config')
-    kwargs['buildroot_images_dir'] = join(kwargs['buildroot_build_dir'], 'images')
-    kwargs['buildroot_rootfs_raw_file'] = join(kwargs['buildroot_images_dir'], 'rootfs.ext2')
-    kwargs['buildroot_qcow2_file'] = kwargs['buildroot_rootfs_raw_file'] + '.qcow2'
-    kwargs['staging_dir'] = join(kwargs['out_dir'], 'staging', kwargs['arch'])
-    kwargs['buildroot_staging_dir'] = join(kwargs['buildroot_build_dir'], 'staging')
-    kwargs['target_dir'] = join(kwargs['buildroot_build_dir'], 'target')
-    kwargs['linux_buildroot_build_dir'] = join(kwargs['buildroot_build_build_dir'], 'linux-custom')
-
-    # QEMU
-    kwargs['qemu_build_dir'] = join(kwargs['out_dir'], 'qemu', kwargs['qemu_build_id'])
-    kwargs['qemu_executable_basename'] = 'qemu-system-{}'.format(kwargs['arch'])
-    kwargs['qemu_executable'] = join(kwargs['qemu_build_dir'], '{}-softmmu'.format(kwargs['arch']), kwargs['qemu_executable_basename'])
-    kwargs['qemu_img_basename'] = 'qemu-img'
-    kwargs['qemu_img_executable'] = join(kwargs['qemu_build_dir'], kwargs['qemu_img_basename'])
-
-    # gem5
-    if kwargs['gem5_build_dir'] is None:
-        kwargs['gem5_build_dir'] = join(kwargs['gem5_out_dir'], kwargs['gem5_build_id'], kwargs['gem5_build_type'])
-    kwargs['gem5_fake_iso'] = join(kwargs['gem5_out_dir'], 'fake.iso')
-    kwargs['gem5_m5term'] = join(kwargs['gem5_build_dir'], 'm5term')
-    kwargs['gem5_build_build_dir'] = join(kwargs['gem5_build_dir'], 'build')
-    kwargs['gem5_executable'] = join(kwargs['gem5_build_build_dir'], kwargs['gem5_arch'], 'gem5.{}'.format(kwargs['gem5_build_type']))
-    kwargs['gem5_system_dir'] = join(kwargs['gem5_build_dir'], 'system')
-
-    # gem5 source
-    if kwargs['gem5_source_dir'] is not None:
-        assert os.path.exists(kwargs['gem5_source_dir'])
-    else:
-        if kwargs['gem5_worktree'] is not None:
-            kwargs['gem5_source_dir'] = join(kwargs['gem5_non_default_src_root_dir'], kwargs['gem5_worktree'])
-        else:
-            kwargs['gem5_source_dir'] = kwargs['gem5_default_src_dir']
-    kwargs['gem5_m5_source_dir'] = join(kwargs['gem5_source_dir'], 'util', 'm5')
-    kwargs['gem5_config_dir'] = join(kwargs['gem5_source_dir'], 'configs')
-    kwargs['gem5_se_file'] = join(kwargs['gem5_config_dir'], 'example', 'se.py')
-    kwargs['gem5_fs_file'] = join(kwargs['gem5_config_dir'], 'example', 'fs.py')
-
-    # crosstool-ng
-    kwargs['crosstool_ng_buildid_dir'] = join(kwargs['crosstool_ng_out_dir'], 'build', kwargs['crosstool_ng_build_id'])
-    kwargs['crosstool_ng_install_dir'] = join(kwargs['crosstool_ng_buildid_dir'], 'install', kwargs['arch'])
-    kwargs['crosstool_ng_bin_dir'] = join(kwargs['crosstool_ng_install_dir'], 'bin')
-    kwargs['crosstool_ng_util_dir'] = join(kwargs['crosstool_ng_buildid_dir'], 'util')
-    kwargs['crosstool_ng_config'] = join(kwargs['crosstool_ng_util_dir'], '.config')
-    kwargs['crosstool_ng_defconfig'] = join(kwargs['crosstool_ng_util_dir'], 'defconfig')
-    kwargs['crosstool_ng_executable'] = join(kwargs['crosstool_ng_util_dir'], 'ct-ng')
-    kwargs['crosstool_ng_build_dir'] = join(kwargs['crosstool_ng_buildid_dir'], 'build')
-    kwargs['crosstool_ng_download_dir'] = join(kwargs['crosstool_ng_out_dir'], 'download')
-
-    # run
-    kwargs['gem5_run_dir'] = join(kwargs['run_dir_base'], 'gem5', kwargs['arch'], str(kwargs['run_id']))
-    kwargs['m5out_dir'] = join(kwargs['gem5_run_dir'], 'm5out')
-    kwargs['stats_file'] = join(kwargs['m5out_dir'], 'stats.txt')
-    kwargs['gem5_trace_txt_file'] = join(kwargs['m5out_dir'], 'trace.txt')
-    kwargs['gem5_guest_terminal_file'] = join(kwargs['m5out_dir'], 'system.terminal')
-    kwargs['gem5_readfile'] = join(kwargs['gem5_run_dir'], 'readfile')
-    kwargs['gem5_termout_file'] = join(kwargs['gem5_run_dir'], 'termout.txt')
-    kwargs['qemu_run_dir'] = join(kwargs['run_dir_base'], 'qemu', kwargs['arch'], str(kwargs['run_id']))
-    kwargs['qemu_termout_file'] = join(kwargs['qemu_run_dir'], 'termout.txt')
-    kwargs['qemu_trace_basename'] = 'trace.bin'
-    kwargs['qemu_trace_file'] = join(kwargs['qemu_run_dir'], 'trace.bin')
-    kwargs['qemu_trace_txt_file'] = join(kwargs['qemu_run_dir'], 'trace.txt')
-    kwargs['qemu_rrfile'] = join(kwargs['qemu_run_dir'], 'rrfile')
-    kwargs['gem5_out_dir'] = join(kwargs['out_dir'], 'gem5')
-
-    # Ports
-    if kwargs['port_offset'] is None:
-        try:
-            kwargs['port_offset'] = int(kwargs['run_id'])
-        except ValueError:
-            kwargs['port_offset'] = 0
-    if kwargs['emulator'] == 'gem5':
-        kwargs['gem5_telnet_port'] = 3456 + kwargs['port_offset']
-        kwargs['gdb_port'] = 7000 + kwargs['port_offset']
-    else:
-        kwargs['qemu_base_port'] = 45454 + 10 * kwargs['port_offset']
-        kwargs['qemu_monitor_port'] = kwargs['qemu_base_port'] + 0
-        kwargs['qemu_hostfwd_generic_port'] = kwargs['qemu_base_port'] + 1
-        kwargs['qemu_hostfwd_ssh_port'] = kwargs['qemu_base_port'] + 2
-        kwargs['qemu_gdb_port'] = kwargs['qemu_base_port'] + 3
-        kwargs['extra_serial_port'] = kwargs['qemu_base_port'] + 4
-        kwargs['gdb_port'] = kwargs['qemu_gdb_port']
-        kwargs['qemu_background_serial_file'] = join(kwargs['qemu_run_dir'], 'background.log')
-
-    # gem5 QEMU polymorphism.
-    if kwargs['emulator'] == 'gem5':
-        kwargs['executable'] = kwargs['gem5_executable']
-        kwargs['run_dir'] = kwargs['gem5_run_dir']
-        kwargs['termout_file'] = kwargs['gem5_termout_file']
-        kwargs['guest_terminal_file'] = kwargs['gem5_guest_terminal_file']
-        kwargs['trace_txt_file'] = kwargs['gem5_trace_txt_file']
-    else:
-        kwargs['executable'] = kwargs['qemu_executable']
-        kwargs['run_dir'] = kwargs['qemu_run_dir']
-        kwargs['termout_file'] = kwargs['qemu_termout_file']
-        kwargs['trace_txt_file'] = kwargs['qemu_trace_txt_file']
-    kwargs['run_cmd_file'] = join(kwargs['run_dir'], 'run.sh')
-
-    # Linux kernl.
-    if 'linux_build_id' in kwargs:
-        kwargs['linux_build_dir'] = join(kwargs['out_dir'], 'linux', kwargs['linux_build_id'], kwargs['arch'])
-        kwargs['lkmc_vmlinux'] = join(kwargs['linux_build_dir'], "vmlinux")
-        if kwargs['arch'] == 'arm':
-            kwargs['linux_arch'] = 'arm'
-            kwargs['linux_image_prefix'] = join('arch', kwargs['linux_arch'], 'boot', 'zImage')
-        elif kwargs['arch'] == 'aarch64':
-            kwargs['linux_arch'] = 'arm64'
-            kwargs['linux_image_prefix'] = join('arch', kwargs['linux_arch'], 'boot', 'Image')
-        elif kwargs['arch'] == 'x86_64':
-            kwargs['linux_arch'] = 'x86'
-            kwargs['linux_image_prefix'] = join('arch', kwargs['linux_arch'], 'boot', 'bzImage')
-        kwargs['lkmc_linux_image'] = join(kwargs['linux_build_dir'], kwargs['linux_image_prefix'])
-        kwargs['buildroot_linux_image'] = join(kwargs['buildroot_linux_build_dir'], kwargs['linux_image_prefix'])
-        if kwargs['buildroot_linux']:
-            kwargs['vmlinux'] = kwargs['buildroot_vmlinux']
-            kwargs['linux_image'] = kwargs['buildroot_linux_image']
-        else:
-            kwargs['vmlinux'] = kwargs['lkmc_vmlinux']
-            kwargs['linux_image'] = kwargs['lkmc_linux_image']
-
-    # Kernel modules.
-    kwargs['kernel_modules_build_dir'] = join(kwargs['kernel_modules_build_base_dir'], kwargs['arch'])
-    kwargs['kernel_modules_build_subdir'] = join(kwargs['kernel_modules_build_dir'], kwargs['kernel_modules_subdir'])
-    kwargs['kernel_modules_build_host_dir'] = join(kwargs['kernel_modules_build_base_dir'], 'host')
-    kwargs['kernel_modules_build_host_subdir'] = join(kwargs['kernel_modules_build_host_dir'], kwargs['kernel_modules_subdir'])
-    kwargs['userland_build_dir'] = join(kwargs['out_dir'], 'userland', kwargs['userland_build_id'], kwargs['arch'])
-    kwargs['out_rootfs_overlay_dir'] = join(kwargs['out_dir'], 'rootfs_overlay', kwargs['arch'])
-    kwargs['out_rootfs_overlay_bin_dir'] = join(kwargs['out_rootfs_overlay_dir'], 'bin')
-
-    # Baremetal.
-    kwargs['baremetal_src_dir'] = join(kwargs['root_dir'], 'baremetal')
-    kwargs['baremetal_src_lib_dir'] = join(kwargs['baremetal_src_dir'], kwargs['baremetal_lib_basename'])
-    if kwargs['emulator'] == 'gem5':
-        kwargs['simulator_name'] = 'gem5'
-    else:
-        kwargs['simulator_name'] = 'qemu'
-    kwargs['baremetal_build_dir'] = join(kwargs['out_dir'], 'baremetal', kwargs['arch'], kwargs['simulator_name'], kwargs['machine'])
-    kwargs['baremetal_build_lib_dir'] = join(kwargs['baremetal_build_dir'], kwargs['baremetal_lib_basename'])
-    kwargs['baremetal_build_ext'] = '.elf'
-
-    # Docker
-    kwargs['docker_build_dir'] = join(kwargs['out_dir'], 'docker', kwargs['arch'])
-    kwargs['docker_tar_dir'] = join(kwargs['docker_build_dir'], 'export')
-    kwargs['docker_tar_file'] = join(kwargs['docker_build_dir'], 'export.tar')
-    kwargs['docker_rootfs_raw_file'] = join(kwargs['docker_build_dir'], 'export.ext2')
-    kwargs['docker_qcow2_file'] = join(kwargs['docker_rootfs_raw_file'] + '.qcow2')
-    if kwargs['docker']:
-        kwargs['rootfs_raw_file'] = kwargs['docker_rootfs_raw_file']
-        kwargs['qcow2_file'] = kwargs['docker_qcow2_file']
-    else:
-        kwargs['rootfs_raw_file'] = kwargs['buildroot_rootfs_raw_file']
-        kwargs['qcow2_file'] = kwargs['buildroot_qcow2_file']
-
-    # Image.
-    if kwargs['baremetal'] is None:
-        if kwargs['emulator'] == 'gem5':
-            kwargs['image'] = kwargs['vmlinux']
-            kwargs['disk_image'] = kwargs['rootfs_raw_file']
-        else:
-            kwargs['image'] = kwargs['linux_image']
-            kwargs['disk_image'] = kwargs['qcow2_file']
-    else:
-        kwargs['disk_image'] = kwargs['gem5_fake_iso']
-        if kwargs['baremetal'] == 'all':
-            path = kwargs['baremetal']
-        else:
-            path = kwargs.resolve_executable(
-                kwargs['baremetal'],
-                kwargs['baremetal_src_dir'],
-                kwargs['baremetal_build_dir'],
-                kwargs['baremetal_build_ext'],
-            )
-            source_path_noext = os.path.splitext(join(
-                kwargs['baremetal_src_dir'],
-                os.path.relpath(path, kwargs['baremetal_build_dir'])
-            ))[0]
-            for ext in [c_ext, asm_ext]:
-                source_path = source_path_noext + ext
-                if os.path.exists(source_path):
-                    kwargs['source_path'] = source_path
-                    break
-        kwargs['image'] = path
-    return dict(kwargs)

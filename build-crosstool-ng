@@ -8,20 +8,20 @@ class CrosstoolNgComponent(common.Component):
     def do_build(self, args):
         common.assert_crosstool_ng_supports_arch(kwargs['arch'])
         build_dir = self.get_build_dir(args)
-        defconfig_dest = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
-        os.makedirs(common.crosstool_ng_util_dir, exist_ok=True)
-        os.makedirs(common.crosstool_ng_download_dir, exist_ok=True)
+        defconfig_dest = os.path.join(kwargs['crosstool_ng_util_dir'], 'defconfig')
+        os.makedirs(kwargs['crosstool_ng_util_dir'], exist_ok=True)
+        os.makedirs(kwargs['crosstool_ng_download_dir'], exist_ok=True)
 
         # Bootstrap out-ot-tree WONTFIX. I've tried.
         # https://github.com/crosstool-ng/crosstool-ng/issues/1021
-        os.chdir(common.crosstool_ng_src_dir)
+        os.chdir(kwargs['crosstool_ng_src_dir'])
         self.sh.run_cmd(
-            [os.path.join(common.crosstool_ng_src_dir, 'bootstrap'), LF],
+            [os.path.join(kwargs['crosstool_ng_src_dir'], 'bootstrap'), LF],
         )
-        os.chdir(common.crosstool_ng_util_dir)
+        os.chdir(kwargs['crosstool_ng_util_dir'])
         self.sh.run_cmd(
             [
-                os.path.join(common.crosstool_ng_src_dir, 'configure'), LF,
+                os.path.join(kwargs['crosstool_ng_src_dir'], 'configure'), LF,
                 '--enable-local', LF,
             ],
         )
@@ -34,33 +34,33 @@ class CrosstoolNgComponent(common.Component):
 
         # Build the toolchain.
         self.sh.cp(
-            os.path.join(common.root_dir, 'crosstool_ng_config', kwargs['arch']),
+            os.path.join(kwargs['root_dir'], 'crosstool_ng_config', kwargs['arch']),
             defconfig_dest
         )
         common.write_configs(
-            common.crosstool_ng_defconfig,
+            kwargs['crosstool_ng_defconfig'],
             [
-                'CT_PREFIX_DIR="{}"'.format(common.crosstool_ng_install_dir),
+                'CT_PREFIX_DIR="{}"'.format(kwargs['crosstool_ng_install_dir']),
                 'CT_WORK_DIR="{}"'.format(build_dir),
-                'CT_LOCAL_TARBALLS_DIR="{}"'.format(common.crosstool_ng_download_dir),
+                'CT_LOCAL_TARBALLS_DIR="{}"'.format(kwargs['crosstool_ng_download_dir']),
             ]
         )
         self.sh.run_cmd(
             [
-                common.crosstool_ng_executable, LF,
+                kwargs['crosstool_ng_executable'], LF,
                 'defconfig', LF,
             ],
         )
         os.unlink(defconfig_dest)
         self.sh.run_cmd(
             [
-                common.crosstool_ng_executable, LF,
+                kwargs['crosstool_ng_executable'], LF,
                 'build', LF,
                 'CT_JOBS={}'.format(str(kwargs['nproc'])), LF,
             ],
             out_file=os.path.join(build_dir, 'lkmc.log'),
             delete_env=['LD_LIBRARY_PATH'],
-            extra_paths=[common.ccache_dir],
+            extra_paths=[kwargs['ccache_dir']],
         )
 
     def get_argparse_args(self):
@@ -71,7 +71,7 @@ Build crosstool-NG with Newlib for bare metal compilation'
         }
 
     def get_build_dir(self, args):
-        return common.crosstool_ng_build_dir
+        return kwargs['crosstool_ng_build_dir']
 
 if __name__ == '__main__':
     CrosstoolNgComponent().build()

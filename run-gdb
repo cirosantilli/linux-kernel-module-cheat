@@ -120,15 +120,15 @@ def main(args, extra_args=None):
         break_at = ['-ex', 'break {}'.format(kwargs['break_at']), LF]
     else:
         break_at = []
-    linux_full_system = (common.baremetal is None and kwargs['userland'] is None)
+    linux_full_system = (kwargs['baremetal'] is None and kwargs['userland'] is None)
     if kwargs['userland']:
         image = common.resolve_userland(kwargs['userland'])
-    elif common.baremetal:
-        image = common.image
-        test_script_path = os.path.splitext(common.source_path)[0] + '.py'
+    elif kwargs['baremetal']:
+        image = kwargs['image']
+        test_script_path = os.path.splitext(kwargs['source_path'])[0] + '.py'
     else:
-        image = common.vmlinux
-    if common.baremetal:
+        image = kwargs['vmlinux']
+    if kwargs['baremetal']:
         allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
     else:
         allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
@@ -138,14 +138,14 @@ def main(args, extra_args=None):
         ['-q', LF]
     )
     if linux_full_system:
-        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir), LF])
+        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(kwargs['linux_build_dir']), LF])
     if kwargs['sim']:
         target = 'sim'
     else:
         if kwargs['kgdb']:
-            port = common.extra_serial_port
+            port = kwargs['extra_serial_port']
         else:
-            port = common.gdb_port
+            port = kwargs['gdb_port']
         target = 'remote localhost:{}'.format(port)
     cmd.extend([
         '-ex', 'file {}'.format(image), LF,
@@ -175,11 +175,11 @@ def main(args, extra_args=None):
         # which gets put on the kernel build root when python debugging scripts are enabled.
         cmd.extend(['-ex', 'continue', LF])
         if not kwargs['no_lxsymbols'] and linux_full_system:
-            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir), LF])
+            cmd.extend(['-ex', 'lx-symbols {}'.format(kwargs['kernel_modules_build_subdir']), LF])
     cmd.extend(after)
     if kwargs['test']:
         GdbTestcase(
-            common.source_path,
+            kwargs['source_path'],
             test_script_path,
             cmd,
             verbose=kwargs['verbose'],
@@ -190,8 +190,8 @@ def main(args, extra_args=None):
         # vmlinux: No such file or directory.
         return self.sh.run_cmd(
             cmd,
-            cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'),
-            cwd=common.linux_build_dir
+            cmd_file=os.path.join(kwargs['run_dir'], 'run-gdb.sh'),
+            cwd=kwargs['linux_build_dir']
         )
 
 if __name__ == '__main__':

@@ -59,25 +59,25 @@ has the OpenBLAS libraries and headers installed.
                     'make', LF,
                     '-j', str(kwargs['nproc']), LF,
                     'ARCH={}'.format(kwargs['arch']), LF,
-                    'CCFLAGS_SCRIPT={} {}'.format('-I', common.userland_src_dir), LF,
-                    'COMMON_DIR={}'.format(common.root_dir), LF,
+                    'CCFLAGS_SCRIPT={} {}'.format('-I', kwargs['userland_src_dir']), LF,
+                    'COMMON_DIR={}'.format(kwargs['root_dir']), LF,
                     'CC={}'.format(cc), LF,
                     'CXX={}'.format(cxx), LF,
-                    'PKG_CONFIG={}'.format(common.buildroot_pkg_config), LF,
-                    'STAGING_DIR={}'.format(common.buildroot_staging_dir), LF,
+                    'PKG_CONFIG={}'.format(kwargs['buildroot_pkg_config']), LF,
+                    'STAGING_DIR={}'.format(kwargs['buildroot_staging_dir']), LF,
                     'OUT_DIR={}'.format(build_dir), LF,
                 ] +
-                common.add_newlines(['HAS_{}=y'.format(package.upper()) for package in kwargs['has_package']]) +
+                self.sh.add_newlines(['HAS_{}=y'.format(package.upper()) for package in kwargs['has_package']]) +
                 shlex.split(kwargs['make_args']) +
-                common.add_newlines([os.path.join(build_dir, os.path.splitext(os.path.split(target)[1])[0]) + common.userland_build_ext for target in kwargs['targets']])
+                self.sh.add_newlines([os.path.join(build_dir, os.path.splitext(os.path.split(target)[1])[0]) + kwargs['userland_build_ext'] for target in kwargs['targets']])
             ),
-            cwd=common.userland_src_dir,
-            extra_paths=[common.ccache_dir],
+            cwd=kwargs['userland_src_dir'],
+            extra_paths=[kwargs['ccache_dir']],
         )
         common.copy_dir_if_update_non_recursive(
             srcdir=build_dir,
-            destdir=common.out_rootfs_overlay_dir,
-            filter_ext=common.userland_build_ext,
+            destdir=kwargs['out_rootfs_overlay_dir'],
+            filter_ext=kwargs['userland_build_ext'],
         )
 
     def get_argparse_args(self):
@@ -86,7 +86,7 @@ has the OpenBLAS libraries and headers installed.
         }
 
     def get_build_dir(self, args):
-        return common.userland_build_dir
+        return kwargs['userland_build_dir']
 
 if __name__ == '__main__':
     UserlandComponent().build()

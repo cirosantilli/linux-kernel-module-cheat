@@ -49,7 +49,7 @@ class Component:
 def run_cmd(cmd, arch):
     global args
     cmd_abs = cmd.copy()
-    cmd_abs[0] = os.path.join(common.root_dir, cmd[0])
+    cmd_abs[0] = os.path.join(kwargs['root_dir'], cmd[0])
     cmd_abs.extend(['--arch', arch])
     if kwargs['extra_args']:
         cmd_abs.append(kwargs['extra_args'])
@@ -86,15 +86,15 @@ name_to_component_map = {
     # Leaves without dependencies.
     'baremetal-qemu': Component(
         lambda arch: run_cmd(['build-baremetal', '--qemu'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
+        supported_archs=kwargs['crosstool_ng_supported_archs'],
     ),
     'baremetal-gem5': Component(
         lambda arch: run_cmd(['build-baremetal', '--gem5'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
+        supported_archs=kwargs['crosstool_ng_supported_archs'],
     ),
     'baremetal-gem5-pbx': Component(
         lambda arch: run_cmd(['build-baremetal', '--gem5', '--machine', 'RealViewPBX'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
+        supported_archs=kwargs['crosstool_ng_supported_archs'],
     ),
     'buildroot': buildroot_component,
     'buildroot-gcc': buildroot_component,
@@ -103,7 +103,7 @@ name_to_component_map = {
     ),
     'crosstool-ng': Component(
         lambda arch: run_cmd(['build-crosstool-ng'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
+        supported_archs=kwargs['crosstool_ng_supported_archs'],
         # http://crosstool-ng.github.io/docs/os-setup/
         apt_get_pkgs={
             'bison',
@@ -197,7 +197,7 @@ name_to_component_map = {
             'gem5-baremetal',
             'baremetal-gem5-pbx',
         ],
-        supported_archs=common.crosstool_ng_supported_archs,
+        supported_archs=kwargs['crosstool_ng_supported_archs'],
     ),
     'all-linux': Component(dependencies=[
         'qemu-gem5-buildroot',
@@ -296,10 +296,10 @@ group = parser.add_mutually_exclusive_group(required=False)
 group.add_argument('-A', '--all-archs', default=False, action='store_true', help='''\
 Build the selected components for all archs.
 ''')
-group.add_argument('-a', '--arch', choices=common.arch_choices, default=[], action='append', help='''\
+group.add_argument('-a', '--arch', choices=kwargs['arch_choices'], default=[], action='append', help='''\
 Build the selected components for this arch. Select multiple archs by
 passing this option multiple times. Default: [{}]
-'''.format(common.default_arch))
+'''.format(kwargs['default_arch']))
 parser.add_argument('-D', '--download-dependencies', default=False, action='store_true', help='''\
 Also download all dependencies required for a given build: Ubuntu packages,
 Python packages and git submodules.
@@ -314,7 +314,7 @@ Extra args to pass to all scripts.
 )
 parser.add_argument('components', choices=list(name_to_component_map.keys()) + [[]], default=[], nargs='*', help='''\
 Which components to build. Default: qemu-buildroot
-'''.format(common.default_arch))
+'''.format(kwargs['default_arch']))
 common.add_dry_run_argument(parser)
 args = parser.parse_args()
 common.setup_dry_run_arguments(args)
@@ -322,14 +322,14 @@ common.setup_dry_run_arguments(args)
 # Decide archs.
 if kwargs['arch'] == []:
     if kwargs['all'] or kwargs['all_archs']:
-        archs = common.all_archs.copy()
+        archs = kwargs['all_archs'].copy()
     else:
-        archs = set([common.default_arch])
+        archs = set([kwargs['default_arch']])
 else:
     archs = set()
     for arch in kwargs['arch']:
-        if arch in common.arch_short_to_long_dict:
-            arch = common.arch_short_to_long_dict[arch]
+        if arch in kwargs['arch_short_to_long_dict']:
+            arch = kwargs['arch_short_to_long_dict'][arch]
         archs.add(arch)
 
 # Decide components.
@@ -393,7 +393,7 @@ if kwargs['download_dependencies']:
                 'libsdl2-dev',
             }
             apt_get_pkgs.difference_update(interacive_pkgs)
-        if common.in_docker:
+        if kwargs['in_docker']:
             sudo = []
             # https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
             os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
@@ -406,7 +406,7 @@ if kwargs['download_dependencies']:
                 f.write(sources_txt)
         else:
             sudo = ['sudo']
-        if common.in_docker or kwargs['travis']:
+        if kwargs['in_docker'] or kwargs['travis']:
             y = ['-y']
         else:
             y = []
@@ -416,25 +416,25 @@ if kwargs['download_dependencies']:
         if apt_get_pkgs:
             self.sh.run_cmd(
                 sudo + ['apt-get', 'install'] + y + [LF] +
-                common.add_newlines(sorted(apt_get_pkgs))
+                self.sh.add_newlines(sorted(apt_get_pkgs))
             )
         if apt_build_deps:
             self.sh.run_cmd(
                 sudo +
                 ['apt-get', 'build-dep'] + y + [LF] +
-                common.add_newlines(sorted(apt_build_deps))
+                self.sh.add_newlines(sorted(apt_build_deps))
             )
     if python2_pkgs:
         self.sh.run_cmd(
             ['python', '-m', 'pip', 'install', '--user', LF] +
-            common.add_newlines(sorted(python2_pkgs))
+            self.sh.add_newlines(sorted(python2_pkgs))
         )
     if python3_pkgs:
         # Not with pip executable directly:
         # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
         self.sh.run_cmd(
             ['python3', '-m', 'pip', 'install', '--user', LF] +
-            common.add_newlines(sorted(python3_pkgs))
+            self.sh.add_newlines(sorted(python3_pkgs))
         )
     git_cmd_common = ['git', 'submodule', 'update', '--init', '--recursive']
     if submodules:
@@ -450,7 +450,7 @@ if kwargs['download_dependencies']:
         # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
         self.sh.run_cmd(
             git_cmd_common + ['--', LF] +
-            common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules)])
+            self.sh.add_newlines([os.path.join(kwargs['submodules_dir'], x) for x in sorted(submodules)])
         )
     if submodules_shallow:
         # == Shallow cloning.
@@ -474,7 +474,7 @@ if kwargs['download_dependencies']:
         #
         self.sh.run_cmd(
             git_cmd_common + ['--depth', '1', '--', LF] +
-            common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules_shallow)])
+            self.sh.add_newlines([os.path.join(kwargs['submodules_dir'], x) for x in sorted(submodules_shallow)])
         )
 
 # Do the build.

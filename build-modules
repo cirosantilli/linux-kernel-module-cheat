@@ -42,34 +42,34 @@ Use the host packaged cross toolchain.
         # This copies only modified files as per:
         # https://stackoverflow.com/questions/5718899/building-an-out-of-tree-linux-kernel-module-in-a-separate-object-directory
         distutils.dir_util.copy_tree(
-            common.kernel_modules_src_dir,
-            os.path.join(build_dir, common.kernel_modules_subdir),
+            kwargs['kernel_modules_src_dir'],
+            os.path.join(build_dir, kwargs['kernel_modules_subdir']),
             update=1,
         )
         distutils.dir_util.copy_tree(
-            common.include_src_dir,
-            os.path.join(build_dir, common.include_subdir),
+            kwargs['include_src_dir'],
+            os.path.join(build_dir, kwargs['include_subdir']),
             update=1,
         )
         all_kernel_modules = []
-        for basename in os.listdir(common.kernel_modules_src_dir):
-            src = os.path.join(common.kernel_modules_src_dir, basename)
+        for basename in os.listdir(kwargs['kernel_modules_src_dir']):
+            src = os.path.join(kwargs['kernel_modules_src_dir'], basename)
             if os.path.isfile(src):
                 noext, ext = os.path.splitext(basename)
-                if ext == common.c_ext:
+                if ext == kwargs['c_ext']:
                     all_kernel_modules.append(noext)
         if kwargs['kernel_modules'] == []:
             kernel_modules = all_kernel_modules
         else:
             kernel_modules = map(lambda x: os.path.splitext(os.path.split(x)[1])[0], kwargs['kernel_modules'])
-        object_files = map(lambda x: x + common.obj_ext, kernel_modules)
+        object_files = map(lambda x: x + kwargs['obj_ext'], kernel_modules)
         tool = 'gcc'
         if kwargs['host']:
             allowed_toolchains = ['host']
-            build_subdir = common.kernel_modules_build_host_subdir
+            build_subdir = kwargs['kernel_modules_build_host_subdir']
         else:
             allowed_toolchains = None
-            build_subdir = common.kernel_modules_build_subdir
+            build_subdir = kwargs['kernel_modules_build_subdir']
         gcc = common.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
         prefix = gcc[:-len(tool)]
         ccache = shutil.which('ccache')
@@ -84,13 +84,13 @@ Use the host packaged cross toolchain.
         if kwargs['host']:
             linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
         else:
-            linux_dir = common.linux_build_dir
+            linux_dir = kwargs['linux_build_dir']
         self.sh.run_cmd(
             (
                 [
                     'make', LF,
                     '-j', str(kwargs['nproc']), LF,
-                    'ARCH={}'.format(common.linux_arch), LF,
+                    'ARCH={}'.format(kwargs['linux_arch']), LF,
                     'CC={}'.format(cc), LF,
                     'CROSS_COMPILE={}'.format(prefix), LF,
                     'LINUX_DIR={}'.format(linux_dir), LF,
@@ -100,13 +100,13 @@ Use the host packaged cross toolchain.
                 common.shlex_split(kwargs['make_args']) +
                 verbose
             ),
-            cwd=os.path.join(common.kernel_modules_build_subdir),
+            cwd=os.path.join(kwargs['kernel_modules_build_subdir']),
         )
         if not kwargs['host']:
             common.copy_dir_if_update_non_recursive(
-                srcdir=common.kernel_modules_build_subdir,
-                destdir=common.out_rootfs_overlay_dir,
-                filter_ext=common.kernel_module_ext,
+                srcdir=kwargs['kernel_modules_build_subdir'],
+                destdir=kwargs['out_rootfs_overlay_dir'],
+                filter_ext=kwargs['kernel_module_ext'],
             )
 
     def get_argparse_args(self):
@@ -120,9 +120,9 @@ See also: https://github.com/cirosantilli/linux-kernel-module-cheat#host
 
     def get_build_dir(self, args):
         if kwargs['host']:
-            return os.path.join(common.kernel_modules_build_host_dir)
+            return os.path.join(kwargs['kernel_modules_build_host_dir'])
         else:
-            return os.path.join(common.kernel_modules_build_dir)
+            return os.path.join(kwargs['kernel_modules_build_dir'])
 
 if __name__ == '__main__':
     ModulesComponent().build()

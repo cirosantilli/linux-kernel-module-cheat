@@ -119,11 +119,11 @@ class CliFunction:
                     raise Exception('Value not given for mandatory argument: ' + key)
         return self.main(**args_with_defaults)
 
-    def __init__(self, config_file=None):
+    def __init__(self, config_file=None, description=None):
         self._all_keys = set()
         self._arguments = []
-        self.description = None
         self._config_file = config_file
+        self._description = description
         if self._config_file is not None:
             self.add_argument(
                 '--config-file',
@@ -146,7 +146,7 @@ class CliFunction:
         to get all arguments.
         '''
         parser = argparse.ArgumentParser(
-            description=self.description,
+            description=self._description,
             formatter_class=argparse.RawTextHelpFormatter,
         )
         for argument in self._arguments:
@@ -177,7 +177,13 @@ class CliFunction:
 if __name__ == '__main__':
     class OneCliFunction(CliFunction):
         def __init__(self):
-            super().__init__(config_file='cli_function_test_config.py')
+            super().__init__(
+                config_file='cli_function_test_config.py',
+                description = '''\
+Description of this
+amazing function!
+''',
+            )
             self.add_argument('-a', '--asdf', default='A', help='Help for asdf'),
             self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
             self.add_argument('-b', '--bool', default=True, help='Help for bool'),
@@ -186,10 +192,6 @@ if __name__ == '__main__':
             self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
             self.add_argument('args-star', help='Help for args-star', nargs='*'),
-            self.description = '''\
-Description of this
-amazing function!
-'''
         def main(self, **kwargs):
             del kwargs['config_file']
             return kwargs
