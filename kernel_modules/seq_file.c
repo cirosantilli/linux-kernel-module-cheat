@@ -72,24 +72,24 @@ static int show(struct seq_file *s, void *v)
 }
 
 static struct seq_operations my_seq_ops = {
-    .next  = next,
-    .show  = show,
-    .start = start,
-    .stop  = stop,
+	.next  = next,
+	.show  = show,
+	.start = start,
+	.stop  = stop,
 };
 
 static int open(struct inode *inode, struct file *file)
 {
 	pr_info("open\n");
-    return seq_open(file, &my_seq_ops);
+	return seq_open(file, &my_seq_ops);
 }
 
 static struct file_operations fops = {
-    .owner   = THIS_MODULE,
-    .llseek  = seq_lseek,
-    .open    = open,
-    .read    = seq_read,
-    .release = seq_release
+	.owner   = THIS_MODULE,
+	.llseek  = seq_lseek,
+	.open    = open,
+	.read    = seq_read,
+	.release = seq_release
 };
 
 static int myinit(void)

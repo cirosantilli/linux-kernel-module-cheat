@@ -14,7 +14,7 @@ static int myinit(void)
 	pr_info("cr2 = 0x%8.8llX\n", (unsigned long long)ring0_regs.cr2);
 	pr_info("cr3 = 0x%8.8llX\n", (unsigned long long)ring0_regs.cr3);
 #endif
-    return 0;
+	return 0;
 }
 
 static void myexit(void) {}
