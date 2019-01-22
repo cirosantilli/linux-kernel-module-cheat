@@ -20,11 +20,11 @@ Build the baremetal examples with crosstool-NG.
         common_src = os.path.join(self.env['root_dir'], common_basename_noext + self.env['c_ext'])
         common_obj = os.path.join(self.env['baremetal_build_lib_dir'], common_basename_noext + self.env['obj_ext'])
         syscalls_basename_noext = 'syscalls'
-        syscalls_src = os.path.join(self.env['baremetal_src_lib_dir'], syscalls_basename_noext + self.env['c_ext'])
+        syscalls_src = os.path.join(self.env['baremetal_source_lib_dir'], syscalls_basename_noext + self.env['c_ext'])
         syscalls_obj = os.path.join(self.env['baremetal_build_lib_dir'], syscalls_basename_noext + self.env['obj_ext'])
         common_objs = [common_obj, syscalls_obj]
         cflags = [
-            '-I', self.env['baremetal_src_lib_dir'], LF,
+            '-I', self.env['baremetal_source_lib_dir'], LF,
             '-I', self.env['root_dir'], LF,
             '-O0', LF,
             '-ggdb3', LF,
@@ -51,7 +51,7 @@ Build the baremetal examples with crosstool-NG.
             uart_address = 0x09000000
         os.makedirs(build_dir, exist_ok=True)
         os.makedirs(self.env['baremetal_build_lib_dir'], exist_ok=True)
-        src = os.path.join(self.env['baremetal_src_lib_dir'], '{}{}'.format(self.env['arch'], self.env['asm_ext']))
+        src = os.path.join(self.env['baremetal_source_lib_dir'], '{}{}'.format(self.env['arch'], self.env['asm_ext']))
         if self.need_rebuild([src], bootloader_obj):
             self.sh.run_cmd(
                 [gcc,  LF] +
@@ -93,9 +93,9 @@ Build the baremetal examples with crosstool-NG.
             bootloader_obj=bootloader_obj,
             common_objs=common_objs,
         )
-        if os.path.isdir(os.path.join(self.env['baremetal_src_arch_dir'])):
+        if os.path.isdir(os.path.join(self.env['baremetal_source_arch_dir'])):
             self._build_dir(
-                self.env['baremetal_src_arch_subpath'],
+                self.env['baremetal_source_arch_subpath'],
                 gcc=gcc,
                 cflags=cflags,
                 entry_address=entry_address,
@@ -103,7 +103,7 @@ Build the baremetal examples with crosstool-NG.
                 common_objs=common_objs,
             )
         arch_dir = os.path.join('arch', self.env['arch'], 'no_bootloader')
-        if os.path.isdir(os.path.join(self.env['baremetal_src_dir'], arch_dir)):
+        if os.path.isdir(os.path.join(self.env['baremetal_source_dir'], arch_dir)):
             self._build_dir(
                 arch_dir,
                 gcc=gcc,
@@ -133,7 +133,7 @@ Build the baremetal examples with crosstool-NG.
 
         Place outputs on the same subpath or the output directory.
         '''
-        in_dir = os.path.join(self.env['baremetal_src_dir'], subpath)
+        in_dir = os.path.join(self.env['baremetal_source_dir'], subpath)
         out_dir = os.path.join(self.env['baremetal_build_dir'], subpath)
         os.makedirs(out_dir, exist_ok=True)
         common_objs = common_objs.copy()
@@ -144,7 +144,7 @@ Build the baremetal examples with crosstool-NG.
             if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (self.env['c_ext'], self.env['asm_ext']):
                 in_name = os.path.splitext(in_basename)[0]
                 main_obj = os.path.join(self.env['baremetal_build_dir'], subpath, '{}{}'.format(in_name, self.env['obj_ext']))
-                src = os.path.join(self.env['baremetal_src_dir'], in_path)
+                src = os.path.join(self.env['baremetal_source_dir'], in_path)
                 if self.need_rebuild([src], main_obj):
                     self.sh.run_cmd(
                         [gcc,  LF] +
@@ -157,7 +157,7 @@ Build the baremetal examples with crosstool-NG.
                     )
                 objs = common_objs + [main_obj]
                 out = os.path.join(self.env['baremetal_build_dir'], subpath, in_name + self.env['baremetal_build_ext'])
-                link_script = os.path.join(self.env['baremetal_src_dir'], 'link.ld')
+                link_script = os.path.join(self.env['baremetal_source_dir'], 'link.ld')
                 if self.need_rebuild(objs + [link_script], out):
                     self.sh.run_cmd(
                         [gcc,  LF] +

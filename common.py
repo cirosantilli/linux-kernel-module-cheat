@@ -35,7 +35,7 @@ consts['in_docker'] = os.path.exists('/.dockerenv')
 consts['root_dir'] = os.path.dirname(os.path.abspath(__file__))
 consts['data_dir'] = os.path.join(consts['root_dir'], 'data')
 consts['p9_dir'] = os.path.join(consts['data_dir'], '9p')
-consts['gem5_non_default_src_root_dir'] = os.path.join(consts['data_dir'], 'gem5')
+consts['gem5_non_default_source_root_dir'] = os.path.join(consts['data_dir'], 'gem5')
 if consts['in_docker']:
     consts['out_dir'] = os.path.join(consts['root_dir'], 'out.docker')
 else:
@@ -49,23 +49,23 @@ consts['crosstool_ng_out_dir'] = os.path.join(consts['out_dir'], 'crosstool-ng')
 consts['bench_boot'] = os.path.join(consts['out_dir'], 'bench-boot.txt')
 consts['packages_dir'] = os.path.join(consts['root_dir'], 'buildroot_packages')
 consts['kernel_modules_subdir'] = 'kernel_modules'
-consts['kernel_modules_src_dir'] = os.path.join(consts['root_dir'], consts['kernel_modules_subdir'])
+consts['kernel_modules_source_dir'] = os.path.join(consts['root_dir'], consts['kernel_modules_subdir'])
 consts['userland_subdir'] = 'userland'
 consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
 consts['userland_build_ext'] = '.out'
 consts['include_subdir'] = 'include'
-consts['include_src_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
+consts['include_source_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
 consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
-consts['buildroot_src_dir'] = os.path.join(consts['submodules_dir'], 'buildroot')
-consts['crosstool_ng_src_dir'] = os.path.join(consts['submodules_dir'], 'crosstool-ng')
+consts['buildroot_source_dir'] = os.path.join(consts['submodules_dir'], 'buildroot')
+consts['crosstool_ng_source_dir'] = os.path.join(consts['submodules_dir'], 'crosstool-ng')
 consts['crosstool_ng_supported_archs'] = set(['arm', 'aarch64'])
 consts['linux_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
 consts['linux_config_dir'] = os.path.join(consts['root_dir'], 'linux_config')
-consts['gem5_default_src_dir'] = os.path.join(consts['submodules_dir'], 'gem5')
+consts['gem5_default_source_dir'] = os.path.join(consts['submodules_dir'], 'gem5')
 consts['rootfs_overlay_dir'] = os.path.join(consts['root_dir'], 'rootfs_overlay')
 consts['extract_vmlinux'] = os.path.join(consts['linux_source_dir'], 'scripts', 'extract-vmlinux')
-consts['qemu_src_dir'] = os.path.join(consts['submodules_dir'], 'qemu')
-consts['parsec_benchmark_src_dir'] = os.path.join(consts['submodules_dir'], 'parsec-benchmark')
+consts['qemu_source_dir'] = os.path.join(consts['submodules_dir'], 'qemu')
+consts['parsec_benchmark_source_dir'] = os.path.join(consts['submodules_dir'], 'parsec-benchmark')
 consts['ccache_dir'] = os.path.join('/usr', 'lib', 'ccache')
 consts['default_build_id'] = 'default'
 consts['arch_short_to_long_dict'] = collections.OrderedDict([
@@ -473,9 +473,9 @@ Valid emulators: {}
             assert os.path.exists(env['gem5_source_dir'])
         else:
             if env['gem5_worktree'] is not None:
-                env['gem5_source_dir'] = join(env['gem5_non_default_src_root_dir'], env['gem5_worktree'])
+                env['gem5_source_dir'] = join(env['gem5_non_default_source_root_dir'], env['gem5_worktree'])
             else:
-                env['gem5_source_dir'] = env['gem5_default_src_dir']
+                env['gem5_source_dir'] = env['gem5_default_source_dir']
         env['gem5_m5_source_dir'] = join(env['gem5_source_dir'], 'util', 'm5')
         env['gem5_config_dir'] = join(env['gem5_source_dir'], 'configs')
         env['gem5_se_file'] = join(env['gem5_config_dir'], 'example', 'se.py')
@@ -574,10 +574,10 @@ Valid emulators: {}
         env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_dir'], 'bin')
 
         # Baremetal.
-        env['baremetal_src_dir'] = join(env['root_dir'], 'baremetal')
-        env['baremetal_src_arch_subpath'] = join('arch', env['arch'])
-        env['baremetal_src_arch_dir'] = join(env['baremetal_src_dir'], env['baremetal_src_arch_subpath'])
-        env['baremetal_src_lib_dir'] = join(env['baremetal_src_dir'], env['baremetal_lib_basename'])
+        env['baremetal_source_dir'] = join(env['root_dir'], 'baremetal')
+        env['baremetal_source_arch_subpath'] = join('arch', env['arch'])
+        env['baremetal_source_arch_dir'] = join(env['baremetal_source_dir'], env['baremetal_source_arch_subpath'])
+        env['baremetal_source_lib_dir'] = join(env['baremetal_source_dir'], env['baremetal_lib_basename'])
         if env['emulator'] == 'gem5':
             env['simulator_name'] = 'gem5'
         else:
@@ -614,12 +614,12 @@ Valid emulators: {}
             else:
                 path = self.resolve_executable(
                     env['baremetal'],
-                    env['baremetal_src_dir'],
+                    env['baremetal_source_dir'],
                     env['baremetal_build_dir'],
                     env['baremetal_build_ext'],
                 )
                 source_path_noext = os.path.splitext(join(
-                    env['baremetal_src_dir'],
+                    env['baremetal_source_dir'],
                     os.path.relpath(path, env['baremetal_build_dir'])
                 ))[0]
                 for ext in [env['c_ext'], env['asm_ext']]:
@@ -670,6 +670,11 @@ Valid emulators: {}
         return files
 
     def get_common_args(self):
+        '''
+        These are arguments that might be used by more than one script,
+        and are all defined in this class instead of in the derived class
+        of the script.
+        '''
         return {key:self.env[key] for key in self._common_args | {'_args_given'}}
 
     def get_stats(self, stat_re=None, stats_file=None):
@@ -765,9 +770,11 @@ Valid emulators: {}
     def log_error(self, msg):
         print('error: {}'.format(msg), file=sys.stdout)
 
-    def log_info(self, msg, **kwargs):
+    def log_info(self, msg, flush=False, **kwargs):
         if not self.env['quiet']:
             print('{}'.format(msg), **kwargs)
+        if flush:
+            sys.stdout.flush()
 
     def main(self, *args, **kwargs):
         '''
@@ -930,7 +937,7 @@ Valid emulators: {}
             end = '\n'
         else:
             end = ' '
-        self.log_info(test_id_string, end=end)
+        self.log_info(test_id_string, flush=True, end=end)
         return test_id_string
 
     def timed_main(self):

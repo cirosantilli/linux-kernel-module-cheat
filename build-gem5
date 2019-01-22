@@ -24,11 +24,11 @@ class Main(common.BuildCliFunction):
         os.makedirs(disks_dir, exist_ok=True)
         if self.env['gem5_source_dir'] is None:
             if not os.path.exists(os.path.join(self.env['gem5_source_dir'], '.git')):
-                if self.env['gem5_source_dir'] == self.env['gem5_default_src_dir']:
+                if self.env['gem5_source_dir'] == self.env['gem5_default_source_dir']:
                     raise Exception('gem5 submodule not checked out')
                 self.sh.run_cmd([
                     'git', LF,
-                    '-C', self.env['gem5_default_src_dir'], LF,
+                    '-C', self.env['gem5_default_source_dir'], LF,
                     'worktree', 'add', LF,
                     '-b', os.path.join('wt', self.env['gem5_build_id']), LF,
                     self.env['gem5_source_dir'], LF,
@@ -49,20 +49,20 @@ class Main(common.BuildCliFunction):
                 # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
                 pass
         elif self.env['arch'] == 'arm' or self.env['arch'] == 'aarch64':
-            gem5_system_src_dir = os.path.join(self.env['gem5_source_dir'], 'system')
+            gem5_system_source_dir = os.path.join(self.env['gem5_source_dir'], 'system')
 
             # dtb
-            dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
+            dt_source_dir = os.path.join(gem5_system_source_dir, 'arm', 'dt')
             dt_build_dir = os.path.join(self.env['gem5_system_dir'], 'arm', 'dt')
-            self.sh.run_cmd(['make', '-C', dt_src_dir, LF])
+            self.sh.run_cmd(['make', '-C', dt_source_dir, LF])
             self.sh.copy_dir_if_update_non_recursive(
-                srcdir=dt_src_dir,
+                srcdir=dt_source_dir,
                 destdir=dt_build_dir,
                 filter_ext='.dtb',
             )
 
             # Bootloader 32.
-            bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
+            bootloader32_dir = os.path.join(gem5_system_source_dir, 'arm', 'simple_bootloader')
             # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
             self.sh.run_cmd([
                 'make', LF,
@@ -73,7 +73,7 @@ class Main(common.BuildCliFunction):
             self.sh.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
 
             # Bootloader 64.
-            bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
+            bootloader64_dir = os.path.join(gem5_system_source_dir, 'arm', 'aarch64_bootloader')
             # TODO cross_compile is ignored because the make does not use CC...
             self.sh.run_cmd(['make', '-C', bootloader64_dir, LF])
             self.sh.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
@@ -92,9 +92,9 @@ class Main(common.BuildCliFunction):
             cwd=self.env['gem5_source_dir'],
             extra_paths=[self.env['ccache_dir']],
         )
-        term_src_dir = os.path.join(self.env['gem5_source_dir'], 'util/term')
-        m5term_build = os.path.join(term_src_dir, 'm5term')
-        self.sh.run_cmd(['make', '-C', term_src_dir, LF])
+        term_source_dir = os.path.join(self.env['gem5_source_dir'], 'util/term')
+        m5term_build = os.path.join(term_source_dir, 'm5term')
+        self.sh.run_cmd(['make', '-C', term_source_dir, LF])
         if os.path.exists(self.env['gem5_m5term']):
             # Otherwise self.sh.cp would fail with "Text file busy" if you
             # tried to rebuild while running m5term:
