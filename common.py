@@ -944,7 +944,8 @@ Valid emulators: {}
 
     def test_teardown(self, run_object):
         if self.env['dry_run']:
-            self.log_info()
+            if not self.env['verbose']:
+                self.log_info()
         else:
             self.log_info(self.seconds_to_hms(run_object.ellapsed_seconds))
 
