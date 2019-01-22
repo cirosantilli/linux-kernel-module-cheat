@@ -2731,9 +2731,21 @@ src/arch/arm/linux/atag.hh
 
 but they are commented out.
 
-Initramfs just works however, since gem5 does not need to do anything special there, it just dumps the kernel into memory as usual, it just happens to transparently contain a CPIO disk image attached.
+=== gem5 initramfs
 
-We just have to pass a dummy disk image as of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91 since the scripts don't handle a missing `--disk-image` well, much like is currently done for <<baremetal>>.
+This could in theory be easier to make work than initrd since the emulator does not have to do anything special.
+
+However, it didn't: boot fails at the end because it does not see the initramfs, but rather tries to open our dummy root filesystem, which unsurprisingly does not have a format in a way that the kernel understands:
+
+....
+VFS: Cannot open root device "sda" or unknown-block(8,0): error -5
+....
+
+We think that this might be because gem5 boots directly `vmlinux`, and not from the final compressed images that contain the attached rootfs such as `bzImage`, which is what QEMU does, see also: <<vmlinux-vs-bzimage-vs-zimage-vs-image>>.
+
+To do this failed test, we automatically pass a dummy disk image as of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91 since the scripts don't handle a missing `--disk-image` well, much like is currently done for <<baremetal>>.
+
+Interestingly, using initramfs significantly slows down the gem5 boot, even though it did not work. For example, we've observed a 4x slowdown of as 17062a2e8b6e7888a14c3506e9415989362c58bf for aarch64. This must be because expanding the large attached CPIO must be expensive. We can clearly see from the kernel logs that the kernel just hangs at a point after the message `PCI: CLS 0 bytes, default 64` for a long time before proceeding further.
 
 == Device tree
 
