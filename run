@@ -41,10 +41,6 @@ https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-bo
             help='Pass arguments to GDB.'
         )
         self.add_argument(
-            '--dp650', default=False,
-            help='Use the ARM DP650 display processor instead of the default HDLCD on gem5.'
-        )
-        self.add_argument(
             '--dtb',
             help='''\
 Use the specified DTB file. If not given, let the emulator generate a DTB for us,
@@ -357,6 +353,10 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     elif self.env['is_arm']:
                         if self.env['kvm']:
                             cmd.extend(['--cpu-type', 'ArmV8KvmCPU', LF])
+                        if self.env['dp650']:
+                            dp650_cmd = 'dpu_'
+                        else:
+                            dp650_cmd = ''
                         cmd.extend([
                             # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                             # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
@@ -367,7 +367,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         if self.env['dtb'] is not None:
                             dtb = self.env['dtb']
                         elif self.env['dp650']:
-                            dtb = os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}{}cpu.dtb'.format(common.armv, dp650_cmd, self.env['cpus'])), LF,
+                            dtb = os.path.join(self.env['gem5_system_dir'], 'arm', 'dt', 'armv{}_gem5_v1_{}{}cpu.dtb'.format(self.env['armv'], dp650_cmd, self.env['cpus']))
                         if dtb is None:
                             if not self.env['baremetal']:
                                 cmd.extend(['--generate-dtb', LF])
@@ -400,7 +400,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         '--little-cpus', '2', LF,
                     ])
                     if self.env['dtb']:
-                        cmd.extend(['--dtb', os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), NL])
+                        cmd.extend(['--dtb', os.path.join(self.env['gem5_system_dir'], 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), NL])
             if self.env['wait_gdb']:
                 # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
                 cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True', LF])

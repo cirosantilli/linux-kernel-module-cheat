@@ -187,6 +187,10 @@ TODO: implement fully, some stuff is escaping currently.
 
         # Gem5 args.
         self.add_argument(
+            '--dp650', default=False,
+            help='Use the ARM DP650 display processor instead of the default HDLCD on gem5.'
+        )
+        self.add_argument(
             '--gem5-build-dir',
             help='''\
 Use the given directory as the gem5 build directory.
@@ -426,7 +430,10 @@ Valid emulators: {}
             env['gem5_arch'] = 'ARM'
             if env['emulator'] == 'gem5':
                 if not env['_args_given']['machine']:
-                    env['machine'] = 'VExpress_GEM5_V1'
+                    if env['dp650']:
+                        env['machine'] = 'VExpress_GEM5_V1_DPU'
+                    else:
+                        env['machine'] = 'VExpress_GEM5_V1'
             else:
                 if not env['_args_given']['machine']:
                     env['machine'] = 'virt'
