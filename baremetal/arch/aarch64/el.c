@@ -4,8 +4,8 @@
 #include <inttypes.h>
 
 int main(void) {
-    register uint64_t x0 __asm__ ("x0");
-    __asm__ ("mrs x0, CurrentEL;" : : : "%x0");
-    printf("%" PRIu64 "\n", x0 >> 2);
+    uint64_t el;
+    __asm__ ("mrs %0, CurrentEL;" : "=r" (el) : :);
+    printf("%" PRIu64 "\n", el >> 2);
     return 0;
 }

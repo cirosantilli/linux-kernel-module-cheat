@@ -4,8 +4,8 @@
 #include <inttypes.h>
 
 int main(void) {
-    register uint32_t r0 __asm__ ("r0");
-    __asm__ ("mrs r0, CPSR" : : : "%r0");
-    printf("%" PRIu32 "\n", r0 & 0x1F);
+    uint32_t cpsr;
+    __asm__ ("mrs %0, CPSR" : "=r" (cpsr) : :);
+    printf("%" PRIu32 "\n", cpsr & 0x1F);
     return 0;
 }
