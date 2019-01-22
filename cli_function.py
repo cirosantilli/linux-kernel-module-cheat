@@ -41,10 +41,7 @@ class _Argument:
                 self.kwargs['dest'] = dest
             if nargs is not None:
                 self.kwargs['nargs'] = nargs
-            if default is True:
-                bool_action = 'store_false'
-                self.is_bool = True
-            elif default is False:
+            if default is True or default is False:
                 bool_action = 'store_true'
                 self.is_bool = True
             else:
@@ -228,9 +225,7 @@ class CliFunction:
                 new_longname = '--no' + argument.longname[1:]
                 kwargs = argument.kwargs.copy()
                 kwargs['default'] = not argument.default
-                if kwargs['action'] == 'store_false':
-                    kwargs['action'] = 'store_true'
-                elif kwargs['action'] == 'store_true':
+                if kwargs['action'] in ('store_true', 'store_false'):
                     kwargs['action'] = 'store_false'
                 if 'help' in kwargs:
                     del kwargs['help']
@@ -319,7 +314,8 @@ amazing function!
             )
             self.add_argument('-a', '--asdf', default='A', help='Help for asdf'),
             self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
-            self.add_argument('-b', '--bool', default=True, help='Help for bool'),
+            self.add_argument('-b', '--bool-true', default=True, help='Help for bool-true'),
+            self.add_argument('--bool-false', default=False, help='Help for bool-false'),
             self.add_argument('--dest', dest='custom_dest', help='Help for dest'),
             self.add_argument('--bool-cli', default=False, help='Help for bool'),
             self.add_argument('--bool-nargs', default=False, nargs='?', action='store', const='')
@@ -339,7 +335,8 @@ amazing function!
     assert default == {
         'asdf': 'A',
         'qwer': 'Q',
-        'bool': True,
+        'bool_true': True,
+        'bool_false': False,
         'bool_nargs': False,
         'bool_cli': True,
         'custom_dest': None,
@@ -368,12 +365,20 @@ amazing function!
     out['qwer'] = default['qwer']
     assert out == default
 
-    if '--bool':
-        out = one_cli_function(pos_mandatory=1, bool=False)
-        cli_out = one_cli_function.cli(['--bool', '1'])
+    if '--bool-true':
+        out = one_cli_function(pos_mandatory=1, bool_true=False)
+        cli_out = one_cli_function.cli(['--no-bool-true', '1'])
         assert out == cli_out
-        assert out['bool'] == False
-        out['bool'] = default['bool']
+        assert out['bool_true'] == False
+        out['bool_true'] = default['bool_true']
+        assert out == default
+
+    if '--bool-false':
+        out = one_cli_function(pos_mandatory=1, bool_false=True)
+        cli_out = one_cli_function.cli(['--bool-false', '1'])
+        assert out == cli_out
+        assert out['bool_false'] == True
+        out['bool_false'] = default['bool_false']
         assert out == default
 
     if '--bool-nargs':
@@ -428,7 +433,7 @@ amazing function!
     # get_cli
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B', qwer='R') == [('--asdf', 'B'), ('--bool-cli',), ('--qwer', 'R'), ('1',)]
-    assert one_cli_function.get_cli(pos_mandatory=1, bool=False) == [('--bool',), ('--bool-cli',), ('1',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, bool_true=False) == [('--bool-cli',), ('--bool-true',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('2',), ('asdf',), ('qwer',)]
     assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
 
