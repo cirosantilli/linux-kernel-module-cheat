@@ -103,6 +103,7 @@ This is equivalent to:
             },
         )
         buildroot_overlay_qemu_component = copy.copy(buildroot_component)
+        # We need to build QEMU before the final Buildroot to get qemu-img.
         buildroot_overlay_qemu_component.dependencies = ['overlay', 'qemu']
         buildroot_overlay_gem5_component = copy.copy(buildroot_component)
         buildroot_overlay_gem5_component.dependencies = ['overlay-gem5']
@@ -167,6 +168,9 @@ This is equivalent to:
                 dependencies=['crosstool-ng'],
             ),
             'buildroot': buildroot_component,
+            # We need those to avoid cirtulcar dependencies, since we need to run Buildroot
+            # twice: once to get the toolchain, and a second time to put the overlay into
+            # the root filesystem.
             'buildroot-overlay-qemu': buildroot_overlay_qemu_component,
             'buildroot-overlay-gem5': buildroot_overlay_gem5_component,
             'copy-overlay': _Component(
@@ -279,6 +283,9 @@ This is equivalent to:
                 ],
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
+            'user-mode-qemu': _Component(
+                dependencies=['qemu-user', 'userland'],
+            ),
             'userland': _Component(
                 self._build_file('build-userland'),
                 dependencies=['buildroot'],
@@ -286,13 +293,6 @@ This is equivalent to:
         }
         self.component_to_name_map = {self.name_to_component_map[key]:key for key in self.name_to_component_map}
 
-        self.add_argument(
-            '--all',
-            default=False,
-            help='''\
-Build absolutely everything for all archs.
-'''
-        )
         self.add_argument(
             '--download-dependencies',
             default=False,
@@ -342,9 +342,7 @@ Which components to build. Default: qemu-buildroot
 
         # Decide components.
         components = self.env['components']
-        if self.env['all']:
-            components = ['all']
-        elif components == []:
+        if components == []:
             components = ['qemu-buildroot']
         selected_components = []
         for component_name in components:
@@ -356,7 +354,7 @@ Which components to build. Default: qemu-buildroot
                 todo.extend(component.dependencies)
         # Remove duplicates, keep only the first one of each.
         # https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961390#7961390
-        collections.OrderedDict.fromkeys(selected_components)
+        selected_components = collections.OrderedDict.fromkeys(selected_components)
 
         if self.env['download_dependencies']:
             apt_get_pkgs = {
