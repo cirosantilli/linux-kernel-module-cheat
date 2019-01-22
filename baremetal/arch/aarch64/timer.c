@@ -23,7 +23,7 @@
     SYSREG_READ(name, type) \
     SYSREG_WRITE(name, type)
 
-/* Frequency TODO unit? */
+/* Frequency in Hz. ? */
 SYSREG_READ_WRITE(uint64_t, cntfrq_el0)
 
 /* Current virtual counter value. */
