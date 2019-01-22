@@ -1082,7 +1082,7 @@ Stop running at the first failed test.
         passes = []
         fails = []
         for test in self.tests:
-            if test.result == TestResult.PASS:
+            if test.result in (TestResult.PASS, None):
                 passes.append(test)
             else:
                 fails.append(test)
