@@ -6,16 +6,6 @@ import os
 
 import common
 
-def output_reader(proc, file):
-    while True:
-        byte = proc.stdout.read(1)
-        if byte:
-            sys.stdout.buffer.write(byte)
-            sys.stdout.flush()
-            file.buffer.write(byte)
-        else:
-            break
-
 class Main(common.LkmcCliFunction):
     def timed_main(self):
         run = self.import_path('run').Main()
@@ -43,13 +33,11 @@ class Main(common.LkmcCliFunction):
                         emulator=emulator,
                         wait_gdb=True
                     ))
-                    gdb_thread = threading.Thread(target=lambda: run_gdb(
-                        arch=arch, baremetal=test_script_noext, print_time=False, emulator=emulator, test=True
-                    ))
                     run_thread.start()
-                    gdb_thread.start()
+                    run_gdb(
+                        arch=arch, baremetal=test_script_noext, print_time=False, emulator=emulator, test=True
+                    )
                     run_thread.join()
-                    gdb_thread.join()
 
 if __name__ == '__main__':
     Main().cli()
