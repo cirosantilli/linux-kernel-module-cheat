@@ -439,7 +439,11 @@ Valid emulators: {}
                         env['machine'] = 'VExpress_GEM5_V1'
             else:
                 if not env['_args_given']['machine']:
-                    env['machine'] = 'virt'
+                    # highmem=off needed since v3.0.0 due to:
+                    # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+                    env['machine'] = 'virt,highmem=off'
+                    if env['arch'] == 'aarch64':
+                        env['machine'] += ',gic_version=3'
 
         # Buildroot
         env['buildroot_build_dir'] = join(env['buildroot_out_dir'], 'build', env['buildroot_build_id'], env['arch'])

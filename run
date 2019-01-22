@@ -162,7 +162,7 @@ Output trace to stdout instead of a file. Only works for gem5 currently.
 Output to the terminal, don't pipe to tee as the default.
 Does not save the output to a file, but allows you to use debuggers.
 Set automatically by --debug-vm, but you still need this option to debug
-gem5 Python scripts.
+gem5 Python scripts with pdb.
 '''
         )
         self.add_argument(
@@ -475,6 +475,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 cmd.extend(
                     [
                         qemu_executable, LF,
+                        '-machine', self.env['machine'], LF,
                         '-device', 'rtl8139,netdev=net0', LF,
                         '-gdb', 'tcp::{}'.format(self.env['gdb_port']), LF,
                         '-kernel', self.env['image'], LF,
@@ -535,7 +536,6 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 if self.env['arch'] == 'x86_64':
                     append = ['-append', '{} nopat {}'.format(root, kernel_cli), LF]
                     cmd.extend([
-                        '-M', self.env['machine'], LF,
                         '-device', 'edu', LF,
                     ])
                 elif self.env['is_arm']:
@@ -547,9 +547,6 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     append = ['-append', '{} {}'.format(root, kernel_cli), LF]
                     cmd.extend(
                         [
-                            # highmem=off needed since v3.0.0 due to:
-                            # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
-                            '-M', '{},highmem=off'.format(self.env['machine']), LF,
                             '-cpu', cpu, LF,
                         ] +
                         virtio_gpu_pci
