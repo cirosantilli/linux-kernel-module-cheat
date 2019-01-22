@@ -162,6 +162,7 @@ class CliFunction:
         Resolve default arguments from the config file and CLI param defaults.
 
         Add an extra _args_given argument which determines if an argument was given or not.
+        Args set from the config file count as given.
         '''
         args_with_defaults = kwargs.copy()
         # Add missing args from config file.
@@ -189,6 +190,7 @@ class CliFunction:
                     raise Exception('Unknown key in config file: ' + key)
                 if not args_given[key]:
                     args_with_defaults[key] = config_configs[key]
+                    args_given[key] = True
         # Add missing args from hard-coded defaults.
         for key in self._arguments:
             argument = self._arguments[key]
