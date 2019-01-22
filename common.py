@@ -95,7 +95,15 @@ consts['obj_ext'] = '.o'
 consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
 consts['magic_fail_string'] = b'lkmc_test_fail'
 consts['baremetal_lib_basename'] = 'lib'
-consts['emulators'] = ['qemu', 'gem5']
+consts['emulator_short_to_long_dict'] = collections.OrderedDict([
+    ('q', 'qemu'),
+    ('g', 'gem5'),
+])
+consts['all_long_emulators'] = [consts['emulator_short_to_long_dict'][k] for k in consts['emulator_short_to_long_dict']]
+consts['emulator_choices'] = set()
+for key in consts['emulator_short_to_long_dict']:
+    consts['emulator_choices'].add(key)
+    consts['emulator_choices'].add(consts['emulator_short_to_long_dict'][key])
 
 class LkmcCliFunction(cli_function.CliFunction):
     '''
@@ -130,7 +138,12 @@ Run action for all supported --archs archs. Ignore --archs.
 '''.format(arches_string)
         )
         self.add_argument(
-            '-a', '--arch', action='append', default=[consts['default_arch']], dest='archs',
+            '-a',
+            '--arch',
+            action='append',
+            choices=consts['arch_choices'],
+            default=[consts['default_arch']],
+            dest='archs',
             help='''\
 CPU architecture to use. If given multiple times, run the action
 for each arch sequentially in that order. If one of them fails, stop running.
@@ -298,17 +311,29 @@ instances in parallel. Default: the run ID (-n) if that is an integer, otherwise
         )
 
         # Misc.
+        emulators = consts['emulator_short_to_long_dict']
+        emulators_string = []
+        for emulator_short in emulators:
+            emulator_long = emulators[emulator_short]
+            emulators_string.append('{} ({})'.format(emulator_long, emulator_short))
+        emulators_string = ', '.join(emulators_string)
         self.add_argument(
-            '--emulator', choices=consts['emulators'],
+            '--all-emulators', default=False,
             help='''\
-Set the emulator to use. Ignore --gem5.
-'''
+Run action for all supported --emulators emulators. Ignore --emulators.
+'''.format(emulators_string)
         )
         self.add_argument(
-            '-g', '--gem5', default=False,
+            '-e',
+            '--emulator',
+            action='append',
+            choices=consts['emulator_choices'],
+            default=['qemu'],
+            dest='emulators',
             help='''\
-Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
-'''
+Emulator to use. If given multiple times, semantics are similar to --arch.
+Valid emulators: {}
+'''.format(emulators_string)
         )
 
     def __call__(self, **kwargs):
@@ -328,15 +353,10 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         '''
         def join(*paths):
             return os.path.join(*paths)
-        if env['arch'] not in consts['arch_choices']:
-            raise Exception('Unknown arch: ' + env['arch'])
-        if env['emulator'] is None:
-            if env['gem5']:
-                env['emulator'] = 'gem5'
-            else:
-                env['emulator'] = 'qemu'
         if env['arch'] in env['arch_short_to_long_dict']:
             env['arch'] = env['arch_short_to_long_dict'][env['arch']]
+        if env['emulator'] in env['emulator_short_to_long_dict']:
+            env['emulator'] = env['emulator_short_to_long_dict'][env['emulator']]
         if env['userland_build_id'] is None:
             env['userland_build_id'] = env['default_build_id']
             env['userland_build_id_given'] = False
@@ -722,19 +742,23 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         env.update(consts)
         if env['all_archs']:
             env['archs'] = consts['all_long_archs']
-        for arch in env['archs']:
-            if not env['dry_run']:
-                start_time = time.time()
-            env['arch'] = arch
-            self.env = env.copy()
-            self._init_env(self.env)
-            self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
-            ret = self.timed_main()
-            if not env['dry_run']:
-                end_time = time.time()
-                self._print_time(end_time - start_time)
-            if ret is not None and ret != 0:
-                return ret
+        if env['all_emulators']:
+            env['emulators'] = consts['all_long_emulators']
+        for emulator in env['emulators']:
+            for arch in env['archs']:
+                if not env['dry_run']:
+                    start_time = time.time()
+                env['arch'] = arch
+                env['emulator'] = emulator
+                self.env = env.copy()
+                self._init_env(self.env)
+                self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
+                ret = self.timed_main()
+                if not env['dry_run']:
+                    end_time = time.time()
+                    self._print_time(end_time - start_time)
+                if ret is not None and ret != 0:
+                    return ret
         return 0
 
     def make_build_dirs(self):

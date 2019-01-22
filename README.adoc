@@ -342,7 +342,7 @@ If you haven't built Buildroot yet for <<qemu-buildroot-setup>>, you can build f
 
 ....
 ./build --download-dependencies gem5-buildroot
-./run --gem5
+./run --emulator gem5
 ....
 
 If you have already built previously, don't be afraid: gem5 and QEMU use almost the same root filesystem and kernel, so `./build` will be fast.
@@ -364,7 +364,7 @@ You can quit the shell without killing gem5 by typing tilde followed by a period
 If you are inside <<tmux>>, which I highly recommend, you can both run gem5 stdout and open the guest terminal on a split window with:
 
 ....
-./run --gem5 --tmux
+./run --emulator gem5 --tmux
 ....
 
 See also: <<tmux-gem5>>.
@@ -381,7 +381,7 @@ but if you look closely, the `PS1` prompt marker `#` is there already, just hit 
 If you forgot to open the shell and gem5 exit, you can inspect the terminal output post-mortem at:
 
 ....
-less "$(./getvar --gem5 m5out_dir)/system.pc.com_1.device"
+less "$(./getvar --emulator gem5 m5out_dir)/system.pc.com_1.device"
 ....
 
 More gem5 information is present at: <<gem5>>
@@ -570,7 +570,7 @@ For gem5, do:
 git submodule update --init --depth 1 "$(./getvar linux_source_dir)"
 sudo apt-get install qemu-utils
 ./build-gem5
-./run --gem5 --prebuilt
+./run --emulator gem5 --prebuilt
 ....
 
 `qemu-utils` is required because we currently distribute `.qcow2` files which <<gem5-qcow2,gem5 can't handle>>, so we need `qemu-img` to extract them first.
@@ -783,7 +783,7 @@ To use gem5 instead of QEMU do:
 
 ....
 ./build --download-dependencies gem5-baremetal
-./run --arch aarch64 --baremetal interactive/prompt --gem5
+./run --arch aarch64 --baremetal interactive/prompt --emulator gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -798,14 +798,14 @@ Note that `./build-baremetal` requires the `--gem5` option, and generates separa
 
 ....
 echo "$(./getvar --arch aarch64 --baremetal interactive/prompt        image)"
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
 
 ....
 echo "$(./getvar --arch aarch64        image)"
-echo "$(./getvar --arch aarch64 --gem5 image)"
+echo "$(./getvar --arch aarch64 --emulator gem5 image)"
 ....
 
 The reason for that is that on baremetal we don't parse the <<device-tree,device tress>> from memory like the Linux kernel does, which tells the kernel for example the UART address, and many other system parameters.
@@ -813,15 +813,15 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 `gem5` also supports the `RealViewPBX` machine, which represents an older hardware compared to the default `VExpress_GEM5_V1`:
 
 ....
-./build-baremetal --arch aarch64 --gem5 --machine RealViewPBX
-./run --arch aarch64 --baremetal interactive/prompt --gem5 --machine RealViewPBX
+./build-baremetal --arch aarch64 --emulator gem5 --machine RealViewPBX
+./run --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
@@ -990,7 +990,7 @@ Bibliography: https://unix.stackexchange.com/questions/152738/how-to-split-a-new
 If you are using gem5 instead of QEMU, `--tmux` has a different effect: it opens the gem5 terminal instead of the debugger:
 
 ....
-./run --gem5 --tmux
+./run --emulator gem5 --tmux
 ....
 
 If you also want to use the debugger with gem5, you will need to create new terminals as usual.
@@ -1001,7 +1001,7 @@ To see the debugger by default instead of the terminal, run:
 
 ....
 ./tmu ./run-gdb
-./run --wait-gdb --gem5
+./run --wait-gdb --emulator gem5
 ....
 
 === GDB step debug kernel module
@@ -3041,7 +3041,7 @@ So let's just play with some static ones:
 ;
 ./run \
   --arch aarch64 \
-  --gem5 \
+  --emulator gem5 \
   --userland print_argv \
   --userland-args 'asdf "qw er"' \
 ;
@@ -3054,7 +3054,7 @@ Step debug also works:
 ....
 ./run \
   --arch aarch64 \
-  --gem5 \
+  --emulator gem5 \
   --userland print_argv \
   --userland-args 'asdf "qw er"' \
   --userland-build-id static \
@@ -3062,7 +3062,7 @@ Step debug also works:
 ;
 ./run-gdb \
   --arch aarch64 \
-  --gem5 \
+  --emulator gem5 \
   --userland print_argv \
   --userland-build-id static \
   main \
@@ -3074,7 +3074,7 @@ Step debug also works:
 As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy `se.py` script does not forward the exit status of syscall emulation mode, you can test it with:
 
 ....
-./run --dry-run --gem5 --userland false --userland-build-id static
+./run --dry-run --emulator gem5 --userland false --userland-build-id static
 ....
 
 Source: link:userland/false[].
@@ -3112,7 +3112,7 @@ make \
 time \
   ./run \
   --arch arm \
-  --gem5 \
+  --emulator gem5 \
   --userland "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
   --userland-args 'asdf qwer' \
 ;
@@ -3125,7 +3125,7 @@ time \
   ./run \
   --arch arm \
   --eval-after '/gem5.sh' \
-  --gem5
+  --emulator gem5
   --gem5-readfile 'dhrystone 100000' \
 ;
 ....
@@ -3158,9 +3158,9 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 Automatically run non-interactive userland tests that don't depend on nay kernel modules:
 
 ....
-./build-userland --all-archs
-./build-userland --all-archs --static --userland-build-id static
-./test-userland --all-archs
+./build-userland --all-archs --all-emulators
+./build-userland --all-archs --all-emulators --static --userland-build-id static
+./test-userland --all-archs --all-emulators
 ....
 
 Source: link:test-userland[]
@@ -3547,7 +3547,7 @@ More concretely, first build the kernel with the <<gem5-arm-linux-kernel-patches
   --custom-config-file-gem5 \
   --linux-build-id gem5-v4.15 \
 ;
-./run --arch arm --gem5 --linux-build-id gem5-v4.15
+./run --arch arm --emulator gem5 --linux-build-id gem5-v4.15
 ....
 
 and then on another shell:
@@ -3585,7 +3585,7 @@ Alternatively, you can also dump each new frame to an image file with `--frame-c
 ....
 ./run \
   --arch arm \
-  --gem5 \
+  --emulator gem5 \
   --linux-build-id gem5-v4.15 \
   -- --frame-capture \
 ;
@@ -3623,7 +3623,7 @@ git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_source_dir)" checkout -
-./run --arch aarch64 --gem5 --linux-build-id gem5-v4.15
+./run --arch aarch64 --emulator gem5 --linux-build-id gem5-v4.15
 ....
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
@@ -3639,7 +3639,7 @@ The key option to enable support in Linux is `DRM_MALI_DISPLAY=y` which we enabl
 Build the kernel exactly as for <<graphic-mode-gem5-aarch64>> and then run with:
 
 ....
-./run --arch aarch64 --dp650 --gem5 --linux-build-id gem5-v4.15
+./run --arch aarch64 --dp650 --emulator gem5 --linux-build-id gem5-v4.15
 ....
 
 ==== Graphic mode gem5 internals
@@ -6733,9 +6733,9 @@ instructions_firmware 20708
 gem5:
 
 ....
-./run --arch aarch64 --gem5 --eval 'm5 exit'
+./run --arch aarch64 --emulator gem5 --eval 'm5 exit'
 # Or:
-# ./run --arch aarch64 --gem5 --eval 'm5 exit' -- --cpu-type=HPI --caches
+# ./run --arch aarch64 --emulator gem5 --eval 'm5 exit' -- --cpu-type=HPI --caches
 ./gem5-stat --arch aarch64 sim_insts
 ....
 
@@ -8281,7 +8281,7 @@ You can still send key presses to QEMU however even without the mouse capture, j
 Start pdb at the first instruction:
 
 ....
-./run --gem5 --gem5-exe-args='--pdb' --terminal
+./run --emulator gem5 --gem5-exe-args='--pdb' --terminal
 ....
 
 Requires `--terminal` as we must be on foreground.
@@ -8295,7 +8295,7 @@ import ipdb; ipdb.set_trace()
 and then run with:
 
 ....
-./run --gem5 --terminal
+./run --emulator gem5 --terminal
 ....
 
 TODO test PyCharm: https://stackoverflow.com/questions/51982735/writing-gem5-configuration-scripts-with-pycharm
@@ -8565,14 +8565,14 @@ just appears to output both cores intertwined without any clear differentiation.
 gem5 provides also provides a tracing mechanism documented at: link:http://www.gem5.org/Trace_Based_Debugging[]:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --trace Exec
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace Exec
 less "$(./getvar --arch aarch64 run_dir)/trace.txt"
 ....
 
 Output the trace to stdout instead of a file:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --trace Exec --trace-stdout
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace Exec --trace-stdout
 ....
 
 This would produce a lot of output however, so you will likely not want that when tracing a Linux kernel boot instructions. But it can be very convenient for smaller traces.
@@ -8580,7 +8580,7 @@ This would produce a lot of output however, so you will likely not want that whe
 List all available debug flags:
 
 ....
-./run --arch aarch64 --gem5-exe-args='--debug-help' --gem5
+./run --arch aarch64 --gem5-exe-args='--debug-help' --emulator gem5
 ....
 
 but to understand most of them you have to look at the source code:
@@ -8633,8 +8633,8 @@ The best way to verify all of this is to write some <<baremetal,baremetal code>>
 Trace the source lines just like <<trace-source-lines,for QEMU>> with:
 
 ....
-./trace-boot --arch aarch64 --gem5
-./trace2line --arch aarch64 --gem5
+./trace-boot --arch aarch64 --emulator gem5
+./trace2line --arch aarch64 --emulator gem5
 less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"
 ....
 
@@ -8743,7 +8743,7 @@ Another interesting example can be found at: link:gem5-bench-cache[].
 A more naive and simpler to understand approach would be a direct:
 
 ....
-./run --arch aarch64 --gem5 --eval 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
+./run --arch aarch64 --emulator gem5 --eval 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
 ....
 
 but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-script>>.
@@ -8781,7 +8781,7 @@ The rabbit hole is likely deep, but let's scratch a bit of the surface.
 ===== Number of cores
 
 ....
-./run --arch arm --cpus 2 --gem5
+./run --arch arm --cpus 2 --emulator gem5
 ....
 
 Check with:
@@ -8801,7 +8801,7 @@ Build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
 ./run \
   --arch aarch64 \
   --linux-build-id gem5-v4.15 \
-  --gem5 \
+  --emulator gem5 \
   --cpus 16 \
   -- \
   --param 'system.realview.gic.gem5_extensions = True' \
@@ -8812,7 +8812,7 @@ Build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
 
 https://stackoverflow.com/questions/49624061/how-to-run-gem5-simulator-in-fs-mode-without-cache/49634544#49634544
 
-A quick `+./run --gem5 -- -h+` leads us to the options:
+A quick `+./run --emulator gem5 -- -h+` leads us to the options:
 
 ....
 --caches
@@ -8879,37 +8879,37 @@ cat "$(./getvar --arch aarch64 run_dir)/bench-cache.txt"
 which gives:
 
 ....
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 23.82
 exit_status 0
 cycles 93284622
 instructions 4393457
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 14.91
 exit_status 0
 cycles 10128985
 instructions 4211458
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 51.87
 exit_status 0
 cycles 188803630
 instructions 12401336
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 35.35
 exit_status 0
 cycles 20715757
 instructions 12192527
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 339.07
 exit_status 0
 cycles 1176559936
 instructions 94222791
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 240.37
 exit_status 0
 cycles 125666679
@@ -8963,7 +8963,7 @@ and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
 Clock frequency: TODO how does it affect performance in benchmarks?
 
 ....
-./run --arch aarch64 --gem5 -- --cpu-clock 10000000
+./run --arch aarch64 --emulator gem5 -- --cpu-clock 10000000
 ....
 
 Check with:
@@ -9011,10 +9011,10 @@ Usage:
 ./run \
   --arch aarch64 \
   --eval-after '/gem5.sh' \
-  --gem5 \
+  --emulator gem5 \
   --gem5-readfile '/bst_vs_heap.out' \
 ;
-./bst-vs-heap --arch aarch64 --gem5 > bst_vs_heap.dat
+./bst-vs-heap --arch aarch64 --emulator gem5 > bst_vs_heap.dat
 ....
 
 and then feed `bst_vs_heap.dat` into: https://github.com/cirosantilli/cpp-cheat/blob/9d0f77792fc8e55b20b6ee32018761ef3c5a3f2f/cpp/interactive/bst_vs_heap.gnuplot
@@ -9116,7 +9116,7 @@ There are two ways to run PARSEC with this repo:
 ....
 ./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
 ./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
@@ -9270,7 +9270,7 @@ You may also want to test if your patches are still functionally correct inside 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
 ....
-./run --arch arm --kernel-cli 'init=/poweroff.out' --gem5
+./run --arch arm --kernel-cli 'init=/poweroff.out' --emulator gem5
 ....
 
 Internals: when we give `--command-line=` to gem5, it overrides default command lines, including some mandatory ones which are required to boot properly.
@@ -9280,7 +9280,7 @@ Our run script hardcodes the require options in the default `--command-line` and
 To find the default options in the first place, we removed `--command-line` and ran:
 
 ....
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 and then looked at the line of the Linux kernel that starts with:
@@ -9296,13 +9296,13 @@ Kernel command line:
 Analogous <<gdb,to QEMU>>, on the first shell:
 
 ....
-./run --arch arm --wait-gdb --gem5
+./run --arch arm --wait-gdb --emulator gem5
 ....
 
 On the second shell:
 
 ....
-./run-gdb --arch arm --gem5
+./run-gdb --arch arm --emulator gem5
 ....
 
 On a third shell:
@@ -9335,7 +9335,7 @@ I press `n`, it just runs the program until the end, instead of stopping on the 
 TODO:
 
 ....
-./run-gdb-user --arch arm --gem5 gem5-1.0/gem5/util/m5/m5 main
+./run-gdb-user --arch arm --emulator gem5 gem5-1.0/gem5/util/m5/m5 main
 ....
 
 breaks when `m5` is run on guest, but does not show the source code.
@@ -9347,7 +9347,7 @@ Analogous to QEMU's <<snapshot>>, but better since it can be started from inside
 Documentation: http://gem5.org/Checkpoints
 
 ....
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 In the guest, wait for the boot to end and run:
@@ -9361,7 +9361,7 @@ where <<m5>> is a guest utility present inside the gem5 tree which we cross-comp
 To restore the checkpoint, kill the VM and run:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1
+./run --arch arm --emulator gem5 --gem5-restore 1
 ....
 
 The `--gem5-restore` option restores the checkpoint that was created most recently.
@@ -9376,7 +9376,7 @@ m5 checkpoint
 Kill the VM, and try it out:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1
+./run --arch arm --emulator gem5 --gem5-restore 1
 ....
 
 Here we use `--gem5-restore 1` again, since the second snapshot we took is now the most recent one
@@ -9392,13 +9392,13 @@ contains the `date`. The file `f` wouldn't exist had we used the first checkpoin
 If you automate things with <<kernel-command-line-parameters>> as in:
 
 ....
-./run --arch arm --eval 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' --gem5
+./run --arch arm --eval 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' --emulator gem5
 ....
 
 Then there is no need to pass the kernel command line again to gem5 for replay:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1
+./run --arch arm --emulator gem5 --gem5-restore 1
 ....
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
@@ -9408,7 +9408,7 @@ since boot has already happened, and the parameters are already in the RAM of th
 Checkpoints are stored inside the <<m5out-directory>> at:
 
 ....
-"$(./getvar --gem5 m5out_dir)/cpt.<checkpoint-time>"
+"$(./getvar --emulator gem5 m5out_dir)/cpt.<checkpoint-time>"
 ....
 
 where `<checkpoint-time>` is the cycle number at which the checkpoint was taken.
@@ -9438,19 +9438,19 @@ So we can do it like:
 ....
 # Boot, checkpoint and exit.
 printf 'echo "setup run";m5 exit' > "$(./getvar gem5_readfile)"
-./run --gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 
 # Restore and run the first benchmark.
 printf 'echo "first benchmark";m5 exit' > "$(./getvar gem5_readfile)"
-./run --gem5 --gem5-restore 1
+./run --emulator gem5 --gem5-restore 1
 
 # Restore and run the second benchmark.
 printf 'echo "second benchmark";m5 exit' > "$(./getvar gem5_readfile)"
-./run --gem5 --gem5-restore 1
+./run --emulator gem5 --gem5-restore 1
 
 # If something weird happened, create an interactive shell to examine the system.
 printf 'sh' > "$(./getvar gem5_readfile)"
-./run --gem5 --gem5-restore 1
+./run --emulator gem5 --gem5-restore 1
 ....
 
 Since this is such a common setup, we provide some helpers for it as described at <<gem5-run-benchmark>>:
@@ -9487,7 +9487,7 @@ A common combo is to boot Linux with a fast CPU, make a checkpoint and then repl
 An illustrative interactive run:
 
 ....
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 In guest:
@@ -9499,7 +9499,7 @@ m5 checkpoint
 And then restore the checkpoint with a different CPU:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1 -- --caches --restore-with-cpu=HPI
+./run --arch arm --emulator gem5 --gem5-restore 1 -- --caches --restore-with-cpu=HPI
 ....
 
 === Pass extra options to gem5
@@ -9509,12 +9509,12 @@ Pass options to the `fs.py` script:
 * get help:
 +
 ....
-./run --gem5 -- -h
+./run --emulator gem5 -- -h
 ....
 * boot with the more detailed and slow `HPI` CPU model:
 +
 ....
-./run --arch arm --gem5 -- --caches --cpu-type=HPI
+./run --arch arm --emulator gem5 -- --caches --cpu-type=HPI
 ....
 
 Pass options to the `gem5` executable itself:
@@ -9522,7 +9522,7 @@ Pass options to the `gem5` executable itself:
 * get help:
 +
 ....
-./run --gem5-exe-args='-h' --gem5
+./run --gem5-exe-args='-h' --emulator gem5
 ....
 
 === gem5 exit after a number of instructions
@@ -9530,7 +9530,7 @@ Pass options to the `gem5` executable itself:
 Quit the simulation after `1024` instructions:
 
 ....
-./run --gem5 -- -I 1024
+./run --emulator gem5 -- -I 1024
 ....
 
 Can be nicely checked with <<gem5-tracing>>.
@@ -9538,7 +9538,7 @@ Can be nicely checked with <<gem5-tracing>>.
 Cycles instead of instructions:
 
 ....
-./run --gem5 -- --memory 1024
+./run --emulator gem5 -- --memory 1024
 ....
 
 Otherwise the simulation runs forever by default.
@@ -9619,7 +9619,7 @@ m5 writefile myfileguest myfilehost
 Host:
 
 ....
-cat "$(./getvar --arch aarch64 --gem5 m5out_dir)/myfilehost"
+cat "$(./getvar --arch aarch64 --emulator gem5 m5out_dir)/myfilehost"
 ....
 
 Does not work for subdirectories, gem5 crashes:
@@ -9655,8 +9655,8 @@ Ermm, just another <<m5-readfile>> that only takes integers and only from CLI op
 Host:
 
 ....
-./run --gem5 --gem5-restore 1 -- --initparam 13
-./run --gem5 --gem5-restore 1 -- --initparam 42
+./run --emulator gem5 --gem5-restore 1 -- --initparam 13
+./run --emulator gem5 --gem5-restore 1 -- --initparam 42
 ....
 
 Guest:
@@ -9831,7 +9831,7 @@ It is obviously not possible to understand what they actually do from their comm
 When you run gem5, it generates an `m5out` directory at:
 
 ....
-echo $(./getvar --arch arm --gem5 m5out_dir)"
+echo $(./getvar --arch arm --emulator gem5 m5out_dir)"
 ....
 
 The location of that directory can be set with `./gem5.opt -d`, and defaults to `./m5out`.
@@ -9874,7 +9874,7 @@ Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCyc
 
 ....
 ./build-userland -- rdtsc
-./run --eval '/rdtsc.out;m5 exit;' --gem5
+./run --eval '/rdtsc.out;m5 exit;' --emulator gem5
 ./gem5-stat
 ....
 
@@ -9907,7 +9907,7 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_m
 The `config.ini` file, contains a very good high level description of the system:
 
 ....
-less $(./getvar --arch arm --gem5 m5out_dir)"
+less $(./getvar --arch arm --emulator gem5 m5out_dir)"
 ....
 
 That file contains a tree representation of the system, sample excerpt:
@@ -9945,7 +9945,7 @@ For example, `AtomicSimpleCPU` maps is defined at link:https://github.com/gem5/g
 You can also get a simplified graphical view of the tree with:
 
 ....
-xdg-open "$(./getvar --arch arm --gem5 m5out_dir)/config.dot.pdf"
+xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.pdf"
 ....
 
 Modifying the `config.ini` file manually does nothing since it gets overwritten every time.
@@ -10004,7 +10004,7 @@ patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-biglittle.patc
 then:
 
 ....
-./run --arch aarch64 --gem5 --gem5-script biglittle
+./run --arch aarch64 --emulator gem5 --gem5-script biglittle
 ....
 
 Advantages over `fs.py`:
@@ -10632,18 +10632,18 @@ TODO: why is `arm` stuck at `19` which equals Supervisor mode?
 In gem5, you can configure the lowest EL with:
 
 ....
-./run --arch arm --baremetal arch/arm/el --gem5
-cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal arch/arm/el --gem5 -- --param 'system.have_virtualization = True'
-cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal arch/arm/el --gem5 -- --param 'system.have_security = True'
-cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --gem5
-cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --gem5 -- --param 'system.have_virtualization = True'
-cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --gem5 -- --param 'system.have_security = True'
-cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --emulator gem5
+cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --emulator gem5 -- --param 'system.have_virtualization = True'
+cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --emulator gem5 -- --param 'system.have_security = True'
+cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5
+cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5 -- --param 'system.have_virtualization = True'
+cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5 -- --param 'system.have_security = True'
+cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
 ....
 
 output:
@@ -10661,9 +10661,9 @@ output:
 
 ....
 ./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --gem5
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --emulator gem5
 ./run --arch arm --baremetal arch/aarch64/multicore --cpus 2
-./run --arch arm --baremetal arch/aarch64/multicore --cpus 2 --gem5
+./run --arch arm --baremetal arch/aarch64/multicore --cpus 2 --emulator gem5
 ....
 
 Sources:
@@ -10686,7 +10686,7 @@ and watch it hang forever.
 Note that if you try the same thing on gem5:
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1 --gem5
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1 --emulator gem5
 ....
 
 then the gem5 actually exits, but with a different message:
@@ -10977,7 +10977,7 @@ time 8.83
 exit_status 0
 instructions 2244297
 
-cmd ./run --arch x86_64 --eval 'm5 exit' --gem5
+cmd ./run --arch x86_64 --eval 'm5 exit' --emulator gem5
 time 213.39
 exit_status 0
 instructions 318486337
@@ -10990,12 +10990,12 @@ time 6.90
 exit_status 0
 instructions 776374
 
-cmd ./run --arch arm --eval 'm5 exit' --gem5
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5
 time 118.46
 exit_status 0
 instructions 153023392
 
-cmd ./run --arch arm --eval 'm5 exit' --gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
 time 2250.40
 exit_status 0
 instructions 151981914
@@ -11009,22 +11009,22 @@ time 5.04
 exit_status 0
 instructions 233162
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5
 time 70.89
 exit_status 0
 instructions 124346081
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
 time 381.86
 exit_status 0
 instructions 124564620
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 --gem5-build-type fast
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --gem5-build-type fast
 time 58.00
 exit_status 0
 instructions 124346081
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 --gem5-build-type debug
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --gem5-build-type debug
 time 1022.03
 exit_status 0
 instructions 124346081
@@ -11037,7 +11037,7 @@ TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction 
 TODO 62f6870e4e0b384c4bd2d514116247e81b241251 takes 33 minutes to finish at 62f6870e4e0b384c4bd2d514116247e81b241251:
 
 ....
-cmd ./run --arch arm --eval 'm5 exit' --gem5 -- --caches --cpu-type=HPI
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5 -- --caches --cpu-type=HPI
 ....
 
 while aarch64 only 7 minutes.
@@ -11138,7 +11138,7 @@ Sample results at gem5 2a9573f5942b5416fb0570cf5cb6cdecba733392: 10 to 12 minute
 Get results with:
 
 ....
-./bench-all --gem5
+./bench-all --emulator gem5
 tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt
 ....
 
@@ -11420,22 +11420,22 @@ Our scripts solve two difficulties with simultaneous runs:
 Each run gets a separate output directory. For example:
 
 ....
-./run --arch aarch64 --gem5 --run-id 0 &>/dev/null &
-./run --arch aarch64 --gem5 --run-id 1 &>/dev/null &
+./run --arch aarch64 --emulator gem5 --run-id 0 &>/dev/null &
+./run --arch aarch64 --emulator gem5 --run-id 1 &>/dev/null &
 ....
 
 produces two separate <<m5out-directory,`m5out` directories>>:
 
 ....
-echo "$(./getvar --arch aarch64 --gem5 --run-id 0 m5out_dir)"
-echo "$(./getvar --arch aarch64 --gem5 --run-id 1 m5out_dir)"
+echo "$(./getvar --arch aarch64 --emulator gem5 --run-id 0 m5out_dir)"
+echo "$(./getvar --arch aarch64 --emulator gem5 --run-id 1 m5out_dir)"
 ....
 
 and the gem5 host executable stdout and stderr can be found at:
 
 ....
-less "$(./getvar --arch aarch64 --gem5 --run-id 0 termout_file)"
-less "$(./getvar --arch aarch64 --gem5 --run-id 1 termout_file)"
+less "$(./getvar --arch aarch64 --emulator gem5 --run-id 0 termout_file)"
+less "$(./getvar --arch aarch64 --emulator gem5 --run-id 1 termout_file)"
 ....
 
 Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
@@ -11443,7 +11443,7 @@ Each line is prepended with the timestamp in seconds since the start of the prog
 To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
 
 ....
-./run --arch aarch64 --gem5 --run-id some-experiment --port-offset 1
+./run --arch aarch64 --emulator gem5 --run-id some-experiment --port-offset 1
 ....
 
 `--port-offset` defaults to the run ID when that is a number.
@@ -11540,11 +11540,11 @@ git -C "$(./getvar gem5_source_dir)" checkout some-branch
 git -C "$(./getvar gem5_source_dir)" checkout -
 
 # Run master.
-./run --gem5
+./run --emulator gem5
 
 # Run another branch.
 git -C "$(./getvar gem5_source_dir)" checkout some-branch
-./run --gem5-build-id some-branch --gem5
+./run --gem5-build-id some-branch --emulator gem5
 ....
 
 Don't forget however that gem5 has Python scripts in its source code tree, and that those must match the source code of a given build.
@@ -11569,11 +11569,11 @@ cd -
 ./build-gem5 --gem5-worktree my-new-feature
 
 # Run the submodule.
-./run --gem5 --run-id 0 &>/dev/null &
+./run --emulator gem5 --run-id 0 &>/dev/null &
 
 # Run the branch the need to check out anything.
 # With --gem5-worktree, we can do both runs at the same time!
-./run --gem5 --gem5-worktree my-new-feature --run-id 1 &>/dev/null &
+./run --emulator gem5 --gem5-worktree my-new-feature --run-id 1 &>/dev/null &
 ....
 
 `--gem5-worktree <worktree-id>` automatically creates:
@@ -11628,7 +11628,7 @@ The `gem5.debug` executable has optimizations turned off unlike the default `gem
 
 ....
 ./build-gem5 --arch aarch64 --gem5-build-type debug
-./run --arch aarch64 --debug-vm --gem5 --gem5-build-type debug
+./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug
 ....
 
 The build outputs are automatically stored in a different directory from other build types such as `.opt` build, which prevents `.debug` files from overwriting `.opt` ones.
@@ -11638,8 +11638,8 @@ Therefore, `--gem5-build-id` is not required.
 The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16 --gem5-build-type debug
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug
 ....
 
 so you will likely only use this when it is unavoidable.
@@ -11884,7 +11884,7 @@ We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests fo
 
 ....
 ./build-test-gdb && \
-./test-gdb --all-archs
+./test-gdb --all-archs --all-emulators
 ....
 
 Sources:

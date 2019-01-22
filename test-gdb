@@ -21,41 +21,40 @@ found by searching for the Python test files.
     def timed_main(self):
         run = self.import_path('run').Main()
         run_gdb = self.import_path('run-gdb').Main()
-        for emulator in self.env['emulators']:
-            if self.env['arch'] in self.env['crosstool_ng_supported_archs']:
-                if self.env['tests'] == []:
-                    test_scripts_noext = []
-                    for f in os.listdir(self.env['baremetal_src_dir']):
+        if self.env['arch'] in self.env['crosstool_ng_supported_archs']:
+            if self.env['tests'] == []:
+                test_scripts_noext = []
+                for f in os.listdir(self.env['baremetal_src_dir']):
+                    base, ext = os.path.splitext(f)
+                    if ext == '.py':
+                        test_scripts_noext.append(base)
+                for root, dirs, files in os.walk(os.path.join(self.env['baremetal_src_dir'], 'arch', self.env['arch'])):
+                    for f in files:
                         base, ext = os.path.splitext(f)
                         if ext == '.py':
-                            test_scripts_noext.append(base)
-                    for root, dirs, files in os.walk(os.path.join(self.env['baremetal_src_dir'], 'arch', self.env['arch'])):
-                        for f in files:
-                            base, ext = os.path.splitext(f)
-                            if ext == '.py':
-                                full_path = os.path.join(root, base)
-                                relpath = os.path.relpath(full_path, self.env['baremetal_src_dir'])
-                                test_scripts_noext.append(relpath)
-                else:
-                    test_scripts_noext = self.env['tests']
-                for test_script_noext in test_scripts_noext:
-                    run_thread = threading.Thread(target=lambda: run(
-                        archs=[self.env['arch']],
-                        background=True,
-                        baremetal=test_script_noext,
-                        dry_run=self.env['dry_run'],
-                        emulator=emulator,
-                        wait_gdb=True
-                    ))
-                    run_thread.start()
-                    run_gdb(
-                        archs=[self.env['arch']],
-                        baremetal=test_script_noext,
-                        dry_run=self.env['dry_run'],
-                        emulator=emulator,
-                        test=True,
-                    )
-                    run_thread.join()
+                            full_path = os.path.join(root, base)
+                            relpath = os.path.relpath(full_path, self.env['baremetal_src_dir'])
+                            test_scripts_noext.append(relpath)
+            else:
+                test_scripts_noext = self.env['tests']
+            for test_script_noext in test_scripts_noext:
+                run_thread = threading.Thread(target=lambda: run(
+                    archs=[self.env['arch']],
+                    background=True,
+                    baremetal=test_script_noext,
+                    dry_run=self.env['dry_run'],
+                    emulators=self.env['emulator'],
+                    wait_gdb=True
+                ))
+                run_thread.start()
+                run_gdb(
+                    archs=[self.env['arch']],
+                    baremetal=test_script_noext,
+                    dry_run=self.env['dry_run'],
+                    emulators=self.env['emulator'],
+                    test=True,
+                )
+                run_thread.join()
 
 if __name__ == '__main__':
     Main().cli()
