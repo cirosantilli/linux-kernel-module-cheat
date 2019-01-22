@@ -130,10 +130,11 @@ class CliFunction:
     def _do_main(self, kwargs):
         return self.main(**self._get_args(kwargs))
 
-    def __init__(self, config_file=None, description=None):
+    def __init__(self, config_file=None, description=None, extra_config_params=None):
         self._arguments = collections.OrderedDict()
         self._config_file = config_file
         self._description = description
+        self.extra_config_params = extra_config_params
         if self._config_file is not None:
             self.add_argument(
                 '--config-file',
@@ -155,7 +156,10 @@ class CliFunction:
         if config_file is not None and os.path.exists(config_file):
             config_configs = {}
             config = imp.load_source('config', config_file)
-            config.set_args(config_configs)
+            if self.extra_config_params is None:
+                config.set_args(config_configs)
+            else:
+                config.set_args(config_configs, self.extra_config_params)
             for key in config_configs:
                 if key not in self._arguments:
                     raise Exception('Unknown key in config file: ' + key)

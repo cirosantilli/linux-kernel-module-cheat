@@ -108,6 +108,7 @@ class LkmcCliFunction(cli_function.CliFunction):
         :param defaults: override the default value of an argument
         '''
         kwargs['config_file'] = consts['config_file']
+        kwargs['extra_config_params'] = os.path.basename(inspect.getfile(self.__class__))
         if defaults is None:
             defaults = {}
         self._defaults = defaults
@@ -294,7 +295,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         '''
         For Python code calls, print the CLI equivalent of the call.
         '''
-        print_cmd = ['./' + inspect.getfile(self.__class__), LF]
+        print_cmd = ['./' + self.extra_config_params, LF]
         for line in self.get_cli(**kwargs):
             print_cmd.extend(line)
             print_cmd.append(LF)
