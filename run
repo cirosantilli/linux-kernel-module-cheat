@@ -33,6 +33,12 @@ https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-bo
             help='Number of guest CPUs to emulate. Default: %(default)s'
         )
         self.add_argument(
+            '--ctrl-c-host', default=False,
+            help='''\
+Ctrl +C kills the QEMU simulator instead of being passed to the guest.
+'''
+        )
+        self.add_argument(
             '-D', '--debug-vm', default=False,
             help='Run GDB on the emulator itself.'
         )
@@ -446,7 +452,11 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         if self.env['quiet']:
                             show_stdout = False
                     else:
-                        serial_monitor = ['-serial', 'mon:stdio', LF]
+                        if self.env['ctrl_c_host']:
+                            serial = 'stdio'
+                        else:
+                            serial = 'mon:stdio'
+                        serial_monitor = ['-serial', serial, LF]
                 if self.env['kvm']:
                     extra_emulator_args.extend(['-enable-kvm', LF])
                 extra_emulator_args.extend(['-serial', 'tcp::{},server,nowait'.format(self.env['extra_serial_port']), LF])

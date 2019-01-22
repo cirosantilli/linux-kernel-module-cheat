@@ -5,7 +5,7 @@ import sys
 
 import common
 
-class Main(common.LkmcCliFunction):
+class Main(common.TestCliFunction):
     def __init__(self):
         super().__init__(
             defaults={
@@ -50,15 +50,10 @@ If given, run only the given tests. Otherwise, run all tests.
             sources = self.env['tests']
         for source in sources:
             run_args['baremetal'] = source
-            run_args['background'] = True
-            test_id_string = self.test_setup(run_args, source)
+            run_args['ctrl_c_host'] = True
             if os.path.splitext(os.path.basename(source))[0] == 'multicore':
                 run_args['cpus'] = 2
-            exit_status = run(**run_args)
-            self.test_teardown(run)
-            if exit_status != 0:
-                self.log_error('test failed, program exit status: {} test id: {}'.format(exit_status, test_id_string))
-                sys.exit(1)
+            self.run_test(run, run_args, source)
 
 if __name__ == '__main__':
     Main().cli()

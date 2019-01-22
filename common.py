@@ -5,6 +5,7 @@ import base64
 import collections
 import copy
 import datetime
+import enum
 import glob
 import imp
 import inspect
@@ -822,9 +823,11 @@ Valid emulators: {}
                         start_time = time.time()
                     env['arch'] = arch
                     env['archs'] = [arch]
+                    env['_args_given']['archs'] = True
                     env['all_archs'] = False
                     env['emulator'] = emulator
                     env['emulators'] = [emulator]
+                    env['_args_given']['emulators'] = True
                     env['all_emulators'] = False
                     self.env = env.copy()
                     self._init_env(self.env)
@@ -841,6 +844,7 @@ Valid emulators: {}
                         return ret
                 elif not real_all_archs:
                     raise Exception('Unsupported arch for this action: ' + arch)
+        self.teardown()
         return 0
 
     def make_build_dirs(self):
@@ -866,7 +870,8 @@ Valid emulators: {}
                 return True
         return False
 
-    def seconds_to_hms(self, seconds):
+    @staticmethod
+    def seconds_to_hms(seconds):
         '''
         Seconds to hour:minute:seconds
 
@@ -951,25 +956,11 @@ Valid emulators: {}
             self.env['userland_build_ext'],
         )
 
-    def test_setup(self, test_env, source):
-        if not self.env['verbose']:
-            test_env['quiet'] = True
-        test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], source)
-        if self.env['verbose']:
-            end = '\n'
-        elif not self.env['dry_run']:
-            end = ' '
-        else:
-            end = ''
-        self.log_info(test_id_string, flush=True, end=end)
-        return test_id_string
-
-    def test_teardown(self, run_object):
-        if self.env['dry_run']:
-            if not self.env['verbose']:
-                self.log_info()
-        else:
-            self.log_info(self.seconds_to_hms(run_object.ellapsed_seconds))
+    def teardown(self):
+        '''
+        Gets run just once after looping over all archs and emulators.
+        '''
+        pass
 
     def timed_main(self):
         '''
@@ -998,6 +989,7 @@ class BuildCliFunction(LkmcCliFunction):
             type=int,
             help='Number of processors to use for the build.',
         )
+        self.test_results = []
 
     def clean(self):
         build_dir = self.get_build_dir()
@@ -1023,3 +1015,55 @@ class BuildCliFunction(LkmcCliFunction):
             return self.clean()
         else:
             return self.build()
+
+# from aenum import Enum  # for the aenum version
+TestResult = enum.Enum('TestResult', ['PASS', 'FAIL'])
+
+class Test:
+    def __init__(
+            self,
+            test_id: str,
+            result : TestResult =None,
+            ellapsed_seconds : float =None
+        ):
+        self.test_id = test_id
+        self.result = result
+        self.ellapsed_seconds = ellapsed_seconds
+    def __str__(self):
+        out = []
+        if self.result is not None:
+            out.append(self.result.name)
+        if self.ellapsed_seconds is not None:
+            out.append(LkmcCliFunction.seconds_to_hms(self.ellapsed_seconds))
+        out.append(self.test_id)
+        return ' '.join(out)
+
+class TestCliFunction(LkmcCliFunction):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tests = []
+
+    def run_test(self, run_obj, run_args, extra_params):
+        test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], extra_params)
+        self.log_info('test_id {}'.format(test_id_string), flush=True)
+        exit_status = run_obj(**run_args)
+        if not self.env['dry_run']:
+            if exit_status == 0:
+                test_result = TestResult.PASS
+            else:
+                test_result = TestResult.FAIL
+            self.log_info('test_result {}'.format(test_result.name))
+            ellapsed_seconds = run_obj.ellapsed_seconds
+        else:
+            test_result = None
+            ellapsed_seconds = None
+        self.log_info()
+        self.tests.append(Test(test_id_string, test_result, ellapsed_seconds))
+        if exit_status != 0:
+            self.log_error('test failed, program exit status: {} test id: {}'.format(exit_status, test_id_string))
+            sys.exit(1)
+
+    def teardown(self):
+        self.log_info('Test result summary')
+        for test in self.tests:
+            self.log_info(test)
