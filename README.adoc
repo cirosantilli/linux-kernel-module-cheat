@@ -2617,6 +2617,8 @@ cat "$(./getvar run_dir)/run.sh"
 
 Instead, we used the QEMU `-initrd` option to point to the `.cpio` filesystem that Buildroot generated for us.
 
+Try removing that `-initrd` option to watch the kernel panic without rootfs at the end of boot.
+
 When using `.cpio`, there can be no filesystem persistency across boots, since all file operations happen in memory in a tmpfs:
 
 ....
@@ -2674,25 +2676,25 @@ Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linu
 
 TODO: broken when we started building the Linux manually with `./build-linux` instead of Buildroot. Was working before, see e.g. 56738a1c70e50bf7b6d5fbe02372c5d277a8286f.
 
-initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself.
-
-So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-initrd`! Pretty cool.
+initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself using the kernel's build system.
 
 Try it out with:
 
 ....
-./build-buildroot --initramfs -l
-./run --initramfs
-....
-
-The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-
-....
 ./build-buildroot --initramfs
+./build-linux --initramfs
 ./run --initramfs
 ....
 
-It is interesting to see how this increases the size of the kernel image if you do a:
+Notice how we had to rebuild the Linux kernel this time around as well after Buildroot, since in that build we will be gluing the CPIO to the kernel image.
+
+Now, once again, if we look at the QEMU run command generated, we see all that QEMU needs is the `-kernel` option, no `-drive` not even `-initrd`! Pretty cool:
+
+....
+cat "$(./getvar run_dir)/run.sh"
+....
+
+It is also interesting to observe how this increases the size of the kernel image if you do a:
 
 ....
 ls -lh "$(./getvar linux_image)"
@@ -2700,7 +2702,16 @@ ls -lh "$(./getvar linux_image)"
 
 before and after using initramfs, since the `.cpio` is now glued to the kernel image.
 
-In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the kernel config option `CONFIG_INITRAMFS_SOURCE` point to the CPIO that will be embedded in the kernel image.
+Don't forget that to stop using initramfs, you must rebuild the kernel without `--initramfs`:
+
+....
+./build-linux
+./run
+....
+
+Also consider using <<linux-kernel-build-variants>> if you need to switch between initramfs and non initramfs often.
+
+Setting up initramfs is very easy: our scripts just set `CONFIG_INITRAMFS_SOURCE` to point to the CPIO path.
 
 http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
 
@@ -5415,10 +5426,10 @@ Where the data comes from and how to modify it:
 
 In this repo, leaking host information, and to make builds more reproducible, we are setting:
 
-- user and date to dummy values
-- hostname to the kernel git commit
+- user and date to dummy values with `KBUILD_BUILD_USER` and `KBUILD_BUILD_TIMESTAMP`
+- hostname to the kernel git commit with `KBUILD_BUILD_HOST` and  `KBUILD_BUILD_VERSION`
 
-So the file contains something like:
+A sample result is:
 
 ....
 Linux version 4.19.0-dirty (lkmc@84df9525b0c27f3ebc2ebb1864fa62a97fdedb7d) (gcc version 6.4.0 (Buildroot 2018.05-00002-gbc60382b8f)) #1 SMP Thu Jan 1 00:00:00 UTC 1970

@@ -117,7 +117,7 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
             '--kdb', default=False,
         )
         self.add_argument(
-            '-l', '--gem5-restore', type=int,
+            '--gem5-restore', type=int,
             help='''\
 Restore the nth most recently taken gem5 checkpoint according to directory
 timestamps.
@@ -231,12 +231,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             vnc = ['-vnc', ':0', LF]
         else:
             vnc = []
-        if self.env['initrd'] or self.env['initramfs']:
-            ramfs = True
-        else:
-            ramfs = False
         if self.env['eval'] is not None:
-            if ramfs:
+            if self.env['ramfs']:
                 initarg = 'rdinit'
             else:
                 initarg = 'init'
@@ -504,9 +500,9 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 if not qemu_executable_prebuilt:
                     cmd.extend(qemu_user_and_system_options)
                 if self.env['initrd']:
-                    extra_emulator_args.extend(['-initrd', os.path.join(self.env['buildroot_images_dir'], 'rootfs.cpio')])
+                    extra_emulator_args.extend(['-initrd', self.env['buildroot_cpio'], LF])
                 rr = self.env['record'] or self.env['replay']
-                if ramfs:
+                if self.env['ramfs']:
                     # TODO why is this needed, and why any string works.
                     root = 'root=/dev/anything'
                 else:

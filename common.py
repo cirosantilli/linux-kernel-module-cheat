@@ -255,14 +255,16 @@ Use the given directory as the Linux source tree.
 '''
         )
         self.add_argument(
-            '--initramfs', default=False,
+            '--initramfs',
+            default=False,
         )
         self.add_argument(
             '--initrd',
             default=False,
             help='''\
-Make Buildroot create a CPIO root filessytem, and make QEMU use it instead of
-the default ext2.
+For Buildroot: create a CPIO root filessytem.
+For QEMU use that CPUI root filesystem initrd instead of the default ext2.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#initrd
 '''
         )
 
@@ -477,6 +479,7 @@ Valid emulators: {}
         env['buildroot_images_dir'] = join(env['buildroot_build_dir'], 'images')
         env['buildroot_rootfs_raw_file'] = join(env['buildroot_images_dir'], 'rootfs.ext2')
         env['buildroot_qcow2_file'] = env['buildroot_rootfs_raw_file'] + '.qcow2'
+        env['buildroot_cpio'] = join(self.env['buildroot_images_dir'], 'rootfs.cpio')
         env['staging_dir'] = join(env['out_dir'], 'staging', env['arch'])
         env['buildroot_staging_dir'] = join(env['buildroot_build_dir'], 'staging')
         env['target_dir'] = join(env['buildroot_build_dir'], 'target')
@@ -601,6 +604,7 @@ Valid emulators: {}
         else:
             env['userland_quit_cmd'] = '/poweroff.out'
         env['quit_init'] = 'init={}'.format(env['userland_quit_cmd'])
+        self.env['ramfs'] = self.env['initrd'] or self.env['initramfs']
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])

@@ -269,9 +269,9 @@ class ShellHelpers:
             else:
                 os.unlink(path)
 
-    def write_configs(self, config_path, configs, config_fragments=None):
+    def write_configs(self, config_path, configs, config_fragments=None, mode='a'):
         '''
-        Write extra KEY=val configs into the given config file.
+        Append extra KEY=val configs into the given config file.
         '''
         if config_fragments is None:
             config_fragments = []
@@ -283,7 +283,7 @@ class ShellHelpers:
                     with open(config_fragment, 'r') as config_fragment_file:
                         for line in config_fragment_file:
                             config_file.write(line)
-        self.write_string_to_file(config_path, '\n'.join(configs), mode='a')
+        self.write_string_to_file(config_path, '\n'.join(configs), mode=mode)
 
     def write_string_to_file(self, path, string, mode='w'):
         if mode == 'a':
@@ -292,5 +292,5 @@ class ShellHelpers:
             redirect = '>'
         self.print_cmd("cat << 'EOF' {} {}\n{}\nEOF".format(redirect, path, string))
         if not self.dry_run:
-            with open(path, 'a') as f:
+            with open(path, mode) as f:
                 f.write(string)
