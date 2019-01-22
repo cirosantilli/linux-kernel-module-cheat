@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-import argparse
-import collections
 import platform
 import re
 import os
 
 import cli_function
+import collections
 import common
+import copy
 import shell_helpers
 from shell_helpers import LF
 
@@ -102,23 +102,73 @@ This is equivalent to:
                 'unzip',
             },
         )
+        buildroot_overlay_qemu_component = copy.copy(buildroot_component)
+        buildroot_overlay_qemu_component.dependencies = ['overlay', 'qemu']
+        buildroot_overlay_gem5_component = copy.copy(buildroot_component)
+        buildroot_overlay_gem5_component.dependencies = ['overlay-gem5']
+        gem5_deps = {
+            # TODO test it out on Docker and answer that question properly:
+            # https://askubuntu.com/questions/350475/how-can-i-install-gem5
+            'apt_get_pkgs': {
+                'device-tree-compiler',
+                'diod',
+                'libgoogle-perftools-dev',
+                'm4',
+                'protobuf-compiler',
+                'python-dev',
+                'python-pip',
+                # For prebuilt qcow2 unpack.
+                'qemu-utils',
+                'scons',
+                'zlib1g-dev',
+            },
+            'python2_pkgs': {
+                # Generate graphs of config.ini under m5out.
+                'pydot',
+            },
+            'submodules': {'gem5'},
+        }
 
         self.name_to_component_map = {
-            # Leaves without dependencies.
+            'all': _Component(dependencies=[
+                'all-linux',
+                'all-baremetal',
+            ]),
+            'all-baremetal': _Component(dependencies=[
+                    'qemu-baremetal',
+                    'gem5-baremetal',
+                    'baremetal-gem5-pbx',
+                ],
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+            ),
+            'all-linux': _Component(dependencies=[
+                'qemu-gem5-buildroot',
+                'gem5-debug',
+                'gem5-fast',
+                'qemu-user',
+            ]),
+            'baremetal': _Component(dependencies=[
+                'baremetal-gem5',
+                'baremetal-qemu',
+            ]),
             'baremetal-qemu': _Component(
                 self._build_file('build-baremetal', emulators=['qemu']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
+                dependencies=['crosstool-ng'],
             ),
             'baremetal-gem5': _Component(
                 self._build_file('build-baremetal', emulators=['gem5']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
+                dependencies=['crosstool-ng'],
             ),
             'baremetal-gem5-pbx': _Component(
                 self._build_file('build-baremetal', emulators=['gem5'], machine='RealViewPBX'),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
+                dependencies=['crosstool-ng'],
             ),
             'buildroot': buildroot_component,
-            'buildroot-gcc': buildroot_component,
+            'buildroot-overlay-qemu': buildroot_overlay_qemu_component,
+            'buildroot-overlay-gem5': buildroot_overlay_gem5_component,
             'copy-overlay': _Component(
                 self._build_file('copy-overlay'),
             ),
@@ -144,35 +194,28 @@ This is equivalent to:
             ),
             'gem5': _Component(
                 self._build_file('build-gem5'),
-                # TODO test it out on Docker and answer that question properly:
-                # https://askubuntu.com/questions/350475/how-can-i-install-gem5
-                apt_get_pkgs={
-                    'device-tree-compiler',
-                    'diod',
-                    'libgoogle-perftools-dev',
-                    'm4',
-                    'protobuf-compiler',
-                    'python-dev',
-                    'python-pip',
-                    # For prebuilt qcow2 unpack.
-                    'qemu-utils',
-                    'scons',
-                    'zlib1g-dev',
-                },
-                python2_pkgs={
-                    # Generate graphs of config.ini under m5out.
-                    'pydot',
-                },
-                submodules={'gem5'},
+                **gem5_deps
             ),
+            'gem5-baremetal': _Component(dependencies=[
+                'gem5',
+                'baremetal-gem5',
+            ]),
+            'gem5-buildroot': _Component(dependencies=[
+                'buildroot-overlay-gem5',
+                'linux',
+                'gem5',
+            ]),
             'gem5-debug': _Component(
                 self._build_file('build-gem5', gem5_build_type='debug'),
+                **gem5_deps
             ),
             'gem5-fast': _Component(
                 self._build_file('build-gem5', gem5_build_type='fast'),
+                **gem5_deps
             ),
             'linux': _Component(
                 self._build_file('build-linux', gem5_build_type='fast'),
+                dependencies={'buildroot'},
                 submodules_shallow={'linux'},
                 apt_get_pkgs={
                     'bison',
@@ -184,10 +227,25 @@ This is equivalent to:
             ),
             'modules': _Component(
                 self._build_file('build-modules'),
+                dependencies=['buildroot', 'linux'],
             ),
             'm5': _Component(
                 self._build_file('build-m5'),
+                dependencies=['buildroot'],
                 submodules={'gem5'},
+            ),
+            'overlay': _Component(dependencies=[
+                'copy-overlay',
+                'modules',
+                'userland',
+            ]),
+            'overlay-gem5': _Component(dependencies=[
+                'm5',
+                'overlay',
+            ]),
+            'parsec-benchmark': _Component(
+                submodules={'parsec-benchmark'},
+                dependencies=['buildroot'],
             ),
             'qemu': _Component(
                 self._build_file('build-qemu'),
@@ -195,74 +253,24 @@ This is equivalent to:
                 apt_get_pkgs={'libsdl2-dev'},
                 submodules={'qemu'},
             ),
-            'qemu-user': _Component(
-                self._build_file('build-qemu', user_mode=True),
-                apt_build_deps = {'qemu'},
-                apt_get_pkgs={'libsdl2-dev'},
-                submodules = {'qemu'},
-            ),
-            'parsec-benchmark': _Component(
-                submodules = {'parsec-benchmark'},
-            ),
-            'userland': _Component(
-                self._build_file('build-userland'),
-            ),
-
-            # Dependency only nodes.
-            'all': _Component(dependencies=[
-                'all-linux',
-                'all-baremetal',
-            ]),
-            'all-baremetal': _Component(dependencies=[
-                    'qemu-baremetal',
-                    'gem5-baremetal',
-                    'baremetal-gem5-pbx',
-                ],
-                supported_archs=common.consts['crosstool_ng_supported_archs'],
-            ),
-            'all-linux': _Component(dependencies=[
-                'qemu-gem5-buildroot',
-                'gem5-debug',
-                'gem5-fast',
-                'qemu-user',
-            ]),
-            'baremetal': _Component(dependencies=[
-                'baremetal-gem5',
-                'baremetal-qemu',
-            ]),
-            'gem5-buildroot': _Component(dependencies=[
-                'buildroot-gcc',
-                'linux',
-                'm5',
-                'overlay',
-                'gem5',
-            ]),
-            'gem5-baremetal': _Component(dependencies=[
-                'gem5',
-                'crosstool-ng',
-                'baremetal-gem5',
-            ]),
-            'overlay': _Component(dependencies=[
-                'copy-overlay',
-                'modules',
-                'userland',
-                'buildroot',
-            ]),
             'qemu-baremetal': _Component(dependencies=[
                 'qemu',
-                'crosstool-ng',
                 'baremetal-qemu',
             ]),
             'qemu-buildroot': _Component(dependencies=[
-                'qemu',
-                'buildroot-gcc',
-                'overlay',
+                'buildroot-overlay-qemu',
                 'linux',
             ]),
             'qemu-gem5-buildroot': _Component(dependencies=[
                 'qemu',
                 'gem5-buildroot',
             ]),
+            'qemu-user': _Component(
+                self._build_file('build-qemu', user_mode=True),
+                apt_build_deps = {'qemu'},
+                apt_get_pkgs={'libsdl2-dev'},
+                submodules={'qemu'},
+            ),
             'release': _Component(dependencies=[
                 'qemu-buildroot',
             ]),
@@ -271,7 +279,12 @@ This is equivalent to:
                 ],
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
+            'userland': _Component(
+                self._build_file('build-userland'),
+                dependencies=['buildroot'],
+            ),
         }
+        self.component_to_name_map = {self.name_to_component_map[key]:key for key in self.name_to_component_map}
 
         self.add_argument(
             '--all',
@@ -286,6 +299,14 @@ Build absolutely everything for all archs.
             help='''\
 Also download all dependencies required for a given build: Ubuntu packages,
 Python packages and git submodules.
+'''
+        )
+        self.add_argument(
+            '--print-components',
+            default=False,
+            help='''\
+Print the components that would be built, including dependencies, but don't
+build them, nor show the build commands.
 '''
         )
         self.add_argument(
@@ -326,16 +347,16 @@ Which components to build. Default: qemu-buildroot
         elif components == []:
             components = ['qemu-buildroot']
         selected_components = []
-        selected_component_name_set = set()
         for component_name in components:
             todo = [component_name]
             while todo:
                 current_name = todo.pop(0)
-                if current_name not in selected_component_name_set:
-                    selected_component_name_set.add(current_name)
-                    component = self.name_to_component_map[current_name]
-                    selected_components.append(component)
-                    todo.extend(component.dependencies)
+                component = self.name_to_component_map[current_name]
+                selected_components.insert(0, component)
+                todo.extend(component.dependencies)
+        # Remove duplicates, keep only the first one of each.
+        # https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961390#7961390
+        collections.OrderedDict.fromkeys(selected_components)
 
         if self.env['download_dependencies']:
             apt_get_pkgs = {
@@ -466,7 +487,10 @@ Which components to build. Default: qemu-buildroot
 
         # Do the build.
         for component in selected_components:
-            component.build(self.env['arch'])
+            if self.env['print_components']:
+                print(self.component_to_name_map[component])
+            else:
+                component.build(self.env['arch'])
 
 if __name__ == '__main__':
     Main().cli()

@@ -261,7 +261,10 @@ class ShellHelpers:
     def rmrf(self, path):
         self.print_cmd(['rm', '-r', '-f', path, LF])
         if not self.dry_run and os.path.exists(path):
-            shutil.rmtree(path)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.unlink(path)
 
     def write_configs(self, config_path, configs, config_fragments=None):
         '''
