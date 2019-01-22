@@ -4,7 +4,7 @@ import argparse
 import imp
 import os
 
-class Argument:
+class _Argument:
     def __init__(
             self,
             long_or_short_1,
@@ -14,28 +14,22 @@ class Argument:
             nargs=None,
             **kwargs
         ):
-            if long_or_short_2 is None:
-                shortname = None
-                longname = long_or_short_1
-            else:
-                shortname = long_or_short_1
-                longname = long_or_short_2
             self.args = []
             # argparse is crappy and cannot tell us if arguments were given or not.
             # We need that information to decide if the config file should override argparse or not.
             # So we just use None as a sentinel.
             self.kwargs = {'default': None}
+            shortname, longname, key, is_option = self.get_key(
+                long_or_short_1,
+                long_or_short_2
+            )
             if shortname is not None:
                 self.args.append(shortname)
-            if longname[0] == '-':
+            if is_option:
                 self.args.append(longname)
-                self.key = longname.lstrip('-').replace('-', '_')
-                self.is_option = True
             else:
-                self.key = longname.replace('-', '_')
-                self.args.append(self.key)
+                self.args.append(key)
                 self.kwargs['metavar'] = longname
-                self.is_option = False
                 if default is not None and nargs is None:
                     self.kwargs['nargs'] = '?'
             if nargs is not None:
@@ -53,21 +47,50 @@ class Argument:
             if self.is_bool and not 'action' in kwargs:
                 self.kwargs['action'] = bool_action
             if help is not None:
-                if not self.is_bool and default:
-                    help += ' Default: {}'.format(default)
+                if default is not None:
+                    if help[-1] == '\n':
+                        if '\n\n' in help[:-1]:
+                            help += '\n'
+                    elif help[-1] == ' ':
+                        pass
+                    else:
+                        help += ' '
+                    help += 'Default: {}'.format(default)
                 self.kwargs['help'] = help
             self.optional = (
                 default is not None or
                 self.is_bool or
-                self.is_option or
+                is_option or
                 nargs in ('?', '*', '+')
             )
             self.kwargs.update(kwargs)
             self.default = default
             self.longname = longname
+            self.key = key
+            self.is_option = is_option
 
     def __str__(self):
         return str(self.args) + ' ' + str(self.kwargs)
+
+    @staticmethod
+    def get_key(
+        long_or_short_1,
+        long_or_short_2=None,
+        **kwargs
+    ):
+        if long_or_short_2 is None:
+            shortname = None
+            longname = long_or_short_1
+        else:
+            shortname = long_or_short_1
+            longname = long_or_short_2
+        if longname[0] == '-':
+            key = longname.lstrip('-').replace('-', '_')
+            is_option = True
+        else:
+            key = longname.replace('-', '_')
+            is_option = False
+        return shortname, longname, key, is_option
 
 class CliFunction:
     '''
@@ -141,7 +164,7 @@ class CliFunction:
             *args,
             **kwargs
         ):
-            argument = Argument(*args, **kwargs)
+            argument = _Argument(*args, **kwargs)
             self._arguments.append(argument)
             self._all_keys.add(argument.key)
 
@@ -169,6 +192,10 @@ class CliFunction:
                 parser.add_argument(new_longname, dest=argument.key, **kwargs)
         args = parser.parse_args(args=cli_args)
         return self(**vars(args))
+
+    @staticmethod
+    def get_key(*args, **kwargs):
+        return _Argument.get_key(*args, **kwargs)
 
     def main(self, **kwargs):
         '''
@@ -217,7 +244,7 @@ amazing function!
         'args_star': []
     }
 
-    # Default CLI call.
+    # Default CLI call with programmatic CLI arguments.
     out = one_cli_function.cli(['1'])
     assert out == default
 
@@ -258,5 +285,5 @@ amazing function!
     # Force a boolean value set on the config to be False on CLI.
     assert one_cli_function.cli(['--no-bool-cli', '1'])['bool_cli'] is False
 
-    # CLI call.
+    # CLI call with argv command line arguments.
     print(one_cli_function.cli())

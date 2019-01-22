@@ -1,35 +1,55 @@
-#!/usr/bin/env bash
-set -eux
-for emulator in --qemu --gem5; do
-  # Userland.
-  # TODO make work.
-  #./run --arch x86_64 --background --userland add "$emulator" --wait-gdb &
-  #./run-gdb --arch x86_64 --userland add "$emulator" --test "$@"
-  #wait
+#!/usr/bin/env python3
 
-  # Baremetal.
-  ./run --arch arm --background --baremetal add "$emulator" --wait-gdb &
-  ./run-gdb --arch arm --baremetal add "$emulator" --test "$@"
-  wait
-  ./run --arch arm --background --baremetal arch/arm/add "$emulator" --wait-gdb &
-  ./run-gdb --arch arm --baremetal arch/arm/add "$emulator" --test "$@"
-  wait
-  ./run --arch arm --background --baremetal arch/arm/regs "$emulator" --wait-gdb &
-  ./run-gdb --arch arm --baremetal arch/arm/regs "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal add "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal add "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/add "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/add "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/regs "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/regs "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/fadd "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/fadd "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/regs "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/regs "$emulator" --test "$@"
-  wait
-done
+import functools
+import threading
+import os
+
+import common
+
+def output_reader(proc, file):
+    while True:
+        byte = proc.stdout.read(1)
+        if byte:
+            sys.stdout.buffer.write(byte)
+            sys.stdout.flush()
+            file.buffer.write(byte)
+        else:
+            break
+
+class Main(common.LkmcCliFunction):
+    def timed_main(self):
+        run = self.import_path('run').Main()
+        run_gdb = self.import_path('run-gdb').Main()
+        for emulator in self.env['emulators']:
+            for arch in self.env['crosstool_ng_supported_archs']:
+                test_scripts_noext = []
+                for f in os.listdir(self.env['baremetal_src_dir']):
+                    base, ext = os.path.splitext(f)
+                    if ext == '.py':
+                        test_scripts_noext.append(base)
+                for root, dirs, files in os.walk(os.path.join(self.env['baremetal_src_dir'], 'arch', arch)):
+                    for f in files:
+                        base, ext = os.path.splitext(f)
+                        if ext == '.py':
+                            full_path = os.path.join(root, base)
+                            relpath = os.path.relpath(full_path, self.env['baremetal_src_dir'])
+                            test_scripts_noext.append(relpath)
+                for test_script_noext in test_scripts_noext:
+                    run_thread = threading.Thread(target=lambda: run(
+                        arch=arch,
+                        background=True,
+                        baremetal=test_script_noext,
+                        print_time=False,
+                        emulator=emulator,
+                        wait_gdb=True
+                    ))
+                    gdb_thread = threading.Thread(target=lambda: run_gdb(
+                        arch=arch, baremetal=test_script_noext, print_time=False, emulator=emulator, test=True
+                    ))
+                    run_thread.start()
+                    gdb_thread.start()
+                    run_thread.join()
+                    gdb_thread.join()
+
+if __name__ == '__main__':
+    Main().cli()

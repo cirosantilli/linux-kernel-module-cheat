@@ -41,6 +41,10 @@ https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-bo
             help='Pass arguments to GDB.'
         )
         self.add_argument(
+            '--dp650', default=False,
+            help='Use the ARM DP650 display processor instead of the default HDLCD on gem5.'
+        )
+        self.add_argument(
             '--dtb',
             help='''\
 Use the specified DTB file. If not given, let the emulator generate a DTB for us,
@@ -372,15 +376,15 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         dtb = None
                         if self.env['dtb'] is not None:
                             dtb = self.env['dtb']
-                        elif args.dp650:
-                            dtb = os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}{}cpu.dtb'.format(common.armv, dp650_cmd, args.cpus)), common.Newline,
+                        elif self.env['dp650']:
+                            dtb = os.path.join(common.gem5_system_dir, 'arm', 'dt', 'armv{}_gem5_v1_{}{}cpu.dtb'.format(common.armv, dp650_cmd, self.env['cpus'])), LF,
                         if dtb is None:
-                            cmd.extend(['--generate-dtb', common.Newline])
+                            if not self.env['baremetal']:
+                                cmd.extend(['--generate-dtb', LF])
                         else:
-                            cmd.extend(['--dtb-filename', dtb, common.Newline])
+                            cmd.extend(['--dtb-filename', dtb, LF])
                         if self.env['baremetal'] is None:
-                            cmd.extend([
-                                '--param', 'system.panic_on_panic = True', LF])
+                            cmd.extend(['--param', 'system.panic_on_panic = True', LF ])
                         else:
                             cmd.extend([
                                 '--bare-metal', LF,
@@ -488,7 +492,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     vnc
                 )
                 if self.env['dtb'] is not None:
-                    cmd.extend(['-dtb', self.env['dtb'], common.Newline])
+                    cmd.extend(['-dtb', self.env['dtb'], LF])
                 if not qemu_executable_prebuilt:
                     cmd.extend(qemu_user_and_system_options)
                 if self.env['initrd']:

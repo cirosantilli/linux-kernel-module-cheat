@@ -92,6 +92,7 @@ consts['obj_ext'] = '.o'
 consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
 consts['magic_fail_string'] = b'lkmc_test_fail'
 consts['baremetal_lib_basename'] = 'lib'
+consts['emulators'] = ['qemu', 'gem5']
 
 class LkmcCliFunction(cli_function.CliFunction):
     '''
@@ -100,9 +101,15 @@ class LkmcCliFunction(cli_function.CliFunction):
     * command timing
     * some common flags, e.g.: --arch, --dry-run, --verbose
     '''
-    def __init__(self, *args, do_print_time=True, **kwargs):
+    def __init__(self, *args, defaults=None, **kwargs):
+        '''
+        :ptype defaults: Dict[str,Any]
+        :param defaults: override the default value of an argument
+        '''
         kwargs['config_file'] = consts['config_file']
-        self._do_print_time = do_print_time
+        if defaults is None:
+            defaults = {}
+        self._defaults = defaults
         super().__init__(*args, **kwargs)
 
         # Args for all scripts.
@@ -121,6 +128,10 @@ Bash equivalents even for actions taken directly in Python without shelling out.
 
 mkdir are generally omitted since those are obvious
 '''
+        )
+        self.add_argument(
+            '--print-time', default=True,
+            help='Print how long it took to run the command at the end.'
         )
         self.add_argument(
             '-v', '--verbose', default=False,
@@ -266,27 +277,29 @@ instances in parallel. Default: the run ID (-n) if that is an integer, otherwise
 
         # Misc.
         self.add_argument(
-            '-g', '--gem5', default=False,
-            help='Use gem5 instead of QEMU.'
+            '--emulator', choices=consts['emulators'],
+            help='''\
+Set the emulator to use. Ignore --gem5.
+'''
         )
         self.add_argument(
-            '--qemu', default=False,
+            '-g', '--gem5', default=False,
             help='''\
-Use QEMU as the emulator. This option exists in addition to --gem5
-to allow overriding configs from the CLI.
+Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
 '''
         )
 
     def _init_env(self, env):
         '''
-        Update the kwargs from the command line with derived arguments.
+        Update the kwargs from the command line with values derived from them.
         '''
         def join(*paths):
             return os.path.join(*paths)
-        if env['qemu'] or not env['gem5']:
-            env['emulator'] = 'qemu'
-        else:
-            env['emulator'] = 'gem5'
+        if env['emulator'] is None:
+            if env['gem5']:
+                env['emulator'] = 'gem5'
+            else:
+                env['emulator'] = 'qemu'
         if env['arch'] in env['arch_short_to_long_dict']:
             env['arch'] = env['arch_short_to_long_dict'][env['arch']]
         if env['userland_build_id'] is None:
@@ -481,6 +494,8 @@ to allow overriding configs from the CLI.
 
         # Baremetal.
         env['baremetal_src_dir'] = join(env['root_dir'], 'baremetal')
+        env['baremetal_src_arch_subpath'] = join('arch', env['arch'])
+        env['baremetal_src_arch_dir'] = join(env['baremetal_src_dir'], env['baremetal_src_arch_subpath'])
         env['baremetal_src_lib_dir'] = join(env['baremetal_src_dir'], env['baremetal_lib_basename'])
         if env['emulator'] == 'gem5':
             env['simulator_name'] = 'gem5'
@@ -533,6 +548,12 @@ to allow overriding configs from the CLI.
                         break
             env['image'] = path
         self.env = env
+
+    def add_argument(self, *args, **kwargs):
+        shortname, longname, key, is_option = self.get_key(*args, **kwargs)
+        if key in self._defaults:
+            kwargs['default'] = self._defaults[key]
+        super().add_argument(*args, **kwargs)
 
     def assert_crosstool_ng_supports_arch(self, arch):
         if arch not in self.env['crosstool_ng_supported_archs']:
@@ -645,6 +666,14 @@ to allow overriding configs from the CLI.
         return _json
 
     @staticmethod
+    def import_path(path):
+        '''
+        https://stackoverflow.com/questions/2601047/import-a-python-module-without-the-py-extension
+        https://stackoverflow.com/questions/31773310/what-does-the-first-argument-of-the-imp-load-source-method-do
+        '''
+        return imp.load_source(os.path.split(path)[1].replace('-', '_'), path)
+
+    @staticmethod
     def log_error(msg):
         print('error: {}'.format(msg), file=sys.stderr)
 
@@ -687,7 +716,7 @@ to allow overriding configs from the CLI.
         return False
 
     def _print_time(self, ellapsed_seconds):
-        if self._do_print_time:
+        if self.env['print_time']:
             hours, rem = divmod(ellapsed_seconds, 3600)
             minutes, seconds = divmod(rem, 60)
             print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))

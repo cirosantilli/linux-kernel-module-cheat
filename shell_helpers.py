@@ -9,6 +9,7 @@ import signal
 import stat
 import subprocess
 import sys
+import threading
 
 class LF:
     '''
@@ -178,18 +179,21 @@ class ShellHelpers:
         if show_cmd:
             self.print_cmd(cmd, cwd=cwd, cmd_file=cmd_file, extra_env=extra_env, extra_paths=extra_paths)
 
-        # Otherwise Ctrl + C gives:
-        # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
-        # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
-        sigint_old = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        # Otherwise, if called from a non-main thread:
+        # ValueError: signal only works in main thread
+        if threading.current_thread() == threading.main_thread():
+            # Otherwise Ctrl + C gives:
+            # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
+            # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
+            sigint_old = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-        # Otherwise BrokenPipeError when piping through | grep
-        # But if I do this_module, my terminal gets broken at the end. Why, why, why.
-        # https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
-        # Ignoring the exception is not enough as it prints a warning anyways.
-        #sigpipe_old = signal.getsignal(signal.SIGPIPE)
-        #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+            # Otherwise BrokenPipeError when piping through | grep
+            # But if I do this_module, my terminal gets broken at the end. Why, why, why.
+            # https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
+            # Ignoring the exception is not enough as it prints a warning anyways.
+            #sigpipe_old = signal.getsignal(signal.SIGPIPE)
+            #signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
         cmd = self.strip_newlines(cmd)
         if not self.dry_run:
@@ -211,8 +215,9 @@ class ShellHelpers:
                                 logfile.write(byte)
                             else:
                                 break
-            signal.signal(signal.SIGINT, sigint_old)
-            #signal.signal(signal.SIGPIPE, sigpipe_old)
+            if threading.current_thread() == threading.main_thread():
+                signal.signal(signal.SIGINT, sigint_old)
+                #signal.signal(signal.SIGPIPE, sigpipe_old)
             returncode = proc.returncode
             if returncode != 0 and raise_on_failure:
                 raise Exception('Command exited with status: {}'.format(returncode))
