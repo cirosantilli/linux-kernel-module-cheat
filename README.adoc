@@ -3171,6 +3171,8 @@ Source: link:test-userland[]
 
 The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
 
+See: <<test-this-repo>> for more useful testing tips.
+
 == Kernel module utilities
 
 === insmod
@@ -10914,6 +10916,8 @@ We also skip tests that cannot work on certain conditions based on their basenam
 * tests that start with `gem5_` only run in `gem5`
 * tests that start with `semihost_` only run in QEMU, until we find a better way to automate <<gem5-semihosting>>
 
+See: <<test-this-repo>> for more useful testing tips.
+
 === Baremetal bibliography
 
 https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal
@@ -11863,11 +11867,9 @@ This way you can just hack away the scripts and try them out immediately without
 
 === Test this repo
 
-This section describes how to run the most complete set of tests possible.
-
-It takes too much time to be feasible for every patch, but it should be done for every release.
-
 ==== Automated tests
+
+Run absolutely all tests:
 
 ....
 ./build-test --size 3 && \
@@ -11881,15 +11883,28 @@ Sources:
 
 * link:build-test[]
 * link:test[]
+* link:test-module[]
+* <<user-mode-tests>>
+* <<baremetal-tests>>
 
-Test just the kernel modules:
+This full testing takes too much time to be feasible for every patch, but it should be done for every release.
+
+See the sources of those test scripts to learn how to run more specialized tests.
+
+One important tip is that you can select multiple archs and emulators of interest with a command such as:
 
 ....
-./test-modules
-echo $?
+./test-userland \
+  --arch x86_64 \
+  --arch aarch64 \
+  --emulator gem5 \
+  --emulator qemu \
+;
 ....
 
-Source: link:test-module[]
+This command would run the test four times, using `x86_64` and `aarch64` with both gem5 and QEMU.
+
+Without those flags, it defaults to just running the default arch and emulator once: `x86_64` and `qemu`.
 
 Test that the Internet works:
 
@@ -11904,7 +11919,7 @@ Source: link:rootfs_overlay/test_all.sh[].
 We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests for the baremetal programs!
 
 ....
-./build-test-gdb && \
+./build test-gdb && \
 ./test-gdb --all-archs --all-emulators
 ....
 
