@@ -15,21 +15,25 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#release-zip
                 'print_time': False,
             }
         )
-        self.qcow2s_linux_images = []
+        self.zip_files = []
 
     def timed_main(self):
-        self.qcow2s_linux_images.append((self.env['qcow2_file'], self.env['linux_image']))
+        self.zip_files.append(self.env['qcow2_file'])
+        self.zip_files.append(self.env['linux_image'])
+        for root, dirs, files in os.walk(self.env['baremetal_build_dir']):
+            for file in files:
+                path = os.path.join(root, file)
+                if os.path.splitext(path)[1] == self.env['baremetal_build_ext']:
+                    self.zip_files.append(path)
 
     def teardown(self):
         os.makedirs(self.env['release_dir'], exist_ok=True)
         self.sh.rmrf(self.env['release_zip_file'])
         self.log_info('Creating zip: ' + self.env['release_zip_file'])
         with zipfile.ZipFile(self.env['release_zip_file'], 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for qcow2, linux_image in self.qcow2s_linux_images:
-                self.log_info('Adding file: ' + qcow2)
-                zipf.write(qcow2, arcname=os.path.relpath(qcow2, self.env['root_dir']))
-                self.log_info('Adding file: ' + linux_image)
-                zipf.write(linux_image, arcname=os.path.relpath(linux_image, self.env['root_dir']))
+            for zip_file in self.zip_files:
+                self.log_info('Adding file: ' + zip_file)
+                zipf.write(zip_file, arcname=os.path.relpath(zip_file, self.env['root_dir']))
 
 if __name__ == '__main__':
     Main().cli()
