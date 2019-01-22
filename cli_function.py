@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+'''
+This file is GPLv3 like the rest of this repo.
+However, you may use it in a project with any license through imports,
+without affecting the license of the rest of your project, even if you include
+this file in the project source tree, as long as you publish any modifications
+made to this file.
+'''
+
 import argparse
 import bisect
 import collections
