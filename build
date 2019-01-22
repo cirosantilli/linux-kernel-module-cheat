@@ -339,6 +339,14 @@ so looping over all of them would waste time.
         self.component_to_name_map = {self.name_to_component_map[key]:key for key in self.name_to_component_map}
 
         self.add_argument(
+            '--apt',
+            default=True,
+            help='''\
+Don't run any apt-get commands. To make it easier to use with other archs:
+https://github.com/cirosantilli/linux-kernel-module-cheat#supported-hosts
+'''
+        )
+        self.add_argument(
             '--download-dependencies',
             default=False,
             help='''\
@@ -461,20 +469,21 @@ Which components to build. Default: qemu-buildroot
                     y = ['-y']
                 else:
                     y = []
-                self.sh.run_cmd(
-                    sudo + ['apt-get', 'update', LF]
-                )
-                if apt_get_pkgs:
+                if self.env['apt']:
                     self.sh.run_cmd(
-                        sudo + ['apt-get', 'install'] + y + [LF] +
-                        self.sh.add_newlines(sorted(apt_get_pkgs))
+                        sudo + ['apt-get', 'update', LF]
                     )
-                if apt_build_deps:
-                    self.sh.run_cmd(
-                        sudo +
-                        ['apt-get', 'build-dep'] + y + [LF] +
-                        self.sh.add_newlines(sorted(apt_build_deps))
-                    )
+                    if apt_get_pkgs:
+                        self.sh.run_cmd(
+                            sudo + ['apt-get', 'install'] + y + [LF] +
+                            self.sh.add_newlines(sorted(apt_get_pkgs))
+                        )
+                    if apt_build_deps:
+                        self.sh.run_cmd(
+                            sudo +
+                            ['apt-get', 'build-dep'] + y + [LF] +
+                            self.sh.add_newlines(sorted(apt_build_deps))
+                        )
             if python2_pkgs:
                 self.sh.run_cmd(
                     ['python', '-m', 'pip', 'install', '--user', LF] +
