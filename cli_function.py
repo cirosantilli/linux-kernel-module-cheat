@@ -118,7 +118,9 @@ class CliFunction:
        https://stackoverflow.com/questions/12834785/having-options-in-argparse-with-a-dash
     ** boolean defaults automatically use store_true or store_false, and add a --no-* CLI
        option to invert them if set from the config
-    * from a Python call, get the corresponding CLI. See get_cli.
+    * from a Python call, get the corresponding CLI string list. See get_cli.
+    * easily determine if arguments were given on the command line
+      https://stackoverflow.com/questions/30487767/check-if-argparse-optional-argument-is-set-or-not/30491369
 
     This somewhat duplicates: https://click.palletsprojects.com but:
 
@@ -160,6 +162,13 @@ class CliFunction:
             config_file = args_with_defaults['config_file']
         else:
             config_file = self._config_file
+        args_given = {}
+        for key in self._arguments:
+            args_given[key] = not (
+                not key in args_with_defaults or
+                args_with_defaults[key] is None or
+                self._arguments[key].nargs == '*' and args_with_defaults[key] == []
+            )
         if config_file is not None and os.path.exists(config_file):
             config_configs = {}
             config = imp.load_source('config', config_file)
@@ -170,11 +179,7 @@ class CliFunction:
             for key in config_configs:
                 if key not in self._arguments:
                     raise Exception('Unknown key in config file: ' + key)
-                if (
-                    not key in args_with_defaults or
-                    args_with_defaults[key] is None or
-                    self._arguments[key].nargs == '*' and args_with_defaults[key] == []
-                ):
+                if not args_given[key]:
                     args_with_defaults[key] = config_configs[key]
         # Add missing args from hard-coded defaults.
         for key in self._arguments:
@@ -184,6 +189,7 @@ class CliFunction:
                     args_with_defaults[key] = argument.default
                 else:
                     raise Exception('Value not given for mandatory argument: ' + key)
+        args_with_defaults['_args_given'] = args_given
         if 'config_file' in args_with_defaults:
             del args_with_defaults['config_file']
         return args_with_defaults
@@ -252,21 +258,22 @@ class CliFunction:
         positional_dict = {}
         kwargs = self._get_args(kwargs)
         for key in kwargs:
-            argument = self._arguments[key]
-            default = argument.default
-            value = kwargs[key]
-            if value != default:
-                if argument.is_option:
-                    if argument.is_bool:
-                        val = (argument.longname,)
+            if not key in ('_args_given',):
+                argument = self._arguments[key]
+                default = argument.default
+                value = kwargs[key]
+                if value != default:
+                    if argument.is_option:
+                        if argument.is_bool:
+                            val = (argument.longname,)
+                        else:
+                            val = (argument.longname, str(value))
+                        bisect.insort(options, val)
                     else:
-                        val = (argument.longname, str(value))
-                    bisect.insort(options, val)
-                else:
-                    if type(value) is list:
-                        positional_dict[key] = [tuple(v,) for v in value]
-                    else:
-                        positional_dict[key] = [(str(value),)]
+                        if type(value) is list:
+                            positional_dict[key] = [tuple(v,) for v in value]
+                        else:
+                            positional_dict[key] = [(str(value),)]
         # Python built-in data structures suck.
         # https://stackoverflow.com/questions/27726245/getting-the-key-index-in-a-python-ordereddict/27726534#27726534
         positional = []
@@ -308,6 +315,7 @@ amazing function!
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
             self.add_argument('args-star', help='Help for args-star', nargs='*'),
         def main(self, **kwargs):
+            del kwargs['_args_given']
             return kwargs
 
     one_cli_function = OneCliFunction()
