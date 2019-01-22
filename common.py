@@ -257,6 +257,9 @@ Use the given directory as the Linux source tree.
         self.add_argument(
             '--initramfs',
             default=False,
+            help='''\
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#initramfs
+'''
         )
         self.add_argument(
             '--initrd',
@@ -642,14 +645,7 @@ Valid emulators: {}
             env['qcow2_file'] = env['buildroot_qcow2_file']
 
         # Image
-        if not env['_args_given']['baremetal']:
-            if env['emulator'] == 'gem5':
-                env['image'] = env['vmlinux']
-                env['disk_image'] = env['rootfs_raw_file']
-            else:
-                env['image'] = env['linux_image']
-                env['disk_image'] = env['qcow2_file']
-        else:
+        if env['_args_given']['baremetal']:
             env['disk_image'] = env['gem5_fake_iso']
             if env['baremetal'] == 'all':
                 path = env['baremetal']
@@ -670,6 +666,16 @@ Valid emulators: {}
                         env['source_path'] = source_path
                         break
             env['image'] = path
+        else:
+            if env['emulator'] == 'gem5':
+                env['image'] = env['vmlinux']
+                if env['ramfs']:
+                    env['disk_image'] = env['gem5_fake_iso']
+                else:
+                    env['disk_image'] = env['rootfs_raw_file']
+            else:
+                env['image'] = env['linux_image']
+                env['disk_image'] = env['qcow2_file']
 
     def add_argument(self, *args, **kwargs):
         '''

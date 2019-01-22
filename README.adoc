@@ -2654,7 +2654,7 @@ It is also possible to compress that image with other options.
 +
 Buildroot forces that option when `BR2_TARGET_ROOTFS_CPIO=y` is given
 
-https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image asks how the mechanism works in more detail.
+TODO: how does the bootloader inform the kernel where to find initrd? https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image
 
 === initrd in desktop distros
 
@@ -2673,8 +2673,6 @@ initrd /initrd.img-4.4.0-108-generic
 Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
 
 === initramfs
-
-TODO: broken when we started building the Linux manually with `./build-linux` instead of Buildroot. Was working before, see e.g. 56738a1c70e50bf7b6d5fbe02372c5d277a8286f.
 
 initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself using the kernel's build system.
 
@@ -2719,9 +2717,17 @@ http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
 
 TODO we were not able to get it working yet: https://stackoverflow.com/questions/49261801/how-to-boot-the-linux-kernel-with-initrd-or-initramfs-with-gem5
 
-This would require gem5 to load the CPIO into memory, just like QEMU, which it does not seem to support. It should not be hard to implement however.
+This would require gem5 to load the CPIO into memory, just like QEMU. Grepping `initrd` shows some ARM hits under:
 
-initramfs might just work however, TODO test it out.
+....
+src/arch/arm/linux/atag.hh
+....
+
+but they are commented out.
+
+Initramfs just works however, since gem5 does not need to do anything special there, it just dumps the kernel into memory as usual, it just happens to transparently contain a CPIO disk image attached.
+
+We just have to pass a dummy disk image as of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91 since the scripts don't handle a missing `--disk-image` well, much like is currently done for <<baremetal>>.
 
 == Device tree
 
