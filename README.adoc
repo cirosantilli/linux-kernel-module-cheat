@@ -10911,7 +10911,7 @@ Automatically run non-interactive baremetal tests:
 
 Source: link:test-baremetal[]
 
-Since there is no standardized exit status concept that works across all emulators, we detect if tests failed by parsing logs for the string output by our fail function: `common_assert_fail()`.
+We detect if tests failed by parsing logs for the <<magic-failure-string>>.
 
 We also skip tests that cannot work on certain conditions based on their basenames, e.g.:
 
@@ -11992,6 +11992,23 @@ Then proceed to do the following tests:
 
 * `/count.sh` and `break __x64_sys_write`
 * `insmod /timer.ko` and `break lkmc_timer_callback`
+
+==== Magic failure string
+
+Since there is no standardized exit status concept that works across all emulators for full system, we just parse the terminal output for a magic failure string to check if tests failed.
+
+If a full system simulation outputs a line containing only exactly the magic string:
+
+....
+lkmc_test_fail
+....
+
+to the terminal, then our run scripts detect that and exit with status `1`.
+
+This magic output string is notably used by:
+
+* the `common_assert_fail()` function, which is used by <<baremetal-tests>>
+* link:rootfs_overlay/test_fail.sh[], which is used by the link:test-userland[]
 
 === Bisection
 
