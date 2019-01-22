@@ -162,14 +162,16 @@ mkdir are generally omitted since those are obvious
         self.add_argument(
             '--gem5-build-dir',
             help='''\
-Use the given directory as the gem5 build directory. Ignore --gem5-build-id and --gem5-build-type.
+Use the given directory as the gem5 build directory.
+Ignore --gem5-build-id and --gem5-build-type.
 '''
         )
         self.add_argument(
-            '-M', '--gem5-build-id', default='default',
+            '-M', '--gem5-build-id',
             help='''\
 gem5 build ID. Allows you to keep multiple separate gem5 builds.
-'''
+Default: {}
+'''.format(consts['default_build_id'])
         )
         self.add_argument(
             '--gem5-build-type', default='opt',
@@ -340,8 +342,11 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
             env['userland_build_id_given'] = False
         else:
             env['userland_build_id_given'] = True
-        if env['gem5_worktree'] is not None and env['gem5_build_id'] is None:
-            env['gem5_build_id'] = env['gem5_worktree']
+        if env['gem5_build_id'] is None:
+            if env['gem5_worktree'] is not None:
+                env['gem5_build_id'] = env['gem5_worktree']
+            else:
+                env['gem5_build_id'] = consts['default_build_id']
         env['is_arm'] = False
         if env['arch'] == 'arm':
             env['armv'] = 7
