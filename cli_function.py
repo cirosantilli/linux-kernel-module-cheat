@@ -151,7 +151,7 @@ class CliFunction:
             config_file = args_with_defaults['config_file']
         else:
             config_file = self._config_file
-        if os.path.exists(config_file):
+        if config_file is not None and os.path.exists(config_file):
             config_configs = {}
             config = imp.load_source('config', config_file)
             config.set_args(config_configs)
@@ -168,7 +168,8 @@ class CliFunction:
                     args_with_defaults[key] = argument.default
                 else:
                     raise Exception('Value not given for mandatory argument: ' + key)
-        del args_with_defaults['config_file']
+        if 'config_file' in args_with_defaults:
+            del args_with_defaults['config_file']
         return args_with_defaults
 
     def add_argument(
@@ -359,6 +360,9 @@ amazing function!
 
     # Force a boolean value set on the config to be False on CLI.
     assert one_cli_function.cli(['--no-bool-cli', '1'])['bool_cli'] is False
+
+    # Pick another config file.
+    assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1'])['bool_cli'] is False
 
     # get_cli
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]

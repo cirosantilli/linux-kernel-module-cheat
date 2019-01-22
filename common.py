@@ -577,7 +577,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
     def base64_encode(string):
         return base64.b64encode(string.encode()).decode()
 
-    def gem_list_checkpoint_dirs(self):
+    def gem5_list_checkpoint_dirs(self):
         '''
         List checkpoint directory, oldest first.
         '''
