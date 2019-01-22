@@ -35,6 +35,14 @@ Use the host packaged cross toolchain.
             default='',
         )
         self.add_argument(
+            '--static',
+            default=False,
+            help='''\
+Build the executables statically. TODO not implemented: Set the build id to 'static'
+if one was not given explicitly.
+''',
+        )
+        self.add_argument(
             'targets',
             default=[],
             help='''\
@@ -55,6 +63,9 @@ has the OpenBLAS libraries and headers installed.
             allowed_toolchains = ['buildroot']
         cc = self.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
         cxx = self.get_toolchain_tool('g++', allowed_toolchains=allowed_toolchains)
+        make_args = shlex.split(self.env['make_args'])
+        if self.env['static']:
+            make_args.extend(['CCFLAGS_EXTRA=-static', LF])
         self.sh.run_cmd(
             (
                 [
@@ -70,7 +81,7 @@ has the OpenBLAS libraries and headers installed.
                     'OUT_DIR={}'.format(build_dir), LF,
                 ] +
                 self.sh.add_newlines(['HAS_{}=y'.format(package.upper()) for package in self.env['has_package']]) +
-                shlex.split(self.env['make_args']) +
+                make_args +
                 self.sh.add_newlines([os.path.join(build_dir, os.path.splitext(os.path.split(target)[1])[0]) + self.env['userland_build_ext'] for target in self.env['targets']])
             ),
             cwd=self.env['userland_source_dir'],

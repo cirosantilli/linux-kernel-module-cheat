@@ -728,7 +728,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
             if not env['dry_run']:
                 end_time = time.time()
                 self._print_time(end_time - start_time)
-            if ret != 0:
+            if ret is not None and ret != 0:
                 return ret
         return 0
 
@@ -802,8 +802,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
         return argcopy
 
-    @staticmethod
-    def resolve_executable(in_path, magic_in_dir, magic_out_dir, out_ext):
+    def resolve_executable(self, in_path, magic_in_dir, magic_out_dir, out_ext):
         if os.path.isabs(in_path):
             return in_path
         else:
@@ -818,7 +817,8 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
             for path in paths:
                 if os.path.exists(path):
                     return path
-            raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
+            if not self.env['dry_run']:
+                raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
 
     def resolve_userland(self, path):
         return self.resolve_executable(
