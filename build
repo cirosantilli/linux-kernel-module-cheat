@@ -59,11 +59,8 @@ Build a component and all its dependencies.
 Our build-* scripts don't build any dependencies to make iterative
 development fast and more predictable.
 
-While modifying a specific component however, you will likely want to just run the
-individual build-* commands which:
-
-* build no dependencies, and so are fast and predictable
-* can take multiple options to custumize the build
+It is currently not possible to configure indivitual components from the command line
+when you build with this script. TODO.
 
 Without any args, build only what is necessary for:
 https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-buildroot-setup
@@ -77,10 +74,10 @@ This is equivalent to:
 ....
 ./%(prog)s --arch x86_64 qemu-buildroot
 ....
-'''
+''',
         )
         buildroot_component = _Component(
-            lambda arch: self._run_cmd(['build-buildroot'], arch),
+            self._build_file('build-buildroot'),
             submodules = {'buildroot'},
             # https://buildroot.org/downloads/manual/manual.html#requirement
             apt_get_pkgs={
@@ -109,24 +106,24 @@ This is equivalent to:
         self.name_to_component_map = {
             # Leaves without dependencies.
             'baremetal-qemu': _Component(
-                lambda: self.import_path_main('build-baremetal')(archs=self.env['archs'], emulators=['qemu']),
+                self._build_file('build-baremetal', emulators=['qemu']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
             'baremetal-gem5': _Component(
-                lambda: self.import_path_main('build-baremetal')(archs=self.env['archs'], emulators=['gem5']),
+                self._build_file('build-baremetal', emulators=['gem5']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
             'baremetal-gem5-pbx': _Component(
-                lambda: self.import_path_main('build-baremetal')(archs=self.env['archs'], emulators=['gem5'], machine='RealViewPBX'),
+                self._build_file('build-baremetal', emulators=['gem5'], machine='RealViewPBX'),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
             'buildroot': buildroot_component,
             'buildroot-gcc': buildroot_component,
             'copy-overlay': _Component(
-                lambda: self.import_path_main('copy-overlay')(archs=self.env['archs']),
+                self._build_file('copy-overlay'),
             ),
             'crosstool-ng': _Component(
-                lambda: self.import_path_main('build-crosstool-ng')(archs=self.env['archs']),
+                self._build_file('build-crosstool-ng'),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
                 # http://crosstool-ng.github.io/docs/os-setup/
                 apt_get_pkgs={
@@ -146,7 +143,7 @@ This is equivalent to:
                 submodules={'crosstool-ng'},
             ),
             'gem5': _Component(
-                lambda: self.import_path_main('build-gem5')(archs=self.env['archs']),
+                self._build_file('build-gem5'),
                 # TODO test it out on Docker and answer that question properly:
                 # https://askubuntu.com/questions/350475/how-can-i-install-gem5
                 apt_get_pkgs={
@@ -169,13 +166,13 @@ This is equivalent to:
                 submodules={'gem5'},
             ),
             'gem5-debug': _Component(
-                lambda: self.import_path_main('build-gem5')(archs=self.env['archs'], gem5_build_type='debug'),
+                self._build_file('build-gem5', gem5_build_type='debug'),
             ),
             'gem5-fast': _Component(
-                lambda arch: self._run_cmd(['build-gem5', '--gem5-build-type', 'fast'], arch),
+                self._build_file('build-gem5', gem5_build_type='fast'),
             ),
             'linux': _Component(
-                lambda arch: self._run_cmd(['build-linux'], arch),
+                self._build_file('build-linux', gem5_build_type='fast'),
                 submodules_shallow={'linux'},
                 apt_get_pkgs={
                     'bison',
@@ -186,20 +183,20 @@ This is equivalent to:
                 },
             ),
             'modules': _Component(
-                lambda arch: self._run_cmd(['build-modules'], arch),
+                self._build_file('build-modules'),
             ),
             'm5': _Component(
-                lambda arch: self._run_cmd(['build-m5'], arch),
+                self._build_file('build-m5'),
                 submodules={'gem5'},
             ),
             'qemu': _Component(
-                lambda arch: self._run_cmd(['build-qemu'], arch),
+                self._build_file('build-qemu'),
                 apt_build_deps={'qemu'},
                 apt_get_pkgs={'libsdl2-dev'},
                 submodules={'qemu'},
             ),
             'qemu-user': _Component(
-                lambda arch: self._run_cmd(['build-qemu', '--userland'], arch),
+                self._build_file('build-qemu', user_mode=True),
                 apt_build_deps = {'qemu'},
                 apt_get_pkgs={'libsdl2-dev'},
                 submodules = {'qemu'},
@@ -208,7 +205,7 @@ This is equivalent to:
                 submodules = {'parsec-benchmark'},
             ),
             'userland': _Component(
-                lambda arch: self._run_cmd(['build-userland'], arch),
+                self._build_file('build-userland'),
             ),
 
             # Dependency only nodes.
@@ -279,17 +276,12 @@ Build absolutely everything for all archs.
 '''
         )
         self.add_argument(
-            '-D',
             '--download-dependencies',
             default=False,
             help='''\
 Also download all dependencies required for a given build: Ubuntu packages,
 Python packages and git submodules.
 '''
-        )
-        self.add_argument(
-            '--dry-run',
-            default=False,
         )
         self.add_argument(
             '--travis',
@@ -307,6 +299,17 @@ Extra args to pass to all scripts.
 Which components to build. Default: qemu-buildroot
 '''
         )
+
+    def _build_file(self, component_file, **extra_args):
+        '''
+        Build something based on a component file that defines a Main class.
+        '''
+        def f():
+            args = self.get_common_args()
+            args.update(extra_args)
+            args['print_time'] = False
+            self.import_path_main(component_file)(**args)
+        return f
 
     def timed_main(self):
         self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
@@ -458,7 +461,7 @@ Which components to build. Default: qemu-buildroot
 
         # Do the build.
         for component in selected_components:
-            component.build(self.env['arch'])
+            component.build(self.env['archs'][0])
 
 if __name__ == '__main__':
     Main().cli()
