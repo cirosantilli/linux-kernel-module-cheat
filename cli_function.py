@@ -431,6 +431,8 @@ amazing function!
     assert one_cli_function.get_cli(pos_mandatory=1, bool=False) == [('--bool',), ('--bool-cli',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['3', '4']) == [('--bool-cli',), ('1',), ('2',), ('3',), ('4',)]
     assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
+    print(one_cli_function.get_cli(pos_mandatory=1, args_star=['asdf', 'qwer']))
+    assert one_cli_function.get_cli(pos_mandatory=1, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('asdf',), ('qwer',),]
 
     if len(sys.argv) > 1:
         # CLI call with argv command line arguments.

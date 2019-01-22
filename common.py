@@ -12,6 +12,7 @@ import json
 import math
 import multiprocessing
 import os
+import platform
 import re
 import shutil
 import signal
@@ -105,6 +106,7 @@ consts['emulator_choices'] = set()
 for key in consts['emulator_short_to_long_dict']:
     consts['emulator_choices'].add(key)
     consts['emulator_choices'].add(consts['emulator_short_to_long_dict'][key])
+consts['host_arch'] = platform.processor()
 
 class LkmcCliFunction(cli_function.CliFunction):
     '''
