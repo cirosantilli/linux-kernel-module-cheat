@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+import common
+
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            defaults={
+                'print_time': False,
+            },
+            description='''\
+https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-tests
+'''
+            ,
+        )
+        self.add_argument(
+            'tests',
+            nargs='*',
+            help='''\
+If given, run only the given tests. Otherwise, run all tests.
+'''
+        )
+
+    def timed_main(self):
+        run = self.import_path_main('run')
+        run_args = self.get_common_args()
+        if self.env['emulator'] == 'gem5':
+            run_args['userland_build_id'] = 'static'
+        if self.env['tests'] == []:
+            sources = [
+                'add.c',
+                'hello.c',
+                'hello_cpp.cpp',
+                'print_argv.c',
+            ]
+            if self.env['arch'] == 'x86_64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            elif self.env['arch'] == 'aarch64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            else:
+                arch_sources = []
+            arch_sources[:] = [os.path.join('arch', self.env['arch'], arch_source) for arch_source in arch_sources]
+            sources.extend(arch_sources)
+        else:
+            sources = self.env['tests']
+        for source in sources:
+            run_args['userland'] = source
+            run_args['background'] = True
+            test_id_string = self.test_setup(run_args, source)
+            exit_status = run(**run_args)
+            self.test_teardown(run)
+            if exit_status != 0:
+                self.log_error('test failed, program exit status: {} test id: {}'.format(exit_status, test_id_string))
+                sys.exit(1)
+
+if __name__ == '__main__':
+    Main().cli()
