@@ -49,7 +49,10 @@ class _Argument:
                 self.is_bool = True
             else:
                 self.is_bool = False
-                if default is None and nargs in ('*', '+'):
+                if default is None and (
+                    nargs in ('*', '+')
+                    or ('action' in kwargs and kwargs['action'] == 'append')
+                ):
                     default = []
             if self.is_bool and not 'action' in kwargs:
                 self.kwargs['action'] = bool_action
@@ -274,10 +277,13 @@ class CliFunction:
                 if value != default:
                     if argument.is_option:
                         if argument.is_bool:
-                            val = (argument.longname,)
+                            vals = [(argument.longname,)]
+                        elif 'action' in argument.kwargs and argument.kwargs['action'] == 'append':
+                            vals = [(argument.longname, str(val)) for val in value]
                         else:
-                            val = (argument.longname, str(value))
-                        bisect.insort(options, val)
+                            vals = [(argument.longname, str(value))]
+                        for val in vals:
+                            bisect.insort(options, val)
                     else:
                         if type(value) is list:
                             positional_dict[key] = [tuple(v,) for v in value]
@@ -320,6 +326,7 @@ amazing function!
             self.add_argument('--bool-cli', default=False, help='Help for bool'),
             self.add_argument('--bool-nargs', default=False, nargs='?', action='store', const='')
             self.add_argument('--no-default', help='Help for no-bool'),
+            self.add_argument('--append', action='append')
             self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
             self.add_argument('args-star', help='Help for args-star', nargs='*'),
@@ -339,6 +346,7 @@ amazing function!
         'bool_cli': True,
         'custom_dest': None,
         'no_default': None,
+        'append': [],
         'pos_mandatory': 1,
         'pos_optional': 0,
         'args_star': []
@@ -401,6 +409,14 @@ amazing function!
     out['args_star'] = default['args_star']
     assert out == default
 
+    # Star
+    out = one_cli_function(append=['1', '2'], pos_mandatory=1)
+    cli_out = one_cli_function.cli(['--append', '1', '--append', '2', '1'])
+    assert out == cli_out
+    assert out['append'] == ['1', '2']
+    out['append'] = default['append']
+    assert out == default
+
     # Force a boolean value set on the config to be False on CLI.
     assert one_cli_function.cli(['--no-bool-cli', '1'])['bool_cli'] is False
 
@@ -416,6 +432,7 @@ amazing function!
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B', qwer='R') == [('--asdf', 'B'), ('--bool-cli',), ('--qwer', 'R'), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, bool=False) == [('--bool',), ('--bool-cli',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['3', '4']) == [('--bool-cli',), ('1',), ('2',), ('3',), ('4',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
 
     if len(sys.argv) > 1:
         # CLI call with argv command line arguments.
