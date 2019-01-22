@@ -9,6 +9,7 @@ import glob
 import imp
 import inspect
 import json
+import math
 import multiprocessing
 import os
 import re
@@ -365,7 +366,7 @@ Valid emulators: {}
         )
         self._is_common = False
 
-    def __call__(self, **kwargs):
+    def __call__(self, *args, **kwargs):
         '''
         For Python code calls, in addition to base:
 
@@ -770,11 +771,14 @@ Valid emulators: {}
     def import_path_main(self, path):
         return self.import_path(path).Main()
 
-    @staticmethod
-    def log_error(msg):
-        print('error: {}'.format(msg), file=sys.stderr)
+    def log_error(self, msg):
+        print('error: {}'.format(msg), file=sys.stdout)
 
-    def main(self, **kwargs):
+    def log_info(self, msg, **kwargs):
+        if not self.env['quiet']:
+            print('{}'.format(msg), **kwargs)
+
+    def main(self, *args, **kwargs):
         '''
         Time the main of the derived class.
         '''
@@ -811,7 +815,8 @@ Valid emulators: {}
                     ret = self.timed_main()
                     if not env['dry_run']:
                         end_time = time.time()
-                        self._print_time(end_time - start_time)
+                        self.ellapsed_seconds = end_time - start_time
+                        self.print_time(self.ellapsed_seconds)
                     if ret is not None and ret != 0:
                         return ret
                 elif not real_all_archs:
@@ -841,11 +846,23 @@ Valid emulators: {}
                 return True
         return False
 
-    def _print_time(self, ellapsed_seconds):
+    def seconds_to_hms(self, seconds):
+        '''
+        Seconds to hour:minute:seconds
+
+        :ptype seconds: float
+        :rtype: str
+
+        https://stackoverflow.com/questions/775049/how-do-i-convert-seconds-to-hours-minutes-and-seconds 
+        '''
+        frac, whole = math.modf(seconds)
+        hours, rem = divmod(whole, 3600)
+        minutes, seconds = divmod(rem, 60)
+        return '{:02}:{:02}:{:02}'.format(int(hours), int(minutes), int(seconds))
+
+    def print_time(self, ellapsed_seconds):
         if self.env['print_time'] and not self.env['quiet']:
-            hours, rem = divmod(ellapsed_seconds, 3600)
-            minutes, seconds = divmod(rem, 60)
-            print('time {:02}:{:02}:{:02}'.format(int(hours), int(minutes), int(seconds)))
+            print('time {}'.format(self.seconds_to_hms(ellapsed_seconds)))
 
     def raw_to_qcow2(self, prebuilt=False, reverse=False):
         if prebuilt or not os.path.exists(self.env['qemu_img_executable']):
@@ -918,8 +935,11 @@ Valid emulators: {}
         if not self.env['verbose']:
             test_env['quiet'] = True
         test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], source)
-        if not self.env['quiet']:
-            print(test_id_string)
+        if self.env['verbose']:
+            end = '\n'
+        else:
+            end = ' '
+        self.log_info(test_id_string, end=end)
         return test_id_string
 
     def timed_main(self):
