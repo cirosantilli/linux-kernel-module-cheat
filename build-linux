@@ -29,6 +29,12 @@ Pass multiple times to use multiple fragment files.
 '''
         )
         self.add_argument(
+            '--config-only', default=False,
+            help='''\
+Configure the kernel, but don't build it.
+'''
+        )
+        self.add_argument(
             '--custom-config-file',
             help='''\
 Ignore all default kernel configurations and use this file instead.
@@ -44,9 +50,9 @@ Ignore --custom-config-file.
 '''
         )
         self.add_argument(
-            '--config-only', default=False,
+            '--modules-install', default=True,
             help='''\
-Configure the kernel, but don't build it.
+Run `make modules_install` after `make`.
 '''
         )
         self.add_argument(
@@ -138,19 +144,20 @@ Configure the kernel, but don't build it.
                 },
                 **common_args
             )
-            self.sh.run_cmd(
-                (
-                    common_make_args +
-                    [
-                        'INSTALL_MOD_PATH={}'.format(self.env['out_rootfs_overlay_dir']), LF,
-                        'modules_install', LF,
-                    ]
-                ),
-                **common_args
-            )
-            # TODO: remove build and source https://stackoverflow.com/questions/13578618/what-does-build-and-source-link-do-in-lib-modules-kernel-version
-            # TODO Basically all kernel modules also basically leak full host paths. Just terrible. Buildroot deals with that stuff nicely for us.
-            # self.rmrf()
+            if self.env['modules_install']:
+                self.sh.run_cmd(
+                    (
+                        common_make_args +
+                        [
+                            'INSTALL_MOD_PATH={}'.format(self.env['out_rootfs_overlay_dir']), LF,
+                            'modules_install', LF,
+                        ]
+                    ),
+                    **common_args
+                )
+                # TODO: remove build and source https://stackoverflow.com/questions/13578618/what-does-build-and-source-link-do-in-lib-modules-kernel-version
+                # TODO Basically all kernel modules also basically leak full host paths. Just terrible. Buildroot deals with that stuff nicely for us.
+                # self.rmrf()
 
     def get_build_dir(self):
         return self.env['linux_build_dir']
