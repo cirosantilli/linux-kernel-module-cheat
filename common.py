@@ -777,6 +777,11 @@ Valid emulators: {}
         return imp.load_source(basename.replace('-', '_'), os.path.join(self.env['root_dir'], basename))
 
     def import_path_main(self, path):
+        '''
+        Import an object of the Main class of a given file.
+
+        By convention, we call the main object of all our CLI scripts as Main.
+        '''
         return self.import_path(path).Main()
 
     def log_error(self, msg):
@@ -795,7 +800,7 @@ Valid emulators: {}
         env = kwargs.copy()
         self.input_args = env.copy()
         env.update(consts)
-        real_all_archs= env['all_archs']
+        real_all_archs = env['all_archs']
         if real_all_archs:
             real_archs = consts['all_long_archs']
         else:
