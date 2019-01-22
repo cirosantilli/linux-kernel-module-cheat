@@ -36,7 +36,7 @@ class ShellHelpers:
         :param dry_run: don't run the commands, just potentially print them. Debug aid.
         :type dry_run: Bool
 
-        :param quiet: don't print the commands.
+        :param quiet: don't print the commands
         :type dry_run: Bool
         '''
         self.dry_run = dry_run

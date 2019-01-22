@@ -4,18 +4,19 @@ import argparse
 import os
 
 import common
+import shell_helpers
 from shell_helpers import LF
 
-container_name = kwargs['repo_short_id']
-container_hostname = kwargs['repo_short_id']
-image_name = kwargs['repo_short_id']
-target_dir = '/root/{}'.format(kwargs['repo_short_id'])
+container_name = common.consts['repo_short_id']
+container_hostname = common.consts['repo_short_id']
+image_name = common.consts['repo_short_id']
+target_dir = '/root/{}'.format(common.consts['repo_short_id'])
 docker = ['sudo', 'docker']
 def create(args):
-    self.sh.run_cmd(docker + ['build', '-t', image_name, '.', LF])
+    sh.run_cmd(docker + ['build', '-t', image_name, '.', LF])
     # --privileged for KVM:
     # https://stackoverflow.com/questions/48422001/launching-qemu-kvm-from-inside-docker-container
-    self.sh.run_cmd(
+    sh.run_cmd(
         docker +
         [
             'create', LF,
@@ -32,34 +33,34 @@ def create(args):
     )
 def destroy(args):
     stop(args)
-    self.sh.run_cmd(docker + ['rm', container_name, LF])
-    self.sh.run_cmd(docker + ['rmi', image_name, LF])
-def sh(args):
+    sh.run_cmd(docker + ['rm', container_name, LF])
+    sh.run_cmd(docker + ['rmi', image_name, LF])
+def sh_func(args):
     start(args)
     if args:
         sh_args = args
     else:
         sh_args = ['bash']
-    self.sh.run_cmd(
+    sh.run_cmd(
         docker + ['exec', '-i', '-t', container_name] +
         sh_args +
         [LF],
     )
 def start(args):
-    self.sh.run_cmd(docker + ['start', container_name, LF])
+    sh.run_cmd(docker + ['start', container_name, LF])
 def stop(args):
-    self.sh.run_cmd(docker + ['stop', container_name, LF])
+    sh.run_cmd(docker + ['stop', container_name, LF])
 cmd_action_map = {
     'create': lambda args: create(args),
     'DESTROY': lambda args: destroy(args),
-    'sh': lambda args: sh(args),
+    'sh': lambda args: sh_func(args),
     'start': lambda args: start(args),
     'stop': lambda args: stop(args),
 }
 parser = argparse.ArgumentParser()
+parser.add_argument('--dry-run', default=False, action='store_true')
 parser.add_argument('cmd', choices=cmd_action_map)
 parser.add_argument('args', nargs='*')
-self.add_dry_run_argument(parser)
 args = parser.parse_args()
-self.setup_dry_run_arguments(args)
-cmd_action_map[kwargs['cmd']](kwargs['args'])
+sh = shell_helpers.ShellHelpers(dry_run=args.dry_run)
+cmd_action_map[args.cmd](args.args)
