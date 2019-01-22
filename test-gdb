@@ -10,13 +10,13 @@ class Main(common.LkmcCliFunction):
         run = self.import_path('run').Main()
         run_gdb = self.import_path('run-gdb').Main()
         for emulator in self.env['emulators']:
-            for arch in self.env['crosstool_ng_supported_archs']:
+            if self.env['arch'] in self.env['crosstool_ng_supported_archs']:
                 test_scripts_noext = []
                 for f in os.listdir(self.env['baremetal_src_dir']):
                     base, ext = os.path.splitext(f)
                     if ext == '.py':
                         test_scripts_noext.append(base)
-                for root, dirs, files in os.walk(os.path.join(self.env['baremetal_src_dir'], 'arch', arch)):
+                for root, dirs, files in os.walk(os.path.join(self.env['baremetal_src_dir'], 'arch', self.env['arch'])):
                     for f in files:
                         base, ext = os.path.splitext(f)
                         if ext == '.py':
@@ -25,16 +25,18 @@ class Main(common.LkmcCliFunction):
                             test_scripts_noext.append(relpath)
                 for test_script_noext in test_scripts_noext:
                     run_thread = threading.Thread(target=lambda: run(
-                        archs=[arch],
+                        archs=[self.env['arch']],
                         background=True,
                         baremetal=test_script_noext,
+                        dry_run=self.env['dry_run'],
                         emulator=emulator,
                         wait_gdb=True
                     ))
                     run_thread.start()
                     run_gdb(
-                        archs=[arch],
+                        archs=[self.env['arch']],
                         baremetal=test_script_noext,
+                        dry_run=self.env['dry_run'],
                         emulator=emulator,
                         test=True,
                     )
