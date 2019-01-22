@@ -258,7 +258,12 @@ Use the given directory as the Linux source tree.
             '--initramfs', default=False,
         )
         self.add_argument(
-            '--initrd', default=False,
+            '--initrd',
+            default=False,
+            help='''\
+Make Buildroot create a CPIO root filessytem, and make QEMU use it instead of
+the default ext2.
+'''
         )
 
         # Baremetal.

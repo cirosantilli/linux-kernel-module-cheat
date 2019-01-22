@@ -2594,13 +2594,13 @@ where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/2
 
 == initrd
 
-TODO: broken when we started building the Linux manually with `./build-linux` instead of Buildroot. Was working before, see e.g. 56738a1c70e50bf7b6d5fbe02372c5d277a8286f.
-
 The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
 
-The bootloader, which for us is QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
+The bootloader, which for us is provided by QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
 
-With this setup, you don't even need to give a root filesystem to the kernel, it just does everything in memory in a ramfs.
+This is very similar to the kernel image itself, which already gets put into memory by the QEMU `-kernel` option.
+
+With this setup, you don't even need to give a root filesystem to the kernel: it just does everything in memory in a ramfs.
 
 To enable initrd instead of the default ext2 disk image, do:
 
@@ -2609,13 +2609,15 @@ To enable initrd instead of the default ext2 disk image, do:
 ./run --initrd
 ....
 
-Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
+By looking at the QEMU run command generated, you can see that we didn't give the `-drive` option at all:
 
 ....
 cat "$(./getvar run_dir)/run.sh"
 ....
 
-Also as expected, there is no filesystem persistency, since we are doing everything in memory:
+Instead, we used the QEMU `-initrd` option to point to the `.cpio` filesystem that Buildroot generated for us.
+
+When using `.cpio`, there can be no filesystem persistency across boots, since all file operations happen in memory in a tmpfs:
 
 ....
 date >f
@@ -2625,6 +2627,8 @@ cat f
 ....
 
 which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.
+
+Not however that we already disable disk persistency by default on ext2 filesystems even without `--initrd`: <<disk-persistency>>.
 
 One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:
 
@@ -2667,6 +2671,8 @@ initrd /initrd.img-4.4.0-108-generic
 Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linux-kernel
 
 === initramfs
+
+TODO: broken when we started building the Linux manually with `./build-linux` instead of Buildroot. Was working before, see e.g. 56738a1c70e50bf7b6d5fbe02372c5d277a8286f.
 
 initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself.
 
