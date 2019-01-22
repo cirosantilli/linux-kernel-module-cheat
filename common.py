@@ -518,7 +518,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
             env['rootfs_raw_file'] = env['buildroot_rootfs_raw_file']
             env['qcow2_file'] = env['buildroot_qcow2_file']
 
-        # Image.
+        # Image
         if env['baremetal'] is None:
             if env['emulator'] == 'gem5':
                 env['image'] = env['vmlinux']
@@ -547,7 +547,9 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
                         env['source_path'] = source_path
                         break
             env['image'] = path
+
         self.env = env
+
 
     def add_argument(self, *args, **kwargs):
         shortname, longname, key, is_option = self.get_key(*args, **kwargs)
