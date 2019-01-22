@@ -133,6 +133,13 @@ Default: %(default)s
 '''
         )
         self.add_argument(
+            '--quit-after-boot',
+            default=False,
+            help='''\
+Setup a kernel init parameter that makes the emulator quit immediately after boot.
+'''
+        )
+        self.add_argument(
             '-R', '--replay', default=False,
             help='Replay a QEMU run record deterministically'
         )
@@ -212,6 +219,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         kernel_cli = 'console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y rw'
         if self.env['kernel_cli'] is not None:
             kernel_cli += ' {}'.format(self.env['kernel_cli'])
+        if self.env['quit_after_boot']:
+            kernel_cli += ' {}'.format(self.env['quit_init'])
         kernel_cli_after_dash = ''
         extra_emulator_args = []
         extra_qemu_args = []
@@ -232,11 +241,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         else:
             vnc = []
         if self.env['eval'] is not None:
-            if self.env['ramfs']:
-                initarg = 'rdinit'
-            else:
-                initarg = 'init'
-            kernel_cli += ' {}=/eval_base64.sh'.format(initarg)
+            kernel_cli += ' {}=/eval_base64.sh'.format(self.env['initarg'])
             kernel_cli_after_dash += ' lkmc_eval="{}"'.format(self.base64_encode(self.env['eval']))
         if not self.env['graphic']:
             extra_qemu_args.extend(['-nographic', LF])

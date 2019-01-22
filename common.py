@@ -482,7 +482,7 @@ Valid emulators: {}
         env['buildroot_images_dir'] = join(env['buildroot_build_dir'], 'images')
         env['buildroot_rootfs_raw_file'] = join(env['buildroot_images_dir'], 'rootfs.ext2')
         env['buildroot_qcow2_file'] = env['buildroot_rootfs_raw_file'] + '.qcow2'
-        env['buildroot_cpio'] = join(self.env['buildroot_images_dir'], 'rootfs.cpio')
+        env['buildroot_cpio'] = join(env['buildroot_images_dir'], 'rootfs.cpio')
         env['staging_dir'] = join(env['out_dir'], 'staging', env['arch'])
         env['buildroot_staging_dir'] = join(env['buildroot_build_dir'], 'staging')
         env['target_dir'] = join(env['buildroot_build_dir'], 'target')
@@ -606,8 +606,12 @@ Valid emulators: {}
             env['userland_quit_cmd'] = '/gem5_exit.sh'
         else:
             env['userland_quit_cmd'] = '/poweroff.out'
-        env['quit_init'] = 'init={}'.format(env['userland_quit_cmd'])
-        self.env['ramfs'] = self.env['initrd'] or self.env['initramfs']
+        env['ramfs'] = env['initrd'] or env['initramfs']
+        if env['ramfs']:
+            env['initarg'] = 'rdinit'
+        else:
+            env['initarg'] = 'init'
+        env['quit_init'] = '{}={}'.format(env['initarg'], env['userland_quit_cmd'])
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])
