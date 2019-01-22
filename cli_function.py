@@ -284,7 +284,7 @@ class CliFunction:
                             bisect.insort(options, val)
                     else:
                         if type(value) is list:
-                            positional_dict[key] = [tuple(v,) for v in value]
+                            positional_dict[key] = [tuple([v]) for v in value]
                         else:
                             positional_dict[key] = [(str(value),)]
         # Python built-in data structures suck.
@@ -429,10 +429,8 @@ amazing function!
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B', qwer='R') == [('--asdf', 'B'), ('--bool-cli',), ('--qwer', 'R'), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, bool=False) == [('--bool',), ('--bool-cli',), ('1',)]
-    assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['3', '4']) == [('--bool-cli',), ('1',), ('2',), ('3',), ('4',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('2',), ('asdf',), ('qwer',)]
     assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
-    print(one_cli_function.get_cli(pos_mandatory=1, args_star=['asdf', 'qwer']))
-    assert one_cli_function.get_cli(pos_mandatory=1, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('asdf',), ('qwer',),]
 
     if len(sys.argv) > 1:
         # CLI call with argv command line arguments.
