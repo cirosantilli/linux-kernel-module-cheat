@@ -130,7 +130,7 @@ mkdir are generally omitted since those are obvious
         self.add_argument(
             '--gem5-build-dir',
             help='''\
-Use the given directory as the gem5 build directory.
+Use the given directory as the gem5 build directory. Ignore --gem5-build-id and --gem5-build-type.
 '''
         )
         self.add_argument(
@@ -158,6 +158,12 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
         )
 
         # Linux kernel.
+        self.add_argument(
+            '--linux-build-dir',
+            help='''\
+Use the given directory as the Linux build directory. Ignore --linux-build-id.
+'''
+        )
         self.add_argument(
             '-L', '--linux-build-id', default=consts['default_build_id'],
             help='''\
@@ -442,26 +448,26 @@ to allow overriding configs from the CLI.
         env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
 
         # Linux kernl.
-        if 'linux_build_id' in env:
+        if env['linux_build_dir'] is None:
             env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
-            env['lkmc_vmlinux'] = join(env['linux_build_dir'], "vmlinux")
-            if env['arch'] == 'arm':
-                env['linux_arch'] = 'arm'
-                env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'zImage')
-            elif env['arch'] == 'aarch64':
-                env['linux_arch'] = 'arm64'
-                env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'Image')
-            elif env['arch'] == 'x86_64':
-                env['linux_arch'] = 'x86'
-                env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'bzImage')
-            env['lkmc_linux_image'] = join(env['linux_build_dir'], env['linux_image_prefix'])
-            env['buildroot_linux_image'] = join(env['buildroot_linux_build_dir'], env['linux_image_prefix'])
-            if env['buildroot_linux']:
-                env['vmlinux'] = env['buildroot_vmlinux']
-                env['linux_image'] = env['buildroot_linux_image']
-            else:
-                env['vmlinux'] = env['lkmc_vmlinux']
-                env['linux_image'] = env['lkmc_linux_image']
+        env['lkmc_vmlinux'] = join(env['linux_build_dir'], "vmlinux")
+        if env['arch'] == 'arm':
+            env['linux_arch'] = 'arm'
+            env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'zImage')
+        elif env['arch'] == 'aarch64':
+            env['linux_arch'] = 'arm64'
+            env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'Image')
+        elif env['arch'] == 'x86_64':
+            env['linux_arch'] = 'x86'
+            env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'bzImage')
+        env['lkmc_linux_image'] = join(env['linux_build_dir'], env['linux_image_prefix'])
+        env['buildroot_linux_image'] = join(env['buildroot_linux_build_dir'], env['linux_image_prefix'])
+        if env['buildroot_linux']:
+            env['vmlinux'] = env['buildroot_vmlinux']
+            env['linux_image'] = env['buildroot_linux_image']
+        else:
+            env['vmlinux'] = env['lkmc_vmlinux']
+            env['linux_image'] = env['lkmc_linux_image']
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])
