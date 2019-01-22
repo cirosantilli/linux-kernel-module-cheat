@@ -2467,7 +2467,7 @@ asdf=qwer
 
 Source: link:userland/init_env_poweroff.c[].
 
-==== init environment args
+==== init arguments
 
 The annoying dash `-` gets passed as a parameter to `init`, which makes it impossible to use this method for most non custom executables.
 
@@ -2487,6 +2487,8 @@ ab
 ....
 
 so see how `a.b` is gone.
+
+The simple workaround is to just create a shell script that does it, e.g. as we've done at: link:rootfs_overlay/gem5_exit.sh[].
 
 ==== init environment env
 
@@ -11886,11 +11888,16 @@ This directory is copied into the target filesystem by:
 
 ....
 ./copy-overlay
+./build-buildroot
 ....
 
-Source link:copy-overlay[]
+Source: link:copy-overlay[]
 
-Since this directory does not require compilation, we also make it <<9p>> available to the guest directly even without `copy-overlay` at:
+`copy-overlay` by itself, only places the files into our intermediate `./getenv out_rootfs_overlay_dir` directory.
+
+This directory combines files from several sources, including for example link:build-userland[], which the final `./build-buildroot` puts into the root filesystem.
+
+Since the link:rootfs_overlay[] directory does not require compilation, unlike say link:userland[] we also make it <<9p>> available to the guest directly even without `copy-overlay` at:
 
 ....
 ls /mnt/9p/rootfs_overlay
@@ -11899,10 +11906,6 @@ ls /mnt/9p/rootfs_overlay
 This way you can just hack away the scripts and try them out immediately without any further operations.
 
 To add those scripts to the Buildroot root filesystem, you will need to run:
-
-....
-./build-buildroot
-....
 
 We could add that directory to `BR2_ROOTFS_OVERLAY` but we don't do this because this mechanism:
 
@@ -11915,7 +11918,7 @@ and maintaining `BR2_ROOTFS_OVERLAY` in addition to our mechanism would duplicat
 
 ==== Automated tests
 
-Run absolutely all tests:
+Run almost all tests:
 
 ....
 ./build-test --size 3 && \
@@ -11929,15 +11932,20 @@ Sources:
 
 * link:build-test[]
 * link:test[]
-* link:test-userland[]
 * <<user-mode-tests>>
 * <<baremetal-tests>>
+
+This is not all tests, because there are too many possible variations and that would take forever.
+
+Instead, we currently select on magic arch, currently `aarch64`, and for that arch run more stuff than on others.
+
+We could in the future we will add an option to select the large arch, or do something smarter.
 
 This full testing takes too much time to be feasible for every patch, but it should be done for every release.
 
 See the sources of those test scripts to learn how to run more specialized tests.
 
-One important tip is that you can select multiple archs and emulators of interest with a command such as:
+One important tip is that you can select multiple archs and emulators of interest with any command as in:
 
 ....
 ./test-user-mode \
@@ -11958,7 +11966,21 @@ Test that the Internet works:
 ./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
 ....
 
-Source: link:rootfs_overlay/test_all.sh[].
+===== Test userland in full system
+
+Run all userland tests from inside full system simulation (i.e. not <<user-mode-simulation>>):
+
+....
+./test-userland-full-system
+....
+
+This includes, in particular, userland programs that test the kernel modules, which cannot be tested in user mode simulation.
+
+Basically just boots and runs: link:rootfs_overlay/test_all.sh[]
+
+Failure is detected by looking for the <<magic-failure-string>>
+
+Most userland programs that don't rely on kernel modules can also be tested in user mode simulation as explained at: <<user-mode-tests>>.
 
 ===== Test GDB
 
@@ -12037,7 +12059,7 @@ to the terminal, then our run scripts detect that and exit with status `1`.
 This magic output string is notably used by:
 
 * the `common_assert_fail()` function, which is used by <<baremetal-tests>>
-* link:rootfs_overlay/test_fail.sh[], which is used by the link:test-userland[]
+* link:rootfs_overlay/test_fail.sh[], which is used by <<test-userland-in-full-system>>
 
 === Bisection
 

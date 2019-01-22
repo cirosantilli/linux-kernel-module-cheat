@@ -472,10 +472,20 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                                 .format(virtfs_dir=virtfs_dir, virtfs_tag=virtfs_tag),
                             LF,
                         ])
+                if self.env['machine2'] is not None:
+                    # Multiple -machine options can also be given comma separated in one -machine.
+                    # We use multiple because the machine is used as an identifier on baremetal tests
+                    # build paths, so better keep them clean.
+                    machine2 = ['-machine', self.env['machine2'], LF]
+                else:
+                    machine2 = []
                 cmd.extend(
                     [
                         qemu_executable, LF,
                         '-machine', self.env['machine'], LF,
+                    ] +
+                    machine2 +
+                    [
                         '-device', 'rtl8139,netdev=net0', LF,
                         '-gdb', 'tcp::{}'.format(self.env['gdb_port']), LF,
                         '-kernel', self.env['image'], LF,

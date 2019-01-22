@@ -439,11 +439,15 @@ Valid emulators: {}
                         env['machine'] = 'VExpress_GEM5_V1'
             else:
                 if not env['_args_given']['machine']:
-                    # highmem=off needed since v3.0.0 due to:
-                    # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
-                    env['machine'] = 'virt,highmem=off'
-                    if env['arch'] == 'aarch64':
-                        env['machine'] += ',gic_version=3'
+                    env['machine'] = 'virt'
+                    if env['arch'] == 'arm':
+                        # highmem=off needed since v3.0.0 due to:
+                        # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+                        env['machine2'] = 'highmem=off'
+                    elif env['arch'] == 'aarch64':
+                        env['machine2'] = 'gic_version=3'
+        else:
+            env['machine2'] = None
 
         # Buildroot
         env['buildroot_build_dir'] = join(env['buildroot_out_dir'], 'build', env['buildroot_build_id'], env['arch'])
@@ -556,7 +560,7 @@ Valid emulators: {}
             env['trace_txt_file'] = env['qemu_trace_txt_file']
         env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
 
-        # Linux kernl.
+        # Linux kernel.
         if not env['_args_given']['linux_build_dir']:
             env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
         env['lkmc_vmlinux'] = join(env['linux_build_dir'], 'vmlinux')
@@ -577,6 +581,11 @@ Valid emulators: {}
         else:
             env['vmlinux'] = env['lkmc_vmlinux']
             env['linux_image'] = env['lkmc_linux_image']
+        if env['emulator']== 'gem5':
+            env['userland_quit_cmd'] = '/gem5_exit.sh'
+        else:
+            env['userland_quit_cmd'] = '/poweroff.out'
+        env['quit_init'] = 'init={}'.format(env['userland_quit_cmd'])
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])
@@ -1043,7 +1052,19 @@ class Test:
         return ' '.join(out)
 
 class TestCliFunction(LkmcCliFunction):
+    '''
+    Represents a CLI command that runs tests.
+
+    Automates test reporting boilerplate for those commands.
+    '''
+
     def __init__(self, *args, **kwargs):
+        defaults = {
+            'print_time': False,
+        }
+        if 'defaults' in kwargs:
+            defaults.update(kwargs['defaults'])
+        kwargs['defaults'] = defaults
         super().__init__(*args, **kwargs)
         self.tests = []
         self.add_argument(
@@ -1054,13 +1075,25 @@ Stop running at the first failed test.
 '''
         )
 
-    def run_test(self, run_obj, run_args, extra_params):
-        test_id_string = self.test_setup(extra_params)
+    def run_test(self, run_obj, run_args, test_id=None):
+        '''
+        This is a setup / run / teardown setup for simple tests that just do a single run.
+
+        More complex tests might need to run the steps separately, e.g. gdb tests
+        must run multiple commands: one for the run and one GDB.
+
+        :param run_obj: callable object
+        :param run_args: arguments to be passed to the runnable object
+        :param test_id: test identifier, to be added in addition to of arch and emulator ids
+        '''
+        test_id_string = self.test_setup(test_id)
         exit_status = run_obj(**run_args)
         self.test_teardown(run_obj, exit_status, test_id_string)
 
-    def test_setup(self, extra_params):
-        test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], extra_params)
+    def test_setup(self, test_id):
+        test_id_string = '{} {}'.format(self.env['emulator'], self.env['arch'])
+        if test_id is not None:
+            test_id_string += ' {}'.format(test_id)
         self.log_info('test_id {}'.format(test_id_string), flush=True)
         return test_id_string
 
