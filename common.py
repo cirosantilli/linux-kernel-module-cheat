@@ -112,7 +112,7 @@ class LkmcCliFunction(cli_function.CliFunction):
     * command timing
     * some common flags, e.g.: --arch, --dry-run, --verbose
     '''
-    def __init__(self, *args, defaults=None, **kwargs):
+    def __init__(self, *args, defaults=None, supported_archs=None, **kwargs):
         '''
         :ptype defaults: Dict[str,Any]
         :param defaults: override the default value of an argument
@@ -123,6 +123,7 @@ class LkmcCliFunction(cli_function.CliFunction):
             defaults = {}
         self._defaults = defaults
         super().__init__(*args, **kwargs)
+        self.supported_archs = supported_archs
 
         # Args for all scripts.
         arches = consts['arch_short_to_long_dict']
@@ -353,8 +354,6 @@ Valid emulators: {}
         '''
         def join(*paths):
             return os.path.join(*paths)
-        if env['arch'] in env['arch_short_to_long_dict']:
-            env['arch'] = env['arch_short_to_long_dict'][env['arch']]
         if env['emulator'] in env['emulator_short_to_long_dict']:
             env['emulator'] = env['emulator_short_to_long_dict'][env['emulator']]
         if env['userland_build_id'] is None:
@@ -612,10 +611,6 @@ Valid emulators: {}
             kwargs['default'] = self._defaults[key]
         super().add_argument(*args, **kwargs)
 
-    def assert_crosstool_ng_supports_arch(self, arch):
-        if arch not in self.env['crosstool_ng_supported_archs']:
-            raise Exception('arch not yet supported: ' + arch)
-
     @staticmethod
     def base64_encode(string):
         return base64.b64encode(string.encode()).decode()
@@ -722,13 +717,15 @@ Valid emulators: {}
             _json = {}
         return _json
 
-    @staticmethod
-    def import_path(path):
+    def import_path(self, basename):
         '''
         https://stackoverflow.com/questions/2601047/import-a-python-module-without-the-py-extension
         https://stackoverflow.com/questions/31773310/what-does-the-first-argument-of-the-imp-load-source-method-do
         '''
-        return imp.load_source(os.path.split(path)[1].replace('-', '_'), path)
+        return imp.load_source(basename.replace('-', '_'), os.path.join(self.env['root_dir'], basename))
+
+    def import_path_main(self, path):
+        return self.import_path(path).Main()
 
     @staticmethod
     def log_error(msg):
@@ -746,19 +743,24 @@ Valid emulators: {}
             env['emulators'] = consts['all_long_emulators']
         for emulator in env['emulators']:
             for arch in env['archs']:
-                if not env['dry_run']:
-                    start_time = time.time()
-                env['arch'] = arch
-                env['emulator'] = emulator
-                self.env = env.copy()
-                self._init_env(self.env)
-                self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
-                ret = self.timed_main()
-                if not env['dry_run']:
-                    end_time = time.time()
-                    self._print_time(end_time - start_time)
-                if ret is not None and ret != 0:
-                    return ret
+                if arch in env['arch_short_to_long_dict']:
+                    arch = env['arch_short_to_long_dict'][arch]
+                if self.supported_archs is None or arch in self.supported_archs:
+                    if not env['dry_run']:
+                        start_time = time.time()
+                    env['arch'] = arch
+                    env['emulator'] = emulator
+                    self.env = env.copy()
+                    self._init_env(self.env)
+                    self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
+                    ret = self.timed_main()
+                    if not env['dry_run']:
+                        end_time = time.time()
+                        self._print_time(end_time - start_time)
+                    if ret is not None and ret != 0:
+                        return ret
+                elif not env['all_archs']:
+                    raise Exception('Unsupported arch for this action: ' + arch)
         return 0
 
     def make_build_dirs(self):
