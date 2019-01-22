@@ -1021,11 +1021,11 @@ TestResult = enum.Enum('TestResult', ['PASS', 'FAIL'])
 
 class Test:
     def __init__(
-            self,
-            test_id: str,
-            result : TestResult =None,
-            ellapsed_seconds : float =None
-        ):
+        self,
+        test_id: str,
+        result : TestResult =None,
+        ellapsed_seconds : float =None
+    ):
         self.test_id = test_id
         self.result = result
         self.ellapsed_seconds = ellapsed_seconds
@@ -1042,16 +1042,33 @@ class TestCliFunction(LkmcCliFunction):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tests = []
+        self.add_argument(
+            '--fail-early',
+            default=True,
+            help='''\
+Stop running at the first failed test.
+'''
+        )
 
     def run_test(self, run_obj, run_args, extra_params):
+        test_id_string = self.test_setup(extra_params)
+        exit_status = run_obj(**run_args)
+        self.test_teardown(run_obj, exit_status, test_id_string)
+
+    def test_setup(self, extra_params):
         test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], extra_params)
         self.log_info('test_id {}'.format(test_id_string), flush=True)
-        exit_status = run_obj(**run_args)
+        return test_id_string
+
+    def test_teardown(self, run_obj, exit_status, test_id_string):
         if not self.env['dry_run']:
             if exit_status == 0:
                 test_result = TestResult.PASS
             else:
                 test_result = TestResult.FAIL
+                if self.env['fail_early']:
+                    self.log_error('Test failed')
+                    sys.exit(1)
             self.log_info('test_result {}'.format(test_result.name))
             ellapsed_seconds = run_obj.ellapsed_seconds
         else:
@@ -1059,11 +1076,21 @@ class TestCliFunction(LkmcCliFunction):
             ellapsed_seconds = None
         self.log_info()
         self.tests.append(Test(test_id_string, test_result, ellapsed_seconds))
-        if exit_status != 0:
-            self.log_error('test failed, program exit status: {} test id: {}'.format(exit_status, test_id_string))
-            sys.exit(1)
 
     def teardown(self):
         self.log_info('Test result summary')
+        passes = []
+        fails = []
         for test in self.tests:
-            self.log_info(test)
+            if test.result == TestResult.PASS:
+                passes.append(test)
+            else:
+                fails.append(test)
+        if passes:
+            for test in passes:
+                self.log_info(test)
+        if fails:
+            for test in fails:
+                self.log_info(test)
+            self.log_error('A test failed')
+            sys.exit(1)
