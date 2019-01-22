@@ -64,24 +64,24 @@ int _write(int file, char *ptr, int len) {
 void _exit(int status) {
 #if defined(GEM5)
 #if defined(__arm__)
-	__asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);");
+    __asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);");
 #elif defined(__aarch64__)
-	__asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);");
+    __asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);");
 #endif
 #else
 #if defined(__arm__)
     __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456");
 #elif defined(__aarch64__)
-	/* TODO actually use the exit value here, just for fun. */
+    /* TODO actually use the exit value here, just for fun. */
     __asm__ __volatile__ (
-		"mov x1, #0x26\n" \
-		"movk x1, #2, lsl #16\n" \
-		"str x1, [sp,#0]\n" \
-		"mov x0, #0\n" \
-		"str x0, [sp,#8]\n" \
-		"mov x1, sp\n" \
-		"mov w0, #0x18\n" \
-		"hlt 0xf000\n"
+        "mov x1, #0x26\n" \
+        "movk x1, #2, lsl #16\n" \
+        "str x1, [sp,#0]\n" \
+        "mov x0, #0\n" \
+        "str x0, [sp,#8]\n" \
+        "mov x1, sp\n" \
+        "mov w0, #0x18\n" \
+        "hlt 0xf000\n"
     );
 #endif
 #endif

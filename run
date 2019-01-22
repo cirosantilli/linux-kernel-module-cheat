@@ -343,7 +343,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             if self.env['userland'] is not None:
                 cmd.extend([
                     self.env['gem5_se_file'], LF,
-                    '-c', self.resolve_userland(self.env['userland']), LF,
+                    '--cmd', self.resolve_userland(self.env['userland']), LF,
                 ])
             else:
                 if self.env['gem5_script'] == 'fs':
@@ -578,7 +578,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     tmux_args += " --baremetal '{}'".format(self.env['baremetal'])
                 if self.env['userland']:
                     tmux_args += " --userland '{}'".format(self.env['userland'])
-            tmux_args += ' {}'.format(self.env['tmux'])
+            if self.env['tmux_args'] is not None:
+                tmux_args += ' {}'.format(self.env['tmux_args'])
             subprocess.Popen([
                 os.path.join(self.env['root_dir'], 'tmu'),
                 "sleep 2;{} {}".format(tmux_cmd, tmux_args)
@@ -599,22 +600,24 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             panic_msg = b'Kernel panic - not syncing'
         panic_re = re.compile(panic_msg)
         error_string_found = False
+        exit_status = 0
         if out_file is not None and not self.env['dry_run']:
             with open(self.env['termout_file'], 'br') as logfile:
                 for line in logfile:
                     if panic_re.search(line):
-                        error_string_found = True
-            if os.path.exists(self.env['guest_terminal_file']):
-                with open(self.env['guest_terminal_file'], 'br') as logfile:
-                    lines = logfile.readlines()
-                    if lines:
-                        last_line = lines[-1]
-                        if last_line.rstrip() == self.env['magic_fail_string']:
-                            error_string_found = True
-            if error_string_found:
-                self.log_error('simulation error detected by parsing logs')
-                return 1
-        return 0
+                        exit_status = 1
+                last_line = line.rstrip()
+                match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
+                if match:
+                    exit_status = int(match.group(1))
+            if not self.env['userland']:
+                if os.path.exists(self.env['guest_terminal_file']):
+                    with open(self.env['guest_terminal_file'], 'br') as logfile:
+                        if logfile.readlines()[-1].rstrip() == self.env['magic_fail_string']:
+                            exit_status = 1
+        if exit_status != 0:
+            self.log_error('simulation error detected by parsing logs')
+        return exit_status
 
 if __name__ == '__main__':
-    Main().cli()
+    Main().cli_exit()

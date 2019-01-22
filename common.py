@@ -49,7 +49,7 @@ consts['packages_dir'] = os.path.join(consts['root_dir'], 'buildroot_packages')
 consts['kernel_modules_subdir'] = 'kernel_modules'
 consts['kernel_modules_src_dir'] = os.path.join(consts['root_dir'], consts['kernel_modules_subdir'])
 consts['userland_subdir'] = 'userland'
-consts['userland_src_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
+consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
 consts['userland_build_ext'] = '.out'
 consts['include_subdir'] = 'include'
 consts['include_src_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
@@ -783,7 +783,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
     def resolve_userland(self, path):
         return self.resolve_executable(
             path,
-            self.env['userland_src_dir'],
+            self.env['userland_source_dir'],
             self.env['userland_build_dir'],
             self.env['userland_build_ext'],
         )

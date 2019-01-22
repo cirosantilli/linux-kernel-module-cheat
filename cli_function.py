@@ -3,6 +3,7 @@
 import argparse
 import imp
 import os
+import sys
 
 class _Argument:
     def __init__(
@@ -192,6 +193,12 @@ class CliFunction:
                 parser.add_argument(new_longname, dest=argument.key, **kwargs)
         args = parser.parse_args(args=cli_args)
         return self(**vars(args))
+
+    def cli_exit(self, *args, **kwargs):
+        '''
+        Same as cli, but also exit the program with int(cli().
+        '''
+        sys.exit(int(self.cli(*args, **kwargs)))
 
     @staticmethod
     def get_key(*args, **kwargs):

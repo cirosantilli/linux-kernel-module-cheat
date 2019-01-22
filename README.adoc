@@ -3065,6 +3065,32 @@ Step debug also works:
 ;
 ....
 
+===== gem5 syscall emulation exit status
+
+As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy `se.py` script does not forward the exit status of syscall emulation mode, you can test it with:
+
+....
+./run --dry-run --gem5 --userland false --userland-build-id static
+....
+
+Source: link:userland/false[].
+
+Then manually run the generated gem5 CLI, and do:
+
+....
+echo $?
+....
+
+and the output is always `0`.
+
+Instead, it just outputs a message to stdout just like for <<m5-fail>>:
+
+....
+Simulated exit code not 0! Exit code is 1
+....
+
+which we parse in link:run[] and then exit with the correct result ourselves...
+
 ==== User mode vs full system benchmark
 
 Let's see if user mode runs considerably faster than full system or not.
@@ -3124,6 +3150,18 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 * gem5 full system: 51 seconds
 * QEMU user: 45 seconds
 * QEMU full system: 223 seconds
+
+=== User mode testing
+
+Automatically run non-interactive userland tests that don't depend on nay kernel modules:
+
+....
+./test-userland
+....
+
+Source: link:test-userland[]
+
+The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
 
 == Kernel module utilities
 
@@ -7390,7 +7428,7 @@ Looks like a more raw alternative to libdrm:
 ....
 ./build-buildroot --config 'BR2_PACKABE_LIBDRI2=y'
 wget \
-  -O "$(./getvar userland_src_dir)/dri2test.c" \
+  -O "$(./getvar userland_source_dir)/dri2test.c" \
   https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c \
 ;
 ./build-userland
@@ -9551,7 +9589,9 @@ Simulated exit code not 0! Exit code is 1
 
 and exits with status 0.
 
-TODO: it used to exit non 0, be like that, but it actually got changed to just print the message. Why? https://gem5-review.googlesource.com/c/public/gem5/+/4880
+We then parse that string ourselves in link:run[] and exit with the correct status...
+
+TODO: it used to be like that, but it actually got changed to just print the message. Why? https://gem5-review.googlesource.com/c/public/gem5/+/4880
 
 `m5 fail` is just a superset of `m5 exit`, which is just:
 
