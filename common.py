@@ -682,7 +682,9 @@ Valid emulators: {}
         and are all defined in this class instead of in the derived class
         of the script.
         '''
-        return {key:self.env[key] for key in self._common_args | {'_args_given'}}
+        return {
+            key:self.env[key] for key in self._common_args if self.env['_args_given'][key]
+        }
 
     def get_stats(self, stat_re=None, stats_file=None):
         if stat_re is None:
