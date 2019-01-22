@@ -100,8 +100,9 @@ class LkmcCliFunction(cli_function.CliFunction):
     * command timing
     * some common flags, e.g.: --arch, --dry-run, --verbose
     '''
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, do_print_time=True, **kwargs):
         kwargs['config_file'] = consts['config_file']
+        self._do_print_time = do_print_time
         super().__init__(*args, **kwargs)
 
         # Args for all scripts.
@@ -659,7 +660,7 @@ to allow overriding configs from the CLI.
         ret = self.timed_main()
         if not kwargs['dry_run']:
             end_time = time.time()
-            self.print_time(end_time - start_time)
+            self._print_time(end_time - start_time)
         return ret
 
     def make_build_dirs(self):
@@ -685,11 +686,11 @@ to allow overriding configs from the CLI.
                 return True
         return False
 
-    @staticmethod
-    def print_time(ellapsed_seconds):
-        hours, rem = divmod(ellapsed_seconds, 3600)
-        minutes, seconds = divmod(rem, 60)
-        print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
+    def _print_time(self, ellapsed_seconds):
+        if self._do_print_time:
+            hours, rem = divmod(ellapsed_seconds, 3600)
+            minutes, seconds = divmod(rem, 60)
+            print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
 
     def raw_to_qcow2(self, prebuilt=False, reverse=False):
         if prebuilt or not os.path.exists(self.env['qemu_img_executable']):

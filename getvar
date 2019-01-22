@@ -5,13 +5,16 @@ import types
 import common
 from shell_helpers import LF
 
-parser = self.get_argparse(argparse_args={
-    'description': '''Print the value of a kwargs['py'] variable.
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Print the value of a self.env['py'] variable.
 
 This is useful to:
 
 * give dry commands on the README that don't change when we refactor directory structure
-* create simple bash scripts that call use kwargs['py'] variables
+* create simple bash scripts that call use self.env['py'] variables
 
 For example, to get the Buildroot output directory for an ARM build, use:
 
@@ -24,16 +27,18 @@ List all available variables:
 ....
 ./%(prog)s
 ....
-....
-'''
-})
-parser.add_argument('variable', nargs='?')
-args = self.setup(parser)
-if kwargs['variable']:
-    print(getattr(common, kwargs['variable']))
-else:
-    for attr in dir(common):
-        if not attr.startswith('__'):
-            val = getattr(common, attr)
-            if not callable(val) and not type(val) is types.ModuleType:
-                print('{} {}'.format(attr, val))
+''',
+            do_print_time=False,
+        )
+        self.add_argument('variable', nargs='?')
+
+    def timed_main(self):
+        variable = self.env['variable']
+        if variable:
+            print(self.env[variable])
+        else:
+            for key in self.env:
+                print('{}={}'.format(key, self.env[key]))
+
+if __name__ == '__main__':
+    Main().cli()
