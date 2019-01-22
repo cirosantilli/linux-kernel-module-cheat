@@ -721,7 +721,12 @@ Valid emulators: {}
             tried.append('{}-{}'.format(prefix, tool))
             if exists:
                 return prefix
-        raise Exception('Tool not found. Tried:\n' + '\n'.join(tried))
+        error_message = 'Tool not found. Tried:\n' + '\n'.join(tried)
+        if self.env['dry_run']:
+            self.log_error(error_message)
+            return ''
+        else:
+            raise Exception(error_message)
 
     def get_toolchain_tool(self, tool, allowed_toolchains=None):
         return '{}-{}'.format(self.get_toolchain_prefix(tool, allowed_toolchains), tool)

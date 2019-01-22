@@ -269,11 +269,12 @@ class ShellHelpers:
         '''
         if config_fragments is None:
             config_fragments = []
-        with open(config_path, 'a') as config_file:
-            for config_fragment in config_fragments:
-                with open(config_fragment, 'r') as config_fragment_file:
-                    self.print_cmd(['cat', config_fragment, '>>', config_path])
-                    if not self.dry_run:
+        for config_fragment in config_fragments:
+            self.print_cmd(['cat', config_fragment, '>>', config_path])
+        if not self.dry_run:
+            with open(config_path, 'a') as config_file:
+                for config_fragment in config_fragments:
+                    with open(config_fragment, 'r') as config_fragment_file:
                         for line in config_fragment_file:
                             config_file.write(line)
         self.write_string_to_file(config_path, '\n'.join(configs), mode='a')
