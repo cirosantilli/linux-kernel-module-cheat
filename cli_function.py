@@ -71,6 +71,7 @@ class _Argument:
             self.longname = longname
             self.key = key
             self.is_option = is_option
+            self.nargs = nargs
 
     def __str__(self):
         return str(self.args) + ' ' + str(self.kwargs)
@@ -158,7 +159,11 @@ class CliFunction:
             for key in config_configs:
                 if key not in self._arguments:
                     raise Exception('Unknown key in config file: ' + key)
-                if (not key in args_with_defaults) or args_with_defaults[key] is None:
+                if (
+                    not key in args_with_defaults or
+                    args_with_defaults[key] is None or
+                    self._arguments[key].nargs == '*' and args_with_defaults[key] == []
+                ):
                     args_with_defaults[key] = config_configs[key]
         # Add missing args from hard-coded defaults.
         for key in self._arguments:
@@ -363,6 +368,10 @@ amazing function!
 
     # Pick another config file.
     assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1'])['bool_cli'] is False
+
+    # Extra config file for '*'.
+    assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1', '2', '3', '4'])['args_star'] == ['3', '4']
+    assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1', '2'])['args_star'] == ['asdf', 'qwer']
 
     # get_cli
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]
