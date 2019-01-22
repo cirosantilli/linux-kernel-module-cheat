@@ -17,7 +17,7 @@
 #define SYSREG_WRITE(type, name) \
     void name ## _write(type name) { \
         __asm__ __volatile__("msr " #name ", %0" : : "r" (name) : ); \
-    } \
+    }
 
 #define SYSREG_READ_WRITE(name, type) \
     SYSREG_READ(name, type) \
