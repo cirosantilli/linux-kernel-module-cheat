@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 
-import sys
-
 import common
+from shell_helpers import LF
 
-parser = common.get_argparse(
-    default_args={'gem5':True},
-    argparse_args={'description':'Connect a terminal to a running gem5 instance'}
-)
-args = common.setup(parser)
-sys.exit(common.run_cmd([
-    common.gem5_m5term, common.Newline,
-    'localhost', common.Newline,
-    str(common.gem5_telnet_port), common.Newline,
-]))
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            defaults={
+                'emulators': ['gem5'],
+            },
+            description='Connect a terminal to a running gem5 instance',
+        )
+    def timed_main(self):
+        return self.sh.run_cmd([
+            self.env['gem5_m5term'],
+            'localhost',
+            str(self.env['gem5_telnet_port']),
+            LF,
+        ])
+
+if __name__ == '__main__':
+    Main().cli()

@@ -5,8 +5,9 @@ import subprocess
 import sys
 
 import common
+from shell_helpers import LF
 
-parser = common.get_argparse(argparse_args={
+parser = self.get_argparse(argparse_args={
     'description':'Connect to gdbserver running on the guest.'
 })
 parser.add_argument(
@@ -16,13 +17,13 @@ parser.add_argument(
 parser.add_argument(
     'break_at', default='main', nargs='?'
 )
-args = common.setup(parser)
+args = self.setup(parser)
 sys.exit(subprocess.Popen([
-  common.get_toolchain_tool('gdb'),
+  self.get_toolchain_tool('gdb'),
   '-q',
-  '-ex', 'set sysroot {}'.format(common.buildroot_staging_dir),
-  '-ex', 'target remote localhost:{}'.format(common.qemu_hostfwd_generic_port),
-  '-ex', 'tbreak {}'.format(args.break_at),
+  '-ex', 'set sysroot {}'.format(kwargs['buildroot_staging_dir']),
+  '-ex', 'target remote localhost:{}'.format(kwargs['qemu_hostfwd_generic_port']),
+  '-ex', 'tbreak {}'.format(kwargs['break_at']),
   '-ex', 'continue',
-  os.path.join(common.buildroot_build_build_dir, common.resolve_userland(args.executable)),
+  os.path.join(kwargs['buildroot_build_build_dir'], self.resolve_userland(kwargs['executable'])),
 ]).wait())

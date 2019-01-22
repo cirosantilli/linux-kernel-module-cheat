@@ -1,73 +1,80 @@
 #!/usr/bin/env python3
-
 import os
 
 import common
+from shell_helpers import LF
 
-class BaremetalComponent(common.Component):
-    def do_build(self, args):
-        common.assert_crosstool_ng_supports_arch(args.arch)
-        build_dir = self.get_build_dir(args)
-        bootloader_obj = os.path.join(common.baremetal_build_lib_dir, 'bootloader{}'.format(common.obj_ext))
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Build the baremetal examples with crosstool-NG.
+''',
+            supported_archs=common.consts['crosstool_ng_supported_archs']
+        )
+
+    def build(self):
+        build_dir = self.get_build_dir()
+        bootloader_obj = os.path.join(self.env['baremetal_build_lib_dir'], 'bootloader{}'.format(self.env['obj_ext']))
         common_basename_noext = 'common'
-        common_src = os.path.join(common.root_dir, common_basename_noext + common.c_ext)
-        common_obj = os.path.join(common.baremetal_build_lib_dir, common_basename_noext + common.obj_ext)
+        common_src = os.path.join(self.env['root_dir'], common_basename_noext + self.env['c_ext'])
+        common_obj = os.path.join(self.env['baremetal_build_lib_dir'], common_basename_noext + self.env['obj_ext'])
         syscalls_basename_noext = 'syscalls'
-        syscalls_src = os.path.join(common.baremetal_src_lib_dir, syscalls_basename_noext + common.c_ext)
-        syscalls_obj = os.path.join(common.baremetal_build_lib_dir, syscalls_basename_noext + common.obj_ext)
+        syscalls_src = os.path.join(self.env['baremetal_source_lib_dir'], syscalls_basename_noext + self.env['c_ext'])
+        syscalls_obj = os.path.join(self.env['baremetal_build_lib_dir'], syscalls_basename_noext + self.env['obj_ext'])
         common_objs = [common_obj, syscalls_obj]
         cflags = [
-            '-I', common.baremetal_src_lib_dir, common.Newline,
-            '-I', common.root_dir, common.Newline,
-            '-O0', common.Newline,
-            '-ggdb3', common.Newline,
-            '-mcpu={}'.format(common.mcpu), common.Newline,
-            '-nostartfiles', common.Newline,
+            '-I', self.env['baremetal_source_lib_dir'], LF,
+            '-I', self.env['root_dir'], LF,
+            '-O0', LF,
+            '-ggdb3', LF,
+            '-mcpu={}'.format(self.env['mcpu']), LF,
+            '-nostartfiles', LF,
         ]
-        if args.prebuilt:
+        if self.env['prebuilt']:
             gcc = 'arm-none-eabi-gcc'
         else:
-            os.environ['PATH'] = common.crosstool_ng_bin_dir + os.environ['PATH']
-            gcc = common.get_toolchain_tool('gcc', allowed_toolchains=['crosstool-ng'])
-        if common.emulator == 'gem5':
-            if common.machine == 'VExpress_GEM5_V1':
+            os.environ['PATH'] = self.env['crosstool_ng_bin_dir'] + os.environ['PATH']
+            gcc = self.get_toolchain_tool('gcc', allowed_toolchains=['crosstool-ng'])
+        if self.env['emulator'] == 'gem5':
+            if self.env['machine'] == 'VExpress_GEM5_V1':
                 entry_address = 0x80000000
                 uart_address = 0x1c090000
-            elif common.machine == 'RealViewPBX':
+            elif self.env['machine'] == 'RealViewPBX':
                 entry_address = 0x10000
                 uart_address = 0x10009000
             else:
-                raise Exception('unknown machine: ' + common.machine)
-            cflags.extend(['-D', 'GEM5'.format(uart_address), common.Newline])
+                raise Exception('unknown machine: ' + self.env['machine'])
+            cflags.extend(['-D', 'GEM5'.format(uart_address), LF])
         else:
             entry_address = 0x40000000
             uart_address = 0x09000000
         os.makedirs(build_dir, exist_ok=True)
-        os.makedirs(common.baremetal_build_lib_dir, exist_ok=True)
-        src = os.path.join(common.baremetal_src_lib_dir, '{}{}'.format(args.arch, common.asm_ext))
-        if common.need_rebuild([src], bootloader_obj):
-            common.run_cmd(
-                [gcc,  common.Newline] +
+        os.makedirs(self.env['baremetal_build_lib_dir'], exist_ok=True)
+        src = os.path.join(self.env['baremetal_source_lib_dir'], '{}{}'.format(self.env['arch'], self.env['asm_ext']))
+        if self.need_rebuild([src], bootloader_obj):
+            self.sh.run_cmd(
+                [gcc,  LF] +
                 cflags +
                 [
-                    '-c', common.Newline,
-                    '-o', bootloader_obj, common.Newline,
-                    src, common.Newline,
+                    '-c', LF,
+                    '-o', bootloader_obj, LF,
+                    src, LF,
                 ]
             )
         for src, obj in [
             (common_src, common_obj),
             (syscalls_src, syscalls_obj),
         ]:
-            if common.need_rebuild([src], obj):
-                common.run_cmd(
-                    [gcc,  common.Newline] +
+            if self.need_rebuild([src], obj):
+                self.sh.run_cmd(
+                    [gcc,  LF] +
                     cflags +
                     [
-                        '-c', common.Newline,
-                        '-D', 'UART0_ADDR={:#x}'.format(uart_address), common.Newline,
-                        '-o', obj, common.Newline,
-                        src, common.Newline,
+                        '-c', LF,
+                        '-D', 'UART0_ADDR={:#x}'.format(uart_address), LF,
+                        '-o', obj, LF,
+                        src, LF,
                     ]
                 )
         self._build_dir(
@@ -86,18 +93,17 @@ class BaremetalComponent(common.Component):
             bootloader_obj=bootloader_obj,
             common_objs=common_objs,
         )
-        arch_dir = os.path.join('arch', args.arch)
-        if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
+        if os.path.isdir(os.path.join(self.env['baremetal_source_arch_dir'])):
             self._build_dir(
-                arch_dir,
+                self.env['baremetal_source_arch_subpath'],
                 gcc=gcc,
                 cflags=cflags,
                 entry_address=entry_address,
                 bootloader_obj=bootloader_obj,
                 common_objs=common_objs,
             )
-        arch_dir = os.path.join('arch', args.arch, 'no_bootloader')
-        if os.path.isdir(os.path.join(common.baremetal_src_dir, arch_dir)):
+        arch_dir = os.path.join('arch', self.env['arch'], 'no_bootloader')
+        if os.path.isdir(os.path.join(self.env['baremetal_source_dir'], arch_dir)):
             self._build_dir(
                 arch_dir,
                 gcc=gcc,
@@ -108,18 +114,8 @@ class BaremetalComponent(common.Component):
                 bootloader=False,
             )
 
-    def get_argparse_args(self):
-        return {
-            'description': '''\
-Build the baremetal examples with crosstool-NG.
-'''
-        }
-
-    def get_build_dir(self, args):
-        return common.baremetal_build_dir
-
-    def get_default_args(self):
-        return {'baremetal': 'all'}
+    def get_build_dir(self):
+        return self.env['baremetal_build_dir']
 
     def _build_dir(
             self,
@@ -131,48 +127,48 @@ Build the baremetal examples with crosstool-NG.
             common_objs,
             bootloader=True
         ):
-        """
+        '''
         Build all .c and .S files in a given subpath of the baremetal source
         directory non recursively.
 
         Place outputs on the same subpath or the output directory.
-        """
-        in_dir = os.path.join(common.baremetal_src_dir, subpath)
-        out_dir = os.path.join(common.baremetal_build_dir, subpath)
+        '''
+        in_dir = os.path.join(self.env['baremetal_source_dir'], subpath)
+        out_dir = os.path.join(self.env['baremetal_build_dir'], subpath)
         os.makedirs(out_dir, exist_ok=True)
         common_objs = common_objs.copy()
         if bootloader:
             common_objs.append(bootloader_obj)
         for in_basename in os.listdir(in_dir):
             in_path = os.path.join(in_dir, in_basename)
-            if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (common.c_ext, common.asm_ext):
+            if os.path.isfile(in_path) and os.path.splitext(in_basename)[1] in (self.env['c_ext'], self.env['asm_ext']):
                 in_name = os.path.splitext(in_basename)[0]
-                main_obj = os.path.join(common.baremetal_build_dir, subpath, '{}{}'.format(in_name, common.obj_ext))
-                src = os.path.join(common.baremetal_src_dir, in_path)
-                if common.need_rebuild([src], main_obj):
-                    common.run_cmd(
-                        [gcc,  common.Newline] +
+                main_obj = os.path.join(self.env['baremetal_build_dir'], subpath, '{}{}'.format(in_name, self.env['obj_ext']))
+                src = os.path.join(self.env['baremetal_source_dir'], in_path)
+                if self.need_rebuild([src], main_obj):
+                    self.sh.run_cmd(
+                        [gcc,  LF] +
                         cflags +
                         [
-                            '-c', common.Newline,
-                            '-o', main_obj, common.Newline,
-                            src, common.Newline,
+                            '-c', LF,
+                            '-o', main_obj, LF,
+                            src, LF,
                         ]
                     )
                 objs = common_objs + [main_obj]
-                out = os.path.join(common.baremetal_build_dir, subpath, in_name + common.baremetal_build_ext)
-                link_script = os.path.join(common.baremetal_src_dir, 'link.ld')
-                if common.need_rebuild(objs + [link_script], out):
-                    common.run_cmd(
-                        [gcc,  common.Newline] +
+                out = os.path.join(self.env['baremetal_build_dir'], subpath, in_name + self.env['baremetal_build_ext'])
+                link_script = os.path.join(self.env['baremetal_source_dir'], 'link.ld')
+                if self.need_rebuild(objs + [link_script], out):
+                    self.sh.run_cmd(
+                        [gcc,  LF] +
                         cflags +
                         [
-                            '-Wl,--section-start=.text={:#x}'.format(entry_address), common.Newline,
-                            '-o', out, common.Newline,
-                            '-T', link_script, common.Newline,
+                            '-Wl,--section-start=.text={:#x}'.format(entry_address), LF,
+                            '-o', out, LF,
+                            '-T', link_script, LF,
                         ] +
-                        common.add_newlines(objs)
+                        self.sh.add_newlines(objs)
                     )
 
 if __name__ == '__main__':
-    BaremetalComponent().build()
+    Main().cli()

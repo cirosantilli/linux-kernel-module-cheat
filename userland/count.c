@@ -1,11 +1,18 @@
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
-int main(void) {
-	int i = 0;
-	while (1) {
-		printf("%d\n", i);
-		i++;
-		sleep(1);
-	}
+int main(int argc, char **argv) {
+    unsigned long i = 0, max;
+    if (argc > 1) {
+        max = strtoul(argv[1], NULL, 10);
+    } else {
+        max = ULONG_MAX;
+    }
+    while (i < max) {
+        printf("%lu\n", i);
+        i++;
+        sleep(1);
+    }
 }

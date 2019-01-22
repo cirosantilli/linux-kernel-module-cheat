@@ -1,13 +1,13 @@
 #include <common.h>
 
 int main(void) {
-	int i, j, k;
-	i = 1;
+    int i, j, k;
+    i = 1;
     /* test-gdb-op1 */
-	j = 2;
+    j = 2;
     /* test-gdb-op2 */
-	k = i + j;
+    k = i + j;
     /* test-gdb-result */
-	if (k != 3)
-		common_assert_fail();
+    if (k != 3)
+        common_assert_fail();
 }

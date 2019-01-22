@@ -4,61 +4,63 @@ import argparse
 import os
 
 import common
+import shell_helpers
+from shell_helpers import LF
 
-container_name = common.repo_short_id
-container_hostname = common.repo_short_id
-image_name = common.repo_short_id
-target_dir = '/root/{}'.format(common.repo_short_id)
+container_name = common.consts['repo_short_id']
+container_hostname = common.consts['repo_short_id']
+image_name = common.consts['repo_short_id']
+target_dir = '/root/{}'.format(common.consts['repo_short_id'])
 docker = ['sudo', 'docker']
 def create(args):
-    common.run_cmd(docker + ['build', '-t', image_name, '.', common.Newline])
+    sh.run_cmd(docker + ['build', '-t', image_name, '.', LF])
     # --privileged for KVM:
     # https://stackoverflow.com/questions/48422001/launching-qemu-kvm-from-inside-docker-container
-    common.run_cmd(
+    sh.run_cmd(
         docker +
         [
-            'create', common.Newline,
-            '--hostname', container_hostname, common.Newline,
-            '-i', common.Newline,
-            '--name', container_name, common.Newline,
-            '--net', 'host', common.Newline,
-            '--privileged', common.Newline,
-            '-t', common.Newline,
-            '-w', target_dir, common.Newline,
-            '-v', '{}:{}'.format(os.getcwd(), target_dir), common.Newline,
+            'create', LF,
+            '--hostname', container_hostname, LF,
+            '-i', LF,
+            '--name', container_name, LF,
+            '--net', 'host', LF,
+            '--privileged', LF,
+            '-t', LF,
+            '-w', target_dir, LF,
+            '-v', '{}:{}'.format(os.getcwd(), target_dir), LF,
             image_name,
         ]
     )
 def destroy(args):
     stop(args)
-    common.run_cmd(docker + ['rm', container_name, common.Newline])
-    common.run_cmd(docker + ['rmi', image_name, common.Newline])
-def sh(args):
+    sh.run_cmd(docker + ['rm', container_name, LF])
+    sh.run_cmd(docker + ['rmi', image_name, LF])
+def sh_func(args):
     start(args)
     if args:
         sh_args = args
     else:
         sh_args = ['bash']
-    common.run_cmd(
+    sh.run_cmd(
         docker + ['exec', '-i', '-t', container_name] +
         sh_args +
-        [common.Newline],
+        [LF],
     )
 def start(args):
-    common.run_cmd(docker + ['start', container_name, common.Newline])
+    sh.run_cmd(docker + ['start', container_name, LF])
 def stop(args):
-    common.run_cmd(docker + ['stop', container_name, common.Newline])
+    sh.run_cmd(docker + ['stop', container_name, LF])
 cmd_action_map = {
     'create': lambda args: create(args),
     'DESTROY': lambda args: destroy(args),
-    'sh': lambda args: sh(args),
+    'sh': lambda args: sh_func(args),
     'start': lambda args: start(args),
     'stop': lambda args: stop(args),
 }
 parser = argparse.ArgumentParser()
+parser.add_argument('--dry-run', default=False, action='store_true')
 parser.add_argument('cmd', choices=cmd_action_map)
 parser.add_argument('args', nargs='*')
-common.add_dry_run_argument(parser)
 args = parser.parse_args()
-common.setup_dry_run_arguments(args)
+sh = shell_helpers.ShellHelpers(dry_run=args.dry_run)
 cmd_action_map[args.cmd](args.args)

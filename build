@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
-import argparse
-import collections
-import platform
 import re
 import os
 
+import cli_function
+import collections
 import common
+import copy
+import shell_helpers
+from shell_helpers import LF
 
-class Component:
+class _Component:
     '''
-    Yes, we are re-inventing a crappy dependency resolution system.
-    I can't believe it.
+    Yes, we are re-inventing a crappy dependency resolution system,
+    reminescent of scons or apt or Buildroot. I can't believe it.
 
     The hard part is that we have optional dependencies as well...
     e.g. buildroot optionally depends on m5 to put m5 in the root filesystem,
@@ -39,229 +41,28 @@ class Component:
         self.submodules_shallow = submodules_shallow or set()
         self.python2_pkgs = python2_pkgs or set()
         self.python3_pkgs = python3_pkgs or set()
+
     def build(self, arch):
         if (
             (self.build_callback is not None) and
             (self.supported_archs is None or arch in self.supported_archs)
         ):
-            self.build_callback(arch)
+            self.build_callback()
 
-def run_cmd(cmd, arch):
-    global args
-    cmd_abs = cmd.copy()
-    cmd_abs[0] = os.path.join(common.root_dir, cmd[0])
-    cmd_abs.extend(['--arch', arch])
-    if args.extra_args:
-        cmd_abs.append(args.extra_args)
-    common.run_cmd(cmd_abs, dry_run=args.dry_run)
-
-buildroot_component = Component(
-    lambda arch: run_cmd(['build-buildroot'], arch),
-    submodules = {'buildroot'},
-    # https://buildroot.org/downloads/manual/manual.html#requirement
-    apt_get_pkgs={
-        'bash',
-        'bc',
-        'binutils',
-        'build-essential',
-        'bzip2',
-        'cpio',
-        'g++',
-        'gcc',
-        'graphviz',
-        'gzip',
-        'make',
-        'patch',
-        'perl',
-        'python-matplotlib',
-        'python3',
-        'rsync',
-        'sed',
-        'tar',
-        'unzip',
-    },
-)
-
-name_to_component_map = {
-    # Leaves without dependencies.
-    'baremetal-qemu': Component(
-        lambda arch: run_cmd(['build-baremetal', '--qemu'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
-    ),
-    'baremetal-gem5': Component(
-        lambda arch: run_cmd(['build-baremetal', '--gem5'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
-    ),
-    'baremetal-gem5-pbx': Component(
-        lambda arch: run_cmd(['build-baremetal', '--gem5', '--machine', 'RealViewPBX'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
-    ),
-    'buildroot': buildroot_component,
-    'buildroot-gcc': buildroot_component,
-    'copy-overlay': Component(
-        lambda arch: run_cmd(['copy-overlay'], arch),
-    ),
-    'crosstool-ng': Component(
-        lambda arch: run_cmd(['build-crosstool-ng'], arch),
-        supported_archs=common.crosstool_ng_supported_archs,
-        # http://crosstool-ng.github.io/docs/os-setup/
-        apt_get_pkgs={
-            'bison',
-            'docbook2x',
-            'flex',
-            'gawk',
-            'gcc',
-            'gperf',
-            'help2man',
-            'libncurses5-dev',
-            'libtool-bin',
-            'make',
-            'python-dev',
-            'texinfo',
-        },
-        submodules={'crosstool-ng'},
-    ),
-    'gem5': Component(
-        lambda arch: run_cmd(['build-gem5'], arch),
-        # TODO test it out on Docker and answer that question properly:
-        # https://askubuntu.com/questions/350475/how-can-i-install-gem5
-        apt_get_pkgs={
-            'device-tree-compiler',
-            'diod',
-            'libgoogle-perftools-dev',
-            'm4',
-            'protobuf-compiler',
-            'python-dev',
-            'python-pip',
-            # For prebuilt qcow2 unpack.
-            'qemu-utils',
-            'scons',
-            'zlib1g-dev',
-        },
-        python2_pkgs={
-            # Generate graphs of config.ini under m5out.
-            'pydot',
-        },
-        submodules={'gem5'},
-    ),
-    'gem5-debug': Component(
-        lambda arch: run_cmd(['build-gem5', '--gem5-build-type', 'debug'], arch),
-    ),
-    'gem5-fast': Component(
-        lambda arch: run_cmd(['build-gem5', '--gem5-build-type', 'fast'], arch),
-    ),
-    'linux': Component(
-        lambda arch: run_cmd(['build-linux'], arch),
-        submodules_shallow={'linux'},
-        apt_get_pkgs={
-            'bison',
-            'flex',
-            # Without this started failing in kernel 4.15 with:
-            # Makefile:932: *** "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel".  Stop.
-            'libelf-dev',
-        },
-    ),
-    'modules': Component(
-        lambda arch: run_cmd(['build-modules'], arch),
-    ),
-    'm5': Component(
-        lambda arch: run_cmd(['build-m5'], arch),
-        submodules={'gem5'},
-    ),
-    'qemu': Component(
-        lambda arch: run_cmd(['build-qemu'], arch),
-        apt_build_deps={'qemu'},
-        apt_get_pkgs={'libsdl2-dev'},
-        submodules={'qemu'},
-    ),
-    'qemu-user': Component(
-        lambda arch: run_cmd(['build-qemu', '--userland'], arch),
-        apt_build_deps = {'qemu'},
-        apt_get_pkgs={'libsdl2-dev'},
-        submodules = {'qemu'},
-    ),
-    'parsec-benchmark': Component(
-        submodules = {'parsec-benchmark'},
-    ),
-    'userland': Component(
-        lambda arch: run_cmd(['build-userland'], arch),
-    ),
-
-    # Dependency only nodes.
-    'all': Component(dependencies=[
-        'all-linux',
-        'all-baremetal',
-    ]),
-    'all-baremetal': Component(dependencies=[
-            'qemu-baremetal',
-            'gem5-baremetal',
-            'baremetal-gem5-pbx',
-        ],
-        supported_archs=common.crosstool_ng_supported_archs,
-    ),
-    'all-linux': Component(dependencies=[
-        'qemu-gem5-buildroot',
-        'gem5-debug',
-        'gem5-fast',
-        'qemu-user',
-    ]),
-    'baremetal': Component(dependencies=[
-        'baremetal-gem5',
-        'baremetal-qemu',
-    ]),
-    'gem5-buildroot': Component(dependencies=[
-        'buildroot-gcc',
-        'linux',
-        'm5',
-        'overlay',
-        'gem5',
-    ]),
-    'gem5-baremetal': Component(dependencies=[
-        'gem5',
-        'crosstool-ng',
-        'baremetal-gem5',
-    ]),
-    'overlay': Component(dependencies=[
-        'copy-overlay',
-        'modules',
-        'userland',
-        'buildroot',
-    ]),
-    'qemu-baremetal': Component(dependencies=[
-        'qemu',
-        'crosstool-ng',
-        'baremetal-qemu',
-    ]),
-    'qemu-buildroot': Component(dependencies=[
-        'qemu',
-        'buildroot-gcc',
-        'overlay',
-        'linux',
-    ]),
-    'qemu-gem5-buildroot': Component(dependencies=[
-        'qemu',
-        'gem5-buildroot',
-    ]),
-    'release': Component(dependencies=[
-        'qemu-buildroot',
-    ]),
-}
-parser = argparse.ArgumentParser(
-    description= '''\
-Shallow helper to build everything, or a subset of everything conveniently.
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Build a component and all its dependencies.
 
 Our build-* scripts don't build any dependencies to make iterative
 development fast and more predictable.
 
-While modifying a specific component however, you will likely want to just run the
-individual build-* commands which:
+It is currently not possible to configure indivitual components from the command line
+when you build with this script. TODO.
 
-* build no dependencies, and so are fast and predictable
-* can take multiple options to custumize the build
-
-Without any args, build only what is necessary for
+Without any args, build only what is necessary for:
 https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-buildroot-setup
-for x86_64:
 
 ....
 ./%(prog)s
@@ -273,211 +74,475 @@ This is equivalent to:
 ./%(prog)s --arch x86_64 qemu-buildroot
 ....
 
-If `--arch` is given, build just for the given archs:
+Another important target is `all`:
 
 ....
-./%(prog)s --arch arm --arch aarch64
+./%(prog)s all
 ....
 
-This will build `qemu-buildroot` for arm and aarch64 only, but not `x86_64`.
+This does not trully build ALL configurations: that would be impractical.
+But more precisely: build the reference configuration of each major component.
 
-Clean all Linux kernel builds:
+So e.g.: one config of Linux kenrel, Buildroot, gem5 and qemu.
+Don't do for example all possible gem5 configs: debug, opt and fast,
+as that would be huge. This ensures that every piece of software
+builds in at least one config.
+
+TODO looping over emulators is not currently supported by this script, e.g.:
 
 ....
-./build --all-archs --extra-args=--clean buildroot
+./%(prog)s --arch x86_64 --arch aarch64 all
 ....
+
+Instead, for the targets that are emulator dependent, you must select the
+taret version for the desired emulatore, e.g.:
+
+....
+./build --arch aarch64 baremetal-qemu baremetal-gem5
+....
+
+The reason is that some targets depend on emulator, while others don't,
+so looping over all of them would waste time.
 ''',
-    formatter_class=argparse.RawTextHelpFormatter,
-)
-parser.add_argument('--all', default=False, action='store_true', help='''\
-Build absolutely everything for all archs.
-''')
-group = parser.add_mutually_exclusive_group(required=False)
-group.add_argument('-A', '--all-archs', default=False, action='store_true', help='''\
-Build the selected components for all archs.
-''')
-group.add_argument('-a', '--arch', choices=common.arch_choices, default=[], action='append', help='''\
-Build the selected components for this arch. Select multiple archs by
-passing this option multiple times. Default: [{}]
-'''.format(common.default_arch))
-parser.add_argument('-D', '--download-dependencies', default=False, action='store_true', help='''\
+        )
+        buildroot_component = _Component(
+            self._build_file('build-buildroot'),
+            submodules = {'buildroot'},
+            # https://buildroot.org/downloads/manual/manual.html#requirement
+            apt_get_pkgs={
+                'bash',
+                'bc',
+                'binutils',
+                'build-essential',
+                'bzip2',
+                'cpio',
+                'g++',
+                'gcc',
+                'graphviz',
+                'gzip',
+                'make',
+                'patch',
+                'perl',
+                'python-matplotlib',
+                'python3',
+                'rsync',
+                'sed',
+                'tar',
+                'unzip',
+            },
+        )
+        buildroot_overlay_qemu_component = copy.copy(buildroot_component)
+        # We need to build QEMU before the final Buildroot to get qemu-img.
+        buildroot_overlay_qemu_component.dependencies = ['overlay', 'qemu']
+        buildroot_overlay_gem5_component = copy.copy(buildroot_component)
+        buildroot_overlay_gem5_component.dependencies = ['overlay-gem5']
+        gem5_deps = {
+            # TODO test it out on Docker and answer that question properly:
+            # https://askubuntu.com/questions/350475/how-can-i-install-gem5
+            'apt_get_pkgs': {
+                'device-tree-compiler',
+                'diod',
+                'libgoogle-perftools-dev',
+                'm4',
+                'protobuf-compiler',
+                'python-dev',
+                'python-pip',
+                # For prebuilt qcow2 unpack.
+                'qemu-utils',
+                'scons',
+                'zlib1g-dev',
+            },
+            'python2_pkgs': {
+                # Generate graphs of config.ini under m5out.
+                'pydot',
+            },
+            'submodules': {'gem5'},
+        }
+
+        self.name_to_component_map = {
+            'all': _Component(dependencies=[
+                'qemu-gem5-buildroot',
+                'all-baremetal',
+                'user-mode-qemu',
+                'doc',
+            ]),
+            'all-baremetal': _Component(dependencies=[
+                    'qemu-baremetal',
+                    'gem5-baremetal',
+                    'baremetal-gem5-pbx',
+                ],
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+            ),
+            'baremetal': _Component(dependencies=[
+                'baremetal-gem5',
+                'baremetal-qemu',
+            ]),
+            'baremetal-qemu': _Component(
+                self._build_file('build-baremetal', emulators=['qemu']),
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+                dependencies=['crosstool-ng'],
+            ),
+            'baremetal-gem5': _Component(
+                self._build_file('build-baremetal', emulators=['gem5']),
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+                dependencies=['crosstool-ng'],
+            ),
+            'baremetal-gem5-pbx': _Component(
+                self._build_file('build-baremetal', emulators=['gem5'], machine='RealViewPBX'),
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+                dependencies=['crosstool-ng'],
+            ),
+            'buildroot': buildroot_component,
+            # We need those to avoid cirtulcar dependencies, since we need to run Buildroot
+            # twice: once to get the toolchain, and a second time to put the overlay into
+            # the root filesystem.
+            'buildroot-overlay-qemu': buildroot_overlay_qemu_component,
+            'buildroot-overlay-gem5': buildroot_overlay_gem5_component,
+            'copy-overlay': _Component(
+                self._build_file('copy-overlay'),
+            ),
+            'crosstool-ng': _Component(
+                self._build_file('build-crosstool-ng'),
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+                # http://crosstool-ng.github.io/docs/os-setup/
+                apt_get_pkgs={
+                    'bison',
+                    'docbook2x',
+                    'flex',
+                    'gawk',
+                    'gcc',
+                    'gperf',
+                    'help2man',
+                    'libncurses5-dev',
+                    'libtool-bin',
+                    'make',
+                    'python-dev',
+                    'texinfo',
+                },
+                submodules={'crosstool-ng'},
+            ),
+            'doc': _Component(
+                self._build_file('build-doc'),
+            ),
+            'gem5': _Component(
+                self._build_file('build-gem5'),
+                **gem5_deps
+            ),
+            'gem5-baremetal': _Component(dependencies=[
+                'gem5',
+                'baremetal-gem5',
+            ]),
+            'gem5-buildroot': _Component(dependencies=[
+                'buildroot-overlay-gem5',
+                'linux',
+                'gem5',
+            ]),
+            'gem5-debug': _Component(
+                self._build_file('build-gem5', gem5_build_type='debug'),
+                **gem5_deps
+            ),
+            'gem5-fast': _Component(
+                self._build_file('build-gem5', gem5_build_type='fast'),
+                **gem5_deps
+            ),
+            'linux': _Component(
+                self._build_file('build-linux'),
+                dependencies={'buildroot'},
+                submodules_shallow={'linux'},
+                apt_get_pkgs={
+                    'bison',
+                    'flex',
+                    # Without this started failing in kernel 4.15 with:
+                    # Makefile:932: *** "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel".  Stop.
+                    'libelf-dev',
+                },
+            ),
+            'modules': _Component(
+                self._build_file('build-modules'),
+                dependencies=['buildroot', 'linux'],
+            ),
+            'm5': _Component(
+                self._build_file('build-m5'),
+                dependencies=['buildroot'],
+                submodules={'gem5'},
+            ),
+            'overlay': _Component(dependencies=[
+                'copy-overlay',
+                'modules',
+                'userland',
+            ]),
+            'overlay-gem5': _Component(dependencies=[
+                'm5',
+                'overlay',
+            ]),
+            'parsec-benchmark': _Component(
+                submodules={'parsec-benchmark'},
+                dependencies=['buildroot'],
+            ),
+            'qemu': _Component(
+                self._build_file('build-qemu'),
+                apt_build_deps={'qemu'},
+                apt_get_pkgs={'libsdl2-dev'},
+                submodules={'qemu'},
+            ),
+            'qemu-baremetal': _Component(dependencies=[
+                'qemu',
+                'baremetal-qemu',
+            ]),
+            'qemu-buildroot': _Component(dependencies=[
+                'buildroot-overlay-qemu',
+                'linux',
+            ]),
+            'qemu-gem5-buildroot': _Component(dependencies=[
+                'qemu',
+                'gem5-buildroot',
+            ]),
+            'qemu-user': _Component(
+                self._build_file('build-qemu', user_mode=True),
+                apt_build_deps = {'qemu'},
+                apt_get_pkgs={'libsdl2-dev'},
+                submodules={'qemu'},
+            ),
+            'release': _Component(dependencies=[
+                'qemu-buildroot',
+                'doc',
+            ]),
+            'test-gdb': _Component(dependencies=[
+                    'all-baremetal',
+                ],
+                supported_archs=common.consts['crosstool_ng_supported_archs'],
+            ),
+            'test-user-mode': _Component(dependencies=[
+                'test-user-mode-qemu',
+                'test-user-mode-gem5',
+            ]),
+            'test-user-mode-qemu': _Component(dependencies=[
+                'user-mode-qemu',
+                'userland',
+            ]),
+            'test-user-mode-gem5': _Component(dependencies=[
+                'gem5',
+                'userland-gem5',
+            ]),
+            'user-mode-qemu': _Component(
+                dependencies=['qemu-user', 'userland'],
+            ),
+            'userland': _Component(
+                self._build_file('build-userland'),
+                dependencies=['buildroot'],
+            ),
+            'userland-gem5': _Component(
+                self._build_file('build-userland', static=True, userland_build_id='static'),
+                dependencies=['buildroot'],
+            ),
+        }
+        self.component_to_name_map = {self.name_to_component_map[key]:key for key in self.name_to_component_map}
+
+        self.add_argument(
+            '--apt',
+            default=True,
+            help='''\
+Don't run any apt-get commands. To make it easier to use with other archs:
+https://github.com/cirosantilli/linux-kernel-module-cheat#supported-hosts
+'''
+        )
+        self.add_argument(
+            '--download-dependencies',
+            default=False,
+            help='''\
 Also download all dependencies required for a given build: Ubuntu packages,
 Python packages and git submodules.
-''')
-parser.add_argument('--extra-args', default='', help='''\
+'''
+        )
+        self.add_argument(
+            '--print-components',
+            default=False,
+            help='''\
+Print the components that would be built, including dependencies, but don't
+build them, nor show the build commands.
+'''
+        )
+        self.add_argument(
+            '--travis',
+            default=False,
+            help='''\
 Extra args to pass to all scripts.
 '''
-)
-parser.add_argument('--travis', default=False, action='store_true', help='''\
-Extra args to pass to all scripts.
-'''
-)
-parser.add_argument('components', choices=list(name_to_component_map.keys()) + [[]], default=[], nargs='*', help='''\
+        )
+        self.add_argument(
+            'components',
+            choices=list(self.name_to_component_map.keys()) + [[]],
+            default=[],
+            nargs='*',
+            help='''\
 Which components to build. Default: qemu-buildroot
-'''.format(common.default_arch))
-common.add_dry_run_argument(parser)
-args = parser.parse_args()
-common.setup_dry_run_arguments(args)
+'''
+        )
 
-# Decide archs.
-if args.arch == []:
-    if args.all or args.all_archs:
-        archs = common.all_archs.copy()
-    else:
-        archs = set([common.default_arch])
-else:
-    archs = set()
-    for arch in args.arch:
-        if arch in common.arch_short_to_long_dict:
-            arch = common.arch_short_to_long_dict[arch]
-        archs.add(arch)
+    def _build_file(self, component_file, **extra_args):
+        '''
+        Build something based on a component file that defines a Main class.
+        '''
+        def f():
+            args = self.get_common_args()
+            args.update(extra_args)
+            args['print_time'] = False
+            self.import_path_main(component_file)(**args)
+        return f
 
-# Decide components.
-components = args.components
-if args.all:
-    components = ['all']
-elif components == []:
-    components = ['qemu-buildroot']
-selected_components = []
-selected_component_name_set = set()
-for component_name in components:
-    todo = [component_name]
-    while todo:
-        current_name = todo.pop(0)
-        if current_name not in selected_component_name_set:
-            selected_component_name_set.add(current_name)
-            component = name_to_component_map[current_name]
-            selected_components.append(component)
-            todo.extend(component.dependencies)
+    def timed_main(self):
+        self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
 
-if args.download_dependencies:
-    apt_get_pkgs = {
-        # Core requirements for this repo.
-        'git',
-        'moreutils', # ts
-        'python3-pip',
-        'tmux',
-        'vinagre',
-        'wget',
-    }
-    # E.e. on an ARM host, the package gcc-arm-linux-gnueabihf
-    # is called just gcc.
-    processor = platform.processor()
-    if processor != 'arm':
-        apt_get_pkgs.update({
-            'gcc-arm-linux-gnueabihf',
-            'g++-arm-linux-gnueabihf',
-        })
-    if processor != 'aarch64':
-        apt_get_pkgs.update({
-            'gcc-aarch64-linux-gnu',
-            'g++-aarch64-linux-gnu',
-        })
-    apt_build_deps = set()
-    submodules = set()
-    submodules_shallow = set()
-    python2_pkgs = set()
-    python3_pkgs = {
-        'pexpect==4.6.0',
-    }
-    for component in selected_components:
-        apt_get_pkgs.update(component.apt_get_pkgs)
-        apt_build_deps.update(component.apt_build_deps)
-        submodules.update(component.submodules)
-        submodules_shallow.update(component.submodules_shallow)
-        python2_pkgs.update(component.python2_pkgs)
-        python3_pkgs.update(component.python3_pkgs)
-    if apt_get_pkgs or apt_build_deps:
-        if args.travis:
-            interacive_pkgs = {
-                'libsdl2-dev',
+        # Decide components.
+        components = self.env['components']
+        if components == []:
+            components = ['qemu-buildroot']
+        selected_components = []
+        for component_name in components:
+            todo = [component_name]
+            while todo:
+                current_name = todo.pop(0)
+                component = self.name_to_component_map[current_name]
+                selected_components.insert(0, component)
+                todo.extend(component.dependencies)
+        # Remove duplicates, keep only the first one of each.
+        # https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961390#7961390
+        selected_components = collections.OrderedDict.fromkeys(selected_components)
+
+        if self.env['download_dependencies']:
+            apt_get_pkgs = {
+                # Core requirements for this repo.
+                'git',
+                'moreutils', # ts
+                'python3-pip',
+                'tmux',
+                'vinagre',
+                'wget',
             }
-            apt_get_pkgs.difference_update(interacive_pkgs)
-        if common.in_docker:
-            sudo = []
-            # https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
-            os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
-            # https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list
-            sources_path = os.path.join('/etc', 'apt', 'sources.list')
-            with open(sources_path, 'r') as f:
-                sources_txt = f.read()
-            sources_txt = re.sub('^# deb-src ', 'deb-src ', sources_txt, flags=re.MULTILINE)
-            with open(sources_path, 'w') as f:
-                f.write(sources_txt)
-        else:
-            sudo = ['sudo']
-        if common.in_docker or args.travis:
-            y = ['-y']
-        else:
-            y = []
-        common.run_cmd(
-            sudo + ['apt-get', 'update', common.Newline]
-        )
-        if apt_get_pkgs:
-            common.run_cmd(
-                sudo + ['apt-get', 'install'] + y + [common.Newline] +
-                common.add_newlines(sorted(apt_get_pkgs))
-            )
-        if apt_build_deps:
-            common.run_cmd(
-                sudo +
-                ['apt-get', 'build-dep'] + y + [common.Newline] +
-                common.add_newlines(sorted(apt_build_deps))
-            )
-    if python2_pkgs:
-        common.run_cmd(
-            ['python', '-m', 'pip', 'install', '--user', common.Newline] +
-            common.add_newlines(sorted(python2_pkgs))
-        )
-    if python3_pkgs:
-        # Not with pip executable directly:
-        # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
-        common.run_cmd(
-            ['python3', '-m', 'pip', 'install', '--user', common.Newline] +
-            common.add_newlines(sorted(python3_pkgs))
-        )
-    git_cmd_common = ['git', 'submodule', 'update', '--init', '--recursive']
-    if submodules:
-        # == Other nice git options for when distros move to newer Git
-        #
-        # Currently not on Ubuntu 16.04:
-        #
-        # `--progress`: added on Git 2.10:
-        #
-        # * https://stackoverflow.com/questions/32944468/how-to-show-progress-for-submodule-fetching
-        # * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
-        #
-        # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
-        common.run_cmd(
-            git_cmd_common + ['--', common.Newline] +
-            common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules)])
-        )
-    if submodules_shallow:
-        # == Shallow cloning.
-        #
-        # TODO Ideally we should shallow clone --depth 1 all of them.
-        #
-        # However, most git servers out there are crap or craply configured
-        # and don't allow shallow cloning except for branches.
-        #
-        # So for now, let's shallow clone only the Linux kernel, which has by far
-        # the largest .git repo history, and full clone the others.
-        #
-        # Then we will maintain a GitHub Linux kernel mirror / fork that always has a
-        # lkmc branch, and point to it, so that it will always succeed.
-        #
-        # See also:
-        #
-        # * https://stackoverflow.com/questions/3489173/how-to-clone-git-repository-with-specific-revision-changeset
-        # * https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
-        # * https://unix.stackexchange.com/questions/338578/why-is-the-git-clone-of-the-linux-kernel-source-code-much-larger-than-the-extrac
-        #
-        common.run_cmd(
-            git_cmd_common + ['--depth', '1', '--', common.Newline] +
-            common.add_newlines([os.path.join(common.submodules_dir, x) for x in sorted(submodules_shallow)])
-        )
+            # E.g. on an ARM host, the package gcc-arm-linux-gnueabihf
+            # is called just gcc.
+            processor = self.env['host_arch']
+            if processor != 'arm':
+                apt_get_pkgs.update({
+                    'gcc-arm-linux-gnueabihf',
+                    'g++-arm-linux-gnueabihf',
+                })
+            if processor != 'aarch64':
+                apt_get_pkgs.update({
+                    'gcc-aarch64-linux-gnu',
+                    'g++-aarch64-linux-gnu',
+                })
+            apt_build_deps = set()
+            submodules = set()
+            submodules_shallow = set()
+            python2_pkgs = set()
+            python3_pkgs = {
+                'pexpect==4.6.0',
+            }
+            for component in selected_components:
+                apt_get_pkgs.update(component.apt_get_pkgs)
+                apt_build_deps.update(component.apt_build_deps)
+                submodules.update(component.submodules)
+                submodules_shallow.update(component.submodules_shallow)
+                python2_pkgs.update(component.python2_pkgs)
+                python3_pkgs.update(component.python3_pkgs)
+            if apt_get_pkgs or apt_build_deps:
+                if self.env['travis']:
+                    interacive_pkgs = {
+                        'libsdl2-dev',
+                    }
+                    apt_get_pkgs.difference_update(interacive_pkgs)
+                if common.consts['in_docker']:
+                    sudo = []
+                    # https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
+                    os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
+                    # https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list
+                    sources_path = os.path.join('/etc', 'apt', 'sources.list')
+                    with open(sources_path, 'r') as f:
+                        sources_txt = f.read()
+                    sources_txt = re.sub('^# deb-src ', 'deb-src ', sources_txt, flags=re.MULTILINE)
+                    with open(sources_path, 'w') as f:
+                        f.write(sources_txt)
+                else:
+                    sudo = ['sudo']
+                if common.consts['in_docker'] or self.env['travis']:
+                    y = ['-y']
+                else:
+                    y = []
+                if self.env['apt']:
+                    self.sh.run_cmd(
+                        sudo + ['apt-get', 'update', LF]
+                    )
+                    if apt_get_pkgs:
+                        self.sh.run_cmd(
+                            sudo + ['apt-get', 'install'] + y + [LF] +
+                            self.sh.add_newlines(sorted(apt_get_pkgs))
+                        )
+                    if apt_build_deps:
+                        self.sh.run_cmd(
+                            sudo +
+                            ['apt-get', 'build-dep'] + y + [LF] +
+                            self.sh.add_newlines(sorted(apt_build_deps))
+                        )
+            if python2_pkgs:
+                self.sh.run_cmd(
+                    ['python', '-m', 'pip', 'install', '--user', LF] +
+                    self.sh.add_newlines(sorted(python2_pkgs))
+                )
+            if python3_pkgs:
+                # Not with pip executable directly:
+                # https://stackoverflow.com/questions/49836676/error-after-upgrading-pip-cannot-import-name-main/51846054#51846054
+                self.sh.run_cmd(
+                    ['python3', '-m', 'pip', 'install', '--user', LF] +
+                    self.sh.add_newlines(sorted(python3_pkgs))
+                )
+            git_cmd_common = ['git', 'submodule', 'update', '--init', '--recursive']
+            if submodules:
+                # == Other nice git options for when distros move to newer Git
+                #
+                # Currently not on Ubuntu 16.04:
+                #
+                # `--progress`: added on Git 2.10:
+                #
+                # * https://stackoverflow.com/questions/32944468/how-to-show-progress-for-submodule-fetching
+                # * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
+                #
+                # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
+                self.sh.run_cmd(
+                    git_cmd_common + ['--', LF] +
+                    self.sh.add_newlines([os.path.join(common.consts['submodules_dir'], x) for x in sorted(submodules)])
+                )
+            if submodules_shallow:
+                # == Shallow cloning.
+                #
+                # TODO Ideally we should shallow clone --depth 1 all of them.
+                #
+                # However, most git servers out there are crap or craply configured
+                # and don't allow shallow cloning except for branches.
+                #
+                # So for now, let's shallow clone only the Linux kernel, which has by far
+                # the largest .git repo history, and full clone the others.
+                #
+                # Then we will maintain a GitHub Linux kernel mirror / fork that always has a
+                # lkmc branch, and point to it, so that it will always succeed.
+                #
+                # See also:
+                #
+                # * https://stackoverflow.com/questions/3489173/how-to-clone-git-repository-with-specific-revision-changeset
+                # * https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
+                # * https://unix.stackexchange.com/questions/338578/why-is-the-git-clone-of-the-linux-kernel-source-code-much-larger-than-the-extrac
+                #
+                self.sh.run_cmd(
+                    git_cmd_common + ['--depth', '1', '--', LF] +
+                    self.sh.add_newlines([os.path.join(common.consts['submodules_dir'], x) for x in sorted(submodules_shallow)])
+                )
 
-# Do the build.
-for arch in archs:
-    for component in selected_components:
-        component.build(arch)
+        # Do the build.
+        for component in selected_components:
+            if self.env['print_components']:
+                print(self.component_to_name_map[component])
+            else:
+                component.build(self.env['arch'])
+
+if __name__ == '__main__':
+    Main().cli()

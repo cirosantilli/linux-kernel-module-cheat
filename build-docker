@@ -5,9 +5,10 @@ import subprocess
 import tarfile
 
 import common
+from shell_helpers import LF
 
 
-class DockerComponent(common.Component):
+class DockerComponent(self.Component):
     def get_argparse_args(self):
         return {
             'description': '''\
@@ -17,8 +18,8 @@ See also:https://github.com/cirosantilli/linux-kernel-module-cheat#ubuntu-guest-
 '''
         }
 
-    def do_build(self, args):
-        build_dir = self.get_build_dir(args)
+    def build(self):
+        build_dir = self.get_build_dir()
         container_name = 'lkmc-guest'
         target_dir = os.path.join('/root', 'linux-kernel-module-cheat')
         os.makedirs(build_dir, exist_ok=True)
@@ -29,12 +30,12 @@ See also:https://github.com/cirosantilli/linux-kernel-module-cheat#ubuntu-guest-
                 '--format', '{{.Names}}',
         ]).decode()
         if container_name in containers.split():
-            common.run_cmd([
+            self.sh.run_cmd([
                 'docker',
                 'rm',
                 container_name,
             ])
-        common.run_cmd([
+        self.sh.run_cmd([
             'docker',
             'create',
             '--name', container_name,
@@ -44,36 +45,36 @@ See also:https://github.com/cirosantilli/linux-kernel-module-cheat#ubuntu-guest-
             '--privileged',
             '-t',
             '-w', target_dir,
-            '-v', '{}:{}'.format(common.root_dir, target_dir),
+            '-v', '{}:{}'.format(kwargs['root_dir'], target_dir),
             'ubuntu:18.04',
             'bash',
         ])
-        common.run_cmd([
+        self.sh.run_cmd([
             'docker',
             'export',
             '-o',
-            common.docker_tar_file,
+            kwargs['docker_tar_file'],
             container_name,
         ])
-        tar = tarfile.open(common.docker_tar_file)
-        tar.extractall(common.docker_tar_dir)
+        tar = tarfile.open(kwargs['docker_tar_file'])
+        tar.extractall(kwargs['docker_tar_dir'])
         tar.close()
         # sudo not required in theory
         # https://askubuntu.com/questions/1046828/how-to-run-libguestfs-tools-tools-such-as-virt-make-fs-without-sudo
-        common.run_cmd([
+        self.sh.run_cmd([
             'virt-make-fs',
             '--format', 'raw',
             '--size', '+1G',
             '--type', 'ext2',
-            common.docker_tar_dir,
-            common.docker_rootfs_raw_file,
+            kwargs['docker_tar_dir'],
+            kwargs['docker_rootfs_raw_file'],
         ])
-        common.raw_to_qcow2(prebuilt=True)
+        self.raw_to_qcow2(prebuilt=True)
 
-    def get_build_dir(self, args):
-        return common.docker_build_dir
+    def get_build_dir(self):
+        return kwargs['docker_build_dir']
 
     def get_default_args(self):
         return {'docker': True}
 
-DockerComponent().build()
+Main().cli()

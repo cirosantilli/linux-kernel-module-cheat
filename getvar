@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
-import types
-
 import common
 
-parser = common.get_argparse(argparse_args={
-    'description': '''Print the value of a common.py variable.
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            defaults = {
+                'print_time': False,
+            },
+            description='''\
+Print the value of a self.env['py'] variable.
 
 This is useful to:
 
 * give dry commands on the README that don't change when we refactor directory structure
-* create simple bash scripts that call use common.py variables
+* create simple bash scripts that call use self.env['py'] variables
 
 For example, to get the Buildroot output directory for an ARM build, use:
 
@@ -23,16 +27,22 @@ List all available variables:
 ....
 ./%(prog)s
 ....
-....
-'''
-})
-parser.add_argument('variable', nargs='?')
-args = common.setup(parser)
-if args.variable:
-    print(getattr(common, args.variable))
-else:
-    for attr in dir(common):
-        if not attr.startswith('__'):
-            val = getattr(common, attr)
-            if not callable(val) and not type(val) is types.ModuleType:
-                print('{} {}'.format(attr, val))
+''',
+        )
+        self.add_argument('--type', choices=['input', 'all'], default='all')
+        self.add_argument('variable', nargs='?')
+
+    def timed_main(self):
+        variable = self.env['variable']
+        if variable:
+            print(self.env[variable])
+        else:
+            if self.env['type'] == 'input':
+                to_print = self.input_args
+            elif self.env['type'] == 'all':
+                to_print = self.env
+            for key in sorted(to_print):
+                print('{}={}'.format(key, self.env[key]))
+
+if __name__ == '__main__':
+    Main().cli()

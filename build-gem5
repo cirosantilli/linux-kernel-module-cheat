@@ -5,110 +5,105 @@ import pathlib
 import subprocess
 
 import common
+from shell_helpers import LF
 
-class Gem5Component(common.Component):
-    def add_parser_arguments(self, parser):
-        parser.add_argument(
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__()
+        self.add_argument(
             'extra_scons_args',
-            default=[],
             metavar='extra-scons-args',
-            nargs='*'
+            nargs='*',
         )
 
-    def do_build(self, args):
-        build_dir = self.get_build_dir(args)
-        binaries_dir = os.path.join(common.gem5_system_dir, 'binaries')
-        disks_dir = os.path.join(common.gem5_system_dir, 'disks')
+    def build(self):
+        build_dir = self.get_build_dir()
+        binaries_dir = os.path.join(self.env['gem5_system_dir'], 'binaries')
+        disks_dir = os.path.join(self.env['gem5_system_dir'], 'disks')
         os.makedirs(binaries_dir, exist_ok=True)
         os.makedirs(disks_dir, exist_ok=True)
-        if args.gem5_source_dir is None:
-            if not os.path.exists(os.path.join(common.gem5_src_dir, '.git')):
-                if common.gem5_src_dir == common.gem5_default_src_dir:
+        if self.env['gem5_source_dir'] is None:
+            if not os.path.exists(os.path.join(self.env['gem5_source_dir'], '.git')):
+                if self.env['gem5_source_dir'] == self.env['gem5_default_source_dir']:
                     raise Exception('gem5 submodule not checked out')
-                common.run_cmd([
-                    'git', common.Newline,
-                    '-C', common.gem5_default_src_dir, common.Newline,
-                    'worktree', 'add', common.Newline,
-                    '-b', os.path.join('wt', args.gem5_build_id), common.Newline,
-                    common.gem5_src_dir, common.Newline,
+                self.sh.run_cmd([
+                    'git', LF,
+                    '-C', self.env['gem5_default_source_dir'], LF,
+                    'worktree', 'add', LF,
+                    '-b', os.path.join('wt', self.env['gem5_build_id']), LF,
+                    self.env['gem5_source_dir'], LF,
                 ])
-        if args.verbose:
-            verbose = ['--verbose', common.Newline]
+        if self.env['verbose']:
+            verbose = ['--verbose', LF]
         else:
             verbose = []
-        if args.arch == 'x86_64':
+        if self.env['arch'] == 'x86_64':
             dummy_img_path = os.path.join(disks_dir, 'linux-bigswap2.img')
             with open(dummy_img_path, 'wb') as dummy_img_file:
                 zeroes = b'\x00' * (2 ** 16)
                 for i in range(2 ** 10):
                     dummy_img_file.write(zeroes)
-            common.run_cmd(['mkswap', dummy_img_path])
+            self.sh.run_cmd(['mkswap', dummy_img_path, LF])
             with open(os.path.join(binaries_dir, 'x86_64-vmlinux-2.6.22.9'), 'w'):
                 # This file must always be present, despite --kernel overriding that default and selecting the kernel.
                 # I'm not even joking. No one has ever built x86 gem5 without the magic dist dir present.
                 pass
-        elif args.arch == 'arm' or args.arch == 'aarch64':
-            gem5_system_src_dir = os.path.join(common.gem5_src_dir, 'system')
+        elif self.env['arch'] == 'arm' or self.env['arch'] == 'aarch64':
+            gem5_system_source_dir = os.path.join(self.env['gem5_source_dir'], 'system')
 
             # dtb
-            dt_src_dir = os.path.join(gem5_system_src_dir, 'arm', 'dt')
-            dt_build_dir = os.path.join(common.gem5_system_dir, 'arm', 'dt')
-            common.run_cmd([
-                'make', common.Newline,
-                '-C', dt_src_dir, common.Newline,
-            ])
-            common.copy_dir_if_update_non_recursive(
-                srcdir=dt_src_dir,
+            dt_source_dir = os.path.join(gem5_system_source_dir, 'arm', 'dt')
+            dt_build_dir = os.path.join(self.env['gem5_system_dir'], 'arm', 'dt')
+            self.sh.run_cmd(['make', '-C', dt_source_dir, LF])
+            self.sh.copy_dir_if_update_non_recursive(
+                srcdir=dt_source_dir,
                 destdir=dt_build_dir,
                 filter_ext='.dtb',
             )
 
             # Bootloader 32.
-            bootloader32_dir = os.path.join(gem5_system_src_dir, 'arm', 'simple_bootloader')
+            bootloader32_dir = os.path.join(gem5_system_source_dir, 'arm', 'simple_bootloader')
             # TODO use the buildroot cross compiler here, and remove the dependencies from configure.
-            common.run_cmd([
-                'make', common.Newline,
-                '-C', bootloader32_dir, common.Newline,
-                'CROSS_COMPILE=arm-linux-gnueabihf-', common.Newline,
+            self.sh.run_cmd([
+                'make', LF,
+                '-C', bootloader32_dir, LF,
+                'CROSS_COMPILE=arm-linux-gnueabihf-', LF,
             ])
             # bootloader
-            common.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
+            self.sh.cp(os.path.join(bootloader32_dir, 'boot_emm.arm'), binaries_dir)
 
             # Bootloader 64.
-            bootloader64_dir = os.path.join(gem5_system_src_dir, 'arm', 'aarch64_bootloader')
+            bootloader64_dir = os.path.join(gem5_system_source_dir, 'arm', 'aarch64_bootloader')
             # TODO cross_compile is ignored because the make does not use CC...
-            common.run_cmd([
-                'make', common.Newline,
-                '-C', bootloader64_dir, common.Newline
-            ])
-            common.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
-        common.run_cmd(
+            self.sh.run_cmd(['make', '-C', bootloader64_dir, LF])
+            self.sh.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
+        self.sh.run_cmd(
             (
                 [
-                    'scons', common.Newline,
-                    '-j', str(args.nproc), common.Newline,
-                    '--gold-linker', common.Newline,
-                    '--ignore-style', common.Newline,
-                    common.gem5_executable, common.Newline,
+                    'scons', LF,
+                    '-j', str(self.env['nproc']), LF,
+                    '--gold-linker', LF,
+                    '--ignore-style', LF,
+                    self.env['gem5_executable'], LF,
                 ] +
                 verbose +
-                common.add_newlines(args.extra_scons_args)
+                self.sh.add_newlines(self.env['extra_scons_args'])
             ),
-            cwd=common.gem5_src_dir,
-            extra_paths=[common.ccache_dir],
+            cwd=self.env['gem5_source_dir'],
+            extra_paths=[self.env['ccache_dir']],
         )
-        term_src_dir = os.path.join(common.gem5_src_dir, 'util/term')
-        m5term_build = os.path.join(term_src_dir, 'm5term')
-        common.run_cmd(['make', '-C', term_src_dir])
-        if os.path.exists(common.gem5_m5term):
-            # Otherwise common.cp would fail with "Text file busy" if you
+        term_source_dir = os.path.join(self.env['gem5_source_dir'], 'util/term')
+        m5term_build = os.path.join(term_source_dir, 'm5term')
+        self.sh.run_cmd(['make', '-C', term_source_dir, LF])
+        if os.path.exists(self.env['gem5_m5term']):
+            # Otherwise self.sh.cp would fail with "Text file busy" if you
             # tried to rebuild while running m5term:
             # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
-            os.unlink(common.gem5_m5term)
-        common.cp(m5term_build, common.gem5_m5term)
+            self.sh.rmrf(self.env['gem5_m5term'])
+        self.sh.cp(m5term_build, self.env['gem5_m5term'])
 
-    def get_build_dir(self, args):
-        return common.gem5_build_dir
+    def get_build_dir(self):
+        return self.env['gem5_build_dir']
 
 if __name__ == '__main__':
-    Gem5Component().build()
+    Main().cli()

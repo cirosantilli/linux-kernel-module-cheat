@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# We want to move this into ./build. The only reason we haven't is that
+# what to build depends on --size, which ./build does not support right now.
+# The best way to solve this is to move the dependency checking into the run
+# scripts, which will take a while to refactor.
+set -eu
+test_size=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --size)
+      test_size="$2"
+      shift 2
+      ;;
+  esac
+done
+./build --all-archs qemu-gem5-buildroot
+if [ "$test_size" -ge 3 ]; then
+  ./build-gem5 --arch aarch64 --gem5-build-type debug
+  ./build-gem5 --arch aarch64 --gem5-build-type fast
+fi

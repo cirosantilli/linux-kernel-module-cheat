@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-The perfect emulation setup to study and modify the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<gem5-buildroot-setup,gem5>>. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>>. "Tested" in Ubuntu 18.04 host, x86 and ARM guests with kernel v4.19.
+The perfect emulation setup to study and modify the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<gem5-buildroot-setup,gem5>>. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Automated <<test-this-repo,tests>>. Powered by <<about-the-qemu-buildroot-setup,Buildroot>>. "Tested" in Ubuntu 18.04 host, x86 and ARM guests with kernel v4.20.
 
 TL;DR: <<qemu-buildroot-setup-getting-started>>
 
@@ -84,7 +84,7 @@ See also: <<quit-qemu-from-text-mode>>.
 
 All available modules can be found in the link:kernel_modules[] directory.
 
-It is super easy to build for different CPU architectures, just use the `--arch` option:
+It is super easy to build for different <<cpu-architecture,CPU architectures>>, just use the `--arch` option:
 
 ....
 ./build --arch aarch64 --download-dependencies qemu-buildroot
@@ -92,8 +92,6 @@ It is super easy to build for different CPU architectures, just use the `--arch`
 ....
 
 To avoid typing `--arch aarch64` many times, you set the default arch as explained at: <<default-command-line-arguments>>
-
-See also: <<cpu-architecture,CPU architectures>>.
 
 I now urge you to read the following sections which contain widely applicable information:
 
@@ -195,6 +193,8 @@ The link:build[] script is just a lightweight wrapper that calls the smaller bui
 ./build --dry-run
 ....
 
+When you reach difficulties, QEMU makes it possible to easily GDB step debug the Linux kernel source code, see: <<gdb>>.
+
 ===== Your first kernel module hack
 
 Edit link:kernel_modules/hello.c[] to contain:
@@ -219,9 +219,13 @@ insmod /mnt/9p/out_rootfs_overlay/hello.ko
 
 and the new `pr_info` message should now show on the terminal at the end of the boot.
 
-This works because we have a <<9p>> mount there setup by default, which makes a host directory available on the guest.
+This works because we have a <<9p>> mount there setup by default, which mounts the host directory that contains the Build outputs on the guest:
 
-The fast method is slightly risky because your kernel module might have corrupted the kernel memory, which could affect future runs.
+....
+ls "$(./getvar out_rootfs_overlay_dir)"
+....
+
+The fast method is slightly risky because your previously insmodded buggy kernel module attempt might have corrupted the kernel memory, which could affect future runs.
 
 Such failures are however unlikely, and you should be fine if you don't see anything weird happening.
 
@@ -233,7 +237,7 @@ The safe way, is to fist quit QEMU, rebuild the modules, put them in the root fi
 ./run --eval-after 'insmod /hello.ko'
 ....
 
-`./build-buildroot` is required after `./build-modules` because it generates the root filesystem with the modules that we compiled at `./build-modules`.
+`./build-buildroot` is required after `./build-modules` because it re-generates the root filesystem with the modules that we compiled at `./build-modules`.
 
 You can see that `./build` does that as well, by running:
 
@@ -250,6 +254,8 @@ If the guest and host are the same arch, typically x86_64, you can speed up boot
 ....
 
 All of this put together makes the safe procedure acceptably fast for regular development as well.
+
+It is also easy to GDB step debug kernel modules with our setup, see: <<gdb-step-debug-kernel-module>>.
 
 ===== Your first QEMU hack
 
@@ -293,6 +299,8 @@ The only thing you can do with open source is purely functional designs with lin
 
 If you really want to develop semiconductors, your only choice is to join an university or a semiconductor company that has the EDA licenses.
 
+While hacking QEMU, you will likely want to GDB step its source. That is trivial since QEMU is just another userland program like any other, but our setup has a shortcut to make it even more convenient, see: <<debug-the-emulator>>.
+
 ==== About the QEMU Buildroot setup
 
 This is our reference setup, and the best supported one, use it unless you have good reason not to.
@@ -330,13 +338,13 @@ See <<gem5-vs-qemu>> for a more thorough comparison.
 
 ==== gem5 Buildroot setup getting started
 
-For the most part, if you just add the `--gem5` option or `*-gem5` suffix to all commands and everything should magically work.
+For the most part, if you just add the `--emulator gem5` option or `*-gem5` suffix to all commands and everything should magically work.
 
 If you haven't built Buildroot yet for <<qemu-buildroot-setup>>, you can build from the beginning with:
 
 ....
 ./build --download-dependencies gem5-buildroot
-./run --gem5
+./run --emulator gem5
 ....
 
 If you have already built previously, don't be afraid: gem5 and QEMU use almost the same root filesystem and kernel, so `./build` will be fast.
@@ -358,7 +366,7 @@ You can quit the shell without killing gem5 by typing tilde followed by a period
 If you are inside <<tmux>>, which I highly recommend, you can both run gem5 stdout and open the guest terminal on a split window with:
 
 ....
-./run --gem5 --tmux
+./run --emulator gem5 --tmux
 ....
 
 See also: <<tmux-gem5>>.
@@ -375,7 +383,7 @@ but if you look closely, the `PS1` prompt marker `#` is there already, just hit 
 If you forgot to open the shell and gem5 exit, you can inspect the terminal output post-mortem at:
 
 ....
-less "$(./getvar --gem5 m5out_dir)/system.pc.com_1.device"
+less "$(./getvar --emulator gem5 m5out_dir)/system.pc.com_1.device"
 ....
 
 More gem5 information is present at: <<gem5>>
@@ -485,18 +493,20 @@ TODO make files created inside Docker be owned by the current user in host inste
 * https://stackoverflow.com/questions/31779802/shared-volume-file-permissions-ownership-docker
 
 [[prebuilt]]
-=== Prebuilt Buildroot setup
+=== Prebuilt setup
 
-==== About the prebuilt Buildroot setup
+==== About the prebuilt setup
 
-This setup uses prebuilt binaries of the <<qemu-buildroot-setup>> that we upload to GitHub from time to time.
+This setup uses prebuilt binaries that we upload to GitHub from time to time.
 
 We don't currently provide a full prebuilt because it would be too big to host freely, notably because of the cross toolchain.
 
 Our prebuilts currently include:
 
-* Linux kernel
-* root filesystem
+* <<qemu-buildroot-setup>> binaries
+** Linux kernel
+** root filesystem
+* <<baremetal-setup>> binaries for QEMU
 
 For more details, see our our <<release,release procedure>>.
 
@@ -512,9 +522,9 @@ Maybe we could work around this by just downloading the kernel source somehow, a
 
 This setup might be good enough for those developing simulators, as that requires less image modification. But once again, if you are serious about this, why not just let your computer build the <<qemu-buildroot-setup,full featured setup>> while you take a coffee or a nap? :-)
 
-==== Prebuilt Buildroot setup getting started
+==== Prebuilt setup getting started
 
-Checkout to the latest tag and use the Ubuntu packaged QEMU:
+Checkout to the latest tag and use the Ubuntu packaged QEMU to boot Linux:
 
 ....
 sudo apt-get install qemu-system-x86
@@ -526,13 +536,18 @@ unzip lkmc-*.zip
 ./run --prebuilt
 ....
 
+Or to run a baremetal example instead:
+
+....
+./run --arch aarch64 --baremetal baremetal/hello.c --prebuilt
+....
+
 You have to checkout to the latest tag to ensure that the scripts match the release format: https://stackoverflow.com/questions/1404796/how-to-get-the-latest-tag-name-in-current-branch-in-git
 
 Be saner and use our custom built QEMU instead:
 
 ....
-git submodule update --init --recursive "$(./getvar qemu_src_dir)"
-./build-qemu
+./build --download-dependencies qemu
 ./run
 ....
 
@@ -541,18 +556,24 @@ This also allows you to <<your-first-qemu-hack,modify QEMU>> if you're into that
 To build the kernel modules as in <<your-first-kernel-module-hack>> do:
 
 ....
-./build-linux -- modules_prepare
+git submodule update --depth 1 --init --recursive "$(./getvar linux_source_dir)"
+./build-linux --no-modules-install -- modules_prepare
 ./build-modules
 ./run
 ....
 
-`modules_prepare` does the minimal build procedure required on the kernel for us to be able to compile the kernel modules, and is way faster than doing a full kernel build. A full kernel build would also work however.
+TODO: for now the only way to test those modules out without <<qemu-buildroot-setup-getting-started,building Buildroot>> is with 9p, since we currently rely on Buildroot to manipulate the root filesystem.
 
-This command automatically falls back to the Ubuntu packaged GCC since you don't have the Buildroot toolchain.
+Command explanation:
+
+* `modules_prepare` does the minimal build procedure required on the kernel for us to be able to compile the kernel modules, and is way faster than doing a full kernel build. A full kernel build would also work however.
+* the `./build-modules` command automatically falls back to the Ubuntu packaged GCC since you don't have the Buildroot toolchain
+* `--no-modules-install` is required otherwise the `make modules_install` target we run by default fails, since the kernel wasn't built
 
 To modify the Linux kernel, build and use it as usual:
 
 ....
+git submodule update --depth 1 --init --recursive "$(./getvar linux_source_dir)"
 ./build-linux
 ./run
 ....
@@ -564,7 +585,7 @@ For gem5, do:
 git submodule update --init --depth 1 "$(./getvar linux_source_dir)"
 sudo apt-get install qemu-utils
 ./build-gem5
-./run --gem5 --prebuilt
+./run --emulator gem5 --prebuilt
 ....
 
 `qemu-utils` is required because we currently distribute `.qcow2` files which <<gem5-qcow2,gem5 can't handle>>, so we need `qemu-img` to extract them first.
@@ -646,13 +667,13 @@ The best solution is to compile just your modules with:
 which is equivalent to:
 
 ....
-./build-modules --host -- packages/kernel/modules/hello.c packages/kernel/modules/hello2.c
+./build-modules --host -- kernel_modules/hello.c kernel_modules/hello2.c
 ....
 
 Or just remove the `.c` extension from the failing files and try again:
 
 ....
-cd "$(./getvar kernel_modules_src_dir)"
+cd "$(./getvar kernel_modules_source_dir)"
 mv broken.c broken.c~
 ....
 
@@ -708,62 +729,71 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 
 ==== Baremetal setup getting started
 
-QEMU:
+Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image.
+
+For example, to run link:baremetal/hello.c[] in QEMU do:
 
 ....
 ./build --arch aarch64 --download-dependencies qemu-baremetal
-./run --arch aarch64 --baremetal interactive/prompt
+./run --arch aarch64 --baremetal hello
 ....
 
-You are now left inside QEMU running the tiny baremetal system link:baremetal/interactive/prompt.c[], which uses the UART to:
-
-* print characters to the terminal
-* read characters from your keyboard
-
-A session looks like this after typing `abc`:
+The terminal prints:
 
 ....
-enter a character
-got: a
-new alloc of 1 bytes at address 0x0x4000a2c8
-enter a character
-got: b
-new alloc of 2 bytes at address 0x0x4000a2c8
-enter a character
-got: c
-new alloc of 4 bytes at address 0x0x4000a2c8
+hello
 ....
 
-To modify that program, edit:
+Now let's run link:baremetal/arch/aarch64/add.S[]:
 
 ....
-vim baremetal/interactive/prompt.c
-....
-
-and run:
-
-....
-./build-baremetal --arch aarch64
-....
-
-`./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements. `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
-
-Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image. You can run a different image with commands such as:
-
-....
-./run --arch aarch64 --baremetal exit
 ./run --arch aarch64 --baremetal arch/aarch64/add
 ....
 
-which will run respectively:
+This time, the terminal does not print anything, which indicates success.
 
-* link:baremetal/exit.c[]
-* link:baremetal/arch/aarch64/add.S[]
+If you look into the source, you will see that we just have an assertion there.
 
-Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`:
+You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[]:
 
 ....
-./run --arch aarch64 --baremetal baremetal/exit.c
+./run --arch aarch64 --baremetal interactive/assert_fail
+....
+
+and the terminal contains:
+
+....
+lkmc_test_fail
+error: simulation error detected by parsing logs
+....
+
+and the exit status of our script is 1:
+
+....
+echo $?
+....
+
+To modify a baremetal program, simply edit the file, .g.
+
+....
+vim baremetal/hello.c
+....
+
+and rebuild:
+
+....
+./build --arch aarch64 --download-dependencies qemu-baremetal
+./run --arch aarch64 --baremetal hello
+....
+
+`./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements.
+
+`./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
+
+Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`, for example the following also work:
+
+....
+./run --arch aarch64 --baremetal baremetal/hello.c
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
 ....
 
@@ -777,7 +807,7 @@ To use gem5 instead of QEMU do:
 
 ....
 ./build --download-dependencies gem5-baremetal
-./run --arch aarch64 --baremetal interactive/prompt --gem5
+./run --arch aarch64 --baremetal interactive/prompt --emulator gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -786,20 +816,26 @@ and then <<qemu-buildroot-setup,as usual>> open a shell with:
 ./gem5-shell
 ....
 
-TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
-
-Note that `./build-baremetal` requires the `--gem5` option, and generates separate executable images for both, as can be seen from:
+Or as usual, <<tmux>> users can do both in one go with:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt        image)"
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 image)"
+./run --arch aarch64 --baremetal interactive/prompt --emulator gem5 --tmux
+....
+
+TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
+
+Note that `./build-baremetal` requires the `--emulator gem5` option, and generates separate executable images for both, as can be seen from:
+
+....
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator qemu image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
 
 ....
-echo "$(./getvar --arch aarch64        image)"
-echo "$(./getvar --arch aarch64 --gem5 image)"
+echo "$(./getvar --arch aarch64 --emulator qemu image)"
+echo "$(./getvar --arch aarch64 --emulator gem5 image)"
 ....
 
 The reason for that is that on baremetal we don't parse the <<device-tree,device tress>> from memory like the Linux kernel does, which tells the kernel for example the UART address, and many other system parameters.
@@ -807,15 +843,15 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 `gem5` also supports the `RealViewPBX` machine, which represents an older hardware compared to the default `VExpress_GEM5_V1`:
 
 ....
-./build-baremetal --arch aarch64 --gem5 --machine RealViewPBX
-./run --arch aarch64 --baremetal interactive/prompt --gem5 --machine RealViewPBX
+./build-baremetal --arch aarch64 --emulator gem5 --machine RealViewPBX
+./run --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
@@ -825,10 +861,20 @@ When doing bare metal programming, it is likely that you will want to learn asse
 * https://github.com/cirosantilli/x86-assembly-cheat
 * https://github.com/cirosantilli/arm-assembly-cheat
 
-For more information on baremetal, see the section: <<baremetal>>. The following subjects are particularly important:
+For more information on baremetal, see the section: <<baremetal>>.
+
+The following subjects are particularly important:
 
 * <<tracing>>
 * <<baremetal-gdb-step-debug>>
+
+=== User mode setup
+
+Much like <<baremetal-setup>>, this is another fun setup that does not require Buildroot or the Linux kernel.
+
+Introduction at: <<user-mode-simulation>>.
+
+Getting started at: <<qemu-user-mode>>.
 
 [[gdb]]
 == GDB step debug
@@ -865,6 +911,20 @@ See also:
 
 * http://stackoverflow.com/questions/11408041/how-to-debug-the-linux-kernel-with-gdb-and-qemu/33203642#33203642
 * http://stackoverflow.com/questions/4943857/linux-kernel-live-debugging-how-its-done-and-what-tools-are-used/42316607#42316607
+
+==== GDB step debug kernel boot other archs
+
+Just don't forget to pass `--arch` to `./run-gdb`, e.g.:
+
+....
+./run --arch aarch64 --wait-gdb
+....
+
+and:
+
+....
+./run-gdb --arch aarch64 start_kernel
+....
 
 [[kernel-o0]]
 ==== Disable kernel compiler optimizations
@@ -960,7 +1020,7 @@ This automatically clears the GDB pane, and starts a new one.
 Pass extra GDB arguments with:
 
 ....
-./run --wait-gdb --tmux=start_kernel
+./run --wait-gdb --tmux-args start_kernel
 ....
 
 See the tmux manual for further details:
@@ -976,7 +1036,7 @@ Bibliography: https://unix.stackexchange.com/questions/152738/how-to-split-a-new
 If you are using gem5 instead of QEMU, `--tmux` has a different effect: it opens the gem5 terminal instead of the debugger:
 
 ....
-./run --gem5 --tmux
+./run --emulator gem5 --tmux
 ....
 
 If you also want to use the debugger with gem5, you will need to create new terminals as usual.
@@ -987,7 +1047,7 @@ To see the debugger by default instead of the terminal, run:
 
 ....
 ./tmu ./run-gdb
-./run --wait-gdb --gem5
+./run --wait-gdb --emulator gem5
 ....
 
 === GDB step debug kernel module
@@ -2449,7 +2509,7 @@ asdf=qwer
 
 Source: link:userland/init_env_poweroff.c[].
 
-==== init environment args
+==== init arguments
 
 The annoying dash `-` gets passed as a parameter to `init`, which makes it impossible to use this method for most non custom executables.
 
@@ -2469,6 +2529,8 @@ ab
 ....
 
 so see how `a.b` is gone.
+
+The simple workaround is to just create a shell script that does it, e.g. as we've done at: link:rootfs_overlay/gem5_exit.sh[].
 
 ==== init environment env
 
@@ -2540,13 +2602,13 @@ where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/2
 
 == initrd
 
-TODO: broken when we started building the Linux manually with `./build-linux` instead of Buildroot. Was working before, see e.g. 56738a1c70e50bf7b6d5fbe02372c5d277a8286f.
-
 The kernel can boot from an CPIO file, which is a directory serialization format much like tar: https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference
 
-The bootloader, which for us is QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
+The bootloader, which for us is provided by QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.
 
-With this setup, you don't even need to give a root filesystem to the kernel, it just does everything in memory in a ramfs.
+This is very similar to the kernel image itself, which already gets put into memory by the QEMU `-kernel` option.
+
+With this setup, you don't even need to give a root filesystem to the kernel: it just does everything in memory in a ramfs.
 
 To enable initrd instead of the default ext2 disk image, do:
 
@@ -2555,13 +2617,17 @@ To enable initrd instead of the default ext2 disk image, do:
 ./run --initrd
 ....
 
-Notice how it boots fine, even though this leads to not giving QEMU the `-drive` option, as can be verified with:
+By looking at the QEMU run command generated, you can see that we didn't give the `-drive` option at all:
 
 ....
 cat "$(./getvar run_dir)/run.sh"
 ....
 
-Also as expected, there is no filesystem persistency, since we are doing everything in memory:
+Instead, we used the QEMU `-initrd` option to point to the `.cpio` filesystem that Buildroot generated for us.
+
+Try removing that `-initrd` option to watch the kernel panic without rootfs at the end of boot.
+
+When using `.cpio`, there can be no filesystem persistency across boots, since all file operations happen in memory in a tmpfs:
 
 ....
 date >f
@@ -2571,6 +2637,8 @@ cat f
 ....
 
 which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.
+
+Not however that we already disable disk persistency by default on ext2 filesystems even without `--initrd`: <<disk-persistency>>.
 
 One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:
 
@@ -2594,7 +2662,7 @@ It is also possible to compress that image with other options.
 +
 Buildroot forces that option when `BR2_TARGET_ROOTFS_CPIO=y` is given
 
-https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image asks how the mechanism works in more detail.
+TODO: how does the bootloader inform the kernel where to find initrd? https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image
 
 === initrd in desktop distros
 
@@ -2614,25 +2682,25 @@ Related: https://stackoverflow.com/questions/6405083/initrd-and-booting-the-linu
 
 === initramfs
 
-initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself.
-
-So the only argument that QEMU needs is the `-kernel`, no `-drive` not even `-initrd`! Pretty cool.
+initramfs is just like <<initrd>>, but you also glue the image directly to the kernel image itself using the kernel's build system.
 
 Try it out with:
 
 ....
-./build-buildroot --initramfs -l
-./run --initramfs
-....
-
-The `-l` (ell) should only be used the first time you move to / from a different root filesystem method (ext2 or cpio) to initramfs to overcome: https://stackoverflow.com/questions/49260466/why-when-i-change-br2-linux-kernel-custom-config-file-and-run-make-linux-reconfi
-
-....
 ./build-buildroot --initramfs
+./build-linux --initramfs
 ./run --initramfs
 ....
 
-It is interesting to see how this increases the size of the kernel image if you do a:
+Notice how we had to rebuild the Linux kernel this time around as well after Buildroot, since in that build we will be gluing the CPIO to the kernel image.
+
+Now, once again, if we look at the QEMU run command generated, we see all that QEMU needs is the `-kernel` option, no `-drive` not even `-initrd`! Pretty cool:
+
+....
+cat "$(./getvar run_dir)/run.sh"
+....
+
+It is also interesting to observe how this increases the size of the kernel image if you do a:
 
 ....
 ls -lh "$(./getvar linux_image)"
@@ -2640,13 +2708,52 @@ ls -lh "$(./getvar linux_image)"
 
 before and after using initramfs, since the `.cpio` is now glued to the kernel image.
 
-In the background, it uses `BR2_TARGET_ROOTFS_INITRAMFS`, and this makes the kernel config option `CONFIG_INITRAMFS_SOURCE` point to the CPIO that will be embedded in the kernel image.
+Don't forget that to stop using initramfs, you must rebuild the kernel without `--initramfs` to get rid of the attached CPIO image:
+
+....
+./build-linux
+./run
+....
+
+Alternatively, consider using <<linux-kernel-build-variants>> if you need to switch between initramfs and non initramfs often:
+
+....
+./build-buildroot --initramfs
+./build-linux --initramfs --linux-build-id initramfs
+./run --initramfs --linux-build-id
+....
+
+Setting up initramfs is very easy: our scripts just set `CONFIG_INITRAMFS_SOURCE` to point to the CPIO path.
 
 http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
 
 === gem5 initrd
 
 TODO we were not able to get it working yet: https://stackoverflow.com/questions/49261801/how-to-boot-the-linux-kernel-with-initrd-or-initramfs-with-gem5
+
+This would require gem5 to load the CPIO into memory, just like QEMU. Grepping `initrd` shows some ARM hits under:
+
+....
+src/arch/arm/linux/atag.hh
+....
+
+but they are commented out.
+
+=== gem5 initramfs
+
+This could in theory be easier to make work than initrd since the emulator does not have to do anything special.
+
+However, it didn't: boot fails at the end because it does not see the initramfs, but rather tries to open our dummy root filesystem, which unsurprisingly does not have a format in a way that the kernel understands:
+
+....
+VFS: Cannot open root device "sda" or unknown-block(8,0): error -5
+....
+
+We think that this might be because gem5 boots directly `vmlinux`, and not from the final compressed images that contain the attached rootfs such as `bzImage`, which is what QEMU does, see also: <<vmlinux-vs-bzimage-vs-zimage-vs-image>>.
+
+To do this failed test, we automatically pass a dummy disk image as of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91 since the scripts don't handle a missing `--disk-image` well, much like is currently done for <<baremetal>>.
+
+Interestingly, using initramfs significantly slows down the gem5 boot, even though it did not work. For example, we've observed a 4x slowdown of as 17062a2e8b6e7888a14c3506e9415989362c58bf for aarch64. This must be because expanding the large attached CPIO must be expensive. We can clearly see from the kernel logs that the kernel just hangs at a point after the message `PCI: CLS 0 bytes, default 64` for a long time before proceeding further.
 
 == Device tree
 
@@ -2808,9 +2915,17 @@ QEMU automatically adds a second CPU to the DTB!
 
 The action seems to be happening at: `hw/arm/virt.c`.
 
+You can dump the DTB QEMU generated with:
+
+....
+./run --arch aarch64 -- -machine dumpdtb=dtb.dtb
+....
+
+as mentioned at: https://lists.gnu.org/archive/html/qemu-discuss/2017-02/msg00051.html
+
 <<gem5-fs_biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
 
-gem5 can generate DTBs on ARM with `--generate-dtb`, but we don't use that feature as of f8c0502bb2680f2dbe7c1f3d7958f60265347005 because it was buggy.
+gem5 can generate DTBs on ARM with `--generate-dtb`. The generated DTB is placed in the <<m5out-directory>> named as `system.dtb`.
 
 == KVM
 
@@ -2900,18 +3015,24 @@ The target Linux kernel of the executable is a GCC toolchain build-time configur
 First let's run a dynamically linked executable built with the Buildroot toolchain:
 
 ....
-./build-qemu --arch aarch64 --userland
-./build-userland --arch aarch64
-./build-buildroot --arch aarch64
+./build --arch aarch64 user-mode-qemu
 ./run \
   --arch aarch64 \
   --userland print_argv \
-  -- \
-  asdf qwer \
+  --userland-args 'asdf "qw er"' \
 ;
 ....
 
-This runs link:userland/print_argv.c[]. `--userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
+Output:
+
+....
+asdf
+qw er
+....
+
+This runs link:userland/print_argv.c[].
+
+`./run --userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
 
 `./build-userland` is further documented at: <<userland-directory>>.
 
@@ -2924,15 +3045,14 @@ You can also try statically linked executables with:
 ....
 ./build-userland \
   --arch aarch64 \
-  --make-args='CCFLAGS_EXTRA=-static' \
+  --static \
   --userland-build-id static \
 ;
 ./run \
   --arch aarch64 \
   --userland-build-id static \
   --userland print_argv \
-  -- \
-  asdf qwer \
+  --userland-args 'asdf "qw er"' \
 ;
 ....
 
@@ -2942,21 +3062,20 @@ Or you can run statically linked built by the host packaged toolchain with:
 ./build-userland \
   --arch aarch64 \
   --host \
-  --make-args='-B CFLAGS_EXTRA=-static' \
+  --static \
   --userland-build-id host-static \
 ;
 ./run \
   --arch aarch64 \
   --userland-build-id host-static \
   --userland print_argv \
-  -- \
-  asdf qwer \
+  --userland-args 'asdf "qw er"' \
 ;
 ....
 
 TODO expose dynamically linked executables built by the host toolchain. It also works, we just have to use e.g. `-L /usr/aarch64-linux-gnu`, so it's not really hard, I'm just lazy.
 
-==== QEMU user mode GDB
+==== User mode GDB
 
 It's nice when <<gdb,the obvious>> just works, right?
 
@@ -2964,9 +3083,8 @@ It's nice when <<gdb,the obvious>> just works, right?
 ./run \
   --arch aarch64 \
   --userland print_argv \
+  --userland-args 'asdf "qw er"' \
   --wait-gdb \
-  -- \
-  asdf qwer \
 ;
 ....
 
@@ -2985,11 +3103,10 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
 ....
 ./run \
   --arch aarch64 \
+  --tmux-args main \
   --userland print_argv \
-  --tmux=main \
+  --userland-args 'asdf "qw er"' \
   --wait-gdb \
-  -- \
-  asdf qwer \
 ;
 ....
 
@@ -3020,41 +3137,64 @@ So let's just play with some static ones:
 ....
 ./build-userland \
   --arch aarch64 \
+  --static \
   --userland-build-id static \
-  --make-args='CCFLAGS_EXTRA=-static' \
 ;
 ./run \
   --arch aarch64 \
-  --gem5 \
+  --emulator gem5 \
   --userland print_argv \
-  --userland-build-id static \
-  -- \
-  --options 'asdf "qw er"' \
+  --userland-args 'asdf "qw er"' \
 ;
 ....
 
-TODO: how to escape spaces?
+TODO: how to escape spaces on the command line arguments?
 
 Step debug also works:
 
 ....
 ./run \
-  --arch arm \
-  --wait-gdb \
-  --gem5 \
+  --arch aarch64 \
+  --emulator gem5 \
   --userland print_argv \
+  --userland-args 'asdf "qw er"' \
   --userland-build-id static \
-  -- \
-  --options 'asdf "qw er"' \
+  --wait-gdb \
 ;
 ./run-gdb \
-  --arch arm \
-  --gem5 \
+  --arch aarch64 \
+  --emulator gem5 \
   --userland print_argv \
   --userland-build-id static \
   main \
 ;
 ....
+
+==== gem5 syscall emulation exit status
+
+As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy `se.py` script does not forward the exit status of syscall emulation mode, you can test it with:
+
+....
+./run --dry-run --emulator gem5 --userland false --userland-build-id static
+....
+
+Source: link:userland/false[].
+
+Then manually run the generated gem5 CLI, and do:
+
+....
+echo $?
+....
+
+and the output is always `0`.
+
+Instead, it just outputs a message to stdout just like for <<m5-fail>>:
+
+....
+Simulated exit code not 0! Exit code is 1
+....
+
+which we parse in link:run[] and then exit with the correct result ourselves...
 
 ==== User mode vs full system benchmark
 
@@ -3073,11 +3213,9 @@ make \
 time \
   ./run \
   --arch arm \
-  --gem5 \
-  --userland \
-  "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
-  -- \
-  --options 100000 \
+  --emulator gem5 \
+  --userland "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
+  --userland-args 'asdf qwer' \
 ;
 ....
 
@@ -3088,7 +3226,7 @@ time \
   ./run \
   --arch arm \
   --eval-after '/gem5.sh' \
-  --gem5
+  --emulator gem5
   --gem5-readfile 'dhrystone 100000' \
 ;
 ....
@@ -3115,6 +3253,30 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 * gem5 full system: 51 seconds
 * QEMU user: 45 seconds
 * QEMU full system: 223 seconds
+
+=== User mode tests
+
+Automatically run non-interactive userland tests that can be run in user mode simulation:
+
+....
+./build --all-archs test-user-mode
+./test-user-mode --all-archs --all-emulators
+....
+
+Or just for QEMU:
+
+....
+./build --all-archs test-user-mode-qemu
+./test-user-mode --all-archs --emulator qemu
+....
+
+Source: link:test-user-mode[]
+
+This testing excludes notably kernel module tests which depend on a full running kernel.
+
+The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
+
+See: <<test-this-repo>> for more useful testing tips.
 
 == Kernel module utilities
 
@@ -3254,7 +3416,7 @@ This would have several advantages:
 ** no need to regenerate the root filesystem at all and reboot
 ** overcomes the `check_bin_arch` problem: <<rpath>>
 * we could keep the base root filesystem very small, which implies:
-** less host disk usage, no need to copy the entire `out_rootfs_overlay_dir` to the image again
+** less host disk usage, no need to copy the entire `./getvar out_rootfs_overlay_dir` to the image again
 ** no need to worry about <<br2_target_rootfs_ext2_size>>
 
 We can already make host files appear on the guest with <<9p>>, but they appear on a subdirectory instead of the root.
@@ -3496,7 +3658,7 @@ More concretely, first build the kernel with the <<gem5-arm-linux-kernel-patches
   --custom-config-file-gem5 \
   --linux-build-id gem5-v4.15 \
 ;
-./run --arch arm --gem5 --linux-build-id gem5-v4.15
+./run --arch arm --emulator gem5 --linux-build-id gem5-v4.15
 ....
 
 and then on another shell:
@@ -3534,7 +3696,7 @@ Alternatively, you can also dump each new frame to an image file with `--frame-c
 ....
 ./run \
   --arch arm \
-  --gem5 \
+  --emulator gem5 \
   --linux-build-id gem5-v4.15 \
   -- --frame-capture \
 ;
@@ -3572,7 +3734,7 @@ git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_source_dir)" checkout -
-./run --arch aarch64 --gem5 --linux-build-id gem5-v4.15
+./run --arch aarch64 --emulator gem5 --linux-build-id gem5-v4.15
 ....
 
 This is because the gem5 `aarch64` defconfig does not enable HDLCD like the 32 bit one `arm` one for some reason.
@@ -3588,7 +3750,7 @@ The key option to enable support in Linux is `DRM_MALI_DISPLAY=y` which we enabl
 Build the kernel exactly as for <<graphic-mode-gem5-aarch64>> and then run with:
 
 ....
-./run --arch aarch64 --dp650 --gem5 --linux-build-id gem5-v4.15
+./run --arch aarch64 --dp650 --emulator gem5 --linux-build-id gem5-v4.15
 ....
 
 ==== Graphic mode gem5 internals
@@ -4105,6 +4267,12 @@ To see Buildroot's base configs, start from link:https://github.com/buildroot/bu
 That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux-4.15.config"`, which points to the base config file used: link:https://github.com/buildroot/buildroot/blob/2018.05/board/qemu/x86_64/linux-4.15.config[board/qemu/x86_64/linux-4.15.config].
 
 `arm`, on the other hand, uses link:https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_arm_vexpress_defconfig[`buildroot/configs/qemu_arm_vexpress_defconfig`], which contains `BR2_LINUX_KERNEL_DEFCONFIG="vexpress"`, and therefore just does a `make vexpress_defconfig`, and gets its config from the Linux kernel tree itself.
+
+====== Linux kernel defconfigs
+
+It would be interesting to test out if `make defconfig` configs boot and work on QEMU + Buildroot: https://unix.stackexchange.com/questions/29439/compiling-the-kernel-with-default-configurations/204512#204512
+
+TODO.
 
 ===== Notable alternate gem5 kernel configs
 
@@ -5074,7 +5242,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-after 'insmod /dump_stack.ko' --wait-gdb --tmux=dump_stack
+./run --eval-after 'insmod /dump_stack.ko' --wait-gdb --tmux-args dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -5294,10 +5462,10 @@ Where the data comes from and how to modify it:
 
 In this repo, leaking host information, and to make builds more reproducible, we are setting:
 
-- user and date to dummy values
-- hostname to the kernel git commit
+- user and date to dummy values with `KBUILD_BUILD_USER` and `KBUILD_BUILD_TIMESTAMP`
+- hostname to the kernel git commit with `KBUILD_BUILD_HOST` and  `KBUILD_BUILD_VERSION`
 
-So the file contains something like:
+A sample result is:
 
 ....
 Linux version 4.19.0-dirty (lkmc@84df9525b0c27f3ebc2ebb1864fa62a97fdedb7d) (gcc version 6.4.0 (Buildroot 2018.05-00002-gbc60382b8f)) #1 SMP Thu Jan 1 00:00:00 UTC 1970
@@ -6620,6 +6788,8 @@ Bibliography:
 
 ==== Count boot instructions
 
+TODO: didn't port during refactor after 3b0a343647bed577586989fb702b760bd280844a. Reimplementing should not be hard.
+
 * https://www.quora.com/How-many-instructions-does-a-typical-Linux-kernel-boot-take
 * https://github.com/cirosantilli/chat/issues/31
 * https://rwmj.wordpress.com/2016/03/17/tracing-qemu-guest-execution/
@@ -6676,9 +6846,9 @@ instructions_firmware 20708
 gem5:
 
 ....
-./run --arch aarch64 --gem5 --eval 'm5 exit'
+./run --arch aarch64 --emulator gem5 --eval 'm5 exit'
 # Or:
-# ./run --arch aarch64 --gem5 --eval 'm5 exit' -- --cpu-type=HPI --caches
+# ./run --arch aarch64 --emulator gem5 --eval 'm5 exit' -- --cpu-type=HPI --caches
 ./gem5-stat --arch aarch64 sim_insts
 ....
 
@@ -7375,7 +7545,7 @@ Looks like a more raw alternative to libdrm:
 ....
 ./build-buildroot --config 'BR2_PACKABE_LIBDRI2=y'
 wget \
-  -O "$(./getvar userland_src_dir)/dri2test.c" \
+  -O "$(./getvar userland_source_dir)/dri2test.c" \
   https://raw.githubusercontent.com/robclark/libdri2/master/test/dri2test.c \
 ;
 ./build-userland
@@ -8206,7 +8376,7 @@ And in QEMU:
 Or for a faster development loop:
 
 ....
-./run --debug-vm='-ex "break edu_mmio_read" -ex "run"'
+./run --debug-vm --debug-vm-args '-ex "break edu_mmio_read" -ex "run"'
 ....
 
 When in <<qemu-text-mode>>, using `--debug-vm` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest program like:
@@ -8224,7 +8394,7 @@ You can still send key presses to QEMU however even without the mouse capture, j
 Start pdb at the first instruction:
 
 ....
-./run --gem5 --gem5-exe-args='--pdb' --terminal
+./run --emulator gem5 --gem5-exe-args='--pdb' --terminal
 ....
 
 Requires `--terminal` as we must be on foreground.
@@ -8238,7 +8408,7 @@ import ipdb; ipdb.set_trace()
 and then run with:
 
 ....
-./run --gem5 --terminal
+./run --emulator gem5 --terminal
 ....
 
 TODO test PyCharm: https://stackoverflow.com/questions/51982735/writing-gem5-configuration-scripts-with-pycharm
@@ -8508,14 +8678,14 @@ just appears to output both cores intertwined without any clear differentiation.
 gem5 provides also provides a tracing mechanism documented at: link:http://www.gem5.org/Trace_Based_Debugging[]:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --trace Exec
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace Exec
 less "$(./getvar --arch aarch64 run_dir)/trace.txt"
 ....
 
 Output the trace to stdout instead of a file:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --trace Exec --trace-stdout
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace Exec --trace-stdout
 ....
 
 This would produce a lot of output however, so you will likely not want that when tracing a Linux kernel boot instructions. But it can be very convenient for smaller traces.
@@ -8523,14 +8693,14 @@ This would produce a lot of output however, so you will likely not want that whe
 List all available debug flags:
 
 ....
-./run --arch aarch64 --gem5-exe-args='--debug-help' --gem5
+./run --arch aarch64 --gem5-exe-args='--debug-help' --emulator gem5
 ....
 
 but to understand most of them you have to look at the source code:
 
 ....
-less "$(./getvar gem5_src_dir)/src/cpu/SConscript"
-less "$(./getvar gem5_src_dir)/src/cpu/exetrace.cc"
+less "$(./getvar gem5_source_dir)/src/cpu/SConscript"
+less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"
 ....
 
 The traces are generated from `DPRINTF(<trace-id>` calls scattered throughout the code.
@@ -8576,8 +8746,8 @@ The best way to verify all of this is to write some <<baremetal,baremetal code>>
 Trace the source lines just like <<trace-source-lines,for QEMU>> with:
 
 ....
-./trace-boot --arch aarch64 --gem5
-./trace2line --arch aarch64 --gem5
+./trace-boot --arch aarch64 --emulator gem5
+./trace2line --arch aarch64 --emulator gem5
 less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"
 ....
 
@@ -8686,7 +8856,7 @@ Another interesting example can be found at: link:gem5-bench-cache[].
 A more naive and simpler to understand approach would be a direct:
 
 ....
-./run --arch aarch64 --gem5 --eval 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
+./run --arch aarch64 --emulator gem5 --eval 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
 ....
 
 but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-script>>.
@@ -8724,7 +8894,7 @@ The rabbit hole is likely deep, but let's scratch a bit of the surface.
 ===== Number of cores
 
 ....
-./run --arch arm --cpus 2 --gem5
+./run --arch arm --cpus 2 --emulator gem5
 ....
 
 Check with:
@@ -8744,7 +8914,7 @@ Build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
 ./run \
   --arch aarch64 \
   --linux-build-id gem5-v4.15 \
-  --gem5 \
+  --emulator gem5 \
   --cpus 16 \
   -- \
   --param 'system.realview.gic.gem5_extensions = True' \
@@ -8755,7 +8925,7 @@ Build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
 
 https://stackoverflow.com/questions/49624061/how-to-run-gem5-simulator-in-fs-mode-without-cache/49634544#49634544
 
-A quick `+./run --gem5 -- -h+` leads us to the options:
+A quick `+./run --emulator gem5 -- -h+` leads us to the options:
 
 ....
 --caches
@@ -8822,37 +8992,37 @@ cat "$(./getvar --arch aarch64 run_dir)/bench-cache.txt"
 which gives:
 
 ....
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 23.82
 exit_status 0
 cycles 93284622
 instructions 4393457
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 1000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 14.91
 exit_status 0
 cycles 10128985
 instructions 4211458
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 51.87
 exit_status 0
 cycles 188803630
 instructions 12401336
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 10000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 35.35
 exit_status 0
 cycles 20715757
 instructions 12192527
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024   --l1i_size=1024   --l2_size=1024   --l3_size=1024   --cpu-type=HPI --restore-with-cpu=HPI
 time 339.07
 exit_status 0
 cycles 1176559936
 instructions 94222791
 
-cmd ./run --gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
+cmd ./run --emulator gem5 --arch aarch64 --gem5-readfile "dhrystone 100000" --gem5-restore 1 -- --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB --cpu-type=HPI --restore-with-cpu=HPI
 time 240.37
 exit_status 0
 cycles 125666679
@@ -8906,7 +9076,7 @@ and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
 Clock frequency: TODO how does it affect performance in benchmarks?
 
 ....
-./run --arch aarch64 --gem5 -- --cpu-clock 10000000
+./run --arch aarch64 --emulator gem5 -- --cpu-clock 10000000
 ....
 
 Check with:
@@ -8954,10 +9124,10 @@ Usage:
 ./run \
   --arch aarch64 \
   --eval-after '/gem5.sh' \
-  --gem5 \
+  --emulator gem5 \
   --gem5-readfile '/bst_vs_heap.out' \
 ;
-./bst-vs-heap --arch aarch64 --gem5 > bst_vs_heap.dat
+./bst-vs-heap --arch aarch64 --emulator gem5 > bst_vs_heap.dat
 ....
 
 and then feed `bst_vs_heap.dat` into: https://github.com/cirosantilli/cpp-cheat/blob/9d0f77792fc8e55b20b6ee32018761ef3c5a3f2f/cpp/interactive/bst_vs_heap.gnuplot
@@ -9059,7 +9229,7 @@ There are two ways to run PARSEC with this repo:
 ....
 ./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
 ./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
@@ -9188,7 +9358,7 @@ A few workarounds are:
 If you do this, don't forget to do a:
 +
 ....
-cd "$(./getvar parsec_src_dir)"
+cd "$(./getvar parsec_source_dir)"
 git clean -xdf .
 ....
 before going for the cross compile build.
@@ -9213,7 +9383,7 @@ You may also want to test if your patches are still functionally correct inside 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
 ....
-./run --arch arm --kernel-cli 'init=/poweroff.out' --gem5
+./run --arch arm --kernel-cli 'init=/poweroff.out' --emulator gem5
 ....
 
 Internals: when we give `--command-line=` to gem5, it overrides default command lines, including some mandatory ones which are required to boot properly.
@@ -9223,7 +9393,7 @@ Our run script hardcodes the require options in the default `--command-line` and
 To find the default options in the first place, we removed `--command-line` and ran:
 
 ....
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 and then looked at the line of the Linux kernel that starts with:
@@ -9239,13 +9409,13 @@ Kernel command line:
 Analogous <<gdb,to QEMU>>, on the first shell:
 
 ....
-./run --arch arm --wait-gdb --gem5
+./run --arch arm --wait-gdb --emulator gem5
 ....
 
 On the second shell:
 
 ....
-./run-gdb --arch arm --gem5
+./run-gdb --arch arm --emulator gem5
 ....
 
 On a third shell:
@@ -9258,43 +9428,11 @@ When you want to break, just do a `Ctrl-C` on GDB shell, and then `continue`.
 
 And we now see the boot messages, and then get a shell. Now try the `/count.sh` procedure described for QEMU: <<gdb-step-debug-kernel-post-boot>>.
 
-===== gem5 GDB step debug kernel aarch64
-
-TODO: GDB fails with:
-
-....
-Reading symbols from vmlinux...done.
-Remote debugging using localhost:7000
-Remote 'g' packet reply is too long: 000000000000000090a4f90fc0ffffff4875450ec0ffffff01000000000000000100000000000000000000000000000001000000000000000000000000000000ffffffffffffffff646d60616b64fffe7f7f7f7f7f7f7f7f0101010101010101300000000000000000000000ffffffff48454422207d2c2017162f21262820160100000000000000070000000000000001000000000000004075450ec0ffffffc073450ec0ffffff82080000000000004075450ec0ffffff8060f90fc0ffffffc073450ec0fffffff040900880ffffff40ab400ec0ffffff586d900880ffffff0068a20ec0ffffff903b010880ffffffc8ff210880ffffff903b010880ffffffccff210880ffffff050000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-....
-
-See: <<remote-g-packet-reply-is-too-long>>
-
-and gem5 says:
-
-....
-4107766500: system.remote_gdb: remote gdb attached
-warn: Couldn't read data from debugger.
-4107767500: system.remote_gdb: remote gdb detached
-....
-
-I've also tried the fix at: https://stackoverflow.com/questions/27411621/remote-g-packet-reply-is-too-long-aarch64-arm64 by adding to the link:run-gdb[] script:
-
-....
--ex 'set tdesc filename out/aarch64/buildroot/build/gdb-7.11.1/./gdb/features/aarch64.xml'
-....
-
-but it did not help.
-
-https://www.mail-archive.com/gem5-users@gem5.org/msg15383.html
-
 ==== gem5 GDB step debug userland process
 
 We are unable to use `gdbserver` because of networking: <<gem5-host-to-guest-networking>>
 
 The alternative is to do as in <<gdb-step-debug-userland-processes>>.
-
-First make sure that for your arch the kernel debugging on the given target works for the architecture: <<gem5-gdb>>, on which we rely. When we last tested, this was not the case for aarch64: <<gem5-gdb-step-debug-kernel-aarch64>>
 
 Next, follow the exact same steps explained at <<gdb-step-debug-userland-non-init-without--d>>, but passing `-g` to every command as usual.
 
@@ -9310,7 +9448,7 @@ I press `n`, it just runs the program until the end, instead of stopping on the 
 TODO:
 
 ....
-./run-gdb-user --arch arm --gem5 gem5-1.0/gem5/util/m5/m5 main
+./run-gdb-user --arch arm --emulator gem5 gem5-1.0/gem5/util/m5/m5 main
 ....
 
 breaks when `m5` is run on guest, but does not show the source code.
@@ -9322,7 +9460,7 @@ Analogous to QEMU's <<snapshot>>, but better since it can be started from inside
 Documentation: http://gem5.org/Checkpoints
 
 ....
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 In the guest, wait for the boot to end and run:
@@ -9336,7 +9474,7 @@ where <<m5>> is a guest utility present inside the gem5 tree which we cross-comp
 To restore the checkpoint, kill the VM and run:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1
+./run --arch arm --emulator gem5 --gem5-restore 1
 ....
 
 The `--gem5-restore` option restores the checkpoint that was created most recently.
@@ -9351,7 +9489,7 @@ m5 checkpoint
 Kill the VM, and try it out:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1
+./run --arch arm --emulator gem5 --gem5-restore 1
 ....
 
 Here we use `--gem5-restore 1` again, since the second snapshot we took is now the most recent one
@@ -9367,13 +9505,13 @@ contains the `date`. The file `f` wouldn't exist had we used the first checkpoin
 If you automate things with <<kernel-command-line-parameters>> as in:
 
 ....
-./run --arch arm --eval 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' --gem5
+./run --arch arm --eval 'm5 checkpoint;m5 resetstats;dhrystone 1000;m5 exit' --emulator gem5
 ....
 
 Then there is no need to pass the kernel command line again to gem5 for replay:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1
+./run --arch arm --emulator gem5 --gem5-restore 1
 ....
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
@@ -9383,7 +9521,7 @@ since boot has already happened, and the parameters are already in the RAM of th
 Checkpoints are stored inside the <<m5out-directory>> at:
 
 ....
-"$(./getvar --gem5 m5out_dir)/cpt.<checkpoint-time>"
+"$(./getvar --emulator gem5 m5out_dir)/cpt.<checkpoint-time>"
 ....
 
 where `<checkpoint-time>` is the cycle number at which the checkpoint was taken.
@@ -9413,19 +9551,19 @@ So we can do it like:
 ....
 # Boot, checkpoint and exit.
 printf 'echo "setup run";m5 exit' > "$(./getvar gem5_readfile)"
-./run --gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 
 # Restore and run the first benchmark.
 printf 'echo "first benchmark";m5 exit' > "$(./getvar gem5_readfile)"
-./run --gem5 --gem5-restore 1
+./run --emulator gem5 --gem5-restore 1
 
 # Restore and run the second benchmark.
 printf 'echo "second benchmark";m5 exit' > "$(./getvar gem5_readfile)"
-./run --gem5 --gem5-restore 1
+./run --emulator gem5 --gem5-restore 1
 
 # If something weird happened, create an interactive shell to examine the system.
 printf 'sh' > "$(./getvar gem5_readfile)"
-./run --gem5 --gem5-restore 1
+./run --emulator gem5 --gem5-restore 1
 ....
 
 Since this is such a common setup, we provide some helpers for it as described at <<gem5-run-benchmark>>:
@@ -9462,7 +9600,7 @@ A common combo is to boot Linux with a fast CPU, make a checkpoint and then repl
 An illustrative interactive run:
 
 ....
-./run --arch arm --gem5
+./run --arch arm --emulator gem5
 ....
 
 In guest:
@@ -9474,7 +9612,7 @@ m5 checkpoint
 And then restore the checkpoint with a different CPU:
 
 ....
-./run --arch arm --gem5 --gem5-restore 1 -- --caches --restore-with-cpu=HPI
+./run --arch arm --emulator gem5 --gem5-restore 1 -- --caches --restore-with-cpu=HPI
 ....
 
 === Pass extra options to gem5
@@ -9484,12 +9622,12 @@ Pass options to the `fs.py` script:
 * get help:
 +
 ....
-./run --gem5 -- -h
+./run --emulator gem5 -- -h
 ....
 * boot with the more detailed and slow `HPI` CPU model:
 +
 ....
-./run --arch arm --gem5 -- --caches --cpu-type=HPI
+./run --arch arm --emulator gem5 -- --caches --cpu-type=HPI
 ....
 
 Pass options to the `gem5` executable itself:
@@ -9497,7 +9635,7 @@ Pass options to the `gem5` executable itself:
 * get help:
 +
 ....
-./run --gem5-exe-args='-h' --gem5
+./run --gem5-exe-args='-h' --emulator gem5
 ....
 
 === gem5 exit after a number of instructions
@@ -9505,7 +9643,7 @@ Pass options to the `gem5` executable itself:
 Quit the simulation after `1024` instructions:
 
 ....
-./run --gem5 -- -I 1024
+./run --emulator gem5 -- -I 1024
 ....
 
 Can be nicely checked with <<gem5-tracing>>.
@@ -9513,7 +9651,7 @@ Can be nicely checked with <<gem5-tracing>>.
 Cycles instead of instructions:
 
 ....
-./run --gem5 -- --memory 1024
+./run --emulator gem5 -- --memory 1024
 ....
 
 Otherwise the simulation runs forever by default.
@@ -9568,7 +9706,9 @@ Simulated exit code not 0! Exit code is 1
 
 and exits with status 0.
 
-TODO: it used to exit non 0, be like that, but it actually got changed to just print the message. Why? https://gem5-review.googlesource.com/c/public/gem5/+/4880
+We then parse that string ourselves in link:run[] and exit with the correct status...
+
+TODO: it used to be like that, but it actually got changed to just print the message. Why? https://gem5-review.googlesource.com/c/public/gem5/+/4880
 
 `m5 fail` is just a superset of `m5 exit`, which is just:
 
@@ -9592,7 +9732,7 @@ m5 writefile myfileguest myfilehost
 Host:
 
 ....
-cat "$(./getvar --arch aarch64 --gem5 m5out_dir)/myfilehost"
+cat "$(./getvar --arch aarch64 --emulator gem5 m5out_dir)/myfilehost"
 ....
 
 Does not work for subdirectories, gem5 crashes:
@@ -9628,8 +9768,8 @@ Ermm, just another <<m5-readfile>> that only takes integers and only from CLI op
 Host:
 
 ....
-./run --gem5 --gem5-restore 1 -- --initparam 13
-./run --gem5 --gem5-restore 1 -- --initparam 42
+./run --emulator gem5 --gem5-restore 1 -- --initparam 13
+./run --emulator gem5 --gem5-restore 1 -- --initparam 42
 ....
 
 Guest:
@@ -9804,7 +9944,7 @@ It is obviously not possible to understand what they actually do from their comm
 When you run gem5, it generates an `m5out` directory at:
 
 ....
-echo $(./getvar --arch arm --gem5 m5out_dir)"
+echo $(./getvar --arch arm --emulator gem5 m5out_dir)"
 ....
 
 The location of that directory can be set with `./gem5.opt -d`, and defaults to `./m5out`.
@@ -9847,7 +9987,7 @@ Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCyc
 
 ....
 ./build-userland -- rdtsc
-./run --eval '/rdtsc.out;m5 exit;' --gem5
+./run --eval '/rdtsc.out;m5 exit;' --emulator gem5
 ./gem5-stat
 ....
 
@@ -9880,7 +10020,7 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_m
 The `config.ini` file, contains a very good high level description of the system:
 
 ....
-less $(./getvar --arch arm --gem5 m5out_dir)"
+less $(./getvar --arch arm --emulator gem5 m5out_dir)"
 ....
 
 That file contains a tree representation of the system, sample excerpt:
@@ -9918,7 +10058,7 @@ For example, `AtomicSimpleCPU` maps is defined at link:https://github.com/gem5/g
 You can also get a simplified graphical view of the tree with:
 
 ....
-xdg-open "$(./getvar --arch arm --gem5 m5out_dir)/config.dot.pdf"
+xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.pdf"
 ....
 
 Modifying the `config.ini` file manually does nothing since it gets overwritten every time.
@@ -9971,13 +10111,13 @@ The `--gem5-script biglittle` option enables the alternative `configs/example/ar
 First apply:
 
 ....
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-biglittle.patch
+patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-biglittle.patch
 ....
 
 then:
 
 ....
-./run --arch aarch64 --gem5 --gem5-script biglittle
+./run --arch aarch64 --emulator gem5 --gem5-script biglittle
 ....
 
 Advantages over `fs.py`:
@@ -10191,6 +10331,8 @@ Once you've built a package in to the image, there is no easy way to remove it.
 
 Documented at: link:https://github.com/buildroot/buildroot/blob/2017.08/docs/manual/rebuilding-packages.txt#L90[]
 
+Also mentioned at: https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot
+
 See this for a sample manual workaround: <<parsec-uninstall>>.
 
 === BR2_TARGET_ROOTFS_EXT2_SIZE
@@ -10327,13 +10469,13 @@ then on the second shell:
 Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux=main
+./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux-args main
 ....
 
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux=--no-continue
+./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux-args --no-continue
 ....
 
 Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
@@ -10341,12 +10483,10 @@ Now you can just `stepi` to when jumping into main to go to the C code in link:b
 This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
 ....
-./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb --tmux=--no-continue
+./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb --tmux-args --no-continue
 ....
 
 The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.
-
-`aarch64` gem5 GDB step debug is broken as mentioned at: <<gem5-gdb-step-debug-kernel-aarch64>>.
 
 === Baremetal bootloaders
 
@@ -10369,7 +10509,7 @@ The most important things that we setup in the bootloaders are:
 The C functions that become available as a result are:
 
 * Newlib functions implemented at link:baremetal/lib/syscalls.c[]
-* non-Newlib functions implemented at link:common.c[]
+* non-Newlib functions implemented at link:kwargs['c'][]
 
 It is not possible to call those C functions from the examples that don't use a bootloader.
 
@@ -10401,7 +10541,7 @@ svc 0x00123456
 
 and we can see from the docs that `0x18` stands for the `SYS_EXIT` command.
 
-This is also how we implement the `exit(0)` system call in C for QEMU for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/common.c[].
+This is also how we implement the `exit(0)` system call in C for QEMU for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/kwargs['c'][].
 
 Other magic operations we can do with semihosting besides exiting the on the host include:
 
@@ -10441,7 +10581,7 @@ Bibliography:
 For gem5, you need:
 
 ....
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
+patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-semihost.patch
 ....
 
 https://stackoverflow.com/questions/52475268/how-to-enable-arm-semihosting-in-gem5/52475269#52475269
@@ -10607,18 +10747,18 @@ TODO: why is `arm` stuck at `19` which equals Supervisor mode?
 In gem5, you can configure the lowest EL with:
 
 ....
-./run --arch arm --baremetal arch/arm/el --gem5
-cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal arch/arm/el --gem5 -- --param 'system.have_virtualization = True'
-cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal arch/arm/el --gem5 -- --param 'system.have_security = True'
-cat "$(./getvar --arch arm --gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --gem5
-cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --gem5 -- --param 'system.have_virtualization = True'
-cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --gem5 -- --param 'system.have_security = True'
-cat "$(./getvar --arch aarch64 --gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --emulator gem5
+cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --emulator gem5 -- --param 'system.have_virtualization = True'
+cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal arch/arm/el --emulator gem5 -- --param 'system.have_security = True'
+cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5
+cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5 -- --param 'system.have_virtualization = True'
+cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5 -- --param 'system.have_security = True'
+cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
 ....
 
 output:
@@ -10636,9 +10776,9 @@ output:
 
 ....
 ./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --gem5
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --emulator gem5
 ./run --arch arm --baremetal arch/aarch64/multicore --cpus 2
-./run --arch arm --baremetal arch/aarch64/multicore --cpus 2 --gem5
+./run --arch arm --baremetal arch/aarch64/multicore --cpus 2 --emulator gem5
 ....
 
 Sources:
@@ -10661,7 +10801,7 @@ and watch it hang forever.
 Note that if you try the same thing on gem5:
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1 --gem5
+./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1 --emulator gem5
 ....
 
 then the gem5 actually exits, but with a different message:
@@ -10770,6 +10910,16 @@ Bibliography: https://stackoverflow.com/questions/20055754/arm-start-wakeup-brin
 
 TODO: create and study a minimal examples in gem5 where the `DMB` instruction leads to less cycles: https://stackoverflow.com/questions/15491751/real-life-use-cases-of-barriers-dsb-dmb-isb-in-arm
 
+==== ARM baremetal bibliography
+
+The most useful ARM baremetal example sets we've seen so far are:
+
+* https://github.com/dwelch67/raspberrypi real hardware
+* https://github.com/dwelch67/qemu_arm_samples QEMU `-m vexpress`
+* https://github.com/bztsrc/raspi3-tutorial real hardware + QEMU `-m raspi`
+* https://github.com/LdB-ECM/Raspberry-Pi real hardware
+* https://github.com/NienfengYao/armv8-bare-metal QEMU `-m virt` aarch64. A large part of the code is taken from the awesome educational OS under 2-clause BSD: https://github.com/takeharukato/sample-tsk-sw/tree/ce7973aa5d46c9eedb58309de43df3b09d4f8d8d/hal/aarch64
+
 === How we got some baremetal stuff to work
 
 It is nice when thing just work.
@@ -10868,6 +11018,25 @@ We then found out that QEMU starts in EL1, and so we kept just the EL1 part, and
 * https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
 * https://stackoverflow.com/questions/37299524/neon-support-in-armv8-system-mode-qemu
 
+=== Baremetal tests
+
+Automatically run non-interactive baremetal tests:
+
+....
+./test-baremetal
+....
+
+Source: link:test-baremetal[]
+
+We detect if tests failed by parsing logs for the <<magic-failure-string>>.
+
+We also skip tests that cannot work on certain conditions based on their basenames, e.g.:
+
+* tests that start with `gem5_` only run in `gem5`
+* tests that start with `semihost_` only run in QEMU, until we find a better way to automate <<gem5-semihosting>>
+
+See: <<test-this-repo>> for more useful testing tips.
+
 === Baremetal bibliography
 
 https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal
@@ -10903,6 +11072,8 @@ make CROSS_COMPILE_DIR=/usr/bin
 
 == Benchmark this repo
 
+TODO: didn't fully port during refactor after 3b0a343647bed577586989fb702b760bd280844a. Reimplementing should not be hard.
+
 In this section document how benchmark builds and runs of this repo, and how to investigate what the bottleneck is.
 
 Ideally, we should setup an automated build server that benchmarks those things continuously for us, but our <<travis>> attempt failed.
@@ -10931,14 +11102,13 @@ We tried to automate it on Travis with link:.travis.yml[] but it hits the curren
 Run all kernel boot benchmarks for one arch:
 
 ....
-./build-bench-boot --size 3 && ./bench-boot --size 3
-cat "$(./getvar bench_boot)"
+./build-test-boot --size 3 && ./test-boot --size 3
+cat "$(./getvar test_boot_benchmark_file)"
 ....
 
 Sample results at 8fb9db39316d43a6dbd571e04dd46ae73915027f:
 
 ....
-
 cmd ./run --arch x86_64 --eval '/poweroff.out'
 time 8.25
 exit_status 0
@@ -10952,7 +11122,7 @@ time 8.83
 exit_status 0
 instructions 2244297
 
-cmd ./run --arch x86_64 --eval 'm5 exit' --gem5
+cmd ./run --arch x86_64 --eval 'm5 exit' --emulator gem5
 time 213.39
 exit_status 0
 instructions 318486337
@@ -10965,12 +11135,12 @@ time 6.90
 exit_status 0
 instructions 776374
 
-cmd ./run --arch arm --eval 'm5 exit' --gem5
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5
 time 118.46
 exit_status 0
 instructions 153023392
 
-cmd ./run --arch arm --eval 'm5 exit' --gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
 time 2250.40
 exit_status 0
 instructions 151981914
@@ -10984,22 +11154,22 @@ time 5.04
 exit_status 0
 instructions 233162
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5
 time 70.89
 exit_status 0
 instructions 124346081
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
 time 381.86
 exit_status 0
 instructions 124564620
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 --gem5-build-type fast
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --gem5-build-type fast
 time 58.00
 exit_status 0
 instructions 124346081
 
-cmd ./run --arch aarch64 --eval 'm5 exit' --gem5 --gem5-build-type debug
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --gem5-build-type debug
 time 1022.03
 exit_status 0
 instructions 124346081
@@ -11012,7 +11182,7 @@ TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction 
 TODO 62f6870e4e0b384c4bd2d514116247e81b241251 takes 33 minutes to finish at 62f6870e4e0b384c4bd2d514116247e81b241251:
 
 ....
-cmd ./run --arch arm --eval 'm5 exit' --gem5 -- --caches --cpu-type=HPI
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5 -- --caches --cpu-type=HPI
 ....
 
 while aarch64 only 7 minutes.
@@ -11113,7 +11283,7 @@ Sample results at gem5 2a9573f5942b5416fb0570cf5cb6cdecba733392: 10 to 12 minute
 Get results with:
 
 ....
-./bench-all --gem5
+./bench-all --emulator gem5
 tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt
 ....
 
@@ -11189,13 +11359,23 @@ gem5:
 
 We tend to test this repo the most on the latest Ubuntu and on the latest link:https://askubuntu.com/questions/16366/whats-the-difference-between-a-long-term-support-release-and-a-normal-release[Ubuntu LTS].
 
-For other Linux distros, everything will likely also just work if you install the analogous required packages for your distro, find them out with:
+For other Linux distros, everything will likely also just work if you install the analogous required packages for your distro
+
+Find out the packages that we install with:
 
 ....
-./build --download-dependencies --dry-run
+./build --download-dependencies --dry-run | less
 ....
 
-which just prints what `build` would do quickly without doing anything.
+and then just look for the `apt-get` commands shown on the log.
+
+After installing the missing packages for your distro, do the build with:
+
+....
+./build --download-dependencies --no-apt
+....
+
+which does everything as normal, except that it skips any `apt` commands.
 
 Ports to new host systems are welcome and will be merged.
 
@@ -11240,16 +11420,37 @@ It gets annoying to retype `--arch aarch64` for every single command, or to reme
 So simplify that, do:
 
 ....
-cp config.example data/config
+cp config.py data/
 ....
 
 and then edit the `data/config` file to your needs.
+
+Source: link:config.py[]
+
+You can also choose a different configuration file explicitly with:
+
+....
+./run --config data/config2.py
+....
+
+Almost all options names are automatically deduced from their command line `--help` name: just replace `-` with `_`.
+
+More precisely, we use the `dest=` value of Python's link:https://docs.python.org/3/library/argparse.html[argparse module].
+
+To get a list of all global options that you can use, try:
+
+....
+./getvar --type input
+....
+
+but note that this does not include script specific options.
 
 === Build the documentation
 
 You don't need to depend on GitHub:
 
 ....
+sudo apt install asciidoctor
 ./build-doc
 xdg-open out/README.html
 ....
@@ -11387,22 +11588,22 @@ Our scripts solve two difficulties with simultaneous runs:
 Each run gets a separate output directory. For example:
 
 ....
-./run --arch aarch64 --gem5 --run-id 0 &>/dev/null &
-./run --arch aarch64 --gem5 --run-id 1 &>/dev/null &
+./run --arch aarch64 --emulator gem5 --run-id 0 &>/dev/null &
+./run --arch aarch64 --emulator gem5 --run-id 1 &>/dev/null &
 ....
 
 produces two separate <<m5out-directory,`m5out` directories>>:
 
 ....
-echo "$(./getvar --arch aarch64 --gem5 --run-id 0 m5out_dir)"
-echo "$(./getvar --arch aarch64 --gem5 --run-id 1 m5out_dir)"
+echo "$(./getvar --arch aarch64 --emulator gem5 --run-id 0 m5out_dir)"
+echo "$(./getvar --arch aarch64 --emulator gem5 --run-id 1 m5out_dir)"
 ....
 
 and the gem5 host executable stdout and stderr can be found at:
 
 ....
-less "$(./getvar --arch aarch64 --gem5 --run-id 0 termout_file)"
-less "$(./getvar --arch aarch64 --gem5 --run-id 1 termout_file)"
+less "$(./getvar --arch aarch64 --emulator gem5 --run-id 0 termout_file)"
+less "$(./getvar --arch aarch64 --emulator gem5 --run-id 1 termout_file)"
 ....
 
 Each line is prepended with the timestamp in seconds since the start of the program when it appeared.
@@ -11410,7 +11611,7 @@ Each line is prepended with the timestamp in seconds since the start of the prog
 To have more semantic output directories names for later inspection, you can use a non numeric string for the run ID, and indicate the port offset explicitly:
 
 ....
-./run --arch aarch64 --gem5 --run-id some-experiment --port-offset 1
+./run --arch aarch64 --emulator gem5 --run-id some-experiment --port-offset 1
 ....
 
 `--port-offset` defaults to the run ID when that is a number.
@@ -11484,9 +11685,9 @@ Analogous to the <<linux-kernel-build-variants>> but with the `--qemu-build-id` 
 
 ....
 ./build-qemu
-git -C "$(./getvar qemu_src_dir)" checkout v2.12.0
+git -C "$(./getvar qemu_source_dir)" checkout v2.12.0
 ./build-qemu --qemu-build-id v2.12.0
-git -C "$(./getvar qemu_src_dir)" checkout -
+git -C "$(./getvar qemu_source_dir)" checkout -
 ./run
 ./run --qemu-build-id v2.12.0
 ....
@@ -11500,18 +11701,18 @@ Analogous to the <<linux-kernel-build-variants>> but with the `--gem5-build-id` 
 ./build-gem5
 
 # Build another branch.
-git -C "$(./getvar gem5_src_dir)" checkout some-branch
+git -C "$(./getvar gem5_source_dir)" checkout some-branch
 ./build-gem5 --gem5-build-id some-branch
 
 # Restore master.
-git -C "$(./getvar gem5_src_dir)" checkout -
+git -C "$(./getvar gem5_source_dir)" checkout -
 
 # Run master.
-./run --gem5
+./run --emulator gem5
 
 # Run another branch.
-git -C "$(./getvar gem5_src_dir)" checkout some-branch
-./run --gem5-build-id some-branch --gem5
+git -C "$(./getvar gem5_source_dir)" checkout some-branch
+./run --gem5-build-id some-branch --emulator gem5
 ....
 
 Don't forget however that gem5 has Python scripts in its source code tree, and that those must match the source code of a given build.
@@ -11536,11 +11737,11 @@ cd -
 ./build-gem5 --gem5-worktree my-new-feature
 
 # Run the submodule.
-./run --gem5 --run-id 0 &>/dev/null &
+./run --emulator gem5 --run-id 0 &>/dev/null &
 
 # Run the branch the need to check out anything.
 # With --gem5-worktree, we can do both runs at the same time!
-./run --gem5 --gem5-worktree my-new-feature --run-id 1 &>/dev/null &
+./run --emulator gem5 --gem5-worktree my-new-feature --run-id 1 &>/dev/null &
 ....
 
 `--gem5-worktree <worktree-id>` automatically creates:
@@ -11595,7 +11796,7 @@ The `gem5.debug` executable has optimizations turned off unlike the default `gem
 
 ....
 ./build-gem5 --arch aarch64 --gem5-build-type debug
-./run --arch aarch64 --debug-vm --gem5 --gem5-build-type debug
+./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug
 ....
 
 The build outputs are automatically stored in a different directory from other build types such as `.opt` build, which prevents `.debug` files from overwriting `.opt` ones.
@@ -11605,8 +11806,8 @@ Therefore, `--gem5-build-id` is not required.
 The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --gem5 --linux-build-id v4.16 --gem5-build-type debug
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug
 ....
 
 so you will likely only use this when it is unavoidable.
@@ -11619,9 +11820,9 @@ Analogous to the <<linux-kernel-build-variants>> but with the `--build-id` optio
 
 ....
 ./build-buildroot
-git -C "$(./getvar buildroot_src_dir)" checkout 2018.05
+git -C "$(./getvar buildroot_source_dir)" checkout 2018.05
 ./build-buildroot --buildroot-build-id 2018.05
-git -C "$(./getvar buildroot_src_dir)" checkout -
+git -C "$(./getvar buildroot_source_dir)" checkout -
 ./run
 ./run --buildroot-build-id 2018.05
 ....
@@ -11636,9 +11837,13 @@ They contain data structs and magic constant for kernel to userland communicatio
 
 ==== userland directory
 
-Userland test programs.
+Userland test programs. They can be used in the following ways:
 
-For usage in the guest, build with:
+* inside a full system simulation, e.g.: <<qemu-buildroot-setup>>
+* inside <<user-mode-simulation>>
+* directly on the host: <<userland-directory-host-build>>
+
+For usage inside full system simulation, first ensure that Buildroot has been built for the toolchain, and then build the examples with:
 
 ....
 ./build-userland
@@ -11646,7 +11851,7 @@ For usage in the guest, build with:
 
 Source: link:build-userland[].
 
-This makes them visible immediately on the 9P mount `/mnt/9p/out_root_overlay`.
+This makes them visible immediately on the <<9p>> mount of a running simulator.
 
 In order to place them in the root filesystem image itself, you must also run:
 
@@ -11654,7 +11859,9 @@ In order to place them in the root filesystem image itself, you must also run:
 ./build-buildroot
 ....
 
-It is possible to build and run those examples directly on your host:
+===== userland directory host build
+
+It is possible to build and run some of the userland examples directly on your host:
 
 ....
 cd userland
@@ -11687,14 +11894,6 @@ TODO: OpenMP does not like `-static`:
 ....
 
 See: https://stackoverflow.com/questions/23869981/linking-openmp-statically-with-gcc
-
-It is also possible to build other architectures with the host toolchain for other archs than your host arch:
-
-....
-./build-userland --arch arm --host --userland-build-id host
-....
-
-You won't be able to run those executables directly, but this is interesting if you are playing around with <<qemu-user-mode>>.
 
 ==== buildroot_packages directory
 
@@ -11795,13 +11994,18 @@ We use this directory for:
 +
 C files for example need compilation, and must go through the regular package system, e.g. through link:kernel_modules/user[].
 
-This directory is copied into the target filesystem by link:copy-overlay[], which then it visible via <<9p>> on the guest at:
+This directory is copied into the target filesystem by:
 
 ....
-ls /mnt/9p/out_rootfs_overlay
+./copy-overlay
+./build-buildroot
 ....
 
-Furthermore, since this directory does not require compilation, we also make it <<9p>> available to the guest directly even without `copy-overlay` at:
+Source: link:copy-overlay[]
+
+Build Buildroot is required for the same reason as described at: <<your-first-kernel-module-hack>>.
+
+However, since the link:rootfs_overlay[] directory does not require compilation, unlike say <<your-first-kernel-module-hack,kernel modules>>, we also make it <<9p>> available to the guest directly even without `./copy-overlay` at:
 
 ....
 ls /mnt/9p/rootfs_overlay
@@ -11811,11 +12015,9 @@ This way you can just hack away the scripts and try them out immediately without
 
 === Test this repo
 
-This section describes how to run the most complete set of tests possible.
-
-It takes too much time to be feasible for every patch, but it should be done for every release.
-
 ==== Automated tests
+
+Run almost all tests:
 
 ....
 ./build-test --size 3 && \
@@ -11830,30 +12032,77 @@ Sources:
 * link:build-test[]
 * link:test[]
 
-Test just the kernel modules:
+The link:test[] script runs several different types of tests, which can also be run separately as explained at:
+
+* link:test-boot[]
+* <<test-userland-in-full-system>>
+* <<user-mode-tests>>
+* <<baremetal-tests>>
+* <<test-gdb>>
+
+link:test[] does not all possible tests, because there are too many possible variations and that would take forever. The rationale is the same as for `./build all` and is explained in `./build --help`.
+
+===== Test arch and emulator selection
+
+You can select multiple archs and emulators of interest, as for an other command, with:
 
 ....
-./test-modules
-echo $?
+./test-user-mode \
+  --arch x86_64 \
+  --arch aarch64 \
+  --emulator gem5 \
+  --emulator qemu \
+;
 ....
 
-Source: link:test-module[]
-
-Test that the Internet works:
+You can also test all supported archs and emulators with:
 
 ....
-./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
+./test-user-mode \
+  --all-archs \
+  --all-emulators \
+;
 ....
 
-Source: link:rootfs_overlay/test_all.sh[].
+This command would run the test four times, using `x86_64` and `aarch64` with both gem5 and QEMU.
+
+Without those flags, it defaults to just running the default arch and emulator once: `x86_64` and `qemu`.
+
+===== Quit on fail
+
+By default, tests stop running as soon as the first failure happens.
+
+You can prevent this with the `--no-quit-on-fail option, e.g.:
+
+....
+./test-user-mode --no-quit-on-fail
+....
+
+You can then see which tests failed on the test summary report at the end.
+
+===== Test userland in full system
+
+Run all userland tests from inside full system simulation (i.e. not <<user-mode-simulation>>):
+
+....
+./test-userland-full-system
+....
+
+This includes, in particular, userland programs that test the kernel modules, which cannot be tested in user mode simulation.
+
+Basically just boots and runs: link:rootfs_overlay/test_all.sh[]
+
+Failure is detected by looking for the <<magic-failure-string>>
+
+Most userland programs that don't rely on kernel modules can also be tested in user mode simulation as explained at: <<user-mode-tests>>.
 
 ===== Test GDB
 
 We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests for the baremetal programs!
 
 ....
-./build-test-gdb && \
-./test-gdb
+./build --all-archs test-gdb && \
+./test-gdb --all-archs --all-emulators
 ....
 
 Sources:
@@ -11861,9 +12110,7 @@ Sources:
 * link:build-test-gdb[]
 * link:test-gdb[]
 
-Not all of them  are passing right now due to: <<gem5-gdb-step-debug-kernel-aarch64>>.
-
-If something goes wrong, re-run the test commands manually and use `--verbose` to understand what happened:
+If a test fails, re-run the test commands manually and use `--verbose` to understand what happened:
 
 ....
 ./run --arch arm --background --baremetal add --wait-gdb &
@@ -11888,7 +12135,26 @@ To debug GDB problems on gem5, you might want to enable the following <<gem5-tra
 ;
 ....
 
-====== Test GDB Linux kernel
+===== Magic failure string
+
+Since there is no standardized exit status concept that works across all emulators for full system, we just parse the terminal output for a magic failure string to check if tests failed.
+
+If a full system simulation outputs a line containing only exactly the magic string:
+
+....
+lkmc_test_fail
+....
+
+to the terminal, then our run scripts detect that and exit with status `1`.
+
+This magic output string is notably used by:
+
+* the `common_assert_fail()` function, which is used by <<baremetal-tests>>
+* link:rootfs_overlay/test_fail.sh[], which is used by <<test-userland-in-full-system>>
+
+=== Non-automated tests
+
+==== Test GDB Linux kernel
 
 For the Linux kernel, do the following manual tests for now.
 
@@ -11911,6 +12177,14 @@ Then proceed to do the following tests:
 * `/count.sh` and `break __x64_sys_write`
 * `insmod /timer.ko` and `break lkmc_timer_callback`
 
+==== Test the Internet
+
+You should also test that the Internet works:
+
+....
+./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
+....
+
 === Bisection
 
 When updating the Linux kernel, QEMU and gem5, things sometimes break.
@@ -11923,7 +12197,7 @@ We then bisected it as explained at: https://stackoverflow.com/questions/4713088
 
 ....
 root_dir="$(pwd)"
-cd "$(./getvar qemu_src_dir)"
+cd "$(./getvar qemu_source_dir)"
 git bisect start
 
 # Check that our test script fails on v3.0.0-rc3 as expected, and mark it as bad.
@@ -11940,7 +12214,7 @@ echo #?
 git bisect good
 
 # This leaves us at the offending commit.
-git bisect run ../biset-qemu-linux-boot
+git bisect run ../bisect-qemu-linux-boot
 
 # Clean up after the bisection.
 git bisect reset
@@ -11948,7 +12222,7 @@ git submodule update
 "${root_dir}/build-qemu" --clean --qemu-build-id bisect
 ....
 
-An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
+TODO broken, fix: An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
 
 === Update a forked submodule
 
@@ -12014,37 +12288,73 @@ This can be used to check the determinism of:
 
 === Release
 
-Create a release:
+==== Release procedure
+
+Ensure that the <<automated-tests>> are passing on a clean build:
 
 ....
+mv out out.bak
+./build-test --size 3 && ./test --size 3
+....
+
+The clean build is necessary as it generates clean images since <<remove-buildroot-packages,it is not possible to remove Buildroot packages>>
+
+Run all tests in <<non-automated-tests>> just QEMU x86_64 and QEMU aarch64.
+
+TODO: not working currently, so skipped: Ensure that the <<benchmark-this-repo,benchmarks>> look fine:
+
+....
+./bench-all -A
+....
+
+Create a release candidate and upload it:
+
+....
+git tag -a -m '' v3.0-rc1
+git push --follow-tags
+./release-zip --all-archs
+# export LKMC_GITHUB_TOKEN=<your-token>
+./release-upload
+....
+
+Now let's do an out-of-box testing for the release candidate:
+
+....
+cd ..
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat linux-kernel-module-cheat-release
 cd linux-kernel-module-cheat-release
-# export LKMC_GITHUB_TOKEN=<your-token>
-./release
 ....
 
-Source: link:release[]
+Test <<prebuilt>>.
 
-This scripts does:
+Clean up, and re-start from scratch:
 
-* configure
-* build
-* package with <<release-zip>>
-* creates a tag of form `sha-<sha>`
-* upload to GitHub with link:release-create-github[]
+....
+cd ..
+rm -rf linux-kernel-module-cheat-release
+git clone https://github.com/cirosantilli/linux-kernel-module-cheat linux-kernel-module-cheat-release
+cd linux-kernel-module-cheat-release
+....
 
-Cloning a clean tree is ideal as it generates clean images since <<remove-buildroot-packages,it is not possible to remove Buildroot packages>>
+Go through all the other <<getting-started>> sections in order.
 
-This should in particular enable to easily update <<prebuilt>>.
+Once everything looks fine, publish the release with:
 
-TODO also run tests and only release if they pass.
+....
+git tag -a  v3.0
+# Describe the release int the tag message.
+git push --follow-tags
+./release-zip --all-archs
+# export LKMC_GITHUB_TOKEN=<your-token>
+./release-upload
+....
 
 ==== release-zip
 
 Create a zip containing all files required for <<prebuilt>>:
 
 ....
-./build release && ./release-zip
+./build --all-archs release && ./release-zip --all-archs
 ....
 
 Source: link:release-zip[]
@@ -12057,7 +12367,14 @@ echo "$(./getvar release_zip_file)"
 
 which you can then upload somewhere.
 
-For example, you can create or update a GitHub release and upload automatically with:
+==== release-upload
+
+After:
+
+* running <<release-zip>>
+* creating and pushing a tag to GitHub
+
+you can upload the release to GitHub automatically with:
 
 ....
 # export LKMC_GITHUB_TOKEN=<your-token>
@@ -12066,9 +12383,14 @@ For example, you can create or update a GitHub release and upload automatically 
 
 Source: link:release-upload[]
 
+The HEAD of the local repository must be on top of a tag that has been pushed for this to work.
+
 Create `LKMC_GITHUB_TOKEN` under: https://github.com/settings/tokens/new and save it to your `.bashrc`.
 
-TODO: generalize that so that people can upload to their forks.
+The implementation of this script is described at:
+
+* https://stackoverflow.com/questions/5207269/how-to-release-a-build-artifact-asset-on-github-with-a-script/52354732#52354732
+* https://stackoverflow.com/questions/38153418/can-someone-give-a-python-requests-example-of-uploading-a-release-asset-in-githu/52354681#52354681
 
 === Design rationale
 
@@ -12215,6 +12537,7 @@ Runnable stuff:
 * https://github.com/linux-kernel-labs Yocto based, source inside a kernel fork subdir: https://github.com/linux-kernel-labs/linux/tree/f08b9e4238dfc612a9d019e3705bd906930057fc/tools/labs which the author would like to upstream https://www.reddit.com/r/programming/comments/79w2q9/linux_device_driver_labs_the_linux_kernel/dp6of43/
 * Android AOSP: https://stackoverflow.com/questions/1809774/how-to-compile-the-android-aosp-kernel-and-test-it-with-the-android-emulator/48310014#48310014 AOSP is basically a uber bloated Buildroot (2 hours build vs 30 minutes), Android is Linux based, and QEMU is the emulator backend. These instructions might work for debugging the kernel: https://github.com/Fuzion24/AndroidKernelExploitationPlayground
 * https://github.com/s-matyukevich/raspberry-pi-os Does both an OS from scratch, and annotates the corresponding kernel source code. For RPI3, no QEMU support: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
+* https://github.com/pw4ever/linux-kernel-hacking-helper as of bd9952127e7eda643cbb6cb4c51ad7b5b224f438, Bash, Arch Linux rootfs
 
 Theory:
 

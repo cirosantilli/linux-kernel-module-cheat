@@ -9,6 +9,7 @@ main:
 
     /* Read cpu id into x1.
      * TODO: cores beyond 4th?
+     * Mnemonic: Main Processor ID Register
      */
     mrs x1, mpidr_el1
     ands x1, x1, 3

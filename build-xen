@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# TODO get working, aarch64 Xen integration attempt.
+# Current state: prints to Boot-wrapper v0.2 to screen and hangs.
+# Bibliography:
+# https://wiki.xenproject.org/wiki/Xen_ARM_with_Virtualization_Extensions/qemu-system-aarch64
+# https://blog.xenproject.org/2014/04/01/virtualization-on-arm-with-xen/
+cd submodules/xen
+make \
+  -j`nproc` \
+  dist-xen \
+  CONFIG_DEBUG=y \
+  CONFIG_EARLY_PRINTK=vexpress \
+  CROSS_COMPILE=aarch64-linux-gnu- \
+  XEN_TARGET_ARCH=arm64 \
+;
+cd ../boot-wraper-aarch64
+autoreconf -i
+# DTB dumped from QEMU with: -machine dumpdtb=dtb.dtb
+./configure \
+  --enable-gicv3 \
+  --enable-psci \
+  --host=aarch64-linux-gnu \
+  --with-cmdline="console=hvc0 root=/dev/vda rw mem=1G" \
+  --with-dtb=dtb.dtb \
+  --with-kernel-dir=../../out/linux/default/aarch64 \
+  --with-xen-cmdline="dtuart=/uart@1c090000 console=dtuart no-bootscrub dom0_mem=1G loglvl=all guest_loglvl=all" \
+  --with-xen=../xen/xen/xen \
+;
+dtb.dtb -j`nproc`
+../../out/qemu/default/aarch64-softmmu/qemu-system-aarch64 \
+  -M virt \
+  -M virtualization=on \
+  -cpu cortex-a57 \
+  -kernel xen-system.axf \
+  -serial mon:stdio \
+  -nographic \
+;

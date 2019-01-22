@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+import common
+
+class Main(common.TestCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-tests
+'''
+            ,
+        )
+        self.add_argument(
+            'tests',
+            nargs='*',
+            help='''\
+If given, run only the given tests. Otherwise, run all tests.
+'''
+        )
+
+    def timed_main(self):
+        run = self.import_path_main('run')
+        run_args = self.get_common_args()
+        run_args['ctrl_c_host'] = True
+        if self.env['emulator'] == 'gem5':
+            run_args['userland_build_id'] = 'static'
+        if self.env['tests'] == []:
+            sources = [
+                'add.c',
+                'hello.c',
+                'hello_cpp.cpp',
+                'print_argv.c',
+            ]
+            if self.env['arch'] == 'x86_64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            elif self.env['arch'] == 'aarch64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            else:
+                arch_sources = []
+            arch_sources[:] = [
+                os.path.join('arch', self.env['arch'], arch_source)
+                for arch_source
+                in arch_sources
+            ]
+            sources.extend(arch_sources)
+        else:
+            sources = self.env['tests']
+        for source in sources:
+            run_args['userland'] = source
+            self.run_test(run, run_args, source)
+
+if __name__ == '__main__':
+    Main().cli()

@@ -1,63 +1,57 @@
 #!/usr/bin/env python3
 
-import imp
-import os
-import subprocess
-import re
-
 import common
-run = imp.load_source('run', os.path.join(common.root_dir, 'run'))
-qemu_trace2txt = imp.load_source('qemu_trace2txt', os.path.join(common.root_dir, 'qemu-trace2txt'))
+from shell_helpers import LF
 
-parser = common.get_argparse(argparse_args={
-    'description': '''Trace the PIC addresses executed on a Linux kernel boot.
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''Trace the PIC addresses executed on a Linux kernel boot.
 
 More information at: https://github.com/cirosantilli/linux-kernel-module-cheat#tracing
 '''
-})
-parser.add_argument(
-    'extra_emulator_args', nargs='*',
-    help='Extra options to append at the end of the emulator command line'
-)
-args = common.setup(parser)
-extra_args = {
-    'extra_emulator_args': args.extra_emulator_args,
-}
-if common.emulator == 'gem5':
-    extra_args.update({
-        'eval': 'm5 exit',
-        'trace': 'Exec,-ExecSymbol,-ExecMicro',
-    })
-    run.main(args, extra_args)
-else:
-    extra_args.update({
-        'kernel_cli': 'init=/poweroff.out',
-        'trace': 'exec_tb',
-    })
-    run.main(args, extra_args)
-    qemu_trace2txt.main()
-    # Instruction count.
-    # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
-    # So let's just leave it here for now since it did not add a significant processing time.
-    kernel_entry_addr = hex(common.get_elf_entry(common.vmlinux))
-    nlines = 0
-    nlines_firmware = 0
-    with open(common.qemu_trace_txt_file, 'r') as trace_file:
-        in_firmware = True
-        for line in trace_file:
-            line = line.rstrip()
-            nlines += 1
-            pc = line.split('=')[-1]
-            if pc == kernel_entry_addr:
-                in_firmware = False
-            if in_firmware:
-                nlines_firmware += 1
-    print('''\
+        )
+
+    def timed_main(self):
+        args = self.get_common_args()
+        run = self.import_path_main('run')
+        if self.env['emulator'] == 'gem5':
+            args['trace'] = 'Exec,-ExecSymbol,-ExecMicro'
+            run.main(**args)
+        elif self.env['emulator'] == 'qemu':
+            run_args = args.copy()
+            run_args['trace'] = 'exec_tb'
+            run_args['quit_after_boot'] = True
+            run.main(**run_args)
+            qemu_trace2txt = self.import_path_main('qemu-trace2txt')
+            qemu_trace2txt.main(**args)
+            # Instruction count.
+            # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
+            # So let's just leave it here for now since it did not add a significant processing time.
+            kernel_entry_addr = hex(self.get_elf_entry(self.env['vmlinux']))
+            nlines = 0
+            nlines_firmware = 0
+            with open(self.env['qemu_trace_txt_file'], 'r') as trace_file:
+                in_firmware = True
+                for line in trace_file:
+                    line = line.rstrip()
+                    nlines += 1
+                    pc = line.split('=')[-1]
+                    if pc == kernel_entry_addr:
+                        in_firmware = False
+                    if in_firmware:
+                        nlines_firmware += 1
+            print('''\
 instructions {}
 entry_address {}
-instructions_firmware {}\
+instructions_firmware {}
 '''.format(
-        nlines,
-        kernel_entry_addr,
-        nlines_firmware
-    ))
+                    nlines,
+                    kernel_entry_addr,
+                    nlines_firmware
+                ),
+                end=''
+            )
+
+if __name__ == '__main__':
+    Main().cli()

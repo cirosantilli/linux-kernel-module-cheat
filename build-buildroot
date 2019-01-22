@@ -9,11 +9,17 @@ import time
 import re
 
 import common
+from shell_helpers import LF
 
-class BuildrootComponent(common.Component):
-    def add_parser_arguments(self, parser):
-        parser.add_argument(
-            '--build-linux', default=self._defaults['build_linux'], action='store_true',
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Build Buildroot. This includes, notably: the userland GCC cross-toolchain,
+and the root filesystem.
+''')
+        self.add_argument(
+            '--build-linux', default=False,
             help='''\
 Enable building the Linux kernel with Buildroot. This is done mostly
 to extract Buildroot's default kernel configurations when updating Buildroot.
@@ -21,35 +27,35 @@ This kernel will not be use by our other scripts. Configuring this kernel is
 not currently supported, juse use ./build-linux script if you want to do that.
 '''
         )
-        parser.add_argument(
-            '--baseline', default=self._defaults['baseline'], action='store_true',
+        self.add_argument(
+            '--baseline', default=False,
             help='''Do a default-ish Buildroot defconfig build, without any of our extra options.
 Mostly to track how much slower we are than a basic build.
 '''
         )
-        parser.add_argument(
-            '--config', default=self._defaults['config'], action='append',
+        self.add_argument(
+            '--config', default=[], action='append',
             help='''Add a single Buildroot config to the current build.
 Example value: 'BR2_TARGET_ROOTFS_EXT2_SIZE="512M"'.
 Can be used multiple times to add multiple configs.
 Takes precedence over any Buildroot config files.
 '''
         )
-        parser.add_argument(
-            '--config-fragment', default=self._defaults['config_fragment'], action='append',
+        self.add_argument(
+            '--config-fragment', default=[], action='append',
             help='''Also use the given Buildroot configuration fragment file.
 Pass multiple times to use multiple fragment files.
 '''
         )
-        parser.add_argument(
-            '--no-all', default=self._defaults['no_all'], action='store_true',
+        self.add_argument(
+            '--no-all', default=False,
             help='''\
 Don't build the all target which normally gets build by default.
 That target builds the root filesystem and all its dependencies.
 '''
         )
-        parser.add_argument(
-            '--no-overlay', default=self._defaults['no_all'], action='store_true',
+        self.add_argument(
+            '--no-overlay', default=False,
             help='''\
 Don't add our overlay which contains all files we build without going through Buildroot.
 This prevents us from overwriting certain Buildroot files. Remember however that you must
@@ -57,132 +63,116 @@ still rebuild the Buildroot package that provides those files to actually put th
 files on the root filesystem.
 '''
         )
-        parser.add_argument(
-            'extra_make_args', default=self._defaults['extra_make_args'], metavar='extra-make-args', nargs='*',
+        self.add_argument(
+            'extra-make-args', default=[], nargs='*',
             help='''\
 Extra arguments to be passed to the Buildroot make,
 usually extra Buildroot targets.
 '''
         )
 
-    def do_build(self, args):
-        build_dir = self.get_build_dir(args)
-        os.makedirs(common.out_dir, exist_ok=True)
-        extra_make_args = common.add_newlines(args.extra_make_args)
-        if args.build_linux:
-            extra_make_args.extend(['linux-reconfigure', common.Newline])
-        if common.emulator == 'gem5':
-            extra_make_args.extend(['gem5-reconfigure', common.Newline])
-        if args.arch == 'x86_64':
+    def build(self):
+        build_dir = self.get_build_dir()
+        os.makedirs(self.env['out_dir'], exist_ok=True)
+        extra_make_args = self.sh.add_newlines(self.env['extra_make_args'])
+        if self.env['build_linux']:
+            extra_make_args.extend(['linux-reconfigure', LF])
+        if self.env['arch'] == 'x86_64':
             defconfig = 'qemu_x86_64_defconfig'
-        elif args.arch == 'arm':
+        elif self.env['arch'] == 'arm':
             defconfig = 'qemu_arm_vexpress_defconfig'
-        elif args.arch == 'aarch64':
+        elif self.env['arch'] == 'aarch64':
             defconfig = 'qemu_aarch64_virt_defconfig'
         br2_external_dirs = []
-        for package_dir in os.listdir(common.packages_dir):
-            package_dir_abs = os.path.join(common.packages_dir, package_dir)
+        for package_dir in os.listdir(self.env['packages_dir']):
+            package_dir_abs = os.path.join(self.env['packages_dir'], package_dir)
             if os.path.isdir(package_dir_abs):
                 br2_external_dirs.append(self._path_relative_to_buildroot(package_dir_abs))
         br2_external_str = ':'.join(br2_external_dirs)
-        common.run_cmd(
+        self.sh.run_cmd(
             [
-                'make', common.Newline,
-                'O={}'.format(common.buildroot_build_dir), common.Newline,
-                'BR2_EXTERNAL={}'.format(br2_external_str), common.Newline,
-                defconfig, common.Newline,
+                'make', LF,
+                'O={}'.format(self.env['buildroot_build_dir']), LF,
+                'BR2_EXTERNAL={}'.format(br2_external_str), LF,
+                defconfig, LF,
             ],
-            cwd=common.buildroot_src_dir,
+            cwd=self.env['buildroot_source_dir'],
         )
-        configs = args.config
+        configs = self.env['config']
         configs.extend([
-            'BR2_JLEVEL={}'.format(args.nproc),
-            'BR2_DL_DIR="{}"'.format(common.buildroot_download_dir),
+            'BR2_JLEVEL={}'.format(self.env['nproc']),
+            'BR2_DL_DIR="{}"'.format(self.env['buildroot_download_dir']),
         ])
-        if not args.build_linux:
+        if not self.env['build_linux']:
             configs.extend([
                 '# BR2_LINUX_KERNEL is not set',
             ])
         config_fragments = []
-        if not args.baseline:
+        if not self.env['baseline']:
             configs.extend([
                 'BR2_GLOBAL_PATCH_DIR="{}"'.format(
-                    self._path_relative_to_buildroot(os.path.join(common.root_dir, 'patches', 'global'))
+                    self._path_relative_to_buildroot(os.path.join(self.env['root_dir'], 'patches', 'global'))
                 ),
                 'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="{}"'.format(
-                    self._path_relative_to_buildroot(os.path.join(common.root_dir, 'busybox_config_fragment'))
+                    self._path_relative_to_buildroot(os.path.join(self.env['root_dir'], 'busybox_config_fragment'))
                 ),
                 'BR2_PACKAGE_OVERRIDE_FILE="{}"'.format(
-                    self._path_relative_to_buildroot(os.path.join(common.root_dir, 'buildroot_override'))
+                    self._path_relative_to_buildroot(os.path.join(self.env['root_dir'], 'buildroot_override'))
                 ),
                 'BR2_ROOTFS_POST_BUILD_SCRIPT="{}"'.format(
-                    self._path_relative_to_buildroot(os.path.join(common.root_dir, 'rootfs-post-build-script'))
+                    self._path_relative_to_buildroot(os.path.join(self.env['root_dir'], 'rootfs-post-build-script'))
                 ),
                 'BR2_ROOTFS_USERS_TABLES="{}"'.format(
-                    self._path_relative_to_buildroot(os.path.join(common.root_dir, 'user_table'))
+                    self._path_relative_to_buildroot(os.path.join(self.env['root_dir'], 'user_table'))
                 ),
             ])
-            if not args.no_overlay:
+            if not self.env['no_overlay']:
                 configs.append('BR2_ROOTFS_OVERLAY="{}"'.format(
-                    self._path_relative_to_buildroot(common.out_rootfs_overlay_dir)
+                    self._path_relative_to_buildroot(self.env['out_rootfs_overlay_dir'])
                 ))
             config_fragments = [
-                os.path.join(common.root_dir, 'buildroot_config', 'default')
-            ] + args.config_fragment
-        common.write_configs(common.buildroot_config_file, configs, config_fragments)
-        common.run_cmd(
+                os.path.join(self.env['root_dir'], 'buildroot_config', 'default')
+            ] + self.env['config_fragment']
+        if self.env['initrd'] or self.env['initramfs']:
+            configs.append('BR2_TARGET_ROOTFS_CPIO=y')
+        # TODO Can't get rid of these for now with nice fragments on Buildroot:
+        # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
+        self.sh.write_configs(self.env['buildroot_config_file'], configs, config_fragments)
+        self.sh.run_cmd(
             [
-                'make', common.Newline,
-                'O={}'.format(common.buildroot_build_dir), common.Newline,
-                'olddefconfig', common.Newline,
+                'make', LF,
+                'O={}'.format(self.env['buildroot_build_dir']), LF,
+                'olddefconfig', LF,
             ],
-            cwd=common.buildroot_src_dir,
+            cwd=self.env['buildroot_source_dir'],
         )
-        common.make_build_dirs()
-        if not args.no_all:
-            extra_make_args.extend(['all', common.Newline])
-        common.run_cmd(
+        self.make_build_dirs()
+        if not self.env['no_all']:
+            extra_make_args.extend(['all', LF])
+        self.sh.run_cmd(
             [
-                'make', common.Newline,
-                'LKMC_GEM5_SRCDIR="{}"'.format(common.gem5_src_dir), common.Newline,
-                'LKMC_PARSEC_BENCHMARK_SRCDIR="{}"'.format(common.parsec_benchmark_src_dir), common.Newline,
-                'O={}'.format(common.buildroot_build_dir), common.Newline,
-                'V={}'.format(int(args.verbose)), common.Newline,
+                'make', LF,
+                'LKMC_PARSEC_BENCHMARK_SRCDIR="{}"'.format(self.env['parsec_benchmark_source_dir']), LF,
+                'O={}'.format(self.env['buildroot_build_dir']), LF,
+                'V={}'.format(int(self.env['verbose'])), LF,
             ] +
             extra_make_args
             ,
-            out_file=os.path.join(common.buildroot_build_dir, 'lkmc.log'),
+            out_file=os.path.join(self.env['buildroot_build_dir'], 'lkmc.log'),
             delete_env=['LD_LIBRARY_PATH'],
-            cwd=common.buildroot_src_dir,
+            cwd=self.env['buildroot_source_dir'],
         )
         # Create the qcow2 from ext2.
         # Skip if qemu is not present, because gem5 does not need the qcow2.
         # so we don't force a QEMU build for gem5.
-        if not args.no_all and os.path.exists(common.qemu_img_executable):
-            common.raw_to_qcow2()
+        if not self.env['no_all'] and os.path.exists(self.env['qemu_img_executable']):
+            self.raw_to_qcow2()
 
-    def get_argparse_args(self):
-        return {
-            'description': '''\
-Run Linux on an emulator
-'''
-        }
-
-    def get_build_dir(self, args):
-        return common.buildroot_build_dir
-
-    _defaults = {
-        'baseline': False,
-        'build_linux': False,
-        'config': [],
-        'config_fragment': [],
-        'extra_make_args': [],
-        'no_all': False,
-        'skip_configure': False,
-    }
+    def get_build_dir(self):
+        return self.env['buildroot_build_dir']
 
     def _path_relative_to_buildroot(self, abspath):
-        return os.path.relpath(abspath, common.buildroot_src_dir)
+        return os.path.relpath(abspath, self.env['buildroot_source_dir'])
 
 if __name__ == '__main__':
-    BuildrootComponent().build()
+    Main().cli()

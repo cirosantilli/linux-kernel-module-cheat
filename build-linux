@@ -4,10 +4,16 @@ import os
 import shutil
 
 import common
+from shell_helpers import LF
 
-class LinuxComponent(common.Component):
-    def add_parser_arguments(self, parser):
-        parser.add_argument(
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Build the Linux kernel.
+'''
+        )
+        self.add_argument(
             '--config', default=[], action='append',
             help='''\
 Add a single kernel config configs to the current build. Sample value:
@@ -15,14 +21,20 @@ Add a single kernel config configs to the current build. Sample value:
 configs. Takes precedence over any config files.
 '''
         )
-        parser.add_argument(
+        self.add_argument(
             '--config-fragment', default=[], action='append',
             help='''\
 Also use the given kernel configuration fragment file.
 Pass multiple times to use multiple fragment files.
 '''
         )
-        parser.add_argument(
+        self.add_argument(
+            '--config-only', default=False,
+            help='''\
+Configure the kernel, but don't build it.
+'''
+        )
+        self.add_argument(
             '--custom-config-file',
             help='''\
 Ignore all default kernel configurations and use this file instead.
@@ -30,137 +42,126 @@ Still uses options explicitly passed with `--config` and
 `--config-fragment` on top of it.
 '''
         )
-        parser.add_argument(
-            '--custom-config-file-gem5', default=False, action='store_true',
+        self.add_argument(
+            '--custom-config-file-gem5', default=False,
             help='''\
 Use the gem5 Linux kernel fork config as the custom config file.
 Ignore --custom-config-file.
 '''
         )
-        parser.add_argument(
-            '--config-only', default=False, action='store_true',
+        self.add_argument(
+            '--modules-install', default=True,
             help='''\
-Configure the kernel, but don't build it.
+Run `make modules_install` after `make`.
 '''
         )
-        parser.add_argument(
-            '--initramfs', default=False, action='store_true',
-        )
-        parser.add_argument(
-            '--initrd', default=False, action='store_true',
-        )
-        parser.add_argument(
+        self.add_argument(
             'extra_make_args',
             default=[],
             metavar='extra-make-args',
             nargs='*'
         )
 
-    def do_build(self, args):
-        build_dir = self.get_build_dir(args)
-        if args.initrd or args.initramfs:
-            raise Exception('just trolling, --initrd and --initramfs are broken for now')
+    def build(self):
+        build_dir = self.get_build_dir()
         os.makedirs(build_dir, exist_ok=True)
         tool = 'gcc'
-        gcc = common.get_toolchain_tool(tool)
+        gcc = self.get_toolchain_tool(tool)
         prefix = gcc[:-len(tool)]
         common_args = {
-            'cwd': common.linux_source_dir,
+            'cwd': self.env['linux_source_dir'],
         }
         ccache = shutil.which('ccache')
         if ccache is not None:
             cc = '{} {}'.format(ccache, gcc)
         else:
             cc = gcc
-        if args.verbose:
+        if self.env['verbose']:
             verbose = ['V=1']
         else:
             verbose = []
         common_make_args = [
-            'make', common.Newline,
-            '-j', str(args.nproc), common.Newline,
-            'ARCH={}'.format(common.linux_arch), common.Newline,
-            'CROSS_COMPILE={}'.format(prefix), common.Newline,
-            'CC={}'.format(cc), common.Newline,
-            'O={}'.format(build_dir), common.Newline,
+            'make', LF,
+            '-j', str(self.env['nproc']), LF,
+            'ARCH={}'.format(self.env['linux_arch']), LF,
+            'CROSS_COMPILE={}'.format(prefix), LF,
+            'CC={}'.format(cc), LF,
+            'O={}'.format(build_dir), LF,
         ] + verbose
-        if args.custom_config_file_gem5:
-            custom_config_file = os.path.join(common.linux_source_dir, 'arch', common.linux_arch, 'configs', 'gem5_defconfig')
+        if self.env['custom_config_file_gem5']:
+            custom_config_file = os.path.join(self.env['linux_source_dir'], 'arch', self.env['linux_arch'], 'configs', 'gem5_defconfig')
         else:
-            custom_config_file = args.custom_config_file
+            custom_config_file = self.env['custom_config_file']
         if custom_config_file is not None:
             if not os.path.exists(custom_config_file):
-                raise Exception('config fragment file does not exist: {}'.format(args.custom_config_file))
+                raise Exception('config fragment file does not exist: {}'.format(custom_config_file))
             base_config_file = custom_config_file
             config_fragments = []
         else:
-            base_config_file = os.path.join(common.linux_config_dir, 'buildroot-{}'.format(args.arch))
+            base_config_file = os.path.join(self.env['linux_config_dir'], 'buildroot-{}'.format(self.env['arch']))
             config_fragments = ['min', 'default']
             for i, config_fragment in enumerate(config_fragments):
-                config_fragments[i] = os.path.join(common.linux_config_dir, config_fragment)
-        config_fragments.extend(args.config_fragment)
-        if args.config != []:
+                config_fragments[i] = os.path.join(self.env['linux_config_dir'], config_fragment)
+        config_fragments.extend(self.env['config_fragment'])
+        cli_configs = self.env['config']
+        if self.env['initramfs']:
+            cli_configs.append('CONFIG_INITRAMFS_SOURCE="{}"'.format(self.env['buildroot_cpio']))
+        if cli_configs:
             cli_config_fragment_path = os.path.join(build_dir, 'lkmc_cli_config_fragment')
-            cli_config_str = '\n'.join(args.config)
-            common.write_string_to_file(cli_config_fragment_path, cli_config_str)
+            self.sh.write_configs(cli_config_fragment_path, cli_configs, mode='w')
             config_fragments.append(cli_config_fragment_path)
-        common.cp(
+        self.sh.cp(
             base_config_file,
             os.path.join(build_dir, '.config'),
         )
-        common.run_cmd(
+        self.sh.run_cmd(
             [
-                os.path.join(common.linux_source_dir, 'scripts', 'kconfig', 'merge_config.sh'), common.Newline,
-                '-m', common.Newline,
-                '-O', build_dir, common.Newline,
-                os.path.join(build_dir, '.config'), common.Newline,
+                os.path.join(self.env['linux_source_dir'], 'scripts', 'kconfig', 'merge_config.sh'), LF,
+                '-m', LF,
+                '-O', build_dir, LF,
+                os.path.join(build_dir, '.config'), LF,
             ] +
-            common.add_newlines(config_fragments)
+            self.sh.add_newlines(config_fragments)
         )
-        common.run_cmd(
+        self.sh.run_cmd(
             (
                 common_make_args +
-                ['olddefconfig', common.Newline]
+                ['olddefconfig', LF]
             ),
             **common_args
         )
-        if not args.config_only:
-            common.run_cmd(
+        if not self.env['config_only']:
+            self.sh.run_cmd(
                 (
                     common_make_args +
-                    common.add_newlines(args.extra_make_args)
+                    self.sh.add_newlines(self.env['extra_make_args'])
                 ),
+                # https://github.com/cirosantilli/linux-kernel-module-cheat#proc-version
                 extra_env={
                     'KBUILD_BUILD_VERSION': '1',
                     'KBUILD_BUILD_TIMESTAMP': 'Thu Jan  1 00:00:00 UTC 1970',
                     'KBUILD_BUILD_USER': 'lkmc',
-                    'KBUILD_BUILD_HOST': common.git_sha(common.linux_source_dir),
+                    'KBUILD_BUILD_HOST': common.git_sha(self.env['linux_source_dir']),
                 },
                 **common_args
             )
-            common.run_cmd(
-                (
-                    common_make_args +
-                    [
-                        'INSTALL_MOD_PATH={}'.format(common.out_rootfs_overlay_dir), common.Newline,
-                        'modules_install', common.Newline,
-                    ]
-                ),
-                **common_args
-            )
-            # TODO: remove build and source https://stackoverflow.com/questions/13578618/what-does-build-and-source-link-do-in-lib-modules-kernel-version
-            # TODO Basically all kernel modules also basically leak full host paths. Just terrible. Buildroot deals with that stuff nicely for us.
-            # common.rmrf()
+            if self.env['modules_install']:
+                self.sh.run_cmd(
+                    (
+                        common_make_args +
+                        [
+                            'INSTALL_MOD_PATH={}'.format(self.env['out_rootfs_overlay_dir']), LF,
+                            'modules_install', LF,
+                        ]
+                    ),
+                    **common_args
+                )
+                # TODO: remove build and source https://stackoverflow.com/questions/13578618/what-does-build-and-source-link-do-in-lib-modules-kernel-version
+                # TODO Basically all kernel modules also basically leak full host paths. Just terrible. Buildroot deals with that stuff nicely for us.
+                # self.rmrf()
 
-    def get_argparse_args(self):
-        return {
-            'description': '''\
-Build the Linux kernel.
-'''
-        }
-
-    def get_build_dir(self, args):
-        return common.linux_build_dir
+    def get_build_dir(self):
+        return self.env['linux_build_dir']
 
 if __name__ == '__main__':
-    LinuxComponent().build()
+    Main().cli()

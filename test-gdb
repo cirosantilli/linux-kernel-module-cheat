@@ -1,35 +1,59 @@
-#!/usr/bin/env bash
-set -eux
-for emulator in --qemu --gem5; do
-  # Userland.
-  # TODO make work.
-  #./run --arch x86_64 --background --userland add "$emulator" --wait-gdb &
-  #./run-gdb --arch x86_64 --userland add "$emulator" --test "$@"
-  #wait
+#!/usr/bin/env python3
 
-  # Baremetal.
-  ./run --arch arm --background --baremetal add "$emulator" --wait-gdb &
-  ./run-gdb --arch arm --baremetal add "$emulator" --test "$@"
-  wait
-  ./run --arch arm --background --baremetal arch/arm/add "$emulator" --wait-gdb &
-  ./run-gdb --arch arm --baremetal arch/arm/add "$emulator" --test "$@"
-  wait
-  ./run --arch arm --background --baremetal arch/arm/regs "$emulator" --wait-gdb &
-  ./run-gdb --arch arm --baremetal arch/arm/regs "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal add "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal add "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/add "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/add "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/regs "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/regs "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/fadd "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/fadd "$emulator" --test "$@"
-  wait
-  ./run --arch aarch64 --background --baremetal arch/aarch64/regs "$emulator" --wait-gdb &
-  ./run-gdb --arch aarch64 --baremetal arch/aarch64/regs "$emulator" --test "$@"
-  wait
-done
+import threading
+import os
+
+import common
+
+class Main(common.TestCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+https://github.com/cirosantilli/linux-kernel-module-cheat#test-gdb
+'''
+        )
+        self.add_argument(
+            'tests',
+            nargs='*',
+            help='''\
+If given, run only the given tests. Otherwise, run all tests,
+found by searching for the Python test files.
+'''
+        )
+
+    def timed_main(self):
+        run = self.import_path_main('run')
+        run_gdb = self.import_path_main('run-gdb')
+        if self.env['arch'] in self.env['crosstool_ng_supported_archs']:
+            if self.env['tests'] == []:
+                test_scripts_noext = []
+                for f in os.listdir(self.env['baremetal_source_dir']):
+                    base, ext = os.path.splitext(f)
+                    if ext == '.py':
+                        test_scripts_noext.append(base)
+                for root, dirs, files in os.walk(os.path.join(self.env['baremetal_source_dir'], 'arch', self.env['arch'])):
+                    for f in files:
+                        base, ext = os.path.splitext(f)
+                        if ext == '.py':
+                            full_path = os.path.join(root, base)
+                            relpath = os.path.relpath(full_path, self.env['baremetal_source_dir'])
+                            test_scripts_noext.append(relpath)
+            else:
+                test_scripts_noext = self.env['tests']
+            for test_script_noext in test_scripts_noext:
+                common_args = self.get_common_args()
+                common_args['baremetal'] = test_script_noext
+                test_id_string = self.test_setup(test_script_noext)
+                run_args = common_args.copy()
+                run_args['wait_gdb'] = True
+                run_args['background'] = True
+                run_thread = threading.Thread(target=lambda: run(**run_args))
+                run_thread.start()
+                gdb_args = common_args.copy()
+                gdb_args['test'] = True
+                run_gdb(**gdb_args)
+                run_thread.join()
+                self.test_teardown(run, 0, test_id_string)
+
+if __name__ == '__main__':
+    Main().cli()

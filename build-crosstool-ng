@@ -3,75 +3,71 @@
 import os
 
 import common
+from shell_helpers import LF
 
-class CrosstoolNgComponent(common.Component):
-    def do_build(self, args):
-        common.assert_crosstool_ng_supports_arch(args.arch)
-        build_dir = self.get_build_dir(args)
-        defconfig_dest = os.path.join(common.crosstool_ng_util_dir, 'defconfig')
-        os.makedirs(common.crosstool_ng_util_dir, exist_ok=True)
-        os.makedirs(common.crosstool_ng_download_dir, exist_ok=True)
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Build crosstool-NG with Newlib for bare metal compilation
+''',
+            supported_archs=common.consts['crosstool_ng_supported_archs']
+        )
+
+    def build(self):
+        build_dir = self.get_build_dir()
+        defconfig_dest = os.path.join(self.env['crosstool_ng_util_dir'], 'defconfig')
+        os.makedirs(self.env['crosstool_ng_util_dir'], exist_ok=True)
+        os.makedirs(self.env['crosstool_ng_download_dir'], exist_ok=True)
 
         # Bootstrap out-ot-tree WONTFIX. I've tried.
         # https://github.com/crosstool-ng/crosstool-ng/issues/1021
-        os.chdir(common.crosstool_ng_src_dir)
-        common.run_cmd(
-            [os.path.join(common.crosstool_ng_src_dir, 'bootstrap'), common.Newline],
+        os.chdir(self.env['crosstool_ng_source_dir'])
+        self.sh.run_cmd(
+            [os.path.join(self.env['crosstool_ng_source_dir'], 'bootstrap'), LF],
         )
-        os.chdir(common.crosstool_ng_util_dir)
-        common.run_cmd(
+        os.chdir(self.env['crosstool_ng_util_dir'])
+        self.sh.run_cmd(
             [
-                os.path.join(common.crosstool_ng_src_dir, 'configure'), common.Newline,
-                '--enable-local', common.Newline,
+                os.path.join(self.env['crosstool_ng_source_dir'], 'configure'), LF,
+                '--enable-local', LF,
             ],
         )
-        common.run_cmd(
-            [
-                'make', common.Newline,
-                '-j', str(args.nproc), common.Newline,
-            ],
-        )
+        self.sh.run_cmd(['make', '-j', str(self.env['nproc']), LF])
 
         # Build the toolchain.
-        common.cp(
-            os.path.join(common.root_dir, 'crosstool_ng_config', args.arch),
+        self.sh.cp(
+            os.path.join(self.env['root_dir'], 'crosstool_ng_config', self.env['arch']),
             defconfig_dest
         )
-        common.write_configs(
-            common.crosstool_ng_defconfig,
+        self.sh.write_configs(
+            self.env['crosstool_ng_defconfig'],
             [
-                'CT_PREFIX_DIR="{}"'.format(common.crosstool_ng_install_dir),
+                'CT_PREFIX_DIR="{}"'.format(self.env['crosstool_ng_install_dir']),
                 'CT_WORK_DIR="{}"'.format(build_dir),
-                'CT_LOCAL_TARBALLS_DIR="{}"'.format(common.crosstool_ng_download_dir),
+                'CT_LOCAL_TARBALLS_DIR="{}"'.format(self.env['crosstool_ng_download_dir']),
             ]
         )
-        common.run_cmd(
+        self.sh.run_cmd(
             [
-                common.crosstool_ng_executable, common.Newline,
-                'defconfig', common.Newline,
+                self.env['crosstool_ng_executable'], LF,
+                'defconfig', LF,
             ],
         )
-        os.unlink(defconfig_dest)
-        common.run_cmd(
+        self.sh.rmrf(defconfig_dest)
+        self.sh.run_cmd(
             [
-                common.crosstool_ng_executable, common.Newline,
-                'build', common.Newline,
-                'CT_JOBS={}'.format(str(args.nproc)), common.Newline,
+                self.env['crosstool_ng_executable'], LF,
+                'build', LF,
+                'CT_JOBS={}'.format(str(self.env['nproc'])), LF,
             ],
             out_file=os.path.join(build_dir, 'lkmc.log'),
             delete_env=['LD_LIBRARY_PATH'],
-            extra_paths=[common.ccache_dir],
+            extra_paths=[self.env['ccache_dir']],
         )
 
-    def get_argparse_args(self):
-        return {
-            'description': '''\
-Build crosstool-NG with Newlib for bare metal compilation'
-'''
-        }
-
-    def get_build_dir(self, args):
-        return common.crosstool_ng_build_dir
+    def get_build_dir(self):
+        return self.env['crosstool_ng_build_dir']
 
 if __name__ == '__main__':
-    CrosstoolNgComponent().build()
+    Main().cli()

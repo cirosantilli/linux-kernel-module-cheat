@@ -5,25 +5,21 @@ import os
 import shutil
 
 import common
+from shell_helpers import LF
 
-class CopyOverlayComponent(common.Component):
-    def do_build(self, args):
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+https://github.com/cirosantilli/linux-kernel-module-cheat#rootfs_overlay
+''')
+    def build(self):
+        # TODO: print rsync equivalent, move into shell_helpers.
         distutils.dir_util.copy_tree(
-            common.rootfs_overlay_dir,
-            common.out_rootfs_overlay_dir,
+            self.env['rootfs_overlay_dir'],
+            self.env['out_rootfs_overlay_dir'],
             update=1,
         )
 
-    def get_argparse_args(self):
-        return {
-            'description': '''\
-Copy our git tracked rootfs_overlay to the final generated rootfs_overlay
-that also contains generated build outputs. This has the following advantages
-over just adding that to BR2_ROOTFS_OVERLAY:
-- also works for non Buildroot root filesystesms
-- places everything in one place for a nice 9P mount
-''',
-        }
-
 if __name__ == '__main__':
-    CopyOverlayComponent().build()
+    Main().cli()

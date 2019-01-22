@@ -4,8 +4,9 @@ import os
 import sys
 
 import common
+from shell_helpers import LF
 
-parser = common.get_argparse(argparse_args={
+parser = self.get_argparse(argparse_args={
     'description': '''Run a Buildroot ToolChain tool like readelf or objdump.
 
 For example, to get some information about the arm vmlinux:
@@ -24,7 +25,6 @@ ls "$(./getvar -a arm host_bin_dir)"
 parser.add_argument(
     '--dry',
     help='Just output the tool path to stdout but actually run it',
-    action='store_true',
 )
 parser.add_argument('tool', help='Which tool to run.')
 parser.add_argument(
@@ -34,17 +34,17 @@ parser.add_argument(
     metavar='extra-args',
     nargs='*'
 )
-args = common.setup(parser)
-if common.baremetal is None:
-    image = common.vmlinux
+args = self.setup(parser)
+if kwargs['baremetal'] is None:
+    image = kwargs['vmlinux']
 else:
-    image = common.image
-tool= common.get_toolchain_tool(args.tool)
-if args.dry:
+    image = kwargs['image']
+tool= self.get_toolchain_tool(kwargs['tool'])
+if kwargs['dry']:
     print(tool)
 else:
-    sys.exit(common.run_cmd(
-        [tool, common.Newline]
-        + common.add_newlines(args.extra_args),
-        cmd_file=os.path.join(common.run_dir, 'run-toolchain.sh'),
+    sys.exit(self.sh.run_cmd(
+        [tool, LF]
+        + self.sh.add_newlines(kwargs['extra_args']),
+        cmd_file=os.path.join(kwargs['run_dir'], 'run-toolchain.sh'),
     ))

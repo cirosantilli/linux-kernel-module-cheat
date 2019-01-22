@@ -3,61 +3,62 @@
 import os
 
 import common
+from shell_helpers import LF
 
-class QemuComponent(common.Component):
-    def add_parser_arguments(self, parser):
-        parser.add_argument(
-            '--userland',
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__()
+        self.add_argument(
+            '--user-mode',
             default=False,
-            action='store_true',
             help='Build QEMU user mode instead of system.',
         )
-        parser.add_argument(
+        self.add_argument(
             'extra_config_args',
             default=[],
             metavar='extra-config-args',
             nargs='*'
         )
 
-    def do_build(self, args):
-        build_dir = self.get_build_dir(args)
+    def build(self):
+        build_dir = self.get_build_dir()
         os.makedirs(build_dir, exist_ok=True)
-        if args.verbose:
+        if self.env['verbose']:
             verbose = ['V=1']
         else:
             verbose = []
-        if args.userland:
-            target_list = '{}-linux-user'.format(args.arch)
+        if self.env['user_mode']:
+            target_list = '{}-linux-user'.format(self.env['arch'])
         else:
-            target_list = '{}-softmmu'.format(args.arch)
-        common.run_cmd(
+            target_list = '{}-softmmu'.format(self.env['arch'])
+        self.sh.run_cmd(
             [
-                os.path.join(common.qemu_src_dir, 'configure'), common.Newline,
-                '--enable-debug', common.Newline,
-                '--enable-trace-backends=simple', common.Newline,
-                '--target-list={}'.format(target_list), common.Newline,
-                '--enable-sdl', common.Newline,
-                '--with-sdlabi=2.0', common.Newline,
+                os.path.join(self.env['qemu_source_dir'], 'configure'), LF,
+                '--enable-debug', LF,
+                '--enable-trace-backends=simple', LF,
+                '--target-list={}'.format(target_list), LF,
+                '--enable-sdl', LF,
+                '--with-sdlabi=2.0', LF,
             ] +
-            common.add_newlines(args.extra_config_args),
-            extra_paths=[common.ccache_dir],
+            self.sh.add_newlines(self.env['extra_config_args']),
+            extra_paths=[self.env['ccache_dir']],
             cwd=build_dir
         )
-        common.run_cmd(
+        self.sh.run_cmd(
             (
                 [
-                    'make', common.Newline,
-                    '-j', str(args.nproc), common.Newline,
+                    'make', LF,
+                    '-j', str(self.env['nproc']), LF,
 
                 ] +
                 verbose
             ),
             cwd=build_dir,
-            extra_paths=[common.ccache_dir],
+            extra_paths=[self.env['ccache_dir']],
         )
 
-    def get_build_dir(self, args):
-        return common.qemu_build_dir
+    def get_build_dir(self):
+        return self.env['qemu_build_dir']
 
 if __name__ == '__main__':
-    QemuComponent().build()
+    Main().cli()
