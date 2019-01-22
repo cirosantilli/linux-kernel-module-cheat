@@ -20,27 +20,26 @@ class Main(common.LkmcCliFunction):
                 }
             else:
                 extra_args = {}
-            for arch in self.env['all_archs']:
-                if arch == 'x86_64':
-                    arch_sources = [
-                        'asm_hello'
-                    ]
-                elif arch == 'aarch64':
-                    arch_sources = [
-                        'asm_hello'
-                    ]
-                else:
-                    arch_sources = []
-                arch_sources[:] = [os.path.join('arch', arch, arch_source) for arch_source in arch_sources]
-                for source in sources + arch_sources:
-                    exit_status = run(
-                        arch=arch,
-                        userland=source,
-                        emulator=emulator,
-                        **extra_args,
-                    )
-                    if exit_status != 0:
-                        raise Exception('Test failed: {} {} {} {}'.format(emulator, arch, source, exit_status))
+            if self.env['arch'] == 'x86_64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            elif self.env['arch'] == 'aarch64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            else:
+                arch_sources = []
+            arch_sources[:] = [os.path.join('arch', self.env['arch'], arch_source) for arch_source in arch_sources]
+            for source in sources + arch_sources:
+                exit_status = run(
+                    archs=self.env['archs'],
+                    userland=source,
+                    emulator=emulator,
+                    **extra_args,
+                )
+                if exit_status != 0:
+                    raise Exception('Test failed: {} {} {} {}'.format(emulator, arch, source, exit_status))
 
 if __name__ == '__main__':
     Main().cli()

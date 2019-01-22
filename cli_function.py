@@ -13,6 +13,7 @@ class _Argument:
             long_or_short_1,
             long_or_short_2=None,
             default=None,
+            dest=None,
             help=None,
             nargs=None,
             **kwargs
@@ -24,7 +25,8 @@ class _Argument:
             self.kwargs = {'default': None}
             shortname, longname, key, is_option = self.get_key(
                 long_or_short_1,
-                long_or_short_2
+                long_or_short_2,
+                dest
             )
             if shortname is not None:
                 self.args.append(shortname)
@@ -35,6 +37,8 @@ class _Argument:
                 self.kwargs['metavar'] = longname
                 if default is not None and nargs is None:
                     self.kwargs['nargs'] = '?'
+            if dest is not None:
+                self.kwargs['dest'] = dest
             if nargs is not None:
                 self.kwargs['nargs'] = nargs
             if default is True:
@@ -80,6 +84,7 @@ class _Argument:
     def get_key(
         long_or_short_1,
         long_or_short_2=None,
+        dest=None,
         **kwargs
     ):
         if long_or_short_2 is None:
@@ -94,6 +99,8 @@ class _Argument:
         else:
             key = longname.replace('-', '_')
             is_option = False
+        if dest is not None:
+            key = dest
         return shortname, longname, key, is_option
 
 class CliFunction:
@@ -293,6 +300,7 @@ amazing function!
             self.add_argument('-a', '--asdf', default='A', help='Help for asdf'),
             self.add_argument('-q', '--qwer', default='Q', help='Help for qwer'),
             self.add_argument('-b', '--bool', default=True, help='Help for bool'),
+            self.add_argument('--dest', dest='custom_dest', help='Help for dest'),
             self.add_argument('--bool-cli', default=False, help='Help for bool'),
             self.add_argument('--bool-nargs', default=False, nargs='?', action='store', const='')
             self.add_argument('--no-default', help='Help for no-bool'),
@@ -312,6 +320,7 @@ amazing function!
         'bool': True,
         'bool_nargs': False,
         'bool_cli': True,
+        'custom_dest': None,
         'no_default': None,
         'pos_mandatory': 1,
         'pos_optional': 0,
@@ -354,6 +363,14 @@ amazing function!
         assert out['bool_nargs'] == 'asdf'
         out['bool_nargs'] = default['bool_nargs']
         assert out == default
+
+    # --dest
+    out = one_cli_function(pos_mandatory=1, custom_dest='a')
+    cli_out = one_cli_function.cli(['--dest', 'a', '1'])
+    assert out == cli_out
+    assert out['custom_dest'] == 'a'
+    out['custom_dest'] = default['custom_dest']
+    assert out == default
 
     # Positional
     out = one_cli_function(pos_mandatory=1, pos_optional=2, args_star=['3', '4'])

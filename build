@@ -13,8 +13,8 @@ from shell_helpers import LF
 
 class _Component:
     '''
-    Yes, we are re-inventing a crappy dependency resolution system.
-    I can't believe it.
+    Yes, we are re-inventing a crappy dependency resolution system,
+    reminescent of scons or apt or Buildroot. I can't believe it.
 
     The hard part is that we have optional dependencies as well...
     e.g. buildroot optionally depends on m5 to put m5 in the root filesystem,
@@ -55,7 +55,7 @@ class Main(cli_function.CliFunction):
         super().__init__(
             config_file=common.consts['config_file'],
             description='''\
-Shallow helper to build everything, or a subset of everything conveniently.
+Build a component and all its dependencies.
 
 Our build-* scripts don't build any dependencies to make iterative
 development fast and more predictable.
@@ -66,9 +66,8 @@ individual build-* commands which:
 * build no dependencies, and so are fast and predictable
 * can take multiple options to custumize the build
 
-Without any args, build only what is necessary for
+Without any args, build only what is necessary for:
 https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-buildroot-setup
-for x86_64:
 
 ....
 ./%(prog)s
@@ -79,14 +78,6 @@ This is equivalent to:
 ....
 ./%(prog)s --arch x86_64 qemu-buildroot
 ....
-
-If `--arch` is given, build just for the given archs:
-
-....
-./%(prog)s --arch arm --arch aarch64
-....
-
-This will build `qemu-buildroot` for arm and aarch64 only, but not `x86_64`.
 '''
         )
         buildroot_component = _Component(
@@ -289,23 +280,6 @@ Build absolutely everything for all archs.
 '''
         )
         self.add_argument(
-            '-A',
-            '--all-archs',
-            default=False,
-            help='''\
-Build the selected components for all archs.
-''')
-        self.add_argument(
-            '-a',
-            '--arch',
-            choices=common.consts['arch_choices'],
-            default=[],
-            action='append',
-            help='''\
-Build the selected components for this arch. Select multiple archs by
-passing this option multiple times. Default: [{}]
-'''.format(common.consts['default_arch']))
-        self.add_argument(
             '-D',
             '--download-dependencies',
             default=False,
@@ -343,19 +317,6 @@ Which components to build. Default: qemu-buildroot
 
     def main(self, **kwargs):
         self.sh = shell_helpers.ShellHelpers(dry_run=kwargs['dry_run'])
-
-        # Decide archs.
-        if kwargs['arch'] == []:
-            if kwargs['all'] or kwargs['all_archs']:
-                archs = kwargs['all_archs'].copy()
-            else:
-                archs = set([common.consts['default_arch']])
-        else:
-            archs = set()
-            for arch in kwargs['arch']:
-                if arch in common.consts['arch_short_to_long_dict']:
-                    arch = common.consts['arch_short_to_long_dict'][arch]
-                archs.add(arch)
 
         # Decide components.
         components = kwargs['components']
@@ -503,9 +464,8 @@ Which components to build. Default: qemu-buildroot
                 )
 
         # Do the build.
-        for arch in archs:
-            for component in selected_components:
-                component.build(arch)
+        for component in selected_components:
+            component.build()
 
 if __name__ == '__main__':
     Main().cli()

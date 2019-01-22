@@ -72,11 +72,13 @@ consts['arch_short_to_long_dict'] = collections.OrderedDict([
     ('a', 'arm'),
     ('A', 'aarch64'),
 ])
-consts['all_archs'] = [consts['arch_short_to_long_dict'][k] for k in consts['arch_short_to_long_dict']]
-consts['arch_choices'] = []
+# All long arch names.
+consts['all_long_archs'] = [consts['arch_short_to_long_dict'][k] for k in consts['arch_short_to_long_dict']]
+# All long and short arch names.
+consts['arch_choices'] = set()
 for key in consts['arch_short_to_long_dict']:
-    consts['arch_choices'].append(key)
-    consts['arch_choices'].append(consts['arch_short_to_long_dict'][key])
+    consts['arch_choices'].add(key)
+    consts['arch_choices'].add(consts['arch_short_to_long_dict'][key])
 consts['default_arch'] = 'x86_64'
 consts['gem5_cpt_prefix'] = '^cpt\.'
 def git_sha(repo_path):
@@ -115,9 +117,25 @@ class LkmcCliFunction(cli_function.CliFunction):
         super().__init__(*args, **kwargs)
 
         # Args for all scripts.
+        arches = consts['arch_short_to_long_dict']
+        arches_string = []
+        for arch_short in arches:
+            arch_long = arches[arch_short]
+            arches_string.append('{} ({})'.format(arch_long, arch_short))
+        arches_string = ', '.join(arches_string)
         self.add_argument(
-            '-a', '--arch', choices=consts['arch_choices'], default=consts['default_arch'],
-            help='CPU architecture.'
+            '-A', '--all-archs', default=False,
+            help='''\
+Run action for all supported --archs archs. Ignore --archs.
+'''.format(arches_string)
+        )
+        self.add_argument(
+            '-a', '--arch', action='append', default=[consts['default_arch']], dest='archs',
+            help='''\
+CPU architecture to use. If given multiple times, run the action
+for each arch sequentially in that order. If one of them fails, stop running.
+Valid archs: {}
+'''.format(arches_string)
         )
         self.add_argument(
             '--dry-run',
@@ -308,6 +326,8 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         '''
         def join(*paths):
             return os.path.join(*paths)
+        if env['arch'] not in consts['arch_choices']:
+            raise Exception('Unknown arch: ' + env['arch'])
         if env['emulator'] is None:
             if env['gem5']:
                 env['emulator'] = 'gem5'
@@ -369,7 +389,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         env['buildroot_config_file'] = join(env['buildroot_build_dir'], '.config')
         env['buildroot_build_build_dir'] = join(env['buildroot_build_dir'], 'build')
         env['buildroot_linux_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
-        env['buildroot_vmlinux'] = join(env['buildroot_linux_build_dir'], "vmlinux")
+        env['buildroot_vmlinux'] = join(env['buildroot_linux_build_dir'], 'vmlinux')
         env['host_dir'] = join(env['buildroot_build_dir'], 'host')
         env['host_bin_dir'] = join(env['host_dir'], 'usr', 'bin')
         env['buildroot_pkg_config'] = join(env['host_bin_dir'], 'pkg-config')
@@ -477,7 +497,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         # Linux kernl.
         if env['linux_build_dir'] is None:
             env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
-        env['lkmc_vmlinux'] = join(env['linux_build_dir'], "vmlinux")
+        env['lkmc_vmlinux'] = join(env['linux_build_dir'], 'vmlinux')
         if env['arch'] == 'arm':
             env['linux_arch'] = 'arm'
             env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'zImage')
@@ -560,9 +580,6 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
                         env['source_path'] = source_path
                         break
             env['image'] = path
-
-        self.env = env
-
 
     def add_argument(self, *args, **kwargs):
         shortname, longname, key, is_option = self.get_key(*args, **kwargs)
@@ -696,17 +713,24 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         '''
         Time the main of the derived class.
         '''
-        myargs = kwargs.copy()
-        if not myargs['dry_run']:
-            start_time = time.time()
-        myargs.update(consts)
-        self._init_env(myargs)
-        self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
-        ret = self.timed_main()
-        if not myargs['dry_run']:
-            end_time = time.time()
-            self._print_time(end_time - start_time)
-        return ret
+        env = kwargs.copy()
+        env.update(consts)
+        if env['all_archs']:
+            env['archs'] = consts['all_long_archs']
+        for arch in env['archs']:
+            if not env['dry_run']:
+                start_time = time.time()
+            env['arch'] = arch
+            self.env = env.copy()
+            self._init_env(self.env)
+            self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
+            ret = self.timed_main()
+            if not env['dry_run']:
+                end_time = time.time()
+                self._print_time(end_time - start_time)
+            if ret != 0:
+                return ret
+        return 0
 
     def make_build_dirs(self):
         os.makedirs(self.env['buildroot_build_build_dir'], exist_ok=True)
@@ -735,7 +759,7 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         if self.env['print_time']:
             hours, rem = divmod(ellapsed_seconds, 3600)
             minutes, seconds = divmod(rem, 60)
-            print("time {:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds)))
+            print('time {:02}:{:02}:{:02}'.format(int(hours), int(minutes), int(seconds)))
 
     def raw_to_qcow2(self, prebuilt=False, reverse=False):
         if prebuilt or not os.path.exists(self.env['qemu_img_executable']):
