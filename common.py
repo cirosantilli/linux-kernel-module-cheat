@@ -180,7 +180,14 @@ Implied by --quiet.
             '-q', '--quiet', default=False,
             help='''\
 Don't print anything to stdout, except if it is part of an interactive terminal.
-TODO: implement fully, some stuff is escaping currently.
+TODO: implement fully, some stuff is escaping it currently.
+'''
+        )
+        self.add_argument(
+            '--quit-on-failure',
+            default=True,
+            help='''\
+Stop running at the first failed test.
 '''
         )
         self.add_argument(
@@ -756,8 +763,8 @@ Valid emulators: {}
     def get_toolchain_tool(self, tool, allowed_toolchains=None):
         return '{}-{}'.format(self.get_toolchain_prefix(tool, allowed_toolchains), tool)
 
-    @staticmethod
     def github_make_request(
+            self,
             authenticate=False,
             data=None,
             extra_headers=None,
@@ -775,7 +782,7 @@ Valid emulators: {}
         if url_params is not None:
             path += '?' + urllib.parse.urlencode(url_params)
         request = urllib.request.Request(
-            'https://' + subdomain + '.github.com/repos/' + github_repo_id + path,
+            'https://' + subdomain + '.github.com/repos/' + self.env['github_repo_id'] + path,
             headers=headers,
             data=data,
             **extra_request_args
@@ -816,7 +823,10 @@ Valid emulators: {}
 
     def main(self, *args, **kwargs):
         '''
-        Time the main of the derived class.
+        Run timed_main across all selected archs and emulators.
+
+        :return: if any of the timed_mains exits non-zero and non-null,
+                 return that. Otherwise, return 0.
         '''
         env = kwargs.copy()
         self.input_args = env.copy()
@@ -830,38 +840,52 @@ Valid emulators: {}
             real_emulators = consts['all_long_emulators']
         else:
             real_emulators = env['emulators']
-        for emulator in real_emulators:
-            for arch in real_archs:
-                if arch in env['arch_short_to_long_dict']:
-                    arch = env['arch_short_to_long_dict'][arch]
-                if self.is_arch_supported(arch):
-                    if not env['dry_run']:
-                        start_time = time.time()
-                    env['arch'] = arch
-                    env['archs'] = [arch]
-                    env['_args_given']['archs'] = True
-                    env['all_archs'] = False
-                    env['emulator'] = emulator
-                    env['emulators'] = [emulator]
-                    env['_args_given']['emulators'] = True
-                    env['all_emulators'] = False
-                    self.env = env.copy()
-                    self._init_env(self.env)
-                    self.sh = shell_helpers.ShellHelpers(
-                        dry_run=self.env['dry_run'],
-                        quiet=self.env['quiet'],
-                    )
-                    ret = self.timed_main()
-                    if not env['dry_run']:
-                        end_time = time.time()
-                        self.ellapsed_seconds = end_time - start_time
-                        self.print_time(self.ellapsed_seconds)
-                    if ret is not None and ret != 0:
-                        return ret
-                elif not real_all_archs:
-                    raise Exception('Unsupported arch for this action: ' + arch)
-        self.teardown()
-        return 0
+        return_value = 0
+        class GetOutOfLoop(Exception): pass
+        try:
+            ret = self.setup()
+            if ret is not None and ret != 0:
+                return_value = ret
+                raise GetOutOfLoop()
+            for emulator in real_emulators:
+                for arch in real_archs:
+                    if arch in env['arch_short_to_long_dict']:
+                        arch = env['arch_short_to_long_dict'][arch]
+                    if self.is_arch_supported(arch):
+                        if not env['dry_run']:
+                            start_time = time.time()
+                        env['arch'] = arch
+                        env['archs'] = [arch]
+                        env['_args_given']['archs'] = True
+                        env['all_archs'] = False
+                        env['emulator'] = emulator
+                        env['emulators'] = [emulator]
+                        env['_args_given']['emulators'] = True
+                        env['all_emulators'] = False
+                        self.env = env.copy()
+                        self._init_env(self.env)
+                        self.sh = shell_helpers.ShellHelpers(
+                            dry_run=self.env['dry_run'],
+                            quiet=self.env['quiet'],
+                        )
+                        ret = self.timed_main()
+                        if not env['dry_run']:
+                            end_time = time.time()
+                            self.ellapsed_seconds = end_time - start_time
+                            self.print_time(self.ellapsed_seconds)
+                        if ret is not None and ret != 0:
+                            return_value = ret
+                            if self.env['quit_on_failure']:
+                                raise GetOutOfLoop()
+                    elif not real_all_archs:
+                        raise Exception('Unsupported arch for this action: ' + arch)
+
+        except GetOutOfLoop:
+            pass
+        ret = self.teardown()
+        if ret is not None and ret != 0:
+            return_value = ret
+        return return_value
 
     def make_build_dirs(self):
         os.makedirs(self.env['buildroot_build_build_dir'], exist_ok=True)
@@ -972,17 +996,29 @@ Valid emulators: {}
             self.env['userland_build_ext'],
         )
 
-    def teardown(self):
+    def setup(self):
         '''
-        Gets run just once after looping over all archs and emulators.
+        Similar to timed_main, but gets run only once for all --arch and --emulator,
+        before timed_main.
+
+        Different from __init__, since at this point env has already been calculated,
+        so variables that don't depend on --arch or --emulator can be used.
         '''
         pass
 
     def timed_main(self):
         '''
         Main action of the derived class.
+
+        Gets run once for every --arch and every --emulator.
         '''
-        raise NotImplementedError()
+        pass
+
+    def teardown(self):
+        '''
+        Similar to setup, but run after timed_main.
+        '''
+        pass
 
 class BuildCliFunction(LkmcCliFunction):
     '''
@@ -1070,13 +1106,6 @@ class TestCliFunction(LkmcCliFunction):
         kwargs['defaults'] = defaults
         super().__init__(*args, **kwargs)
         self.tests = []
-        self.add_argument(
-            '--fail-early',
-            default=True,
-            help='''\
-Stop running at the first failed test.
-'''
-        )
 
     def run_test(self, run_obj, run_args=None, test_id=None):
         '''
@@ -1109,7 +1138,7 @@ Stop running at the first failed test.
                 test_result = TestResult.PASS
             else:
                 test_result = TestResult.FAIL
-                if self.env['fail_early']:
+                if self.env['quit_on_failure']:
                     self.log_error('Test failed')
                     sys.exit(1)
             self.log_info('test_result {}'.format(test_result.name))
@@ -1121,6 +1150,9 @@ Stop running at the first failed test.
         self.tests.append(Test(test_id_string, test_result, ellapsed_seconds))
 
     def teardown(self):
+        '''
+        :return: 1 if any test failed, 0 otherwise
+        '''
         self.log_info('Test result summary')
         passes = []
         fails = []
@@ -1136,4 +1168,5 @@ Stop running at the first failed test.
             for test in fails:
                 self.log_info(test)
             self.log_error('A test failed')
-            sys.exit(1)
+            return 1
+        return 0

@@ -209,10 +209,12 @@ class CliFunction:
             argument = _Argument(*args, **kwargs)
             self._arguments[argument.key] = argument
 
-    def cli(self, cli_args=None):
+    def cli_noexit(self, cli_args=None):
         '''
         Call the function from the CLI. Parse command line arguments
         to get all arguments.
+
+        :return: the return of main
         '''
         parser = argparse.ArgumentParser(
             description=self._description,
@@ -233,12 +235,17 @@ class CliFunction:
         args = parser.parse_args(args=cli_args)
         return self._do_main(vars(args))
 
-    def cli_exit(self, *args, **kwargs):
+    def cli(self, *args, **kwargs):
         '''
         Same as cli, but also exit the program with status equal to the return value of main.
         main must return an integer for this to be used.
+
+        None is considered 0.
         '''
-        sys.exit(self.cli(*args, **kwargs))
+        exit_status = self.cli_noexit(*args, **kwargs)
+        if exit_status is None:
+            exit_status = 0
+        sys.exit(exit_status)
 
     def get_cli(self, **kwargs):
         '''
@@ -324,6 +331,7 @@ amazing function!
             self.add_argument('pos-mandatory', help='Help for pos-mandatory', type=int),
             self.add_argument('pos-optional', default=0, help='Help for pos-optional', type=int),
             self.add_argument('args-star', help='Help for args-star', nargs='*'),
+
         def main(self, **kwargs):
             del kwargs['_args_given']
             return kwargs
@@ -348,7 +356,7 @@ amazing function!
     }
 
     # Default CLI call with programmatic CLI arguments.
-    out = one_cli_function.cli(['1'])
+    out = one_cli_function.cli_noexit(['1'])
     assert out == default
 
     # asdf
@@ -367,7 +375,7 @@ amazing function!
 
     if '--bool-true':
         out = one_cli_function(pos_mandatory=1, bool_true=False)
-        cli_out = one_cli_function.cli(['--no-bool-true', '1'])
+        cli_out = one_cli_function.cli_noexit(['--no-bool-true', '1'])
         assert out == cli_out
         assert out['bool_true'] == False
         out['bool_true'] = default['bool_true']
@@ -375,7 +383,7 @@ amazing function!
 
     if '--bool-false':
         out = one_cli_function(pos_mandatory=1, bool_false=True)
-        cli_out = one_cli_function.cli(['--bool-false', '1'])
+        cli_out = one_cli_function.cli_noexit(['--bool-false', '1'])
         assert out == cli_out
         assert out['bool_false'] == True
         out['bool_false'] = default['bool_false']
@@ -394,7 +402,7 @@ amazing function!
 
     # --dest
     out = one_cli_function(pos_mandatory=1, custom_dest='a')
-    cli_out = one_cli_function.cli(['--dest', 'a', '1'])
+    cli_out = one_cli_function.cli_noexit(['--dest', 'a', '1'])
     assert out == cli_out
     assert out['custom_dest'] == 'a'
     out['custom_dest'] = default['custom_dest']
@@ -405,7 +413,7 @@ amazing function!
     assert out['pos_mandatory'] == 1
     assert out['pos_optional'] == 2
     assert out['args_star'] == ['3', '4']
-    cli_out = one_cli_function.cli(['1', '2', '3', '4'])
+    cli_out = one_cli_function.cli_noexit(['1', '2', '3', '4'])
     assert out == cli_out
     out['pos_mandatory'] = default['pos_mandatory']
     out['pos_optional'] = default['pos_optional']
@@ -414,21 +422,21 @@ amazing function!
 
     # Star
     out = one_cli_function(append=['1', '2'], pos_mandatory=1)
-    cli_out = one_cli_function.cli(['--append', '1', '--append', '2', '1'])
+    cli_out = one_cli_function.cli_noexit(['--append', '1', '--append', '2', '1'])
     assert out == cli_out
     assert out['append'] == ['1', '2']
     out['append'] = default['append']
     assert out == default
 
     # Force a boolean value set on the config to be False on CLI.
-    assert one_cli_function.cli(['--no-bool-cli', '1'])['bool_cli'] is False
+    assert one_cli_function.cli_noexit(['--no-bool-cli', '1'])['bool_cli'] is False
 
     # Pick another config file.
-    assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1'])['bool_cli'] is False
+    assert one_cli_function.cli_noexit(['--config-file', 'cli_function_test_config_2.py', '1'])['bool_cli'] is False
 
     # Extra config file for '*'.
-    assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1', '2', '3', '4'])['args_star'] == ['3', '4']
-    assert one_cli_function.cli(['--config-file', 'cli_function_test_config_2.py', '1', '2'])['args_star'] == ['asdf', 'qwer']
+    assert one_cli_function.cli_noexit(['--config-file', 'cli_function_test_config_2.py', '1', '2', '3', '4'])['args_star'] == ['3', '4']
+    assert one_cli_function.cli_noexit(['--config-file', 'cli_function_test_config_2.py', '1', '2'])['args_star'] == ['asdf', 'qwer']
 
     # get_cli
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]

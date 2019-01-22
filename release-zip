@@ -1,26 +1,35 @@
 #!/usr/bin/env python3
 
-'''
-https://github.com/cirosantilli/linux-kernel-module-cheat#release-zip
-'''
-
 import os
-import subprocess
 import zipfile
 
 import common
-from shell_helpers import LF
 
-def main():
-    os.makedirs(self.env['release_dir'], exist_ok=True)
-    if os.path.exists(self.env['release_zip_file']):
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+https://github.com/cirosantilli/linux-kernel-module-cheat#release-zip
+''',
+            defaults = {
+                'print_time': False,
+            }
+        )
+        self.qcow2s_linux_images = []
+
+    def timed_main(self):
+        self.qcow2s_linux_images.append((self.env['qcow2_file'], self.env['linux_image']))
+
+    def teardown(self):
+        os.makedirs(self.env['release_dir'], exist_ok=True)
         self.sh.rmrf(self.env['release_zip_file'])
-    zipf = zipfile.ZipFile(self.env['release_zip_file'], 'w', zipfile.ZIP_DEFLATED)
-    for arch in self.env['all_long_archs']:
-        self.setup(common.get_argparse(default_args={'arch': arch}))
-        zipf.write(self.env['qcow2_file'], arcname=os.path.relpath(self.env['qcow2_file'], self.env['root_dir']))
-        zipf.write(self.env['linux_image'], arcname=os.path.relpath(self.env['linux_image'], self.env['root_dir']))
-    zipf.close()
+        self.log_info('Creating zip: ' + self.env['release_zip_file'])
+        with zipfile.ZipFile(self.env['release_zip_file'], 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for qcow2, linux_image in self.qcow2s_linux_images:
+                self.log_info('Adding file: ' + qcow2)
+                zipf.write(qcow2, arcname=os.path.relpath(qcow2, self.env['root_dir']))
+                self.log_info('Adding file: ' + linux_image)
+                zipf.write(linux_image, arcname=os.path.relpath(linux_image, self.env['root_dir']))
 
 if __name__ == '__main__':
-    main()
+    Main().cli()

@@ -1,79 +1,84 @@
 #!/usr/bin/env python3
 
-'''
-Usage: https://github.com/cirosantilli/linux-kernel-module-cheat#release-zip
-
-Implementation:
-
-* https://stackoverflow.com/questions/5207269/how-to-release-a-build-artifact-asset-on-github-with-a-script/52354732#52354732
-* https://stackoverflow.com/questions/38153418/can-someone-give-a-python-requests-example-of-uploading-a-release-asset-in-githu/52354681#52354681
-'''
-
 import json
 import os
+import subprocess
 import sys
-
 import urllib.error
 
 import common
 from shell_helpers import LF
 
-def main():
-    repo = kwargs['github_repo_id']
-    tag = 'sha-{}'.format(kwargs['sha'])
-    upload_path = kwargs['release_zip_file']
-
-    # Check the release already exists.
-    try:
-        _json = self.github_make_request(path='/releases/tags/' + tag)
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            release_exists = False
-        else:
-            raise e
-    else:
-        release_exists = True
-        release_id = _json['id']
-
-    # Create release if not yet created.
-    if not release_exists:
-        _json = self.github_make_request(
-            authenticate=True,
-            data=json.dumps({
-                'tag_name': tag,
-                'name': tag,
-                'prerelease': True,
-            }).encode(),
-            path='/releases'
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+https://github.com/cirosantilli/linux-kernel-module-cheat#release-upload
+''',
         )
-        release_id = _json['id']
 
-    asset_name = os.path.split(upload_path)[1]
+    def timed_main(self):
+        # https://stackoverflow.com/questions/3404936/show-which-git-tag-you-are-on
+        tag = subprocess.check_output([
+            'git',
+            'describe',
+            '--exact-match',
+            '--tags'
+        ]).decode().rstrip()
+        upload_path = self.env['release_zip_file']
 
-    # Clear the prebuilts for a upload.
-    _json = self.github_make_request(
-        path=('/releases/' + str(release_id) + '/assets'),
-    )
-    for asset in _json:
-        if asset['name'] == asset_name:
+        # Check the release already exists.
+        try:
+            _json = self.github_make_request(path='/releases/tags/' + tag)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                release_exists = False
+            else:
+                raise e
+        else:
+            release_exists = True
+            release_id = _json['id']
+
+        # Create release if not yet created.
+        if not release_exists:
             _json = self.github_make_request(
                 authenticate=True,
-                path=('/releases/assets/' + str(asset['id'])),
-                method='DELETE',
+                data=json.dumps({
+                    'tag_name': tag,
+                    'name': tag,
+                    'prerelease': True,
+                }).encode(),
+                path='/releases'
             )
-            break
+            release_id = _json['id']
 
-    # Upload the prebuilt.
-    with open(upload_path, 'br') as myfile:
-        content = myfile.read()
-    _json = self.github_make_request(
-        authenticate=True,
-        data=content,
-        extra_headers={'Content-Type': 'application/zip'},
-        path=('/releases/' + str(release_id) + '/assets'),
-        subdomain='uploads',
-        url_params={'name': asset_name},
-    )
+        asset_name = os.path.split(upload_path)[1]
+
+        # Clear the prebuilts for a upload.
+        _json = self.github_make_request(
+            path=('/releases/' + str(release_id) + '/assets'),
+        )
+        for asset in _json:
+            if asset['name'] == asset_name:
+                _json = self.github_make_request(
+                    authenticate=True,
+                    path=('/releases/assets/' + str(asset['id'])),
+                    method='DELETE',
+                )
+                break
+
+        # Upload the prebuilt.
+        self.log_info('Uploading the release, this may take several seconds / a few minutes.')
+        with open(upload_path, 'br') as myfile:
+            content = myfile.read()
+        _json = self.github_make_request(
+            authenticate=True,
+            data=content,
+            extra_headers={'Content-Type': 'application/zip'},
+            path=('/releases/' + str(release_id) + '/assets'),
+            subdomain='uploads',
+            url_params={'name': asset_name},
+        )
 
 if __name__ == '__main__':
-    main()
+    Main().cli()

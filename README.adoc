@@ -219,7 +219,11 @@ insmod /mnt/9p/out_rootfs_overlay/hello.ko
 
 and the new `pr_info` message should now show on the terminal at the end of the boot.
 
-This works because we have a <<9p>> mount there setup by default, which makes a host directory available on the guest.
+This works because we have a <<9p>> mount there setup by default, which mounts the host directory that contains the Build outputs on the guest:
+
+....
+ls "$(./getvar out_rootfs_overlay_dir)"
+....
 
 The fast method is slightly risky because your previously insmodded buggy kernel module attempt might have corrupted the kernel memory, which could affect future runs.
 
@@ -233,7 +237,7 @@ The safe way, is to fist quit QEMU, rebuild the modules, put them in the root fi
 ./run --eval-after 'insmod /hello.ko'
 ....
 
-`./build-buildroot` is required after `./build-modules` because it generates the root filesystem with the modules that we compiled at `./build-modules`.
+`./build-buildroot` is required after `./build-modules` because it re-generates the root filesystem with the modules that we compiled at `./build-modules`.
 
 You can see that `./build` does that as well, by running:
 
@@ -844,9 +848,9 @@ For more information on baremetal, see the section: <<baremetal>>. The following
 
 Much like <<baremetal-setup>>, this is another fun setup that does not require Buildroot or the Linux kernel.
 
-See: <<user-mode-simulation>>
+Introduction at: <<user-mode-simulation>>.
 
-TODO: test it out on a clean repo.
+Getting started at: <<qemu-user-mode>>.
 
 [[gdb]]
 == GDB step debug
@@ -3329,7 +3333,7 @@ This would have several advantages:
 ** no need to regenerate the root filesystem at all and reboot
 ** overcomes the `check_bin_arch` problem: <<rpath>>
 * we could keep the base root filesystem very small, which implies:
-** less host disk usage, no need to copy the entire `out_rootfs_overlay_dir` to the image again
+** less host disk usage, no need to copy the entire `./getvar out_rootfs_overlay_dir` to the image again
 ** no need to worry about <<br2_target_rootfs_ext2_size>>
 
 We can already make host files appear on the guest with <<9p>>, but they appear on a subdirectory instead of the root.
@@ -10244,6 +10248,8 @@ Once you've built a package in to the image, there is no easy way to remove it.
 
 Documented at: link:https://github.com/buildroot/buildroot/blob/2017.08/docs/manual/rebuilding-packages.txt#L90[]
 
+Also mentioned at: https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot
+
 See this for a sample manual workaround: <<parsec-uninstall>>.
 
 === BR2_TARGET_ROOTFS_EXT2_SIZE
@@ -11351,6 +11357,7 @@ but note that this does not include script specific options.
 You don't need to depend on GitHub:
 
 ....
+sudo apt install asciidoctor
 ./build-doc
 xdg-open out/README.html
 ....
@@ -11903,26 +11910,15 @@ This directory is copied into the target filesystem by:
 
 Source: link:copy-overlay[]
 
-`copy-overlay` by itself, only places the files into our intermediate `./getenv out_rootfs_overlay_dir` directory.
+Build Buildroot is required for the same reason as described at: <<your-first-kernel-module-hack>>.
 
-This directory combines files from several sources, including for example link:build-userland[], which the final `./build-buildroot` puts into the root filesystem.
-
-Since the link:rootfs_overlay[] directory does not require compilation, unlike say link:userland[] we also make it <<9p>> available to the guest directly even without `copy-overlay` at:
+However, since the link:rootfs_overlay[] directory does not require compilation, unlike say <<your-first-kernel-module-hack,kernel modules>>, we also make it <<9p>> available to the guest directly even without `./copy-overlay` at:
 
 ....
 ls /mnt/9p/rootfs_overlay
 ....
 
 This way you can just hack away the scripts and try them out immediately without any further operations.
-
-To add those scripts to the Buildroot root filesystem, you will need to run:
-
-We could add that directory to `BR2_ROOTFS_OVERLAY` but we don't do this because this mechanism:
-
-* also works for non Buildroot root filesystesms
-* places everything in one place for a nice 9P mount
-
-and maintaining `BR2_ROOTFS_OVERLAY` in addition to our mechanism would duplicate some logic.
 
 === Test this repo
 
@@ -11942,16 +11938,16 @@ Sources:
 
 * link:build-test[]
 * link:test[]
+
+The link:test[] script runs several different types of tests, which can also be run separately as explained at:
+
+* link:test-boot[]
+* <<test-userland-in-full-system>>
 * <<user-mode-tests>>
 * <<baremetal-tests>>
+* <<test-gdb>>
 
-This is not all tests, because there are too many possible variations and that would take forever.
-
-Instead, we currently select on magic arch, currently `aarch64`, and for that arch run more stuff than on others.
-
-We could in the future we will add an option to select the large arch, or do something smarter.
-
-This full testing takes too much time to be feasible for every patch, but it should be done for every release.
+link:test[] does not all possible tests, because there are too many possible variations and that would take forever. The rationale is the same as for `./build all` and is explained in `./build --help`.
 
 See the sources of those test scripts to learn how to run more specialized tests.
 
@@ -11969,12 +11965,6 @@ One important tip is that you can select multiple archs and emulators of interes
 This command would run the test four times, using `x86_64` and `aarch64` with both gem5 and QEMU.
 
 Without those flags, it defaults to just running the default arch and emulator once: `x86_64` and `qemu`.
-
-Test that the Internet works:
-
-....
-./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
-....
 
 ===== Test userland in full system
 
@@ -12031,7 +12021,26 @@ To debug GDB problems on gem5, you might want to enable the following <<gem5-tra
 ;
 ....
 
-====== Test GDB Linux kernel
+===== Magic failure string
+
+Since there is no standardized exit status concept that works across all emulators for full system, we just parse the terminal output for a magic failure string to check if tests failed.
+
+If a full system simulation outputs a line containing only exactly the magic string:
+
+....
+lkmc_test_fail
+....
+
+to the terminal, then our run scripts detect that and exit with status `1`.
+
+This magic output string is notably used by:
+
+* the `common_assert_fail()` function, which is used by <<baremetal-tests>>
+* link:rootfs_overlay/test_fail.sh[], which is used by <<test-userland-in-full-system>>
+
+=== Non-automated tests
+
+==== Test GDB Linux kernel
 
 For the Linux kernel, do the following manual tests for now.
 
@@ -12054,22 +12063,13 @@ Then proceed to do the following tests:
 * `/count.sh` and `break __x64_sys_write`
 * `insmod /timer.ko` and `break lkmc_timer_callback`
 
-==== Magic failure string
+==== Test the Internet
 
-Since there is no standardized exit status concept that works across all emulators for full system, we just parse the terminal output for a magic failure string to check if tests failed.
-
-If a full system simulation outputs a line containing only exactly the magic string:
+You should also test that the Internet works:
 
 ....
-lkmc_test_fail
+./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
 ....
-
-to the terminal, then our run scripts detect that and exit with status `1`.
-
-This magic output string is notably used by:
-
-* the `common_assert_fail()` function, which is used by <<baremetal-tests>>
-* link:rootfs_overlay/test_fail.sh[], which is used by <<test-userland-in-full-system>>
 
 === Bisection
 
@@ -12174,37 +12174,62 @@ This can be used to check the determinism of:
 
 === Release
 
-Create a release:
+==== Release procedure
+
+Ensure that the <<automated-tests>> are passing on a clean build:
 
 ....
+mv out out.bak
+./build-test --size 3 && ./test --size 3
+....
+
+The clean build is necessary as it generates clean images since <<remove-buildroot-packages,it is not possible to remove Buildroot packages>>
+
+Run all tests in <<non-automated-tests>> just QEMU x86_64 and QEMU aarch64.
+
+TODO: not working currently, so skipped: Ensure that the <<benchmark-this-repo,benchmarks>> look fine:
+
+....
+./bench-all -A
+....
+
+Create a release candidate and upload it:
+
+....
+git tag -a -m '' v3.0-rc1
+git push --follow-tags
+./release-zip --all-archs
+# export LKMC_GITHUB_TOKEN=<your-token>
+./release-upload
+....
+
+Do an out-of-box testing for the release candidate:
+
+....
+cd ..
 git clone https://github.com/cirosantilli/linux-kernel-module-cheat linux-kernel-module-cheat-release
 cd linux-kernel-module-cheat-release
-# export LKMC_GITHUB_TOKEN=<your-token>
-./release
 ....
 
-Source: link:release[]
+Test <<prebuilt>>, and then through all of the <<getting-started>> section in order.
 
-This scripts does:
+Once everything looks fine, publish the release with:
 
-* configure
-* build
-* package with <<release-zip>>
-* creates a tag of form `sha-<sha>`
-* upload to GitHub with link:release-create-github[]
-
-Cloning a clean tree is ideal as it generates clean images since <<remove-buildroot-packages,it is not possible to remove Buildroot packages>>
-
-This should in particular enable to easily update <<prebuilt>>.
-
-TODO also run tests and only release if they pass.
+....
+git tag -a  v3.0
+# Describe the release int the tag message.
+git push --follow-tags
+./release-zip --all-archs
+# export LKMC_GITHUB_TOKEN=<your-token>
+./release-upload
+....
 
 ==== release-zip
 
 Create a zip containing all files required for <<prebuilt>>:
 
 ....
-./build release && ./release-zip
+./build --all-archs release && ./release-zip --all-archs
 ....
 
 Source: link:release-zip[]
@@ -12217,7 +12242,14 @@ echo "$(./getvar release_zip_file)"
 
 which you can then upload somewhere.
 
-For example, you can create or update a GitHub release and upload automatically with:
+==== release-upload
+
+After:
+
+* running <<release-zip>>
+* creating and pushing a tag to GitHub
+
+you can upload the release to GitHub automatically with:
 
 ....
 # export LKMC_GITHUB_TOKEN=<your-token>
@@ -12226,9 +12258,14 @@ For example, you can create or update a GitHub release and upload automatically 
 
 Source: link:release-upload[]
 
+The HEAD of the local repository must be on top of a tag that has been pushed for this to work.
+
 Create `LKMC_GITHUB_TOKEN` under: https://github.com/settings/tokens/new and save it to your `.bashrc`.
 
-TODO: generalize that so that people can upload to their forks.
+The implementation of this script is described at:
+
+* https://stackoverflow.com/questions/5207269/how-to-release-a-build-artifact-asset-on-github-with-a-script/52354732#52354732
+* https://stackoverflow.com/questions/38153418/can-someone-give-a-python-requests-example-of-uploading-a-release-asset-in-githu/52354681#52354681
 
 === Design rationale
 
