@@ -110,7 +110,7 @@ class LkmcCliFunction(cli_function.CliFunction):
     Common functionality shared across our CLI functions:
 
     * command timing
-    * some common flags, e.g.: --arch, --dry-run, --verbose
+    * some common flags, e.g.: --arch, --dry-run, --quiet, --verbose
     '''
     def __init__(self, *args, defaults=None, supported_archs=None, **kwargs):
         '''
@@ -122,6 +122,8 @@ class LkmcCliFunction(cli_function.CliFunction):
         if defaults is None:
             defaults = {}
         self._defaults = defaults
+        self._is_common = True
+        self._common_args = set()
         super().__init__(*args, **kwargs)
         self.supported_archs = supported_archs
 
@@ -165,7 +167,17 @@ mkdir are generally omitted since those are obvious
         )
         self.add_argument(
             '--print-time', default=True,
-            help='Print how long it took to run the command at the end.'
+            help='''\
+Print how long it took to run the command at the end.
+Implied by --quiet.
+'''
+        )
+        self.add_argument(
+            '-q', '--quiet', default=False,
+            help='''\
+Don't print anything to stdout, except if it is part of an interactive terminal.
+TODO: implement fully, some stuff is escaping currently.
+'''
         )
         self.add_argument(
             '-v', '--verbose', default=False,
@@ -284,7 +296,22 @@ See the documentation for other values known to work.
 
         # Userland.
         self.add_argument(
-            '--userland-build-id', default=None
+            '-u', '--userland',
+            help='''\
+Run the given userland executable in user mode instead of booting the Linux kernel
+in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
+uses se.py.
+Path resolution is similar to --baremetal.
+'''
+        )
+        self.add_argument(
+            '--userland-args',
+            help='''\
+CLI arguments to pass to the userland executable.
+'''
+        )
+        self.add_argument(
+            '--userland-build-id'
         )
 
         # Run.
@@ -336,16 +363,21 @@ Emulator to use. If given multiple times, semantics are similar to --arch.
 Valid emulators: {}
 '''.format(emulators_string)
         )
+        self._is_common = False
 
     def __call__(self, **kwargs):
         '''
-        For Python code calls, print the CLI equivalent of the call.
+        For Python code calls, in addition to base:
+
+        - print the CLI equivalent of the call
+        - automatically forward common arguments
         '''
         print_cmd = ['./' + self.extra_config_params, LF]
         for line in self.get_cli(**kwargs):
             print_cmd.extend(line)
             print_cmd.append(LF)
-        shell_helpers.ShellHelpers.print_cmd(print_cmd)
+        if not ('quiet' in kwargs and kwargs['quiet']):
+            shell_helpers.ShellHelpers().print_cmd(print_cmd)
         return super().__call__(**kwargs)
 
     def _init_env(self, env):
@@ -606,23 +638,22 @@ Valid emulators: {}
             env['image'] = path
 
     def add_argument(self, *args, **kwargs):
+        '''
+        Also handle:
+
+        - modified defaults from child classes.
+        - common arguments to forward on Python calls
+        '''
         shortname, longname, key, is_option = self.get_key(*args, **kwargs)
         if key in self._defaults:
             kwargs['default'] = self._defaults[key]
+        if self._is_common:
+            self._common_args.add(key)
         super().add_argument(*args, **kwargs)
 
     @staticmethod
     def base64_encode(string):
         return base64.b64encode(string.encode()).decode()
-
-    def gem5_list_checkpoint_dirs(self):
-        '''
-        List checkpoint directory, oldest first.
-        '''
-        prefix_re = re.compile(self.env['gem5_cpt_prefix'])
-        files = list(filter(lambda x: os.path.isdir(os.path.join(self.env['m5out_dir'], x)) and prefix_re.search(x), os.listdir(self.env['m5out_dir'])))
-        files.sort(key=lambda x: os.path.getmtime(os.path.join(self.env['m5out_dir'], x)))
-        return files
 
     def get_elf_entry(self, elf_file_path):
         readelf_header = subprocess.check_output([
@@ -636,6 +667,18 @@ Valid emulators: {}
                 addr = line.split()[-1]
                 break
         return int(addr, 0)
+
+    def gem5_list_checkpoint_dirs(self):
+        '''
+        List checkpoint directory, oldest first.
+        '''
+        prefix_re = re.compile(self.env['gem5_cpt_prefix'])
+        files = list(filter(lambda x: os.path.isdir(os.path.join(self.env['m5out_dir'], x)) and prefix_re.search(x), os.listdir(self.env['m5out_dir'])))
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(self.env['m5out_dir'], x)))
+        return files
+
+    def get_common_args(self):
+        return {key:self.env[key] for key in self._common_args}
 
     def get_stats(self, stat_re=None, stats_file=None):
         if stat_re is None:
@@ -737,29 +780,41 @@ Valid emulators: {}
         '''
         env = kwargs.copy()
         env.update(consts)
-        if env['all_archs']:
-            env['archs'] = consts['all_long_archs']
+        real_all_archs= env['all_archs']
+        if real_all_archs:
+            real_archs = consts['all_long_archs']
+        else:
+            real_archs = env['archs']
         if env['all_emulators']:
-            env['emulators'] = consts['all_long_emulators']
-        for emulator in env['emulators']:
-            for arch in env['archs']:
+            real_emulators = consts['all_long_emulators']
+        else:
+            real_emulators = env['emulators']
+        for emulator in real_emulators:
+            for arch in real_archs:
                 if arch in env['arch_short_to_long_dict']:
                     arch = env['arch_short_to_long_dict'][arch]
                 if self.supported_archs is None or arch in self.supported_archs:
                     if not env['dry_run']:
                         start_time = time.time()
                     env['arch'] = arch
+                    env['archs'] = [arch]
+                    env['all_archs'] = False
                     env['emulator'] = emulator
+                    env['emulators'] = [emulator]
+                    env['all_emulators'] = False
                     self.env = env.copy()
                     self._init_env(self.env)
-                    self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
+                    self.sh = shell_helpers.ShellHelpers(
+                        dry_run=self.env['dry_run'],
+                        quiet=self.env['quiet'],
+                    )
                     ret = self.timed_main()
                     if not env['dry_run']:
                         end_time = time.time()
                         self._print_time(end_time - start_time)
                     if ret is not None and ret != 0:
                         return ret
-                elif not env['all_archs']:
+                elif not real_all_archs:
                     raise Exception('Unsupported arch for this action: ' + arch)
         return 0
 
@@ -787,7 +842,7 @@ Valid emulators: {}
         return False
 
     def _print_time(self, ellapsed_seconds):
-        if self.env['print_time']:
+        if self.env['print_time'] and not self.env['quiet']:
             hours, rem = divmod(ellapsed_seconds, 3600)
             minutes, seconds = divmod(rem, 60)
             print('time {:02}:{:02}:{:02}'.format(int(hours), int(minutes), int(seconds)))
@@ -858,6 +913,14 @@ Valid emulators: {}
             self.env['userland_build_dir'],
             self.env['userland_build_ext'],
         )
+
+    def test_setup(self, test_env, source):
+        if not self.env['verbose']:
+            test_env['quiet'] = True
+        test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], source)
+        if not self.env['quiet']:
+            print(test_id_string)
+        return test_id_string
 
     def timed_main(self):
         '''

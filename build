@@ -48,12 +48,11 @@ class _Component:
             (self.build_callback is not None) and
             (self.supported_archs is None or arch in self.supported_archs)
         ):
-            self.build_callback(arch)
+            self.build_callback()
 
-class Main(cli_function.CliFunction):
+class Main(common.LkmcCliFunction):
     def __init__(self):
         super().__init__(
-            config_file=common.consts['config_file'],
             description='''\
 Build a component and all its dependencies.
 
@@ -110,24 +109,24 @@ This is equivalent to:
         self.name_to_component_map = {
             # Leaves without dependencies.
             'baremetal-qemu': _Component(
-                lambda arch: self._run_cmd(['build-baremetal', '--emulator', 'qemu'], arch),
+                lambda: self.import_path_main('build-baremetal')(archs=self.env['archs'], emulators=['qemu']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
             'baremetal-gem5': _Component(
-                lambda arch: self._run_cmd(['build-baremetal', '--gem5'], arch),
+                lambda: self.import_path_main('build-baremetal')(archs=self.env['archs'], emulators=['gem5']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
             'baremetal-gem5-pbx': _Component(
-                lambda arch: self._run_cmd(['build-baremetal', '--gem5', '--machine', 'RealViewPBX'], arch),
+                lambda: self.import_path_main('build-baremetal')(archs=self.env['archs'], emulators=['gem5'], machine='RealViewPBX'),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
             'buildroot': buildroot_component,
             'buildroot-gcc': buildroot_component,
             'copy-overlay': _Component(
-                lambda arch: self._run_cmd(['copy-overlay'], arch),
+                lambda: self.import_path_main('copy-overlay')(archs=self.env['archs']),
             ),
             'crosstool-ng': _Component(
-                lambda arch: self._run_cmd(['build-crosstool-ng'], arch),
+                lambda: self.import_path_main('build-crosstool-ng')(archs=self.env['archs']),
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
                 # http://crosstool-ng.github.io/docs/os-setup/
                 apt_get_pkgs={
@@ -147,7 +146,7 @@ This is equivalent to:
                 submodules={'crosstool-ng'},
             ),
             'gem5': _Component(
-                lambda arch: self._run_cmd(['build-gem5'], arch),
+                lambda: self.import_path_main('build-gem5')(archs=self.env['archs']),
                 # TODO test it out on Docker and answer that question properly:
                 # https://askubuntu.com/questions/350475/how-can-i-install-gem5
                 apt_get_pkgs={
@@ -170,7 +169,7 @@ This is equivalent to:
                 submodules={'gem5'},
             ),
             'gem5-debug': _Component(
-                lambda arch: self._run_cmd(['build-gem5', '--gem5-build-type', 'debug'], arch),
+                lambda: self.import_path_main('build-gem5')(archs=self.env['archs'], gem5_build_type='debug'),
             ),
             'gem5-fast': _Component(
                 lambda arch: self._run_cmd(['build-gem5', '--gem5-build-type', 'fast'], arch),
@@ -309,18 +308,12 @@ Which components to build. Default: qemu-buildroot
 '''
         )
 
-    def _run_cmd(self, python_file, **kwargs):
-        python_file = os.path.join(common.consts['root_dir'], python_file)
-        run = common.import_path(python_file).Main()
-        run(**kwargs)
-        self.sh.run_cmd(cmd_abs)
-
-    def main(self, **kwargs):
-        self.sh = shell_helpers.ShellHelpers(dry_run=kwargs['dry_run'])
+    def timed_main(self):
+        self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
 
         # Decide components.
-        components = kwargs['components']
-        if kwargs['all']:
+        components = self.env['components']
+        if self.env['all']:
             components = ['all']
         elif components == []:
             components = ['qemu-buildroot']
@@ -336,7 +329,7 @@ Which components to build. Default: qemu-buildroot
                     selected_components.append(component)
                     todo.extend(component.dependencies)
 
-        if kwargs['download_dependencies']:
+        if self.env['download_dependencies']:
             apt_get_pkgs = {
                 # Core requirements for this repo.
                 'git',
@@ -374,7 +367,7 @@ Which components to build. Default: qemu-buildroot
                 python2_pkgs.update(component.python2_pkgs)
                 python3_pkgs.update(component.python3_pkgs)
             if apt_get_pkgs or apt_build_deps:
-                if kwargs['travis']:
+                if self.env['travis']:
                     interacive_pkgs = {
                         'libsdl2-dev',
                     }
@@ -392,7 +385,7 @@ Which components to build. Default: qemu-buildroot
                         f.write(sources_txt)
                 else:
                     sudo = ['sudo']
-                if common.consts['in_docker'] or kwargs['travis']:
+                if common.consts['in_docker'] or self.env['travis']:
                     y = ['-y']
                 else:
                     y = []
@@ -465,7 +458,7 @@ Which components to build. Default: qemu-buildroot
 
         # Do the build.
         for component in selected_components:
-            component.build()
+            component.build(self.env['arch'])
 
 if __name__ == '__main__':
     Main().cli()

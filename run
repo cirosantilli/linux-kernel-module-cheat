@@ -181,21 +181,6 @@ Parameters to pass to the program running on the tmux split. Implies --tmux.
 '''
         )
         self.add_argument(
-            '-u', '--userland',
-            help='''\
-Run the given userland executable in user mode instead of booting the Linux kernel
-in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
-uses se.py.
-Path resolution is similar to --baremetal.
-'''
-        )
-        self.add_argument(
-            '--userland-args',
-            help='''\
-CLI arguments to pass to the userland executable.
-'''
-        )
-        self.add_argument(
             '-w', '--wait-gdb', default=False,
             help='Wait for GDB to connect before starting execution'
         )
@@ -221,6 +206,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         # * https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
         # * https://stackoverflow.com/questions/44612822/unable-to-debug-kernel-with-qemu-gdb/49840927#49840927
         #   Turned on by default since v4.12
+        raise_on_failure = True
+        show_stdout = True
         kernel_cli = 'console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y rw'
         if self.env['kernel_cli'] is not None:
             kernel_cli += ' {}'.format(self.env['kernel_cli'])
@@ -303,6 +290,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
         cmd = debug_vm.copy()
         if self.env['emulator'] == 'gem5':
+            if self.env['quiet']:
+                show_stdout = False
             if self.env['baremetal'] is None:
                 if not os.path.exists(self.env['rootfs_raw_file']):
                     if not os.path.exists(self.env['qcow2_file']):
@@ -415,7 +404,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             if self.env['wait_gdb']:
                 # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
                 cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True', LF])
-        else:
+        elif self.env['emulator'] == 'qemu':
             qemu_user_and_system_options = [
                 '-trace', 'enable={},file={}'.format(trace_type, self.env['qemu_trace_file']), LF,
             ]
@@ -432,6 +421,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     qemu_user_and_system_options +
                     debug_args
                 )
+                show_stdout = False
+                raise_on_failure = False
             else:
                 if not os.path.exists(self.env['image']):
                     raise_image_not_found()
@@ -452,6 +443,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 else:
                     if self.env['background']:
                         serial_monitor = ['-serial', 'file:{}'.format(self.env['qemu_background_serial_file']), LF]
+                        if self.env['quiet']:
+                            show_stdout = False
                     else:
                         serial_monitor = ['-serial', 'mon:stdio', LF]
                 if self.env['kvm']:
@@ -592,36 +585,44 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             out_file = None
         else:
             out_file = self.env['termout_file']
-        self.sh.run_cmd(cmd, cmd_file=self.env['run_cmd_file'], out_file=out_file, extra_env=extra_env)
-        # Check if guest panicked.
-        if self.env['emulator'] == 'gem5':
-            # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
-            # Grepping for '^panic: ' does not work because some errors don't show that message.
-            panic_msg = b'--- BEGIN LIBC BACKTRACE ---$'
-        else:
-            panic_msg = b'Kernel panic - not syncing'
-        panic_re = re.compile(panic_msg)
-        error_string_found = False
-        exit_status = 0
-        if out_file is not None and not self.env['dry_run']:
-            with open(self.env['termout_file'], 'br') as logfile:
-                line = None
-                for line in logfile:
-                    if panic_re.search(line):
-                        exit_status = 1
-                if line is not None:
-                    last_line = line.rstrip()
-                    match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
-                    if match:
-                        exit_status = int(match.group(1))
-            if not self.env['userland']:
-                if os.path.exists(self.env['guest_terminal_file']):
-                    with open(self.env['guest_terminal_file'], 'br') as logfile:
-                        lines = logfile.readlines()
-                        if lines and lines[-1].rstrip() == self.env['magic_fail_string']:
+        exit_status = self.sh.run_cmd(
+            cmd,
+            cmd_file=self.env['run_cmd_file'],
+            extra_env=extra_env,
+            out_file=out_file,
+            raise_on_failure=raise_on_failure,
+            show_stdout=show_stdout,
+        )
+        if exit_status == 0:
+            # Check if guest panicked.
+            if self.env['emulator'] == 'gem5':
+                # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
+                # Grepping for '^panic: ' does not work because some errors don't show that message.
+                panic_msg = b'--- BEGIN LIBC BACKTRACE ---$'
+            else:
+                panic_msg = b'Kernel panic - not syncing'
+            panic_re = re.compile(panic_msg)
+            error_string_found = False
+            exit_status = 0
+            if out_file is not None and not self.env['dry_run']:
+                with open(self.env['termout_file'], 'br') as logfile:
+                    line = None
+                    for line in logfile:
+                        if panic_re.search(line):
                             exit_status = 1
-        if exit_status != 0:
-            self.log_error('simulation error detected by parsing logs')
+                    if line is not None:
+                        last_line = line.rstrip()
+                        match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
+                        if match:
+                            exit_status = int(match.group(1))
+                if not self.env['userland']:
+                    if os.path.exists(self.env['guest_terminal_file']):
+                        with open(self.env['guest_terminal_file'], 'br') as logfile:
+                            lines = logfile.readlines()
+                            if lines and lines[-1].rstrip() == self.env['magic_fail_string']:
+                                exit_status = 1
+            if exit_status != 0:
+                self.log_error('simulation error detected by parsing logs')
         return exit_status
 
 if __name__ == '__main__':

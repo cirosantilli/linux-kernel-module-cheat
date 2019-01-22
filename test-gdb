@@ -7,7 +7,11 @@ import common
 
 class Main(common.LkmcCliFunction):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            defaults={
+                'print_time': False,
+            },
+        )
         self.add_argument(
             'tests',
             metavar='tests',
@@ -19,8 +23,8 @@ found by searching for the Python test files.
         )
 
     def timed_main(self):
-        run = self.import_path('run').Main()
-        run_gdb = self.import_path('run-gdb').Main()
+        run = self.import_path_main('run')
+        run_gdb = self.import_path_main('run-gdb')
         if self.env['arch'] in self.env['crosstool_ng_supported_archs']:
             if self.env['tests'] == []:
                 test_scripts_noext = []
@@ -38,22 +42,17 @@ found by searching for the Python test files.
             else:
                 test_scripts_noext = self.env['tests']
             for test_script_noext in test_scripts_noext:
-                run_thread = threading.Thread(target=lambda: run(
-                    archs=[self.env['arch']],
-                    background=True,
-                    baremetal=test_script_noext,
-                    dry_run=self.env['dry_run'],
-                    emulators=self.env['emulator'],
-                    wait_gdb=True
-                ))
+                common_args = self.get_common_args()
+                common_args['baremetal'] = test_script_noext
+                test_id_string = self.test_setup(common_args, test_script_noext)
+                run_args = common_args.copy()
+                run_args['wait_gdb'] = True
+                run_args['background'] = True
+                run_thread = threading.Thread(target=lambda: run(**run_args))
                 run_thread.start()
-                run_gdb(
-                    archs=[self.env['arch']],
-                    baremetal=test_script_noext,
-                    dry_run=self.env['dry_run'],
-                    emulators=self.env['emulator'],
-                    test=True,
-                )
+                gdb_args = common_args.copy()
+                gdb_args['test'] = True
+                run_gdb(**gdb_args)
                 run_thread.join()
 
 if __name__ == '__main__':

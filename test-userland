@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 
 import common
 
 class Main(common.LkmcCliFunction):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            defaults={
+                'print_time': False,
+            },
+        )
         self.add_argument(
             'tests',
             metavar='tests',
@@ -17,13 +22,10 @@ If given, run only the given tests. Otherwise, run all tests.
         )
 
     def timed_main(self):
-        run = self.import_path('run').Main()
+        run = self.import_path_main('run')
+        run_args = self.get_common_args()
         if self.env['emulator'] == 'gem5':
-            extra_args = {
-                'userland_build_id': 'static',
-            }
-        else:
-            extra_args = {}
+            run_args['userland_build_id'] = 'static'
         if self.env['tests'] == []:
             sources = [
                 'add.c',
@@ -46,21 +48,19 @@ If given, run only the given tests. Otherwise, run all tests.
         else:
             sources = self.env['tests']
         for source in sources:
-            exit_status = run(
-                archs=[self.env['arch']],
-                dry_run=self.env['dry_run'],
-                userland=source,
-                emulators=[self.env['emulator']],
-                **extra_args,
-            )
+            run_args['userland'] = source
+            test_id_string = self.test_setup(run_args, source)
+            run_args['background'] = True
+            exit_status = run(**run_args)
             # TODO forward all args attempt. In particular, --dry-run.
             #new_env = self.env.copy()
             #new_env['userland'] = source
             #new_env['emulator'] = emulator
-            #new_env.update(extra_args)
+            #new_env.update(run_args)
             #exit_status = run(**new_env)
             if exit_status != 0:
-                raise Exception('Test failed: {} {} {} {}'.format(emulator, arch, source, exit_status))
+                self.log_error('test failed, program exit status: {} test id: {}'.format(exit_status, test_id_string))
+                sys.exit(1)
 
 if __name__ == '__main__':
     Main().cli()

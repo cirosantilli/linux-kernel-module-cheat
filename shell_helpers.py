@@ -31,18 +31,25 @@ class ShellHelpers:
 
     _print_lock = threading.Lock()
 
-    def __init__(self, dry_run=False):
+    def __init__(self, dry_run=False, quiet=False):
         '''
         :param dry_run: don't run the commands, just potentially print them. Debug aid.
         :type dry_run: Bool
+
+        :param quiet: don't print the commands.
+        :type dry_run: Bool
         '''
         self.dry_run = dry_run
+        self.quiet = quiet
 
     @classmethod
     def _print_thread_safe(cls, string):
-        # Python sucks: a naive print adds a bunch of random spaces to stdout,
-        # and then copy pasting the command fails.
-        # https://stackoverflow.com/questions/3029816/how-do-i-get-a-thread-safe-print-in-python-2-6
+        '''
+        Python sucks: a naive print adds a bunch of random spaces to stdout,
+        and then copy pasting the command fails.
+        https://stackoverflow.com/questions/3029816/how-do-i-get-a-thread-safe-print-in-python-2-6
+        The initial use case was test-gdb which must create a thread for GDB to run the program in parallel.
+        '''
         cls._print_lock.acquire()
         sys.stdout.write(string + '\n')
         sys.stdout.flush()
@@ -107,8 +114,7 @@ class ShellHelpers:
                         update=1,
                     )
 
-    @classmethod
-    def print_cmd(cls, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
+    def print_cmd(self, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
         '''
         Print cmd_to_string to stdout.
 
@@ -121,8 +127,9 @@ class ShellHelpers:
         if type(cmd) is str:
             cmd_string = cmd
         else:
-            cmd_string = cls.cmd_to_string(cmd, cwd=cwd, extra_env=extra_env, extra_paths=extra_paths)
-        cls._print_thread_safe('+ ' + cmd_string)
+            cmd_string = self.cmd_to_string(cmd, cwd=cwd, extra_env=extra_env, extra_paths=extra_paths)
+        if not self.quiet:
+            self._print_thread_safe('+ ' + cmd_string)
         if cmd_file is not None:
             with open(cmd_file, 'w') as f:
                 f.write('#!/usr/bin/env bash\n')
