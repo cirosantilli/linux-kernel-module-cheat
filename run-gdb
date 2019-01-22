@@ -35,9 +35,15 @@ class GdbTestcase:
         self.child.waitnoecho()
         self.child.expect(self.prompt)
         test = imp.load_source('test', test_script_path)
-        test.test(self)
+        exception = None
+        try:
+            test.test(self)
+        except AssertionError as e:
+            exception = e
         self.child.sendcontrol('d')
         self.child.close()
+        if exception is not None:
+            raise exception
 
     def before(self):
         return self.child.before.rstrip()
