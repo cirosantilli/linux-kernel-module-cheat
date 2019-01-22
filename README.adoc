@@ -721,62 +721,71 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 
 ==== Baremetal setup getting started
 
-QEMU:
+Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image.
+
+For example, to run link:baremetal/hello.c[] in QEMU do:
 
 ....
 ./build --arch aarch64 --download-dependencies qemu-baremetal
-./run --arch aarch64 --baremetal interactive/prompt
+./run --arch aarch64 --baremetal hello
 ....
 
-You are now left inside QEMU running the tiny baremetal system link:baremetal/interactive/prompt.c[], which uses the UART to:
-
-* print characters to the terminal
-* read characters from your keyboard
-
-A session looks like this after typing `abc`:
+The terminal prints:
 
 ....
-enter a character
-got: a
-new alloc of 1 bytes at address 0x0x4000a2c8
-enter a character
-got: b
-new alloc of 2 bytes at address 0x0x4000a2c8
-enter a character
-got: c
-new alloc of 4 bytes at address 0x0x4000a2c8
+hello
 ....
 
-To modify that program, edit:
+Now let's run link:baremetal/arch/aarch64/add.S[]:
 
 ....
-vim baremetal/interactive/prompt.c
-....
-
-and run:
-
-....
-./build-baremetal --arch aarch64
-....
-
-`./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements. `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
-
-Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image. You can run a different image with commands such as:
-
-....
-./run --arch aarch64 --baremetal exit
 ./run --arch aarch64 --baremetal arch/aarch64/add
 ....
 
-which will run respectively:
+This time, the terminal does not print anything, which indicates success.
 
-* link:baremetal/exit.c[]
-* link:baremetal/arch/aarch64/add.S[]
+If you look into the source, you will see that we just have an assertion there.
 
-Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`:
+You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[]:
 
 ....
-./run --arch aarch64 --baremetal baremetal/exit.c
+./run --arch aarch64 --baremetal interactive/assert_fail
+....
+
+and the terminal contains:
+
+....
+lkmc_test_fail
+error: simulation error detected by parsing logs
+....
+
+and the exit status of our script is 1:
+
+....
+echo $?
+....
+
+To modify a baremetal program, simply edit the file, .g.
+
+....
+vim baremetal/hello.c
+....
+
+and rebuild:
+
+....
+./build --arch aarch64 --download-dependencies qemu-baremetal
+./run --arch aarch64 --baremetal hello
+....
+
+`./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements.
+
+`./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
+
+Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`, for example the following also work:
+
+....
+./run --arch aarch64 --baremetal baremetal/hello.c
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
 ....
 
@@ -799,7 +808,7 @@ and then <<qemu-buildroot-setup,as usual>> open a shell with:
 ./gem5-shell
 ....
 
-Or as usualy, <<tmux>> users can do both in one go with:
+Or as usual, <<tmux>> users can do both in one go with:
 
 ....
 ./run --arch aarch64 --baremetal interactive/prompt --emulator gem5 --tmux
@@ -810,7 +819,7 @@ TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremet
 Note that `./build-baremetal` requires the `--emulator gem5` option, and generates separate executable images for both, as can be seen from:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt        image)"
+echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator qemu image)"
 echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 image)"
 ....
 
@@ -844,7 +853,9 @@ When doing bare metal programming, it is likely that you will want to learn asse
 * https://github.com/cirosantilli/x86-assembly-cheat
 * https://github.com/cirosantilli/arm-assembly-cheat
 
-For more information on baremetal, see the section: <<baremetal>>. The following subjects are particularly important:
+For more information on baremetal, see the section: <<baremetal>>.
+
+The following subjects are particularly important:
 
 * <<tracing>>
 * <<baremetal-gdb-step-debug>>
@@ -12136,7 +12147,7 @@ echo #?
 git bisect good
 
 # This leaves us at the offending commit.
-git bisect run ../biset-qemu-linux-boot
+git bisect run ../bisect-qemu-linux-boot
 
 # Clean up after the bisection.
 git bisect reset
@@ -12144,7 +12155,7 @@ git submodule update
 "${root_dir}/build-qemu" --clean --qemu-build-id bisect
 ....
 
-An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
+TODO broken, fix: An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
 
 === Update a forked submodule
 
