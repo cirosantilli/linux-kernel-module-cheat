@@ -169,6 +169,9 @@ class ShellHelpers:
 
         :param extra_env: extra environment variables to add when running the command
         :type extra_env: Dict[str,str]
+
+        :return: exit status of the command
+        :rtype: int
         '''
         if out_file is not None:
             stdout = subprocess.PIPE
