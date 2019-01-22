@@ -786,6 +786,7 @@ Valid emulators: {}
         Time the main of the derived class.
         '''
         env = kwargs.copy()
+        self.input_args = env.copy()
         env.update(consts)
         real_all_archs= env['all_archs']
         if real_all_archs:
