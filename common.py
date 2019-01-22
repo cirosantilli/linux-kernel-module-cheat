@@ -7,6 +7,7 @@ import copy
 import datetime
 import glob
 import imp
+import inspect
 import json
 import multiprocessing
 import os
@@ -288,6 +289,17 @@ Set the emulator to use. Ignore --gem5.
 Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
 '''
         )
+
+    def __call__(self, **kwargs):
+        '''
+        For Python code calls, print the CLI equivalent of the call.
+        '''
+        print_cmd = ['./' + inspect.getfile(self.__class__), LF]
+        for line in self.get_cli(**kwargs):
+            print_cmd.extend(line)
+            print_cmd.append(LF)
+        shell_helpers.ShellHelpers.print_cmd(print_cmd)
+        return super().__call__(**kwargs)
 
     def _init_env(self, env):
         '''
@@ -683,13 +695,14 @@ Use gem5 instead of QEMU. Shortcut for `--emulator gem5`.
         '''
         Time the main of the derived class.
         '''
-        if not kwargs['dry_run']:
+        myargs = kwargs.copy()
+        if not myargs['dry_run']:
             start_time = time.time()
-        kwargs.update(consts)
-        self._init_env(kwargs)
+        myargs.update(consts)
+        self._init_env(myargs)
         self.sh = shell_helpers.ShellHelpers(dry_run=self.env['dry_run'])
         ret = self.timed_main()
-        if not kwargs['dry_run']:
+        if not myargs['dry_run']:
             end_time = time.time()
             self._print_time(end_time - start_time)
         return ret

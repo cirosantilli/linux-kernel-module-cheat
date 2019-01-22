@@ -28,12 +28,25 @@ class ShellHelpers:
     Attempt to print shell equivalents of all commands to make things
     easy to debug and understand what is going on.
     '''
+
+    _print_lock = threading.Lock()
+
     def __init__(self, dry_run=False):
         '''
         :param dry_run: don't run the commands, just potentially print them. Debug aid.
         :type dry_run: Bool
         '''
         self.dry_run = dry_run
+
+    @classmethod
+    def _print_thread_safe(cls, string):
+        # Python sucks: a naive print adds a bunch of random spaces to stdout,
+        # and then copy pasting the command fails.
+        # https://stackoverflow.com/questions/3029816/how-do-i-get-a-thread-safe-print-in-python-2-6
+        cls._print_lock.acquire()
+        sys.stdout.write(string + '\n')
+        sys.stdout.flush()
+        cls._print_lock.release()
 
     def add_newlines(self, cmd):
         out = []
@@ -46,7 +59,8 @@ class ShellHelpers:
         if not self.dry_run:
             shutil.copy2(src, dest)
 
-    def cmd_to_string(self, cmd, cwd=None, extra_env=None, extra_paths=None):
+    @staticmethod
+    def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
         '''
         Format a command given as a list of strings so that it can
         be viewed nicely and executed by bash directly and print it to stdout.
@@ -93,7 +107,8 @@ class ShellHelpers:
                         update=1,
                     )
 
-    def print_cmd(self, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
+    @classmethod
+    def print_cmd(cls, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
         '''
         Print cmd_to_string to stdout.
 
@@ -106,8 +121,8 @@ class ShellHelpers:
         if type(cmd) is str:
             cmd_string = cmd
         else:
-            cmd_string = self.cmd_to_string(cmd, cwd=cwd, extra_env=extra_env, extra_paths=extra_paths)
-        print('+ ' + cmd_string)
+            cmd_string = cls.cmd_to_string(cmd, cwd=cwd, extra_env=extra_env, extra_paths=extra_paths)
+        cls._print_thread_safe('+ ' + cmd_string)
         if cmd_file is not None:
             with open(cmd_file, 'w') as f:
                 f.write('#!/usr/bin/env bash\n')
