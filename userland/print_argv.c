@@ -1,3 +1,5 @@
+/* Print each command line argument received, one per line. */
+
 #include <stdio.h>
 
 int main(int argc, char **argv) {

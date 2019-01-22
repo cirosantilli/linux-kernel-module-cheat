@@ -191,11 +191,9 @@ Path resolution is similar to --baremetal.
 '''
         )
         self.add_argument(
-            '--userland-before', default='',
+            '--userland-args',
             help='''\
-Pass these arguments to the QEMU user mode CLI before the program to execute.
-This is required with --userland since arguments that come at the end are interpreted
-as command line arguments to that executable.
+CLI arguments to pass to the userland executable.
 '''
         )
         self.add_argument(
@@ -230,6 +228,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         kernel_cli_after_dash = ''
         extra_emulator_args = []
         extra_qemu_args = []
+        if self.env['tmux_args'] is not None:
+            self.env['tmux'] = True
         if self.env['debug_vm']:
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
         else:
@@ -345,6 +345,8 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     self.env['gem5_se_file'], LF,
                     '--cmd', self.resolve_userland(self.env['userland']), LF,
                 ])
+                if self.env['userland_args'] is not None:
+                    cmd.extend(['--options', self.env['userland_args'], LF])
             else:
                 if self.env['gem5_script'] == 'fs':
                     # TODO port
@@ -429,11 +431,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         '-L', self.env['target_dir'], LF
                     ] +
                     qemu_user_and_system_options +
-                    self.sh.shlex_split(self.env['userland_before']) +
-                    debug_args +
-                    [
-                        self.resolve_userland(self.env['userland']), LF
-                    ]
+                    debug_args
                 )
             else:
                 if not os.path.exists(self.env['image']):
@@ -559,8 +557,6 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     )
                 if self.env['baremetal'] is None:
                     cmd.extend(append)
-        if self.env['tmux_args'] is not None:
-            self.env['tmux'] = True
         if self.env['tmux']:
             tmux_args = '--run-id {}'.format(self.env['run_id'])
             if self.env['emulator'] == 'gem5':
@@ -588,6 +584,11 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             ])
         cmd.extend(extra_emulator_args)
         cmd.extend(self.env['extra_emulator_args'])
+        if self.env['emulator'] == 'qemu' and self.env['userland']:
+            # The program and arguments must come at the every end of the CLI.
+            cmd.extend([self.resolve_userland(self.env['userland']), LF])
+            if self.env['userland_args'] is not None:
+                cmd.extend(self.sh.shlex_split(self.env['userland_args']))
         if debug_vm or self.env['terminal']:
             out_file = None
         else:
@@ -605,13 +606,15 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         exit_status = 0
         if out_file is not None and not self.env['dry_run']:
             with open(self.env['termout_file'], 'br') as logfile:
+                line = None
                 for line in logfile:
                     if panic_re.search(line):
                         exit_status = 1
-                last_line = line.rstrip()
-                match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
-                if match:
-                    exit_status = int(match.group(1))
+                if line is not None:
+                    last_line = line.rstrip()
+                    match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
+                    if match:
+                        exit_status = int(match.group(1))
             if not self.env['userland']:
                 if os.path.exists(self.env['guest_terminal_file']):
                     with open(self.env['guest_terminal_file'], 'br') as logfile:
