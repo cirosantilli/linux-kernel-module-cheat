@@ -73,6 +73,36 @@ This is equivalent to:
 ....
 ./%(prog)s --arch x86_64 qemu-buildroot
 ....
+
+Another important target is `all`:
+
+....
+./%(prog)s all
+....
+
+This does not trully build ALL configurations: that would be impractical.
+But more precisely: build the reference configuration of each major component.
+
+So e.g.: one config of Linux kenrel, Buildroot, gem5 and qemu.
+Don't do for example all possible gem5 configs: debug, opt and fast,
+as that would be huge. This ensures that every piece of software
+builds in at least one config.
+
+TODO looping over emulators is not currently supported by this script, e.g.:
+
+....
+./%(prog)s --arch x86_64 --arch aarch64 all
+....
+
+Instead, for the targets that are emulator dependent, you must select the
+taret version for the desired emulatore, e.g.:
+
+....
+./build --arch aarch64 baremetal-qemu baremetal-gem5
+....
+
+The reason is that some targets depend on emulator, while others don't,
+so looping over all of them would waste time.
 ''',
         )
         buildroot_component = _Component(
@@ -131,8 +161,9 @@ This is equivalent to:
 
         self.name_to_component_map = {
             'all': _Component(dependencies=[
-                'all-linux',
+                'qemu-gem5-buildroot',
                 'all-baremetal',
+                'user-mode-qemu',
             ]),
             'all-baremetal': _Component(dependencies=[
                     'qemu-baremetal',
@@ -141,12 +172,6 @@ This is equivalent to:
                 ],
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
-            'all-linux': _Component(dependencies=[
-                'qemu-gem5-buildroot',
-                'gem5-debug',
-                'gem5-fast',
-                'qemu-user',
-            ]),
             'baremetal': _Component(dependencies=[
                 'baremetal-gem5',
                 'baremetal-qemu',
@@ -282,11 +307,27 @@ This is equivalent to:
                 ],
                 supported_archs=common.consts['crosstool_ng_supported_archs'],
             ),
+            'test-user-mode': _Component(dependencies=[
+                'test-user-mode-qemu',
+                'test-user-mode-gem5',
+            ]),
+            'test-user-mode-qemu': _Component(dependencies=[
+                'user-mode-qemu',
+                'userland',
+            ]),
+            'test-user-mode-gem5': _Component(dependencies=[
+                'gem5',
+                'userland-gem5',
+            ]),
             'user-mode-qemu': _Component(
                 dependencies=['qemu-user', 'userland'],
             ),
             'userland': _Component(
                 self._build_file('build-userland'),
+                dependencies=['buildroot'],
+            ),
+            'userland-gem5': _Component(
+                self._build_file('build-userland', static=True, userland_build_id='static'),
                 dependencies=['buildroot'],
             ),
         }

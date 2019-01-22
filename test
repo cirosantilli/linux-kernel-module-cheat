@@ -1,16 +1,39 @@
-#!/usr/bin/env bash
-set -eu
-test_size=1
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --size)
-      test_size="$2"
-      shift 2
-      ;;
-  esac
-done
-./test-boot --size "$test_size"
-./test-userland --all-archs --all-emulators
-./test-gdb --all-archs --all-emulators
-./test-baremetal --all-archs --all-emulators
-./test-user-mode --all-archs --all-emulators
+#!/usr/bin/env python3
+
+import common
+import shell_helpers
+from shell_helpers import LF
+
+class Main(common.TestCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Run all tests in one go.
+'''
+        )
+        self.add_argument(
+            '--size',
+            default=1,
+            type=int,
+            help='''\
+Size of the tests to run. Scale:
+
+* 1: a few seconds and important
+* 2: < 5 minutes and important or a few seconds and not too important
+* 3: all
+'''
+        )
+
+    def timed_main(self):
+        run_args = self.get_common_args()
+        test_boot_args = run_args.copy()
+        test_boot_args['size'] = self.env['size']
+        self.run_test(self.import_path_main('test-boot'), test_boot_args, 'test-boot')
+        self.run_test(self.import_path_main('test-userland-full-system'), run_args, 'test-userland')
+        self.run_test(self.import_path_main('test-baremetal'), run_args, 'test-baremetal')
+        self.run_test(self.import_path_main('test-user-mode'), run_args, 'test-user-mode')
+        self.run_test(self.import_path_main('test-gdb'), run_args, 'test-gdb')
+
+if __name__ == '__main__':
+    Main().cli_exit()
+

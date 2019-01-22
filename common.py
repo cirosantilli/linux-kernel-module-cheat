@@ -802,6 +802,9 @@ Valid emulators: {}
         '''
         return self.import_path(path).Main()
 
+    def is_arch_supported(self, arch):
+        return self.supported_archs is None or arch in self.supported_archs
+
     def log_error(self, msg):
         print('error: {}'.format(msg), file=sys.stdout)
 
@@ -831,7 +834,7 @@ Valid emulators: {}
             for arch in real_archs:
                 if arch in env['arch_short_to_long_dict']:
                     arch = env['arch_short_to_long_dict'][arch]
-                if self.supported_archs is None or arch in self.supported_archs:
+                if self.is_arch_supported(arch):
                     if not env['dry_run']:
                         start_time = time.time()
                     env['arch'] = arch
@@ -1075,7 +1078,7 @@ Stop running at the first failed test.
 '''
         )
 
-    def run_test(self, run_obj, run_args, test_id=None):
+    def run_test(self, run_obj, run_args=None, test_id=None):
         '''
         This is a setup / run / teardown setup for simple tests that just do a single run.
 
@@ -1086,9 +1089,12 @@ Stop running at the first failed test.
         :param run_args: arguments to be passed to the runnable object
         :param test_id: test identifier, to be added in addition to of arch and emulator ids
         '''
-        test_id_string = self.test_setup(test_id)
-        exit_status = run_obj(**run_args)
-        self.test_teardown(run_obj, exit_status, test_id_string)
+        if run_obj.is_arch_supported(self.env['arch']):
+            if run_args is None:
+                run_args = {}
+            test_id_string = self.test_setup(test_id)
+            exit_status = run_obj(**run_args)
+            self.test_teardown(run_obj, exit_status, test_id_string)
 
     def test_setup(self, test_id):
         test_id_string = '{} {}'.format(self.env['emulator'], self.env['arch'])
