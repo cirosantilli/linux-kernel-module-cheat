@@ -6,10 +6,10 @@ import subprocess
 import re
 
 import common
-run = imp.load_source('run', os.path.join(common.root_dir, 'run'))
-qemu_trace2txt = imp.load_source('qemu_trace2txt', os.path.join(common.root_dir, 'qemu-trace2txt'))
+run = imp.load_source('run', os.path.join(kwargs['root_dir'], 'run'))
+qemu_trace2txt = imp.load_source('qemu_trace2txt', os.path.join(kwargs['root_dir'], 'qemu-trace2txt'))
 
-parser = common.get_argparse(argparse_args={
+parser = self.get_argparse(argparse_args={
     'description': '''Trace the PIC addresses executed on a Linux kernel boot.
 
 More information at: https://github.com/cirosantilli/linux-kernel-module-cheat#tracing
@@ -19,11 +19,11 @@ parser.add_argument(
     'extra_emulator_args', nargs='*',
     help='Extra options to append at the end of the emulator command line'
 )
-args = common.setup(parser)
+args = self.setup(parser)
 extra_args = {
-    'extra_emulator_args': args.extra_emulator_args,
+    'extra_emulator_args': kwargs['extra_emulator_args'],
 }
-if common.emulator == 'gem5':
+if kwargs['emulator'] == 'gem5':
     extra_args.update({
         'eval': 'm5 exit',
         'trace': 'Exec,-ExecSymbol,-ExecMicro',
@@ -39,10 +39,10 @@ else:
     # Instruction count.
     # We could put this on a separate script, but it just adds more arch boilerplate to a new script.
     # So let's just leave it here for now since it did not add a significant processing time.
-    kernel_entry_addr = hex(common.get_elf_entry(common.vmlinux))
+    kernel_entry_addr = hex(self.get_elf_entry(kwargs['vmlinux']))
     nlines = 0
     nlines_firmware = 0
-    with open(common.qemu_trace_txt_file, 'r') as trace_file:
+    with open(kwargs['qemu_trace_txt_file'], 'r') as trace_file:
         in_firmware = True
         for line in trace_file:
             line = line.rstrip()

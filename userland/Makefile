@@ -46,7 +46,9 @@ OUTS := $(addprefix $(OUT_DIR)/,$(OUTS))
 
 all: mkdir $(OUTS)
 	for subdir in $(SUBDIRS); do \
-	  $(MAKE) -C $${subdir} OUT_DIR="$(OUT_DIR)/$$subdir"; \
+	  if [ -d "$${subdir}" ]; then \
+	    $(MAKE) -C "$${subdir}" OUT_DIR="$(OUT_DIR)/$$subdir"; \
+	  fi \
 	done
 
 $(COMMON_OBJ): $(COMMON_DIR)/$(COMMON_BASENAME)$(IN_EXT_C)
@@ -64,7 +66,9 @@ $(OUT_DIR)/%$(OUT_EXT): %$(IN_EXT_CXX) $(COMMON_OBJ)
 clean:
 	rm -f *'$(OBJ_EXT)' *'$(OUT_EXT)'
 	for subdir in $(SUBDIRS); do \
-	  $(MAKE) -C $${subdir} clean; \
+	  if [ -d "$${subdir}" ]; then \
+	    $(MAKE) -C $${subdir} clean; \
+	  fi \
 	done
 
 mkdir:

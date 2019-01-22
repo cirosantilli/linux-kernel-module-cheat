@@ -3,42 +3,47 @@
 import os
 
 import common
+from shell_helpers import LF
 
-class M5Component(common.Component):
-    def get_make_cmd(self, args):
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__()
+
+    def _get_make_cmd(self):
         allowed_toolchains = ['buildroot']
-        cc = common.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
-        ld = common.get_toolchain_tool('ld', allowed_toolchains=allowed_toolchains)
-        if args.arch == 'x86_64':
+        cc = self.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
+        ld = self.get_toolchain_tool('ld', allowed_toolchains=allowed_toolchains)
+        if self.env['arch'] == 'x86_64':
             arch = 'x86'
         else:
-            arch = args.arch
+            arch = self.env['arch']
         return [
-            'make', common.Newline,
-            '-j', str(args.nproc), common.Newline,
-            '-f', 'Makefile.{}'.format(arch), common.Newline,
-            'CC={}'.format(cc), common.Newline,
-            'LD={}'.format(ld), common.Newline,
-            'PWD={}'.format(common.gem5_m5_src_dir), common.Newline,
+            'make', LF,
+            '-j', str(self.env['nproc']), LF,
+            '-f', 'Makefile.{}'.format(arch), LF,
+            'CC={}'.format(cc), LF,
+            'LD={}'.format(ld), LF,
+            'PWD={}'.format(self.env['gem5_m5_source_dir']), LF,
         ]
 
-    def do_build(self, args):
-        os.makedirs(common.gem5_m5_build_dir, exist_ok=True)
+    def build(self):
+        os.makedirs(self.env['gem5_m5_build_dir'], exist_ok=True)
         # We must clean first or else the build outputs of one arch can conflict with the other.
         # I should stop being lazy and go actually patch gem5 to support out of tree m5 build...
-        self.clean(args)
-        common.run_cmd(
-            self.get_make_cmd(args),
-            cwd=common.gem5_m5_src_dir,
+        self.clean()
+        self.sh.run_cmd(
+            self._get_make_cmd(),
+            cwd=self.env['gem5_m5_source_dir'],
         )
-        os.makedirs(common.out_rootfs_overlay_bin_dir, exist_ok=True)
-        common.cp(os.path.join(common.gem5_m5_src_dir, 'm5'), common.out_rootfs_overlay_bin_dir)
+        os.makedirs(self.env['out_rootfs_overlay_bin_dir'], exist_ok=True)
+        self.sh.cp(os.path.join(self.env['gem5_m5_source_dir'], 'm5'), self.env['out_rootfs_overlay_bin_dir'])
 
-    def clean(self, args):
-        common.run_cmd(
-            self.get_make_cmd(args) + ['clean', common.Newline],
-            cwd=common.gem5_m5_src_dir,
+    def clean(self):
+        self.sh.run_cmd(
+            self._get_make_cmd() + ['clean', LF],
+            cwd=self.env['gem5_m5_source_dir'],
         )
+        return None
 
 if __name__ == '__main__':
-    M5Component().build()
+    Main().cli()

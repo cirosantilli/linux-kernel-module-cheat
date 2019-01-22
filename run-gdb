@@ -7,18 +7,7 @@ import subprocess
 import sys
 
 import common
-
-defaults = {
-    'after': '',
-    'before': '',
-    'break_at': None,
-    'kgdb': False,
-    'no_continue': False,
-    'no_lxsymbols': False,
-    'test': False,
-    'sim': False,
-    'userland': None,
-}
+from shell_helpers import LF
 
 class GdbTestcase:
     def __init__(
@@ -34,8 +23,8 @@ class GdbTestcase:
         '''
         self.prompt = '\(gdb\) '
         self.source_path = source_path
-        common.print_cmd(cmd)
-        cmd = common.strip_newlines(cmd)
+        self.print_cmd(cmd)
+        cmd = self.strip_newlines(cmd)
         import pexpect
         self.child = pexpect.spawn(
             cmd[0],
@@ -84,155 +73,146 @@ class GdbTestcase:
         self.child.sendline(line)
         self.child.expect(self.prompt)
 
-def main(args, extra_args=None):
-    '''
-    :param args: argparse parse_argument() output. Must contain all the common options,
-                 but does not need GDB specific ones.
-    :type args: argparse.Namespace
-
-    :param extra_args: extra arguments to be added to args
-    :type extra_args: Dict[str,Any]
-
-    :return: GDB exit status
-    :rtype: int
-    '''
-    global defaults
-    args = common.resolve_args(defaults, args, extra_args)
-    after = common.shlex_split(args.after)
-    before = common.shlex_split(args.before)
-    no_continue = args.no_continue
-    if args.test:
-        no_continue = True
-        before.extend([
-            '-q', common.Newline,
-            '-nh', common.Newline,
-            '-ex', 'set confirm off', common.Newline
-        ])
-    elif args.verbose:
-        # The output of this would affect the tests.
-        # https://stackoverflow.com/questions/13496389/gdb-remote-protocol-how-to-analyse-packets
-        # Also be opinionated and set remotetimeout to allow you to step debug the emulator at the same time.
-        before.extend([
-            '-ex', 'set debug remote 1', common.Newline,
-            '-ex', 'set remotetimeout 99999', common.Newline,
-        ])
-    if args.break_at is not None:
-        break_at = ['-ex', 'break {}'.format(args.break_at), common.Newline]
-    else:
-        break_at = []
-    linux_full_system = (common.baremetal is None and args.userland is None)
-    if args.userland:
-        image = common.resolve_userland(args.userland)
-    elif common.baremetal:
-        image = common.image
-        test_script_path = os.path.splitext(common.source_path)[0] + '.py'
-    else:
-        image = common.vmlinux
-    if common.baremetal:
-        allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
-    else:
-        allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
-    cmd = (
-        [common.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), common.Newline] +
-        before +
-        ['-q', common.Newline]
-    )
-    if linux_full_system:
-        cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(common.linux_build_dir), common.Newline])
-    if args.sim:
-        target = 'sim'
-    else:
-        if args.kgdb:
-            port = common.extra_serial_port
-        else:
-            port = common.gdb_port
-        target = 'remote localhost:{}'.format(port)
-    cmd.extend([
-        '-ex', 'file {}'.format(image), common.Newline,
-        '-ex', 'target {}'.format(target), common.Newline,
-    ])
-    if not args.kgdb:
-        cmd.extend(break_at)
-    if not no_continue:
-        # ## lx-symbols
-        #
-        # ### lx-symbols after continue
-        #
-        # lx symbols must be run after continue.
-        #
-        # running it immediately after the connect on the bootloader leads to failure,
-        # likely because kernel structure on which it depends are not yet available.
-        #
-        # With this setup, continue runs, and lx-symbols only runs when a break happens,
-        # either by hitting the breakpoint, or by entering Ctrl + C.
-        #
-        # Sure, if the user sets a break on a raw address of the bootloader,
-        # problems will still arise, but let's think about that some other time.
-        #
-        # ### lx-symbols autoload
-        #
-        # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
-        # which gets put on the kernel build root when python debugging scripts are enabled.
-        cmd.extend(['-ex', 'continue', common.Newline])
-        if not args.no_lxsymbols and linux_full_system:
-            cmd.extend(['-ex', 'lx-symbols {}'.format(common.kernel_modules_build_subdir), common.Newline])
-    cmd.extend(after)
-    if args.test:
-        GdbTestcase(
-            common.source_path,
-            test_script_path,
-            cmd,
-            verbose=args.verbose,
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(description='''\
+Connect with GDB to an emulator to debug Linux itself
+''')
+        self.add_argument(
+            '-A', '--after', default='',
+            help='Pass extra arguments to GDB, to be appended after all other arguments'
         )
-    else:
-        # I would rather have cwd be out_rootfs_overlay_dir,
-        # but then lx-symbols cannot fine the vmlinux and fails with:
-        # vmlinux: No such file or directory.
-        return common.run_cmd(
-            cmd,
-            cmd_file=os.path.join(common.run_dir, 'run-gdb.sh'),
-            cwd=common.linux_build_dir
+        self.add_argument(
+            '--before', default='',
+            help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
         )
-
-if __name__ == '__main__':
-    parser = common.get_argparse(argparse_args={'description': 'Connect with GDB to an emulator to debug Linux itself'})
-    parser.add_argument(
-        '-A', '--after', default=defaults['after'],
-        help='Pass extra arguments to GDB, to be appended after all other arguments'
-    )
-    parser.add_argument(
-        '--before', default=defaults['before'],
-        help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
-    )
-    parser.add_argument(
-        '-C', '--no-continue', default=defaults['no_continue'], action='store_true',
-        help="Don't run continue after connecting"
-    )
-    parser.add_argument(
-        '-k', '--kgdb', default=defaults['kgdb'], action='store_true'
-    )
-    parser.add_argument(
-        '--sim', default=defaults['sim'], action='store_true',
-        help='''Use the built-in GDB CPU simulator
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
-'''
-    )
-    parser.add_argument(
-        '-X', '--no-lxsymbols', default=defaults['no_lxsymbols'], action='store_true'
-    )
-    parser.add_argument(
-        '--test', default=defaults['test'], action='store_true',
-        help='''\
+        self.add_argument(
+            'break_at', nargs='?',
+            help='Extra options to append at the end of the emulator command line'
+        )
+        self.add_argument(
+            '-k', '--kgdb', default=False,
+        )
+        self.add_argument(
+            '-C', '--no-continue', default=False,
+            help="Don't run continue after connecting"
+        )
+        self.add_argument(
+            '-X', '--no-lxsymbols', default=False,
+        )
+        self.add_argument(
+            '--test', default=False,
+            help='''\
 Run an expect test case instead of interactive usage. For baremetal and userland,
 the script is a .py file next to the source code.
 '''
-    )
-    parser.add_argument(
-        '-u', '--userland', default=defaults['userland'],
-    )
-    parser.add_argument(
-        'break_at', nargs='?',
-        help='Extra options to append at the end of the emulator command line'
-    )
-    args = common.setup(parser)
-    sys.exit(main(args))
+        )
+        self.add_argument(
+            '--sim', default=False,
+            help='''Use the built-in GDB CPU simulator
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
+'''
+        )
+        self.add_argument(
+            '-u', '--userland',
+        )
+
+    def timed_main(self):
+        after = self.sh.shlex_split(self.env['after'])
+        before = self.sh.shlex_split(self.env['before'])
+        no_continue = self.env['no_continue']
+        if self.env['test']:
+            no_continue = True
+            before.extend([
+                '-q', LF,
+                '-nh', LF,
+                '-ex', 'set confirm off', LF
+            ])
+        elif self.env['verbose']:
+            # The output of this would affect the tests.
+            # https://stackoverflow.com/questions/13496389/gdb-remote-protocol-how-to-analyse-packets
+            # Also be opinionated and set remotetimeout to allow you to step debug the emulator at the same time.
+            before.extend([
+                '-ex', 'set debug remote 1', LF,
+                '-ex', 'set remotetimeout 99999', LF,
+            ])
+        if self.env['break_at'] is not None:
+            break_at = ['-ex', 'break {}'.format(self.env['break_at']), LF]
+        else:
+            break_at = []
+        linux_full_system = (self.env['baremetal'] is None and self.env['userland'] is None)
+        if self.env['userland']:
+            image = self.resolve_userland(self.env['userland'])
+        elif self.env['baremetal']:
+            image = self.env['image']
+            test_script_path = os.path.splitext(self.env['source_path'])[0] + '.py'
+        else:
+            image = self.env['vmlinux']
+        if self.env['baremetal']:
+            allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
+        else:
+            allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
+        cmd = (
+            [self.get_toolchain_tool('gdb', allowed_toolchains=allowed_toolchains), LF] +
+            before +
+            ['-q', LF]
+        )
+        if linux_full_system:
+            cmd.extend(['-ex', 'add-auto-load-safe-path {}'.format(self.env['linux_build_dir']), LF])
+        if self.env['sim']:
+            target = 'sim'
+        else:
+            if self.env['kgdb']:
+                port = self.env['extra_serial_port']
+            else:
+                port = self.env['gdb_port']
+            target = 'remote localhost:{}'.format(port)
+        cmd.extend([
+            '-ex', 'file {}'.format(image), LF,
+            '-ex', 'target {}'.format(target), LF,
+        ])
+        if not self.env['kgdb']:
+            cmd.extend(break_at)
+        if not no_continue:
+            # ## lx-symbols
+            #
+            # ### lx-symbols after continue
+            #
+            # lx symbols must be run after continue.
+            #
+            # running it immediately after the connect on the bootloader leads to failure,
+            # likely because kernel structure on which it depends are not yet available.
+            #
+            # With this setup, continue runs, and lx-symbols only runs when a break happens,
+            # either by hitting the breakpoint, or by entering Ctrl + C.
+            #
+            # Sure, if the user sets a break on a raw address of the bootloader,
+            # problems will still arise, but let's think about that some other time.
+            #
+            # ### lx-symbols autoload
+            #
+            # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
+            # which gets put on the kernel build root when python debugging scripts are enabled.
+            cmd.extend(['-ex', 'continue', LF])
+            if not self.env['no_lxsymbols'] and linux_full_system:
+                cmd.extend(['-ex', 'lx-symbols {}'.format(self.env['kernel_modules_build_subdir']), LF])
+        cmd.extend(after)
+        if self.env['test']:
+            GdbTestcase(
+                self.env['source_path'],
+                test_script_path,
+                cmd,
+                verbose=self.env['verbose'],
+            )
+        else:
+            # I would rather have cwd be out_rootfs_overlay_dir,
+            # but then lx-symbols cannot fine the vmlinux and fails with:
+            # vmlinux: No such file or directory.
+            return self.sh.run_cmd(
+                cmd,
+                cmd_file=os.path.join(self.env['run_dir'], 'run-gdb.sh'),
+                cwd=self.env['linux_build_dir']
+            )
+
+if __name__ == '__main__':
+    Main().cli()

@@ -830,6 +830,14 @@ For more information on baremetal, see the section: <<baremetal>>. The following
 * <<tracing>>
 * <<baremetal-gdb-step-debug>>
 
+=== User mode setup
+
+Much like <<baremetal-setup>>, this is another fun setup that does not require Buildroot or the Linux kernel.
+
+See: <<user-mode-simulation>>
+
+TODO: test it out on a clean repo.
+
 [[gdb]]
 == GDB step debug
 
@@ -960,7 +968,7 @@ This automatically clears the GDB pane, and starts a new one.
 Pass extra GDB arguments with:
 
 ....
-./run --wait-gdb --tmux=start_kernel
+./run --wait-gdb --tmux --tmux-args start_kernel
 ....
 
 See the tmux manual for further details:
@@ -2986,7 +2994,8 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
 ./run \
   --arch aarch64 \
   --userland print_argv \
-  --tmux=main \
+  --tmux \
+  --tmux-args main \
   --wait-gdb \
   -- \
   asdf qwer \
@@ -4106,6 +4115,12 @@ That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux
 
 `arm`, on the other hand, uses link:https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_arm_vexpress_defconfig[`buildroot/configs/qemu_arm_vexpress_defconfig`], which contains `BR2_LINUX_KERNEL_DEFCONFIG="vexpress"`, and therefore just does a `make vexpress_defconfig`, and gets its config from the Linux kernel tree itself.
 
+====== Linux kernel defconfigs
+
+It would be interesting to test out if `make defconfig` configs boot and work on QEMU + Buildroot: https://unix.stackexchange.com/questions/29439/compiling-the-kernel-with-default-configurations/204512#204512
+
+TODO.
+
 ===== Notable alternate gem5 kernel configs
 
 Other configs which we had previously tested at 4e0d9af81fcce2ce4e777cb82a1990d7c2ca7c1e are:
@@ -5074,7 +5089,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-after 'insmod /dump_stack.ko' --wait-gdb --tmux=dump_stack
+./run --eval-after 'insmod /dump_stack.ko' --wait-gdb --tmux --tmux-args dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -8206,7 +8221,7 @@ And in QEMU:
 Or for a faster development loop:
 
 ....
-./run --debug-vm='-ex "break edu_mmio_read" -ex "run"'
+./run --debug-vm --debug-vm-args '-ex "break edu_mmio_read" -ex "run"'
 ....
 
 When in <<qemu-text-mode>>, using `--debug-vm` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest program like:
@@ -8529,8 +8544,8 @@ List all available debug flags:
 but to understand most of them you have to look at the source code:
 
 ....
-less "$(./getvar gem5_src_dir)/src/cpu/SConscript"
-less "$(./getvar gem5_src_dir)/src/cpu/exetrace.cc"
+less "$(./getvar gem5_source_dir)/src/cpu/SConscript"
+less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"
 ....
 
 The traces are generated from `DPRINTF(<trace-id>` calls scattered throughout the code.
@@ -9971,7 +9986,7 @@ The `--gem5-script biglittle` option enables the alternative `configs/example/ar
 First apply:
 
 ....
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-biglittle.patch
+patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-biglittle.patch
 ....
 
 then:
@@ -10327,13 +10342,13 @@ then on the second shell:
 Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux=main
+./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux --tmux-args main
 ....
 
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux=--no-continue
+./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux --tmux-args --no-continue
 ....
 
 Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
@@ -10341,7 +10356,7 @@ Now you can just `stepi` to when jumping into main to go to the C code in link:b
 This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
 ....
-./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb --tmux=--no-continue
+./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb --tmux --tmux-args --no-continue
 ....
 
 The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.
@@ -10369,7 +10384,7 @@ The most important things that we setup in the bootloaders are:
 The C functions that become available as a result are:
 
 * Newlib functions implemented at link:baremetal/lib/syscalls.c[]
-* non-Newlib functions implemented at link:common.c[]
+* non-Newlib functions implemented at link:kwargs['c'][]
 
 It is not possible to call those C functions from the examples that don't use a bootloader.
 
@@ -10401,7 +10416,7 @@ svc 0x00123456
 
 and we can see from the docs that `0x18` stands for the `SYS_EXIT` command.
 
-This is also how we implement the `exit(0)` system call in C for QEMU for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/common.c[].
+This is also how we implement the `exit(0)` system call in C for QEMU for link:baremetal/exit.c[] through the Newlib via the function `_exit` at link:baremetal/lib/kwargs['c'][].
 
 Other magic operations we can do with semihosting besides exiting the on the host include:
 
@@ -10441,7 +10456,7 @@ Bibliography:
 For gem5, you need:
 
 ....
-patch -d "$(./getvar gem5_src_dir)" -p 1 < patches/manual/gem5-semihost.patch
+patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-semihost.patch
 ....
 
 https://stackoverflow.com/questions/52475268/how-to-enable-arm-semihosting-in-gem5/52475269#52475269
@@ -11500,17 +11515,17 @@ Analogous to the <<linux-kernel-build-variants>> but with the `--gem5-build-id` 
 ./build-gem5
 
 # Build another branch.
-git -C "$(./getvar gem5_src_dir)" checkout some-branch
+git -C "$(./getvar gem5_source_dir)" checkout some-branch
 ./build-gem5 --gem5-build-id some-branch
 
 # Restore master.
-git -C "$(./getvar gem5_src_dir)" checkout -
+git -C "$(./getvar gem5_source_dir)" checkout -
 
 # Run master.
 ./run --gem5
 
 # Run another branch.
-git -C "$(./getvar gem5_src_dir)" checkout some-branch
+git -C "$(./getvar gem5_source_dir)" checkout some-branch
 ./run --gem5-build-id some-branch --gem5
 ....
 
