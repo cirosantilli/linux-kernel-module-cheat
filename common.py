@@ -187,7 +187,7 @@ TODO: implement fully, some stuff is escaping it currently.
 '''
         )
         self.add_argument(
-            '--quit-on-failure',
+            '--quit-on-fail',
             default=True,
             help='''\
 Stop running at the first failed test.
@@ -878,7 +878,7 @@ Valid emulators: {}
                             self.print_time(self.ellapsed_seconds)
                         if ret is not None and ret != 0:
                             return_value = ret
-                            if self.env['quit_on_failure']:
+                            if self.env['quit_on_fail']:
                                 raise GetOutOfLoop()
                     elif not real_all_archs:
                         raise Exception('Unsupported arch for this action: ' + arch)
@@ -1141,7 +1141,7 @@ class TestCliFunction(LkmcCliFunction):
                 test_result = TestResult.PASS
             else:
                 test_result = TestResult.FAIL
-                if self.env['quit_on_failure']:
+                if self.env['quit_on_fail']:
                     self.log_error('Test failed')
                     sys.exit(1)
             self.log_info('test_result {}'.format(test_result.name))
