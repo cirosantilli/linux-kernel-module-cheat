@@ -770,7 +770,7 @@ Valid emulators: {}
     def log_error(self, msg):
         print('error: {}'.format(msg), file=sys.stdout)
 
-    def log_info(self, msg, flush=False, **kwargs):
+    def log_info(self, msg='', flush=False, **kwargs):
         if not self.env['quiet']:
             print('{}'.format(msg), **kwargs)
         if flush:
@@ -935,10 +935,18 @@ Valid emulators: {}
         test_id_string = '{} {} {}'.format(self.env['emulator'], self.env['arch'], source)
         if self.env['verbose']:
             end = '\n'
-        else:
+        elif not self.env['dry_run']:
             end = ' '
+        else:
+            end = ''
         self.log_info(test_id_string, flush=True, end=end)
         return test_id_string
+
+    def test_teardown(self, run_object):
+        if self.env['dry_run']:
+            self.log_info()
+        else:
+            self.log_info(self.seconds_to_hms(run_object.ellapsed_seconds))
 
     def timed_main(self):
         '''
