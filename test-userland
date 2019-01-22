@@ -5,32 +5,47 @@ import os
 import common
 
 class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__()
+        self.add_argument(
+            'tests',
+            metavar='tests',
+            nargs='*',
+            help='''\
+If given, run only the given tests. Otherwise, run all tests.
+'''
+        )
+
     def timed_main(self):
         run = self.import_path('run').Main()
-        sources = [
-            'add.c',
-            'hello.c',
-            'hello_cpp.cpp',
-            'print_argv.c',
-        ]
         if self.env['emulator'] == 'gem5':
             extra_args = {
                 'userland_build_id': 'static',
             }
         else:
             extra_args = {}
-        if self.env['arch'] == 'x86_64':
-            arch_sources = [
-                'asm_hello'
+        if self.env['tests'] == []:
+            sources = [
+                'add.c',
+                'hello.c',
+                'hello_cpp.cpp',
+                'print_argv.c',
             ]
-        elif self.env['arch'] == 'aarch64':
-            arch_sources = [
-                'asm_hello'
-            ]
+            if self.env['arch'] == 'x86_64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            elif self.env['arch'] == 'aarch64':
+                arch_sources = [
+                    'asm_hello'
+                ]
+            else:
+                arch_sources = []
+            arch_sources[:] = [os.path.join('arch', self.env['arch'], arch_source) for arch_source in arch_sources]
+            sources.extend(arch_sources)
         else:
-            arch_sources = []
-        arch_sources[:] = [os.path.join('arch', self.env['arch'], arch_source) for arch_source in arch_sources]
-        for source in sources + arch_sources:
+            sources = self.env['tests']
+        for source in sources:
             exit_status = run(
                 archs=[self.env['arch']],
                 dry_run=self.env['dry_run'],
