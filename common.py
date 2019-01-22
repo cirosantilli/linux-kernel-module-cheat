@@ -389,44 +389,27 @@ Valid emulators: {}
             return os.path.join(*paths)
         if env['emulator'] in env['emulator_short_to_long_dict']:
             env['emulator'] = env['emulator_short_to_long_dict'][env['emulator']]
-        if env['userland_build_id'] is None:
+        if not env['_args_given']['userland_build_id']:
             env['userland_build_id'] = env['default_build_id']
-            env['userland_build_id_given'] = False
-        else:
-            env['userland_build_id_given'] = True
-        if env['gem5_build_id'] is None:
-            if env['gem5_worktree'] is not None:
+        if not env['_args_given']['gem5_build_id']:
+            if env['_args_given']['gem5_worktree']:
                 env['gem5_build_id'] = env['gem5_worktree']
             else:
                 env['gem5_build_id'] = consts['default_build_id']
         env['is_arm'] = False
         if env['arch'] == 'arm':
             env['armv'] = 7
-            env['gem5_arch'] = 'ARM'
             env['mcpu'] = 'cortex-a15'
             env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-uclibcgnueabihf'
             env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
             env['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
-            if env['emulator'] == 'gem5':
-                if env['machine'] is None:
-                    env['machine'] = 'VExpress_GEM5_V1'
-            else:
-                if env['machine'] is None:
-                    env['machine'] = 'virt'
             env['is_arm'] = True
         elif env['arch'] == 'aarch64':
             env['armv'] = 8
-            env['gem5_arch'] = 'ARM'
             env['mcpu'] = 'cortex-a57'
             env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-uclibc'
             env['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
             env['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
-            if env['emulator'] == 'gem5':
-                if env['machine'] is None:
-                    env['machine'] = 'VExpress_GEM5_V1'
-            else:
-                if env['machine'] is None:
-                    env['machine'] = 'virt'
             env['is_arm'] = True
         elif env['arch'] == 'x86_64':
             env['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
@@ -434,11 +417,19 @@ Valid emulators: {}
             env['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-uclibc'
             env['ubuntu_toolchain_prefix'] = 'x86_64-linux-gnu'
             if env['emulator'] == 'gem5':
-                if env['machine'] is None:
+                if not env['_args_given']['machine']:
                     env['machine'] = 'TODO'
             else:
-                if env['machine'] is None:
+                if not env['_args_given']['machine']:
                     env['machine'] = 'pc'
+        if env['is_arm']:
+            env['gem5_arch'] = 'ARM'
+            if env['emulator'] == 'gem5':
+                if not env['_args_given']['machine']:
+                    env['machine'] = 'VExpress_GEM5_V1'
+            else:
+                if not env['_args_given']['machine']:
+                    env['machine'] = 'virt'
 
         # Buildroot
         env['buildroot_build_dir'] = join(env['buildroot_out_dir'], 'build', env['buildroot_build_id'], env['arch'])
@@ -456,7 +447,7 @@ Valid emulators: {}
         env['staging_dir'] = join(env['out_dir'], 'staging', env['arch'])
         env['buildroot_staging_dir'] = join(env['buildroot_build_dir'], 'staging')
         env['target_dir'] = join(env['buildroot_build_dir'], 'target')
-        if env['linux_source_dir'] is None:
+        if not env['_args_given']['linux_source_dir']:
             env['linux_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
         common.extract_vmlinux = os.path.join(env['linux_source_dir'], 'scripts', 'extract-vmlinux')
         env['linux_buildroot_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
@@ -469,7 +460,7 @@ Valid emulators: {}
         env['qemu_img_executable'] = join(env['qemu_build_dir'], env['qemu_img_basename'])
 
         # gem5
-        if env['gem5_build_dir'] is None:
+        if not env['_args_given']['gem5_build_dir']:
             env['gem5_build_dir'] = join(env['gem5_out_dir'], env['gem5_build_id'], env['gem5_build_type'])
         env['gem5_fake_iso'] = join(env['gem5_out_dir'], 'fake.iso')
         env['gem5_m5term'] = join(env['gem5_build_dir'], 'm5term')
@@ -518,7 +509,7 @@ Valid emulators: {}
         env['gem5_out_dir'] = join(env['out_dir'], 'gem5')
 
         # Ports
-        if env['port_offset'] is None:
+        if not env['_args_given']['port_offset']:
             try:
                 env['port_offset'] = int(env['run_id'])
             except ValueError:
@@ -552,7 +543,7 @@ Valid emulators: {}
         env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
 
         # Linux kernl.
-        if env['linux_build_dir'] is None:
+        if not env['_args_given']['linux_build_dir']:
             env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
         env['lkmc_vmlinux'] = join(env['linux_build_dir'], 'vmlinux')
         if env['arch'] == 'arm':
@@ -609,7 +600,7 @@ Valid emulators: {}
             env['qcow2_file'] = env['buildroot_qcow2_file']
 
         # Image
-        if env['baremetal'] is None:
+        if not env['_args_given']['baremetal']:
             if env['emulator'] == 'gem5':
                 env['image'] = env['vmlinux']
                 env['disk_image'] = env['rootfs_raw_file']
@@ -679,7 +670,7 @@ Valid emulators: {}
         return files
 
     def get_common_args(self):
-        return {key:self.env[key] for key in self._common_args}
+        return {key:self.env[key] for key in self._common_args | {'_args_given'}}
 
     def get_stats(self, stat_re=None, stats_file=None):
         if stat_re is None:

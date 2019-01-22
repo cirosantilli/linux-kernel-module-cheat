@@ -155,6 +155,12 @@ class CliFunction:
         return '\n'.join(str(arg[key]) for key in self._arguments)
 
     def _get_args(self, kwargs):
+        '''
+        Resolve default arguments from the config file and CLI param defaults.
+
+        Add an extra _args_given argument which determines if an argument was given or not.
+        If _args_given is already present in kwargs, preserve it.
+        '''
         args_with_defaults = kwargs.copy()
         # Add missing args from config file.
         config_file = None
@@ -189,7 +195,10 @@ class CliFunction:
                     args_with_defaults[key] = argument.default
                 else:
                     raise Exception('Value not given for mandatory argument: ' + key)
-        args_with_defaults['_args_given'] = args_given
+        if '_args_given' in kwargs:
+            args_with_defaults['_args_given'] = kwargs['_args_given']
+        else:
+            args_with_defaults['_args_given'] = args_given
         if 'config_file' in args_with_defaults:
             del args_with_defaults['config_file']
         return args_with_defaults
