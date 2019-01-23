@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import base64
 import collections
 import copy
 import datetime
@@ -295,6 +294,24 @@ inside baremetal/ and then try to use corresponding executable.
             help='Boot with the Buildroot Linux kernel instead of our custom built one. Mostly for sanity checks.'
         )
 
+        # Android.
+        self.add_argument(
+            '--rootfs-type', default='buildroot', choices=('buildroot', 'android'),
+            help='Which rootfs to use.'
+        )
+        self.add_argument(
+            '--android-version', default='8.1.0_r60',
+            help='Which android version to use. implies --rootfs-type android'
+        )
+        self.add_argument(
+            '--android-base-dir',
+            help='''\
+If given, place all android sources and build files into the given directory.
+One application of this is to put those large directories in your HD instead
+of SSD.
+'''
+        )
+
         # crosstool-ng
         self.add_argument(
             '--crosstool-ng-build-id', default=consts['default_build_id'],
@@ -307,19 +324,18 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
 '''
         )
 
-        self.add_argument(
-            '--machine',
-            help='''Machine type.
-QEMU default: virt
-gem5 default: VExpress_GEM5_V1
-See the documentation for other values known to work.
-'''
-        )
-
         # QEMU.
         self.add_argument(
             '-Q', '--qemu-build-id', default=consts['default_build_id'],
             help='QEMU build ID. Allows you to keep multiple separate QEMU builds.'
+        )
+        self.add_argument(
+            '--machine',
+            help='''\
+Machine type:
+* QEMU default: virt
+* gem5 default: VExpress_GEM5_V1
+'''
         )
 
         # Userland.
@@ -491,6 +507,14 @@ Valid emulators: {}
         common.extract_vmlinux = os.path.join(env['linux_source_dir'], 'scripts', 'extract-vmlinux')
         env['linux_buildroot_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
 
+        # Android
+        if not env['_args_given']['android_base_dir']:
+            env['android_base_dir'] = join(env['out_dir'], 'android')
+        env['android_dir'] = join(env['android_base_dir'], env['android_version'])
+        env['android_build_dir'] = join(env['android_dir'], 'out')
+        env['repo_path'] = join(env['android_base_dir'], 'repo')
+        env['repo_path_base64'] = env['repo_path'] + '.base64'
+
         # QEMU
         env['qemu_build_dir'] = join(env['out_dir'], 'qemu', env['qemu_build_id'])
         env['qemu_executable_basename'] = 'qemu-system-{}'.format(env['arch'])
@@ -586,12 +610,15 @@ Valid emulators: {}
             env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
         env['lkmc_vmlinux'] = join(env['linux_build_dir'], 'vmlinux')
         if env['arch'] == 'arm':
+            env['android_arch'] = 'arm'
             env['linux_arch'] = 'arm'
             env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'zImage')
         elif env['arch'] == 'aarch64':
+            env['android_arch'] = 'arm64'
             env['linux_arch'] = 'arm64'
             env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'Image')
         elif env['arch'] == 'x86_64':
+            env['android_arch'] = 'x86_64'
             env['linux_arch'] = 'x86'
             env['linux_image_prefix'] = join('arch', env['linux_arch'], 'boot', 'bzImage')
         env['lkmc_linux_image'] = join(env['linux_build_dir'], env['linux_image_prefix'])
@@ -694,10 +721,6 @@ Valid emulators: {}
         if self._is_common:
             self._common_args.add(key)
         super().add_argument(*args, **kwargs)
-
-    @staticmethod
-    def base64_encode(string):
-        return base64.b64encode(string.encode()).decode()
 
     def get_elf_entry(self, elf_file_path):
         readelf_header = subprocess.check_output([

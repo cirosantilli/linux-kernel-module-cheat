@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import base64
 import distutils.file_util
 import itertools
 import os
@@ -62,10 +63,27 @@ class ShellHelpers:
             out.extend([arg, LF])
         return out
 
-    def cp(self, src, dest, **kwargs):
-        self.print_cmd(['cp', src, dest])
-        if not self.dry_run:
-            shutil.copy2(src, dest)
+    def base64_encode(self, string):
+        '''
+        TODO deal with redirection and print nicely.
+        '''
+        return base64.b64encode(string.encode()).decode()
+
+    def base64_decode(self, string):
+        return base64.b64decode(string.encode()).decode()
+
+    def chmod(self, path, add_rm_abs='+', mode_delta=stat.S_IXUSR):
+        '''
+        TODO extend further, shell print equivalent.
+        '''
+        old_mode = os.stat(path).st_mode
+        if add_rm_abs == '+':
+            new_mode = old_mode | mode_delta
+        elif add_rm_abs == '':
+            new_mode = mode_delta
+        elif add_rm_abs == '-':
+            new_mode = old_mode & ~mode_delta
+        os.chmod(path, new_mode)
 
     @staticmethod
     def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
@@ -115,6 +133,11 @@ class ShellHelpers:
                         update=1,
                     )
 
+    def cp(self, src, dest, **kwargs):
+        self.print_cmd(['cp', src, dest])
+        if not self.dry_run:
+            shutil.copy2(src, dest)
+
     def print_cmd(self, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
         '''
         Print cmd_to_string to stdout.
@@ -135,8 +158,7 @@ class ShellHelpers:
             with open(cmd_file, 'w') as f:
                 f.write('#!/usr/bin/env bash\n')
                 f.write(cmd_string)
-            st = os.stat(cmd_file)
-            os.chmod(cmd_file, st.st_mode | stat.S_IXUSR)
+            self.chmod(cmd_file)
 
     def run_cmd(
             self,
@@ -260,7 +282,10 @@ class ShellHelpers:
         return self.add_newlines(shlex.split(string))
 
     def strip_newlines(self, cmd):
-        return [x for x in cmd if x != LF]
+        if type(cmd) is str:
+            return cmd
+        else:
+            return [x for x in cmd if x != LF]
 
     def rmrf(self, path):
         self.print_cmd(['rm', '-r', '-f', path, LF])

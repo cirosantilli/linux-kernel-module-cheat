@@ -199,7 +199,9 @@ class CliFunction:
         # Add missing args from hard-coded defaults.
         for key in self._arguments:
             argument = self._arguments[key]
-            if (not key in args_with_defaults) or args_with_defaults[key] is None:
+            # TODO: in (None, []) is ugly, and will probably go wrong at some point,
+            # there must be a better way to do it, but I'm lazy now to think.
+            if (not key in args_with_defaults) or args_with_defaults[key] in (None, []):
                 if argument.optional:
                     args_with_defaults[key] = argument.default
                 else:
@@ -231,6 +233,9 @@ class CliFunction:
         for key in self._arguments:
             argument = self._arguments[key]
             parser.add_argument(*argument.args, **argument.kwargs)
+            # print(key)
+            # print(argument.args)
+            # print(argument.kwargs)
             if argument.is_bool:
                 new_longname = '--no' + argument.longname[1:]
                 kwargs = argument.kwargs.copy()
@@ -245,10 +250,10 @@ class CliFunction:
 
     def cli(self, *args, **kwargs):
         '''
-        Same as cli, but also exit the program with status equal to the return value of main.
-        main must return an integer for this to be used.
+        Same as cli_noxit, but also exit the program with status equal to the
+        return value of main. main must return an integer for this to be used.
 
-        None is considered 0.
+        None is considered as 0.
         '''
         exit_status = self.cli_noexit(*args, **kwargs)
         if exit_status is None:
@@ -452,6 +457,19 @@ amazing function!
     assert one_cli_function.get_cli(pos_mandatory=1, bool_true=False) == [('--bool-cli',), ('--bool-true',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('2',), ('asdf',), ('qwer',)]
     assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
+
+    class NargsWithDefault(CliFunction):
+        def __init__(self):
+            super().__init__()
+            self.add_argument('args-star', default=['1', '2'], nargs='*'),
+        def main(self, **kwargs):
+            return kwargs
+    nargs_with_default = NargsWithDefault()
+    default = nargs_with_default()
+    assert default['args_star'] == ['1', '2']
+    default_cli = nargs_with_default.cli_noexit([])
+    assert default_cli['args_star'] == ['1', '2']
+    assert nargs_with_default.cli_noexit(['1', '2', '3', '4'])['args_star'] == ['1', '2', '3', '4']
 
     if len(sys.argv) > 1:
         # CLI call with argv command line arguments.

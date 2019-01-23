@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+
+import common
+import shutil
+from shell_helpers import LF
+
+class Main(common.BuildCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Download and build Android AOSP.
+
+https://github.com/cirosantilli/linux-kernel-module-cheat#android
+'''
+        )
+        self.add_argument(
+            'targets',
+            default=['build'],
+            nargs='*',
+        )
+
+    def build(self):
+        if 'download' in self.env['targets']:
+            os.makedirs(self.env['android_dir'], exist_ok=True)
+            # Can only download base64. I kid you not:
+            # https://github.com/google/gitiles/issues/7
+            self.sh.wget(
+                'https://android.googlesource.com/tools/repo/+/v1.13.2/repo?format=TEXT', 
+                self.env['repo_path_base64'],
+            )
+            with open(self.env['repo_path_base64'], 'r') as input, \
+                open(self.env['repo_path'], 'w') as output:
+                output.write(self.sh.base64_decode(input.read()))
+            self.sh.chmod(self.env['repo_path'])
+            self.sh.run_cmd(
+                [
+                    self.env['repo_path'], LF,
+                    'init', LF,
+                    '-b', 'android-{}'.format(self.env['android_version']), LF,
+                    '--depth', '1', LF,
+                    '-u', 'https://android.googlesource.com/platform/manifest', LF,
+                ],
+                cwd=self.env['android_dir'],
+            )
+            self.sh.run_cmd(
+                [
+                    self.env['repo_path'], LF,
+                    'sync', LF,
+                    '-c', LF,
+                    '-j', str(self.env['nproc']), LF,
+                    '--no-tags', LF,
+                    '--no-clone-bundle', LF,
+                ],
+                cwd=self.env['android_dir'],
+            )
+        if 'build' in self.env['targets']:
+            # The crappy android build system requires
+            # https://stackoverflow.com/questions/7040592/calling-the-source-command-from-subprocess-popen
+            self.sh.run_cmd('''\
+. build/envsetup.sh
+lunch aosp_{}-eng
+USE_CCACHE=1 make -j {}
+'''.format(self.env['android_arch'], self.env['nproc']),
+                cwd=self.env['android_dir'],
+                executable=shutil.which('bash'),
+                shell=True,
+            )
+
+    def get_build_dir(self):
+        return self.env['android_build_dir']
+
+if __name__ == '__main__':
+    Main().cli()
