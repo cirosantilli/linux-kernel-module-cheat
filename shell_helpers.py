@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import threading
+import urllib.request
 
 class LF:
     '''
@@ -268,6 +269,20 @@ class ShellHelpers:
                 shutil.rmtree(path)
             else:
                 os.unlink(path)
+
+    def wget(self, url, download_path):
+        '''
+        Append extra KEY=val configs into the given config file.
+
+        I wissh we could have a progress indicator, but impossible:
+        https://stackoverflow.com/questions/51212/how-to-write-a-download-progress-indicator-in-python
+        '''
+        self.print_cmd([
+            'wget', LF,
+            '-O', download_path, LF,
+            url, LF,
+        ])
+        urllib.request.urlretrieve(url, download_path)
 
     def write_configs(self, config_path, configs, config_fragments=None, mode='a'):
         '''
