@@ -532,10 +532,10 @@ Valid emulators: {}
         env['gem5_system_dir'] = join(env['gem5_build_dir'], 'system')
 
         # gem5 source
-        if env['gem5_source_dir'] is not None:
+        if env['_args_given']['gem5_source_dir']:
             assert os.path.exists(env['gem5_source_dir'])
         else:
-            if env['gem5_worktree'] is not None:
+            if env['_args_given']['gem5_worktree']:
                 env['gem5_source_dir'] = join(env['gem5_non_default_source_root_dir'], env['gem5_worktree'])
             else:
                 env['gem5_source_dir'] = env['gem5_default_source_dir']

@@ -22,10 +22,8 @@ class Main(common.BuildCliFunction):
         disks_dir = os.path.join(self.env['gem5_system_dir'], 'disks')
         os.makedirs(binaries_dir, exist_ok=True)
         os.makedirs(disks_dir, exist_ok=True)
-        if self.env['gem5_source_dir'] is None:
-            if not os.path.exists(os.path.join(self.env['gem5_source_dir'], '.git')):
-                if self.env['gem5_source_dir'] == self.env['gem5_default_source_dir']:
-                    raise Exception('gem5 submodule not checked out')
+        if not os.path.exists(os.path.join(self.env['gem5_source_dir'], '.git')):
+            if self.env['_args_given']['gem5_worktree']:
                 self.sh.run_cmd([
                     'git', LF,
                     '-C', self.env['gem5_default_source_dir'], LF,
@@ -33,6 +31,8 @@ class Main(common.BuildCliFunction):
                     '-b', os.path.join('wt', self.env['gem5_build_id']), LF,
                     self.env['gem5_source_dir'], LF,
                 ])
+            else:
+                raise Exception('gem5 submodule not checked out')
         if self.env['verbose']:
             verbose = ['--verbose', LF]
         else:
