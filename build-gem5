@@ -16,10 +16,20 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-buildr
 '''
         )
         self.add_argument(
+            '--unit-test',
+            action='append',
+            default=[],
+            help='''\
+Build and run the given unit test. Paths are relative to src/ without the .opt suffix.
+If given multiple times, runs multiple unit tests. Ignore --unit-tests.
+https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-tests
+'''
+        )
+        self.add_argument(
             '--unit-tests',
             default=False,
             help='''\
-Build and run the gem5 unit tests instead of the gem5 executable.
+Build and run all the gem5 unit tests instead of the gem5 executable.
 https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-tests
 '''
         )
@@ -99,20 +109,22 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-t
             # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
             self.sh.rmrf(self.env['gem5_m5term'])
         self.sh.cp(m5term_build, self.env['gem5_m5term'])
-        if self.env['unit_tests']:
-            target = self.env['gem5_unit_test_target']
+        if self.env['unit_test']:
+            targets = [self.get_gem5_target_path(self.env, test) for test in self.env['unit_test']]
+        elif self.env['unit_tests']:
+            targets = [self.env['gem5_unit_test_target']]
         else:
-            target = self.env['gem5_executable']
+            targets = [self.env['gem5_executable']]
         exit_status = self.sh.run_cmd(
             (
                 [
                     'scons', LF,
                     '-j', str(self.env['nproc']), LF,
-                    '--gold-linker', LF,
+                    # '--gold-linker', LF,
                     '--ignore-style', LF,
                 ] +
                 verbose +
-                [target, LF] +
+                self.sh.add_newlines(targets) +
                 self.sh.add_newlines(self.env['extra_scons_args'])
             ),
             cwd=self.env['gem5_source_dir'],

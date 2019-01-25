@@ -530,8 +530,8 @@ Valid emulators: {}
         env['gem5_build_build_dir'] = join(env['gem5_build_dir'], 'build')
         env['gem5_executable_dir'] = join(env['gem5_build_build_dir'], env['gem5_arch'])
         env['gem5_executable_suffix'] = '.{}'.format(env['gem5_build_type'])
-        env['gem5_executable'] = join(env['gem5_executable_dir'], 'gem5' + env['gem5_executable_suffix'])
-        env['gem5_unit_test_target'] = join(env['gem5_executable_dir'], 'unittests' + env['gem5_executable_suffix'])
+        env['gem5_executable'] = self.get_gem5_target_path(env, 'gem5')
+        env['gem5_unit_test_target'] = self.get_gem5_target_path(env, 'unittests')
         env['gem5_system_dir'] = join(env['gem5_build_dir'], 'system')
 
         # gem5 source
@@ -737,6 +737,13 @@ Valid emulators: {}
                 addr = line.split()[-1]
                 break
         return int(addr, 0)
+
+    @staticmethod
+    def get_gem5_target_path(env, name):
+        '''
+        Get the magic gem5 target path form the meaningful component name.
+        '''
+        return os.path.join(env['gem5_executable_dir'], name + env['gem5_executable_suffix'])
 
     def gem5_list_checkpoint_dirs(self):
         '''
