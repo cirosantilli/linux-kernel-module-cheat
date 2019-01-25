@@ -115,20 +115,30 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-t
             targets = [self.env['gem5_unit_test_target']]
         else:
             targets = [self.env['gem5_executable']]
+        if self.env['clang']:
+            extra_env = {
+                'CC': 'clang',
+                'CXX': 'clang++',
+            }
+            gold_linker_cmd = []
+        else:
+            extra_env = {}
+            gold_linker_cmd = ['--gold-linker', LF,]
         exit_status = self.sh.run_cmd(
             (
                 [
                     'scons', LF,
                     '-j', str(self.env['nproc']), LF,
-                    # '--gold-linker', LF,
                     '--ignore-style', LF,
                 ] +
+                gold_linker_cmd +
                 verbose +
                 self.sh.add_newlines(targets) +
                 self.sh.add_newlines(self.env['extra_scons_args'])
             ),
             cwd=self.env['gem5_source_dir'],
             extra_paths=[self.env['ccache_dir']],
+            extra_env=extra_env,
             raise_on_failure = False,
         )
         return exit_status

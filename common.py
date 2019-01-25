@@ -160,6 +160,14 @@ Valid archs: {}
 '''.format(arches_string)
         )
         self.add_argument(
+            '--clang',
+            default=False,
+            help='''\
+Build with clang as much as possible. Set the build-id to clang by default unless
+one is given explicitly. Currently supported components: gem5.
+'''
+        )
+        self.add_argument(
             '--dry-run',
             default=False,
             help='''\
@@ -437,6 +445,8 @@ Valid emulators: {}
         if not env['_args_given']['gem5_build_id']:
             if env['_args_given']['gem5_worktree']:
                 env['gem5_build_id'] = env['gem5_worktree']
+            elif env['_args_given']['clang']:
+                env['gem5_build_id'] = 'clang'
             else:
                 env['gem5_build_id'] = consts['default_build_id']
         env['is_arm'] = False
