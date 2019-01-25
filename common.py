@@ -528,7 +528,10 @@ Valid emulators: {}
         env['gem5_fake_iso'] = join(env['gem5_out_dir'], 'fake.iso')
         env['gem5_m5term'] = join(env['gem5_build_dir'], 'm5term')
         env['gem5_build_build_dir'] = join(env['gem5_build_dir'], 'build')
-        env['gem5_executable'] = join(env['gem5_build_build_dir'], env['gem5_arch'], 'gem5.{}'.format(env['gem5_build_type']))
+        env['gem5_executable_dir'] = join(env['gem5_build_build_dir'], env['gem5_arch'])
+        env['gem5_executable_suffix'] = '.{}'.format(env['gem5_build_type'])
+        env['gem5_executable'] = join(env['gem5_executable_dir'], 'gem5' + env['gem5_executable_suffix'])
+        env['gem5_unit_test_target'] = join(env['gem5_executable_dir'], 'unittests' + env['gem5_executable_suffix'])
         env['gem5_system_dir'] = join(env['gem5_build_dir'], 'system')
 
         # gem5 source

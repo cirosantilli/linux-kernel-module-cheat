@@ -9,7 +9,20 @@ from shell_helpers import LF
 
 class Main(common.BuildCliFunction):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            description='''\
+Build gem5.
+https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-buildroot-setup
+'''
+        )
+        self.add_argument(
+            '--unit-tests',
+            default=False,
+            help='''\
+Build and run the gem5 unit tests instead of the gem5 executable.
+https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-tests
+'''
+        )
         self.add_argument(
             'extra_scons_args',
             metavar='extra-scons-args',
@@ -77,21 +90,6 @@ class Main(common.BuildCliFunction):
             # TODO cross_compile is ignored because the make does not use CC...
             self.sh.run_cmd(['make', '-C', bootloader64_dir, LF])
             self.sh.cp(os.path.join(bootloader64_dir, 'boot_emm.arm64'), binaries_dir)
-        self.sh.run_cmd(
-            (
-                [
-                    'scons', LF,
-                    '-j', str(self.env['nproc']), LF,
-                    '--gold-linker', LF,
-                    '--ignore-style', LF,
-                    self.env['gem5_executable'], LF,
-                ] +
-                verbose +
-                self.sh.add_newlines(self.env['extra_scons_args'])
-            ),
-            cwd=self.env['gem5_source_dir'],
-            extra_paths=[self.env['ccache_dir']],
-        )
         term_source_dir = os.path.join(self.env['gem5_source_dir'], 'util/term')
         m5term_build = os.path.join(term_source_dir, 'm5term')
         self.sh.run_cmd(['make', '-C', term_source_dir, LF])
@@ -101,6 +99,27 @@ class Main(common.BuildCliFunction):
             # https://stackoverflow.com/questions/16764946/what-generates-the-text-file-busy-message-in-unix/52427512#52427512
             self.sh.rmrf(self.env['gem5_m5term'])
         self.sh.cp(m5term_build, self.env['gem5_m5term'])
+        if self.env['unit_tests']:
+            target = self.env['gem5_unit_test_target']
+        else:
+            target = self.env['gem5_executable']
+        exit_status = self.sh.run_cmd(
+            (
+                [
+                    'scons', LF,
+                    '-j', str(self.env['nproc']), LF,
+                    '--gold-linker', LF,
+                    '--ignore-style', LF,
+                ] +
+                verbose +
+                [target, LF] +
+                self.sh.add_newlines(self.env['extra_scons_args'])
+            ),
+            cwd=self.env['gem5_source_dir'],
+            extra_paths=[self.env['ccache_dir']],
+            raise_on_failure = False,
+        )
+        return exit_status
 
     def get_build_dir(self):
         return self.env['gem5_build_dir']
