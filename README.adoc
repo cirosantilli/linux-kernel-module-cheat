@@ -2627,7 +2627,7 @@ Instead, we used the QEMU `-initrd` option to point to the `.cpio` filesystem th
 
 Try removing that `-initrd` option to watch the kernel panic without rootfs at the end of boot.
 
-When using `.cpio`, there can be no filesystem persistency across boots, since all file operations happen in memory in a tmpfs:
+When using `.cpio`, there can be no <<disk-persistency,filesystem persistency>> across boots, since all file operations happen in memory in a tmpfs:
 
 ....
 date >f
@@ -2726,6 +2726,23 @@ Alternatively, consider using <<linux-kernel-build-variants>> if you need to swi
 Setting up initramfs is very easy: our scripts just set `CONFIG_INITRAMFS_SOURCE` to point to the CPIO path.
 
 http://nairobi-embedded.org/initramfs_tutorial.html shows a full manual setup.
+
+=== rootfs
+
+This is how `/proc/mounts` shows the root filesystem:
+
+* hard disk: `/dev/root on / type ext2 (rw,relatime,block_validity,barrier,user_xattr)`. That file does not exist however.
+* initrd: `rootfs on / type rootfs (rw)`
+* initramfs: `rootfs on / type rootfs (rw)`
+
+TODO: understand `/dev/root` better:
+
+* https://unix.stackexchange.com/questions/295060/why-on-some-linux-systems-does-the-root-filesystem-appear-as-dev-root-instead
+* https://superuser.com/questions/1213770/how-do-you-determine-the-root-device-if-dev-root-is-missing
+
+==== /dev/root
+
+See: <<rootfs>>
 
 === gem5 initrd
 
@@ -11378,7 +11395,7 @@ then rebuild with:
 
 and then copy the link command to a separate Bash file. Then you can time and modify it easily.
 
-Some approximate refrence values on <<p51>>:
+Some approximate reference values on <<p51>>:
 
 * `opt`
 ** unmodified: 10 seconds
@@ -11459,6 +11476,169 @@ Sources:
 TODO how to hack the AOSP kernel, userland and emulator?
 
 Other archs work as well as usual with `--arch` parameter. However, running in non-x86 is very slow due to the lack of KVM.
+
+Tested on: `8.1.0_r60`.
+
+==== Android image structure
+
+https://source.android.com/devices/bootloader/partitions-images
+
+The messy AOSP generates a ton of images instead of just one.
+
+When the emulator launches, we can see them through QEMU `-drive` arguments:
+
+....
+emulator: argv[23] = "-drive"
+emulator: argv[24] = "if=none,index=0,id=system,file=/path/to/aosp/8.1.0_r60/out/target/product/generic_x86_64/system-qemu.img,read-only"
+emulator: argv[25] = "-device"
+emulator: argv[26] = "virtio-blk-pci,drive=system,iothread=disk-iothread,modern-pio-notify"
+emulator: argv[27] = "-drive"
+emulator: argv[28] = "if=none,index=1,id=cache,file=/path/to/aosp/8.1.0_r60/out/target/product/generic_x86_64/cache.img.qcow2,overlap-check=none,cache=unsafe,l2-cache-size=1048576"
+emulator: argv[29] = "-device"
+emulator: argv[30] = "virtio-blk-pci,drive=cache,iothread=disk-iothread,modern-pio-notify"
+emulator: argv[31] = "-drive"
+emulator: argv[32] = "if=none,index=2,id=userdata,file=/path/to/aosp/8.1.0_r60/out/target/product/generic_x86_64/userdata-qemu.img.qcow2,overlap-check=none,cache=unsafe,l2-cache-size=1048576"
+emulator: argv[33] = "-device"
+emulator: argv[34] = "virtio-blk-pci,drive=userdata,iothread=disk-iothread,modern-pio-notify"
+emulator: argv[35] = "-drive"
+emulator: argv[36] = "if=none,index=3,id=encrypt,file=/path/to/aosp/8.1.0_r60/out/target/product/generic_x86_64/encryptionkey.img.qcow2,overlap-check=none,cache=unsafe,l2-cache-size=1048576"
+emulator: argv[37] = "-device"
+emulator: argv[38] = "virtio-blk-pci,drive=encrypt,iothread=disk-iothread,modern-pio-notify"
+emulator: argv[39] = "-drive"
+emulator: argv[40] = "if=none,index=4,id=vendor,file=/path/to/aosp/8.1.0_r60/out/target/product/generic_x86_64/vendor-qemu.img,read-only"
+emulator: argv[41] = "-device"
+emulator: argv[42] = "virtio-blk-pci,drive=vendor,iothread=disk-iothread,modern-pio-notify"
+....
+
+which tells us that the order is:
+
+....
+system
+cache
+userdata
+encryptionkey
+vendor-qemu
+....
+
+Then, on the terminal:
+
+....
+mount | grep vd
+....
+
+gives:
+
+....
+/dev/block/vda1 on /system type ext4 (ro,seclabel,relatime,data=ordered)
+/dev/block/vde1 on /vendor type ext4 (ro,seclabel,relatime,data=ordered)
+/dev/block/vdb on /cache type ext4 (rw,seclabel,nosuid,nodev,noatime,errors=panic,data=ordered)
+....
+
+and we see that the order of `vda`, `vdb`, etc. matches that in which `-drive` were given to QEMU.
+
+I think the root is the <<initrd>> given on the QEMU CLI:
+
+....
+rootfs on / type rootfs (ro,seclabel,size=886392k,nr_inodes=221598)
+....
+
+Tested on: `8.1.0_r60`.
+
+===== Android images read-only
+
+From `mount`, we can see that some of the mounted images are `ro`.
+
+In order to make `/system` and `/vendor` writable, we must use the `-writable-system` option:
+
+....
+./run-android -- -writable-system
+....
+
+* https://android.stackexchange.com/questions/110927/how-to-mount-system-rewritable-or-read-only-rw-ro/207200#207200
+* https://stackoverflow.com/questions/13089694/adb-remount-permission-denied-but-able-to-access-super-user-in-shell-android/43163693#43163693
+
+then:
+
+....
+su
+mount -o rw,remount /system
+date >/system/a
+....
+
+`/system` and vendor can be nuked quickly with:
+
+....
+./build-android --extra-args snod
+./build-android --extra-args vnod
+....
+
+as mentioned at: https://stackoverflow.com/questions/29023406/how-to-just-build-android-system-image and on:
+
+....
+./build-android --extra-args help
+....
+
+Tested on: `8.1.0_r60`.
+
+===== Android /data partition
+
+When I install an app like F-Droid, it goes under `/data` according to:
+
+....
+find / -iname '*fdroid*'
+....
+
+and it <<disk-persistency,persists across boots>>.
+
+`/data` is behind a RW LVM device:
+
+....
+/dev/block/dm-0 on /data type ext4 (rw,seclabel,nosuid,nodev,noatime,errors=panic,data=ordered)
+....
+
+but TODO I can't find where it comes from since I don't have the CLI tools mentioned at:
+
+* https://superuser.com/questions/131519/what-is-this-dm-0-device
+* https://unix.stackexchange.com/questions/185057/where-does-lvm-store-its-configuration
+
+However, by looking at:
+
+....
+./run-android -- -help
+....
+
+we see:
+
+....
+-data <file>                   data image (default <datadir>/userdata-qemu.img
+....
+
+which confirms the suspicion that this data goes in `userdata-qemu.img`.
+
+TODO: how to reset `userdata-qemu.img`? https://stackoverflow.com/questions/54446680/how-to-reset-the-userdata-image-when-building-android-aosp-and-running-it-on-the
+
+Tested on: `8.1.0_r60`.
+
+==== Install Android apps
+
+I don't know how to download files from the web on Vanilla android, the default browser does not download anything, and there is no `wget`:
+
+* https://android.stackexchange.com/questions/6984/how-to-download-files-from-the-web-in-the-android-browser
+* https://stackoverflow.com/questions/26775079/wget-in-android-terminal
+
+Installing with `adb install` does however work: https://stackoverflow.com/questions/7076240/install-an-apk-file-from-command-prompt
+
+link:https://f-droid.org[FDroid] installed fine like that, however it does not have permission to install apps: https://www.maketecheasier.com/install-apps-from-unknown-sources-android/
+
+And the `Settings` app crashes so I can't change it, logcat contains:
+
+....
+No service published for: wifip2p
+....
+
+which is mentioned at: https://stackoverflow.com/questions/47839955/android-8-settings-app-crashes-on-emulator-with-clean-aosp-build
+
+Tested on: `8.1.0_r60`.
 
 == About this repo
 

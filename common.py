@@ -517,14 +517,6 @@ Valid emulators: {}
         common.extract_vmlinux = os.path.join(env['linux_source_dir'], 'scripts', 'extract-vmlinux')
         env['linux_buildroot_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
 
-        # Android
-        if not env['_args_given']['android_base_dir']:
-            env['android_base_dir'] = join(env['out_dir'], 'android')
-        env['android_dir'] = join(env['android_base_dir'], env['android_version'])
-        env['android_build_dir'] = join(env['android_dir'], 'out')
-        env['repo_path'] = join(env['android_base_dir'], 'repo')
-        env['repo_path_base64'] = env['repo_path'] + '.base64'
-
         # QEMU
         env['qemu_build_dir'] = join(env['out_dir'], 'qemu', env['qemu_build_id'])
         env['qemu_executable_basename'] = 'qemu-system-{}'.format(env['arch'])
@@ -721,7 +713,14 @@ Valid emulators: {}
                 env['image'] = env['linux_image']
                 env['disk_image'] = env['qcow2_file']
 
-        # Android.
+        # Android
+        if not env['_args_given']['android_base_dir']:
+            env['android_base_dir'] = join(env['out_dir'], 'android')
+        env['android_dir'] = join(env['android_base_dir'], env['android_version'])
+        env['android_build_dir'] = join(env['android_dir'], 'out')
+        env['repo_path'] = join(env['android_base_dir'], 'repo')
+        env['repo_path_base64'] = env['repo_path'] + '.base64'
+
         env['android_shell_setup'] = '''
 . build/envsetup.sh
 lunch aosp_{}-eng
