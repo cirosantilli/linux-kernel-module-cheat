@@ -721,6 +721,12 @@ Valid emulators: {}
                 env['image'] = env['linux_image']
                 env['disk_image'] = env['qcow2_file']
 
+        # Android.
+        env['android_shell_setup'] = '''
+. build/envsetup.sh
+lunch aosp_{}-eng
+'''.format(self.env['android_arch'])
+
     def add_argument(self, *args, **kwargs):
         '''
         Also handle:
