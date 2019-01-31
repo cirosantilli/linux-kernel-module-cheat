@@ -11488,6 +11488,8 @@ The messy AOSP generates a ton of images instead of just one.
 When the emulator launches, we can see them through QEMU `-drive` arguments:
 
 ....
+emulator: argv[21] = "-initrd"
+emulator: argv[22] = "/data/aosp/8.1.0_r60/out/target/product/generic_x86_64/ramdisk.img"
 emulator: argv[23] = "-drive"
 emulator: argv[24] = "if=none,index=0,id=system,file=/path/to/aosp/8.1.0_r60/out/target/product/generic_x86_64/system-qemu.img,read-only"
 emulator: argv[25] = "-device"
@@ -11510,7 +11512,15 @@ emulator: argv[41] = "-device"
 emulator: argv[42] = "virtio-blk-pci,drive=vendor,iothread=disk-iothread,modern-pio-notify"
 ....
 
-which tells us that the order is:
+The root directory is the <<initrd>> given on the QEMU CLI, which `/proc/mounts` reports at:
+
+....
+rootfs on / type rootfs (ro,seclabel,size=886392k,nr_inodes=221598)
+....
+
+This contains the <<android-init>>, which through `.rc` must be mounting mounts the drives int o the right places TODO find exact point.
+
+The drive order is:
 
 ....
 system
@@ -11536,19 +11546,15 @@ gives:
 
 and we see that the order of `vda`, `vdb`, etc. matches that in which `-drive` were given to QEMU.
 
-I think the root is the <<initrd>> given on the QEMU CLI:
-
-....
-rootfs on / type rootfs (ro,seclabel,size=886392k,nr_inodes=221598)
-....
-
 Tested on: `8.1.0_r60`.
 
 ===== Android images read-only
 
 From `mount`, we can see that some of the mounted images are `ro`.
 
-In order to make `/system` and `/vendor` writable, we must use the `-writable-system` option:
+Basically, every image that was given to QEMU as qcow2 is writable, and that qcow2 is an overlay over the actual original image.
+
+In order to make `/system` and `/vendor` writable by using qcow2 for them as well, we must use the `-writable-system` option:
 
 ....
 ./run-android -- -writable-system
@@ -11565,7 +11571,19 @@ mount -o rw,remount /system
 date >/system/a
 ....
 
-`/system` and vendor can be nuked quickly with:
+Now reboot, and relaunch with `-writable-system` once again to pick up the modified qcow2 images:
+
+....
+./run-android -- -writable-system
+....
+
+and the newly created file is still there:
+
+....
+date >/system/a
+....
+
+`/system` and `/vendor` can be nuked quickly with:
 
 ....
 ./build-android --extra-args snod
@@ -11615,7 +11633,7 @@ we see:
 
 which confirms the suspicion that this data goes in `userdata-qemu.img`.
 
-TODO: how to reset `userdata-qemu.img`? https://stackoverflow.com/questions/54446680/how-to-reset-the-userdata-image-when-building-android-aosp-and-running-it-on-the
+To reset images to their original state, just remove the qcow2 overlay and regenerate it: https://stackoverflow.com/questions/54446680/how-to-reset-the-userdata-image-when-building-android-aosp-and-running-it-on-the
 
 Tested on: `8.1.0_r60`.
 
@@ -11665,7 +11683,21 @@ import /init.usb.configfs.rc
 import /init.${ro.zygote}.rc
 ....
 
-TODO: how is `ro.hardware` determined? https://stackoverflow.com/questions/20572781/android-boot-where-is-the-init-hardware-rc-read-in-init-c-where-are-servic
+TODO: how is `ro.hardware` determined? https://stackoverflow.com/questions/20572781/android-boot-where-is-the-init-hardware-rc-read-in-init-c-where-are-servic It is a system property and can be obtained with:
+
+....
+getprop ro.hardware
+....
+
+This gives:
+
+....
+ranchu
+....
+
+which is the codename for the QEMU virtual platform we are running on: https://www.oreilly.com/library/view/android-system-programming/9781787125360/9736a97c-cd09-40c3-b14d-955717648302.xhtml
+
+TODO: is it possible to add a custom `.rc` file without modifying the initrd that <<android-image-structure,gets mounted on root>>? https://stackoverflow.com/questions/9768103/make-persistent-changes-to-init-rc
 
 Tested on: `8.1.0_r60`.
 

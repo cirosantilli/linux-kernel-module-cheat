@@ -720,8 +720,7 @@ Valid emulators: {}
         env['android_build_dir'] = join(env['android_dir'], 'out')
         env['repo_path'] = join(env['android_base_dir'], 'repo')
         env['repo_path_base64'] = env['repo_path'] + '.base64'
-
-        env['android_shell_setup'] = '''
+        env['android_shell_setup'] = '''\
 . build/envsetup.sh
 lunch aosp_{}-eng
 '''.format(self.env['android_arch'])
