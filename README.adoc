@@ -4052,21 +4052,34 @@ Could not do port forwarding from host to guest, and therefore could not use `gd
 
 ==== Guest to host networking
 
-TODO I never got this to work.
+First <<enable-networking>>.
 
-There is `guestfwd`, which sounds analogous to `hostwfd` used in the other sense, but I was not able to get it working, e.g.:
-
-....
--netdev user,hostfwd=tcp::45455-:45455,guestfwd=tcp::45456-,id=net0 \
-....
-
-gives:
+Then in the host, start a server:
 
 ....
-Could not open guest forwarding device 'guestfwd.tcp.45456'
+python -m SimpleHTTPServer 8000
 ....
 
-Bibliography: https://serverfault.com/questions/769874/how-to-forward-a-port-from-guest-to-host-in-qemu-kvm
+And then in the guest, find the IP we need to hit with:
+
+....
+ip rounte
+....
+
+which gives:
+
+.....
+default via 10.0.2.2 dev eth0
+10.0.2.0/24 dev eth0 scope link  src 10.0.2.15
+.....
+
+so we use in the guest:
+
+....
+wget 10.0.2.2:8000
+....
+
+Bibliography: https://serverfault.com/questions/769874/how-to-forward-a-port-from-guest-to-host-in-qemu-kvm/951835#951835
 
 === 9P
 
@@ -4080,9 +4093,7 @@ All of 9P and NFS (and sshfs) allow sharing directories between guest and host.
 
 Advantages of 9P
 
-* we haven't managed to do <<guest-to-host-networking>>, which prevents us from mounting a host directory on the guest
-+
-Furthermore, this would require `sudo` on the host to mount
+* requires `sudo` on the host to mount
 * we could share a guest directory to the host, but this would require running a server on the guest, which adds <<resource-tradeoff-guidelines,simulation overhead>>
 +
 Furthermore, this would be inconvenient, since what we usually want to do is to share host cross built files with the guest, and to do that we would have to copy the files over after the guest starts the server.
@@ -4150,6 +4161,59 @@ TODO seems possible! Lets do it:
 
 * http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
 * http://gem5.org/WA-gem5
+
+==== NFS
+
+TODO: get working.
+
+<<9p>> is better with emulation, but let's just get this working for fun.
+
+First make sure that this works: <<guest-to-host-networking>>.
+
+Then, build the kernel with NFS support:
+
+....
+./build-linux --config-fragment linux_config/nfs
+....
+
+Now on host:
+
+....
+sudo apt-get install nfs-kernel-server
+....
+
+Now edit `/etc/exports` to contain:
+
+....
+/tmp *(rw,sync,no_root_squash,no_subtree_check)
+....
+
+and restart the server:
+
+....
+sudo systemctl restart nfs-kernel-server
+....
+
+Now on guest:
+
+....
+mkdir /mnt/nfs
+mount -t nfs 10.0.2.2:/tmp /mnt/nfs
+....
+
+TODO: failing with:
+
+....
+mount: mounting 10.0.2.2:/tmp on /mnt/nfs failed: No such device
+....
+
+And now the `/tmp` directory from host is not mounted on guest!
+
+If you don't want to start the NFS server after the next boot automatically so save resources, link:https://askubuntu.com/questions/19320/how-to-enable-or-disable-services[do]:
+
+....
+systemctl disable nfs-kernel-server
+....
 
 == Linux kernel
 
