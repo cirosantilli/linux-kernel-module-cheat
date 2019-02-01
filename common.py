@@ -453,21 +453,21 @@ Valid emulators: {}
         if env['arch'] == 'arm':
             env['armv'] = 7
             env['mcpu'] = 'cortex-a15'
-            env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-uclibcgnueabihf'
+            env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-gnueabihf'
             env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
             env['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
             env['is_arm'] = True
         elif env['arch'] == 'aarch64':
             env['armv'] = 8
             env['mcpu'] = 'cortex-a57'
-            env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-uclibc'
+            env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-gnu'
             env['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
             env['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
             env['is_arm'] = True
         elif env['arch'] == 'x86_64':
             env['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
             env['gem5_arch'] = 'X86'
-            env['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-uclibc'
+            env['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-gnu'
             env['ubuntu_toolchain_prefix'] = 'x86_64-linux-gnu'
             if env['emulator'] == 'gem5':
                 if not env['_args_given']['machine']:

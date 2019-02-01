@@ -7027,22 +7027,68 @@ https://en.wikipedia.org/wiki/Linux_Security_Modules
 
 ===== SELinux
 
-TODO get hello world working.
+TODO get a hello world permission control working:
 
 ....
 ./build-linux \
   --config-fragment linux_config/selinux \
   --linux-build-id selinux \
 ;
+./build-buildroot --config 'BR2_PACKAGE_REFPOLICY=y'
+./run --enable-kvm --linux-build-id selinux
 ....
 
-But then this fails currently:
+Source: link:linux_config/selinux[]
+
+This builds:
+
+* `BR2_PACKAGE_REFPOLICY`, which includes a reference `/etc/selinux/config` policy: https://github.com/SELinuxProject/refpolicy
++
+refpolicy in turn depends on:
+* `BR2_PACKAGE_SETOOLS`, which contains tools such as `getenforced`: https://github.com/SELinuxProject/setools
++
+setools depends on:
+* `BR2_PACKAGE_LIBSELINUX`, which is the backing userland library
+
+After boot finishes, we see:
 
 ....
-./build-buildroot --config 'BR2_PACKAGE_SETOOLS=y'
+Starting auditd: mkdir: invalid option -- 'Z'
 ....
 
-because we use ucLibc which is incompatible with SELinux, with a trivial unmerged fix at: http://lists.busybox.net/pipermail/buildroot/2017-July/197793.html
+which comes from `/etc/init.d/S01auditd`, because BusyBox' `mkdir` does not have the crazy `-Z` option like Ubuntu. That's amazing!
+
+The kernel logs contain:
+
+....
+SELinux:  Initializing.
+....
+
+Inside the guest we now have:
+
+....
+getenforce
+....
+
+which initially says:
+
+....
+Disabled
+....
+
+TODO: if we try to enforce:
+
+....
+setenforce 1
+....
+
+it does not work and outputs:
+
+....
+setenforce: SELinux is disabled
+....
+
+SELinux requires glibc: <<libc-choice>>.
 
 === User mode Linux
 
@@ -7056,7 +7102,7 @@ Maybe some brave soul will send a pull request one day.
 
 UIO is a kernel subsystem that allows to do certain types of driver operations from userland.
 
-This would be awesome to improve debugability and safety of kernel modules.
+This would be awesome to improve debuggability and safety of kernel modules.
 
 VFIO looks like a newer and better UIO replacement, but there do not exist any examples of how to use it: https://stackoverflow.com/questions/49309162/interfacing-with-qemu-edu-device-via-userspace-i-o-uio-linux-driver
 
@@ -7221,7 +7267,7 @@ When you hit `Ctrl-Alt-Del` in the guest, our tiny init handles a `SIGINT` sent 
 cad
 ....
 
-To map between `man 2 reboot` and the uclibc `RB_*` magic constants see:
+To map between `man 2 reboot` and the uClibc `RB_*` magic constants see:
 
 ....
 less "$(./getvar buildroot_build_build_dir)"/uclibc-*/include/sys/reboot.h"
@@ -7693,16 +7739,18 @@ TODO a large chunk of tests, the Open POSIX test suite, is disabled with a comme
 POSIX userland stress. Two versions:
 
 ....
-./build-buildroot --config 'BR2_PACKAGE_STRESS=y'
-./build-buildroot --config 'BR2_PACKAGE_STRESS_NG=y'
+./build-buildroot \
+  --config 'BR2_PACKAGE_STRESS=y' \
+  --config 'BR2_PACKAGE_STRESS_NG=y' \
+;
 ....
+
+`STRESS_NG` is likely the best, but it requires glibc: <<libc-choice>>.
 
 Websites:
 
 * https://people.seas.harvard.edu/~apw/stress/
 * https://github.com/ColinIanKing/stress-ng
-
-Likely the NG one is best, but it requires `BR2_TOOLCHAIN_USES_GLIBC=y` which we don't have currently because we use uclibc... arghhhh.
 
 `stress` usage:
 
@@ -10312,7 +10360,7 @@ link:https://en.wikipedia.org/wiki/Buildroot[Buildroot] is a set of Make scripts
 
 * GCC
 * Linux kernel
-* C standard library: Buildroot supports several implementations, we use link:https://en.wikipedia.org/wiki/GNU_C_Library[glibc] by default
+* C standard library: Buildroot supports several implementations, see: <<libc-choice>>
 * link:https://en.wikipedia.org/wiki/BusyBox[BusyBox]: provides the shell and basic command line utilities
 
 It therefore produces a pristine, blob-less, debuggable setup, where all moving parts are configured to work perfectly together.
@@ -10622,6 +10670,30 @@ For Buildroot problems, you should wither provide the config you have:
 ....
 
 or try to reproduce with a minimal config, see: https://github.com/cirosantilli/buildroot/tree/in-tree-package-master
+
+== libc choice
+
+Buildroot supports several libc implementations, including:
+
+* link:https://en.wikipedia.org/wiki/GNU_C_Library[glibc]
+* link:https://en.wikipedia.org/wiki/UClibc[uClibc]
+
+We currently use glibc, which is selected by:
+
+....
+BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
+....
+
+Ideally we would like to use uClibc, as it is more minimal and easier to understand, but unfortunately there are some very few packages that use some weird glibc extension that uClibc hasn't implemented yet, e.g.:
+
+* <<selinux>>. Trivial unmerged fix at: http://lists.busybox.net/pipermail/buildroot/2017-July/197793.html just missing the uClibc option to expose `fts.h`...
+* <<stress>>
+
+The full list of unsupported packages can be found by grepping the Buildroot source:
+
+....
+git -C "$(./getvar buildroot_source_dir)" grep 'depends on BR2_TOOLCHAIN_USES_GLIBC'
+....
 
 == Baremetal
 
