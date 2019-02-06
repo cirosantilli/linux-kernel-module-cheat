@@ -19,6 +19,11 @@
     SYSREG_READ(name, type) \
     SYSREG_WRITE(name, type)
 
+SYSREG_READ_WRITE(uint32_t, daif)
+SYSREG_READ_WRITE(uint32_t, spsel)
+SYSREG_READ_WRITE(uint64_t, sp_el1)
+SYSREG_READ_WRITE(uint64_t, vbar_el1)
+
 #define SVC(immediate) __asm__ __volatile__("svc " #immediate : : : )
 
 #endif

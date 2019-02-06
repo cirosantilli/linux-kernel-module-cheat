@@ -983,7 +983,12 @@ When you hit `Ctrl-C`, if we happen to be inside kernel code at that point, whic
 
 === tmux
 
-tmux just makes things even more fun by allowing us to see both terminals at once without dragging windows around!
+tmux just makes things even more fun by allowing us to see both the terminal for:
+
+* emulator stdout
+* <<gdb>>
+
+at once without dragging windows around!
 
 First start `tmux` with:
 
@@ -994,10 +999,10 @@ tmux
 Now that you are inside a shell inside tmux, run:
 
 ....
-./run --wait-gdb --tmux
+./run --tmux --wait-gdb
 ....
 
-Gives splits the terminal into two panes:
+This splits the terminal into two panes:
 
 * left: usual QEMU
 * right: gdb
@@ -1012,15 +1017,28 @@ Now you can navigate with the usual tmux shortcuts:
 To start again, switch back to the QEMU pane, kill the emulator, and re-run:
 
 ....
-./run --wait-gdb --tmux
+./run --tmux --wait-gdb
 ....
 
 This automatically clears the GDB pane, and starts a new one.
 
-Pass extra GDB arguments with:
+Pass extra arguments to the link:run-gdb[] pane with:
 
 ....
-./run --wait-gdb --tmux-args start_kernel
+./run --tmux-args start_kernel --wait-gdb
+....
+
+This is equivalent to:
+
+....
+./run --wait-gdb
+./run-gdb start_kernel
+....
+
+Due to Python's CLI parsing quicks, if the link:run-gdb[] arguments start with a dash `-`, you have to use the `=` sign, e.g. to <<gdb-step-debug-early-boot>>:
+
+....
+./run --tmux-args=--no-continue --wait-gdb
 ....
 
 See the tmux manual for further details:
@@ -2967,10 +2985,10 @@ Therefore, KVM only works if you the host architecture is the same as the guest 
 We don't enable KVM by default because:
 
 * it limits visibility, since more things are running natively:
-** can't use GDB
-** can't do instruction tracing
-** on gem5, you lose cycle counts and therefor any notion of performance
-* QEMU kernel boots are already fast enough for most purposes without it
+** can't use <<gdb,GDB>>
+** can't do <<tracing,instruction tracing>>
+** on gem5, you lose <<gem5-run-benchmark,cycle counts>> and therefor any notion of performance
+* QEMU kernel boots are already <<benchmark-linux-kernel-boot,fast enough>> for most purposes without it
 
 One important use case for KVM is to fast forward gem5 execution, often to skip boot, take a <<gem5-checkpoint>>, and then move on to a more detailed and slow simulation
 
@@ -10724,7 +10742,12 @@ Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux-args --no-continue
+./run \
+  --arch arm \
+  --baremetal interactive/prompt \
+  --tmux-args=--no-continue \
+  --wait-gdb \
+;
 ....
 
 Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
@@ -10732,7 +10755,12 @@ Now you can just `stepi` to when jumping into main to go to the C code in link:b
 This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
 ....
-./run --arch arm --baremetal arch/arm/no_bootloader/semihost_exit --wait-gdb --tmux-args --no-continue
+./run \
+  --arch arm \
+  --baremetal arch/arm/no_bootloader/semihost_exit \
+  --tmux-args=--no-continue \
+  --wait-gdb \
+;
 ....
 
 The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.
@@ -11021,6 +11049,76 @@ output:
 3
 ....
 
+==== ARM exception handling
+
+Setup a handler for `svc`, do an `svc`, and observe that the handler got called and returned:
+
+....
+./run --arch aarch64 --baremetal arch/aarch64/svc
+....
+
+Output:
+
+....
+daif 0x3c0
+spsel 0x1
+vbar_el1 0x0
+....
+
+Source: link:baremetal/arch/aarch64/svc.c[]
+
+The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
+
+A good representation of the format of the vector table can also be found at <<programmer-s-guide-for-armv8-a>> Table 10-2 "Vector table offsets from vector table base address".
+
+The first part of the table contains:
+
+[options="header"]
+|===
+|Address |Exception type |Description
+
+|VBAR_ELn + 0x000
+|Synchronous
+|Current EL with SP0
+
+|VBAR_ELn + 0x080
+|IRQ/vIRQ + 0x100
+|Current EL with SP0
+
+|VBAR_ELn + 0x100
+|FIQ/vFIQ
+|Current EL with SP0
+
+|VBAR_ELn + 0x180
+|SError/vSError
+|Current EL with SP0
+
+|===
+
+and the following other parts are analogous, but referring to `SPx` and lower ELs.
+
+We are going to do everything in <<arm-exception-level,EL1>> for now.
+
+On the terminal output, we observe the initial values of:
+
+* `DAIF`: `0x3c0`, i.e. 4 bits (6 to 9) set to 1, which means that exceptions are masked for each exception type: Synchronous, System error, IRQ and FIQ.
++
+This reset value is defined by <<armarm8>> C5.2.2 "DAIF, Interrupt Mask Bits".
+* `SPSel`: `0x1`, which means: use `SPx` instead of `SP0`.
++
+This reset value is defined by <<armarm8>> C5.2.16 "SPSel, Stack Pointer Select".
+* `VBAR_EL1`: `0x0` holds the base address of the vector table
++
+This reset value is defined `UNKNOWN` by <<armarm8>> D10.2.116 "VBAR_EL1, Vector Base Address Register (EL1)", so we must set it to something ourselves to have greater portability.
+
+Bibliography:
+
+* https://github.com/dwelch67/qemu_arm_samples/tree/07162ba087111e0df3f44fd857d1b4e82458a56d/swi01
+* https://github.com/NienfengYao/armv8-bare-metal/blob/572c6f95880e70aa92fe9fed4b8ad7697082a764/vector.S#L168
+* https://stackoverflow.com/questions/51094092/how-to-make-timer-irq-work-on-qemu-machine-virt-cpu-cortex-a57
+* https://stackoverflow.com/questions/44991264/armv8-exception-vectors-and-handling
+* https://stackoverflow.com/questions/44198483/arm-timers-and-interrupts
+
 ==== ARM multicore
 
 ....
@@ -11167,7 +11265,33 @@ The most useful ARM baremetal example sets we've seen so far are:
 * https://github.com/dwelch67/qemu_arm_samples QEMU `-m vexpress`
 * https://github.com/bztsrc/raspi3-tutorial real hardware + QEMU `-m raspi`
 * https://github.com/LdB-ECM/Raspberry-Pi real hardware
-* https://github.com/NienfengYao/armv8-bare-metal QEMU `-m virt` aarch64. A large part of the code is taken from the awesome educational OS under 2-clause BSD: https://github.com/takeharukato/sample-tsk-sw/tree/ce7973aa5d46c9eedb58309de43df3b09d4f8d8d/hal/aarch64
+
+===== armv8-bare-metal
+
+https://github.com/NienfengYao/armv8-bare-metal
+
+The only QEMU `-m virt` aarch64 example set that I can find on the web. Awesome.
+
+A large part of the code is taken from the awesome educational OS under 2-clause BSD as can be seen from file headers: https://github.com/takeharukato/sample-tsk-sw/tree/ce7973aa5d46c9eedb58309de43df3b09d4f8d8d/hal/aarch64 but Nienfeng largely minimized it.
+
+I needed the following minor patches: https://github.com/NienfengYao/armv8-bare-metal/pull/1
+
+[[armarm8]]
+===== ARMv8 architecture reference manual
+
+The official comprehensive ARMv8 reference.
+
+Latest version: https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
+
+We use: DDI 0487C.a: https://static.docs.arm.com/ddi0487/ca/DDI0487C_a_armv8_arm.pdf
+
+===== Programmer's Guide for ARMv8-A
+
+A more terse human readable introduction to the ARM architecture than the reference manuals.
+
+Latest version: https://developer.arm.com/docs/den0024/latest/preface
+
+We use: DEN0024A https://static.docs.arm.com/den0024/a/DEN0024A_v8_architecture_PG.pdf
 
 === How we got some baremetal stuff to work
 
