@@ -4239,12 +4239,7 @@ systemctl disable nfs-kernel-server
 
 ==== Modify kernel config
 
-By default, we use a `.config` that is a mixture of:
-
-* Buildroot's minimal per machine `.config`, which has the minimal options needed to boot
-* our <<kernel-configs-about,kernel configs>> which enables options we want to play with
-
-To modify a single option on top of our defaults, do:
+To modify a single option on top of our <<kernel-configs-about,default kernel configs>>, do:
 
 ....
 ./build-linux --config 'CONFIG_FORTIFY_SOURCE=y'
@@ -4277,15 +4272,40 @@ To use just your own exact `.config` instead of our defaults ones, use:
 ./build-linux --custom-config-file data/myconfig
 ....
 
+There is also a shortcut `--custom-config-file` to use the <<gem5-arm-linux-kernel-patches>>.
+
 The following options can all be used together, sorted by decreasing config setting power precedence:
 
 * `--config`
 * `--config-fragment`
 * `--custom-config-file`
 
+To do a clean menu config yourself and use that for the build, do:
+
+....
+./build-linux --clean
+./build-linux --custom-config-target menuconfig
+....
+
+But remember that every new build re-configures the kernel by default, so to keep your configs you will need to use on further builds:
+
+....
+./build-linux --no-configure
+....
+
+So what you likely want to do instead is to save that as a new `defconfig` and use it later as:
+
+....
+./build-linux --no-configure --no-modules-install savedefconfig
+cp "$(./getvar linux_build_dir)/defconfig" data/myconfig
+./build-linux --custom-config-file data/myconfig
+....
+
+You can also use other config generating targets such as `defconfig` with the same method as shown at: <<linux-kernel-defconfig>>.
+
 ==== Find the kernel config
 
-Ge the build config in guest:
+Get the build config in guest:
 
 ....
 zcat /proc/config.gz
@@ -4315,10 +4335,10 @@ CONFIG_IKCONFIG_PROC=y
 From host:
 
 ....
-cat "$(./getvar linux_build_dir)/.config"
+cat "$(./getvar linux_config)"
 ....
 
-Just for fun link:https://stackoverflow.com/a/14958263/895245[]:
+Just for fun link:https://stackoverflow.com/questions/14958192/how-to-get-the-config-from-a-linux-kernel-image/14958263#14958263[]:
 
 ....
 ./linux/scripts/extract-ikconfig "$(./getvar vmlinux)"
@@ -4329,9 +4349,12 @@ although this can be useful when someone gives you a random image.
 [[kernel-configs-about]]
 ==== About our Linux kernel configs
 
-All our Linux kernel configs are stored under link:linux_config/[].
+By default, link:build-linux[] generates a `.config` that is a mixture of:
 
-To find out which kernel configs are being used, simply run:
+* a base config extracted from Buildroot's minimal per machine `.config`, which has the minimal options needed to boot: <<about-buildroot-s-kernel-configs>>
+* small overlays put top of that
+
+To find out which kernel configs are being used exactly, simply run:
 
 ....
 ./build-linux --dry-run
@@ -4349,7 +4372,7 @@ e.g.: link:linux_config/buildroot-x86_64[].
 
 These configs are extracted directly from a Buildroot build with link:update-buildroot-kernel-config[].
 
-Note that Buildroot can `sed` override some of the configurations, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on. For this reason, those configs are not simply copy pasted from Buildroot files, but rather from a Buildroot kernel build, and then minimized with `make savedefconfig`.
+Note that Buildroot can `sed` override some of the configurations, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on. For this reason, those configs are not simply copy pasted from Buildroot files, but rather from a Buildroot kernel build, and then minimized with `make savedefconfig`: https://stackoverflow.com/questions/27899104/how-to-create-a-defconfig-file-from-a-config
 
 On top of those, we add the following by default:
 
@@ -4358,6 +4381,8 @@ On top of those, we add the following by default:
 Having the same config working for both QEMU and gem5 (oh, the hours of bisection) means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.
 +
 * link:linux_config/default[]: other optional configs that we enable by default because they increase visibility, or expose some cool feature, and don't significantly increase build time nor add significant runtime overhead
++
+We have since observed that the kernel size itself is very bloated compared to `defconfig`: <<linux-kernel-defconfig>>.
 
 ===== About Buildroot's kernel configs
 
@@ -4367,11 +4392,78 @@ That file contains `BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="board/qemu/x86_64/linux
 
 `arm`, on the other hand, uses link:https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_arm_vexpress_defconfig[`buildroot/configs/qemu_arm_vexpress_defconfig`], which contains `BR2_LINUX_KERNEL_DEFCONFIG="vexpress"`, and therefore just does a `make vexpress_defconfig`, and gets its config from the Linux kernel tree itself.
 
-====== Linux kernel defconfigs
+====== Linux kernel defconfig
 
-It would be interesting to test out if `make defconfig` configs boot and work on QEMU + Buildroot: https://unix.stackexchange.com/questions/29439/compiling-the-kernel-with-default-configurations/204512#204512
+To boot link:https://stackoverflow.com/questions/41885015/what-exactly-does-linux-kernels-make-defconfig-do[defconfig] from disk on Linux and see a shell, all we need is these missing virtio options:
 
-TODO.
+....
+./build-linux \
+  --linux-build-id defconfig \
+  --custom-config-target defconfig \
+  --config CONFIG_VIRTIO_PCI=y \
+  --config CONFIG_VIRTIO_BLK=y \
+;
+./run --linux-build-id defconfig
+....
+
+Oh, and check this out:
+
+....
+du -h \
+  "$(./getvar vmlinux)" \
+  "$(./getvar --linux-build-id defconfig vmlinux)" \
+;
+....
+
+Output:
+
+....
+360M    /path/to/linux-kernel-module-cheat/out/linux/default/x86_64/vmlinux
+47M     /path/to/linux-kernel-module-cheat/out/linux/defconfig/x86_64/vmlinux
+....
+
+Brutal. Where did we go wrong?
+
+The extra virtio options are not needed if we use <<initrd>>:
+
+....
+./build-linux \
+  --linux-build-id defconfig \
+  --custom-config-target defconfig \
+;
+./run --initrd --linux-build-id defconfig
+....
+
+On aarch64, we can boot from initrd with:
+
+....
+./build-linux \
+  --arch aarch64 \
+  --linux-build-id defconfig \
+  --custom-config-target defconfig \
+;
+./run \
+  --arch aarch64 \
+  --initrd \
+  --linux-build-id defconfig \
+  --memory 2G \
+;
+....
+
+We need the 2G of memory because the CPIO is 600MiB due to a humongous amount of loadable kernel modules!
+
+In aarch64, the size situation is inverted from x86_64, and this can be seen on the vmlinux size as well:
+
+....
+118M    /path/to/linux-kernel-module-cheat/out/linux/default/aarch64/vmlinux
+240M    /path/to/linux-kernel-module-cheat/out/linux/defconfig/aarch64/vmlinux
+....
+
+So it seems that the ARM devs decided rather than creating a minimal config that boots QEMU, to try and make a single config that boots every board in existence. Terrible!
+
+Bibliography: https://unix.stackexchange.com/questions/29439/compiling-the-kernel-with-default-configurations/204512#204512
+
+Tested on 1e2b7f1e5e9e3073863dc17e25b2455c8ebdeadd + 1.
 
 ===== Notable alternate gem5 kernel configs
 

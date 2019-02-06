@@ -29,28 +29,48 @@ Pass multiple times to use multiple fragment files.
 '''
         )
         self.add_argument(
-            '--config-only', default=False,
+            '--build',
+            default=True,
             help='''\
-Configure the kernel, but don't build it.
+Build the kernel.
+'''
+        )
+        self.add_argument(
+            '--configure',
+            default=True,
+            help='''\
+Configure the kernel.
 '''
         )
         self.add_argument(
             '--custom-config-file',
             help='''\
-Ignore all default kernel configurations and use this file instead.
-Still uses options explicitly passed with `--config` and
-`--config-fragment` on top of it.
+Use this file as the .config. Don't add any default framents to it,
+unless explicitly passed with `--config` and `--config-fragment` on
+top of it.
 '''
         )
         self.add_argument(
-            '--custom-config-file-gem5', default=False,
+            '--custom-config-file-gem5',
+            default=False,
             help='''\
-Use the gem5 Linux kernel fork config as the custom config file.
-Ignore --custom-config-file.
+Like --custom-config-file, but select the gem5 Linux kernel fork
+config as the custom config file. Ignore --custom-config-file if given.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-arm-linux-kernel-patches
 '''
         )
         self.add_argument(
-            '--modules-install', default=True,
+            '--custom-config-target',
+            help='''\
+Like --custom-config-file, but generate the base configuration file
+by running a kernel make target such as menuconfig or defconfig.
+If a .config exists in the tree, it will get picked e.g. by menuconfig,
+so you might want to --clean the build first.
+'''
+        )
+        self.add_argument(
+            '--modules-install',
+            default=True,
             help='''\
 Run `make modules_install` after `make`.
 '''
@@ -88,49 +108,88 @@ Run `make modules_install` after `make`.
             'CC={}'.format(cc), LF,
             'O={}'.format(build_dir), LF,
         ] + verbose
-        if self.env['custom_config_file_gem5']:
-            custom_config_file = os.path.join(self.env['linux_source_dir'], 'arch', self.env['linux_arch'], 'configs', 'gem5_defconfig')
-        else:
-            custom_config_file = self.env['custom_config_file']
-        if custom_config_file is not None:
-            if not os.path.exists(custom_config_file):
-                raise Exception('config fragment file does not exist: {}'.format(custom_config_file))
-            base_config_file = custom_config_file
-            config_fragments = []
-        else:
-            base_config_file = os.path.join(self.env['linux_config_dir'], 'buildroot-{}'.format(self.env['arch']))
-            config_fragments = ['min', 'default']
-            for i, config_fragment in enumerate(config_fragments):
-                config_fragments[i] = os.path.join(self.env['linux_config_dir'], config_fragment)
-        config_fragments.extend(self.env['config_fragment'])
-        cli_configs = self.env['config']
-        if self.env['initramfs']:
-            cli_configs.append('CONFIG_INITRAMFS_SOURCE="{}"'.format(self.env['buildroot_cpio']))
-        if cli_configs:
-            cli_config_fragment_path = os.path.join(build_dir, 'lkmc_cli_config_fragment')
-            self.sh.write_configs(cli_config_fragment_path, cli_configs, mode='w')
-            config_fragments.append(cli_config_fragment_path)
-        self.sh.cp(
-            base_config_file,
-            os.path.join(build_dir, '.config'),
-        )
-        self.sh.run_cmd(
-            [
-                os.path.join(self.env['linux_source_dir'], 'scripts', 'kconfig', 'merge_config.sh'), LF,
-                '-m', LF,
-                '-O', build_dir, LF,
-                os.path.join(build_dir, '.config'), LF,
-            ] +
-            self.sh.add_newlines(config_fragments)
-        )
-        self.sh.run_cmd(
-            (
-                common_make_args +
-                ['olddefconfig', LF]
-            ),
-            **common_args
-        )
-        if not self.env['config_only']:
+        if self.env['configure']:
+            if self.env['custom_config_target']:
+                base_config_given = True
+                base_config_needs_copy = False
+            elif self.env['custom_config_file_gem5']:
+                base_config_given = True
+                base_config_needs_copy = True
+                custom_config_file = os.path.join(
+                    self.env['linux_source_dir'],
+                    'arch',
+                    self.env['linux_arch'],
+                    'configs',
+                    'gem5_defconfig'
+                )
+            elif self.env['custom_config_file']:
+                base_config_given = False
+                base_config_needs_copy = True
+                custom_config_file = self.env['custom_config_file']
+            else:
+                base_config_given = False
+                base_config_needs_copy = True
+            if base_config_given:
+                if base_config_needs_copy:
+                    if not os.path.exists(custom_config_file):
+                        raise Exception('config fragment file does not exist: {}'.format(custom_config_file))
+                    base_config_file = custom_config_file
+                config_fragments = []
+            else:
+                base_config_file = os.path.join(
+                    self.env['linux_config_dir'],
+                    'buildroot-{}'.format(self.env['arch'])
+                )
+                config_fragments = ['min', 'default']
+                for i, config_fragment in enumerate(config_fragments):
+                    config_fragments[i] = os.path.join(
+                        self.env['linux_config_dir'],
+                        config_fragment
+                    )
+            config_fragments.extend(self.env['config_fragment'])
+            cli_configs = self.env['config']
+            if self.env['initramfs']:
+                cli_configs.append('CONFIG_INITRAMFS_SOURCE="{}"'.format(self.env['buildroot_cpio']))
+            if cli_configs:
+                cli_config_fragment_path = os.path.join(build_dir, 'lkmc_cli_config_fragment')
+                self.sh.write_configs(cli_config_fragment_path, cli_configs, mode='w')
+                config_fragments.append(cli_config_fragment_path)
+            if base_config_needs_copy:
+                self.sh.cp(
+                    base_config_file,
+                    os.path.join(self.env['linux_config']),
+                )
+            if self.env['custom_config_target']:
+                self.sh.run_cmd(
+                    (
+                        common_make_args +
+                        [self.env['custom_config_target'], LF]
+                    ),
+                    **common_args
+                )
+            if config_fragments:
+                self.sh.run_cmd(
+                    [
+                        os.path.join(
+                            self.env['linux_source_dir'],
+                            'scripts',
+                            'kconfig',
+                            'merge_config.sh'
+                        ), LF,
+                        '-m', LF,
+                        '-O', build_dir, LF,
+                        os.path.join(self.env['linux_config']), LF,
+                    ] +
+                    self.sh.add_newlines(config_fragments)
+                )
+                self.sh.run_cmd(
+                    (
+                        common_make_args +
+                        ['olddefconfig', LF]
+                    ),
+                    **common_args
+                )
+        if self.env['build']:
             self.sh.run_cmd(
                 (
                     common_make_args +

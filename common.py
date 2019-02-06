@@ -634,6 +634,7 @@ Valid emulators: {}
         else:
             env['vmlinux'] = env['lkmc_vmlinux']
             env['linux_image'] = env['lkmc_linux_image']
+        env['linux_config'] = join(env['linux_build_dir'], '.config')
         if env['emulator']== 'gem5':
             env['userland_quit_cmd'] = '/gem5_exit.sh'
         else:
