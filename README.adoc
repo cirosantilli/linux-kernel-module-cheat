@@ -4378,10 +4378,7 @@ Note that Buildroot can `sed` override some of the configurations, e.g. it force
 
 On top of those, we add the following by default:
 
-* link:linux_config/min[]: minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot on all archs
-+
-Having the same config working for both QEMU and gem5 (oh, the hours of bisection) means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.
-+
+* link:linux_config/min[]: see: <<linux-kernel-min-config>>
 * link:linux_config/default[]: other optional configs that we enable by default because they increase visibility, or expose some cool feature, and don't significantly increase build time nor add significant runtime overhead
 +
 We have since observed that the kernel size itself is very bloated compared to `defconfig`: <<linux-kernel-defconfig>>.
@@ -4466,6 +4463,29 @@ So it seems that the ARM devs decided rather than creating a minimal config that
 Bibliography: https://unix.stackexchange.com/questions/29439/compiling-the-kernel-with-default-configurations/204512#204512
 
 Tested on 1e2b7f1e5e9e3073863dc17e25b2455c8ebdeadd + 1.
+
+====== Linux kernel min config
+
+link:linux_config/min[] contains minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot on all archs.
+
+It is one of the default config fragments we use, as explained at: <<kernel-configs-about>>>.
+
+Having the same config working for both QEMU and gem5 (oh, the hours of bisection) means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.
+
+We can build just with `min` on top of the base config with:
+
+....
+./build-linux \
+  --arch aarch64 \
+  --config-fragment linux_config/min \
+  --custom-config-file linux_config/buildroot-aarch64 \
+  --linux-build-id min \
+;
+....
+
+vmlinux had a very similar size to the default. It seems that link:linux_config/buildroot-aarch64[] contains or implies most link:linux_config/default[] options already? TODO: that seems odd, really?
+
+Tested on 649d06d6758cefd080d04dc47fd6a5a26a620874 + 1.
 
 ===== Notable alternate gem5 kernel configs
 
@@ -10196,12 +10216,36 @@ git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
   --linux-build-id gem5-v4.15 \
 ;
 git -C "$(./getvar linux_source_dir)" checkout -
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --linux-build-id gem5-v4.15 \
+;
 ....
+
+QEMU also boots that kernel successfully:
+
+....
+./run \
+  --arch aarch64 \
+  --linux-build-id gem5-v4.15 \
+;
+....
+
+but glibc kernel version checks make init fail with:
+
+....
+FATAL: kernel too old
+....
+
+because that kernel version is too old.
 
 It is obviously not possible to understand what they actually do from their commit message, so let's explain them one by one here as we understand them:
 
 * `drm: Add component-aware simple encoder` allows you to see images through VNC: <<gem5-graphic-mode>>
 * `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: <<gem5-arm-more-than-8-cores>>
+
+Tested on 649d06d6758cefd080d04dc47fd6a5a26a620874 + 1.
 
 ==== gem5 arm Linux kernel patches boot speedup
 
