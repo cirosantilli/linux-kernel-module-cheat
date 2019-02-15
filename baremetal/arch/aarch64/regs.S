@@ -1,6 +1,7 @@
 /* Test that we can move:
  * - set registers
- * - read x30 */
+ * - read x30
+ */
 .global main
 main:
     mov x0, #1
@@ -23,6 +24,6 @@ main:
     fmov d31, #2.5
     /* test-gdb-d31 */
 
-    /* Exit required since we meesed up with x30 which is the lr. */
+    /* Exit required since we messed up with x30 which is the lr. */
     mov x0, #0
     bl exit
