@@ -348,6 +348,14 @@ Machine type:
 
         # Userland.
         self.add_argument(
+            '--static',
+            default=False,
+            help='''\
+Build userland executables statically. Set --userland-build-id to 'static'
+if one was not given explicitly.
+''',
+        )
+        self.add_argument(
             '-u', '--userland',
             help='''\
 Run the given userland executable in user mode instead of booting the Linux kernel
@@ -441,7 +449,10 @@ Valid emulators: {}
         if env['emulator'] in env['emulator_short_to_long_dict']:
             env['emulator'] = env['emulator_short_to_long_dict'][env['emulator']]
         if not env['_args_given']['userland_build_id']:
-            env['userland_build_id'] = env['default_build_id']
+            if env['static']:
+                env['userland_build_id'] = 'static'
+            else:
+                env['userland_build_id'] = env['default_build_id']
         if not env['_args_given']['gem5_build_id']:
             if env['_args_given']['gem5_worktree']:
                 env['gem5_build_id'] = env['gem5_worktree']
