@@ -24,8 +24,8 @@ See also: https://github.com/cirosantilli/linux-kernel-module-cheat#host
             '--host',
             default=False,
             help='''\
-Build the Linux kernel modules for the host instead of guest.
-Use the host packaged cross toolchain.
+Build the Linux kernel modules against the host kernel.
+Place the modules on a separate magic directory from non --host builds.
 ''',
         )
         self.add_argument(
@@ -68,14 +68,12 @@ Use the host packaged cross toolchain.
         else:
             kernel_modules = map(lambda x: os.path.splitext(os.path.split(x)[1])[0], self.env['kernel_modules'])
         object_files = map(lambda x: x + self.env['obj_ext'], kernel_modules)
-        tool = 'gcc'
         if self.env['host']:
-            allowed_toolchains = ['host']
             build_subdir = self.env['kernel_modules_build_host_subdir']
         else:
-            allowed_toolchains = None
             build_subdir = self.env['kernel_modules_build_subdir']
-        gcc = self.get_toolchain_tool(tool, allowed_toolchains=allowed_toolchains)
+        tool = 'gcc'
+        gcc = self.get_toolchain_tool(tool)
         prefix = gcc[:-len(tool)]
         ccache = shutil.which('ccache')
         if ccache is not None:

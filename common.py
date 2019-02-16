@@ -141,7 +141,9 @@ class LkmcCliFunction(cli_function.CliFunction):
             arches_string.append('{} ({})'.format(arch_long, arch_short))
         arches_string = ', '.join(arches_string)
         self.add_argument(
-            '-A', '--all-archs', default=False,
+            '-A',
+            '--all-archs',
+            default=False,
             help='''\
 Run action for all supported --archs archs. Ignore --archs.
 '''.format(arches_string)
@@ -180,14 +182,34 @@ mkdir are generally omitted since those are obvious
 '''
         )
         self.add_argument(
-            '--print-time', default=True,
+            '--gcc-which',
+            choices=[
+                'buildroot',
+                'crosstool-ng',
+                'host',
+                'host-baremetal'
+            ],
+            default='buildroot',
+            help='''\
+Which toolchain binaries to use:
+- buildroot: the ones we built with ./build-buildroot. For userland, links to glibc.
+- crosstool-ng: the ones we built with ./build-crosstool-ng. For baremetal, links to newlib.
+- host: the host distro pre-packaged userland ones. For userland, links to glibc.
+- host-baremetal: the host distro pre-packaged bare one. For baremetal, links to newlib.
+'''
+        )
+        self.add_argument(
+            '--print-time',
+            default=True,
             help='''\
 Print how long it took to run the command at the end.
 Implied by --quiet.
 '''
         )
         self.add_argument(
-            '-q', '--quiet', default=False,
+            '-q',
+            '--quiet',
+            default=False,
             help='''\
 Don't print anything to stdout, except if it is part of an interactive terminal.
 TODO: implement fully, some stuff is escaping it currently.
@@ -201,7 +223,9 @@ Stop running at the first failed test.
 '''
         )
         self.add_argument(
-            '-v', '--verbose', default=False,
+            '-v',
+            '--verbose',
+            default=False,
             help='Show full compilation commands when they are not shown by default.'
         )
 
@@ -218,14 +242,16 @@ Ignore --gem5-build-id and --gem5-build-type.
 '''
         )
         self.add_argument(
-            '-M', '--gem5-build-id',
+            '-M',
+            '--gem5-build-id',
             help='''\
 gem5 build ID. Allows you to keep multiple separate gem5 builds.
 Default: {}
 '''.format(consts['default_build_id'])
         )
         self.add_argument(
-            '--gem5-build-type', default='opt',
+            '--gem5-build-type',
+            default='opt',
             help='gem5 build type, most often used for "debug" builds.'
         )
         self.add_argument(
@@ -235,7 +261,8 @@ Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
 '''
         )
         self.add_argument(
-            '-N', '--gem5-worktree',
+            '-N',
+            '--gem5-worktree',
             help='''\
 Create and use a git worktree of the gem5 submodule.
 See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
@@ -250,7 +277,9 @@ Use the given directory as the Linux build directory. Ignore --linux-build-id.
 '''
         )
         self.add_argument(
-            '-L', '--linux-build-id', default=consts['default_build_id'],
+            '-L',
+            '--linux-build-id',
+            default=consts['default_build_id'],
             help='''\
 Linux build ID. Allows you to keep multiple separate Linux builds.
 '''
@@ -280,7 +309,8 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#initrd
 
         # Baremetal.
         self.add_argument(
-            '-b', '--baremetal',
+            '-b',
+            '--baremetal',
             help='''\
 Use the given baremetal executable instead of the Linux kernel.
 
@@ -298,13 +328,16 @@ inside baremetal/ and then try to use corresponding executable.
             help='Buildroot build ID. Allows you to keep multiple separate gem5 builds.'
         )
         self.add_argument(
-            '--buildroot-linux', default=False,
+            '--buildroot-linux',
+            default=False,
             help='Boot with the Buildroot Linux kernel instead of our custom built one. Mostly for sanity checks.'
         )
 
         # Android.
         self.add_argument(
-            '--rootfs-type', default='buildroot', choices=('buildroot', 'android'),
+            '--rootfs-type',
+            default='buildroot',
+            choices=('buildroot', 'android'),
             help='Which rootfs to use.'
         )
         self.add_argument(
@@ -322,11 +355,13 @@ of SSD.
 
         # crosstool-ng
         self.add_argument(
-            '--crosstool-ng-build-id', default=consts['default_build_id'],
+            '--crosstool-ng-build-id',
+            default=consts['default_build_id'],
             help='Crosstool-NG build ID. Allows you to keep multiple separate crosstool-NG builds.'
         )
         self.add_argument(
-            '--docker', default=False,
+            '--docker',
+            default=False,
             help='''\
 Use the docker download Ubuntu root filesystem instead of the default Buildroot one.
 '''
@@ -334,8 +369,20 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
 
         # QEMU.
         self.add_argument(
-            '-Q', '--qemu-build-id', default=consts['default_build_id'],
+            '-Q',
+            '--qemu-build-id',
+            default=consts['default_build_id'],
             help='QEMU build ID. Allows you to keep multiple separate QEMU builds.'
+        )
+        self.add_argument(
+            '--qemu-which',
+            choices=['lkmc', 'host'],
+            default='lkmc',
+            help='''\
+Which qemu binaries to use: qemu-system-, qemu-, qemu-img, etc.:
+- lkmc: the ones we built with ./build-qemu
+- host: the host distro pre-packaged provided ones
+'''
         )
         self.add_argument(
             '--machine',
@@ -513,9 +560,9 @@ Valid emulators: {}
         env['buildroot_build_build_dir'] = join(env['buildroot_build_dir'], 'build')
         env['buildroot_linux_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
         env['buildroot_vmlinux'] = join(env['buildroot_linux_build_dir'], 'vmlinux')
-        env['host_dir'] = join(env['buildroot_build_dir'], 'host')
-        env['host_bin_dir'] = join(env['host_dir'], 'usr', 'bin')
-        env['buildroot_pkg_config'] = join(env['host_bin_dir'], 'pkg-config')
+        env['buildroot_host_dir'] = join(env['buildroot_build_dir'], 'host')
+        env['buildroot_host_bin_dir'] = join(env['buildroot_host_dir'], 'usr', 'bin')
+        env['buildroot_pkg_config'] = join(env['buildroot_host_bin_dir'], 'pkg-config')
         env['buildroot_images_dir'] = join(env['buildroot_build_dir'], 'images')
         env['buildroot_rootfs_raw_file'] = join(env['buildroot_images_dir'], 'rootfs.ext2')
         env['buildroot_qcow2_file'] = env['buildroot_rootfs_raw_file'] + '.qcow2'
@@ -737,6 +784,37 @@ Valid emulators: {}
 lunch aosp_{}-eng
 '''.format(self.env['android_arch'])
 
+        # Toolchain choice.
+        if not env['_args_given']['gcc_which']:
+            if env['baremetal']:
+                env['gcc_which'] = 'crosstool-ng'
+        if env['gcc_which'] == 'buildroot':
+            env['toolchain_prefix'] = os.path.join(
+                env['buildroot_host_bin_dir'],
+                env['buildroot_toolchain_prefix']
+            )
+            env['userland_library_dir'] = env['target_dir']
+        elif env['gcc_which'] == 'crosstool-ng':
+            env['toolchain_prefix'] = os.path.join(
+                env['crosstool_ng_bin_dir'],
+                env['crosstool_ng_toolchain_prefix']
+            )
+        elif env['gcc_which'] == 'host':
+            env['toolchain_prefix'] = env['ubuntu_toolchain_prefix']
+            if env['arch'] == 'x86_64':
+                env['userland_library_dir'] = '/'
+            elif env['arch'] == 'arm':
+                env['userland_library_dir'] = '/usr/arm-linux-gnueabihf'
+            elif env['arch'] == 'aarch64':
+                env['userland_library_dir'] = '/usr/aarch64-linux-gnu/'
+        elif env['gcc_which'] == 'host-baremetal':
+            if env['arch'] == 'arm':
+                env['toolchain_prefix'] = 'arm-none-eabi'
+            else:
+                raise Exception('There is no host baremetal chain for arch: ' + env['arch'])
+        else:
+            raise Exception('Unknown toolchain: ' + env['gcc_which'])
+
     def add_argument(self, *args, **kwargs):
         '''
         Also handle:
@@ -805,44 +883,8 @@ lunch aosp_{}-eng
                         ret.append(cols[1])
         return ret
 
-    def get_toolchain_prefix(self, tool, allowed_toolchains=None):
-        buildroot_full_prefix = os.path.join(self.env['host_bin_dir'], self.env['buildroot_toolchain_prefix'])
-        buildroot_exists = os.path.exists('{}-{}'.format(buildroot_full_prefix, tool))
-        crosstool_ng_full_prefix = os.path.join(self.env['crosstool_ng_bin_dir'], self.env['crosstool_ng_toolchain_prefix'])
-        crosstool_ng_exists = os.path.exists('{}-{}'.format(crosstool_ng_full_prefix, tool))
-        host_tool = '{}-{}'.format(self.env['ubuntu_toolchain_prefix'], tool)
-        host_path = shutil.which(host_tool)
-        if host_path is not None:
-            host_exists = True
-            host_full_prefix = host_path[:-(len(tool)+1)]
-        else:
-            host_exists = False
-            host_full_prefix = None
-        known_toolchains = {
-            'crosstool-ng': (crosstool_ng_exists, crosstool_ng_full_prefix),
-            'buildroot': (buildroot_exists, buildroot_full_prefix),
-            'host': (host_exists, host_full_prefix),
-        }
-        if allowed_toolchains is None:
-            if self.env['baremetal'] is None:
-                allowed_toolchains = ['buildroot', 'crosstool-ng', 'host']
-            else:
-                allowed_toolchains = ['crosstool-ng', 'buildroot', 'host']
-        tried = []
-        for toolchain in allowed_toolchains:
-            exists, prefix = known_toolchains[toolchain]
-            tried.append('{}-{}'.format(prefix, tool))
-            if exists:
-                return prefix
-        error_message = 'Tool not found. Tried:\n' + '\n'.join(tried)
-        if self.env['dry_run']:
-            self.log_error(error_message)
-            return ''
-        else:
-            raise Exception(error_message)
-
-    def get_toolchain_tool(self, tool, allowed_toolchains=None):
-        return '{}-{}'.format(self.get_toolchain_prefix(tool, allowed_toolchains), tool)
+    def get_toolchain_tool(self, tool):
+        return '{}-{}'.format(self.env['toolchain_prefix'], tool)
 
     def github_make_request(
             self,
@@ -1010,8 +1052,8 @@ lunch aosp_{}-eng
         if self.env['print_time'] and not self.env['quiet']:
             print('time {}'.format(self.seconds_to_hms(ellapsed_seconds)))
 
-    def raw_to_qcow2(self, prebuilt=False, reverse=False):
-        if prebuilt or not os.path.exists(self.env['qemu_img_executable']):
+    def raw_to_qcow2(self, qemu_which=False, reverse=False):
+        if qemu_which == 'host' or not os.path.exists(self.env['qemu_img_executable']):
             disable_trace = []
             qemu_img_executable = self.env['qemu_img_basename']
         else:

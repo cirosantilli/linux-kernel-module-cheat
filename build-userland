@@ -49,12 +49,6 @@ has the OpenBLAS libraries and headers installed.
     def build(self):
         build_dir = self.get_build_dir()
         os.makedirs(build_dir, exist_ok=True)
-        if self.env['host']:
-            allowed_toolchains = ['host']
-        else:
-            allowed_toolchains = ['buildroot']
-        cc = self.get_toolchain_tool('gcc', allowed_toolchains=allowed_toolchains)
-        cxx = self.get_toolchain_tool('g++', allowed_toolchains=allowed_toolchains)
         make_args = shlex.split(self.env['make_args'])
         if self.env['static']:
             make_args.extend(['CCFLAGS_EXTRA=-static', LF])
@@ -66,15 +60,25 @@ has the OpenBLAS libraries and headers installed.
                     'ARCH={}'.format(self.env['arch']), LF,
                     'CCFLAGS_SCRIPT={} {}'.format('-I', self.env['userland_source_dir']), LF,
                     'COMMON_DIR={}'.format(self.env['root_dir']), LF,
-                    'CC={}'.format(cc), LF,
-                    'CXX={}'.format(cxx), LF,
+                    'CC={}'.format(self.get_toolchain_tool('gcc')), LF,
+                    'CXX={}'.format(self.get_toolchain_tool('g++')), LF,
                     'PKG_CONFIG={}'.format(self.env['buildroot_pkg_config']), LF,
                     'STAGING_DIR={}'.format(self.env['buildroot_staging_dir']), LF,
                     'OUT_DIR={}'.format(build_dir), LF,
                 ] +
-                self.sh.add_newlines(['HAS_{}=y'.format(package.upper()) for package in self.env['has_package']]) +
+                self.sh.add_newlines([
+                    'HAS_{}=y'.format(package.upper())
+                    for package in
+                    self.env['has_package']
+                ]) +
                 make_args +
-                self.sh.add_newlines([os.path.join(build_dir, os.path.splitext(os.path.split(target)[1])[0]) + self.env['userland_build_ext'] for target in self.env['targets']])
+                self.sh.add_newlines([
+                    os.path.join(
+                        build_dir,
+                        os.path.splitext(os.path.split(target)[1])[0]
+                    ) + self.env['userland_build_ext']
+                    for target in self.env['targets']
+                ])
             ),
             cwd=self.env['userland_source_dir'],
             extra_paths=[self.env['ccache_dir']],

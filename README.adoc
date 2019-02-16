@@ -533,13 +533,17 @@ cd linux-kernel-module-cheat
 git checkout "$(git rev-list --tags --max-count=1)"
 ./release-download-latest
 unzip lkmc-*.zip
-./run --prebuilt
+./run --qemu-which host
 ....
 
 Or to run a baremetal example instead:
 
 ....
-./run --arch aarch64 --baremetal baremetal/hello.c --prebuilt
+./run \
+  --arch aarch64 \
+  --baremetal baremetal/hello.c \
+  --qemu-which host \
+;
 ....
 
 You have to checkout to the latest tag to ensure that the scripts match the release format: https://stackoverflow.com/questions/1404796/how-to-get-the-latest-tag-name-in-current-branch-in-git
@@ -558,7 +562,7 @@ To build the kernel modules as in <<your-first-kernel-module-hack>> do:
 ....
 git submodule update --depth 1 --init --recursive "$(./getvar linux_source_dir)"
 ./build-linux --no-modules-install -- modules_prepare
-./build-modules
+./build-modules --gcc-which host
 ./run
 ....
 
@@ -567,7 +571,7 @@ TODO: for now the only way to test those modules out without <<qemu-buildroot-se
 Command explanation:
 
 * `modules_prepare` does the minimal build procedure required on the kernel for us to be able to compile the kernel modules, and is way faster than doing a full kernel build. A full kernel build would also work however.
-* the `./build-modules` command automatically falls back to the Ubuntu packaged GCC since you don't have the Buildroot toolchain
+* `--gcc-which host` selects your host Ubuntu packaged GCC, since you don't have the Buildroot toolchain
 * `--no-modules-install` is required otherwise the `make modules_install` target we run by default fails, since the kernel wasn't built
 
 To modify the Linux kernel, build and use it as usual:
@@ -585,7 +589,7 @@ For gem5, do:
 git submodule update --init --depth 1 "$(./getvar linux_source_dir)"
 sudo apt-get install qemu-utils
 ./build-gem5
-./run --emulator gem5 --prebuilt
+./run --emulator gem5 --qemu-which host
 ....
 
 `qemu-utils` is required because we currently distribute `.qcow2` files which <<gem5-qcow2,gem5 can't handle>>, so we need `qemu-img` to extract them first.
@@ -653,21 +657,27 @@ It has however severe limitations:
 Still interested?
 
 ....
-./build-modules --host
+./build-modules --gcc-which host --host
 ....
 
 Compilation will likely fail for some modules because of kernel or toolchain differences that we can't control on the host.
 
-The best solution is to compile just your modules with:
+The best workaround is to compile just your modules with:
 
 ....
-./build-modules --host -- hello hello2
+./build-modules --gcc-which host --host -- hello hello2
 ....
 
 which is equivalent to:
 
 ....
-./build-modules --host -- kernel_modules/hello.c kernel_modules/hello2.c
+./build-modules \
+  --gcc-which host \
+  --host \
+  -- \
+  kernel_modules/hello.c \
+  kernel_modules/hello2.c \
+;
 ....
 
 Or just remove the `.c` extension from the failing files and try again:
@@ -874,7 +884,7 @@ Much like <<baremetal-setup>>, this is another fun setup that does not require B
 
 Introduction at: <<user-mode-simulation>>.
 
-Getting started at: <<qemu-user-mode>>.
+Getting started at: <<qemu-user-mode-getting-started>>.
 
 [[gdb]]
 == GDB step debug
@@ -2814,8 +2824,8 @@ Files that contain device trees have the `.dtb` extension when compiled, and `.d
 You can convert between those formats with:
 
 ....
-"$(./getvar host_dir)"/bin/dtc -I dtb -O dts -o a.dts a.dtb
-"$(./getvar host_dir)"/bin/dtc -I dts -O dtb -o a.dtb a.dts
+"$(./getvar buildroot_host_dir)"/bin/dtc -I dtb -O dts -o a.dts a.dtb
+"$(./getvar buildroot_host_dir)"/bin/dtc -I dts -O dtb -o a.dtb a.dts
 ....
 
 Buildroot builds the tool due to `BR2_PACKAGE_HOST_DTC=y`.
@@ -3021,7 +3031,7 @@ TODO: do the right thing and cross compile QEMU and gem5. gem5's Python parts mi
 
 Both QEMU and gem5 have an user mode simulation mode in addition to full system simulation that we consider elsewhere in this project.
 
-In QEMU, it is called just <<qemu-user-mode,"user mode">>, and in gem5 it is called <<gem5-syscall-emulation-mode,syscall emulation mode>>.
+In QEMU, it is called just <<qemu-user-mode-getting-started,"user mode">>, and in gem5 it is called <<gem5-syscall-emulation-mode,syscall emulation mode>>.
 
 In both, the basic idea is the same.
 
@@ -3043,16 +3053,27 @@ Disadvantages:
 It may still work even if that is not the case, but could fail is a missing system call is reached.
 +
 The target Linux kernel of the executable is a GCC toolchain build-time configuration.
-* cannot be used to test the Linux kernel, and results are less representative of a real system since we are faking more
+** emulator implementers have to keep up with libc changes, some of which break even a C hello world due setup code executed before main.
++
+See also: <<user-mode-simulation-with-glibc>>
+* cannot be used to test the Linux kernel or any devices, and results are less representative of a real system since we are faking more
 
-=== QEMU user mode
+=== QEMU user mode getting started
 
-First let's run a dynamically linked executable built with the Buildroot toolchain:
+TODO: at 125d14805f769104f93c510bedaa685a52ec025d we <<libc-choice,moved Buildroot from uClibc to glibc>>, and this broke running user mode executables built with Buildroot in many setups, which would be ideal setup. Fixing them requires hacking up the emulators / glibc, but I'm lazy now. More details at: <<user-mode-simulation-with-glibc>>.
+
+Running with Ubuntu 18.04 host packaged toolchains works however, as emulator maintainers have had more time to iron out the issues there, so let's go that route for now:
 
 ....
-./build --arch aarch64 user-mode-qemu
+sudo apt-get install gcc-aarch64-linux-gnu
+./build-userland \
+  --arch aarch64 \
+  --gcc-which host \
+  --userland-build-id host \
+;
 ./run \
   --arch aarch64 \
+  --userland-build-id host \
   --userland print_argv \
   --userland-args 'asdf "qw er"' \
 ;
@@ -3067,15 +3088,98 @@ qw er
 
 This runs link:userland/print_argv.c[].
 
+All further sections assume that you are using the host toolchain unless otherwise noted:
+
+* `--gcc-which host`: use the host toolchain.
++
+We must pass this to `./run` as well because QEMU must know which dynamic libraries to use. See also: <<user-mode-static-executables>>.
+* `--userland-build-id host`: put the host built into a <<build-variants>>
+
+In order to build and run with the Buildroot toolchain to try and fix the emulators, do:
+
+....
+./build --arch aarch64 user-mode-qemu
+./run \
+  --arch aarch64 \
+  --userland print_argv \
+  --userland-args 'asdf "qw er"' \
+;
+....
+
+where `build` builds the whole toolchain for us.
+
 `./run --userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
 
-`./build-userland` is further documented at: <<userland-directory>>.
+`./build user-mode-qemu` first builds Buildroot, and then runs `./build-userland`, which is further documented at: <<userland-directory>>.
+
+==== User mode simulation with glibc
+
+===== FATAL: kernel too old
+
+Happens on all gem5 setups, but not on QEMU.
+
+glibc has a check for kernel version, likely obtained from the `uname` syscall, and if the kernel is not new enough, it quits.
+
+Determining the right number to put there is of course highly non-trivial and would require an extensive userland testsuite, which most emulator don't have.
+
+We don't have this failure for QEMU, only gem5. QEMU by default copies the host `uname`, but it also has the `-r` option to set it explicitly, try it out with:
+
+....
+./run --arch aarch64 --userland uname -- -r v4.17.0
+....
+
+Source: link:userland/uname.c[].
+
+The QEMU source that does this is at: https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931
+
+In gem5, there are tons of missing syscalls, and that number currently just gets bumped up randomly from time to time when someone gets fed up:
+
+* https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
+* https://stackoverflow.com/questions/53085048/how-to-compile-and-run-an-executable-in-gem5-syscall-emulation-mode-with-se-py/53085049#53085049
+* https://gem5-review.googlesource.com/c/public/gem5/+/15855
+
+The ID is just hardcoded on the source:
+
+===== stack smashing detected
+
+Reproduction:
+
+....
+./run --userland hello
+./run --userland hello --qemu-which host
+....
+
+Outcome:
+
+....
+*** stack smashing detected ***: <unknown> terminated
+qemu: uncaught target signal 6 (Aborted) - core dumped
+....
+
+The following all work however:
+
+....
+./run --arch aarch64 --userland hello
+./run --static --userland hello
+....
+
+A non-QEMU example of stack smashing is shown at: https://stackoverflow.com/questions/1345670/stack-smashing-detected/51897264#51897264
+
+Related bug reports:
+
+* https://bugs.launchpad.net/qemu/+bug/1701808
+* https://bugs.launchpad.net/qemu/+bug/1776478
+* https://github.com/multiarch/ubuntu-debootstrap/issues/10
+
+Tested at: 2e32389ebf1bedd89c682aa7b8fe42c3c0cf96e5 + 1.
+
+==== User mode static executables
 
 Running dynamically linked executables in QEMU requires pointing it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
 
-We pass `-L` by default, so everything just works:
+We pass `-L` by default, so everything just works.
 
-You can also try statically linked executables with:
+However, in case something goes wrong, you can also try statically linked executables with:
 
 ....
 ./build-userland \
@@ -3090,23 +3194,7 @@ You can also try statically linked executables with:
 ;
 ....
 
-Or you can run statically linked built by the host packaged toolchain with:
-
-....
-./build-userland \
-  --arch aarch64 \
-  --host \
-  --static \
-;
-./run \
-  --arch aarch64 \
-  --static \
-  --userland print_argv \
-  --userland-args 'asdf "qw er"' \
-;
-....
-
-TODO expose dynamically linked executables built by the host toolchain. It also works, we just have to use e.g. `-L /usr/aarch64-linux-gnu`, so it's not really hard, I'm just lazy.
+gem5 user mode currently only supports static executables: <<gem5-syscall-emulation-mode>>.
 
 ==== User mode GDB
 
@@ -4348,7 +4436,7 @@ although this can be useful when someone gives you a random image.
 
 By default, link:build-linux[] generates a `.config` that is a mixture of:
 
-* a base config extracted from Buildroot's minimal per machine `.config`, which has the minimal options needed to boot: <<about-buildroot-s-kernel-configs>>
+* a base config extracted from Buildroot's minimal per machine `.config`, which has the minimal options needed to boot: <<about-buildroots-kernel-configs>>
 * small overlays put top of that
 
 To find out which kernel configs are being used exactly, simply run:
@@ -6588,6 +6676,7 @@ Yes!!! We read the correct value from the physical address.
 
 We could not find however to write to memory from the QEMU monitor, boring.
 
+[[dev-mem]]
 ====== /dev/mem
 
 `/dev/mem` exposes access to physical addresses, and we use it through the convenient `devmem` BusyBox utility.
@@ -8090,7 +8179,7 @@ Snapshots are stored inside the `.qcow2` images themselves.
 They can be observed with:
 
 ....
-"$(./getvar host_dir)/bin/qemu-img" info "$(./getvar qcow2_file)"
+"$(./getvar buildroot_host_dir)/bin/qemu-img" info "$(./getvar qcow2_file)"
 ....
 
 which after `savevm my_snap_id` and `savevm asdf` contains an output of type:
@@ -10840,7 +10929,7 @@ For Buildroot problems, you should wither provide the config you have:
 
 or try to reproduce with a minimal config, see: https://github.com/cirosantilli/buildroot/tree/in-tree-package-master
 
-== libc choice
+=== libc choice
 
 Buildroot supports several libc implementations, including:
 
@@ -10863,6 +10952,8 @@ The full list of unsupported packages can be found by grepping the Buildroot sou
 ....
 git -C "$(./getvar buildroot_source_dir)" grep 'depends on BR2_TOOLCHAIN_USES_GLIBC'
 ....
+
+One "downside" of glibc is that it exercises much more kernel functionality on its more bloated pre-main init, which breaks user mode C hello worlds more often, see: <<user-mode-simulation-with-glibc>>. I quote "downside" because glibc is actually exposing emulator bugs which we should actually go and fix.
 
 == Baremetal
 
@@ -11037,8 +11128,8 @@ For `arm`, some baremetal examples compile fine with:
 
 ....
 sudo apt-get install gcc-arm-none-eabi qemu-system-arm
-./build-baremetal --arch arm --prebuilt
-./run --arch arm --baremetal interactive/prompt --prebuilt
+./build-baremetal --arch arm --gcc-which host-baremetal
+./run --arch arm --baremetal interactive/prompt --qemu-which host
 ....
 
 However, there are as usual limitations to using prebuilts:
@@ -11228,7 +11319,7 @@ Source: link:baremetal/arch/aarch64/svc.c[]
 
 The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
 
-A good representation of the format of the vector table can also be found at <<programmer-s-guide-for-armv8-a>> Table 10-2 "Vector table offsets from vector table base address".
+A good representation of the format of the vector table can also be found at <<programmers-guide-for-armv8-a>> Table 10-2 "Vector table offsets from vector table base address".
 
 The first part of the table contains:
 
@@ -12666,14 +12757,14 @@ make clean
 or more cleanly out of tree:
 
 ....
-./build-userland --host --userland-build-id host
+./build-userland --gcc-which host --userland-build-id host
 "$(./getvar --userland-build-id host userland_build_dir)/hello.out"
 ....
 
 Extra make flags may be passed as:
 
 ....
-./build-userland --host --userland-build-id host-static --make-args='-B CFLAGS_EXTRA=-static'
+./build-userland --gcc-which host --userland-build-id host-static --make-args='-B CFLAGS_EXTRA=-static'
 "$(./getvar --userland-build-id host-static userland_build_dir)/hello.out"
 ....
 
@@ -12946,9 +13037,9 @@ This magic output string is notably used by:
 * the `common_assert_fail()` function, which is used by <<baremetal-tests>>
 * link:rootfs_overlay/test_fail.sh[], which is used by <<test-userland-in-full-system>>
 
-=== Non-automated tests
+==== Non-automated tests
 
-==== Test GDB Linux kernel
+===== Test GDB Linux kernel
 
 For the Linux kernel, do the following manual tests for now.
 
@@ -12971,7 +13062,7 @@ Then proceed to do the following tests:
 * `/count.sh` and `break __x64_sys_write`
 * `insmod /timer.ko` and `break lkmc_timer_callback`
 
-==== Test the Internet
+===== Test the Internet
 
 You should also test that the Internet works:
 

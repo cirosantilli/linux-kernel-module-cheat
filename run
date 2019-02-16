@@ -99,7 +99,9 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
 '''
         )
         self.add_argument(
-            '--gem5-script', default='fs', choices=['fs', 'biglittle'],
+            '--gem5-script',
+            default='fs',
+            choices=['fs', 'biglittle'],
             help='Which gem5 script to use'
         )
         self.add_argument(
@@ -299,7 +301,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 if not os.path.exists(self.env['rootfs_raw_file']):
                     if not os.path.exists(self.env['qcow2_file']):
                         raise_rootfs_not_found()
-                    self.raw_to_qcow2(prebuilt=self.env['prebuilt'], reverse=True)
+                    self.raw_to_qcow2(qemu_which=self.env['qemu_which'], reverse=True)
             else:
                 if not os.path.exists(self.env['gem5_fake_iso']):
                     os.makedirs(os.path.dirname(self.env['gem5_fake_iso']), exist_ok=True)
@@ -420,7 +422,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 cmd.extend(
                     [
                         os.path.join(self.env['qemu_build_dir'], '{}-linux-user'.format(self.env['arch']), 'qemu-{}'.format(self.env['arch'])), LF,
-                        '-L', self.env['target_dir'], LF
+                        '-L', self.env['userland_library_dir'], LF
                     ] +
                     qemu_user_and_system_options +
                     debug_args
@@ -430,12 +432,12 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     raise_image_not_found()
                 extra_emulator_args.extend(extra_qemu_args)
                 self.make_run_dirs()
-                if self.env['prebuilt'] or not os.path.exists(self.env['qemu_executable']):
+                if self.env['qemu_which'] == 'host' or not os.path.exists(self.env['qemu_executable']):
                     qemu_executable = self.env['qemu_executable_basename']
-                    qemu_executable_prebuilt = True
+                    qemu_executable_host = True
                 else:
                     qemu_executable = self.env['qemu_executable']
-                    qemu_executable_prebuilt = False
+                    qemu_executable_host = False
                 qemu_executable = shutil.which(qemu_executable)
                 if qemu_executable is None:
                     raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
@@ -500,7 +502,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 )
                 if self.env['dtb'] is not None:
                     cmd.extend(['-dtb', self.env['dtb'], LF])
-                if not qemu_executable_prebuilt:
+                if not qemu_executable_host:
                     cmd.extend(qemu_user_and_system_options)
                 if self.env['initrd']:
                     extra_emulator_args.extend(['-initrd', self.env['buildroot_cpio'], LF])
@@ -523,7 +525,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         if not os.path.exists(self.env['qcow2_file']):
                             if not os.path.exists(self.env['rootfs_raw_file']):
                                 raise_rootfs_not_found()
-                            self.raw_to_qcow2(prebuilt=self.env['prebuilt'])
+                            self.raw_to_qcow2(qemu_which=self.env['qemu_which'])
                         extra_emulator_args.extend([
                             '-drive',
                             'file={},format=qcow2,if={}{}{}'.format(self.env['disk_image'], driveif, snapshot, rrid),
