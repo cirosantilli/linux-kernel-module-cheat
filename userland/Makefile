@@ -7,7 +7,7 @@ CXXFLAGS = -std=c++17 $(CCFLAGS) $(CXXFLAGS_EXTRA)
 # -Wno-unused-function for function definitions on headers,
 #  because we are lazy to make a shared object. TODO.
 COMMON_DIR = $(CURDIR)/..
-COMMON_BASENAME = common
+COMMON_BASENAME = lkmc
 COMMON_OBJ = $(OUT_DIR)/$(COMMON_BASENAME)$(OBJ_EXT)
 IN_EXT_ASM = .S
 IN_EXT_C = .c

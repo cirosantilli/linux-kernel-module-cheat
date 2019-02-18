@@ -1,4 +1,4 @@
-#include <common.h>
+#include <lkmc.h>
 
 int main(void) {
     int i, j, k;
@@ -9,5 +9,5 @@ int main(void) {
     k = i + j;
     /* test-gdb-result */
     if (k != 3)
-        common_assert_fail();
+        lkmc_assert_fail();
 }

@@ -1,6 +1,6 @@
-#include <common.h>
+#include <lkmc.h>
 
 int main(void) {
-    common_assert_fail();
+    lkmc_assert_fail();
 }
 
