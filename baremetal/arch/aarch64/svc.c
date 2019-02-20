@@ -58,7 +58,7 @@ int main(void) {
     printf("spsel 0x%" PRIx32 "\n", lkmc_sysreg_spsel_read());
     printf("vbar_el1 0x%" PRIx64 "\n", lkmc_sysreg_vbar_el1_read());
     lkmc_assert(myvar == 0);
-    LKMC_SVC(0);
+    LKMC_SVC(0x42);
     lkmc_assert(myvar == 1);
     return 0;
 }
