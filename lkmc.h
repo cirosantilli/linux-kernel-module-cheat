@@ -22,6 +22,10 @@ bool lkmc_vector_equal(size_t n, double *v1, double *v2, double max_err);
     .global name; \
     name:
 
+/* Weak means that if any other file defines it as a non-weak global,
+ * that one will take precedence:
+ * https://stackoverflow.com/questions/274753/how-to-make-weak-linking-work-with-gcc/54601464#54601464
+ */
 #define LKMC_WEAK(name) \
     .weak name; \
     name:

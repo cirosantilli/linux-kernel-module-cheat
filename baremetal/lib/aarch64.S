@@ -21,12 +21,10 @@ mystart:
 
 LKMC_VECTOR_TABLE
 
-/* Default trap handler that does nothing.
- *
- * Weak means that if any other file defines it as a non-weak global,
- * that one will take precedence.
- *
- * We need this one to not get undefined references.
- */
+/* Default trap handler. */
 LKMC_WEAK(lkmc_vector_trap_handler)
-    ret
+    ldr x0, =lkmc_vector_trap_handler_error
+    bl puts
+    bl lkmc_assert_fail
+lkmc_vector_trap_handler_error:
+    .asciz "error: unexpected interrupt"
