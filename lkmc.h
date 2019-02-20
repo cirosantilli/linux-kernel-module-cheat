@@ -80,7 +80,7 @@ void lkmc_assert_fail();
     stp x21, x0, [sp, -16]!; \
     mrs x21, elr_el1; \
     stp xzr, x21, [sp, -16]!; \
-    mov x21, (exc_type); \
+    mov x21, exc_type; \
     mrs x22, esr_el1; \
     stp x21, x22, [sp, -16]!
 

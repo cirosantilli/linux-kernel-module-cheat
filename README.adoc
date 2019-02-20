@@ -11302,9 +11302,11 @@ output:
 3
 ....
 
-==== ARM exception handling
+==== svc
 
-Setup a handler for `svc`, do an `svc`, and observe that the handler got called and returned from C and assembly:
+This is the most basic example of exception handling we have.
+
+We a handler for `svc`, do an `svc`, and observe that the handler got called and returned from C and assembly:
 
 ....
 ./run --arch aarch64 --baremetal arch/aarch64/svc
@@ -11316,13 +11318,99 @@ Sources:
 * link:baremetal/arch/aarch64/svc_asm.S[]
 * link:baremetal/arch/aarch64/svc.c[]
 
-Output for the C one:
+Sample output for the C one:
 
 ....
 daif 0x3c0
 spsel 0x1
-vbar_el1 0x0
+vbar_el1 0x40000800
+lkmc_vector_trap_handler
+exc_type 0x11
+exc_type is LKMC_VECTOR_SYNC_SPX
+ESR 0x56000000
+SP 0x4200bba8
+ELR 0x40002470
+SPSR 0x600003c5
+x0 0x0
+x1 0x1
+x2 0x14
+x3 0x14
+x4 0x40008390
+x5 0xfffffff8
+x6 0x4200ba28
+x7 0x0
+x8 0x0
+x9 0x13
+x10 0x0
+x11 0x0
+x12 0x0
+x13 0x0
+x14 0x0
+x15 0x0
+x16 0x0
+x17 0x0
+x18 0x0
+x19 0x0
+x20 0x0
+x21 0x0
+x22 0x0
+x23 0x0
+x24 0x0
+x25 0x0
+x26 0x0
+x27 0x0
+x28 0x0
+x29 0x4200bba8
+x30 0x4000246c
 ....
+
+Both QEMU and gem5 are able to trace interrupts in addition to instructions, and it is instructive to enable both and have a look at the traces:
+
+....
+./run \
+  --arch aarch64 \
+  --baremetal arch/aarch64/svc_asm
+  -- -d in_asm,int \
+;
+....
+
+contains:
+
+....
+----------------
+IN:
+0x40002060:  d4000001  svc      #0
+
+Taking exception 2 [SVC]
+...from EL1 to EL1
+...with ESR 0x15/0x56000000
+...with ELR 0x40002064
+...to EL1 PC 0x40000a00 PSTATE 0x3c5
+----------------
+IN:
+0x40000a00:  14000225  b        #0x40001294
+....
+
+and:
+
+....
+./run \
+  --arch aarch64 \
+  --baremetal arch/aarch64/svc_asm \
+  --trace ExecAll,Faults \
+  --trace-stdout \
+;
+....
+
+contains:
+
+....
+   4000: system.cpu A0 T0 : @main+8    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+   4000: Supervisor Call: Invoking Fault (AArch64 target EL):Supervisor Call cpsr:0x3c5 PC:0x80000808 elr:0x8000080c newVec: 0x80001200
+   4500: system.cpu A0 T0 : @vector_table+512    :   b   <_curr_el_spx_sync>  : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
+....
+
+So we see in both cases that the `svc` is done, then an exception happens, and then we just continue running from the exception handler address.
 
 The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
 
