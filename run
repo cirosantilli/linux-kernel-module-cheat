@@ -160,9 +160,17 @@ rare and don't affect performance, because `./configure
 '''
         )
         self.add_argument(
-            '--trace-stdout', default=False,
+            '--trace-stdout',
+            default=False,
             help='''\
 Output trace to stdout instead of a file. Only works for gem5 currently.
+'''
+        )
+        self.add_argument(
+            '--trace-insts-stdout',
+            default=False,
+            help='''\
+Trace instructions run to stdout. Shortcut for --trace --trace-stdout.
 '''
         )
         self.add_argument(
@@ -274,6 +282,12 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         if kernel_cli_after_dash:
             kernel_cli += " -{}".format(kernel_cli_after_dash)
         extra_env = {}
+        if self.env['trace_insts_stdout']:
+            if self.env['emulator'] == 'qemu':
+                extra_emulator_args.extend(['-d', 'in_asm', LF])
+            elif self.env['emulator'] == 'gem5':
+                self.env['trace_stdout'] = True
+                self.env['trace'] = 'ExecAll'
         if self.env['trace'] is None:
             do_trace = False
             # A dummy value that is already turned on by default and does not produce large output,
