@@ -8,7 +8,7 @@ mystart:
     isb
 
     /* Load the vector table. */
-    ldr x0, =vector_table
+    ldr x0, =lkmc_vector_table
     msr vbar_el1, x0
 
     /* Prepare the stack for main, mandatory for C code. */

@@ -15,12 +15,12 @@ void lkmc_assert_fail() {
 
 #if defined(__aarch64__)
 #define LKMC_SYSREG_READ_WRITE(type, name) \
-    type CONCAT(CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read(void)) { \
+    type LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read(void)) { \
         type name; \
         __asm__ __volatile__("mrs %0, " #name : "=r" (name) : : ); \
         return name; \
     } \
-    void CONCAT(CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write(type name)) { \
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write(type name)) { \
         __asm__ __volatile__("msr " #name ", %0" : : "r" (name) : ); \
     }
 LKMC_SYSREG_OPS

@@ -11,8 +11,8 @@ void lkmc_assert_fail();
 #endif
 
 /* https://stackoverflow.com/questions/1489932/how-to-concatenate-twice-with-the-c-preprocessor-and-expand-a-macro-as-in-arg */
-#define CONCAT_EVAL(a,b) a ## b
-#define CONCAT(a,b) CONCAT_EVAL(a, b)
+#define LKMC_CONCAT_EVAL(a,b) a ## b
+#define LKMC_CONCAT(a,b) LKMC_CONCAT_EVAL(a, b)
 
 #define LKMC_GLOBAL(name) \
     .global name; \
@@ -148,8 +148,8 @@ LKMC_VECTOR_SYMBOL_PREFIX ## func_name:; \
 /* Define the actual vector table. */
 #define LKMC_VECTOR_TABLE \
     .align 11; \
-    .global vector_table; \
-vector_table:; \
+    LKMC_GLOBAL(lkmc_vector_table); \
+    ; \
     LKMC_VECTOR_ENTRY(curr_el_sp0_sync); \
     LKMC_VECTOR_ENTRY(curr_el_sp0_irq); \
     LKMC_VECTOR_ENTRY(curr_el_sp0_fiq); \
@@ -239,8 +239,8 @@ void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception);
 
 #define LKMC_SYSREG_SYMBOL_PREFIX lkmc_sysreg_
 #define LKMC_SYSREG_READ_WRITE(type, name) \
-    type CONCAT(CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read)(void); \
-    void CONCAT(CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write)(type name)
+    type LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read)(void); \
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write)(type name)
 #define LKMC_SYSREG_OPS \
     LKMC_SYSREG_READ_WRITE(uint32_t, cntv_ctl_el0); \
     LKMC_SYSREG_READ_WRITE(uint32_t, daif); \
