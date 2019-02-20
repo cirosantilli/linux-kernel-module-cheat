@@ -23,7 +23,7 @@ LKMC_VECTOR_TABLE
 
 /* Default trap handler that does nothing.
  *
- * Weak means that if any other file deinfes it as a non-weak global,
+ * Weak means that if any other file defines it as a non-weak global,
  * that one will take precedence.
  *
  * We need this one to not get undefined references.

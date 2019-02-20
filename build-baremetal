@@ -19,9 +19,7 @@ Build the baremetal examples with crosstool-NG.
     def build(self):
         build_dir = self.get_build_dir()
         bootloader_obj = os.path.join(self.env['baremetal_build_lib_dir'], 'bootloader{}'.format(self.env['obj_ext']))
-        common_basename_noext = 'lkmc'
-        common_src = os.path.join(self.env['root_dir'], common_basename_noext + self.env['c_ext'])
-        common_obj = os.path.join(self.env['baremetal_build_lib_dir'], common_basename_noext + self.env['obj_ext'])
+        common_obj = os.path.join(self.env['baremetal_build_lib_dir'], self.env['common_basename_noext'] + self.env['obj_ext'])
         syscalls_basename_noext = 'syscalls'
         syscalls_src = os.path.join(self.env['baremetal_source_lib_dir'], syscalls_basename_noext + self.env['c_ext'])
         syscalls_obj = os.path.join(self.env['baremetal_build_lib_dir'], syscalls_basename_noext + self.env['obj_ext'])
@@ -34,6 +32,7 @@ Build the baremetal examples with crosstool-NG.
             '-mcpu={}'.format(self.env['mcpu']), LF,
             '-nostartfiles', LF,
         ]
+        cflags_after = ['-lm']
         gcc = self.get_toolchain_tool('gcc')
         if self.env['emulator'] == 'gem5':
             if self.env['machine'] == 'VExpress_GEM5_V1':
@@ -59,10 +58,11 @@ Build the baremetal examples with crosstool-NG.
                     '-c', LF,
                     '-o', bootloader_obj, LF,
                     src, LF,
-                ]
+                ] +
+                cflags_after
             )
         for src, obj in [
-            (common_src, common_obj),
+            (self.env['common_c'], common_obj),
             (syscalls_src, syscalls_obj),
         ]:
             if self.need_rebuild([src], obj):
@@ -74,12 +74,14 @@ Build the baremetal examples with crosstool-NG.
                         '-D', 'UART0_ADDR={:#x}'.format(uart_address), LF,
                         '-o', obj, LF,
                         src, LF,
-                    ]
+                    ] +
+                    cflags_after
                 )
         self._build_dir(
             '',
             gcc=gcc,
             cflags=cflags,
+            cflags_after=cflags_after,
             entry_address=entry_address,
             bootloader_obj=bootloader_obj,
             common_objs=common_objs,
@@ -88,6 +90,7 @@ Build the baremetal examples with crosstool-NG.
             'interactive',
             gcc=gcc,
             cflags=cflags,
+            cflags_after=cflags_after,
             entry_address=entry_address,
             bootloader_obj=bootloader_obj,
             common_objs=common_objs,
@@ -97,6 +100,7 @@ Build the baremetal examples with crosstool-NG.
                 self.env['baremetal_source_arch_subpath'],
                 gcc=gcc,
                 cflags=cflags,
+                cflags_after=cflags_after,
                 entry_address=entry_address,
                 bootloader_obj=bootloader_obj,
                 common_objs=common_objs,
@@ -107,6 +111,7 @@ Build the baremetal examples with crosstool-NG.
                 arch_dir,
                 gcc=gcc,
                 cflags=cflags,
+                cflags_after=cflags_after,
                 entry_address=entry_address,
                 bootloader_obj=bootloader_obj,
                 common_objs=common_objs,
@@ -121,6 +126,7 @@ Build the baremetal examples with crosstool-NG.
             subpath,
             gcc,
             cflags,
+            cflags_after,
             entry_address,
             bootloader_obj,
             common_objs,
@@ -152,7 +158,8 @@ Build the baremetal examples with crosstool-NG.
                             '-c', LF,
                             '-o', main_obj, LF,
                             src, LF,
-                        ]
+                        ] +
+                        cflags_after
                     )
                 objs = common_objs + [main_obj]
                 out = os.path.join(self.env['baremetal_build_dir'], subpath, in_name + self.env['baremetal_build_ext'])
@@ -166,7 +173,8 @@ Build the baremetal examples with crosstool-NG.
                             '-o', out, LF,
                             '-T', link_script, LF,
                         ] +
-                        self.sh.add_newlines(objs)
+                        self.sh.add_newlines(objs) +
+                        cflags_after
                     )
 
 if __name__ == '__main__':

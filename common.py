@@ -726,6 +726,17 @@ Valid emulators: {}
         env['baremetal_build_lib_dir'] = join(env['baremetal_build_dir'], env['baremetal_lib_basename'])
         env['baremetal_build_ext'] = '.elf'
 
+        # Userland / baremetal common source.
+        env['common_basename_noext'] = 'lkmc'
+        env['common_c'] = common_c = os.path.join(
+            env['root_dir'],
+            env['common_basename_noext'] + env['c_ext']
+        )
+        env['common_h'] = common_c = os.path.join(
+            env['root_dir'],
+            env['common_basename_noext'] + env['header_ext']
+        )
+
         # Docker
         env['docker_build_dir'] = join(env['out_dir'], 'docker', env['arch'])
         env['docker_tar_dir'] = join(env['docker_build_dir'], 'export')

@@ -1,13 +1,17 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#lkmc-c */
+
 #ifndef LKMC_H
 #define LKMC_H
 
 /* Common C definitions. */
 #if !defined(__ASSEMBLER__)
-#include <stdbool.h>
 #include <inttypes.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 void lkmc_assert(bool);
 void lkmc_assert_fail();
+bool lkmc_vector_equal(size_t n, double *v1, double *v2, double max_err);
 #endif
 
 /* https://stackoverflow.com/questions/1489932/how-to-concatenate-twice-with-the-c-preprocessor-and-expand-a-macro-as-in-arg */
