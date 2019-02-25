@@ -27,30 +27,46 @@ void ring0_get_control_regs(Ring0Regs *ring0_regs)
 #if defined(__x86_64__)
     __asm__ __volatile__ (
         "mov %%cr0, %%rax;"
-        "mov %%eax, %0;"
-        "mov %%cr2, %%rax;"
-        "mov %%eax, %1;"
-        "mov %%cr3, %%rax;"
-        "mov %%eax, %2;"
-        : "=m" (ring0_regs->cr0),
-          "=m" (ring0_regs->cr2),
-          "=m" (ring0_regs->cr3)
+        "mov %%eax, %[cr0];"
+        : [cr0] "=m" (ring0_regs->cr0)
         :
-        : "%rax"
+        : "rax"
+    );
+    __asm__ __volatile__ (
+        "mov %%cr2, %%rax;"
+        "mov %%eax, %[cr2];"
+        : [cr2] "=m" (ring0_regs->cr2)
+        :
+        : "rax"
+    );
+    __asm__ __volatile__ (
+        "mov %%cr3, %%rax;"
+        "mov %%eax, %[cr3];"
+        : [cr3] "=m" (ring0_regs->cr3)
+        :
+        : "rax"
     );
 #elif defined(__i386__)
     __asm__ __volatile__ (
         "mov %%cr0, %%eax;"
-        "mov %%eax, %0;"
-        "mov %%cr2, %%eax;"
-        "mov %%eax, %1;"
-        "mov %%cr3, %%eax;"
-        "mov %%eax, %2;"
-        : "=m" (ring0_regs->cr0),
-          "=m" (ring0_regs->cr2),
-          "=m" (ring0_regs->cr3)
+        "mov %%eax, %[cr0];"
+        : [cr0] "=m" (ring0_regs->cr0)
         :
-        : "%eax"
+        : "eax"
+    );
+    __asm__ __volatile__ (
+        "mov %%cr2, %%eax;"
+        "mov %%eax, %[cr2];"
+        : [cr2] "=m" (ring0_regs->cr2)
+        :
+        : "eax"
+    );
+    __asm__ __volatile__ (
+        "mov %%cr3, %%eax;"
+        "mov %%eax, %[cr3];"
+        : [cr3] "=m" (ring0_regs->cr3)
+        :
+        : "eax"
     );
 #endif
 }

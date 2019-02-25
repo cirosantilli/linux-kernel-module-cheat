@@ -64,13 +64,13 @@ int _write(int file, char *ptr, int len) {
 void _exit(int status) {
 #if defined(GEM5)
 #if defined(__arm__)
-    __asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);");
+    __asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);" : : : "r0", "r1");
 #elif defined(__aarch64__)
-    __asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);");
+    __asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);" : : : "x0");
 #endif
 #else
 #if defined(__arm__)
-    __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456");
+    __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456" : : : "r0", "r1");
 #elif defined(__aarch64__)
     /* TODO actually use the exit value here, just for fun. */
     __asm__ __volatile__ (
@@ -82,6 +82,9 @@ void _exit(int status) {
         "mov x1, sp\n" \
         "mov w0, #0x18\n" \
         "hlt 0xf000\n"
+        :
+        :
+        : "x0", "x1"
     );
 #endif
 #endif
