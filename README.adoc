@@ -303,6 +303,66 @@ If you really want to develop semiconductors, your only choice is to join an uni
 
 While hacking QEMU, you will likely want to GDB step its source. That is trivial since QEMU is just another userland program like any other, but our setup has a shortcut to make it even more convenient, see: <<debug-the-emulator>>.
 
+===== Your first glibc hack
+
+We use <<libc-choice,glibc as our default libc now>>, and it is tracked as an unmodified submodule at link:submodules/glibc[], at the exact same version that Buildroot has it, which can be found at: link:https://github.com/buildroot/buildroot/blob/2018.05/package/glibc/glibc.mk#L13[package/glibc/glibc.mk]. Buildroot 2018.05 applies no patches.
+
+Let's hack up the `puts` function:
+
+....
+./build-buildroot -- glibc-reconfigure
+....
+
+with the patch:
+
+....
+diff --git a/libio/ioputs.c b/libio/ioputs.c
+index 706b20b492..23185948f3 100644
+--- a/libio/ioputs.c
++++ b/libio/ioputs.c
+@@ -38,8 +38,9 @@ _IO_puts (const char *str)
+   if ((_IO_vtable_offset (_IO_stdout) != 0
+        || _IO_fwide (_IO_stdout, -1) == -1)
+       && _IO_sputn (_IO_stdout, str, len) == len
++      && _IO_sputn (_IO_stdout, " hacked", 7) == 7
+       && _IO_putc_unlocked ('\n', _IO_stdout) != EOF)
+-    result = MIN (INT_MAX, len + 1);
++    result = MIN (INT_MAX, len + 1 + 7);
+ 
+   _IO_release_lock (_IO_stdout);
+   return result;
+....
+
+And then:
+
+....
+./run --eval-after '/hello.out'
+....
+
+outputs:
+
+....
+hello hacked
+....
+
+Lol!
+
+We can also test our hacked glibc on <<user-mode-simulation>> with:
+
+....
+./run --userland hello
+....
+
+I just noticed that this is actually a good way to develop glibc for other archs.
+
+Note that for arch agnostic features that don't rely on bleeding kernel changes that you host doesn't yet have, you can develop glibc natively as explained at:
+
+* https://stackoverflow.com/questions/10412684/how-to-compile-my-own-glibc-c-standard-library-from-source-and-use-it/52454710#52454710
+* https://stackoverflow.com/questions/847179/multiple-glibc-libraries-on-a-single-host/52454603#52454603
+* https://stackoverflow.com/questions/2856438/how-can-i-link-to-a-specific-glibc-version/52550158#52550158 more focus on symbol versioning, but no one knows how to do it, so I answered
+
+Tested on a30ed0f047523ff2368d421ee2cce0800682c44e + 1.
+
 ==== About the QEMU Buildroot setup
 
 This is our reference setup, and the best supported one, use it unless you have good reason not to.
