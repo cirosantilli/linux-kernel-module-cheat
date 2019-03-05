@@ -365,6 +365,75 @@ Note that for arch agnostic features that don't rely on bleeding kernel changes 
 
 Tested on a30ed0f047523ff2368d421ee2cce0800682c44e + 1.
 
+===== Your first Binutils hack
+
+Have you ever felt that a single `inc` instruction was not enough? Really? Me too!
+
+So let's hack the link:https://en.wikipedia.org/wiki/GNU_Assembler[GNU GAS assembler], which is part of link:https://en.wikipedia.org/wiki/GNU_Binutils[GNU Binutils], to add a new shiny version of `inc` called... `myinc`!
+
+GCC uses GNU GAS as its backend, so we will test out new mnemonic with an inline assembly test program: link:userland/arch/x86_64/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/asm_hello.c[] but with `myinc` instead of `inc`.
+
+The inline assembly is disabled with an `#ifdef`, so first modify the source to enable that.
+
+Then, try to build userland:
+
+....
+./build-userland
+....
+
+and watch it fail with:
+
+....
+binutils_hack.c:8: Error: no such instruction: `myinc %rax'
+....
+
+Now, edit the file
+
+....
+vim submodules/binutils-gdb/opcodes/i386-tbl.h
+....
+
+and add a copy of the `"inc"` instruction just next to it, but with the new name `"myinc"`:
+
+....
+diff --git a/opcodes/i386-tbl.h b/opcodes/i386-tbl.h
+index af583ce578..3cc341f303 100644
+--- a/opcodes/i386-tbl.h
++++ b/opcodes/i386-tbl.h
+@@ -1502,6 +1502,19 @@ const insn_template i386_optab[] =
+     { { { 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+ 	  0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0,
+ 	  1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 } } } },
++  { "myinc", 1, 0xfe, 0x0, 1,
++    { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
++    { 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++      0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
++      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++      0, 0, 0, 0, 0, 0 },
++    { { { 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++	  0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0,
++	  1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 } } } },
+   { "sub", 2, 0x28, None, 1,
+     { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+....
+
+Finally, rebuild Binutils, userland and test our program with <<user-mode-setup>>:
+
+....
+./build-buildroot -- host-binutils-rebuild
+./build-userland --static
+./run --static --userland arch/x86_64/binutils_hack
+....
+
+and we se that `myinc` worked since the assert did not fail!
+
+Tested on b60784d59bee993bf0de5cde6c6380dd69420dda + 1.
+
 ==== About the QEMU Buildroot setup
 
 This is our reference setup, and the best supported one, use it unless you have good reason not to.
