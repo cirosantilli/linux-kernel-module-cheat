@@ -133,6 +133,20 @@ class ShellHelpers:
                         update=1,
                     )
 
+    def copy_dir_if_update(self, srcdir, destdir, filter_ext=None):
+        self.copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext)
+        srcdir_abs = os.path.abspath(srcdir)
+        srcdir_abs_len = len(srcdir_abs)
+        for path, dirnames, filenames in os.walk(srcdir_abs):
+            for dirname in dirnames:
+                dirpath = os.path.join(path, dirname)
+                dirpath_relative_root = dirpath[srcdir_abs_len + 1:]
+                self.copy_dir_if_update_non_recursive(
+                    dirpath,
+                    os.path.join(destdir, dirpath_relative_root),
+                    filter_ext
+                )
+
     def cp(self, src, dest, **kwargs):
         self.print_cmd(['cp', src, dest])
         if not self.dry_run:
