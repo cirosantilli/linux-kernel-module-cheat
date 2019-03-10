@@ -866,7 +866,10 @@ lunch aosp_{}-eng
         List checkpoint directory, oldest first.
         '''
         prefix_re = re.compile(self.env['gem5_cpt_prefix'])
-        files = list(filter(lambda x: os.path.isdir(os.path.join(self.env['m5out_dir'], x)) and prefix_re.search(x), os.listdir(self.env['m5out_dir'])))
+        files = list(filter(
+            lambda x: os.path.isdir(os.path.join(self.env['m5out_dir'], x))
+                      and prefix_re.search(x), os.listdir(self.env['m5out_dir'])
+        ))
         files.sort(key=lambda x: os.path.getmtime(os.path.join(self.env['m5out_dir'], x)))
         return files
 
