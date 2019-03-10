@@ -434,6 +434,83 @@ and we se that `myinc` worked since the assert did not fail!
 
 Tested on b60784d59bee993bf0de5cde6c6380dd69420dda + 1.
 
+===== Your first GCC hack
+
+OK, now time to hack GCC.
+
+For convenience, let's use the <<user-mode-setup>>.
+
+If we run the program link:userland/gcc_hack.c[]:
+
+....
+./build-userland --static
+./run --static --userland gcc_hack
+....
+
+it produces the normal boring output:
+
+....
+i = 2
+j = 0
+....
+
+So how about we swap `++` and `--` to make things more fun?
+
+Open the file:
+
+....
+vim submodules/gcc/gcc/c/c-parser.c
+....
+
+and find the function `c_parser_postfix_expression_after_primary`.
+
+In that function, swap `case CPP_PLUS_PLUS` and `case CPP_MINUS_MINUS`:
+
+....
+diff --git a/gcc/c/c-parser.c b/gcc/c/c-parser.c
+index 101afb8e35f..89535d1759a 100644
+--- a/gcc/c/c-parser.c
++++ b/gcc/c/c-parser.c
+@@ -8529,7 +8529,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
+ 		expr.original_type = DECL_BIT_FIELD_TYPE (field);
+ 	    }
+ 	  break;
+-	case CPP_PLUS_PLUS:
++	case CPP_MINUS_MINUS:
+ 	  /* Postincrement.  */
+ 	  start = expr.get_start ();
+ 	  finish = c_parser_peek_token (parser)->get_finish ();
+@@ -8548,7 +8548,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
+ 	  expr.original_code = ERROR_MARK;
+ 	  expr.original_type = NULL;
+ 	  break;
+-	case CPP_MINUS_MINUS:
++	case CPP_PLUS_PLUS:
+ 	  /* Postdecrement.  */
+ 	  start = expr.get_start ();
+ 	  finish = c_parser_peek_token (parser)->get_finish ();
+....
+
+Now rebuild GCC, the program and re-run it:
+
+....
+./build-buildroot -- host-gcc-final-rebuild
+./build-userland --static
+./run --static --userland gcc_hack
+....
+
+and the new ouptut is now:
+
+....
+j = 0
+i = 2
+....
+
+We need to use the ugly `-final` thing because GCC has to packages in Buildroot, `-initial` and `-final`: https://stackoverflow.com/questions/54992977/how-to-select-an-override-srcdir-source-for-gcc-when-building-buildroot No one is able to example precisely with a minimal example why this is required:
+
+* https://stackoverflow.com/questions/39883865/why-multiple-passes-for-building-linux-from-scratch-lfs
+* https://stackoverflow.com/questions/27457835/why-do-cross-compilers-have-a-two-stage-compilation
+
 ==== About the QEMU Buildroot setup
 
 This is our reference setup, and the best supported one, use it unless you have good reason not to.

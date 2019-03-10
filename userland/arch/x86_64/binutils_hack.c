@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#your-first-binutils-hack */
+
 #include <assert.h>
 #include <inttypes.h>
 
