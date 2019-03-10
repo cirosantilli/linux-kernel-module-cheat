@@ -718,6 +718,7 @@ Valid emulators: {}
         env['baremetal_source_arch_subpath'] = join('arch', env['arch'])
         env['baremetal_source_arch_dir'] = join(env['baremetal_source_dir'], env['baremetal_source_arch_subpath'])
         env['baremetal_source_lib_dir'] = join(env['baremetal_source_dir'], env['baremetal_lib_basename'])
+        env['baremetal_link_script'] = os.path.join(env['baremetal_source_dir'], 'link.ld')
         if env['emulator'] == 'gem5':
             env['simulator_name'] = 'gem5'
         else:
