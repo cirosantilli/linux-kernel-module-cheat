@@ -569,7 +569,7 @@ Valid emulators: {}
         env['buildroot_cpio'] = join(env['buildroot_images_dir'], 'rootfs.cpio')
         env['staging_dir'] = join(env['out_dir'], 'staging', env['arch'])
         env['buildroot_staging_dir'] = join(env['buildroot_build_dir'], 'staging')
-        env['target_dir'] = join(env['buildroot_build_dir'], 'target')
+        env['buildroot_target_dir'] = join(env['buildroot_build_dir'], 'target')
         if not env['_args_given']['linux_source_dir']:
             env['linux_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
         common.extract_vmlinux = os.path.join(env['linux_source_dir'], 'scripts', 'extract-vmlinux')
@@ -805,7 +805,7 @@ lunch aosp_{}-eng
                 env['buildroot_host_bin_dir'],
                 env['buildroot_toolchain_prefix']
             )
-            env['userland_library_dir'] = env['target_dir']
+            env['userland_library_dir'] = env['buildroot_target_dir']
         elif env['gcc_which'] == 'crosstool-ng':
             env['toolchain_prefix'] = os.path.join(
                 env['crosstool_ng_bin_dir'],

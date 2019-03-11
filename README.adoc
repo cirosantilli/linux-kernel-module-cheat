@@ -1090,9 +1090,9 @@ The following subjects are particularly important:
 
 Much like <<baremetal-setup>>, this is another fun setup that does not require Buildroot or the Linux kernel.
 
-Introduction at: <<user-mode-simulation>>.
-
 Getting started at: <<qemu-user-mode-getting-started>>.
+
+Introduction at: <<user-mode-simulation>>.
 
 [[gdb]]
 == GDB step debug
@@ -3269,20 +3269,11 @@ See also: <<user-mode-simulation-with-glibc>>
 
 === QEMU user mode getting started
 
-TODO: at 125d14805f769104f93c510bedaa685a52ec025d we <<libc-choice,moved Buildroot from uClibc to glibc>>, and this broke running user mode executables built with Buildroot in many setups, which would be ideal setup. Fixing them requires hacking up the emulators / glibc, but I'm lazy now. More details at: <<user-mode-simulation-with-glibc>>.
-
-Running with Ubuntu 18.04 host packaged toolchains works however, as emulator maintainers have had more time to iron out the issues there, so let's go that route for now:
+Let's run link:userland/print_argv.c[] built with the Buildroot toolchain on QEMU user mode:
 
 ....
-sudo apt-get install gcc-aarch64-linux-gnu
-./build-userland \
-  --arch aarch64 \
-  --gcc-which host \
-  --userland-build-id host \
-;
+./build user-mode-qemu
 ./run \
-  --arch aarch64 \
-  --userland-build-id host \
   --userland print_argv \
   --userland-args 'asdf "qw er"' \
 ;
@@ -3295,41 +3286,56 @@ asdf
 qw er
 ....
 
-This runs link:userland/print_argv.c[].
+`./run --userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
 
-All further sections assume that you are using the host toolchain unless otherwise noted:
+`./build user-mode-qemu` first builds Buildroot, and then runs `./build-userland`, which is further documented at: <<userland-directory>>. It also builds QEMU. If you ahve already done a <<qemu-buildroot-setup>> previously, this will be very fast.
+
+If you modify the userland programs, rebuild simply with:
+
+....
+./build-userland
+....
+
+==== User mode with host toolchain and QEMU
+
+If you are lazy to built the Buildroot toolchain and QEMU, you can get away on Ubuntu 18.04 with just:
+
+....
+sudo apt-get install gcc-aarch64-linux-gnu qemu-system-aarch64
+./build-userland \
+  --arch aarch64 \
+  --gcc-which host \
+  --userland-build-id host \
+;
+./run \
+  --arch aarch64 \
+  --qemu-which host
+  --userland-build-id host \
+  --userland print_argv \
+  --userland-args 'asdf "qw er"' \
+;
+....
+
+where:
 
 * `--gcc-which host`: use the host toolchain.
 +
 We must pass this to `./run` as well because QEMU must know which dynamic libraries to use. See also: <<user-mode-static-executables>>.
 * `--userland-build-id host`: put the host built into a <<build-variants>>
 
-In order to build and run with the Buildroot toolchain to try and fix the emulators, do:
-
-....
-./build --arch aarch64 user-mode-qemu
-./run \
-  --arch aarch64 \
-  --userland print_argv \
-  --userland-args 'asdf "qw er"' \
-;
-....
-
-where `build` builds the whole toolchain for us.
-
-`./run --userland` path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
-
-`./build user-mode-qemu` first builds Buildroot, and then runs `./build-userland`, which is further documented at: <<userland-directory>>. It also builds QEMU.
+This present the usual trade-offs of using prebuilts as mentioned at: <<prebuilt>>.
 
 ==== User mode simulation with glibc
 
+At 125d14805f769104f93c510bedaa685a52ec025d we <<libc-choice,moved Buildroot from uClibc to glibc>>, and caused some user mode pain, which we document here.
+
 ===== FATAL: kernel too old
 
-Happens on all gem5 setups, but not on QEMU.
+Happens on all gem5 setups, but not on QEMU on Ubuntu 18.04 host.
 
 glibc has a check for kernel version, likely obtained from the `uname` syscall, and if the kernel is not new enough, it quits.
 
-Determining the right number to put there is of course highly non-trivial and would require an extensive userland testsuite, which most emulator don't have.
+Determining the right number to put there is of course highly non-trivial and would require an extensive userland test suite, which most emulator don't have.
 
 We don't have this failure for QEMU, only gem5. QEMU by default copies the host `uname`, but it also has the `-r` option to set it explicitly, try it out with:
 
@@ -3351,11 +3357,16 @@ The ID is just hardcoded on the source:
 
 ===== stack smashing detected
 
-Bug report and workaround: https://bugs.launchpad.net/qemu/+bug/1701798/comments/16
+For some reason QEMU / glibc x86_64 picks up the host libc, which breaks things.
+
+Other archs work as they different host libc is skipped. <<user-mode-static-executables>> also work.
+
+We have worked around this with with https://bugs.launchpad.net/qemu/+bug/1701798/comments/12 from the thread: https://bugs.launchpad.net/qemu/+bug/1701798 by creating the file: link:rootfs_overlay/etc/ld.so.cache[] which is a symlink to a file that cannot exist: `/dev/null/nonexistent`.
 
 Reproduction:
 
 ....
+rm -f "$(./getvar buildroot_target_dir)/etc/ld.so.cache"
 ./run --userland hello
 ./run --userland hello --qemu-which host
 ....
@@ -3367,14 +3378,11 @@ Outcome:
 qemu: uncaught target signal 6 (Aborted) - core dumped
 ....
 
-The following all work however:
+To get things working again, restore `ld.so.cache` with:
 
 ....
-./run --arch aarch64 --userland hello
-./run --static --userland hello
+./build-buildroot
 ....
-
-A non-QEMU example of stack smashing is shown at: https://stackoverflow.com/questions/1345670/stack-smashing-detected/51897264#51897264
 
 I've also tested on an Ubuntu 16.04 guest and the failure is different one:
 
@@ -3382,19 +3390,13 @@ I've also tested on an Ubuntu 16.04 guest and the failure is different one:
 qemu: uncaught target signal 4 (Illegal instruction) - core dumped
 ....
 
-So my theory is that it must be picking up something from the host as described at: https://bugs.launchpad.net/qemu/+bug/1701798 since there are different errors in different hosts.
-
-This is also consistent with the fact that aarch64 worked: those binaries are not present for QEMU to get confused in that case.
+A non-QEMU-specific example of stack smashing is shown at: https://stackoverflow.com/questions/1345670/stack-smashing-detected/51897264#51897264
 
 Tested at: 2e32389ebf1bedd89c682aa7b8fe42c3c0cf96e5 + 1.
 
 ==== User mode static executables
 
-Running dynamically linked executables in QEMU requires pointing it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
-
-We pass `-L` by default, so everything just works.
-
-However, in case something goes wrong, you can also try statically linked executables with:
+Example:
 
 ....
 ./build-userland \
@@ -3409,7 +3411,32 @@ However, in case something goes wrong, you can also try statically linked execut
 ;
 ....
 
-gem5 user mode currently only supports static executables: <<gem5-syscall-emulation-mode>>.
+Running dynamically linked executables in QEMU requires pointing it to the root filesystem with the `-L` option so that it can find the dynamic linker and shared libraries.
+
+We pass `-L` by default, so everything just works.
+
+However, in case something goes wrong, you can also try statically linked executables, since this mechanism tends to be a bit more stable, for example:
+
+* gem5 user mode currently only supports static executables: <<gem5-syscall-emulation-mode>>
+* QEMU x86_64 guest on x86_64 host was failing with <<stack-smashing-detected>>, but we found a workaround
+
+===== User mode static executables with dynamic libraries
+
+One limitation of static executables is that Buildroot mostly only builds dynamic versions of libraries (the libc is an exception).
+
+So programs that rely on those libraries might not compile as GCC can't find the `.a` version of the library.
+
+For example, if we try to build <<blas>> statically:
+
+....
+./build-userland --has-package openblas --static -- openblas_hello
+....
+
+it fails with:
+
+....
+ld: cannot find -lopenblas
+....
 
 ==== User mode GDB
 
