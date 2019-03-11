@@ -1,1 +1,0 @@
-SUBDIRS := interactive arch/$(ARCH)/

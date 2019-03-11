@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>

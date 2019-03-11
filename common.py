@@ -94,6 +94,7 @@ consts['release_zip_file'] = os.path.join(consts['release_dir'], 'lkmc-{}.zip'.f
 consts['github_repo_id'] = 'cirosantilli/linux-kernel-module-cheat'
 consts['asm_ext'] = '.S'
 consts['c_ext'] = '.c'
+consts['cxx_ext'] = '.cpp'
 consts['header_ext'] = '.h'
 consts['kernel_module_ext'] = '.ko'
 consts['obj_ext'] = '.o'
@@ -796,7 +797,7 @@ Valid emulators: {}
 lunch aosp_{}-eng
 '''.format(self.env['android_arch'])
 
-        # Toolchain choice.
+        # Toolchain.
         if not env['_args_given']['gcc_which']:
             if env['baremetal']:
                 env['gcc_which'] = 'crosstool-ng'
@@ -826,6 +827,8 @@ lunch aosp_{}-eng
                 raise Exception('There is no host baremetal chain for arch: ' + env['arch'])
         else:
             raise Exception('Unknown toolchain: ' + env['gcc_which'])
+        env['gcc'] = self.get_toolchain_tool('gcc')
+        env['gxx'] = self.get_toolchain_tool('g++')
 
     def add_argument(self, *args, **kwargs):
         '''
