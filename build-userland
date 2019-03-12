@@ -4,8 +4,11 @@ import os
 import shlex
 
 import common
+import threading
 import subprocess
 from shell_helpers import LF
+
+error = False
 
 class Main(common.BuildCliFunction):
     def __init__(self):
@@ -45,48 +48,64 @@ has the OpenBLAS libraries and headers installed.
         extra_objs=None,
         std=None,
         ccflags_after=None,
+        raise_on_failure=True,
+        thread_limiter=None,
     ):
-        if extra_deps is None:
-            extra_deps = []
-        if extra_objs is None:
-            extra_objs = []
-        if ccflags_after is None:
-            ccflags_after = []
-        if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
-            ccflags = ccflags.copy()
-            if not link:
-                ccflags.extend(['-c', LF])
-            in_ext = os.path.splitext(in_path)[1]
-            if in_ext == self.env['c_ext']:
-                cc = self.env['gcc']
-                if std is None:
-                    std = 'c11'
-                ccflags.extend([
-                    '-fopenmp', LF,
-                ])
-            elif in_ext == self.env['cxx_ext']:
-                cc = self.env['gxx']
-                if std is None:
-                    std = 'c++17'
-            else:
-                return
-            self.sh.run_cmd(
-                [
-                    cc, LF,
-                ] +
-                ccflags +
-                [
-                    '-std={}'.format(std), LF,
-                    '-o', out_path, LF,
-                    in_path, LF,
-                ] +
-                extra_objs +
-                [
-                    '-lm', LF,
-                    '-pthread', LF,
-                ] +
-                ccflags_after
-            )
+        try:
+            if extra_deps is None:
+                extra_deps = []
+            if extra_objs is None:
+                extra_objs = []
+            if ccflags_after is None:
+                ccflags_after = []
+            ret = 0
+            if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
+                ccflags = ccflags.copy()
+                if not link:
+                    ccflags.extend(['-c', LF])
+                in_ext = os.path.splitext(in_path)[1]
+                do_compile = True
+                if in_ext == self.env['c_ext']:
+                    cc = self.env['gcc']
+                    if std is None:
+                        std = 'c11'
+                    ccflags.extend([
+                        '-fopenmp', LF,
+                    ])
+                elif in_ext == self.env['cxx_ext']:
+                    cc = self.env['gxx']
+                    if std is None:
+                        std = 'c++17'
+                else:
+                    do_compile = False
+                if do_compile:
+                    ret = self.sh.run_cmd(
+                        (
+                            [
+                                cc, LF,
+                            ] +
+                            ccflags +
+                            [
+                                '-std={}'.format(std), LF,
+                                '-o', out_path, LF,
+                                in_path, LF,
+                            ] +
+                            extra_objs +
+                            [
+                                '-lm', LF,
+                                '-pthread', LF,
+                            ] +
+                            ccflags_after
+                        ),
+                        extra_paths=[self.env['ccache_dir']],
+                        raise_on_failure=raise_on_failure,
+                    )
+        finally:
+            if thread_limiter is not None:
+                thread_limiter.release()
+        if ret != 0:
+            self.error = True
+        return ret
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -139,6 +158,8 @@ has the OpenBLAS libraries and headers installed.
             'openblas': {},
         }
         rootdir_abs_len = len(self.env['userland_source_dir'])
+        thread_limiter = threading.BoundedSemaphore(self.env['nproc'])
+        self.error = False
         for path, in_dirnames, in_filenames in os.walk(self.env['userland_source_dir']):
             in_dirnames.sort()
             dirpath_relative_root = path[rootdir_abs_len + 1:]
@@ -185,51 +206,28 @@ has the OpenBLAS libraries and headers installed.
                                 pkg_key
                             ]).decode()
                             ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
-                    self._build_one(
-                        in_path=in_path,
-                        out_path=out_path,
-                        ccflags=ccflags_file,
-                        extra_objs=[common_obj],
-                        ccflags_after=ccflags_after,
+                    thread_limiter.acquire()
+                    if self.error:
+                        return 1
+                    thread = threading.Thread(
+                        target=self._build_one,
+                        kwargs={
+                            'in_path':in_path,
+                            'out_path':out_path,
+                            'ccflags':ccflags_file,
+                            'extra_objs':[common_obj],
+                            'ccflags_after':ccflags_after,
+                            'raise_on_failure':False,
+                            'thread_limiter':thread_limiter,
+                        }
                     )
-
-        #self.sh.run_cmd(
-        #    (
-        #        [
-        #            'make', LF,
-        #            '-j', str(self.env['nproc']), LF,
-        #            'ARCH={}'.format(self.env['arch']), LF,
-        #            'CCFLAGS_SCRIPT={} {}'.format('-I', self.env['userland_source_dir']), LF,
-        #            'COMMON_DIR={}'.format(self.env['root_dir']), LF,
-        #            'CC={}'.format(self.env['gcc']), LF,
-        #            'CXX={}'.format(self.env['gxx']), LF,
-        #            'PKG_CONFIG={}'.format(self.env['buildroot_pkg_config']), LF,
-        #            'STAGING_DIR={}'.format(self.env['buildroot_staging_dir']), LF,
-        #            'OUT_DIR={}'.format(build_dir), LF,
-        #        ] +
-        #        self.sh.add_newlines([
-        #            'HAS_{}=y'.format(package.upper())
-        #            for package in
-        #            self.env['has_package']
-        #        ]) +
-        #        make_args +
-        #        self.sh.add_newlines([
-        #            os.path.join(
-        #                build_dir,
-        #                os.path.splitext(os.path.split(target)[1])[0]
-        #            ) + self.env['userland_build_ext']
-        #            for target in self.env['targets']
-        #        ])
-        #    ),
-        #    cwd=self.env['userland_source_dir'],
-        #    extra_paths=[self.env['ccache_dir']],
-        #)
-
+                    thread.start()
         self.sh.copy_dir_if_update(
             srcdir=build_dir,
             destdir=self.env['out_rootfs_overlay_dir'],
             filter_ext=self.env['userland_build_ext'],
         )
+        return 0
 
     def get_build_dir(self):
         return self.env['userland_build_dir']
