@@ -1169,7 +1169,10 @@ class BuildCliFunction(LkmcCliFunction):
         self.add_argument(
             '--force-rebuild',
             default=False,
-            help="Force rebuild even if sources didn't chage",
+            help='''\
+Force rebuild even if sources didn't chage.
+TODO: not yet implemented on all scripts.
+'''
         )
         self.add_argument(
             '-j',

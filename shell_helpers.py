@@ -310,6 +310,19 @@ class ShellHelpers:
             else:
                 os.unlink(path)
 
+    def walk(self, root):
+        '''
+        Extended walk that can take files or directories.
+        '''
+        if not os.path.exists(root):
+            raise Exception('Path does not exist: ' + root)
+        if os.path.isfile(root):
+            dirname, basename = os.path.split(root)
+            yield dirname, [], [basename]
+        else:
+            for path, dirnames, filenames in os.walk(root):
+                yield path, dirnames, filenames
+
     def wget(self, url, download_path):
         '''
         Append extra KEY=val configs into the given config file.

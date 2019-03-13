@@ -30,10 +30,12 @@ allows us to build examples that rely on it.
             'targets',
             default=[],
             help='''\
-Build only the given userland programs.
-Default: build all examples that have their package dependencies met.
-For example, an OpenBLAS example can only be built if the target root filesystem
-has the OpenBLAS libraries and headers installed.
+Build only the given userland programs or all programs in the given directories.
+
+Default: build all examples that have their package dependencies met, e.g.:
+-   userland/arch/ programs only build if the target arch matches
+-   an OpenBLAS example can only be built if the target root filesystem
+    has the OpenBLAS libraries and headers installed, which you must inform with --has-package
 ''',
             nargs='*',
         )
@@ -90,7 +92,7 @@ has the OpenBLAS libraries and headers installed.
                                 '-o', out_path, LF,
                                 in_path, LF,
                             ] +
-                            extra_objs +
+                            self.sh.add_newlines(extra_objs) +
                             [
                                 '-lm', LF,
                                 '-pthread', LF,
@@ -160,68 +162,74 @@ has the OpenBLAS libraries and headers installed.
         rootdir_abs_len = len(self.env['userland_source_dir'])
         thread_limiter = threading.BoundedSemaphore(self.env['nproc'])
         self.error = False
-        for path, in_dirnames, in_filenames in os.walk(self.env['userland_source_dir']):
-            in_dirnames.sort()
-            dirpath_relative_root = path[rootdir_abs_len + 1:]
-            dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
-            if (
-                len(dirpath_relative_root_components) < 2 or
-                dirpath_relative_root_components[0] != 'arch' or
-                dirpath_relative_root_components[1] == self.env['arch']
-            ):
-                out_dir = os.path.join(
-                    self.env['userland_build_dir'],
-                    dirpath_relative_root
-                )
-                os.makedirs(out_dir, exist_ok=True)
-                for in_filename in in_filenames:
-                    in_path = os.path.join(path, in_filename)
-                    in_name, in_ext = os.path.splitext(in_filename)
-                    out_path = os.path.join(
-                        out_dir,
-                        in_name + self.env['userland_build_ext']
+        if self.env['_args_given']['targets']:
+            targets = self.env['targets']
+        else:
+            targets = [self.env['userland_source_dir']]
+        for target in targets:
+            for path, in_dirnames, in_filenames in self.sh.walk(target):
+                in_dirnames.sort()
+                path_abs = os.path.abspath(path)
+                dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
+                dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
+                if (
+                    len(dirpath_relative_root_components) < 2 or
+                    dirpath_relative_root_components[0] != 'arch' or
+                    dirpath_relative_root_components[1] == self.env['arch']
+                ):
+                    out_dir = os.path.join(
+                        self.env['userland_build_dir'],
+                        dirpath_relative_root
                     )
-                    pkg_key = in_name.split('_')[0]
-                    ccflags_file = ccflags.copy()
-                    ccflags_after = []
-                    if pkg_key in pkgs:
-                        if pkg_key not in has_packages:
-                            continue
-                        pkg = pkgs[pkg_key]
-                        if 'ccflags' in pkg:
-                            ccflags_file.extend(pkg['ccflags'])
-                        else:
-                            pkg_config_output = subprocess.check_output([
-                                self.env['buildroot_pkg_config'],
-                                '--cflags',
-                                pkg_key
-                            ]).decode()
-                            ccflags_file.extend(self.sh.shlex_split(pkg_config_output))
-                        if 'ccflags_after' in pkg:
-                            ccflags_file.extend(pkg['ccflags_after'])
-                        else:
-                            pkg_config_output = subprocess.check_output([
-                                self.env['buildroot_pkg_config'],
-                                '--libs',
-                                pkg_key
-                            ]).decode()
-                            ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
-                    thread_limiter.acquire()
-                    if self.error:
-                        return 1
-                    thread = threading.Thread(
-                        target=self._build_one,
-                        kwargs={
-                            'in_path':in_path,
-                            'out_path':out_path,
-                            'ccflags':ccflags_file,
-                            'extra_objs':[common_obj],
-                            'ccflags_after':ccflags_after,
-                            'raise_on_failure':False,
-                            'thread_limiter':thread_limiter,
-                        }
-                    )
-                    thread.start()
+                    os.makedirs(out_dir, exist_ok=True)
+                    for in_filename in in_filenames:
+                        in_path = os.path.join(path, in_filename)
+                        in_name, in_ext = os.path.splitext(in_filename)
+                        out_path = os.path.join(
+                            out_dir,
+                            in_name + self.env['userland_build_ext']
+                        )
+                        pkg_key = in_name.split('_')[0]
+                        ccflags_file = ccflags.copy()
+                        ccflags_after = []
+                        if pkg_key in pkgs:
+                            if pkg_key not in has_packages:
+                                continue
+                            pkg = pkgs[pkg_key]
+                            if 'ccflags' in pkg:
+                                ccflags_file.extend(pkg['ccflags'])
+                            else:
+                                pkg_config_output = subprocess.check_output([
+                                    self.env['buildroot_pkg_config'],
+                                    '--cflags',
+                                    pkg_key
+                                ]).decode()
+                                ccflags_file.extend(self.sh.shlex_split(pkg_config_output))
+                            if 'ccflags_after' in pkg:
+                                ccflags_file.extend(pkg['ccflags_after'])
+                            else:
+                                pkg_config_output = subprocess.check_output([
+                                    self.env['buildroot_pkg_config'],
+                                    '--libs',
+                                    pkg_key
+                                ]).decode()
+                                ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
+                        thread_limiter.acquire()
+                        if self.error:
+                            return 1
+                        thread = threading.Thread(
+                            target=self._build_one,
+                            kwargs={
+                                'in_path':in_path,
+                                'out_path':out_path,
+                                'ccflags':ccflags_file,
+                                'extra_objs':[common_obj],
+                                'ccflags_after':ccflags_after,
+                                'raise_on_failure':False,
+                                'thread_limiter':thread_limiter,
+                            }
+                        )
+                        thread.start()
         self.sh.copy_dir_if_update(
             srcdir=build_dir,
             destdir=self.env['out_rootfs_overlay_dir'],
