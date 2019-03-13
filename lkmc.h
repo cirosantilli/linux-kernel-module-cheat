@@ -248,17 +248,17 @@ void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception);
 #define LKMC_SYSREG_SYMBOL_PREFIX lkmc_sysreg_
 #define LKMC_SYSREG_READ_WRITE(type, name) \
     type LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read)(void); \
-    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write)(type name)
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write)(type name);
 #define LKMC_SYSREG_OPS \
-    LKMC_SYSREG_READ_WRITE(uint32_t, cntv_ctl_el0); \
-    LKMC_SYSREG_READ_WRITE(uint32_t, daif); \
-    LKMC_SYSREG_READ_WRITE(uint32_t, spsel); \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntfrq_el0); \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntv_cval_el0); \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntv_tval_el0); \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntvct_el0); \
-    LKMC_SYSREG_READ_WRITE(uint64_t, sp_el1); \
-    LKMC_SYSREG_READ_WRITE(uint64_t, vbar_el1);
+    LKMC_SYSREG_READ_WRITE(uint32_t, cntv_ctl_el0) \
+    LKMC_SYSREG_READ_WRITE(uint32_t, daif) \
+    LKMC_SYSREG_READ_WRITE(uint32_t, spsel) \
+    LKMC_SYSREG_READ_WRITE(uint64_t, cntfrq_el0) \
+    LKMC_SYSREG_READ_WRITE(uint64_t, cntv_cval_el0) \
+    LKMC_SYSREG_READ_WRITE(uint64_t, cntv_tval_el0) \
+    LKMC_SYSREG_READ_WRITE(uint64_t, cntvct_el0) \
+    LKMC_SYSREG_READ_WRITE(uint64_t, sp_el1) \
+    LKMC_SYSREG_READ_WRITE(uint64_t, vbar_el1)
 LKMC_SYSREG_OPS
 #undef LKMC_SYSREG_READ_WRITE
 
