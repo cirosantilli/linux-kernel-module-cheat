@@ -1043,15 +1043,6 @@ lunch aosp_{}-eng
         os.makedirs(self.env['qemu_run_dir'], exist_ok=True)
 
     @staticmethod
-    def need_rebuild(srcs, dst):
-        if not os.path.exists(dst):
-            return True
-        for src in srcs:
-            if os.path.getmtime(src) > os.path.getmtime(dst):
-                return True
-        return False
-
-    @staticmethod
     def seconds_to_hms(seconds):
         '''
         Seconds to hour:minute:seconds
@@ -1176,6 +1167,11 @@ class BuildCliFunction(LkmcCliFunction):
             help='Clean the build instead of building.',
         ),
         self.add_argument(
+            '--force-rebuild',
+            default=False,
+            help="Force rebuild even if sources didn't chage",
+        )
+        self.add_argument(
             '-j',
             '--nproc',
             default=multiprocessing.cpu_count(),
@@ -1197,6 +1193,16 @@ class BuildCliFunction(LkmcCliFunction):
 
     def get_build_dir(self):
         return None
+
+    def need_rebuild(self, srcs, dst):
+        if self.env['force_rebuild']:
+            return True
+        if not os.path.exists(dst):
+            return True
+        for src in srcs:
+            if os.path.getmtime(src) > os.path.getmtime(dst):
+                return True
+        return False
 
     def timed_main(self):
         '''
