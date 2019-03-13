@@ -29,6 +29,15 @@ allows us to build examples that rely on it.
 ''',
         )
         self.add_argument(
+            '--in-tree',
+            default=False,
+            help='''\
+Build in-tree, i.e. place outputs next to source files.
+Mostly useful when compiling with the host toolchain to conveniently run
+the output files.
+''',
+        )
+        self.add_argument(
             'targets',
             default=[],
             help='''\
@@ -185,7 +194,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                     dirpath_relative_root_components[1] == self.env['arch']
                 ):
                     out_dir = os.path.join(
-                        self.env['userland_build_dir'],
+                        build_dir,
                         dirpath_relative_root
                     )
                     os.makedirs(out_dir, exist_ok=True)
@@ -255,8 +264,23 @@ Default: build all examples that have their package dependencies met, e.g.:
         )
         return 0
 
+    def clean(self):
+        build_dir = self.get_build_dir()
+        if self.env['in_tree']:
+            for path, dirnames, filenames in os.walk(build_dir):
+                filenames.sort()
+                dirnames.sort()
+                for filename in filenames:
+                    if os.path.splitext(filename)[1] in self.env['userland_out_exts']:
+                        self.sh.rmrf(os.path.join(path, filename))
+        else:
+            self.sh.rmrf(build_dir)
+
     def get_build_dir(self):
-        return self.env['userland_build_dir']
+        if self.env['in_tree']:
+            return self.env['userland_source_dir']
+        else:
+            return self.env['userland_build_dir']
 
 if __name__ == '__main__':
     Main().cli()

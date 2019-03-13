@@ -95,14 +95,18 @@ consts['github_repo_id'] = 'cirosantilli/linux-kernel-module-cheat'
 consts['asm_ext'] = '.S'
 consts['c_ext'] = '.c'
 consts['cxx_ext'] = '.cpp'
+consts['header_ext'] = '.h'
+consts['kernel_module_ext'] = '.ko'
+consts['obj_ext'] = '.o'
 consts['userland_in_exts'] = [
     consts['asm_ext'],
     consts['c_ext'],
     consts['cxx_ext'],
 ]
-consts['header_ext'] = '.h'
-consts['kernel_module_ext'] = '.ko'
-consts['obj_ext'] = '.o'
+consts['userland_out_exts'] = [
+    consts['userland_build_ext'],
+    consts['obj_ext'],
+]
 consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
 consts['magic_fail_string'] = b'lkmc_test_fail'
 consts['baremetal_lib_basename'] = 'lib'
