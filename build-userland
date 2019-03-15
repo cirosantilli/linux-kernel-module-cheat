@@ -32,9 +32,10 @@ allows us to build examples that rely on it.
             '--in-tree',
             default=False,
             help='''\
-Build in-tree, i.e. place outputs next to source files.
-Mostly useful when compiling with the host toolchain to conveniently run
-the output files.
+Magic build mode tailored to build from within the source tree:
+
+* place build output inside soure tree to conveniently run it
+* if not targets are given, build use the current working directory
 ''',
         )
         self.add_argument(
@@ -125,6 +126,19 @@ Default: build all examples that have their package dependencies met, e.g.:
             self.error = True
         return ret
 
+    def _get_targets(self):
+        if self.env['_args_given']['targets']:
+            targets = self.env['targets']
+            if self.env['in_tree']:
+                cwd = os.getcwd()
+                targets = [os.path.join(cwd, target) for target in targets]
+            return targets
+        else:
+            if self.env['in_tree']:
+                return [os.getcwd()]
+            else:
+                return [self.env['userland_source_dir']]
+
     def build(self):
         build_dir = self.get_build_dir()
         os.makedirs(build_dir, exist_ok=True)
@@ -177,11 +191,7 @@ Default: build all examples that have their package dependencies met, e.g.:
         rootdir_abs_len = len(self.env['userland_source_dir'])
         thread_limiter = threading.BoundedSemaphore(self.env['nproc'])
         self.error = False
-        if self.env['_args_given']['targets']:
-            targets = self.env['targets']
-        else:
-            targets = [self.env['userland_source_dir']]
-        for target in targets:
+        for target in self._get_targets():
             target = self.resolve_userland_source(target)
             for path, in_dirnames, in_filenames in self.sh.walk(target):
                 in_dirnames.sort()
@@ -265,16 +275,16 @@ Default: build all examples that have their package dependencies met, e.g.:
         return 0
 
     def clean(self):
-        build_dir = self.get_build_dir()
         if self.env['in_tree']:
-            for path, dirnames, filenames in os.walk(build_dir):
-                filenames.sort()
-                dirnames.sort()
-                for filename in filenames:
-                    if os.path.splitext(filename)[1] in self.env['userland_out_exts']:
-                        self.sh.rmrf(os.path.join(path, filename))
+            for target in self._get_targets():
+                for path, dirnames, filenames in os.walk(target):
+                    filenames.sort()
+                    dirnames.sort()
+                    for filename in filenames:
+                        if os.path.splitext(filename)[1] in self.env['userland_out_exts']:
+                            self.sh.rmrf(os.path.join(path, filename))
         else:
-            self.sh.rmrf(build_dir)
+            self.sh.rmrf(self.get_build_dir())
 
     def get_build_dir(self):
         if self.env['in_tree']:
