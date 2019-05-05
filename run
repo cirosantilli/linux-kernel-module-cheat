@@ -553,11 +553,7 @@ Extra options to append at the end of the emulator command line.
                     debug_args = []
                 cmd.extend(
                     [
-                        os.path.join(
-                            self.env['qemu_build_dir'],
-                            '{}-linux-user'.format(self.env['arch']),
-                            'qemu-{}'.format(self.env['arch'])
-                        ), LF,
+                        self.env['qemu_executable'], LF,
                         '-L', self.env['userland_library_dir'], LF,
                         '-r', self.env['kernel_version'], LF,
                         '-seed', '0', LF,
@@ -570,16 +566,6 @@ Extra options to append at the end of the emulator command line.
                     raise_image_not_found()
                 extra_emulator_args.extend(extra_qemu_args)
                 self.make_run_dirs()
-                if self.env['qemu_which'] == 'host' or not os.path.exists(self.env['qemu_executable']):
-                    qemu_executable = self.env['qemu_executable_basename']
-                    qemu_executable_host = True
-                else:
-                    qemu_executable = self.env['qemu_executable']
-                    qemu_executable_host = False
-                qemu_executable = shutil.which(qemu_executable)
-                if qemu_executable is None:
-                    raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
-                                    'Tried to use: ' + qemu_executable)
                 if self.env['debug_vm']:
                     serial_monitor = []
                 else:
@@ -620,7 +606,7 @@ Extra options to append at the end of the emulator command line.
                     machine2 = []
                 cmd.extend(
                     [
-                        qemu_executable, LF,
+                        self.env['qemu_executable'], LF,
                         '-machine', self.env['machine'], LF,
                     ] +
                     machine2 +
@@ -644,7 +630,7 @@ Extra options to append at the end of the emulator command line.
                 )
                 if self.env['dtb'] is not None:
                     cmd.extend(['-dtb', self.env['dtb'], LF])
-                if not qemu_executable_host:
+                if not self.env['qemu_which'] == 'host':
                     cmd.extend(qemu_user_and_system_options)
                 if self.env['initrd']:
                     extra_emulator_args.extend(['-initrd', self.env['buildroot_cpio'], LF])

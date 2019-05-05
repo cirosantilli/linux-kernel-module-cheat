@@ -658,10 +658,27 @@ Incompatible archs are skipped.
 
         # QEMU
         env['qemu_build_dir'] = join(env['out_dir'], 'qemu', env['qemu_build_id'])
-        env['qemu_executable_basename'] = 'qemu-system-{}'.format(env['arch'])
-        env['qemu_executable'] = join(env['qemu_build_dir'], '{}-softmmu'.format(env['arch']), env['qemu_executable_basename'])
         env['qemu_img_basename'] = 'qemu-img'
         env['qemu_img_executable'] = join(env['qemu_build_dir'], env['qemu_img_basename'])
+        if env['userland'] is None:
+            env['qemu_executable_basename'] = 'qemu-system-{}'.format(env['arch'])
+        else:
+            env['qemu_executable_basename'] = 'qemu-{}'.format(env['arch'])
+        if env['qemu_which'] == 'host':
+            env['qemu_executable'] = env['qemu_executable_basename']
+        else:
+            if env['userland'] is None:
+                env['qemu_executable'] = join(
+                    env['qemu_build_dir'],
+                    '{}-softmmu'.format(env['arch']),
+                    env['qemu_executable_basename']
+                )
+            else:
+                env['qemu_executable'] = join(
+                    self.env['qemu_build_dir'],
+                    '{}-linux-user'.format(self.env['arch']),
+                    env['qemu_executable_basename']
+                )
 
         # gem5
         if not env['_args_given']['gem5_build_dir']:
