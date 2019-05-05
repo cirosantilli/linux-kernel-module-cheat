@@ -7,15 +7,15 @@
 _start:
 asm_main_after_prologue:
     /* write */
-    mov $1, %rax    /* stdout */
-    mov $1, %rdi    /* buffer */
-    mov $msg, %rsi  /* len */
-    mov $len, %rdx  /* syscall number */
+    mov $1, %rax    /* syscall number */
+    mov $1, %rdi    /* stdout */
+    mov $msg, %rsi  /* buffer */
+    mov $len, %rdx  /* len */
     syscall
 
     /* exit */
-    mov $60, %rax   /* exit status */
-    mov $0, %rdi    /* syscall number */
+    mov $60, %rax   /* syscall number */
+    mov $0, %rdi    /* exit status */
     syscall
 msg:
     .ascii "hello\n"

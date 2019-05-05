@@ -1,4 +1,6 @@
-/* Count to infinity with 1 second sleep between each increment. */
+/* Count to infinity with 1 second sleep between each increment.
+ * Sample application: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-userland-custom-init
+ */
 
 #define _XOPEN_SOURCE 700
 #include <limits.h>

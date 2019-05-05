@@ -1797,12 +1797,12 @@ since GDB does not know that libc is loaded.
 
 This is the userland debug setup most likely to work, since at init time there is only one userland executable running.
 
-For executables from the link:userland/[] directory such as link:userland/count.c[]:
+For executables from the link:userland/[] directory such as link:userland/posix/count.c[]:
 
 * Shell 1:
 +
 ....
-./run --wait-gdb --kernel-cli 'init=/lkmc/count.out'
+./run --wait-gdb --kernel-cli 'init=/lkmc/posix/count.out'
 ....
 * Shell 2:
 +
@@ -3443,10 +3443,10 @@ Determining the right number to put there is of course highly non-trivial and wo
 We don't have this failure for QEMU, only gem5. QEMU by default copies the host `uname`, but it also has the `-r` option to set it explicitly, try it out with:
 
 ....
-./run --arch aarch64 --userland uname -- -r v4.17.0
+./run --arch aarch64 --userland ./posix/uname -- -r v4.17.0
 ....
 
-Source: link:userland/uname.c[].
+Source: link:userland/posix/uname.c[].
 
 The QEMU source that does this is at: https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931
 
@@ -6418,7 +6418,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/mmap.c[]
-* link:userland/mmap.c[]
+* link:userland/kernel_modules/mmap.c[]
 * link:rootfs_overlay/lkmc/mmap.sh[]
 
 In this example, we make a tiny 4 byte kernel buffer available to user-space, and we then modify it on userspace, and check that the kernel can see the modification.
@@ -6979,7 +6979,7 @@ The program:
 Then, translate the virtual address to physical using `/proc/<pid>/maps` and `/proc/<pid>/pagemap`:
 
 ....
-./virt_to_phys_user.out 110 0x600800
+./linux/virt_to_phys_user.out 110 0x600800
 ....
 
 Sample output physical address:
@@ -6988,9 +6988,9 @@ Sample output physical address:
 0x7c7b800
 ....
 
-Source: link:userland/virt_to_phys_user.c[]
+Source: link:userland/linux/virt_to_phys_user.c[]
 
-Now we can verify that `virt_to_phys_user.out` gave the correct physical address in the following ways:
+Now we can verify that `linux/virt_to_phys_user.out` gave the correct physical address in the following ways:
 
 * <<qemu-xp>>
 * <<dev-mem>>
@@ -7004,7 +7004,7 @@ Bibliography:
 
 The `xp` <<qemu-monitor>> command reads memory at a given physical address.
 
-First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>.
+First launch `linux/virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>.
 
 On a second terminal, use QEMU to read the physical address:
 
@@ -7027,7 +7027,7 @@ We could not find however to write to memory from the QEMU monitor, boring.
 
 `/dev/mem` exposes access to physical addresses, and we use it through the convenient `devmem` BusyBox utility.
 
-First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>.
+First launch `linux/virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>.
 
 Next, read from the physical address:
 
@@ -7078,20 +7078,20 @@ Bibliography: https://stackoverflow.com/questions/11891979/how-to-access-mmaped-
 
 Dump the physical address of all pages mapped to a given process using `/proc/<pid>/maps` and `/proc/<pid>/pagemap`.
 
-First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>. Suppose that the output was:
+First launch `linux/virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>. Suppose that the output was:
 
 ....
 # ./virt_to_phys_test.out &
 vaddr 0x601048
 pid 63
-# ./virt_to_phys_user.out 63 0x601048
+# ./linux/virt_to_phys_user.out 63 0x601048
 0x1a61048
 ....
 
 Now obtain the page map for the process:
 
 ....
-./pagemap_dump.out 63
+./linux/pagemap_dump.out 63
 ....
 
 Sample output excerpt:
@@ -7106,7 +7106,7 @@ vaddr pfn soft-dirty file/shared swapped present library
 7ffff78ec000 1fd4 0 1 0 1 /lib/libuClibc-1.0.30.so
 ....
 
-Source: link:userland/pagemap_dump.c[]
+Source: link:userland/linux/pagemap_dump.c[]
 
 Adapted from: https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c
 
@@ -7146,7 +7146,7 @@ Three zeroes is 12 bits which is 4kB, which is the size of a page.
 +
 For example, the virtual address `0x601000` has `pfn` of `0x1a61`, which means that its physical address is `0x1a61000`
 +
-This is consistent with what `virt_to_phys_user.out` told us: the virtual address `0x601048` has physical address `0x1a61048`.
+This is consistent with what `linux/virt_to_phys_user.out` told us: the virtual address `0x601048` has physical address `0x1a61048`.
 +
 `048` corresponds to the three last zeroes, and is the offset within the page.
 +
@@ -9868,16 +9868,6 @@ Sources:
 * link:bst-vs-heap[]
 * link:userland/bst_vs_heap.cpp[]
 
-===== OpenMP
-
-Implemented by GCC itself, so just a toolchain configuration, no external libs, and we enable it by default:
-
-....
-./openmp.out
-....
-
-Source: link:userland/openmp.c[]
-
 ===== BLAS
 
 Buildroot supports it, which makes everything just trivial:
@@ -11316,6 +11306,32 @@ One "downside" of glibc is that it exercises much more kernel functionality on i
 
 Programs under link:userland/c/[] are examples of link:https://en.wikipedia.org/wiki/ANSI_C[ANSI C] programming.
 
+=== GCC C extensions
+
+==== C empty struct
+
+Example: link:userland/gcc/empty_struct.c[]
+
+Documentation: https://gcc.gnu.org/onlinedocs/gcc-8.2.0/gcc/Empty-Structures.html#Empty-Structures
+
+Question: https://stackoverflow.com/questions/24685399/c-empty-struct-what-does-this-mean-do
+
+==== OpenMP
+
+GCC implements the <<OpenMP>> threading implementation: https://stackoverflow.com/questions/3949901/pthreads-vs-openmp
+
+Example: link:userland/gcc/openmp.c[]
+
+The implementation is built into GCC itself. It is enabled at GCC compile time by `BR2_GCC_ENABLE_OPENMP=y` on Buildroot, and at program compile time by `-fopenmp`.
+
+It seems to be easier to use for compute parallelism and more language agnostic than POSIX threads.
+
+pthreads are more versatile though and allow for a superset of OpenMP.
+
+The implementation lives under `libgomp` in the GCC tree, and is documented at: https://gcc.gnu.org/onlinedocs/libgomp/
+
+`strace` shows that OpenMP makes `clone()` syscalls in Linux. TODO: does it actually call `pthread_` functions, or does it make syscalls directly? Or in other words, can it work on <<freestanding-programs>>? A quick grep shows many references to pthreads.
+
 [[cpp]]
 == C++
 
@@ -11409,7 +11425,7 @@ System-land assembly cheats will be put under: <<baremetal-setup>>.
 
 === Userland assembly C standard library
 
-All examples outside of <<linux-system-calls,freestanding directories>> link to the C standard library.
+All examples except the <<freestanding-programs>> link to the C standard library.
 
 This allows using the C standard library for IO, which is very convenient and portable across host OSes.
 
@@ -11422,6 +11438,23 @@ The C standard library infrastructure is implemented in the following files:
 * link:userland/arch/x86_64/common_arch.h[]
 * link:userland/arch/arm/common_arch.h[]
 * link:userland/arch/aarch64/common_arch.h[]
+
+==== Freestanding programs
+
+Unlike most our other assembly examples, which use the C standard library for portability, examples under `freestanding/` directories don't link to the C standard library.
+
+As a result, those examples cannot do IO portably, and so they make raw system calls and only be run on one given OS, e.g. Linux: <<linux-system-calls>>
+
+Such executables are called freestanding because they don't execute the glibc initialization code, but rather start directly on our custom hand written assembly.
+
+In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
+
+....
+./run --arch aarch64 --userland arch/aarch64/freestanding/hello --wait-gdb
+./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
+....
+
+You are now left on the very first instruction of our tiny executable!
 
 === Inline assembly
 
@@ -11492,19 +11525,6 @@ The following <<userland-setup>> programs illustrate how to make system calls:
 ** link:userland/arch/aarch64/freestanding/hello.S[]
 ** link:userland/arch/aarch64/c/freestanding/hello.c[]
 ** link:userland/arch/aarch64/c/freestanding/hello_clobbers.c[]
-
-Unlike most our other examples, which use the C standard library for portability, examples under `freestanding/` can be only run on Linux.
-
-Such executables are called freestanding because they don't execute the glibc initialization code, but rather start directly on our custom hand written assembly.
-
-In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
-
-....
-./run --arch aarch64 --userland arch/aarch64/freestanding/hello --wait-gdb
-./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
-....
-
-You are now left on the very first instruction of our tiny executable!
 
 Determining the ARM syscall numbers:
 

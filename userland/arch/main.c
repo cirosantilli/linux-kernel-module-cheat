@@ -2,10 +2,10 @@
  * https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly-c-standard-library
  */
 
-#include "stdio.h"
-#include "stdint.h"
+#include <stdio.h>
+#include <stdint.h>
 
-#include "lkmc.h"
+#include <lkmc.h>
 
 int asm_main(uint32_t *line);
 
