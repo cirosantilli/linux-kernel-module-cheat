@@ -26,7 +26,7 @@ int main(__attribute__((unused)) int argc, char **argv) {
 
     /* Misc syscalls. */
     printf("time(NULL) = %ju\n", (uintmax_t)time(NULL));
-    printf("pid = %ju\n", (uintmax_t)getpid());
+    printf("pid        = %ju\n", (uintmax_t)getpid());
 
     /* malloc */
     ip = malloc(sizeof(*ip));

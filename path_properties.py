@@ -20,19 +20,23 @@ class PathProperties:
         # We were lazy to properly classify why we are skipping these tests.
         # TODO get it done.
         'skip_run_unclassified',
+        # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s',
         # The path does not generate an executable in itself, e.g.
         # it only generates intermediate object files.
         'no_executable',
+        # The script requires a non-trivial argument to be passed to run properly.
+        'requires_argument',
         # the test receives a signal. We skip those tests for now,
         # on userland because we are lazy to figure out the exact semantics
         # of how Python + QEMU + gem5 determine the exit status of signals.
         'receives_signal',
+        # Requires certain of our custom kernel modules to be inserted to run.
         'requires_kernel_modules',
         # The example requires sudo, which usually implies that it can do something
         # deeply to the system it runs on, which would preventing further interactive
         # or test usage of the system, for example poweroff or messing up the GUI.
-        'sudo',
+        'requires_sudo',
         'uses_dynamic_library',
     }
 
@@ -78,9 +82,10 @@ class PathProperties:
             not self['interactive'] and \
             not self['more_than_1s'] and \
             not self['receives_signal'] and \
+            not self['requires_argument'] and \
             not self['requires_kernel_modules'] and \
+            not self['requires_sudo'] and \
             not self['skip_run_unclassified'] and \
-            not self['sudo'] and \
             not (self['uses_dynamic_library'] and env['emulator'] == 'gem5')
 
     def update(self, other):
@@ -170,9 +175,10 @@ path_properties_tuples = (
         'more_than_1s': False,
         'no_executable': False,
         'receives_signal': False,
+        'requires_argument': False,
         'requires_kernel_modules': False,
+        'requires_sudo': False,
         'skip_run_unclassified': False,
-        'sudo': False,
         'uses_dynamic_library': False,
     },
     {
@@ -274,12 +280,25 @@ path_properties_tuples = (
                 'libs': (
                     {'uses_dynamic_library': True},
                     {
-                        'libdrm': {'sudo': True},
+                        'libdrm': {'requires_sudo': True},
                     }
                 ),
                 'linux': (
-                    {**gnu_extension_properties, **{'skip_run_unclassified': True}},
-                )
+                    gnu_extension_properties,
+                    {
+                        'ctrl_alt_del.c': {'requires_sudo': True},
+                        'init_env_poweroff.c': {'requires_sudo': True},
+                        'myinsmod.c': {'requires_sudo': True},
+                        'myrmmod.c': {'requires_sudo': True},
+                        'pagemap_dump.c': {'requires_argument': True},
+                        'poweroff.c': {'requires_sudo': True},
+                        'proc_events.c': {'requires_sudo': True},
+                        'proc_events.c': {'requires_sudo': True},
+                        'sched_getaffinity_threads.c': {'more_than_1s': True},
+                        'time_boot.c': {'requires_sudo': True},
+                        'virt_to_phys_user.c': {'requires_argument': True},
+                    }
+                ),
                 'posix': (
                     {},
                     {
