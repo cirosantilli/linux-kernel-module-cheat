@@ -281,6 +281,15 @@ Parameters to pass to the program running on the tmux split. Implies --tmux.
 '''
         )
         self.add_argument(
+            '--tmux-program',
+            choices=('gdb', 'shell'),
+            help='''\
+Which program to run in tmux. Implies --tmux. Defaults:
+* 'gdb' in qemu
+* 'shell' in gem5. 'shell' is only supported in gem5 currently.
+'''
+        )
+        self.add_argument(
             '--vnc',
             default=False,
             help='''\
@@ -312,8 +321,13 @@ Extra options to append at the end of the emulator command line.
         kernel_cli_after_dash = ' lkmc_home={}'.format(self.env['guest_lkmc_home'])
         extra_emulator_args = []
         extra_qemu_args = []
-        if self.env['tmux_args'] is not None:
+        if self.env['tmux_args'] is not None or self.env['_args_given']['tmux_program']:
             self.env['tmux'] = True
+        if not self.env['_args_given']['tmux_program']:
+            if self.env['emulator'] == 'qemu':
+                self.env['tmux_program'] = 'gdb'
+            elif self.env['emulator'] == 'gem5':
+                self.env['tmux_program'] = 'shell'
         if self.env['debug_vm'] or self.env['debug_vm_args']:
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
         else:
@@ -659,16 +673,20 @@ Extra options to append at the end of the emulator command line.
                     cmd.extend(append)
         if self.env['tmux']:
             tmux_args = '--run-id {}'.format(self.env['run_id'])
-            if self.env['emulator'] == 'gem5':
-                tmux_cmd = './gem5-shell'
-            else:
+            if self.env['tmux_program'] == 'shell':
+                if self.env['emulator'] == 'gem5':
+                    tmux_cmd = './gem5-shell'
+                else:
+                    raise Exception('--tmux-program is only supported in gem5 currently.')
+            elif self.env['tmux_program'] == 'gdb':
                 tmux_cmd = './run-gdb'
                 # TODO find a nicer way to forward all those args automatically.
                 # Part of me wants to: https://github.com/jonathanslenders/pymux
                 # but it cannot be used as a library properly it seems, and it is
                 # slower than tmux.
-                tmux_args += " --arch {} --linux-build-id '{}' --run-id '{}' --userland-build-id '{}'".format(
+                tmux_args += " --arch {} --emulator '{}' --linux-build-id '{}' --run-id '{}' --userland-build-id '{}'".format(
                     self.env['arch'],
+                    self.env['emulator'],
                     self.env['linux_build_id'],
                     self.env['run_id'],
                     self.env['userland_build_id'],
