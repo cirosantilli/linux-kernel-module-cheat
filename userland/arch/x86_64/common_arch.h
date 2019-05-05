@@ -54,16 +54,17 @@ asm_main_after_prologue: \
     mov $0, %rax; \
     jmp pass; \
 fail: \
-    mov -0x8(%rbp), %rbx; \
+    /* -0x30(%rbp) is argument 1 which we pushed at prologue */ \
+    mov -0x30(%rbp), %rbx; \
     movl %eax, (%rbx); \
     mov $1, %rax; \
 pass: \
+    add $16, %rsp; \
     pop %rbx; \
     pop %r12; \
     pop %r13; \
     pop %r14; \
     pop %r15; \
-    add $16, %rsp; \
     pop %rbp; \
     ret; \
 ;
