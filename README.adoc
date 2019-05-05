@@ -3824,7 +3824,7 @@ First we build Dhrystone manually statically since dynamic linking is broken in 
 gem5 user mode:
 
 ....
-./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y' --arch arm
+./build-buildroot --arch arm --config 'BR2_PACKAGE_DHRYSTONE=y'
 make \
   -B \
   -C "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2" \
@@ -3920,6 +3920,37 @@ Error while loading /path/to/linux-kernel-module-cheat/out/userland/default/x86_
 ....
 
 Tested in de77c62c091f6418e73b64e8a0a19639c587a103 + 1.
+
+=== User mode simulation path_properties
+
+In order to build and run each example properly, we need some file metadata which is stored in link:path_properties.py[] at `path_properties_tuples`.
+
+Maybe we should embed it magically into source files directories? But this was easier to implement so we started like this.
+
+The format is as follows:
+
+....
+'path_component': (
+    {'property': value},
+    {
+        'child_path_component':
+        {
+            {'child_property': },
+            {}
+        }
+    }
+)
+....
+
+and as a shortcut, paths that don't have any children can be written directly as:
+
+.....
+'path_component': {'property': value}
+.....
+
+Properties of parent directories apply to all children.
+
+Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.
 
 == Kernel module utilities
 

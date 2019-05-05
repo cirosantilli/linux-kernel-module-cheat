@@ -144,6 +144,7 @@ freestanding_properties = {
     ],
     'extra_objs_userland_asm': False,
 }
+# See: https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-simulation-path_properties
 path_properties_tuples = (
     {
         'allowed_archs': None,
@@ -276,7 +277,9 @@ path_properties_tuples = (
                         'libdrm': {'sudo': True},
                     }
                 ),
-                'linux': {**gnu_extension_properties, **{'skip_run_unclassified': True}},
+                'linux': (
+                    {**gnu_extension_properties, **{'skip_run_unclassified': True}},
+                )
                 'posix': (
                     {},
                     {
