@@ -5,6 +5,8 @@ import os
 from shell_helpers import LF
 
 class PathProperties:
+    default_c_std = 'c11'
+    default_cxx_std = 'c++17'
     default_properties = {
         'allowed_archs': None,
         'c_std': default_c_std,
@@ -142,8 +144,6 @@ def get(path):
     path_properties.set_path_components(path_components)
     return path_properties
 
-default_c_std = 'c11'
-default_cxx_std = 'c++17'
 gnu_extension_properties = {
     'c_std': 'gnu11',
     'cc_pedantic': False,
