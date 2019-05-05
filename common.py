@@ -922,6 +922,7 @@ lunch aosp_{}-eng
             raise Exception('Unknown toolchain: ' + env['gcc_which'])
         env['gcc'] = self.get_toolchain_tool('gcc')
         env['gxx'] = self.get_toolchain_tool('g++')
+        env['ld'] = self.get_toolchain_tool('ld')
 
     def add_argument(self, *args, **kwargs):
         '''
