@@ -1242,7 +1242,7 @@ lunch aosp_{}-eng
                 out += executable_ext
             return out
         else:
-            return in_path_abs
+            return in_path
 
     def resolve_targets(self, source_dir, targets):
         if not targets:
