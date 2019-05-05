@@ -1,5 +1,5 @@
 /* Same as hello.c, but with explicit register variables, see:
- * https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
  */
 
 #define _XOPEN_SOURCE 700

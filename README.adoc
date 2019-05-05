@@ -947,8 +947,8 @@ Therefore, we decided to consolidate other userland tutorials that we had scatte
 
 Notable userland content included / moving into this repository includes:
 
-* <<arm-userland>>
-* <<x86-userland>>
+* <<arm-userland-assembly>>
+* <<x86-userland-assembly>>
 * <<c>>
 * <<cpp>>
 * <<posix>>
@@ -1185,8 +1185,8 @@ But just stick to newer and better `VExpress_GEM5_V1` unless you have a good rea
 
 When doing bare metal programming, it is likely that you will want to learn assembly language basics. Have a look at these tutorials for the userland part:
 
-* <<x86-userland>>
-* <<arm-userland>>
+* <<x86-userland-assembly>>
+* <<arm-userland-assembly>>
 
 For more information on baremetal, see the section: <<baremetal>>.
 
@@ -12152,13 +12152,61 @@ What is POSIX:
 * https://stackoverflow.com/questions/1780599/what-is-the-meaning-of-posix/31865755#31865755
 * https://unix.stackexchange.com/questions/11983/what-exactly-is-posix/220877#220877
 
-== x86 userland
+== Linux system calls
+
+The following <<userland-setup>> programs illustrate how to make system calls:
+
+* x86_64
+** link:userland/arch/x86_64/freestanding/hello.S[]
+** link:userland/arch/x86_64/c/freestanding/hello.c[]
+** link:userland/arch/x86_64/c/freestanding/hello_regvar.c[]
+* arm
+** link:userland/arch/arm/freestanding/hello.S[]
+** link:userland/arch/arm/c/freestanding/hello.c[]
+* aarch64
+** link:userland/arch/aarch64/freestanding/hello.S[]
+** link:userland/arch/aarch64/c/freestanding/hello.c[]
+** link:userland/arch/aarch64/c/freestanding/hello_clobbers.c[]
+
+Unlike most our other examples, which use the C standard library for portability, examples under `freestanding/` can be only run on Linux.
+
+Such executables are called freestanding because they don't execute the glibc initialization code, but rather start directly on our custom hand written assembly.
+
+In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
+
+....
+./run --arch aarch64 --userland arch/aarch64/freestanding/hello --wait-gdb
+./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
+....
+
+Determining the ARM syscall numbers:
+
+* https://reverseengineering.stackexchange.com/questions/16917/arm64-syscalls-table
+* arm: https://github.com/torvalds/linux/blob/v4.17/arch/arm/tools/syscall.tbl
+* aarch64: https://github.com/torvalds/linux/blob/v4.17/include/uapi/asm-generic/unistd.h
+
+Determining the ARM syscall interface:
+
+* https://stackoverflow.com/questions/12946958/what-is-the-interface-for-arm-system-calls-and-where-is-it-defined-in-the-linux
+* https://stackoverflow.com/questions/45742869/linux-syscall-conventions-for-armv8
+
+Questions about the C inline assembly examples:
+
+* x86_64
+** https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
+* ARM
+** https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
+** https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
+
+== x86 userland assembly
 
 Programs under link:userland/arch/x86_64/[] are examples of x86 userland assembly programming.
 
 Those examples are progressively being moved out of: https://github.com/cirosantilli/x86-assembly-cheat
 
-== arm userland
+These programs can be run as explained at <<userland-setup>>.
+
+== arm userland assembly
 
 Programs under:
 
@@ -12166,6 +12214,10 @@ Programs under:
 * link:userland/arch/aarch64/[]
 
 are examples of ARM userland assembly programming.
+
+They have been moved out of: https://github.com/cirosantilli/arm-assembly-cheat
+
+These programs can be run as explained at <<userland-setup>>.
 
 == Android
 
@@ -12717,7 +12769,7 @@ For other Linux distros, everything will likely also just work if you install th
 Find out the packages that we install with:
 
 ....
-./build --download-dependencies --dry-run | less
+./build --download-dependencies --dry-run <some-target> | less
 ....
 
 and then just look for the `apt-get` commands shown on the log.
@@ -12725,7 +12777,7 @@ and then just look for the `apt-get` commands shown on the log.
 After installing the missing packages for your distro, do the build with:
 
 ....
-./build --download-dependencies --no-apt
+./build --download-dependencies --no-apt <some-target>
 ....
 
 which does everything as normal, except that it skips any `apt` commands.
@@ -12734,7 +12786,9 @@ Ports to new host systems are welcome and will be merged.
 
 If something does not work however, <<docker>> should just work on any Linux distro.
 
-Native Windows is unlikely feasible because Buildroot is a huge set of GNU Make scripts + host tools, just do everything from inside an Ubuntu in VirtualBox instance in that case.
+Native Windows is unlikely feasible for Buildroot setups becuase Buildroot is a huge set of GNU Make scripts + host tools, just do everything from inside an Ubuntu in VirtualBox instance in that case.
+
+Some setups of this repository are however very portable, notably setups under <<userland-setup>>, e.g. <<c>>.
 
 === Common build issues
 

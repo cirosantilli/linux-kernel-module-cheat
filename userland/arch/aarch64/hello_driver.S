@@ -1,3 +1,4 @@
+/* MInimal sanity check of the C driver. */
 .text
 .global asm_main
 asm_main:

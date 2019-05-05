@@ -1,4 +1,6 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#freestanding-linux-inline-assembly-system-calls */
+/* aarch64 freestanding C inline assemby Linux hello world
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ */
 
 #include <inttypes.h>
 

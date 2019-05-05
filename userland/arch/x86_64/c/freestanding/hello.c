@@ -1,4 +1,6 @@
-/* Linux freestanding hello world with inline assembly..*/
+/* x86_64 freestanding C inline assemby Linux hello world
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ */
 
 #define _XOPEN_SOURCE 700
 #include <inttypes.h>

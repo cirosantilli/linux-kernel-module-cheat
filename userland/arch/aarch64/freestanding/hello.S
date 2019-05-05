@@ -1,4 +1,6 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#linux-system-calls */
+/* aarch64 freestanding Linux hello world
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ */
 
 .text
 .global _start

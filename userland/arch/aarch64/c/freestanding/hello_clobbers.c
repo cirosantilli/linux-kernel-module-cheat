@@ -1,6 +1,8 @@
 /* Like hello.c trying to do it without named register variables.
  * The code is more complicated, and I was not able to get as efficient,
  * so better just stick to named register variables.
+ *
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
  */
 
 #include <inttypes.h>

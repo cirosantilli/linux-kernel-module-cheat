@@ -1,3 +1,7 @@
+/* arm freestanding C inline assemby Linux hello world
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ */
+
 #include <inttypes.h>
 
 void _start(void) {

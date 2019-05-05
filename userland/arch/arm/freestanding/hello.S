@@ -1,4 +1,6 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#linux-system-calls */
+/* arm freestanding Linux hello world
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ */
 
 .syntax unified
 .text

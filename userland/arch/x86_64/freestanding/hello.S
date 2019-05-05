@@ -1,3 +1,7 @@
+/* x86_64 freestanding Linux hello world
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ */
+
 .text
 .global _start
 _start:
