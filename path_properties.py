@@ -75,6 +75,7 @@ path_properties_tree = PrefixTree({
     'c': PrefixTree({
         'assert_fail.c': PrefixTree(value=PathProperties(exit_status=1)),
         'false.c': PrefixTree(value=PathProperties(exit_status=1)),
+        'getchar.c': PrefixTree(value=PathProperties(interactive=True)),
         'infinite_loop.c': PrefixTree(value=PathProperties(more_than_1s=True)),
     }),
     'kernel_modules': PrefixTree(value=PathProperties(requires_kernel_modules=True)),
