@@ -3549,15 +3549,19 @@ glibc has a check for kernel version, likely obtained from the `uname` syscall, 
 
 Determining the right number to put there is of course highly non-trivial and would require an extensive userland test suite, which most emulator don't have.
 
-We don't have this failure for QEMU, only gem5. QEMU by default copies the host `uname`, but it also has the `-r` option to set it explicitly, try it out with:
+We don't have this failure for QEMU on an 18.04 host, only gem5.
+
+QEMU by default copies the host `uname` value. However, our scripts set it by default to our the latest Buildroot kernel version with QEMU's `-r` option, which is exposed as `--kernel-version`:
 
 ....
-./run --arch aarch64 --userland ./posix/uname -- -r v4.17.0
+./run --arch aarch64 --kernel-version 4.18 --userland ./posix/uname
 ....
 
 Source: link:userland/posix/uname.c[].
 
 gem5 does not have such runtime configuration, but the error can be worked around for now by patching the hardcoded Linux version as mentioned at: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m to be a recent Linux version such as `v4.17.0`.
+
+We override the default QEMU uname because otherwise all executables fail with "kernel too old" on older Ubuntu hosts. The downside is that you might hit syscalls which your host does not have for QEMU to forward to, but we'll let you be the judge of that.
 
 The QEMU source that does this is at: https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931
 
@@ -8132,7 +8136,6 @@ Outcome: `Alt-Right` cycles between three TTYs, `tty1` being the default one tha
 `man 2 setsid` says that there is only one failure possibility:
 
 ____
-
 EPERM  The process group ID of any process equals the PID of the calling process.  Thus, in particular, setsid() fails if the calling process is already a process group leader.
 ____
 
@@ -8320,13 +8323,11 @@ When I build it on Ubuntu 18.04 host, it does not generate any executable, so I'
 
 Bibliography: https://stackoverflow.com/questions/3177338/how-is-the-linux-kernel-tested
 
-==== LTP
-
-Linux Test Project
+==== Linux Test Project
 
 https://github.com/linux-test-project/ltp
 
-C userland test suite.
+Tests a lot of Linux and POSIX userland visible interfaces.
 
 Buildroot already has a package, so it is trivial to build it:
 
@@ -8334,16 +8335,27 @@ Buildroot already has a package, so it is trivial to build it:
 ./build-buildroot --config 'BR2_PACKAGE_LTP_TESTSUITE=y'
 ....
 
-Then try it out with:
+So now let's try and see if the `exit` system call is working:
 
 ....
-cd /usr/lib/ltp-testsuite/testcases
-./bin/write01
+/usr/lib/ltp-testsuite/testcases/bin/exit01
 ....
 
-There is a main executable `execltp` to run everything, but it depends on Python, so let's just run them manually.
+which gives successful output:
 
-TODO a large chunk of tests, the Open POSIX test suite, is disabled with a comment on Buildroot master saying build failed: https://github.com/buildroot/buildroot/blob/3f37dd7c3b5eb25a41edc6f72ba73e5a21b07e9b/package/ltp-testsuite/ltp-testsuite.mk#L13 However, both tickets mentioned there were closed, so we should try it out and patch Buildroot if it works now.
+....
+exit01      1  TPASS  :  exit() test PASSED
+....
+
+and has source code at: https://github.com/linux-test-project/ltp/blob/20190115/testcases/kernel/syscalls/exit/exit01.c
+
+Besides testing any kernel modifications you make, LTP can also be used to the system call implementation of <<user-mode-simulation>>:
+
+....
+./run --userland "$(./getvar buildroot_target_dir)/usr/lib/ltp-testsuite/testcases/bin/exit01"
+....
+
+Tested at: 287c83f3f99db8c1ff9bbc85a79576da6a78e986 + 1.
 
 ==== stress
 
