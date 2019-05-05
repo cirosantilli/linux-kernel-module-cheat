@@ -439,7 +439,8 @@ if one was not given explicitly.
 ''',
         )
         self.add_argument(
-            '-u', '--userland',
+            '-u',
+            '--userland',
             help='''\
 Run the given userland executable in user mode instead of booting the Linux kernel
 in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
@@ -459,14 +460,16 @@ CLI arguments to pass to the userland executable.
 
         # Run.
         self.add_argument(
-            '-n', '--run-id', default='0',
+            '--port-offset',
+            type=int,
             help='''\
-ID for run outputs such as gem5's m5out. Allows you to do multiple runs,
-and then inspect separate outputs later in different output directories.
+Increase the ports to be used such as for GDB by an offset to run multiple
+instances in parallel. Default: the run ID (-n) if that is an integer, otherwise 0.
 '''
         )
         self.add_argument(
-            '-P', '--prebuilt', default=False,
+            '--prebuilt',
+            default=False,
             help='''\
 Use prebuilt packaged host utilities as much as possible instead
 of the ones we built ourselves. Saves build time, but decreases
@@ -474,10 +477,11 @@ the likelihood of incompatibilities.
 '''
         )
         self.add_argument(
-            '--port-offset', type=int,
+            '--run-id',
+            default='0',
             help='''\
-Increase the ports to be used such as for GDB by an offset to run multiple
-instances in parallel. Default: the run ID (-n) if that is an integer, otherwise 0.
+ID for run outputs such as gem5's m5out. Allows you to do multiple runs,
+and then inspect separate outputs later in different output directories.
 '''
         )
 
@@ -1418,7 +1422,8 @@ class TestCliFunction(LkmcCliFunction):
         run_obj,
         run_args=None,
         test_id=None,
-        expected_exit_status=None
+        expected_exit_status=None,
+        thread_id=0,
     ):
         '''
         This is a setup / run / teardown setup for simple tests that just do a single run.
@@ -1429,10 +1434,12 @@ class TestCliFunction(LkmcCliFunction):
         :param run_obj: callable object
         :param run_args: arguments to be passed to the runnable object
         :param test_id: test identifier, to be added in addition to of arch and emulator ids
+        :param thread_id: which thread the test is running under
         '''
         if run_obj.is_arch_supported(self.env['arch']):
             if run_args is None:
                 run_args = {}
+            run_args['run_id'] = thread_id
             test_id_string = self.test_setup(test_id)
             exit_status = run_obj(**run_args)
             return self.test_teardown(

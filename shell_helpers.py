@@ -175,6 +175,7 @@ class ShellHelpers:
         if not self.quiet:
             self._print_thread_safe('+ ' + cmd_string)
         if cmd_file is not None:
+            os.makedirs(os.path.dirname(cmd_file), exist_ok=True)
             with open(cmd_file, 'w') as f:
                 f.write('#!/usr/bin/env bash\n')
                 f.write(cmd_string)

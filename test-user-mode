@@ -24,7 +24,6 @@ If given, run only the given tests. Otherwise, run all tests.
         )
 
     def timed_main(self):
-        run = self.import_path_main('run')
         run_args = self.get_common_args()
         run_args['ctrl_c_host'] = True
         run_args['show_stdout'] = False
@@ -36,6 +35,7 @@ If given, run only the given tests. Otherwise, run all tests.
         with ThreadPool(
             self.run_test,
             nthreads=self.env['nproc'],
+            thread_id_arg='thread_id',
         ) as thread_pool:
             try:
                 for path, in_dirnames, in_filenames in self.walk_source_targets(
@@ -56,7 +56,7 @@ If given, run only the given tests. Otherwise, run all tests.
                             error = thread_pool.submit({
                                 'expected_exit_status': test.exit_status,
                                 'run_args': cur_run_args,
-                                'run_obj': run,
+                                'run_obj':  self.import_path_main('run'),
                                 'test_id': path_relative_root,
                             })
                             if error is not None:
