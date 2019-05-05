@@ -96,6 +96,18 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
 '''
         )
         self.add_argument(
+            '--gdb',
+            default=False,
+            help='''\
+Shortcut for the most common GDB options that you want most of the time. Implies:
+* --gdb-wait
+* --tmux-args <main> where <main> is:
+** start_kernel in full system
+** main in user mode
+* --tmux-program gdb
+'''
+        )
+        self.add_argument(
             '--gdb-wait',
             default=False,
             help='''\
@@ -321,13 +333,23 @@ Extra options to append at the end of the emulator command line.
         kernel_cli_after_dash = ' lkmc_home={}'.format(self.env['guest_lkmc_home'])
         extra_emulator_args = []
         extra_qemu_args = []
-        if self.env['tmux_args'] is not None or self.env['_args_given']['tmux_program']:
-            self.env['tmux'] = True
         if not self.env['_args_given']['tmux_program']:
             if self.env['emulator'] == 'qemu':
                 self.env['tmux_program'] = 'gdb'
             elif self.env['emulator'] == 'gem5':
                 self.env['tmux_program'] = 'shell'
+        if self.env['gdb']:
+            if not self.env['_args_given']['gdb_wait']:
+                self.env['gdb_wait'] = True
+            if not self.env['_args_given']['tmux_args']:
+                if self.env['userland'] is not None:
+                    self.env['tmux_args'] = 'main'
+                else:
+                    self.env['tmux_args'] = 'start_kernel'
+            if not self.env['_args_given']['tmux_program']:
+                self.env['tmux_program'] = 'gdb'
+        if self.env['tmux_args'] is not None or self.env['_args_given']['tmux_program']:
+            self.env['tmux'] = True
         if self.env['debug_vm'] or self.env['debug_vm_args']:
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
         else:

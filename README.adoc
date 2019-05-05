@@ -1371,16 +1371,22 @@ First start `tmux` with:
 tmux
 ....
 
-Now that you are inside a shell inside tmux, run:
+Now that you are inside a shell inside tmux, you can start GDB simply with:
 
 ....
-./run --gdb-wait --tmux
+./run --gdb
+....
+
+which is just a convenient shortcut for:
+
+....
+./run --gdb-wait --tmux --tmux-args start_kernel
 ....
 
 This splits the terminal into two panes:
 
-* left: usual QEMU
-* right: gdb
+* left: usual QEMU with terminal
+* right: GDB
 
 and focuses on the GDB pane.
 
@@ -1389,19 +1395,21 @@ Now you can navigate with the usual tmux shortcuts:
 * switch between the two panes with: `Ctrl-B O`
 * close either pane by killing its terminal with `Ctrl-D` as usual
 
-To start again, switch back to the QEMU pane, kill the emulator, and re-run:
+See the tmux manual for further details:
 
 ....
-./run --gdb-wait --tmux
+man tmux
+....
+
+To start again, switch back to the QEMU pane with `Ctrl-O`, kill the emulator, and re-run:
+
+....
+./run --gdb
 ....
 
 This automatically clears the GDB pane, and starts a new one.
 
-Pass extra arguments to the link:run-gdb[] pane with:
-
-....
-./run --gdb-wait --tmux-args start_kernel
-....
+The option `--tmux-args` determines which options will be passed to the program running on the second tmux pane, and is equivalent to:
 
 This is equivalent to:
 
@@ -1413,13 +1421,7 @@ This is equivalent to:
 Due to Python's CLI parsing quicks, if the link:run-gdb[] arguments start with a dash `-`, you have to use the `=` sign, e.g. to <<gdb-step-debug-early-boot>>:
 
 ....
-./run --gdb-wait --tmux-args=--no-continue
-....
-
-See the tmux manual for further details:
-
-....
-man tmux
+./run --gdb --tmux-args=--no-continue
 ....
 
 Bibliography: https://unix.stackexchange.com/questions/152738/how-to-split-a-new-window-and-run-a-command-in-this-new-window-using-tmux/432111#432111
@@ -1435,7 +1437,13 @@ If you are using gem5 instead of QEMU, `--tmux` has a different effect by defaul
 To open a new pane with GDB instead of the terminal, use:
 
 ....
-./run --emulator gem5 --gdb-wait --tmux --tmux-program gdb
+./run --gdb
+....
+
+which is equivalent to:
+
+....
+./run --emulator gem5 --gdb-wait --tmux --tmux-args start_kernel --tmux-program gdb
 ....
 
 `--tmux-program` implies `--tmux`, so we can just write:
@@ -1444,16 +1452,9 @@ To open a new pane with GDB instead of the terminal, use:
 ./run --emulator gem5 --gdb-wait --tmux-program gdb
 ....
 
-If you also want to see both GDB and the terminal with gem5, then you will need to open a separate shell manuall as usual with `./gem5-shell`.
+If you also want to see both GDB and the terminal with gem5, then you will need to open a separate shell manually as usual with `./gem5-shell`.
 
-From inside tmux, you can do that with `Ctrl-B C` or `Ctrl-B %`.
-
-To see the debugger by default instead of the terminal, run:
-
-....
-./tmu ./run-gdb
-./run --emulator gem5 --gdb-wait
-....
+From inside tmux, you can create new terminals on a new window with `Ctrl-B C` split a pane yet again vertically with `Ctrl-B %` or horizontally with `Ctrl-B "`.
 
 === GDB step debug kernel module
 
@@ -3502,8 +3503,7 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
 ....
 ./run \
   --arch aarch64 \
-  --gdb-wait \
-  --tmux-args main \
+  --gdb \
   --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
 ;
