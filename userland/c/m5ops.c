@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "m5ops.h"
+#include <lkmc/m5ops.h>
 
 int main(int argc, char **argv) {
     char action;
@@ -15,19 +15,19 @@ int main(int argc, char **argv) {
     }
     switch (action) {
         case 'c':
-            m5_checkpoint();
+            LKMC_M5OPS_CHECKPOINT;
             break;
         case 'd':
-            m5_dumpstats();
+            LKMC_M5OPS_DUMPSTATS;
             break;
         case 'e':
-            m5_exit();
+            LKMC_M5OPS_EXIT;
             break;
         case 'f':
-            m5_fail_1();
+            LKMC_M5OPS_FAIL_1;
             break;
         case 'r':
-            m5_resetstats();
+            LKMC_M5OPS_RESETSTATS;
             break;
     }
     return EXIT_SUCCESS;

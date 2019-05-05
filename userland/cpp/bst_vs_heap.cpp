@@ -6,7 +6,7 @@
 #include <random>
 #include <set>
 
-#include "m5ops.h"
+#include <lkmc/m5ops.h>
 
 int main(int argc, char **argv) {
     typedef uint64_t I;
@@ -32,13 +32,13 @@ int main(int argc, char **argv) {
         auto random = randoms[i];
 
         // Heap.
-        m5_resetstats();
+        LKMC_M5OPS_RESETSTATS;
         heap.emplace(random);
-        m5_dumpstats();
+        LKMC_M5OPS_DUMPSTATS;
 
         // BST.
-        m5_resetstats();
+        LKMC_M5OPS_RESETSTATS;
         bst.insert(random);
-        m5_dumpstats();
+        LKMC_M5OPS_DUMPSTATS;
     }
 }

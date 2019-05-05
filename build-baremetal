@@ -15,6 +15,9 @@ Build the baremetal examples with crosstool-NG.
 ''',
             supported_archs=common.consts['crosstool_ng_supported_archs']
         )
+        self._add_argument('--ccflags')
+        self._add_argument('--force-rebuild')
+        self._add_argument('--optimization-level')
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -39,7 +42,7 @@ Build the baremetal examples with crosstool-NG.
         cflags = [
             '-I', self.env['baremetal_source_lib_dir'], LF,
             '-I', self.env['root_dir'], LF,
-            '-O0', LF,
+            '-O{}'.format(self.env['optimization_level']), LF,
             '-ggdb3', LF,
             '-mcpu={}'.format(self.env['mcpu']), LF,
             '-nostartfiles', LF,
@@ -54,7 +57,10 @@ Build the baremetal examples with crosstool-NG.
                 uart_address = 0x10009000
             else:
                 raise Exception('unknown machine: ' + self.env['machine'])
-            cflags.extend(['-D', 'GEM5'.format(uart_address), LF])
+            cflags.extend([
+                '-D', 'GEM5'.format(uart_address), LF,
+                '-DLKMC_M5OPS_ENABLE=1', LF,
+            ])
         else:
             entry_address = 0x40000000
             uart_address = 0x09000000
@@ -67,6 +73,7 @@ Build the baremetal examples with crosstool-NG.
                 self.env['asm_ext']
             )
         )
+        cflags.extend(self.sh.shlex_split(self.env['ccflags']))
         if self.need_rebuild([src], bootloader_obj):
             self.sh.run_cmd(
                 [self.env['gcc'],  LF] +

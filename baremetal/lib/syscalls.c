@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#include <lkmc/m5ops.h>
+
 enum {
     UART_FR_RXFE = 0x10,
 };
@@ -63,11 +65,7 @@ int _write(int file, char *ptr, int len) {
 /* Only 0 is supported for now, arm semihosting cannot handle other values. */
 void _exit(int status) {
 #if defined(GEM5)
-#if defined(__arm__)
-    __asm__ __volatile__ ("mov r0, #0; mov r1, #0; .inst 0xEE000110 | (0x21 << 16);" : : : "r0", "r1");
-#elif defined(__aarch64__)
-    __asm__ __volatile__ ("mov x0, #0; .inst 0XFF000110 | (0x21 << 16);" : : : "x0");
-#endif
+    LKMC_M5OPS_EXIT;
 #else
 #if defined(__arm__)
     __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456" : : : "r0", "r1");

@@ -11,7 +11,7 @@ ENTRY
      * it does not get converted to adr, which is the better
      * alternative here.
      */
-    adr r1, label
+    ldr r1, =label
     adrl r2, label
 label:
     ASSERT_EQ_REG(r0, r1)

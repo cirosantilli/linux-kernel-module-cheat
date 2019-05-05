@@ -1241,14 +1241,6 @@ class BuildCliFunction(LkmcCliFunction):
             help='Clean the build instead of building.',
         ),
         self.add_argument(
-            '--force-rebuild',
-            default=False,
-            help='''\
-Force rebuild even if sources didn't chage.
-TODO: not yet implemented on all scripts.
-'''
-        )
-        self.add_argument(
             '-j',
             '--nproc',
             default=len(os.sched_getaffinity(0)),
@@ -1256,6 +1248,36 @@ TODO: not yet implemented on all scripts.
             help='Number of processors to use for the build.',
         )
         self.test_results = []
+        self._build_arguments = {
+            '--ccflags': {
+                'default': '',
+                'help': '''\
+Pass the given compiler flags to all languages (C, C++, Fortran, etc.)
+''',
+            },
+            '--force-rebuild': {
+                'default': False,
+                "help": '''\
+Force rebuild even if sources didn't change.
+''',
+            },
+            '--optimization-level': {
+                'default': '0',
+                'help': '''
+Use the given GCC -O optimization level.
+For some scripts, there are hard technical challenges why it cannot
+be implemented, e.g.: https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-o0
+and for others such as gem5 have their custom mechanism:
+https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
+''',
+            }
+        }
+
+    def _add_argument(self, argument_name):
+        self.add_argument(
+            argument_name,
+            **self._build_arguments[argument_name]
+        )
 
     def clean(self):
         build_dir = self.get_build_dir()

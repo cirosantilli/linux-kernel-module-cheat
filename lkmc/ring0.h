@@ -2,9 +2,7 @@
 
 #ifndef LKMC_RING0_H
 #define LKMC_RING0_H
-
 #if defined(__x86_64__) || defined(__i386__)
-
 #ifdef THIS_MODULE
 #include <linux/kernel.h>
 #if defined(__x86_64__)
@@ -74,5 +72,5 @@ void lkmc_ring0_get_control_regs(LkmcRing0Regs *ring0_regs) {
     );
 #endif
 }
-
+#endif
 #endif

@@ -63,6 +63,9 @@ Default: build all examples that have their package dependencies met, e.g.:
 ''',
             nargs='*',
         )
+        self._add_argument('--ccflags')
+        self._add_argument('--force-rebuild')
+        self._add_argument('--optimization-level')
 
     def _build_one(
         self,
@@ -156,13 +159,13 @@ Default: build all examples that have their package dependencies met, e.g.:
         has_all_packages = self.env['has_all_packages']
         ccflags = [
             '-I', self.env['root_dir'], LF,
-            '-O0', LF,
+            '-O{}'.format(self.env['optimization_level']), LF,
             '-Wall', LF,
             '-Werror', LF,
             '-Wextra', LF,
             '-Wno-unused-function', LF,
             '-ggdb3', LF,
-        ]
+        ] + self.sh.shlex_split(self.env['ccflags'])
         if self.env['static']:
             ccflags.extend(['-static', LF])
         common_obj = os.path.join(
@@ -335,13 +338,13 @@ Default: build all examples that have their package dependencies met, e.g.:
                             in_name + self.env['userland_build_ext']
                         )
                         error = thread_pool.submit({
-                                'in_path': in_path,
-                                'out_path': out_path,
-                                'ccflags': ccflags_dir,
-                                'cstd': cstd,
-                                'cxxstd': cxxstd,
-                                'extra_objs': common_objs_dir,
-                                'ccflags_after': ccflags_after,
+                            'in_path': in_path,
+                            'out_path': out_path,
+                            'ccflags': ccflags_dir,
+                            'cstd': cstd,
+                            'cxxstd': cxxstd,
+                            'extra_objs': common_objs_dir,
+                            'ccflags_after': ccflags_after,
                         })
                         if error is not None:
                             raise ExitLoop()

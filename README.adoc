@@ -1005,12 +1005,6 @@ cd linux-kernel-module-cheat
 ./build --download-dependencies userland-host
 ....
 
-If you modify a dependency that is not currently considered such as a header file, force the rebuild with:
-
-....
-./build --force-rebuild
-....
-
 The `build` scripts inside link:userland/[] are just symlinks to link:build-userland-in-tree[] which you can also use from toplevel as:
 
 ....
@@ -1020,6 +1014,22 @@ The `build` scripts inside link:userland/[] are just symlinks to link:build-user
 ....
 
 which is in turn just a thin wrapper around link:build-userland[], so you can use any option supported by that script freely.
+
+Pass custom compiler options with:
+
+....
+./build-userland --ccflags='-foptimize-sibling-calls -foptimize-strlen' --force-rebuild
+....
+
+Here we used `--force-rebuild` to force rebuild since the sources weren't modified since the last build.
+
+Some CLI options have more specialized flags, e.g. `-O` optimization level:
+
+....
+./build-userland --optimization-level 3 --force-rebuild
+....
+
+See also <<user-mode-static-executables>> for `--static`.
 
 Do a more clean out-of-tree build and run the program instead:
 
@@ -3407,13 +3417,14 @@ Let's run link:userland/c/print_argv.c[] built with the Buildroot toolchain on Q
 ./build user-mode-qemu
 ./run \
   --userland c/print_argv \
-  --userland-args 'asdf "qw er"' \
+  --userland-args='asdf "qw er"' \
 ;
 ....
 
 Output:
 
 ....
+/path/to/linux-kernel-module-cheat/out/userland/default/x86_64/c/print_argv.out
 asdf
 qw er
 ....
@@ -3428,32 +3439,71 @@ If you modify the userland programs, rebuild simply with:
 ./build-userland
 ....
 
-==== User mode GDB step debug
+==== User mode GDB
 
-The commands are analogous to full system <<gdb>>, e.g. without tmux:
+It's nice when <<gdb,the obvious>> just works, right?
 
 ....
 ./run \
+  --arch aarch64 \
   --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
   --wait-gdb \
 ;
+....
+
+and on another shell:
+
+....
 ./run-gdb \
+  --arch aarch64 \
   --userland c/print_argv \
-  main
+  main \
 ;
 ....
 
-or with <<tmux>>:
+Or alternatively, if you are using <<tmux>>, do everything in one go with:
 
 ....
 ./run \
+  --arch aarch64 \
+  --tmux-args main \
   --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
-  --tmux-args main \
   --wait-gdb \
 ;
 ....
+
+To stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
+
+=== User mode tests
+
+Automatically run userland tests that can be run in user mode simulation, and check that they exit with status 0:
+
+....
+./build --all-archs test-user-mode
+./test-user-mode --all-archs --all-emulators
+....
+
+Or just for QEMU:
+
+....
+./build --all-archs test-user-mode-qemu
+./test-user-mode --all-archs --emulator qemu
+....
+
+Source: link:test-user-mode[]
+
+This script skips a manually configured list of tests, notably:
+
+* tests that depend on a full running kernel and cannot be run in user mode simulation, e.g. those that rely on kernel modules
+* tests that require user interaction
+* tests that take perceptible ammounts of time
+* known bugs we didn't have time to fix ;-)
+
+The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
+
+See: <<test-this-repo>> for more useful testing tips.
 
 ==== User mode with host toolchain and QEMU
 
@@ -3484,13 +3534,15 @@ We must pass this to `./run` as well because QEMU must know which dynamic librar
 
 This present the usual trade-offs of using prebuilts as mentioned at: <<prebuilt>>.
 
+When you build with the native host toolchain, you can also execute many of the executables directly natively on the host: <<userland-setup-getting-started-natively>>.
+
 ==== User mode simulation with glibc
 
 At 125d14805f769104f93c510bedaa685a52ec025d we <<libc-choice,moved Buildroot from uClibc to glibc>>, and caused some user mode pain, which we document here.
 
 ===== FATAL: kernel too old
 
-Happens on all gem5 setups, but not on QEMU on Ubuntu 18.04 host.
+Happens on all gem5 <<user-mode-simulation>> setups, but not on QEMU on Ubuntu 18.04 host.
 
 glibc has a check for kernel version, likely obtained from the `uname` syscall, and if the kernel is not new enough, it quits.
 
@@ -3504,11 +3556,12 @@ We don't have this failure for QEMU, only gem5. QEMU by default copies the host 
 
 Source: link:userland/posix/uname.c[].
 
+gem5 does not have such runtime configuration, but the error can be worked around for now by patching the hardcoded Linux version as mentioned at: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m to be a recent Linux version such as `v4.17.0`.
+
 The QEMU source that does this is at: https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931
 
 In gem5, there are tons of missing syscalls, and that number currently just gets bumped up randomly from time to time when someone gets fed up:
 
-* https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
 * https://stackoverflow.com/questions/53085048/how-to-compile-and-run-an-executable-in-gem5-syscall-emulation-mode-with-se-py/53085049#53085049
 * https://gem5-review.googlesource.com/c/public/gem5/+/15855
 
@@ -3597,43 +3650,6 @@ it fails with:
 ld: cannot find -lopenblas
 ....
 
-==== User mode GDB
-
-It's nice when <<gdb,the obvious>> just works, right?
-
-....
-./run \
-  --arch aarch64 \
-  --userland c/print_argv \
-  --userland-args 'asdf "qw er"' \
-  --wait-gdb \
-;
-....
-
-and on another shell:
-
-....
-./run-gdb \
-  --arch aarch64 \
-  --userland c/print_argv \
-  main \
-;
-....
-
-Or alternatively, if you are using <<tmux>>, do everything in one go with:
-
-....
-./run \
-  --arch aarch64 \
-  --tmux-args main \
-  --userland c/print_argv \
-  --userland-args 'asdf "qw er"' \
-  --wait-gdb \
-;
-....
-
-To stop at the very first instruction of a freestanding program, just use `--no-continue` TODO example.
-
 === gem5 syscall emulation mode
 
 Less robust than QEMU's, but still usable:
@@ -3671,7 +3687,7 @@ So let's just play with some static ones:
 
 TODO: how to escape spaces on the command line arguments?
 
-<<user-mode-gdb-step-debug,GDB step debug>> also works normally on gem5:
+<<user-mode-gdb,GDB step debug>> also works normally on gem5:
 
 ....
 ./run \
@@ -3774,30 +3790,6 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 * gem5 full system: 51 seconds
 * QEMU user: 45 seconds
 * QEMU full system: 223 seconds
-
-=== User mode tests
-
-Automatically run non-interactive userland tests that can be run in user mode simulation:
-
-....
-./build --all-archs test-user-mode
-./test-user-mode --all-archs --all-emulators
-....
-
-Or just for QEMU:
-
-....
-./build --all-archs test-user-mode-qemu
-./test-user-mode --all-archs --emulator qemu
-....
-
-Source: link:test-user-mode[]
-
-This testing excludes notably kernel module tests which depend on a full running kernel.
-
-The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
-
-See: <<test-this-repo>> for more useful testing tips.
 
 == Kernel module utilities
 
@@ -9908,21 +9900,30 @@ https://stackoverflow.com/questions/6147242/heap-vs-binary-search-tree-bst/29548
 Usage:
 
 ....
+./build-userland \
+  --arch aarch64 \
+  --ccflagg='-DLKMC_M5OPS_ENABLE=1' \
+  --force-build cpp/bst_vs_heap \
+  --static \
+;
 ./run \
   --arch aarch64 \
-  --eval-after './gem5.sh' \
   --emulator gem5 \
-  --gem5-readfile './bst_vs_heap.out' \
+  --static \
+  --userland cpp/bst_vs_heap \
 ;
-./bst-vs-heap --arch aarch64 --emulator gem5 > bst_vs_heap.dat
+./bst-vs-heap --arch aarch64 > bst_vs_heap.dat
+./bst-vs-heap.gnuplot
+xdg-open bst-vs-heap.tmp.png
 ....
-
-and then feed `bst_vs_heap.dat` into: https://github.com/cirosantilli/cpp-cheat/blob/9d0f77792fc8e55b20b6ee32018761ef3c5a3f2f/cpp/interactive/bst_vs_heap.gnuplot
 
 Sources:
 
+* link:userland/cpp/bst_vs_heap.cpp[]
 * link:bst-vs-heap[]
-* link:userland/bst_vs_heap.cpp[]
+* link:bst-vs-heap.gnuplot[]
+
+Tested on e70103b9b32e6e33dbab9eaf2ff00c358f55d8db + 1 with the workaround patch mentioned at: <<fatal-kernel-too-old>>.
 
 ===== BLAS
 
@@ -10585,28 +10586,43 @@ adsf
 
 ==== m5ops instructions
 
-The executable `./m5ops.out` illustrates how to hard code with inline assembly the m5ops that you are most likely to hack into the benchmark you are analysing:
+gem5 allocates some magic instructions on unused instruction encodings for convenient guest instrumentation.
+
+Those instructions are exposed through the <<m5>> in tree executable.
+
+To make things simpler to understand, you can play around with our own minimized educational `m5` subset link:userland/c/m5ops.c[].
+
+The instructions used by `./c/m5ops.out` are present in link:lkmc/m5ops.h[] in a very simple to understand and reuse inline assembly form.
+
+To use that file, first rebuild `m5ops.out` with the m5ops instructions enabled and install it on the root filesystem:
+
+....
+./build-userland \
+  --arch aarch64 \
+  --ccflags='-DLKMC_M5OPS_ENABLE=1' \
+  --force-build c/m5ops \
+  --static \
+;
+./build-buildroot --arch aarch64
+....
+
+We don't enable `-DLKMC_M5OPS_ENABLE=1` by default on userland executables because we try to use a single image for both gem5, QEMU and <<userland-setup-getting-started-natively,native>>, and those instructions would break the latter two. We enable it in the <<baremetal-setup>> by default since we already have different images for QEMU and gem5 there.
+
+Then, from inside <<gem5-buildroot-setup>>, test it out with:
 
 ....
 # checkpoint
-./m5ops.out c
+./c/m5ops.out c
 
 # dumpstats
-./m5ops.out d
+./c/m5ops.out d
 
 # exit
-./m5ops.out e
+./c/m5ops.out e
 
 # dump resetstats
-./m5ops.out r
+./c/m5ops.out r
 ....
-
-Sources:
-
-* link:userland/m5ops.h[]
-* link:userland/m5ops.c[]
-
-That executable is of course a subset of <<m5>> and useless by itself: its goal is only illustrate how to hardcode some <<m5ops>> yourself as one-liners.
 
 In theory, the cleanest way to add m5ops to your benchmarks would be to do exactly what the `m5` tool does:
 
