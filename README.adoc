@@ -1256,10 +1256,10 @@ The following subjects are particularly important:
 
 === GDB step debug kernel boot
 
-`--wait-gdb` makes QEMU and gem5 wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
+`--gdb-wait` makes QEMU and gem5 wait for a GDB connection, otherwise we could accidentally go past the point we want to break at:
 
 ....
-./run --wait-gdb
+./run --gdb-wait
 ....
 
 Say you want to break at `start_kernel`. So on another shell:
@@ -1292,7 +1292,7 @@ See also:
 Just don't forget to pass `--arch` to `./run-gdb`, e.g.:
 
 ....
-./run --arch aarch64 --wait-gdb
+./run --arch aarch64 --gdb-wait
 ....
 
 and:
@@ -1374,7 +1374,7 @@ tmux
 Now that you are inside a shell inside tmux, run:
 
 ....
-./run --tmux --wait-gdb
+./run --gdb-wait --tmux
 ....
 
 This splits the terminal into two panes:
@@ -1392,7 +1392,7 @@ Now you can navigate with the usual tmux shortcuts:
 To start again, switch back to the QEMU pane, kill the emulator, and re-run:
 
 ....
-./run --tmux --wait-gdb
+./run --gdb-wait --tmux
 ....
 
 This automatically clears the GDB pane, and starts a new one.
@@ -1400,20 +1400,20 @@ This automatically clears the GDB pane, and starts a new one.
 Pass extra arguments to the link:run-gdb[] pane with:
 
 ....
-./run --tmux-args start_kernel --wait-gdb
+./run --gdb-wait --tmux-args start_kernel
 ....
 
 This is equivalent to:
 
 ....
-./run --wait-gdb
+./run --gdb-wait
 ./run-gdb start_kernel
 ....
 
 Due to Python's CLI parsing quicks, if the link:run-gdb[] arguments start with a dash `-`, you have to use the `=` sign, e.g. to <<gdb-step-debug-early-boot>>:
 
 ....
-./run --tmux-args=--no-continue --wait-gdb
+./run --gdb-wait --tmux-args=--no-continue
 ....
 
 See the tmux manual for further details:
@@ -1440,7 +1440,7 @@ To see the debugger by default instead of the terminal, run:
 
 ....
 ./tmu ./run-gdb
-./run --wait-gdb --emulator gem5
+./run --emulator gem5 --gdb-wait
 ....
 
 === GDB step debug kernel module
@@ -1645,7 +1645,7 @@ so the offset address is `0x240` and we deduce that the function will be placed 
 Now we can just do a fresh boot on shell 1:
 
 ....
-./run --eval 'insmod fops.ko;./linux/poweroff.out' --wait-gdb
+./run --eval 'insmod fops.ko;./linux/poweroff.out' --gdb-wait
 ....
 
 and on shell 2:
@@ -1806,7 +1806,7 @@ less "$(./getvar --arch arm trace_txt_file)"
 and break there:
 
 ....
-./run --arch arm --wait-gdb
+./run --arch arm --gdb-wait
 ./run-gdb --arch arm '*0x1000'
 ....
 
@@ -1862,7 +1862,7 @@ For executables from the link:userland/[] directory such as link:userland/posix/
 * Shell 1:
 +
 ....
-./run --wait-gdb --kernel-cli 'init=/lkmc/posix/count.out'
+./run --gdb-wait --kernel-cli 'init=/lkmc/posix/count.out'
 ....
 * Shell 2:
 +
@@ -1887,7 +1887,7 @@ BusyBox custom init process:
 * Shell 1:
 +
 ....
-./run --wait-gdb --kernel-cli 'init=/bin/ls'
+./run --gdb-wait --kernel-cli 'init=/bin/ls'
 ....
 * Shell 2:
 +
@@ -1902,7 +1902,7 @@ BusyBox default init process:
 * Shell 1:
 +
 ....
-./run --wait-gdb
+./run --gdb-wait
 ....
 * Shell 2:
 +
@@ -1923,7 +1923,7 @@ Non-init process:
 * Shell 1:
 +
 ....
-./run --wait-gdb
+./run --gdb-wait
 ....
 * Shell 2:
 +
@@ -1938,9 +1938,9 @@ Non-init process:
 
 This is the least reliable setup as there might be other processes that use the given virtual address.
 
-===== GDB step debug userland non-init without --wait-gdb
+===== GDB step debug userland non-init without --gdb-wait
 
-TODO: without `--wait-gdb` and the `break main` that we do inside `./run-gdb-user` says:
+TODO: without `--gdb-wait` and the `break main` that we do inside `./run-gdb-user` says:
 
 ....
 Cannot access memory at address 0x10604
@@ -2100,8 +2100,8 @@ We will run our `./linux/sched_getaffinity.out` infinitely many time, on core 0 
 ....
 ./run \
   --cpus 2 \
-  --wait-gdb \
   --eval-after 'i=0; while true; do taskset -c $i,$i ./linux/sched_getaffinity.out; i=$((! $i)); done' \
+  --gdb-wait \
 ;
 ....
 
@@ -2582,7 +2582,7 @@ To use `arm` instead of x86 for example:
 Debug:
 
 ....
-./run --arch arm --wait-gdb
+./run --arch arm --gdb-wait
 # On another terminal.
 ./run-gdb --arch arm
 ....
@@ -3469,9 +3469,9 @@ It's nice when <<gdb,the obvious>> just works, right?
 ....
 ./run \
   --arch aarch64 \
+  --gdb-wait \
   --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
-  --wait-gdb \
 ;
 ....
 
@@ -3490,10 +3490,10 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
 ....
 ./run \
   --arch aarch64 \
+  --gdb-wait \
   --tmux-args main \
   --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
-  --wait-gdb \
 ;
 ....
 
@@ -3733,10 +3733,10 @@ TODO: how to escape spaces on the command line arguments?
 ./run \
   --arch aarch64 \
   --emulator gem5 \
+  --gdb-wait \
   --static \
   --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
-  --wait-gdb \
 ;
 ./run-gdb \
   --arch aarch64 \
@@ -5998,7 +5998,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-after 'insmod dump_stack.ko' --wait-gdb --tmux-args dump_stack
+./run --eval-after 'insmod dump_stack.ko' --gdb-wait --tmux-args dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -9477,7 +9477,7 @@ QEMU replays support checkpointing, and this allows for a simplistic "reverse de
 
 ....
 ./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --record
-./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --replay --wait-gdb
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --replay --gdb-wait
 ....
 
 On another shell:
@@ -10262,7 +10262,7 @@ Kernel command line:
 Analogous <<gdb,to QEMU>>, on the first shell:
 
 ....
-./run --arch arm --wait-gdb --emulator gem5
+./run --arch arm --emulator gem5 --gdb-wait
 ....
 
 On the second shell:
@@ -11565,7 +11565,7 @@ Such executables are called freestanding because they don't execute the glibc in
 In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
 
 ....
-./run --arch aarch64 --userland arch/aarch64/freestanding/hello --wait-gdb
+./run --arch aarch64 --userland arch/aarch64/freestanding/hello --gdb-wait
 ./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
 ....
 
@@ -11746,7 +11746,7 @@ GDB step debug works on baremetal exactly as it does on the Linux kernel, except
 For example, on the first shell:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb
+./run --arch arm --baremetal interactive/prompt --gdb-wait
 ....
 
 then on the second shell:
@@ -11758,7 +11758,7 @@ then on the second shell:
 Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal interactive/prompt --wait-gdb --tmux-args main
+./run --arch arm --baremetal interactive/prompt --gdb-wait --tmux-args main
 ....
 
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
@@ -11767,8 +11767,8 @@ Alternatively, to start from the very first executed instruction of our tiny <<b
 ./run \
   --arch arm \
   --baremetal interactive/prompt \
+  --gdb-wait \
   --tmux-args=--no-continue \
-  --wait-gdb \
 ;
 ....
 
@@ -11780,8 +11780,8 @@ This is specially interesting for the executables that don't use the bootloader 
 ./run \
   --arch arm \
   --baremetal arch/arm/no_bootloader/semihost_exit \
+  --gdb-wait \
   --tmux-args=--no-continue \
-  --wait-gdb \
 ;
 ....
 
@@ -13855,7 +13855,7 @@ Sources:
 If a test fails, re-run the test commands manually and use `--verbose` to understand what happened:
 
 ....
-./run --arch arm --background --baremetal add --wait-gdb &
+./run --arch arm --background --baremetal add --gdb-wait &
 ./run-gdb --arch arm --baremetal add --verbose -- main
 ....
 
@@ -13871,7 +13871,7 @@ To debug GDB problems on gem5, you might want to enable the following <<gem5-tra
 ./run \
   --arch arm \
   --baremetal add \
-  --wait-gdb \
+  --gdb-wait \
   --trace GDBRecv,GDBSend \
   --trace-stdout \
 ;
@@ -13903,7 +13903,7 @@ For the Linux kernel, do the following manual tests for now.
 Shell 1:
 
 ....
-./run --wait-gdb
+./run --gdb-wait
 ....
 
 Shell 2:

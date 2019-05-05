@@ -96,6 +96,14 @@ gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
 '''
         )
         self.add_argument(
+            '--gdb-wait',
+            default=False,
+            help='''\
+Wait for GDB to connect before starting execution
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb
+'''
+        )
+        self.add_argument(
             '--gem5-script',
             default='fs',
             choices=['fs', 'biglittle'],
@@ -273,14 +281,6 @@ Parameters to pass to the program running on the tmux split. Implies --tmux.
 '''
         )
         self.add_argument(
-            '--wait-gdb',
-            default=False,
-            help='''\
-Wait for GDB to connect before starting execution
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb
-'''
-        )
-        self.add_argument(
             '--vnc',
             default=False,
             help='''\
@@ -318,7 +318,7 @@ Extra options to append at the end of the emulator command line.
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
         else:
             debug_vm = []
-        if self.env['wait_gdb']:
+        if self.env['gdb_wait']:
             extra_qemu_args.extend(['-S', LF])
         if self.env['eval_after'] is not None:
             kernel_cli_after_dash += ' lkmc_eval_base64="{}"'.format(self.sh.base64_encode(self.env['eval_after']))
@@ -498,7 +498,7 @@ Extra options to append at the end of the emulator command line.
                     ])
                     if self.env['dtb']:
                         cmd.extend(['--dtb', os.path.join(self.env['gem5_system_dir'], 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), NL])
-            if self.env['wait_gdb']:
+            if self.env['gdb_wait']:
                 # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
                 cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True', LF])
         elif self.env['emulator'] == 'qemu':
@@ -506,7 +506,7 @@ Extra options to append at the end of the emulator command line.
                 '-trace', 'enable={},file={}'.format(trace_type, self.env['qemu_trace_file']), LF,
             ]
             if self.env['userland'] is not None:
-                if self.env['wait_gdb']:
+                if self.env['gdb_wait']:
                     debug_args = ['-g', str(self.env['gdb_port']), LF]
                 else:
                     debug_args = []
