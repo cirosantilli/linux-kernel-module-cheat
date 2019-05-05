@@ -10,12 +10,12 @@ import common
 from thread_pool import ThreadPool
 
 class Main(common.BuildCliFunction):
-    def __init__(self):
-        super().__init__(
-            description='''\
+    def __init__(self, *args, **kwargs):
+        if not 'description' in kwargs:
+            kwargs['description'] = '''\
 Build our compiled userland examples.
 '''
-        )
+        super().__init__(*args, **kwargs)
         self.default_cstd = 'c11'
         self.default_cxxstd = 'c++17'
         self.add_argument(
@@ -43,10 +43,11 @@ building with the host toolchain.
 ''',
         )
         self.add_argument(
-            '--target-cwd',
+            '--target-relative-cwd',
             default=False,
             help='''\
-Treat targets as relative to the current working directory.
+Treat targets as relative to the current working directory. If the current working
+directory is outside of userland/, use userland/ instead.
 ''',
         )
         self.add_argument(
@@ -129,16 +130,23 @@ Default: build all examples that have their package dependencies met, e.g.:
                 )
         return ret
 
+    def _get_cwd(self):
+        cwd = os.path.abspath(os.getcwd())
+        if cwd.startswith(self.env['userland_source_dir']):
+            return cwd
+        else:
+            return self.env['userland_source_dir']
+
     def _get_targets(self):
         if self.env['_args_given']['targets']:
             targets = self.env['targets']
-            if self.env['target_cwd']:
-                cwd = os.getcwd()
+            if self.env['target_relative_cwd']:
+                cwd = self._get_cwd()
                 targets = [os.path.join(cwd, target) for target in targets]
             return targets
         else:
-            if self.env['target_cwd']:
-                return [os.getcwd()]
+            if self.env['target_relative_cwd']:
+                return [self._get_cwd()]
             else:
                 return [self.env['userland_source_dir']]
 

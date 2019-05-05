@@ -128,7 +128,13 @@ class LkmcCliFunction(cli_function.CliFunction):
     * command timing
     * some common flags, e.g.: --arch, --dry-run, --quiet, --verbose
     '''
-    def __init__(self, *args, defaults=None, supported_archs=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        defaults=None,
+        supported_archs=None,
+        **kwargs
+    ):
         '''
         :ptype defaults: Dict[str,Any]
         :param defaults: override the default value of an argument
@@ -958,7 +964,10 @@ lunch aosp_{}-eng
         https://stackoverflow.com/questions/2601047/import-a-python-module-without-the-py-extension
         https://stackoverflow.com/questions/31773310/what-does-the-first-argument-of-the-imp-load-source-method-do
         '''
-        return imp.load_source(basename.replace('-', '_'), os.path.join(self.env['root_dir'], basename))
+        return imp.load_source(
+            basename.replace('-', '_'),
+            os.path.join(self.env['root_dir'], basename)
+        )
 
     def import_path_main(self, path):
         '''
@@ -1111,14 +1120,6 @@ lunch aosp_{}-eng
                 outfile, LF,
             ]
         )
-
-    @staticmethod
-    def resolve_args(defaults, args, extra_args):
-        if extra_args is None:
-            extra_args = {}
-        argcopy = copy.copy(args)
-        argcopy.__dict__ = dict(list(defaults.items()) + list(argcopy.__dict__.items()) + list(extra_args.items()))
-        return argcopy
 
     def resolve_source(self, in_path, magic_in_dir, in_exts):
         '''

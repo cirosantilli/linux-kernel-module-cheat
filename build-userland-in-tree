@@ -1,8 +1,33 @@
-#!/usr/bin/env bash
-"$(git rev-parse --show-toplevel)/build-userland" \
-  --gcc-which host \
-  --has-all-packages \
-  --in-tree \
-  --target-cwd \
-  "$@" \
-;
+#!/usr/bin/env python3
+
+import imp
+import os
+import subprocess
+
+git_root = subprocess.check_output([
+    'git',
+    'rev-parse',
+    '--show-toplevel',
+]).decode().rstrip()
+build_userland = imp.load_source(
+    'build_userland',
+    os.path.join(git_root, 'build-userland')
+)
+
+class Main(build_userland.Main):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Same as build-userland, but with pre-set defaults to build in-tree
+for the native toolchain.
+''',
+            defaults={
+                'gcc_which': 'host',
+                'has_all_packages': True,
+                'in_tree': True,
+                'target_relative_cwd': True,
+            }
+        )
+
+if __name__ == '__main__':
+    Main().cli()
