@@ -350,7 +350,7 @@ Lol!
 We can also test our hacked glibc on <<user-mode-simulation>> with:
 
 ....
-./run --userland hello
+./run --userland c/hello
 ....
 
 I just noticed that this is actually a good way to develop glibc for other archs.
@@ -947,8 +947,7 @@ Therefore, we decided to consolidate other userland tutorials that we had scatte
 
 Notable userland content included / moving into this repository includes:
 
-* <<arm-userland-assembly>>
-* <<x86-userland-assembly>>
+* <<userland-assembly>>
 * <<c>>
 * <<cpp>>
 * <<posix>>
@@ -1183,10 +1182,7 @@ echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 -
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
 
-When doing bare metal programming, it is likely that you will want to learn assembly language basics. Have a look at these tutorials for the userland part:
-
-* <<x86-userland-assembly>>
-* <<arm-userland-assembly>>
+When doing baremetal programming, it is likely that you will want to learn userland assembly first, see: <<userland-assembly>>.
 
 For more information on baremetal, see the section: <<baremetal>>.
 
@@ -3468,8 +3464,8 @@ Reproduction:
 
 ....
 rm -f "$(./getvar buildroot_target_dir)/etc/ld.so.cache"
-./run --userland hello
-./run --userland hello --qemu-which host
+./run --userland c/hello
+./run --userland c/hello --qemu-which host
 ....
 
 Outcome:
@@ -11310,6 +11306,154 @@ git -C "$(./getvar buildroot_source_dir)" grep 'depends on BR2_TOOLCHAIN_USES_GL
 
 One "downside" of glibc is that it exercises much more kernel functionality on its more bloated pre-main init, which breaks user mode C hello worlds more often, see: <<user-mode-simulation-with-glibc>>. I quote "downside" because glibc is actually exposing emulator bugs which we should actually go and fix.
 
+== C
+
+Programs under link:userland/c/[] are examples of link:https://en.wikipedia.org/wiki/ANSI_C[ANSI C] programming.
+
+[[cpp]]
+== C++
+
+Programs under link:userland/cpp/[] are examples of link:https://en.wikipedia.org/wiki/C%2B%2B#Standardization[ISO C] programming.
+
+== POSIX
+
+Programs under link:userland/posix/[] are examples of POSIX C programming.
+
+What is POSIX:
+
+* https://stackoverflow.com/questions/1780599/what-is-the-meaning-of-posix/31865755#31865755
+* https://unix.stackexchange.com/questions/11983/what-exactly-is-posix/220877#220877
+
+== Userland assembly
+
+Programs under `userland/arch/<arch>/` are examples of userland assembly programming:
+
+* link:userland/arch/x86_64/[] moved from: https://github.com/cirosantilli/x86-assembly-cheat
+* link:userland/arch/arm/[] moved from: https://github.com/cirosantilli/arm-assembly-cheat
+* link:userland/arch/aarch64/[] moved from: https://github.com/cirosantilli/arm-assembly-cheat
+
+Like other userland programs, these programs can be run as explained at: <<userland-setup>>.
+
+This section will document ISA generic ideas. ISA specifics are documented on the following sections:
+
+* <<x86-userland-assembly>>
+* <<arm-userland-assembly>>
+
+The first example that you want to run for each arch is:
+
+....
+./run --userland arch/<arch>/add
+....
+
+e.g.:
+
+....
+./run --userland arch/x86_64/add
+....
+
+Sources:
+
+* link:userland/arch/x86_64/add.S[]
+* link:userland/arch/arm/add.S[]
+* link:userland/arch/aarch64/add.S[]
+
+This verifies that the venerable `add` instruction and our setup are working.
+
+Then, modify that program to make the assertion fail:
+
+....
+TODO
+....
+
+and then watch the assertion fail:
+
+....
+./build-userland
+./run --userland arch/x86_64/add
+....
+
+with error message:
+
+....
+TODO
+....
+
+Notice how we give the actual assembly line number where the failing assert was!
+
+=== User vs system assembly
+
+By "userland assembly", we mean "the parts of the ISA which can be freely used from userland".
+
+Most ISAs are divided into a system and userland part, and to running the system part requires elevated privileges such as <<ring0>> in x86.
+
+One big difference between both is that we can run userland assembly on <<userland-setup>>, which is easier to get running and debug.
+
+In particular, all the examples outside of <<linux-system-calls,freestanding directories>> link to the C standard library for IO, which is very convenient and portable across host OSes.
+
+Userland assembly is generally simpler, and a pre-requisite for <<baremetal-setup>>.
+
+System-land assembly cheats will be put under: <<baremetal-setup>>.
+
+=== Linux system calls
+
+The following <<userland-setup>> programs illustrate how to make system calls:
+
+* x86_64
+** link:userland/arch/x86_64/freestanding/hello.S[]
+** link:userland/arch/x86_64/c/freestanding/hello.c[]
+** link:userland/arch/x86_64/c/freestanding/hello_regvar.c[]
+* arm
+** link:userland/arch/arm/freestanding/hello.S[]
+** link:userland/arch/arm/c/freestanding/hello.c[]
+* aarch64
+** link:userland/arch/aarch64/freestanding/hello.S[]
+** link:userland/arch/aarch64/c/freestanding/hello.c[]
+** link:userland/arch/aarch64/c/freestanding/hello_clobbers.c[]
+
+Unlike most our other examples, which use the C standard library for portability, examples under `freestanding/` can be only run on Linux.
+
+Such executables are called freestanding because they don't execute the glibc initialization code, but rather start directly on our custom hand written assembly.
+
+In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
+
+....
+./run --arch aarch64 --userland arch/aarch64/freestanding/hello --wait-gdb
+./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
+....
+
+You are now left on the very first instruction of our tiny executable!
+
+Determining the ARM syscall numbers:
+
+* https://reverseengineering.stackexchange.com/questions/16917/arm64-syscalls-table
+* arm: https://github.com/torvalds/linux/blob/v4.17/arch/arm/tools/syscall.tbl
+* aarch64: https://github.com/torvalds/linux/blob/v4.17/include/uapi/asm-generic/unistd.h
+
+Determining the ARM syscall interface:
+
+* https://stackoverflow.com/questions/12946958/what-is-the-interface-for-arm-system-calls-and-where-is-it-defined-in-the-linux
+* https://stackoverflow.com/questions/45742869/linux-syscall-conventions-for-armv8
+
+Questions about the C inline assembly examples:
+
+* x86_64
+** https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
+* ARM
+** https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
+** https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
+
+== x86 userland assembly
+
+Getting started at: <<userland-assembly>>.
+
+TODO
+
+== arm userland assembly
+
+Getting started at: <<userland-assembly>>.
+
+TODO
+
 == Baremetal
 
 Getting started at: <<baremetal-setup>>
@@ -12133,91 +12277,6 @@ make CROSS_COMPILE_DIR=/usr/bin
   --mem-size=256MB \
 ;
 ....
-
-== C
-
-Programs under link:userland/c/[] are examples of link:https://en.wikipedia.org/wiki/ANSI_C[ANSI C] programming.
-
-[[cpp]]
-== C++
-
-Programs under link:userland/cpp/[] are examples of link:https://en.wikipedia.org/wiki/C%2B%2B#Standardization[ISO C] programming.
-
-== POSIX
-
-Programs under link:userland/posix/[] are examples of POSIX C programming.
-
-What is POSIX:
-
-* https://stackoverflow.com/questions/1780599/what-is-the-meaning-of-posix/31865755#31865755
-* https://unix.stackexchange.com/questions/11983/what-exactly-is-posix/220877#220877
-
-== Linux system calls
-
-The following <<userland-setup>> programs illustrate how to make system calls:
-
-* x86_64
-** link:userland/arch/x86_64/freestanding/hello.S[]
-** link:userland/arch/x86_64/c/freestanding/hello.c[]
-** link:userland/arch/x86_64/c/freestanding/hello_regvar.c[]
-* arm
-** link:userland/arch/arm/freestanding/hello.S[]
-** link:userland/arch/arm/c/freestanding/hello.c[]
-* aarch64
-** link:userland/arch/aarch64/freestanding/hello.S[]
-** link:userland/arch/aarch64/c/freestanding/hello.c[]
-** link:userland/arch/aarch64/c/freestanding/hello_clobbers.c[]
-
-Unlike most our other examples, which use the C standard library for portability, examples under `freestanding/` can be only run on Linux.
-
-Such executables are called freestanding because they don't execute the glibc initialization code, but rather start directly on our custom hand written assembly.
-
-In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
-
-....
-./run --arch aarch64 --userland arch/aarch64/freestanding/hello --wait-gdb
-./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
-....
-
-Determining the ARM syscall numbers:
-
-* https://reverseengineering.stackexchange.com/questions/16917/arm64-syscalls-table
-* arm: https://github.com/torvalds/linux/blob/v4.17/arch/arm/tools/syscall.tbl
-* aarch64: https://github.com/torvalds/linux/blob/v4.17/include/uapi/asm-generic/unistd.h
-
-Determining the ARM syscall interface:
-
-* https://stackoverflow.com/questions/12946958/what-is-the-interface-for-arm-system-calls-and-where-is-it-defined-in-the-linux
-* https://stackoverflow.com/questions/45742869/linux-syscall-conventions-for-armv8
-
-Questions about the C inline assembly examples:
-
-* x86_64
-** https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
-* ARM
-** https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
-** https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
-
-== x86 userland assembly
-
-Programs under link:userland/arch/x86_64/[] are examples of x86 userland assembly programming.
-
-Those examples are progressively being moved out of: https://github.com/cirosantilli/x86-assembly-cheat
-
-These programs can be run as explained at <<userland-setup>>.
-
-== arm userland assembly
-
-Programs under:
-
-* link:userland/arch/arm/[]
-* link:userland/arch/aarch64/[]
-
-are examples of ARM userland assembly programming.
-
-They have been moved out of: https://github.com/cirosantilli/arm-assembly-cheat
-
-These programs can be run as explained at <<userland-setup>>.
 
 == Android
 
@@ -13613,27 +13672,6 @@ git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
 # And update the README to show off.
 git commit -m "linux: update to ${next_mainline_revision}"
 ....
-
-=== Sanity checks
-
-Basic C and C++ hello worlds:
-
-....
-/hello.out
-/hello_cpp.out
-....
-
-Output:
-
-....
-hello
-hello cpp
-....
-
-Sources:
-
-* link:userland/hello.c[]
-* link:userland/hello_cpp.c[]
 
 ==== rand_check.out
 
