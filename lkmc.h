@@ -11,7 +11,6 @@
 
 void lkmc_assert(bool);
 void lkmc_assert_fail();
-bool lkmc_vector_equal(size_t n, double *v1, double *v2, double max_err);
 #endif
 
 /* https://stackoverflow.com/questions/1489932/how-to-concatenate-twice-with-the-c-preprocessor-and-expand-a-macro-as-in-arg */

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#bst-vs-heap */
+// https://github.com/cirosantilli/linux-kernel-module-cheat#bst-vs-heap
 
 #include <algorithm>
 #include <iostream>

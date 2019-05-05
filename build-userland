@@ -18,21 +18,6 @@ Build our compiled userland examples.
 '''
         super().__init__(*args, **kwargs)
         self.add_argument(
-            '--has-package',
-            action='append',
-            help='''\
-Indicate that a given package is present in the root filesystem, which
-allows us to build examples that rely on it.
-''',
-        )
-        self.add_argument(
-            '--has-all-packages',
-            action='store_true',
-            help='''\
-Indicate that all packages from --has-package are available.
-''',
-        )
-        self.add_argument(
             'targets',
             default=[],
             help='''\
@@ -49,7 +34,7 @@ Default: build all examples that have their package dependencies met, e.g.:
 -   userland/arch/ programs only build if the target arch matches
 -   an OpenBLAS example can only be built if the target root filesystem
     has the OpenBLAS libraries and headers installed, which you must inform
-    with --has-package
+    with --package
 ''',
             nargs='*',
         )
@@ -87,9 +72,6 @@ Default: build all examples that have their package dependencies met, e.g.:
                     std = path_properties.default_c_std
                 else:
                     std = c_std
-                cc_flags.extend([
-                    '-fopenmp', LF,
-                ])
             elif in_ext == self.env['cxx_ext']:
                 cc = self.env['gxx']
                 if cxx_std is None:
@@ -109,10 +91,6 @@ Default: build all examples that have their package dependencies met, e.g.:
                         in_path, LF,
                     ] +
                     self.sh.add_newlines(extra_objs) +
-                    [
-                        '-lm', LF,
-                        '-pthread', LF,
-                    ] +
                     cc_flags_after
                 ),
                 extra_paths=[self.env['ccache_dir']],
@@ -121,16 +99,9 @@ Default: build all examples that have their package dependencies met, e.g.:
 
     def build(self):
         build_dir = self.get_build_dir()
-        has_packages = set(self.env['has_package'])
-        has_all_packages = self.env['has_all_packages']
         cc_flags = [
             '-I', self.env['root_dir'], LF,
             '-O{}'.format(self.env['optimization_level']), LF,
-            '-Wall', LF,
-            '-Werror', LF,
-            '-Wextra', LF,
-            '-Wno-unused-function', LF,
-            '-ggdb3', LF,
         ] + self.sh.shlex_split(self.env['ccflags'])
         if self.env['static']:
             cc_flags.extend(['-static', LF])
@@ -168,7 +139,7 @@ Default: build all examples that have their package dependencies met, e.g.:
             eigen_root = '/'
         else:
             eigen_root = self.env['buildroot_staging_dir']
-        pkgs = {
+        packages = {
             'eigen': {
                 # TODO: was failing with:
                 # fatal error: Eigen/Dense: No such file or directory as of
@@ -187,8 +158,6 @@ Default: build all examples that have their package dependencies met, e.g.:
                 # Header only.
                 'cc_flags_after': [],
             },
-            'libdrm': {},
-            'openblas': {},
         }
         rootdir_abs_len = len(self.env['userland_source_dir'])
         with ThreadPool(
@@ -206,42 +175,10 @@ Default: build all examples that have their package dependencies met, e.g.:
                             build_dir,
                             dirpath_relative_root
                         )
-                        common_objs_dir = []
-                        cc_flags_after = []
-                        cc_flags_dir = cc_flags.copy()
-                        if dirpath_relative_root_components_len > 0:
-                            if dirpath_relative_root_components[0] == 'arch':
-                                cc_flags_dir.extend([
-                                    '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
-                                    '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
-                                ])
-                            elif dirpath_relative_root_components[0] == 'libs':
-                                if dirpath_relative_root_components_len > 1:
-                                    pkg_key = dirpath_relative_root_components[1]
-                                    if not (has_all_packages or pkg_key in has_packages):
-                                        continue
-                                    pkg = pkgs[pkg_key]
-                                    if 'cc_flags' in pkg:
-                                        cc_flags_dir.extend(pkg['cc_flags'])
-                                    else:
-                                        pkg_config_output = subprocess.check_output([
-                                            self.env['pkg_config'],
-                                            '--cflags',
-                                            pkg_key
-                                        ]).decode()
-                                        cc_flags_dir.extend(self.sh.shlex_split(pkg_config_output))
-                                    if 'cc_flags_after' in pkg:
-                                        cc_flags_dir.extend(pkg['cc_flags_after'])
-                                    else:
-                                        pkg_config_output = subprocess.check_output([
-                                            self.env['pkg_config'],
-                                            '--libs',
-                                            pkg_key
-                                        ]).decode()
-                                        cc_flags_after.extend(self.sh.shlex_split(pkg_config_output))
                         for in_filename in in_filenames:
                             in_path = os.path.join(path, in_filename)
-                            cc_flags_file = cc_flags_dir.copy()
+                            cc_flags_file = cc_flags.copy()
+                            cc_flags_after = []
                             in_ext = os.path.splitext(in_filename)[1]
                             if not in_ext in self.env['userland_in_exts']:
                                 continue
@@ -250,10 +187,41 @@ Default: build all examples that have their package dependencies met, e.g.:
                                 dirpath_relative_root,
                                 in_filename
                             ))
-                            if my_path_properties.should_be_built(self.env['arch']):
-                                if my_path_properties['pedantic']:
+                            if my_path_properties.should_be_built(self.env):
+                                if dirpath_relative_root_components_len > 0:
+                                    if dirpath_relative_root_components[0] == 'arch':
+                                        cc_flags_file.extend([
+                                            '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
+                                            '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
+                                        ])
+                                    elif dirpath_relative_root_components[0] == 'libs':
+                                        if dirpath_relative_root_components_len > 1:
+                                            package_key = dirpath_relative_root_components[1]
+                                            if package_key in packages:
+                                                package = packages[package_key]
+                                            else:
+                                                package = {}
+                                            if 'cc_flags' in package:
+                                                cc_flags_file.extend(package['cc_flags'])
+                                            else:
+                                                pkg_config_output = subprocess.check_output([
+                                                    self.env['pkg_config'],
+                                                    '--cflags',
+                                                    package_key
+                                                ]).decode()
+                                                cc_flags_file.extend(self.sh.shlex_split(pkg_config_output))
+                                            if 'cc_flags_after' in package:
+                                                cc_flags_file.extend(package['cc_flags_after'])
+                                            else:
+                                                pkg_config_output = subprocess.check_output([
+                                                    self.env['pkg_config'],
+                                                    '--libs',
+                                                    package_key
+                                                ]).decode()
+                                                cc_flags_after.extend(self.sh.shlex_split(pkg_config_output))
+                                if my_path_properties['cc_pedantic']:
                                     cc_flags_file.extend(['-pedantic', LF])
-                                common_objs_file = common_objs_dir.copy()
+                                common_objs_file = []
                                 if my_path_properties['extra_objs_lkmc_common']:
                                     common_objs_file.append(common_obj)
                                 if my_path_properties['extra_objs_userland_asm']:
@@ -261,7 +229,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                                 error = thread_pool.submit({
                                     'c_std': my_path_properties['c_std'],
                                     'cc_flags': cc_flags_file + my_path_properties['cc_flags'],
-                                    'cc_flags_after': cc_flags_after,
+                                    'cc_flags_after': cc_flags_after + my_path_properties['cc_flags_after'],
                                     'cxx_std': my_path_properties['cxx_std'],
                                     'extra_objs': common_objs_file,
                                     'in_path': in_path,

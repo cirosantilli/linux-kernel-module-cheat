@@ -437,6 +437,22 @@ Machine type:
 
         # Userland.
         self.add_argument(
+            '--package',
+            action='append',
+            help='''\
+Request to install a package in the target root filesystem, or indicate that it is present
+when building examples that rely on it or running tests for those examples.
+''',
+        )
+        self.add_argument(
+            '--package-all',
+            action='store_true',
+            help='''\
+Indicate that all packages used by our userland/ examples with --package
+are available.
+''',
+        )
+        self.add_argument(
             '--static',
             default=False,
             help='''\
@@ -772,6 +788,7 @@ Incompatible archs are skipped.
             env['userland_build_dir'] = self.env['userland_source_dir']
         else:
             env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
+        env['package'] = set(env['package'])
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])

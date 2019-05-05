@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <cblas.h>
 
-#include <lkmc.h>
+#include <lkmc/math.h>
 
 int main(void) {
     double A[6] = {

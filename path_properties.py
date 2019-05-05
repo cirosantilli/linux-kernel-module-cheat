@@ -5,6 +5,33 @@ import os
 from shell_helpers import LF
 
 class PathProperties:
+    property_keys = {
+        'allowed_archs',
+        'c_std',
+        'cc_flags',
+        'cc_flags_after',
+        'cc_pedantic',
+        'cxx_std',
+        'exit_status',
+        'interactive',
+        # We should get rid of this if we ever properly implement dependency graphs.
+        'extra_objs_lkmc_common',
+        'extra_objs_userland_asm',
+        # We were lazy to properly classify why we are skipping these tests.
+        # TODO get it done.
+        'skip_run_unclassified',
+        'more_than_1s',
+        # The path does not generate an executable in itself, e.g.
+        # it only generates intermediate object files.
+        'no_executable',
+        # the test receives a signal. We skip those tests for now,
+        # on userland because we are lazy to figure out the exact semantics
+        # of how Python + QEMU + gem5 determine the exit status of signals.
+        'receives_signal',
+        'requires_kernel_modules',
+        'uses_dynamic_library',
+    }
+
     '''
     Encodes properties of userland and baremetal paths.
     For directories, it applies to all files under the directory.
@@ -12,37 +39,12 @@ class PathProperties:
     '''
     def __init__(
         self,
-        **kwargs
+        properties
     ):
-        property_keys = {
-            'allowed_archs',
-            'c_std',
-            'cc_flags',
-            'cc_pedantic',
-            'cxx_std',
-            'exit_status',
-            'interactive',
-            # We should get rid of this if we ever properly implement dependency graphs.
-            'extra_objs_lkmc_common',
-            'extra_objs_userland_asm',
-            # We were lazy to properly classify why we are skipping these tests.
-            # TODO get it done.
-            'skip_run_unclassified',
-            'more_than_1s',
-            # The path does not generate an executable in itself, e.g.
-            # it only generates intermediate object files.
-            'no_executable',
-            'pedantic',
-            # the test receives a signal. We skip those tests for now,
-            # on userland because we are lazy to figure out the exact semantics
-            # of how Python + QEMU + gem5 determine the exit status of signals.
-            'receives_signal',
-            'requires_kernel_modules',
-        }
-        for key in kwargs:
-            if not key in property_keys:
+        for key in properties:
+            if not key in self.property_keys:
                 raise ValueError('Unknown key: {}'.format(key))
-        self.properties = kwargs
+        self.properties = properties.copy()
 
     def __getitem__(self, key):
         return self.properties[key]
@@ -50,28 +52,37 @@ class PathProperties:
     def __repr__(self):
         return str(self.properties)
 
+    def set_path_components(self, path_components):
+        self.path_components = path_components
+
+    def should_be_built(self, env):
+        if len(self.path_components) > 1 and \
+                self.path_components[1] == 'libs' and \
+                not env['package_all'] and \
+                not self.path_components[2] in env['package']:
+            return False
+        return \
+            not self['no_executable'] and \
+            (
+                self['allowed_archs'] is None or
+                env['arch'] in self['allowed_archs']
+            )
+
+    def should_be_tested(self, env):
+        return \
+            self.should_be_built(env) and \
+            not self['interactive'] and \
+            not self['more_than_1s'] and \
+            not self['receives_signal'] and \
+            not self['requires_kernel_modules'] and \
+            not self['skip_run_unclassified'] and \
+            not (self['uses_dynamic_library'] and env['emulator'] == 'gem5')
+
     def update(self, other):
         other_tmp_properties = other.properties.copy()
         if 'cc_flags' in self.properties and 'cc_flags' in other_tmp_properties:
             other_tmp_properties['cc_flags'] = self.properties['cc_flags'] + other_tmp_properties['cc_flags']
         return self.properties.update(other_tmp_properties)
-
-    def should_be_built(self, arch):
-        return \
-            not self['no_executable'] and \
-            (
-                self['allowed_archs'] is None or
-                arch in self['allowed_archs']
-            )
-
-    def should_be_tested(self, arch):
-        return \
-            self.should_be_built(arch) and \
-            not self['interactive'] and \
-            not self['more_than_1s'] and \
-            not self['receives_signal'] and \
-            not self['requires_kernel_modules'] and \
-            not self['skip_run_unclassified']
 
 class PrefixTree:
     def __init__(self, path_properties_dict=None, children=None):
@@ -80,7 +91,7 @@ class PrefixTree:
         if children is None:
             children = {}
         self.children = children
-        self.path_properties = PathProperties(**path_properties_dict)
+        self.path_properties = PathProperties(path_properties_dict)
 
     @staticmethod
     def make_from_tuples(tuples):
@@ -100,15 +111,17 @@ class PrefixTree:
                 todo_trees.append(new_tree)
         return top_tree
 
-def get(test_path):
+def get(path):
     cur_node = path_properties_tree
-    path_properties = PathProperties(**cur_node.path_properties.properties)
-    for path_component in test_path.split(os.sep):
+    path_components = path.split(os.sep)
+    path_properties = PathProperties(cur_node.path_properties.properties.copy())
+    for path_component in path_components:
         if path_component in cur_node.children:
             cur_node = cur_node.children[path_component]
             path_properties.update(cur_node.path_properties)
         else:
             break
+    path_properties.set_path_components(path_components)
     return path_properties
 
 default_c_std = 'c11'
@@ -128,24 +141,32 @@ freestanding_properties = {
 }
 path_properties_tuples = (
     {
-        'c_std': default_c_std,
-        'cxx_std': default_cxx_std,
-        'pedantic': True,
         'allowed_archs': None,
-        'c_std': None,
-        'cc_flags': [],
+        'c_std': default_c_std,
+        'cc_flags': [
+            '-Wall', LF,
+            '-Werror', LF,
+            '-Wextra', LF,
+            '-Wno-unused-function', LF,
+            '-fopenmp', LF,
+            '-ggdb3', LF,
+        ],
+        'cc_flags_after': [
+            '-lm', LF,
+            '-pthread', LF,
+        ],
         'cc_pedantic': True,
-        'cxx_std': None,
+        'cxx_std': default_cxx_std,
         'exit_status': 0,
         'extra_objs_lkmc_common': False,
         'extra_objs_userland_asm': False,
         'interactive': False,
-        'skip_run_unclassified': False,
         'more_than_1s': False,
         'no_executable': False,
-        'pedantic': False,
         'receives_signal': False,
         'requires_kernel_modules': False,
+        'skip_run_unclassified': False,
+        'uses_dynamic_library': False,
     },
     {
         'userland': (
@@ -240,10 +261,10 @@ path_properties_tuples = (
                 'lkmc': (
                     {'extra_objs_lkmc_common': True},
                     {
-                        'assert_fail.c': {'exit_status': 1}
+                        'assert_fail.c': {'exit_status': 1},
                     }
                 ),
-                'libs': {'skip_run_unclassified': True},
+                'libs': {'uses_dynamic_library': True},
                 'linux': {**gnu_extension_properties, **{'skip_run_unclassified': True}},
                 'posix': (
                     {},
