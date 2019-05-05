@@ -47,6 +47,20 @@ Build the baremetal examples with crosstool-NG.
             '-mcpu={}'.format(self.env['mcpu']), LF,
             '-nostartfiles', LF,
         ]
+        if self.env['arch'] == 'arm':
+            cflags.extend([
+                '-mhard-float', LF,
+                # This uses the soft float ABI for calling functions from objets in Newlib which
+                # our crosstool-NG config compiles with soft floats, while emiting hard float
+                # from C and allowing us to use it from assembly, e.g. for the VMRS instruction:
+                # which would otherwise fail "with selected processor does not support XXX in ARM mode"
+                # Bibliography:
+                # - https://stackoverflow.com/questions/9753749/arm-compilation-error-vfp-registered-used-by-executable-not-object-file
+                # - https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/41131782#41131782
+                # - https://embeddedartistry.com/blog/2017/10/9/r1q7pksku2q3gww9rpqef0dnskphtc
+                '-mfloat-abi=softfp', LF,
+                '-mfpu=crypto-neon-fp-armv8', LF,
+            ])
         cflags_after = ['-lm']
         if self.env['emulator'] == 'gem5':
             if self.env['machine'] == 'VExpress_GEM5_V1':
