@@ -43,14 +43,6 @@ building with the host toolchain.
 ''',
         )
         self.add_argument(
-            '--target-relative-cwd',
-            default=False,
-            help='''\
-Treat targets as relative to the current working directory. If the current working
-directory is outside of userland/, this has no effect.
-''',
-        )
-        self.add_argument(
             'targets',
             default=[],
             help='''\
@@ -133,54 +125,35 @@ Default: build all examples that have their package dependencies met, e.g.:
                 )
         return ret
 
-    def _get_cwd(self):
-        cwd = os.path.abspath(os.getcwd())
-        if cwd.startswith(self.env['userland_source_dir']):
-            return cwd
-        else:
-            return self.env['userland_source_dir']
+    def _walk_targets(self, exts):
+        '''
+        Resolve userland input targets, and walk them if directories.
 
-    def _get_targets(self):
+        Ignore the input extension of targets, and select only files
+        with the given extensions exts.
+
+        An empty extension indicates that directories will also be chosen.
         '''
-        Resolve target_relative_cwd and default targets.
-        '''
-        if self.env['_args_given']['targets']:
+        if self.env['targets']:
             targets = self.env['targets']
-            if self.env['target_relative_cwd']:
-                cwd = self._get_cwd()
-                for target in targets:
-                    yield os.path.join(cwd, target)
-            else:
-                for target in targets:
-                    yield target
         else:
-            if self.env['target_relative_cwd']:
-                yield self._get_cwd()
-            else:
-                yield self.env['userland_source_dir']
-
-    def _walk_targets(self):
-        '''
-        Walk existing directories and files pointed to by the targets
-        from the command line from under the userland/ source tree.
-
-        This may include outputs of in-tree builds.
-
-        File extensions are ignored, e.g.:
-
-            c/hello
-
-        will find both:
-
-            c/hello.c
-            c/hello.out
-        '''
-        for target in self._get_targets():
-            target = self.resolve_userland_source(target)
-            noext, ext = os.path.splitext(filename)
-
-            for path, in_dirnames, in_filenames in self.sh.walk(target):
-                yield path, in_dirnames, in_filenames
+            targets = [self.env['userland_source_dir']]
+        for target in targets:
+            resolved_targets = self.resolve_source_tree(
+                target,
+                exts + [''],
+                self.env['userland_source_dir']
+            )
+            for resolved_target in resolved_targets:
+                for path, dirnames, filenames in self.sh.walk(resolved_target):
+                    dirnames.sort()
+                    filenames = [
+                        filename for filename in filenames
+                        if os.path.splitext(filename)[1] in exts
+                    ]
+                    filenames.sort()
+                    for filename in filenames:
+                        yield path, dirnames, filenames
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -260,9 +233,9 @@ Default: build all examples that have their package dependencies met, e.g.:
         ) as thread_pool:
             class ExitLoop(Exception): pass
             try:
-                for path, in_dirnames, in_filenames in self._walk_targets():
-                    in_dirnames.sort()
-                    in_filenames.sort()
+                for path, in_dirnames, in_filenames in self._walk_targets(
+                    self.env['userland_in_exts']
+                ):
                     path_abs = os.path.abspath(path)
                     dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
                     dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
@@ -377,6 +350,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                             raise ExitLoop()
             except ExitLoop:
                 pass
+        error = thread_pool.get_error()
         if error is not None:
             print(error)
             return 1
@@ -390,15 +364,11 @@ Default: build all examples that have their package dependencies met, e.g.:
 
     def clean(self):
         if self.env['in_tree']:
-            for path, dirnames, filenames in self._walk_targets():
-                filenames.sort()
-                dirnames.sort()
+            for path, dirnames, filenames in self._walk_targets(
+                self.env['userland_out_exts']
+            ):
                 for filename in filenames:
-                    noext, ext = os.path.splitext(filename)
-                    for out_ext in self.env['userland_out_exts']:
-                        out_path = os.path.join(path, noext + out_ext)
-                        if os.path.exists(out_path):
-                            self.sh.rmrf(out_path)
+                    self.sh.rmrf(os.path.join(path, filename))
         else:
             self.sh.rmrf(self.get_build_dir())
 

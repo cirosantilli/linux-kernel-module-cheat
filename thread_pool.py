@@ -84,6 +84,9 @@ class ThreadPool:
     def __exit__(self, type, value, traceback):
         self.join()
 
+    def get_error(self):
+        return self.error_output
+
     def submit(self, work):
         '''
         Submit work. Block if there is already enough work scheduled (~nthreads).
@@ -117,6 +120,7 @@ class ThreadPool:
                 out = self.func(**work)
             except Exception as e:
                 exception = e
+                out = None
             try:
                 handle_output_return = self.handle_output(work, out, exception)
             except Exception as e:

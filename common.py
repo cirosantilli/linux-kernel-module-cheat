@@ -12,6 +12,7 @@ import json
 import math
 import os
 import platform
+import pathlib
 import re
 import shutil
 import signal
@@ -1121,7 +1122,7 @@ lunch aosp_{}-eng
             ]
         )
 
-    def resolve_source(self, in_path, magic_in_dir, exts):
+    def resolve_source_tree(self, in_path, exts, source_tree_root):
         '''
         Convert a convenient shorthand user input string to paths of existing files
         in the source tree.
@@ -1162,24 +1163,24 @@ lunch aosp_{}-eng
         files and directories: e.g. if you had both a file arch.c and a directory arch,
         and exts=['', '.c'], then both would get matched.
         '''
-        if os.path.isabs(in_path):
-            return in_path
-        else:
-            paths = [
-                os.path.join(magic_in_dir, in_path),
-                os.path.join(
-                    magic_in_dir,
-                    os.path.relpath(in_path, magic_in_dir),
+        in_path = os.path.abspath(in_path)
+        source_tree_root = os.path.abspath(source_tree_root)
+        if not in_path.startswith(source_tree_root):
+            raise Exception(
+                'The input path {} is not inside the source directory {}'.format(
+                    in_path,
+                    source_tree_root
                 )
-            ]
-            for path in paths:
-                name, ext = os.path.splitext(path)
-                for try_ext in exts:
-                    path = name + try_ext
-                    if os.path.exists(path):
-                        return path
-            if not self.env['dry_run']:
-                raise Exception('No file not found for input: ' + in_path)
+            )
+        result = []
+        name, ext = os.path.splitext(in_path)
+        for try_ext in exts:
+            try_path = name + try_ext
+            if os.path.exists(try_path):
+                result.append(try_path)
+        if not result:
+            raise Exception('No file not found for input: ' + in_path)
+        return result
 
     def resolve_executable(self, in_path, magic_in_dir, magic_out_dir, out_exts):
         if os.path.isabs(in_path):
@@ -1210,13 +1211,6 @@ lunch aosp_{}-eng
             self.env['userland_source_dir'],
             self.env['userland_build_dir'],
             [self.env['userland_build_ext']],
-        )
-
-    def resolve_userland_source(self, path):
-        return self.resolve_source(
-            path,
-            self.env['userland_source_dir'],
-            self.env['userland_in_exts']
         )
 
     def setup(self):
