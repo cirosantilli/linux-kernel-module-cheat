@@ -52,10 +52,9 @@ class ShellHelpers:
         https://stackoverflow.com/questions/3029816/how-do-i-get-a-thread-safe-print-in-python-2-6
         The initial use case was test-gdb which must create a thread for GDB to run the program in parallel.
         '''
-        cls._print_lock.acquire()
-        sys.stdout.write(string + '\n')
-        sys.stdout.flush()
-        cls._print_lock.release()
+        with cls._print_lock:
+            sys.stdout.write(string + '\n')
+            sys.stdout.flush()
 
     def add_newlines(self, cmd):
         out = []
@@ -217,16 +216,16 @@ class ShellHelpers:
         :return: exit status of the command
         :rtype: int
         '''
-        if out_file is not None:
-            stdout = subprocess.PIPE
-            stderr = subprocess.STDOUT
-        else:
+        if out_file is None:
             if show_stdout:
                 stdout = None
                 stderr = None
             else:
                 stdout = subprocess.DEVNULL
                 stderr = subprocess.DEVNULL
+        else:
+            stdout = subprocess.PIPE
+            stderr = subprocess.STDOUT
         if extra_env is None:
             extra_env = {}
         if delete_env is None:

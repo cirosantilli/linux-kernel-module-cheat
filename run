@@ -20,7 +20,7 @@ Run some content on an emulator.
         self.add_argument(
             '--background', default=False,
             help='''\
-Send QEMU output to a file instead of the terminal so it does not require a
+Send QEMU serial output to a file instead of the terminal so it does not require a
 terminal attached to run on the background. Interactive input cannot be given.
 TODO: use a port instead. If only there was a way to redirect a serial to multiple
 places, both to a port and a file? We use the file currently to be able to have
@@ -167,6 +167,10 @@ Setup a kernel init parameter that makes the emulator quit immediately after boo
             help='Record a QEMU run record for later replay with `-R`'
         )
         self.add_argument(
+            '--show-stdout', default=True,
+            help='''Show emulator stdout and stderr on the host terminal.'''
+        )
+        self.add_argument(
             '--terminal', default=False,
             help='''\
 Output to the terminal, don't pipe to tee as the default.
@@ -238,7 +242,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         )
 
     def timed_main(self):
-        show_stdout = True
+        show_stdout = self.env['show_stdout']
         # Common qemu / gem5 logic.
         # nokaslr:
         # * https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
@@ -455,6 +459,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         os.path.join(self.env['qemu_build_dir'], '{}-linux-user'.format(self.env['arch']), 'qemu-{}'.format(self.env['arch'])), LF,
                         '-L', self.env['userland_library_dir'], LF,
                         '-r', self.env['kernel_version'], LF,
+                        '-seed', '0', LF,
                     ] +
                     qemu_user_and_system_options +
                     debug_args

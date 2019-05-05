@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from typing import Any, Callable, Dict, Iterable, Union
+import os
 import queue
 import sys
 import threading
@@ -13,10 +14,10 @@ class ThreadPool:
     This is similar to the stdlib concurrent, but I could not find
     how to reach all my design goals with that implementation:
 
-    - the input function does not need to be modified
-    - limit the number of threads
-    - queue sizes closely follow number of threads
-    - if an exception happens, optionally stop soon afterwards
+    * the input function does not need to be modified
+    * limit the number of threads
+    * queue sizes closely follow number of threads
+    * if an exception happens, optionally stop soon afterwards
 
     Functional form and further discussion at:
     https://stackoverflow.com/questions/19369724/the-right-way-to-limit-maximum-number-of-threads-running-at-once/55263676#55263676
@@ -25,10 +26,12 @@ class ThreadPool:
 
     Quick test with:
 
-        ./thread_limit.py 2 -10 20 0
-        ./thread_limit.py 2 -10 20 1
-        ./thread_limit.py 2 -10 20 2
-        ./thread_limit.py 2 -10 20 3
+    ....
+    python3 thread_pool.py 2 -10 20 0
+    python3 thread_pool.py 2 -10 20 1
+    python3 thread_pool.py 2 -10 20 2
+    python3 thread_pool.py 2 -10 20 3
+    ....
 
     These ensure that execution stops neatly on error.
     '''
@@ -49,9 +52,9 @@ class ThreadPool:
 
             Signature is: handle_output(input, output, exception) where:
 
-            - input: input given to func
-            - output: return value of func
-            - exception: the exception that func raised, or None otherwise
+            * input: input given to func
+            * output: return value of func
+            * exception: the exception that func raised, or None otherwise
 
             If this function returns non-None or raises, stop feeding
             new input and exit ASAP when all currently running threads
@@ -79,6 +82,16 @@ class ThreadPool:
             thread.start()
 
     def __enter__(self):
+        '''
+        __exit__ automatically calls join() for you.
+
+        This is cool because it automatically ends the loop if an exception occurs.
+
+        But don't forget that errors may happen after the last submit is called, so you
+        likely want to check for that with get_error after the with.
+
+        get_error() returns the same as the explicit join().
+        '''
         return self
 
     def __exit__(self, type, value, traceback):
@@ -124,14 +137,12 @@ class ThreadPool:
             try:
                 handle_output_return = self.handle_output(work, out, exception)
             except Exception as e:
-                self.error_output_lock.acquire()
-                self.error_output = (work, out, e)
-                self.error_output_lock.release()
+                with self.error_output_lock:
+                    self.error_output = (work, out, e)
             else:
                 if handle_output_return is not None:
-                    self.error_output_lock.acquire()
-                    self.error_output = handle_output_return
-                    self.error_output_lock.release()
+                    with self.error_output_lock:
+                        self.error_output = handle_output_return
             finally:
                 self.in_queue.task_done()
 

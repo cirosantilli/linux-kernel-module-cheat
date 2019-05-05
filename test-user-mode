@@ -5,13 +5,14 @@ import sys
 
 import common
 import example_properties
+from thread_pool import ThreadPool
 
 class Main(common.TestCliFunction):
     def __init__(self):
         super().__init__(
             description='''\
 https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-tests
-'''
+''',
         )
         self.add_argument(
             'tests',
@@ -25,36 +26,46 @@ If given, run only the given tests. Otherwise, run all tests.
         run = self.import_path_main('run')
         run_args = self.get_common_args()
         run_args['ctrl_c_host'] = True
+        run_args['show_stdout'] = False
+        run_args['show_time'] = False
         if self.env['emulator'] == 'gem5':
             run_args['userland_build_id'] = 'static'
-        if self.env['tests'] == []:
-            test_paths = [
-                'c/add.c',
-                'c/false.c',
-                'c/hello.c',
-                'c/print_argv.c',
-                'cpp/hello.cpp',
-            ]
-        else:
-            test_paths = self.env['tests']
         had_failure = False
-        for test_path in test_paths:
-            test = example_properties.get(test_path)
-            if test.should_be_tested():
-                # for test in self.sh.walk(self.resolve_userland_source(test_dir_or_file)):
-                run_args['userland'] = test_path
-                test_result = self.run_test(
-                    run,
-                    run_args,
-                    test_id=test_path,
-                    expected_exit_status=test.exit_status
-                )
-                if test_result != common.TestResult.PASS:
-                    if self.env['quit_on_fail']:
-                        return 1
-                    else:
-                        had_failure = True
-        if had_failure:
+        rootdir_abs_len = len(self.env['userland_source_dir'])
+        with ThreadPool(
+            self.run_test,
+            nthreads=self.env['nproc'],
+        ) as thread_pool:
+            try:
+                for path, in_dirnames, in_filenames in self.walk_source_targets(
+                    self.env['tests'],
+                    self.env['userland_in_exts']
+                ):
+                    path_abs = os.path.abspath(path)
+                    dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
+                    for in_filename in in_filenames:
+                        path_relative_root = os.path.join(dirpath_relative_root, in_filename)
+                        test = example_properties.get(path_relative_root)
+                        if test.should_be_tested():
+                            cur_run_args = run_args.copy()
+                            cur_run_args.update({
+                                'background': True,
+                                'userland': path_relative_root,
+                            })
+                            error = thread_pool.submit({
+                                'expected_exit_status': test.exit_status,
+                                'run_args': cur_run_args,
+                                'run_obj': run,
+                                'test_id': path_relative_root,
+                            })
+                            if error is not None:
+                                if self.env['quit_on_fail']:
+                                    raise common.ExitLoop()
+            except common.ExitLoop:
+                pass
+        error = thread_pool.get_error()
+        if error is not None:
+            print(error)
             return 1
         else:
             return 0

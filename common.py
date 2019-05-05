@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 
 import argparse
+import bisect
 import collections
 import copy
 import datetime
 import enum
+import functools
 import glob
 import imp
 import inspect
+import itertools
 import json
 import math
 import os
 import platform
 import pathlib
+import queue
 import re
 import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib
 import urllib.request
@@ -152,6 +157,7 @@ class LkmcCliFunction(cli_function.CliFunction):
         self._common_args = set()
         super().__init__(*args, **kwargs)
         self.supported_archs = supported_archs
+        self.print_lock = threading.Lock()
 
         # Args for all scripts.
         arches = consts['arch_short_to_long_dict']
@@ -219,12 +225,14 @@ Which toolchain binaries to use:
 '''
         )
         self.add_argument(
-            '--print-time',
-            default=True,
-            help='''\
-Print how long it took to run the command at the end.
-Implied by --quiet.
-'''
+            '-j',
+            '--nproc',
+            default=len(os.sched_getaffinity(0)),
+            type=int,
+            help='''Number of processors to use for the action.
+This is currently only implemented for the following scripts:
+all ./build-* scripts, test-user-mode.
+''',
         )
         self.add_argument(
             '-q',
@@ -240,6 +248,14 @@ TODO: implement fully, some stuff is escaping it currently.
             default=True,
             help='''\
 Stop running at the first failed test.
+'''
+        )
+        self.add_argument(
+            '--show-time',
+            default=True,
+            help='''\
+Print how long it took to run the command at the end.
+Implied by --quiet.
 '''
         )
         self.add_argument(
@@ -985,13 +1001,15 @@ lunch aosp_{}-eng
         return self.supported_archs is None or arch in self.supported_archs
 
     def log_error(self, msg):
-        print('error: {}'.format(msg), file=sys.stdout)
+        with self.print_lock:
+            print('error: {}'.format(msg), file=sys.stdout)
 
     def log_info(self, msg='', flush=False, **kwargs):
-        if not self.env['quiet']:
-            print('{}'.format(msg), **kwargs)
-        if flush:
-            sys.stdout.flush()
+        with self.print_lock:
+            if not self.env['quiet']:
+                print('{}'.format(msg), **kwargs)
+            if flush:
+                sys.stdout.flush()
 
     def main(self, *args, **kwargs):
         '''
@@ -1087,7 +1105,7 @@ lunch aosp_{}-eng
         return '{:02}:{:02}:{:02}'.format(int(hours), int(minutes), int(seconds))
 
     def print_time(self, ellapsed_seconds):
-        if self.env['print_time'] and not self.env['quiet']:
+        if self.env['show_time'] and not self.env['quiet']:
             print('time {}'.format(self.seconds_to_hms(ellapsed_seconds)))
 
     def raw_to_qcow2(self, qemu_which=False, reverse=False):
@@ -1280,14 +1298,6 @@ class BuildCliFunction(LkmcCliFunction):
             default=False,
             help='Clean the build instead of building.',
         ),
-        self.add_argument(
-            '-j',
-            '--nproc',
-            default=len(os.sched_getaffinity(0)),
-            type=int,
-            help='Number of processors to use for the build.',
-        )
-        self.test_results = []
         self._build_arguments = {
             '--ccflags': {
                 'default': '',
@@ -1354,23 +1364,30 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
         else:
             return self.build()
 
-# from aenum import Enum  # for the aenum version
-TestResult = enum.Enum('TestResult', ['PASS', 'FAIL'])
+TestStatus = enum.Enum('TestStatus', ['PASS', 'FAIL'])
 
-class Test:
+@functools.total_ordering
+class TestResult:
     def __init__(
         self,
-        test_id: str,
-        result : TestResult =None,
-        ellapsed_seconds : float =None
+        test_id: str ='',
+        status : TestStatus =TestStatus.PASS,
+        ellapsed_seconds : float =0
     ):
         self.test_id = test_id
-        self.result = result
+        self.status = status
         self.ellapsed_seconds = ellapsed_seconds
+
+    def __eq__(self, other):
+        return self.test_id == other.test_id
+
+    def __lt__(self, other):
+        return self.test_id < other.test_id
+
     def __str__(self):
         out = []
-        if self.result is not None:
-            out.append(self.result.name)
+        if self.status is not None:
+            out.append(self.status.name)
         if self.ellapsed_seconds is not None:
             out.append(LkmcCliFunction.seconds_to_hms(self.ellapsed_seconds))
         out.append(self.test_id)
@@ -1385,13 +1402,13 @@ class TestCliFunction(LkmcCliFunction):
 
     def __init__(self, *args, **kwargs):
         defaults = {
-            'print_time': False,
+            'show_time': False,
         }
         if 'defaults' in kwargs:
             defaults.update(kwargs['defaults'])
         kwargs['defaults'] = defaults
         super().__init__(*args, **kwargs)
-        self.tests = []
+        self.test_results = queue.Queue()
 
     def run_test(
         self,
@@ -1440,36 +1457,38 @@ class TestCliFunction(LkmcCliFunction):
             expected_exit_status = 0
         if not self.env['dry_run']:
             if exit_status == expected_exit_status:
-                test_result = TestResult.PASS
+                test_result = TestStatus.PASS
             else:
-                test_result = TestResult.FAIL
-            self.log_info('test_result {}'.format(test_result.name))
+                test_result = TestStatus.FAIL
             ellapsed_seconds = run_obj.ellapsed_seconds
         else:
-            test_result = None
-            ellapsed_seconds = None
-        self.log_info()
-        self.tests.append(Test(test_id_string, test_result, ellapsed_seconds))
+            test_result = TestStatus.PASS
+            ellapsed_seconds = 0
+        test_result = TestResult(
+            test_id_string,
+            test_result,
+            ellapsed_seconds
+        )
+        self.log_info(test_result)
+        self.test_results.put(test_result)
         return test_result
 
     def teardown(self):
         '''
         :return: 1 if any test failed, 0 otherwise
         '''
-        self.log_info('Test result summary')
+        self.log_info('\nTest result summary')
         passes = []
         fails = []
-        for test in self.tests:
-            if test.result in (TestResult.PASS, None):
-                passes.append(test)
+        while not self.test_results.empty():
+            test = self.test_results.get()
+            if test.status in (TestStatus.PASS, None):
+                bisect.insort(passes, test)
             else:
-                fails.append(test)
-        if passes:
-            for test in passes:
-                self.log_info(test)
+                bisect.insort(fails, test)
+        for test in itertools.chain(passes, fails):
+            self.log_info(test)
         if fails:
-            for test in fails:
-                self.log_info(test)
             self.log_error('A test failed')
             return 1
         return 0

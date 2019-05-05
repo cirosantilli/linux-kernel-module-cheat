@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
     if (argc > 1) {
         n = std::stoi(argv[1]);
     } else {
-        n = 1000;
+        n = 1;
     }
 
     // Action.

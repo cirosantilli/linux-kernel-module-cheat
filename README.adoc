@@ -3506,7 +3506,20 @@ The gem5 tests require building statically with build id `static`, see also: <<g
 
 See: <<test-this-repo>> for more useful testing tips.
 
-==== User mode with host toolchain and QEMU
+=== User mode Buildroot executables
+
+If you followed <<qemu-buildroot-setup>>, you can now run the executables created by Buildroot directly as:
+
+....
+./run \
+  --userland "$(./getvar buildroot_target_dir)/bin/echo" \
+  --userland-args='asdf' \
+;
+....
+
+Here is an interesting examples of this: <<linux-test-project>>
+
+=== User mode with host toolchain and QEMU
 
 If you are lazy to built the Buildroot toolchain and QEMU, you can get away on Ubuntu 18.04 with just:
 
@@ -3537,11 +3550,11 @@ This present the usual trade-offs of using prebuilts as mentioned at: <<prebuilt
 
 When you build with the native host toolchain, you can also execute many of the executables directly natively on the host: <<userland-setup-getting-started-natively>>.
 
-==== User mode simulation with glibc
+=== User mode simulation with glibc
 
 At 125d14805f769104f93c510bedaa685a52ec025d we <<libc-choice,moved Buildroot from uClibc to glibc>>, and caused some user mode pain, which we document here.
 
-===== FATAL: kernel too old
+==== FATAL: kernel too old
 
 Happens on all gem5 <<user-mode-simulation>> setups, but not on QEMU on Ubuntu 18.04 host.
 
@@ -3572,7 +3585,7 @@ In gem5, there are tons of missing syscalls, and that number currently just gets
 
 The ID is just hardcoded on the source:
 
-===== stack smashing detected
+==== stack smashing detected
 
 For some reason QEMU / glibc x86_64 picks up the host libc, which breaks things.
 
@@ -3611,7 +3624,7 @@ A non-QEMU-specific example of stack smashing is shown at: https://stackoverflow
 
 Tested at: 2e32389ebf1bedd89c682aa7b8fe42c3c0cf96e5 + 1.
 
-==== User mode static executables
+=== User mode static executables
 
 Example:
 
@@ -3637,7 +3650,7 @@ However, in case something goes wrong, you can also try statically linked execut
 * gem5 user mode currently only supports static executables: <<gem5-syscall-emulation-mode>>
 * QEMU x86_64 guest on x86_64 host was failing with <<stack-smashing-detected>>, but we found a workaround
 
-===== User mode static executables with dynamic libraries
+==== User mode static executables with dynamic libraries
 
 One limitation of static executables is that Buildroot mostly only builds dynamic versions of libraries (the libc is an exception).
 
@@ -3742,6 +3755,8 @@ which we parse in link:run[] and then exit with the correct result ourselves...
 
 Let's see if user mode runs considerably faster than full system or not.
 
+First we build Dhrystone manually statically since dynamic linking is broken in gem5: <<gem5-syscall-emulation-mode>>.
+
 gem5 user mode:
 
 ....
@@ -3795,6 +3810,28 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 * gem5 full system: 51 seconds
 * QEMU user: 45 seconds
 * QEMU full system: 223 seconds
+
+=== QEMU user mode does not show stdout immediately
+
+At 8d8307ac0710164701f6e14c99a69ee172ccbb70 + 1, I noticed that if you run link:userland/posix/count.c[]:
+
+....
+./run --userland userland/posix/count.c --userland-args 3
+....
+
+it first waits for 3 seconds, and then dumps all the output at once, instead of counting once every second as expected.
+
+The same can be reproduced by copying the raw QEMU command and piping it through `tee`, so I don't think it is a bug in our setup:
+
+....
+/path/to/linux-kernel-module-cheat/out/qemu/default/x86_64-linux-user/qemu-x86_64 \
+  -L /path/to/linux-kernel-module-cheat/out/buildroot/build/default/x86_64/target \
+  /path/to/linux-kernel-module-cheat/out/userland/default/x86_64/posix/count.out \
+  3 \
+| tee
+....
+
+TODO: investigate further and then possibly post on QEMU mailing list.
 
 == Kernel module utilities
 
@@ -8349,7 +8386,7 @@ exit01      1  TPASS  :  exit() test PASSED
 
 and has source code at: https://github.com/linux-test-project/ltp/blob/20190115/testcases/kernel/syscalls/exit/exit01.c
 
-Besides testing any kernel modifications you make, LTP can also be used to the system call implementation of <<user-mode-simulation>>:
+Besides testing any kernel modifications you make, LTP can also be used to the system call implementation of <<user-mode-simulation>> as shown at <<user-mode-buildroot-executables>>:
 
 ....
 ./run --userland "$(./getvar buildroot_target_dir)/usr/lib/ltp-testsuite/testcases/bin/exit01"
@@ -9924,6 +9961,7 @@ Usage:
   --emulator gem5 \
   --static \
   --userland cpp/bst_vs_heap \
+  --userland-args='1000' \
 ;
 ./bst-vs-heap --arch aarch64 > bst_vs_heap.dat
 ./bst-vs-heap.gnuplot

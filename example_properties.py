@@ -22,8 +22,12 @@ class ExecutableProperties:
             not self.more_than_1s
 
 executable_properties = {
-    'c/assert_fail.c': ExecutableProperties(exit_status=0),
-    'c/false.c': ExecutableProperties(exit_status=0),
+    'c/assert_fail.c': ExecutableProperties(exit_status=1),
+    'c/false.c': ExecutableProperties(exit_status=1),
+    'c/infinite_loop.c': ExecutableProperties(more_than_1s=True),
+    'posix/count.c': ExecutableProperties(more_than_1s=True),
+    'posix/sleep_forever.c': ExecutableProperties(more_than_1s=True),
+    'posix/virt_to_phys_test.c': ExecutableProperties(more_than_1s=True),
 }
 
 def get(test_path):
