@@ -29,8 +29,11 @@ class PathProperties:
         'interactive': False,
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
+        # The path should not be built. E.g., it is symlinked into multiple archs.
+        'no_build': False,
         # The path does not generate an executable in itself, e.g.
-        # it only generates intermediate object files.
+        # it only generates intermediate object files. Therefore it
+        # should not be run while testing.
         'no_executable': False,
         # the test receives a signal. We skip those tests for now,
         # on userland because we are lazy to figure out the exact semantics
@@ -73,17 +76,21 @@ class PathProperties:
     def set_path_components(self, path_components):
         self.path_components = path_components
 
-    def should_be_built(self, env):
+    def should_be_built(self, env, link=False):
         if len(self.path_components) > 1 and \
                 self.path_components[1] == 'libs' and \
                 not env['package_all'] and \
                 not self.path_components[2] in env['package']:
             return False
         return \
-            not self['no_executable'] and \
+            not self['no_build'] and \
             (
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
+            ) and \
+            not (
+                link and
+                self['no_executable']
             )
 
     def should_be_tested(self, env):
@@ -91,6 +98,7 @@ class PathProperties:
             self.should_be_built(env) and \
             not self['interactive'] and \
             not self['more_than_1s'] and \
+            not self['no_executable'] and \
             not self['receives_signal'] and \
             not self['requires_argument'] and \
             not self['requires_kernel_modules'] and \
@@ -256,9 +264,12 @@ path_properties_tuples = (
                                 'freestanding': freestanding_properties,
                             }
                         ),
-                        'empty.S': {'no_executable': True},
-                        'fail.S': {'no_executable': True},
-                        'main.c': {'no_executable': True},
+                        'empty.S': {'no_build': True},
+                        'fail.S': {'no_build': True},
+                        'main.c': {
+                            'extra_objs_userland_asm': False,
+                            'no_executable': True
+                        },
                         'x86_64': (
                             {'allowed_archs': {'x86_64'}},
                             {
