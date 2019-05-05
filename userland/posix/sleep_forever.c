@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 int main(void) {
-	puts(__FILE__);
-	while (1)
-		sleep(0xFFFFFFFF);
+    puts(__FILE__);
+    while (1)
+        sleep(0xFFFFFFFF);
 }

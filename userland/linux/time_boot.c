@@ -7,8 +7,8 @@
 int main(void) {
     FILE *fp;
     fp = fopen("/dev/kmsg", "w");
-	fputs(__FILE__ "\n", fp);
-	fclose(fp);
-	while (1)
-		sleep(0xFFFFFFFF);
+    fputs(__FILE__ "\n", fp);
+    fclose(fp);
+    while (1)
+        sleep(0xFFFFFFFF);
 }

@@ -3,27 +3,26 @@
 #ifdef THIS_MODULE
 #include <linux/kernel.h>
 #if defined(__x86_64__)
-typedef u64 T;
+typedef u64 LkmcRing0RegsType;
 #elif defined(__i386__)
-typedef u32 T;
+typedef u32 LkmcRing0RegsType;
 #endif
 #else
 #include <stdint.h>
 #if defined(__x86_64__)
-typedef uint64_t T;
+typedef uint64_t LkmcRing0RegsType;
 #elif defined(__i386__)
-typedef uint32_t T;
+typedef uint32_t LkmcRing0RegsType;
 #endif
 #endif
 
 typedef struct {
-    T cr0;
-    T cr2;
-    T cr3;
-} Ring0Regs;
+    LkmcRing0RegsType cr0;
+    LkmcRing0RegsType cr2;
+    LkmcRing0RegsType cr3;
+} LkmcRing0Regs;
 
-void ring0_get_control_regs(Ring0Regs *ring0_regs)
-{
+void lkmc_ring0_get_control_regs(LkmcRing0Regs *ring0_regs) {
 #if defined(__x86_64__)
     __asm__ __volatile__ (
         "mov %%cr0, %%rax;"

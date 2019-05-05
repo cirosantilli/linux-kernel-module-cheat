@@ -705,9 +705,9 @@ Valid emulators: {}
             env['linux_image'] = env['lkmc_linux_image']
         env['linux_config'] = join(env['linux_build_dir'], '.config')
         if env['emulator']== 'gem5':
-            env['userland_quit_cmd'] = '/gem5_exit.sh'
+            env['userland_quit_cmd'] = './gem5_exit.sh'
         else:
-            env['userland_quit_cmd'] = '/poweroff.out'
+            env['userland_quit_cmd'] = './poweroff.out'
         env['ramfs'] = env['initrd'] or env['initramfs']
         if env['ramfs']:
             env['initarg'] = 'rdinit'

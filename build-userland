@@ -228,6 +228,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                                     do_build_dir = False
                             else:
                                 do_build_dir = False
+                        in_libs = dirpath_relative_root_components[0] == 'libs'
                     if do_build_dir:
                         out_dir = os.path.join(
                             build_dir,
@@ -235,7 +236,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                         )
                         common_objs_dir = [common_obj]
                         ccflags_dir = ccflags.copy()
-                        if dirpath_relative_root_components == ['gcc']:
+                        if dirpath_relative_root_components in ('gcc', 'kernel_modules', 'linux'):
                             cstd = 'gnu11'
                             cxxstd = 'gnu++17'
                         else:
@@ -290,31 +291,32 @@ Default: build all examples that have their package dependencies met, e.g.:
                                 out_dir,
                                 in_name + self.env['userland_build_ext']
                             )
-                            pkg_key = in_name.split('_')[0]
                             ccflags_file = ccflags_dir.copy()
                             ccflags_after = []
-                            if pkg_key in pkgs:
-                                if pkg_key not in has_packages:
-                                    continue
-                                pkg = pkgs[pkg_key]
-                                if 'ccflags' in pkg:
-                                    ccflags_file.extend(pkg['ccflags'])
-                                else:
-                                    pkg_config_output = subprocess.check_output([
-                                        self.env['buildroot_pkg_config'],
-                                        '--cflags',
-                                        pkg_key
-                                    ]).decode()
-                                    ccflags_file.extend(self.sh.shlex_split(pkg_config_output))
-                                if 'ccflags_after' in pkg:
-                                    ccflags_file.extend(pkg['ccflags_after'])
-                                else:
-                                    pkg_config_output = subprocess.check_output([
-                                        self.env['buildroot_pkg_config'],
-                                        '--libs',
-                                        pkg_key
-                                    ]).decode()
-                                    ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
+                            if in_libs:
+                                pkg_key = in_name.split('_')[0]
+                                if pkg_key in pkgs:
+                                    if pkg_key not in has_packages:
+                                        continue
+                                    pkg = pkgs[pkg_key]
+                                    if 'ccflags' in pkg:
+                                        ccflags_file.extend(pkg['ccflags'])
+                                    else:
+                                        pkg_config_output = subprocess.check_output([
+                                            self.env['buildroot_pkg_config'],
+                                            '--cflags',
+                                            pkg_key
+                                        ]).decode()
+                                        ccflags_file.extend(self.sh.shlex_split(pkg_config_output))
+                                    if 'ccflags_after' in pkg:
+                                        ccflags_file.extend(pkg['ccflags_after'])
+                                    else:
+                                        pkg_config_output = subprocess.check_output([
+                                            self.env['buildroot_pkg_config'],
+                                            '--libs',
+                                            pkg_key
+                                        ]).decode()
+                                        ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
                             error = thread_pool.submit({
                                     'in_path': in_path,
                                     'out_path': out_path,

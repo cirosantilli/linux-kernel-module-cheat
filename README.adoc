@@ -440,11 +440,11 @@ OK, now time to hack GCC.
 
 For convenience, let's use the <<user-mode-simulation>>.
 
-If we run the program link:userland/gcc_hack.c[]:
+If we run the program link:userland/c/gcc_hack.c[]:
 
 ....
 ./build-userland --static
-./run --static --userland gcc_hack
+./run --static --userland c/gcc_hack
 ....
 
 it produces the normal boring output:
@@ -496,7 +496,7 @@ Now rebuild GCC, the program and re-run it:
 ....
 ./build-buildroot -- host-gcc-final-rebuild
 ./build-userland --static
-./run --static --userland gcc_hack
+./run --static --userland c/gcc_hack
 ....
 
 and the new ouptut is now:
@@ -1001,6 +1001,12 @@ Do a more clean out of tree build and run the program instead:
 ....
 ./build-userland --gcc-which host --userland-build-id host
 "$(./getvar --userland-build-id host userland_build_dir)/hello.out"
+....
+
+If you modify a dependency that is not currently considered such as a header file, force the rebuild with:
+
+....
+./build --force-rebuild
 ....
 
 ===== Userland setup getting started full system
@@ -1551,7 +1557,7 @@ So once we find the address the first time, we can just reuse it afterwards, as 
 Do a fresh boot and get the module:
 
 ....
-./run --eval-after './pr_debug.sh;insmod fops.ko;./poweroff.out'
+./run --eval-after './pr_debug.sh;insmod fops.ko;./linux/poweroff.out'
 ....
 
 The boot must be fresh, because the load address changes every time we insert, even after removing previous modules.
@@ -1585,7 +1591,7 @@ so the offset address is `0x240` and we deduce that the function will be placed 
 Now we can just do a fresh boot on shell 1:
 
 ....
-./run --eval 'insmod fops.ko;./poweroff.out' --wait-gdb
+./run --eval 'insmod fops.ko;./linux/poweroff.out' --wait-gdb
 ....
 
 and on shell 2:
@@ -2653,13 +2659,13 @@ This method is not very flexible however, as it is hard to reliably pass multipl
 For this reason, we have created a more robust helper method with the `--eval` option:
 
 ....
-./run --eval 'echo "asdf qwer";insmod hello.ko;./poweroff.out'
+./run --eval 'echo "asdf qwer";insmod hello.ko;./linux/poweroff.out'
 ....
 
 It is basically a shortcut for:
 
 ....
-./run --kernel-cli 'init=/lkmc/eval_base64.sh - lkmc_eval="insmod hello.ko;./poweroff.out"'
+./run --kernel-cli 'init=/lkmc/eval_base64.sh - lkmc_eval="insmod hello.ko;./linux/poweroff.out"'
 ....
 
 Source: link:rootfs_overlay/lkmc/eval_base64.sh[].
@@ -2689,7 +2695,7 @@ If the script is large, you can add it to a gitignored file and pass that to `--
 echo '
 cd /lkmc
 insmod hello.ko
-./poweroff.out
+./linux/poweroff.out
 ' > data/gitignore.sh
 ./run --eval "$(cat data/gitignore.sh)"
 ....
@@ -2700,7 +2706,7 @@ or add it to a file to the root filesystem guest and rebuild:
 echo '#!/bin/sh
 cd /lkmc
 insmod hello.ko
-./poweroff.out
+./linux/poweroff.out
 ' > rootfs_overlay/lkmc/gitignore.sh
 chmod +x rootfs_overlay/lkmc/gitignore.sh
 ./build-buildroot
@@ -2724,19 +2730,19 @@ because BusyBox' `poweroff` tries to do some fancy stuff like killing init, like
 
 But this fails when we are `init` itself!
 
-`poweroff` works more brutally and effectively if you add `-f`:
+BusyBox' `poweroff` works more brutally and effectively if you add `-f`:
 
 ....
 ./run --eval 'poweroff -f'
 ....
 
-but why not just use our minimal `./poweroff.out` and be done with it?
+but why not just use our minimal `./linux/poweroff.out` and be done with it?
 
 ....
-./run --eval './poweroff.out'
+./run --eval './linux/poweroff.out'
 ....
 
-Source: link:userland/poweroff.c[]
+Source: link:userland/linux/poweroff.c[]
 
 This also illustrates how to shutdown the computer from C: https://stackoverflow.com/questions/28812514/how-to-shutdown-linux-using-c-or-qt-without-call-to-system
 
@@ -2745,28 +2751,30 @@ This also illustrates how to shutdown the computer from C: https://stackoverflow
 I dare you to guess what this does:
 
 ....
-./run --eval './sleep_forever.out'
+./run --eval './posix/sleep_forever.out'
 ....
 
-Source: link:userland/sleep_forever.c[]
+Source: link:userland/posix/sleep_forever.c[]
 
 This executable is a convenient simple init that does not panic and sleeps instead.
 
 ==== time_boot.out
 
-Get a reasonable answer to "how long does boot take?":
+Get a reasonable answer to "how long does boot take in guest time?":
 
 ....
-./run --eval-after './time_boot.out'
+./run --eval-after './linux/time_boot.c'
 ....
 
-Dmesg contains a message of type:
+Source: link:userland/linux/time_boot.out[]
+
+That executable writes to `dmesg` directly through `/dev/kmsg` a message of type:
 
 ....
-[    2.188242] time_boot.c
+[    2.188242] /path/to/linux-kernel-module-cheat/userland/linux/time_boot.c
 ....
 
-which tells us that boot took `2.188242` seconds.
+which tells us that boot took `2.188242` seconds based on the dmesg timestamp.
 
 Bibliography: https://stackoverflow.com/questions/12683169/measure-time-taken-for-linux-kernel-from-bootup-to-userpace/46517014#46517014
 
@@ -2784,7 +2792,7 @@ After the commands run, you are left on an interactive shell.
 The above command is basically equivalent to:
 
 ....
-./run --kernel-cli-after-dash 'lkmc_eval="insmod hello.ko;./poweroff.out;"'
+./run --kernel-cli-after-dash 'lkmc_eval="insmod hello.ko;./linux/poweroff.out;"'
 ....
 
 where the `lkmc_eval` option gets evaled by our default link:rootfs_overlay/etc/init.d/S98[] startup script.
@@ -2850,7 +2858,7 @@ The annoying dash `-` gets passed as a parameter to `init`, which makes it impos
 Arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear, from args, e.g.:
 
 ....
-./run --kernel-cli 'init=/lkmc/init_env_poweroff.out - /lkmc/poweroff.out'
+./run --kernel-cli 'init=/lkmc/init_env_poweroff.out - /lkmc/linux/poweroff.out'
 ....
 
 outputs:
@@ -3399,6 +3407,33 @@ If you modify the userland programs, rebuild simply with:
 ./build-userland
 ....
 
+==== User mode GDB step debug
+
+The commands are analogous to full system <<gdb>>, e.g. without tmux:
+
+....
+./run \
+  --userland print_argv \
+  --userland-args 'asdf "qw er"' \
+  --wait-gdb \
+;
+./run-gdb \
+  --userland print_argv \
+  main
+;
+....
+
+or with <<tmux>>:
+
+....
+./run \
+  --userland print_argv \
+  --userland-args 'asdf "qw er"' \
+  --tmux-args main \
+  --wait-gdb \
+;
+....
+
 ==== User mode with host toolchain and QEMU
 
 If you are lazy to built the Buildroot toolchain and QEMU, you can get away on Ubuntu 18.04 with just:
@@ -3532,7 +3567,7 @@ So programs that rely on those libraries might not compile as GCC can't find the
 For example, if we try to build <<blas>> statically:
 
 ....
-./build-userland --has-package openblas --static -- openblas_hello
+./build-userland --has-package openblas --static -- libs/openblas_hello
 ....
 
 it fails with:
@@ -3615,7 +3650,7 @@ So let's just play with some static ones:
 
 TODO: how to escape spaces on the command line arguments?
 
-Step debug also works:
+<<user-mode-gdb-step-debug,GDB step debug>> also works normally on gem5:
 
 ....
 ./run \
@@ -3708,7 +3743,7 @@ QEMU full system:
 time \
   ./run \
   --arch arm \
-  --eval-after 'time dhrystone 100000000;./poweroff.out' \
+  --eval-after 'time dhrystone 100000000;./linux/poweroff.out' \
 ;
 ....
 
@@ -5128,11 +5163,11 @@ and so it is Read Only as shown by `ro`.
 Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
 
 ....
-./run --eval-after './rand_check.out;./poweroff.out'
-./run --eval-after './rand_check.out;./poweroff.out'
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out'
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out'
 ....
 
-If we remove it from our link:run[] script by hacking it up, the addresses shown by `rand_check.out` vary across boots.
+If we remove it from our link:run[] script by hacking it up, the addresses shown by `linux/rand_check.out` vary across boots.
 
 Equivalent to:
 
@@ -7525,7 +7560,7 @@ TODO `--arch arm` and `--arch aarch64` does not count firmware instructions prop
 * We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
 +
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/poweroff.out" main
+./run-gdb-user "$(./getvar userland_build_dir)/linux/poweroff.out" main
 ....
 +
 And get that from the traces, e.g. if the address is `4003a0`, then we search:
@@ -7818,10 +7853,10 @@ echo 0 > /proc/sys/kernel/ctrl-alt-del
 Minimal example:
 
 ....
-./run --kernel-cli 'init=/lkmc/ctrl_alt_del.out' --graphic
+./run --kernel-cli 'init=/lkmc/linux/ctrl_alt_del.out' --graphic
 ....
 
-Source: link:userland/ctrl_alt_del.c[]
+Source: link:userland/linux/ctrl_alt_del.c[]
 
 When you hit `Ctrl-Alt-Del` in the guest, our tiny init handles a `SIGINT` sent by the kernel and outputs to stdout:
 
@@ -8134,11 +8169,11 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
-./build-userland --has-package libdrm -- libdrm_modeset
-./run --eval-after './libdrm_modeset.out' --graphic
+./build-userland --has-package libdrm -- libs/libdrm_modeset
+./run --eval-after './libs/libdrm_modeset.out' --graphic
 ....
 
-Source: link:userland/libdrm_modeset.c[]
+Source: link:userland/libs/libdrm_modeset.c[]
 
 Outcome: for a few seconds, the screen that contains the terminal gets taken over by changing colors of the rainbow.
 
@@ -8148,7 +8183,7 @@ TODO not working for `aarch64`, it takes over the screen for a few seconds and t
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
 ./build-userland --has-package libdrm
 ./build-buildroot
-./run --eval-after './libdrm_modeset.out' --graphic
+./run --eval-after './libs/libdrm_modeset.out' --graphic
 ....
 
 <<kmscube>> however worked, which means that it must be a bug with this demo?
@@ -8173,7 +8208,7 @@ Try creating new displays:
 to see multiple `/dev/dri/cardN`, and then use a different display with:
 
 ....
-./run --eval-after './libdrm_modeset.out' --graphic
+./run --eval-after './libs/libdrm_modeset.out' --graphic
 ....
 
 Bibliography:
@@ -9204,7 +9239,7 @@ QEMU also has a second trace mechanism in addition to `-trace`, find out the eve
 Let's pick the one that dumps executed instructions, `in_asm`:
 
 ....
-./run --eval './poweroff.out' -- -D out/trace.txt -d in_asm
+./run --eval './linux/poweroff.out' -- -D out/trace.txt -d in_asm
 less out/trace.txt
 ....
 
@@ -9280,15 +9315,15 @@ This awesome feature allows you to examine a single run as many times as you wou
 
 ....
 # Record a run.
-./run --eval-after './rand_check.out;./poweroff.out;' --record
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --record
 # Replay the run.
-./run --eval-after './rand_check.out;./poweroff.out;' --replay
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --replay
 ....
 
 A convenient shortcut to do both at once to test the feature is:
 
 ....
-./qemu-rr --eval-after './rand_check.out;./poweroff.out;'
+./qemu-rr --eval-after './linux/rand_check.out;./linux/poweroff.out;'
 ....
 
 By comparing the terminal output of both runs, we can see that they are the exact same, including things which normally differ across runs:
@@ -9315,7 +9350,7 @@ EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
 TODO replay with network gets stuck:
 
 ....
-./qemu-rr --eval-after 'ifup -a;wget -S google.com;./poweroff.out;'
+./qemu-rr --eval-after 'ifup -a;wget -S google.com;./linux/poweroff.out;'
 ....
 
 after the message:
@@ -9334,7 +9369,7 @@ Then, when I tried with <<initrd>> and no disk:
 
 ....
 ./build-buildroot --arch aarch64 --initrd
-./qemu-rr --arch aarch64 --eval-after './rand_check.out;./poweroff.out;' --initrd
+./qemu-rr --arch aarch64 --eval-after './linux/rand_check.out;./linux/poweroff.out;' --initrd
 ....
 
 QEMU crashes with:
@@ -9354,8 +9389,8 @@ TODO get working.
 QEMU replays support checkpointing, and this allows for a simplistic "reverse debugging" implementation proposed at https://lists.gnu.org/archive/html/qemu-devel/2018-06/msg00478.html on the unmerged link:https://github.com/ispras/qemu/tree/rr-180725[]:
 
 ....
-./run --eval-after './rand_check.out;./poweroff.out;' --record
-./run --eval-after './rand_check.out;./poweroff.out;' --replay --wait-gdb
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --record
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --replay --wait-gdb
 ....
 
 On another shell:
@@ -9381,7 +9416,7 @@ and we are back at `start_kernel`
 TODO: is there any way to distinguish which instruction runs on each core? Doing:
 
 ....
-./run --arch x86_64 --cpus 2 --eval './poweroff.out' --trace exec_tb
+./run --arch x86_64 --cpus 2 --eval './linux/poweroff.out' --trace exec_tb
 ./qemu-trace2txt
 ....
 
@@ -9874,8 +9909,8 @@ Buildroot supports it, which makes everything just trivial:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_OPENBLAS=y'
-./build-userland --has-package openblas -- openblas_hello
-./run --eval-after './openblas_hello.out; echo $?'
+./build-userland --has-package openblas -- libs/openblas_hello
+./run --eval-after './libs/openblas_hello.out; echo $?'
 ....
 
 Outcome: the test passes:
@@ -9884,7 +9919,7 @@ Outcome: the test passes:
 0
 ....
 
-Source: link:userland/openblas.c[]
+Source: link:userland/libs/openblas.c[]
 
 The test performs a general matrix multiplication:
 
@@ -9914,13 +9949,13 @@ Header only linear algebra library with a mainline Buildroot package:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_EIGEN=y'
-./build-userland --has-package eigen -- eigen_hello
+./build-userland --has-package eigen -- libs/eigen_hello
 ....
 
 Just create an array and print it:
 
 ....
-./run --eval-after './eigen_hello.out'
+./run --eval-after './libs/eigen_hello.out'
 ....
 
 Output:
@@ -9930,7 +9965,7 @@ Output:
 2.5 1.5
 ....
 
-Source: link:userland/eigen_hello.cpp[]
+Source: link:userland/libs/eigen_hello.cpp[]
 
 This example just creates a matrix and prints it out.
 
@@ -10104,7 +10139,7 @@ You may also want to test if your patches are still functionally correct inside 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
 ....
-./run --arch arm --kernel-cli 'init=/lkmc/poweroff.out' --emulator gem5
+./run --arch arm --kernel-cli 'init=/lkmc/linux/poweroff.out' --emulator gem5
 ....
 
 Internals: when we give `--command-line=` to gem5, it overrides default command lines, including some mandatory ones which are required to boot properly.
@@ -10738,39 +10773,7 @@ system.cpu.dtb.inst_misses
 system.cpu.dtb.inst_hits
 ....
 
-==== rdtsc
-
-Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCycles` with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
-
-....
-./build-userland -- rdtsc
-./run --eval './rdtsc.out;m5 exit;' --emulator gem5
-./gem5-stat
-....
-
-Source: link:userland/rdtsc.c[]
-
-`rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
-
-* `3828578153`: `rdtsc`
-* `3830832635`: `gem5-stat`
-
-which gives pretty close results, and serve as a nice sanity check that the cycle counter is coherent.
-
-It is also nice to see that `rdtsc` is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
-
-Bibliography:
-
-* https://en.wikipedia.org/wiki/Time_Stamp_Counter
-* https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
-
-===== pmccntr
-
-TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
-
-* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
-* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
-* https://blog.regehr.org/archives/794
+For x86, it is interesting to try and correlate `numCycles` with:
 
 ==== config.ini
 
@@ -11574,6 +11577,42 @@ Bibliography:
 Getting started at: <<userland-assembly>>.
 
 TODO
+
+=== rdtsc
+
+TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
+
+Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
+
+....
+./build-userland --static arch/x86_64/c/rdtsc
+./run --eval './arch/x86_64/c/rdtsc.out;m5 exit;' --emulator gem5
+./gem5-stat
+....
+
+Source: link:userland/rdtsc.c[]
+
+`rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
+
+* `3828578153`: `rdtsc`
+* `3830832635`: `gem5-stat`
+
+which gives pretty close results, and serve as a nice sanity check that the cycle counter is coherent.
+
+It is also nice to see that `rdtsc` is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
+
+Bibliography:
+
+* https://en.wikipedia.org/wiki/Time_Stamp_Counter
+* https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
+
+==== ARM pmccntr
+
+TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+
+* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
+* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
+* https://blog.regehr.org/archives/794
 
 == arm userland assembly
 
@@ -12700,15 +12739,15 @@ cat "$(./getvar test_boot_benchmark_file)"
 Sample results at 8fb9db39316d43a6dbd571e04dd46ae73915027f:
 
 ....
-cmd ./run --arch x86_64 --eval './poweroff.out'
+cmd ./run --arch x86_64 --eval './linux/poweroff.out'
 time 8.25
 exit_status 0
 
-cmd ./run --arch x86_64 --eval './poweroff.out' --kvm
+cmd ./run --arch x86_64 --eval './linux/poweroff.out' --kvm
 time 1.22
 exit_status 0
 
-cmd ./run --arch x86_64 --eval './poweroff.out' --trace exec_tb
+cmd ./run --arch x86_64 --eval './linux/poweroff.out' --trace exec_tb
 time 8.83
 exit_status 0
 instructions 2244297
@@ -12718,10 +12757,10 @@ time 213.39
 exit_status 0
 instructions 318486337
 
-cmd ./run --arch arm --eval './poweroff.out'
+cmd ./run --arch arm --eval './linux/poweroff.out'
 time 6.62
 exit_status 0
-cmd ./run --arch arm --eval './poweroff.out' --trace exec_tb
+cmd ./run --arch arm --eval './linux/poweroff.out' --trace exec_tb
 time 6.90
 exit_status 0
 instructions 776374
@@ -12736,11 +12775,11 @@ time 2250.40
 exit_status 0
 instructions 151981914
 
-cmd ./run --arch aarch64 --eval './poweroff.out'
+cmd ./run --arch aarch64 --eval './linux/poweroff.out'
 time 4.94
 exit_status 0
 
-cmd ./run --arch aarch64 --eval './poweroff.out' --trace exec_tb
+cmd ./run --arch aarch64 --eval './linux/poweroff.out' --trace exec_tb
 time 5.04
 exit_status 0
 instructions 233162
@@ -13567,10 +13606,10 @@ We try to keep as much as possible in those files. It bloats builds a little, bu
 Print out several parameters that normally change randomly from boot to boot:
 
 ....
-./run --eval-after './rand_check.out;./poweroff.out'
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out'
 ....
 
-Source: link:userland/rand_check.c[]
+Source: link:userland/linux/rand_check.c[]
 
 This can be used to check the determinism of:
 
