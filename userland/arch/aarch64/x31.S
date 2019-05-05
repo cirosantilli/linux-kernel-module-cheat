@@ -9,14 +9,14 @@ ENTRY
 #endif
 
     /* mov (register) is an alias for ORR, which accepts xzr. */
-    mov x0, 1
-    mov x0, xzr
-    ASSERT_EQ(x0, 0)
+    mov x19, 1
+    mov x19, xzr
+    ASSERT_EQ(x19, 0)
 
     /* Same encoding as the mov version. */
-    mov x0, 1
-    orr x0, xzr, xzr
-    ASSERT_EQ(x0, 0)
+    mov x19, 1
+    orr x19, xzr, xzr
+    ASSERT_EQ(x19, 0)
 
     /* So, orr, which is not an alias, can only take xzr, not sp. */
 #if 0
@@ -24,19 +24,19 @@ ENTRY
 #endif
 
     /* Zero register discards result if written to. */
-    mov x0, 1
-    orr xzr, x0, x0
+    mov x19, 1
+    orr xzr, x19, x19
     ASSERT_EQ(xzr, 0)
 
     /* MOV (to/from SP) is an alias for ADD (immediate). */
-    mov x0, sp
+    mov x19, sp
     mov sp, 1
     /* Alias to add. */
-    mov x1, sp
+    mov x20, sp
     /* Exact same encoding as above. */
-    add x1, sp, 0
-    ASSERT_EQ(x1, 1)
-    mov sp, x0
+    add x20, sp, 0
+    mov sp, x19
+    ASSERT_EQ(x20, 1)
 
     /* So, ADD (immediate), which is not an alias, can only take sp, not xzr. */
 #if 0

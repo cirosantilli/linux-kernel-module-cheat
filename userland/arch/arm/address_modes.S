@@ -4,48 +4,48 @@
 
 ENTRY
 
-    /* Offset mode with immediate. Add 4 to the address register, which ends up
-     * reading myvar2 instead of myvar.
+    /* Offset mode with immediate. Add 4 to the address register,
+     * which ends up * reading myvar6 instead of myvar.
      */
-    adr r0, myvar
-    ldr r1, [r0, 4]
-    ASSERT_EQ(r1, 0x9ABCDEF0)
-    /* r0 was not modified. */
-    ASSERT_EQ(r0, myvar)
+    adr r4, myvar
+    ldr r5, [r4, 4]
+    ASSERT_EQ(r5, 0x9ABCDEF0)
+    /* r4 was not modified. */
+    ASSERT_EQ(r4, myvar)
 
-    /* Pre-indexed mode */
-    adr r0, myvar
-    ldr r1, [r0, 4]!
-    ASSERT_EQ(r1, 0x9ABCDEF0)
-    /* r0 was modified. */
-    ASSERT_EQ(r0, myvar2)
+    /* Pre-indexed mode: modify register, then use it. */
+    adr r4, myvar
+    ldr r5, [r4, 4]!
+    ASSERT_EQ(r5, 0x9ABCDEF0)
+    /* r4 was modified. */
+    ASSERT_EQ(r4, myvar6)
 
-    /* Post-indexed mode */
-    adr r0, myvar
-    ldr r1, [r0], 4
-    ASSERT_EQ(r1, 0x12345678)
-    /* r0 was modified. */
-    ASSERT_EQ(r0, myvar2)
+    /* Post-indexed mode: use register, then modify it. */
+    adr r4, myvar
+    ldr r5, [r4], 4
+    ASSERT_EQ(r5, 0x12345678)
+    /* r4 was modified. */
+    ASSERT_EQ(r4, myvar6)
 
     /* Offset in register. */
-    adr r0, myvar
-    mov r1, 4
-    ldr r2, [r0, r1]
-    ASSERT_EQ(r2, 0x9ABCDEF0)
+    adr r4, myvar
+    mov r5, 4
+    ldr r6, [r4, r5]
+    ASSERT_EQ(r6, 0x9ABCDEF0)
 
     /* Offset in shifted register:
-     * r2 =
-     * (r0 + (r1 << 1))
+     * r6 =
+     * (r4 + (r5 << 1))
      * == *(myvar + (2 << 1))
      * == *(myvar + 4)
      */
-    adr r0, myvar
-    mov r1, 2
-    ldr r2, [r0, r1, lsl 1]
-    ASSERT_EQ(r2, 0x9ABCDEF0)
+    adr r4, myvar
+    mov r5, 2
+    ldr r6, [r4, r5, lsl 1]
+    ASSERT_EQ(r6, 0x9ABCDEF0)
 
 EXIT
 myvar:
     .word 0x12345678
-myvar2:
+myvar6:
     .word 0x9ABCDEF0

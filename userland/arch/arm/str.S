@@ -8,21 +8,21 @@ myvar:
     .word 0x12345678
 
 ENTRY
-    /* r0 will contain the address. */
-    ldr r0, =myvar
-
     /* Sanity check. */
+    ldr r0, =myvar
     ldr r1, [r0]
     movw r2, 0x5678
     movt r2, 0x1234
     ASSERT_EQ_REG(r1, r2)
 
     /* Modify the value. */
+    ldr r0, =myvar
     movw r1, 0xDEF0
     movt r1, 0x9ABC
     str r1, [r0]
 
     /* Check that it changed. */
+    ldr r0, =myvar
     ldr r1, [r0]
     movw r2, 0xDEF0
     movt r2, 0x9ABC

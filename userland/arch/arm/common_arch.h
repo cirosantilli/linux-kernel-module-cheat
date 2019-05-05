@@ -6,20 +6,37 @@
 .syntax unified
 
 /* Assert that a register equals a constant.
- * * reg: the register to check. Can be r0-r10, but not r11. r11 is overwritten.
+ * * reg: the register to check
  * * const: the constant to compare to. Only works for literals or labels, not for registers.
- *          For register / register comparision, use ASSERT_EQ_REG.
+ *          For register / register comparison, use ASSERT_EQ_REG.
  */
 #define ASSERT_EQ(reg, const) \
-    ldr r11, =const; \
-    cmp reg, r11; \
+    mov r0, reg; \
+    ldr r1, =const; \
+    ASSERT_EQ_DO; \
+;
+
+#define ASSERT_EQ_DO \
+    bl assert_eq_32; \
+    cmp r0, 0; \
     ASSERT(beq); \
 ;
 
+#define ASSERT_EQ_REG(reg1, reg2) \
+    str reg2, [sp, -4]!; \
+    mov r0, reg1; \
+    ldr r1, [sp], 4; \
+    ASSERT_EQ_DO; \
+;
+
 /* Assert that two arrays are the same. */
-#define ASSERT_MEMCMP(s1, s2, n) \
-    MEMCMP(s1, s2, n); \
-    ASSERT_EQ(r0, 0); \
+#define ASSERT_MEMCMP(label1, label2, const_size) \
+    ldr r0, =label1; \
+    ldr r1, =label2; \
+    ldr r2, =const_size; \
+    bl assert_memcmp; \
+    cmp r0, 0; \
+    ASSERT(beq); \
 ;
 
 /* Store all callee saved registers, and LR in case we make further BL calls.
