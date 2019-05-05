@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <userland/common.h> /* virt_to_phys_user */
+#include <lkmc/pagemap.h> /* lkmc_pagemap_virt_to_phys_user */
 
 int main(int argc, char **argv) {
     char buffer[BUFSIZ];
@@ -89,10 +89,10 @@ int main(int argc, char **argv) {
                 }
                 /* Get info about all pages in this page range with pagemap. */
                 {
-                    PagemapEntry entry;
+                    LkmcPagemapEntry entry;
                     for (uintptr_t vaddr = low; vaddr < high; vaddr += sysconf(_SC_PAGE_SIZE)) {
                         /* TODO always fails for the last page (vsyscall), why? pread returns 0. */
-                        if (!pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
+                        if (!lkmc_pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
                             printf(
                                 "%jx %jx %u %u %u %u %s\n",
                                 (uintmax_t)vaddr,

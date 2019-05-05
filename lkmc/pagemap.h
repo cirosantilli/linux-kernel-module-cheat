@@ -1,5 +1,5 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef LKMC_PAGEMAP_H
+#define LKMC_PAGEMAP_H
 
 #define _XOPEN_SOURCE 700
 #include <fcntl.h> /* open */
@@ -17,7 +17,7 @@ typedef struct {
     unsigned int file_page : 1;
     unsigned int swapped : 1;
     unsigned int present : 1;
-} PagemapEntry;
+} LkmcPagemapEntry;
 
 /* Parse the pagemap entry for the given virtual address.
  *
@@ -26,7 +26,7 @@ typedef struct {
  * @param[in]  vaddr      virtual address to get entry for
  * @return                0 for success, 1 for failure
  */
-int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr) {
+int lkmc_pagemap_get_entry(LkmcPagemapEntry *entry, int pagemap_fd, uintptr_t vaddr) {
     size_t nread;
     ssize_t ret;
     uint64_t data;
@@ -61,7 +61,7 @@ int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr) {
  * @param[in]  vaddr virtual address to get entry for
  * @return           0 for success, 1 for failure
  */
-int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr) {
+int lkmc_pagemap_virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr) {
     char pagemap_file[BUFSIZ];
     int pagemap_fd;
 
@@ -70,8 +70,8 @@ int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr) {
     if (pagemap_fd < 0) {
         return 1;
     }
-    PagemapEntry entry;
-    if (pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
+    LkmcPagemapEntry entry;
+    if (lkmc_pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
         return 1;
     }
     close(pagemap_fd);

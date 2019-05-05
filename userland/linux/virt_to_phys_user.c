@@ -4,7 +4,7 @@
 #include <stdio.h> /* printf */
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE, strtoull */
 
-#include <userland/common.h> /* virt_to_phys_user */
+#include <lkmc/pagemap.h> /* lkmc_pagemap_virt_to_phys_user */
 
 int main(int argc, char **argv) {
     pid_t pid;
@@ -16,8 +16,8 @@ int main(int argc, char **argv) {
     }
     pid = strtoull(argv[1], NULL, 0);
     vaddr = strtoull(argv[2], NULL, 0);
-    if (virt_to_phys_user(&paddr, pid, vaddr)) {
-        fprintf(stderr, "error: virt_to_phys_user\n");
+    if (lkmc_pagemap_virt_to_phys_user(&paddr, pid, vaddr)) {
+        fprintf(stderr, "error: lkmc_pagemap_virt_to_phys_user\n");
         return EXIT_FAILURE;
     };
     printf("0x%jx\n", (uintmax_t)paddr);

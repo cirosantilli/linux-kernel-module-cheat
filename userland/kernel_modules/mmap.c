@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 #include <unistd.h> /* sysconf */
 
-#include <userland/common.h> /* virt_to_phys_user */
+#include <lkmc/pagemap.h> /* lkmc_pagemap_virt_to_phys_user */
 
 enum { BUFFER_SIZE = 4 };
 
@@ -62,9 +62,9 @@ int main(int argc, char **argv) {
 
     /* Check that the physical addresses are the same.
      * They are, but TODO why virt_to_phys on kernel gives a different value? */
-    assert(!virt_to_phys_user(&paddr, getpid(), (uintptr_t)address1));
+    assert(!lkmc_pagemap_virt_to_phys_user(&paddr, getpid(), (uintptr_t)address1));
     printf("paddr1 = 0x%jx\n", (uintmax_t)paddr);
-    assert(!virt_to_phys_user(&paddr, getpid(), (uintptr_t)address2));
+    assert(!lkmc_pagemap_virt_to_phys_user(&paddr, getpid(), (uintptr_t)address2));
     printf("paddr2 = 0x%jx\n", (uintmax_t)paddr);
 
     /* Check that modifications made from userland are also visible from the kernel. */
