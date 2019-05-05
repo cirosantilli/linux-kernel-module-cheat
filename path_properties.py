@@ -70,12 +70,41 @@ class PathProperties:
 
 class PrefixTree:
     def __init__(self, path_properties_dict=None, children=None):
-        if children is None:
-            children = {}
         if path_properties_dict is None:
             path_properties_dict = {}
+        if children is None:
+            children = {}
         self.children = children
         self.path_properties = PathProperties(**path_properties_dict)
+
+    @staticmethod
+    def make_from_tuples(tuples):
+        def tree_from_tuples(tuple_):
+            if not type(tuple_) is tuple:
+                tuple_ = (tuple_, {})
+            cur_properties, cur_children = tuple_
+            return PrefixTree(cur_properties, cur_children)
+        top_tree = tree_from_tuples(tuples)
+        todo_trees = [top_tree]
+        while todo_trees:
+            cur_tree = todo_trees.pop()
+            cur_children = cur_tree.children
+            for child_key in cur_children:
+                new_tree = tree_from_tuples(cur_children[child_key])
+                cur_children[child_key] = new_tree
+                todo_trees.append(new_tree)
+        return top_tree
+
+def get(test_path):
+    cur_node = path_properties_tree
+    path_properties = PathProperties(**cur_node.path_properties.properties)
+    for path_component in test_path.split(os.sep):
+        if path_component in cur_node.children:
+            cur_node = cur_node.children[path_component]
+            path_properties.update(cur_node.path_properties)
+        else:
+            break
+    return path_properties
 
 default_c_std = 'c11'
 default_cxx_std = 'c++17'
@@ -84,7 +113,7 @@ gnu_extensions = {
     'cc_pedantic': False,
     'cxx_std': 'gnu++17'
 }
-path_properties_tree = PrefixTree(
+path_properties_tuples = (
     {
         'c_std': default_c_std,
         'cxx_std': default_cxx_std,
@@ -99,21 +128,16 @@ path_properties_tree = PrefixTree(
         'lkmc_common_obj': False,
         'skip_run_unclassified': False,
         'more_than_1s': False,
-        # The path does not generate an executable in itself, e.g.
-        # it only generates intermediate object files.
         'no_executable': False,
         'pedantic': False,
-        # the test receives a signal. We skip those tests for now,
-        # on userland because we are lazy to figure out the exact semantics
-        # of how Python + QEMU + gem5 determine the exit status of signals.
         'receives_signal': False,
         'requires_kernel_modules': False,
     },
     {
-        'userland': PrefixTree(
+        'userland': (
             {},
             {
-                'arch': PrefixTree(
+                'arch': (
                     {
                         'cc_flags': [
                             '-fno-pie', LF,
@@ -121,7 +145,7 @@ path_properties_tree = PrefixTree(
                         ]
                     },
                     {
-                        'arm': PrefixTree(
+                        'arm': (
                             {
                                 'allowed_archs': {'arm'},
                                 'cc_flags': [
@@ -143,64 +167,51 @@ path_properties_tree = PrefixTree(
                                 ]
                             }
                         ),
-                        'aarch64': PrefixTree({'allowed_archs': {'aarch64'}}),
-                        'empty.S': PrefixTree({'no_executable': True}),
-                        'fail.S': PrefixTree({'no_executable': True}),
-                        'main.c': PrefixTree({'no_executable': True}),
-                        'x86_64': PrefixTree(
+                        'aarch64': {'allowed_archs': {'aarch64'}},
+                        'empty.S': {'no_executable': True},
+                        'fail.S': {'no_executable': True},
+                        'main.c': {'no_executable': True},
+                        'x86_64': (
                             {'allowed_archs': {'x86_64'}},
                             {
-                                'c': PrefixTree(
+                                'c': (
                                     {},
                                     {
-                                        'ring0.c': PrefixTree({'receives_signal': True})
+                                        'ring0.c': {'receives_signal': True}
                                     }
                                 ),
                             }
                         ),
                     }
                 ),
-                'c': PrefixTree(
+                'c': (
                     {},
                     {
-                        'false.c': PrefixTree({'exit_status': 1}),
-                        'getchar.c': PrefixTree({'interactive': True}),
-                        'infinite_loop.c': PrefixTree({'more_than_1s': True}),
+                        'false.c': {'exit_status': 1},
+                        'getchar.c': {'interactive': True},
+                        'infinite_loop.c': {'more_than_1s': True},
                     }
                 ),
-                'gcc': PrefixTree(gnu_extensions),
-                'kernel_modules': PrefixTree({**gnu_extensions, **{'requires_kernel_modules': True}}),
-                'lkmc': PrefixTree(
+                'gcc': gnu_extensions,
+                'kernel_modules': {**gnu_extensions, **{'requires_kernel_modules': True}},
+                'lkmc': (
                     {'lkmc_common_obj': True},
                     {
-
-                        'assert_fail.c': PrefixTree({'exit_status': 1})
+                        'assert_fail.c': {'exit_status': 1}
                     }
                 ),
-                'libs': PrefixTree({'skip_run_unclassified': True}),
-                'linux': PrefixTree(
-                    {**gnu_extensions, **{'skip_run_unclassified': True}},
-                ),
-                'posix': PrefixTree(
+                'libs': {'skip_run_unclassified': True},
+                'linux': {**gnu_extensions, **{'skip_run_unclassified': True}},
+                'posix': (
                     {},
                     {
-                        'count.c': PrefixTree({'more_than_1s': True}),
-                        'sleep_forever.c': PrefixTree({'more_than_1s': True}),
-                        'virt_to_phys_test.c': PrefixTree({'more_than_1s': True}),
+                        'count.c': {'more_than_1s': True},
+                        'sleep_forever.c': {'more_than_1s': True},
+                        'virt_to_phys_test.c': {'more_than_1s': True},
                     }
                 )
             }
         )
     }
 )
-
-def get(test_path):
-    cur_node = path_properties_tree
-    path_properties = PathProperties(**cur_node.path_properties.properties)
-    for path_component in test_path.split(os.sep):
-        if path_component in cur_node.children:
-            cur_node = cur_node.children[path_component]
-            path_properties.update(cur_node.path_properties)
-        else:
-            break
-    return path_properties
+path_properties_tree = PrefixTree.make_from_tuples(path_properties_tuples)
