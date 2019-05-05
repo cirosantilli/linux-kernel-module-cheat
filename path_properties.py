@@ -22,6 +22,10 @@ class PathProperties:
             'cxx_std',
             'exit_status',
             'interactive',
+            # We should get rid of this if we ever properly implement dependency graphs.
+            'lkmc_common_obj',
+            # We were lazy to properly classify why we are skipping these tests.
+            # TODO get it done.
             'skip_run_unclassified',
             'more_than_1s',
             # The path does not generate an executable in itself, e.g.
@@ -92,6 +96,7 @@ path_properties_tree = PrefixTree(
         'cxx_std': None,
         'exit_status': 0,
         'interactive': False,
+        'lkmc_common_obj': False,
         'skip_run_unclassified': False,
         'more_than_1s': False,
         # The path does not generate an executable in itself, e.g.
@@ -106,8 +111,7 @@ path_properties_tree = PrefixTree(
     },
     {
         'userland': PrefixTree(
-            {
-            },
+            {},
             {
                 'arch': PrefixTree(
                     {
@@ -159,7 +163,6 @@ path_properties_tree = PrefixTree(
                 'c': PrefixTree(
                     {},
                     {
-                        'assert_fail.c': PrefixTree({'exit_status': 1}),
                         'false.c': PrefixTree({'exit_status': 1}),
                         'getchar.c': PrefixTree({'interactive': True}),
                         'infinite_loop.c': PrefixTree({'more_than_1s': True}),
@@ -167,6 +170,14 @@ path_properties_tree = PrefixTree(
                 ),
                 'gcc': PrefixTree(gnu_extensions),
                 'kernel_modules': PrefixTree({**gnu_extensions, **{'requires_kernel_modules': True}}),
+                'lkmc': PrefixTree(
+                    {'lkmc_common_obj': True},
+                    {
+
+                        'assert_fail.c': PrefixTree({'exit_status': 1})
+                    }
+                ),
+                'libs': PrefixTree({'skip_run_unclassified': True}),
                 'linux': PrefixTree(
                     {**gnu_extensions, **{'skip_run_unclassified': True}},
                 ),
