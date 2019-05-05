@@ -7,10 +7,10 @@
 _start:
 asm_main_after_prologue:
     /* write */
-    mov $1, %rax    /* syscall number */
-    mov $1, %rdi    /* stdout */
-    mov $msg, %rsi  /* buffer */
-    mov $len, %rdx  /* len */
+    mov $1, %rax   /* syscall number */
+    mov $1, %rdi   /* stdout */
+    lea msg(%rip), %rsi  /* buffer */
+    mov $len, %rdx /* len */
     syscall
 
     /* exit */
