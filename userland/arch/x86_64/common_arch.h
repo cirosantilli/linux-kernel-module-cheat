@@ -9,9 +9,9 @@
     mov reg, %rax; \
     mov const, %rbx; \
     cmp %rax, %rbx; \
-    ASSERT(je); \
     pop %rbx; \
     pop %rax; \
+    ASSERT(je); \
 ;
 
 # TODO
