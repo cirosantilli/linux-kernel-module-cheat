@@ -125,36 +125,6 @@ Default: build all examples that have their package dependencies met, e.g.:
                 )
         return ret
 
-    def _walk_targets(self, exts):
-        '''
-        Resolve userland input targets, and walk them if directories.
-
-        Ignore the input extension of targets, and select only files
-        with the given extensions exts.
-
-        An empty extension indicates that directories will also be chosen.
-        '''
-        if self.env['targets']:
-            targets = self.env['targets']
-        else:
-            targets = [self.env['userland_source_dir']]
-        for target in targets:
-            resolved_targets = self.resolve_source_tree(
-                target,
-                exts + [''],
-                self.env['userland_source_dir']
-            )
-            for resolved_target in resolved_targets:
-                for path, dirnames, filenames in self.sh.walk(resolved_target):
-                    dirnames.sort()
-                    filenames = [
-                        filename for filename in filenames
-                        if os.path.splitext(filename)[1] in exts
-                    ]
-                    filenames.sort()
-                    for filename in filenames:
-                        yield path, dirnames, filenames
-
     def build(self):
         build_dir = self.get_build_dir()
         has_packages = set(self.env['has_package'])
@@ -231,9 +201,9 @@ Default: build all examples that have their package dependencies met, e.g.:
             self._build_one,
             nthreads=self.env['nproc'],
         ) as thread_pool:
-            class ExitLoop(Exception): pass
             try:
-                for path, in_dirnames, in_filenames in self._walk_targets(
+                for path, in_dirnames, in_filenames in self.walk_source_targets(
+                    self.env['targets'],
                     self.env['userland_in_exts']
                 ):
                     path_abs = os.path.abspath(path)
@@ -347,8 +317,8 @@ Default: build all examples that have their package dependencies met, e.g.:
                             'ccflags_after': ccflags_after,
                         })
                         if error is not None:
-                            raise ExitLoop()
-            except ExitLoop:
+                            raise common.ExitLoop()
+            except common.ExitLoop:
                 pass
         error = thread_pool.get_error()
         if error is not None:
@@ -364,8 +334,10 @@ Default: build all examples that have their package dependencies met, e.g.:
 
     def clean(self):
         if self.env['in_tree']:
-            for path, dirnames, filenames in self._walk_targets(
-                self.env['userland_out_exts']
+            for path, dirnames, filenames in self.walk_source_targets(
+                self.env['targets'],
+                self.env['userland_out_exts'],
+                empty_ok=True
             ):
                 for filename in filenames:
                     self.sh.rmrf(os.path.join(path, filename))

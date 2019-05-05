@@ -122,6 +122,9 @@ for key in consts['emulator_short_to_long_dict']:
     consts['emulator_choices'].add(consts['emulator_short_to_long_dict'][key])
 consts['host_arch'] = platform.processor()
 
+class ExitLoop(Exception):
+    pass
+
 class LkmcCliFunction(cli_function.CliFunction):
     '''
     Common functionality shared across our CLI functions:
@@ -1010,12 +1013,11 @@ lunch aosp_{}-eng
         else:
             real_emulators = env['emulators']
         return_value = 0
-        class GetOutOfLoop(Exception): pass
         try:
             ret = self.setup()
             if ret is not None and ret != 0:
                 return_value = ret
-                raise GetOutOfLoop()
+                raise ExitLoop()
             for emulator in real_emulators:
                 for arch in real_archs:
                     if arch in env['arch_short_to_long_dict']:
@@ -1045,11 +1047,10 @@ lunch aosp_{}-eng
                         if ret is not None and ret != 0:
                             return_value = ret
                             if self.env['quit_on_fail']:
-                                raise GetOutOfLoop()
+                                raise ExitLoop()
                     elif not real_all_archs:
                         raise Exception('Unsupported arch for this action: ' + arch)
-
-        except GetOutOfLoop:
+        except ExitLoop:
             pass
         ret = self.teardown()
         if ret is not None and ret != 0:
@@ -1122,7 +1123,7 @@ lunch aosp_{}-eng
             ]
         )
 
-    def resolve_source_tree(self, in_path, exts, source_tree_root):
+    def resolve_source_tree(self, in_path, exts, source_tree_root, empty_ok=False):
         '''
         Convert a convenient shorthand user input string to paths of existing files
         in the source tree.
@@ -1178,7 +1179,7 @@ lunch aosp_{}-eng
             try_path = name + try_ext
             if os.path.exists(try_path):
                 result.append(try_path)
-        if not result:
+        if not result and not empty_ok:
             raise Exception('No file not found for input: ' + in_path)
         return result
 
@@ -1236,6 +1237,34 @@ lunch aosp_{}-eng
         Similar to setup, but run after timed_main.
         '''
         pass
+
+    def walk_source_targets(self, targets, exts, empty_ok=False):
+        '''
+        Resolve userland or baremetal source tree targets, and walk them.
+
+        Ignore the input extension of targets, and select only files
+        with the given extensions exts.
+        '''
+        if targets:
+            targets = targets
+        else:
+            targets = [self.env['userland_source_dir']]
+        for target in targets:
+            resolved_targets = self.resolve_source_tree(
+                target,
+                exts + [''],
+                self.env['userland_source_dir'],
+                empty_ok=empty_ok,
+            )
+            for resolved_target in resolved_targets:
+                for path, dirnames, filenames in self.sh.walk(resolved_target):
+                    dirnames.sort()
+                    filenames = [
+                        filename for filename in filenames
+                        if os.path.splitext(filename)[1] in exts
+                    ]
+                    filenames.sort()
+                    yield path, dirnames, filenames
 
 class BuildCliFunction(LkmcCliFunction):
     '''
@@ -1364,7 +1393,13 @@ class TestCliFunction(LkmcCliFunction):
         super().__init__(*args, **kwargs)
         self.tests = []
 
-    def run_test(self, run_obj, run_args=None, test_id=None):
+    def run_test(
+        self,
+        run_obj,
+        run_args=None,
+        test_id=None,
+        expected_exit_status=None
+    ):
         '''
         This is a setup / run / teardown setup for simple tests that just do a single run.
 
@@ -1380,7 +1415,12 @@ class TestCliFunction(LkmcCliFunction):
                 run_args = {}
             test_id_string = self.test_setup(test_id)
             exit_status = run_obj(**run_args)
-            self.test_teardown(run_obj, exit_status, test_id_string)
+            return self.test_teardown(
+                run_obj,
+                exit_status,
+                test_id_string,
+                expected_exit_status=expected_exit_status
+            )
 
     def test_setup(self, test_id):
         test_id_string = '{} {}'.format(self.env['emulator'], self.env['arch'])
@@ -1389,15 +1429,20 @@ class TestCliFunction(LkmcCliFunction):
         self.log_info('test_id {}'.format(test_id_string), flush=True)
         return test_id_string
 
-    def test_teardown(self, run_obj, exit_status, test_id_string):
+    def test_teardown(
+        self,
+        run_obj,
+        exit_status,
+        test_id_string,
+        expected_exit_status=None
+    ):
+        if expected_exit_status is None:
+            expected_exit_status = 0
         if not self.env['dry_run']:
-            if exit_status == 0:
+            if exit_status == expected_exit_status:
                 test_result = TestResult.PASS
             else:
                 test_result = TestResult.FAIL
-                if self.env['quit_on_fail']:
-                    self.log_error('Test failed')
-                    sys.exit(1)
             self.log_info('test_result {}'.format(test_result.name))
             ellapsed_seconds = run_obj.ellapsed_seconds
         else:
@@ -1405,6 +1450,7 @@ class TestCliFunction(LkmcCliFunction):
             ellapsed_seconds = None
         self.log_info()
         self.tests.append(Test(test_id_string, test_result, ellapsed_seconds))
+        return test_result
 
     def teardown(self):
         '''

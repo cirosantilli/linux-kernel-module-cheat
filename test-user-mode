@@ -4,6 +4,7 @@ import os
 import sys
 
 import common
+import example_properties
 
 class Main(common.TestCliFunction):
     def __init__(self):
@@ -27,37 +28,36 @@ If given, run only the given tests. Otherwise, run all tests.
         if self.env['emulator'] == 'gem5':
             run_args['userland_build_id'] = 'static'
         if self.env['tests'] == []:
-            tests = [
-                'add.c',
-                'hello.c',
-                'hello_cpp.cpp',
-                'print_argv.c',
+            test_paths = [
+                'c/add.c',
+                'c/false.c',
+                'c/hello.c',
+                'c/print_argv.c',
+                'cpp/hello.cpp',
             ]
-            if self.env['arch'] == 'x86_64':
-                arch_sources = [
-                    'asm_hello'
-                ]
-            elif self.env['arch'] == 'aarch64':
-                arch_sources = [
-                    'asm_hello'
-                ]
-            else:
-                arch_sources = []
-            arch_sources[:] = [
-                os.path.join('arch', self.env['arch'], arch_source)
-                for arch_source
-                in arch_sources
-            ]
-            tests.extend(arch_sources)
         else:
-            tests = self.env['tests']
-        for test_dir_or_file in tests:
-            for test in self.sh.walk(self.resolve_userland_source(test_dir_or_file)):
-
-                consts['userland_in_exts'] = [
-
-                run_args['userland'] = test
-                self.run_test(run, run_args)
+            test_paths = self.env['tests']
+        had_failure = False
+        for test_path in test_paths:
+            test = example_properties.get(test_path)
+            if test.should_be_tested():
+                # for test in self.sh.walk(self.resolve_userland_source(test_dir_or_file)):
+                run_args['userland'] = test_path
+                test_result = self.run_test(
+                    run,
+                    run_args,
+                    test_id=test_path,
+                    expected_exit_status=test.exit_status
+                )
+                if test_result != common.TestResult.PASS:
+                    if self.env['quit_on_fail']:
+                        return 1
+                    else:
+                        had_failure = True
+        if had_failure:
+            return 1
+        else:
+            return 0
 
 if __name__ == '__main__':
     Main().cli()

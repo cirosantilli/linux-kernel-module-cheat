@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-class ExampleProperties:
+class ExecutableProperties:
     '''
     Encodes properties of userland and baremetal examples.
     For directories, it applies to all files under the directory.
     Used to determine how to build and test the examples.
     '''
     def __init__(
+        self,
         exit_status=0,
         interactive=False,
         more_than_1s=False,
@@ -21,5 +22,12 @@ class ExampleProperties:
             not self.more_than_1s
 
 executable_properties = {
-    'userland/arch/x86_64/c/ring0.c': ExecutableProperties(exits_nonzero=True),
+    'c/assert_fail.c': ExecutableProperties(exit_status=0),
+    'c/false.c': ExecutableProperties(exit_status=0),
 }
+
+def get(test_path):
+    if test_path in executable_properties:
+        return executable_properties[test_path]
+    else:
+        return ExecutableProperties()
