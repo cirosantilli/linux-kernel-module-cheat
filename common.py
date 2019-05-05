@@ -116,10 +116,18 @@ consts['userland_out_exts'] = [
 consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
 consts['magic_fail_string'] = b'lkmc_test_fail'
 consts['baremetal_lib_basename'] = 'lib'
+consts['emulator_userland_only_short_to_long_dict'] = collections.OrderedDict([
+    ('n', 'native'),
+])
+consts['all_userland_only_emulators'] = set()
+for key in consts['emulator_userland_only_short_to_long_dict']:
+    consts['all_userland_only_emulators'].add(key)
+    consts['all_userland_only_emulators'].add(consts['emulator_userland_only_short_to_long_dict'][key])
 consts['emulator_short_to_long_dict'] = collections.OrderedDict([
     ('q', 'qemu'),
     ('g', 'gem5'),
 ])
+consts['emulator_short_to_long_dict'].update(consts['emulator_userland_only_short_to_long_dict'])
 consts['all_long_emulators'] = [consts['emulator_short_to_long_dict'][k] for k in consts['emulator_short_to_long_dict']]
 consts['emulator_choices'] = set()
 for key in consts['emulator_short_to_long_dict']:
@@ -495,7 +503,7 @@ and then inspect separate outputs later in different output directories.
         self.add_argument(
             '--all-emulators', default=False,
             help='''\
-Run action for all supported --emulators emulators. Ignore --emulators.
+Run action for all supported emulators. Ignore --emulator.
 '''.format(emulators_string)
         )
         self.add_argument(
@@ -508,6 +516,11 @@ Run action for all supported --emulators emulators. Ignore --emulators.
             help='''\
 Emulator to use. If given multiple times, semantics are similar to --arch.
 Valid emulators: {}
+
+"native" means running natively on host. It is only supported for userland,
+and you must have built the program for native running, see:
+https://github.com/cirosantilli/linux-kernel-module-cheat#userland-setup-getting-started-natively
+Incompatible archs are skipped.
 '''.format(emulators_string)
         )
         self._is_common = False
@@ -1044,6 +1057,11 @@ lunch aosp_{}-eng
                 for arch in real_archs:
                     if arch in env['arch_short_to_long_dict']:
                         arch = env['arch_short_to_long_dict'][arch]
+                    if emulator == 'native':
+                        if env['userland'] is None:
+                            raise Exception('Emulator only supported in user mode: {}'.format(emulator))
+                        if arch != env['host_arch']:
+                            continue
                     if self.is_arch_supported(arch):
                         if not env['dry_run']:
                             start_time = time.time()
@@ -1150,22 +1168,7 @@ lunch aosp_{}-eng
         Convert a convenient shorthand user input string to paths of existing files
         in the source tree.
 
-        Input path file extensions are ignored.
-
-        All the following input paths would be equivalent for
-        magic_in_dir == '/full/path/to/userland'
-
-        - hello
-        - hello.
-        - hello.c
-        - hello.out
-        - userland/hello
-        - userland/hello.
-        - userland/hello.c
-        - userland/hello.out
-        - /full/path/to/userland/hello
-        - /full/path/to/userland/hello.
-        - /full/path/to/userland/hello.c
+        Ensure that the path lies inside source_tree_root.
 
         Multiple matches may happen if multiple multiple exts files exist.
         E.g., after an in-tree build, in_path='hello' and exts=['.c', '.out']
@@ -1183,7 +1186,7 @@ lunch aosp_{}-eng
         - /full/path/to/userland/arch
 
         Note however that this potentially prevents differentiation between
-        files and directories: e.g. if you had both a file arch.c and a directory arch,
+        files and directories: e.g. if you had both a file arch.c and a directory arch/,
         and exts=['', '.c'], then both would get matched.
         '''
         in_path = os.path.abspath(in_path)
