@@ -4,7 +4,7 @@ import os
 import sys
 
 import common
-import example_properties
+import path_properties
 from thread_pool import ThreadPool
 
 class Main(common.TestCliFunction):
@@ -50,15 +50,15 @@ If given, run only the given tests. Otherwise, run all tests.
                     dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
                     for in_filename in in_filenames:
                         path_relative_root = os.path.join(dirpath_relative_root, in_filename)
-                        test = example_properties.get(path_relative_root)
-                        if test.should_be_tested():
+                        my_path_properties = path_properties.get(path_relative_root)
+                        if my_path_properties.should_be_tested(self.env['arch']):
                             cur_run_args = run_args.copy()
                             cur_run_args.update({
                                 'background': True,
                                 'userland': path_relative_root,
                             })
                             error = thread_pool.submit({
-                                'expected_exit_status': test.exit_status,
+                                'expected_exit_status': my_path_properties['exit_status'],
                                 'run_args': cur_run_args,
                                 'run_obj':  self.import_path_main('run'),
                                 'test_id': path_relative_root,
