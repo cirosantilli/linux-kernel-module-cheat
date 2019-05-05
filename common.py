@@ -113,7 +113,7 @@ consts['userland_out_exts'] = [
     consts['userland_executable_ext'],
     consts['obj_ext'],
 ]
-consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
+consts['default_config_file'] = os.path.join(consts['data_dir'], 'config.py')
 consts['magic_fail_string'] = b'lkmc_test_fail'
 consts['baremetal_lib_basename'] = 'lib'
 consts['emulator_userland_only_short_to_long_dict'] = collections.OrderedDict([
@@ -156,7 +156,7 @@ class LkmcCliFunction(cli_function.CliFunction):
         :ptype defaults: Dict[str,Any]
         :param defaults: override the default value of an argument
         '''
-        kwargs['config_file'] = consts['config_file']
+        kwargs['default_config_file'] = consts['default_config_file']
         kwargs['extra_config_params'] = os.path.basename(inspect.getfile(self.__class__))
         if defaults is None:
             defaults = {}
