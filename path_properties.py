@@ -5,39 +5,47 @@ import os
 from shell_helpers import LF
 
 class PathProperties:
-    property_keys = {
-        'allowed_archs',
-        'c_std',
-        'cc_flags',
-        'cc_flags_after',
-        'cc_pedantic',
-        'cxx_std',
-        'exit_status',
-        'interactive',
+    default_properties = {
+        'allowed_archs': None,
+        'c_std': default_c_std,
+        'cc_flags': [
+            '-Wall', LF,
+            '-Werror', LF,
+            '-Wextra', LF,
+            '-Wno-unused-function', LF,
+            '-fopenmp', LF,
+            '-ggdb3', LF,
+        ],
+        'cc_flags_after': [],
+        'cc_pedantic': True,
+        'cxx_std': default_cxx_std,
+        'exit_status': 0,
+        'extra_objs_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
-        'extra_objs_lkmc_common',
-        'extra_objs_userland_asm',
-        # We were lazy to properly classify why we are skipping these tests.
-        # TODO get it done.
-        'skip_run_unclassified',
+        'extra_objs_lkmc_common': False,
+        'extra_objs_userland_asm': False,
+        'interactive': False,
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
-        'more_than_1s',
+        'more_than_1s': False,
         # The path does not generate an executable in itself, e.g.
         # it only generates intermediate object files.
-        'no_executable',
-        # The script requires a non-trivial argument to be passed to run properly.
-        'requires_argument',
+        'no_executable': False,
         # the test receives a signal. We skip those tests for now,
         # on userland because we are lazy to figure out the exact semantics
         # of how Python + QEMU + gem5 determine the exit status of signals.
-        'receives_signal',
+        'receives_signal': False,
+        # The script requires a non-trivial argument to be passed to run properly.
+        'requires_argument': False,
         # Requires certain of our custom kernel modules to be inserted to run.
-        'requires_kernel_modules',
+        'requires_kernel_modules': False,
         # The example requires sudo, which usually implies that it can do something
         # deeply to the system it runs on, which would preventing further interactive
         # or test usage of the system, for example poweroff or messing up the GUI.
-        'requires_sudo',
-        'uses_dynamic_library',
+        'requires_sudo': False,
+        # We were lazy to properly classify why we are skipping these tests.
+        # TODO get it done.
+        'skip_run_unclassified': False,
+        'uses_dynamic_library': False,
     }
 
     '''
@@ -50,7 +58,7 @@ class PathProperties:
         properties
     ):
         for key in properties:
-            if not key in self.property_keys:
+            if not key in self.default_properties:
                 raise ValueError('Unknown key: {}'.format(key))
         self.properties = properties.copy()
 
@@ -151,39 +159,46 @@ freestanding_properties = {
 }
 # See: https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-simulation-path_properties
 path_properties_tuples = (
+    PathProperties.default_properties,
     {
-        'allowed_archs': None,
-        'c_std': default_c_std,
-        'cc_flags': [
-            '-Wall', LF,
-            '-Werror', LF,
-            '-Wextra', LF,
-            '-Wno-unused-function', LF,
-            '-fopenmp', LF,
-            '-ggdb3', LF,
-        ],
-        'cc_flags_after': [
-            '-lm', LF,
-            '-pthread', LF,
-        ],
-        'cc_pedantic': True,
-        'cxx_std': default_cxx_std,
-        'exit_status': 0,
-        'extra_objs_lkmc_common': False,
-        'extra_objs_userland_asm': False,
-        'interactive': False,
-        'more_than_1s': False,
-        'no_executable': False,
-        'receives_signal': False,
-        'requires_argument': False,
-        'requires_kernel_modules': False,
-        'requires_sudo': False,
-        'skip_run_unclassified': False,
-        'uses_dynamic_library': False,
-    },
-    {
-        'userland': (
+        'baremetal': (
             {},
+            {
+                'arch': (
+                    {},
+                    {
+                        'arm': (
+                            {'allowed_archs': {'arm'}},
+                            {
+                                'no_bootloader': {'extra_objs_baremetal_bootloader': False},
+                            },
+                        ),
+                        'aarch64': (
+                            {'allowed_archs': {'aarch64'}},
+                            {
+                                'no_bootloader': {'extra_objs_baremetal_bootloader': False},
+                            },
+                        )
+                    }
+                ),
+                'assert_fail.c': {'exit_status': 1},
+                'exit1.c': {'exit_status': 1},
+                'infinite_loop.c': {'more_than_1s': True},
+                'lib': (
+                    {'no_executable': True},
+                    {}
+                ),
+                'getchar.c': {'interactive': True},
+                'return1.c': {'exit_status': 1},
+            }
+        ),
+        'userland': (
+            {
+                'cc_flags_after': [
+                    '-lm', LF,
+                    '-pthread', LF,
+                ],
+            },
             {
                 'arch': (
                     {
@@ -306,9 +321,9 @@ path_properties_tuples = (
                         'sleep_forever.c': {'more_than_1s': True},
                         'virt_to_phys_test.c': {'more_than_1s': True},
                     }
-                )
+                ),
             }
-        )
+        ),
     }
 )
 path_properties_tree = PrefixTree.make_from_tuples(path_properties_tuples)

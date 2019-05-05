@@ -1,3 +1,5 @@
+/* Test that input request through serial also works. */
+
 #include <stdio.h>
 #include <stdlib.h>
 
