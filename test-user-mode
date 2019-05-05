@@ -27,7 +27,7 @@ If given, run only the given tests. Otherwise, run all tests.
         if self.env['emulator'] == 'gem5':
             run_args['userland_build_id'] = 'static'
         if self.env['tests'] == []:
-            sources = [
+            tests = [
                 'add.c',
                 'hello.c',
                 'hello_cpp.cpp',
@@ -48,12 +48,16 @@ If given, run only the given tests. Otherwise, run all tests.
                 for arch_source
                 in arch_sources
             ]
-            sources.extend(arch_sources)
+            tests.extend(arch_sources)
         else:
-            sources = self.env['tests']
-        for source in sources:
-            run_args['userland'] = source
-            self.run_test(run, run_args, source)
+            tests = self.env['tests']
+        for test_dir_or_file in tests:
+            for test in self.sh.walk(self.resolve_userland_source(test_dir_or_file)):
+
+                consts['userland_in_exts'] = [
+
+                run_args['userland'] = test
+                self.run_test(run, run_args)
 
 if __name__ == '__main__':
     Main().cli()

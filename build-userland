@@ -47,7 +47,7 @@ building with the host toolchain.
             default=False,
             help='''\
 Treat targets as relative to the current working directory. If the current working
-directory is outside of userland/, use userland/ instead.
+directory is outside of userland/, this has no effect.
 ''',
         )
         self.add_argument(
@@ -141,17 +141,46 @@ Default: build all examples that have their package dependencies met, e.g.:
             return self.env['userland_source_dir']
 
     def _get_targets(self):
+        '''
+        Resolve target_relative_cwd and default targets.
+        '''
         if self.env['_args_given']['targets']:
             targets = self.env['targets']
             if self.env['target_relative_cwd']:
                 cwd = self._get_cwd()
-                targets = [os.path.join(cwd, target) for target in targets]
-            return targets
+                for target in targets:
+                    yield os.path.join(cwd, target)
+            else:
+                for target in targets:
+                    yield target
         else:
             if self.env['target_relative_cwd']:
-                return [self._get_cwd()]
+                yield self._get_cwd()
             else:
-                return [self.env['userland_source_dir']]
+                yield self.env['userland_source_dir']
+
+    def _walk_targets(self):
+        '''
+        Walk existing directories and files pointed to by the targets
+        from the command line from under the userland/ source tree.
+
+        This may include outputs of in-tree builds.
+
+        File extensions are ignored, e.g.:
+
+            c/hello
+
+        will find both:
+
+            c/hello.c
+            c/hello.out
+        '''
+        for target in self._get_targets():
+            target = self.resolve_userland_source(target)
+            noext, ext = os.path.splitext(filename)
+
+            for path, in_dirnames, in_filenames in self.sh.walk(target):
+                yield path, in_dirnames, in_filenames
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -225,15 +254,13 @@ Default: build all examples that have their package dependencies met, e.g.:
             'openblas': {},
         }
         rootdir_abs_len = len(self.env['userland_source_dir'])
-        thread_pool = ThreadPool(
+        with ThreadPool(
             self._build_one,
             nthreads=self.env['nproc'],
-        )
-        class ExitLoop(Exception): pass
-        try:
-            for target in self._get_targets():
-                target = self.resolve_userland_source(target)
-                for path, in_dirnames, in_filenames in self.sh.walk(target):
+        ) as thread_pool:
+            class ExitLoop(Exception): pass
+            try:
+                for path, in_dirnames, in_filenames in self._walk_targets():
                     in_dirnames.sort()
                     in_filenames.sort()
                     path_abs = os.path.abspath(path)
@@ -348,9 +375,8 @@ Default: build all examples that have their package dependencies met, e.g.:
                         })
                         if error is not None:
                             raise ExitLoop()
-        except ExitLoop:
-            pass
-        error = thread_pool.join()
+            except ExitLoop:
+                pass
         if error is not None:
             print(error)
             return 1
@@ -364,16 +390,15 @@ Default: build all examples that have their package dependencies met, e.g.:
 
     def clean(self):
         if self.env['in_tree']:
-            for target in self._get_targets():
-                if os.path.exists(target):
-                    for path, dirnames, filenames in os.walk(target):
-                        filenames.sort()
-                        dirnames.sort()
-                        for filename in filenames:
-                            if os.path.splitext(filename)[1] in self.env['userland_out_exts']:
-                                self.sh.rmrf(os.path.join(path, filename))
-                else:
-                    raise Exception('Path does not exist: ' + target)
+            for path, dirnames, filenames in self._walk_targets():
+                filenames.sort()
+                dirnames.sort()
+                for filename in filenames:
+                    noext, ext = os.path.splitext(filename)
+                    for out_ext in self.env['userland_out_exts']:
+                        out_path = os.path.join(path, noext + out_ext)
+                        if os.path.exists(out_path):
+                            self.sh.rmrf(out_path)
         else:
             self.sh.rmrf(self.get_build_dir())
 

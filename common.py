@@ -784,7 +784,7 @@ Valid emulators: {}
                     env['baremetal'],
                     env['baremetal_source_dir'],
                     env['baremetal_build_dir'],
-                    env['baremetal_build_ext'],
+                    [env['baremetal_build_ext']],
                 )
                 source_path_noext = os.path.splitext(join(
                     env['baremetal_source_dir'],
@@ -1121,26 +1121,46 @@ lunch aosp_{}-eng
             ]
         )
 
-    def resolve_source(self, in_path, magic_in_dir, in_exts):
+    def resolve_source(self, in_path, magic_in_dir, exts):
         '''
-        Convert a path-like string to a source file to the full source path,
-        e.g. all follogin work and to do the same:
+        Convert a convenient shorthand user input string to paths of existing files
+        in the source tree.
+
+        Input path file extensions are ignored.
+
+        All the following input paths would be equivalent for
+        magic_in_dir == '/full/path/to/userland'
 
         - hello
         - hello.
         - hello.c
+        - hello.out
         - userland/hello
         - userland/hello.
         - userland/hello.c
+        - userland/hello.out
         - /full/path/to/userland/hello
         - /full/path/to/userland/hello.
         - /full/path/to/userland/hello.c
 
-        Also works on directories:
+        Multiple matches may happen if multiple multiple exts files exist.
+        E.g., after an in-tree build, in_path='hello' and exts=['.c', '.out']
+        would match both:
+
+        - userland/hello.c
+        - userland/hello.out
+
+        If you also want directories to be matched, just add an empty string
+        `''` to exts, which leads all of the following to match the arch directory:
 
         - arch
+        - arch.c
         - userland/arch
         - /full/path/to/userland/arch
+
+        Note however that this potentially prevents differentiation between
+        files and directories: e.g. if you had both a file arch.c and a directory arch,
+        and exts=['', '.c'], then both would get matched.
         '''
         if os.path.isabs(in_path):
             return in_path
@@ -1154,18 +1174,14 @@ lunch aosp_{}-eng
             ]
             for path in paths:
                 name, ext = os.path.splitext(path)
-                if len(ext) > 1:
-                    try_exts = [ext]
-                else:
-                    try_exts = in_exts + ['']
-                for in_ext in try_exts:
-                    path = name + in_ext
+                for try_ext in exts:
+                    path = name + try_ext
                     if os.path.exists(path):
                         return path
             if not self.env['dry_run']:
-                raise Exception('Source file not found for input: ' + in_path)
+                raise Exception('No file not found for input: ' + in_path)
 
-    def resolve_executable(self, in_path, magic_in_dir, magic_out_dir, out_ext):
+    def resolve_executable(self, in_path, magic_in_dir, magic_out_dir, out_exts):
         if os.path.isabs(in_path):
             return in_path
         else:
@@ -1177,9 +1193,10 @@ lunch aosp_{}-eng
                 )
             ]
             for path in paths:
-                path = os.path.splitext(path)[0] + out_ext
-                if os.path.exists(path):
-                    return path
+                for out_ext in out_exts:
+                    path = os.path.splitext(path)[0] + out_ext
+                    if os.path.exists(path):
+                        return path
             if not self.env['dry_run']:
                 raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
 
@@ -1192,7 +1209,7 @@ lunch aosp_{}-eng
             path,
             self.env['userland_source_dir'],
             self.env['userland_build_dir'],
-            self.env['userland_build_ext'],
+            [self.env['userland_build_ext']],
         )
 
     def resolve_userland_source(self, path):

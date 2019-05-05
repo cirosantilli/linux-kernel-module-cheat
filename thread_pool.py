@@ -78,6 +78,12 @@ class ThreadPool:
             self.threads.append(thread)
             thread.start()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.join()
+
     def submit(self, work):
         '''
         Submit work. Block if there is already enough work scheduled (~nthreads).
