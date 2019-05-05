@@ -1,4 +1,5 @@
 #!/bin/sh
+# Count to infinity with 1 second sleep between each increment.
 # Generate infinitely many system calls :-)
 i=0
 while true; do

@@ -51,11 +51,11 @@ If you don't want to wait, you could also try the following faster but much more
 
 but you will soon find that they are simply not enough if you anywhere near serious about systems programming.
 
-After `./run`, QEMU opens up and you can start playing with the kernel modules inside the simulated system:
+After `./run`, QEMU opens up leaving you in the <<lkmc_home,`/lkmc/` directory>>, and you can start playing with the kernel modules inside the simulated system:
 
 ....
-insmod /hello.ko
-insmod /hello2.ko
+insmod hello.ko
+insmod hello2.ko
 rmmod hello
 rmmod hello2
 ....
@@ -216,7 +216,7 @@ Now there are two ways to test it out: the fast way, and the safe way.
 The fast way is, without quitting or rebooting QEMU, just directly re-insert the module with:
 
 ....
-insmod /mnt/9p/out_rootfs_overlay/hello.ko
+insmod /mnt/9p/out_rootfs_overlay/lkmc/hello.ko
 ....
 
 and the new `pr_info` message should now show on the terminal at the end of the boot.
@@ -236,7 +236,7 @@ The safe way, is to fist <<rebuild-buildroot-while-running,quit QEMU>>, rebuild 
 ....
 ./build-modules
 ./build-buildroot
-./run --eval-after 'insmod /hello.ko'
+./run --eval-after 'insmod hello.ko'
 ....
 
 `./build-buildroot` is required after `./build-modules` because it re-generates the root filesystem with the modules that we compiled at `./build-modules`.
@@ -247,7 +247,7 @@ You can see that `./build` does that as well, by running:
 ./build --dry-run
 ....
 
-`--eval-after` is optional: you could just type `insmod /hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
+`--eval-after` is optional: you could just type `insmod hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
 
 If the guest and host are the same arch, typically x86_64, you can speed up boot further with <<kvm>>:
 
@@ -336,7 +336,7 @@ index 706b20b492..23185948f3 100644
 And then:
 
 ....
-./run --eval-after '/hello.out'
+./run --eval-after './c/hello.out'
 ....
 
 outputs:
@@ -1034,7 +1034,7 @@ or shutdown QEMU, add the executable to the root filesystem:
 reboot and use the root filesystem as usual:
 
 ....
-/c/hello.out
+./hello.out
 ....
 
 === Baremetal setup
@@ -1263,10 +1263,10 @@ Start QEMU with just:
 and after boot inside a shell run:
 
 ....
-/count.sh
+./count.sh
 ....
 
-which counts to infinity to stdout. Source: link:rootfs_overlay/count.sh[].
+which counts to infinity to stdout. Source: link:rootfs_overlay/lkmc/count.sh[].
 
 Then in another shell, run:
 
@@ -1402,7 +1402,7 @@ Shell 1:
 Wait for the boot to end and run:
 
 ....
-insmod /timer.ko
+insmod timer.ko
 ....
 
 Source: link:kernel_modules/timer.c[].
@@ -1462,7 +1462,7 @@ It is kind of random: if you just `insmod` manually and then immediately `./run-
 But this fails most of the time: shell 1:
 
 ....
-./run --arch arm --eval-after 'insmod /hello.ko'
+./run --arch arm --eval-after 'insmod hello.ko'
 ....
 
 shell 2:
@@ -1551,7 +1551,7 @@ So once we find the address the first time, we can just reuse it afterwards, as 
 Do a fresh boot and get the module:
 
 ....
-./run --eval-after '/pr_debug.sh;insmod /fops.ko;/poweroff.out'
+./run --eval-after './pr_debug.sh;insmod fops.ko;./poweroff.out'
 ....
 
 The boot must be fresh, because the load address changes every time we insert, even after removing previous modules.
@@ -1585,7 +1585,7 @@ so the offset address is `0x240` and we deduce that the function will be placed 
 Now we can just do a fresh boot on shell 1:
 
 ....
-./run --eval 'insmod /fops.ko;/poweroff.out' --wait-gdb
+./run --eval 'insmod fops.ko;./poweroff.out' --wait-gdb
 ....
 
 and on shell 2:
@@ -1665,7 +1665,7 @@ Useless, but a good way to show how hardcore you are. Disable `lx-symbols` with:
 From inside guest:
 
 ....
-insmod /timer.ko
+insmod timer.ko
 cat /proc/modules
 ....
 
@@ -1693,7 +1693,7 @@ Alternatively, if the module panics before you can read `/proc/modules`, there i
 ....
 echo 8 > /proc/sys/kernel/printk
 echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
-/myinsmod.out /hello.ko
+./myinsmod.out hello.ko
 ....
 
 And then search for a line of type:
@@ -1802,7 +1802,7 @@ For executables from the link:userland/[] directory such as link:userland/count.
 * Shell 1:
 +
 ....
-./run --wait-gdb --kernel-cli 'init=/count.out'
+./run --wait-gdb --kernel-cli 'init=/lkmc/count.out'
 ....
 * Shell 2:
 +
@@ -1873,7 +1873,7 @@ Non-init process:
 * Shell 1 after the boot finishes:
 +
 ....
-/myinsmod.out /hello.ko
+./myinsmod.out hello.ko
 ....
 
 This is the least reliable setup as there might be other processes that use the given virtual address.
@@ -1937,7 +1937,7 @@ However this is failing for us:
 * some symbols are not visible to `call` even though `b` sees them
 * for those that are, `call` fails with an E14 error
 
-E.g.: if we break on `__x64_sys_write` on `/count.sh`:
+E.g.: if we break on `__x64_sys_write` on `count.sh`:
 
 ....
 >>> call printk(0, "asdf")
@@ -1989,7 +1989,7 @@ For a more minimal baremetal multicore setup, see: <<arm-multicore>>.
 We can set and get which cores the Linux kernel allows a program to run on with `sched_getaffinity` and `sched_setaffinity`:
 
 ....
-./run --cpus 2 --eval-after '/sched_getaffinity.out'
+./run --cpus 2 --eval-after './sched_getaffinity.out'
 ....
 
 Source: link:userland/sched_getaffinity.c[]
@@ -2019,7 +2019,7 @@ The number of cores is modified as explained at: <<number-of-cores>>
   --config 'BR2_PACKAGE_UTIL_LINUX=y' \
   --config 'BR2_PACKAGE_UTIL_LINUX_SCHEDUTILS=y' \
 ;
-./run --eval-after 'taskset -c 1,1 /sched_getaffinity.out'
+./run --eval-after 'taskset -c 1,1 ./sched_getaffinity.out'
 ....
 
 output:
@@ -2035,13 +2035,13 @@ so we see that the affinity was restricted to the second core from the start.
 
 Let's do a QEMU observation to justify this example being in the repository with <<gdb-step-debug-userland-non-init,userland breakpoints>>.
 
-We will run our `/sched_getaffinity.out` infinitely many time, on core 0 and core 1 alternatively:
+We will run our `./sched_getaffinity.out` infinitely many time, on core 0 and core 1 alternatively:
 
 ....
 ./run \
   --cpus 2 \
   --wait-gdb \
-  --eval-after 'i=0; while true; do taskset -c $i,$i /sched_getaffinity.out; i=$((! $i)); done' \
+  --eval-after 'i=0; while true; do taskset -c $i,$i ./sched_getaffinity.out; i=$((! $i)); done' \
 ;
 ....
 
@@ -2073,7 +2073,7 @@ We should also try it out with kernel modules: https://stackoverflow.com/questio
 TODO we then tried:
 
 ....
-./run --cpus 2 --eval-after '/sched_getaffinity_threads.out'
+./run --cpus 2 --eval-after './sched_getaffinity_threads.out'
 ....
 
 and:
@@ -2269,11 +2269,11 @@ continue
 Then in QEMU:
 
 ....
-/count.sh &
-/kgdb.sh
+./count.sh &
+./kgdb.sh
 ....
 
-link:rootfs_overlay:kgdb.sh[] pauses the kernel for KGDB, and gives control back to GDB.
+link:rootfs_overlay/lkmc/kgdb.sh[] pauses the kernel for KGDB, and gives control back to GDB.
 
 And now in GDB we do the usual:
 
@@ -2307,8 +2307,8 @@ Main more generic question: https://stackoverflow.com/questions/14155577/how-to-
 Just works as you would expect:
 
 ....
-insmod /timer.ko
-/kgdb.sh
+insmod timer.ko
+./kgdb.sh
 ....
 
 In GDB:
@@ -2347,8 +2347,8 @@ And now the `kdb>` prompt is responsive because it is listening to the main cons
 After boot finishes, run the usual:
 
 ....
-/count.sh &
-/kgdb.sh
+./count.sh &
+./kgdb.sh
 ....
 
 And you are back in KDB. Now you can count with:
@@ -2428,10 +2428,10 @@ First build `gdbserver` into the root filesystem:
 Then on guest, to debug link:userland/myinsmod.c[]:
 
 ....
-/gdbserver.sh /myinsmod.out /hello.ko
+./gdbserver.sh ./myinsmod.out hello.ko
 ....
 
-Source: link:rootfs_overlay/gdbserver.sh[].
+Source: link:rootfs_overlay/lkmc/gdbserver.sh[].
 
 And on host:
 
@@ -2452,7 +2452,7 @@ https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-
 Analogous to <<gdb-step-debug-userland-processes>>:
 
 ....
-/gdbserver.sh ls
+./gdbserver.sh ls
 ....
 
 on host you need:
@@ -2468,7 +2468,7 @@ Our setup gives you the rare opportunity to step debug libc and other system lib
 For example in the guest:
 
 ....
-/gdbserver.sh /count.out
+./gdbserver.sh ./count.out
 ....
 
 Then on host:
@@ -2563,7 +2563,7 @@ cr3 = 0xFFFFF0DCDC000
 However if we try to do it from userland:
 
 ....
-/ring0.out
+./ring0.out
 ....
 
 stdout gives:
@@ -2643,7 +2643,7 @@ To have more control over the system, you can replace BusyBox's init with your o
 The most direct way to replace `init` with our own is to just use the `init=` <<kernel-command-line-parameters,command line parameter>> directly:
 
 ....
-./run --kernel-cli 'init=/count.sh'
+./run --kernel-cli 'init=/lkmc/count.sh'
 ....
 
 This just counts every second forever and does not give you a shell.
@@ -2653,18 +2653,16 @@ This method is not very flexible however, as it is hard to reliably pass multipl
 For this reason, we have created a more robust helper method with the `--eval` option:
 
 ....
-./run --eval 'echo "asdf qwer";insmod /hello.ko;/poweroff.out'
+./run --eval 'echo "asdf qwer";insmod hello.ko;./poweroff.out'
 ....
-
-The `--eval` option replaces init with a shell script that just evals the given command.
 
 It is basically a shortcut for:
 
 ....
-./run --kernel-cli 'init=/eval_base64.sh - lkmc_eval="insmod /hello.ko;/poweroff.out"'
+./run --kernel-cli 'init=/lkmc/eval_base64.sh - lkmc_eval="insmod hello.ko;./poweroff.out"'
 ....
 
-Source: link:rootfs_overlay/eval_base64.sh[].
+Source: link:rootfs_overlay/lkmc/eval_base64.sh[].
 
 This allows quoting and newlines by base64 encoding on host, and decoding on guest, see: <<kernel-command-line-parameters-escaping>>.
 
@@ -2685,26 +2683,28 @@ It also automatically chooses between `init=` and `rcinit=` for you, see: <<path
 
 The best way to overcome those limitations is to use: <<init-busybox>>
 
-If the script is large, you can add it to a gitignored file and pass that to `-E` as in:
+If the script is large, you can add it to a gitignored file and pass that to `--eval` as in:
 
 ....
 echo '
-insmod /hello.ko
-/poweroff.out
-' > gitignore.sh
-./run --eval "$(cat gitignore.sh)"
+cd /lkmc
+insmod hello.ko
+./poweroff.out
+' > data/gitignore.sh
+./run --eval "$(cat data/gitignore.sh)"
 ....
 
 or add it to a file to the root filesystem guest and rebuild:
 
 ....
 echo '#!/bin/sh
-insmod /hello.ko
-/poweroff.out
-' > rootfs_overlay/gitignore.sh
-chmod +x rootfs_overlay/gitignore.sh
+cd /lkmc
+insmod hello.ko
+./poweroff.out
+' > rootfs_overlay/lkmc/gitignore.sh
+chmod +x rootfs_overlay/lkmc/gitignore.sh
 ./build-buildroot
-./run --kernel-cli 'init=/gitignore.sh'
+./run --kernel-cli 'init=/lkmc/gitignore.sh'
 ....
 
 Remember that if your init returns, the kernel will panic, there are just two non-panic possibilities:
@@ -2730,10 +2730,10 @@ But this fails when we are `init` itself!
 ./run --eval 'poweroff -f'
 ....
 
-but why not just use our minimal `/poweroff.out` and be done with it?
+but why not just use our minimal `./poweroff.out` and be done with it?
 
 ....
-./run --eval '/poweroff.out'
+./run --eval './poweroff.out'
 ....
 
 Source: link:userland/poweroff.c[]
@@ -2745,7 +2745,7 @@ This also illustrates how to shutdown the computer from C: https://stackoverflow
 I dare you to guess what this does:
 
 ....
-./run --eval '/sleep_forever.out'
+./run --eval './sleep_forever.out'
 ....
 
 Source: link:userland/sleep_forever.c[]
@@ -2757,7 +2757,7 @@ This executable is a convenient simple init that does not panic and sleeps inste
 Get a reasonable answer to "how long does boot take?":
 
 ....
-./run --eval-after '/time_boot.out'
+./run --eval-after './time_boot.out'
 ....
 
 Dmesg contains a message of type:
@@ -2784,10 +2784,10 @@ After the commands run, you are left on an interactive shell.
 The above command is basically equivalent to:
 
 ....
-./run --kernel-cli-after-dash 'lkmc_eval="insmod /hello.ko;poweroff.out;"'
+./run --kernel-cli-after-dash 'lkmc_eval="insmod hello.ko;./poweroff.out;"'
 ....
 
-where the `lkmc_eval` option gets evaled by our default link:rootfs_overlay/etc/init.d/S98[S98] startup script.
+where the `lkmc_eval` option gets evaled by our default link:rootfs_overlay/etc/init.d/S98[] startup script.
 
 Except that `--eval-after` is smarter and uses `base64` encoding.
 
@@ -2824,14 +2824,14 @@ ____
 And you can try it out with:
 
 ....
-./run --kernel-cli 'init=/init_env_poweroff.out - asdf=qwer zxcv'
+./run --kernel-cli 'init=/lkmc/init_env_poweroff.out - asdf=qwer zxcv'
 ....
 
 Output:
 
 ....
 args:
-/init_env_poweroff.out
+/lkmc/init_env_poweroff.out
 -
 zxcv
 
@@ -2850,21 +2850,21 @@ The annoying dash `-` gets passed as a parameter to `init`, which makes it impos
 Arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear, from args, e.g.:
 
 ....
-./run --kernel-cli 'init=/init_env_poweroff.out - /poweroff.out'
+./run --kernel-cli 'init=/lkmc/init_env_poweroff.out - /lkmc/poweroff.out'
 ....
 
 outputs:
 
 ....
 args
-/init_env_poweroff.out
+/lkmc/init_env_poweroff.out
 -
 ab
 ....
 
 so see how `a.b` is gone.
 
-The simple workaround is to just create a shell script that does it, e.g. as we've done at: link:rootfs_overlay/gem5_exit.sh[].
+The simple workaround is to just create a shell script that does it, e.g. as we've done at: link:rootfs_overlay/lkmc/gem5_exit.sh[].
 
 ==== init environment env
 
@@ -2913,26 +2913,32 @@ then it shows more variables, notably:
 PATH='/sbin:/usr/sbin:/bin:/usr/bin'
 ....
 
-Finally, login shells will source some default files, notably:
+===== BusyBox shell initrc files
+
+Login shells source some default files, notably:
 
 ....
 /etc/profile
-/root/.profile
+$HOME/.profile
 ....
 
-We currently control `/root/.profile` at link:rootfs_overlay/root/.profile[], and use the default BusyBox `/etc/profile`.
+In our case, `HOME` is set to `/` presumably by `init` at: https://git.busybox.net/busybox/tree/init/init.c?id=5059653882dbd86e3bbf48389f9f81b0fac8cd0a#n1114
+
+We provide `/.profile` from link:rootfs_overlay/.profile[], and use the default BusyBox `/etc/profile`.
 
 The shell knows that it is a login shell if the first character of `argv[0]` is `-`, see also: https://stackoverflow.com/questions/2050961/is-argv0-name-of-executable-an-accepted-standard-or-just-a-common-conventi/42291142#42291142
 
 When we use just `init=/bin/sh`, the Linux kernel sets `argv[0]` to `/bin/sh`, which does not start with `-`.
 
-However, if you use `::respawn:-/bin/sh` on inttab described at <<tty>>, BusyBox' init sets `argv[0]` to `-`, and so does `getty`. This can be observed with:
+However, if you use `::respawn:-/bin/sh` on inttab described at <<tty>>, BusyBox' init sets `argv[0][0]` to `-`, and so does `getty`. This can be observed with:
 
 ....
 cat /proc/$$/cmdline
 ....
 
 where `$$` is the PID of the shell itself: https://stackoverflow.com/questions/21063765/get-pid-in-shell-bash
+
+Bibliography: https://unix.stackexchange.com/questions/176027/ash-profile-configuration-file
 
 == initrd
 
@@ -3634,10 +3640,10 @@ Step debug also works:
 As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy `se.py` script does not forward the exit status of syscall emulation mode, you can test it with:
 
 ....
-./run --dry-run --emulator gem5 --static --userland false
+./run --dry-run --emulator gem5 --static --userland c/false
 ....
 
-Source: link:userland/false[].
+Source: link:userland/c/false.c[].
 
 Then manually run the generated gem5 CLI, and do:
 
@@ -3684,7 +3690,7 @@ gem5 full system:
 time \
   ./run \
   --arch arm \
-  --eval-after '/gem5.sh' \
+  --eval-after './gem5.sh' \
   --emulator gem5
   --gem5-readfile 'dhrystone 100000' \
 ;
@@ -3702,7 +3708,7 @@ QEMU full system:
 time \
   ./run \
   --arch arm \
-  --eval-after 'time dhrystone 100000000;/poweroff.out' \
+  --eval-after 'time dhrystone 100000000;./poweroff.out' \
 ;
 ....
 
@@ -3744,7 +3750,7 @@ See: <<test-this-repo>> for more useful testing tips.
 link:https://git.busybox.net/busybox/tree/modutils/insmod.c?h=1_29_3[Provided by BusyBox]:
 
 ....
-./run --eval-after 'insmod /hello.ko'
+./run --eval-after 'insmod hello.ko'
 ....
 
 === myinsmod
@@ -3753,10 +3759,10 @@ If you are feeling raw, you can insert and remove modules with our own minimal m
 
 ....
 # init_module
-/myinsmod.out /hello.ko
+./myinsmod.out hello.ko
 # finit_module
-/myinsmod.out /hello.ko "" 1
-/myrmmod.out hello
+./myinsmod.out hello.ko "" 1
+./myrmmod.out hello
 ....
 
 which teaches you how it is done from C code.
@@ -4475,10 +4481,10 @@ Not enabled by default due to the build / runtime overhead. To enable, build wit
 Then inside the guest turn on sshd:
 
 ....
-/sshd.sh
+./sshd.sh
 ....
 
-Source: link:rootfs_overlay/sshd.sh[]
+Source: link:rootfs_overlay/lkmc/sshd.sh[]
 
 And finally on host:
 
@@ -4738,16 +4744,16 @@ zcat /proc/config.gz
 or with our shortcut:
 
 ....
-/conf.sh
+./conf.sh
 ....
 
 or to conveniently grep for a specific option case insensitively:
 
 ....
-/conf.sh ikconfig
+./conf.sh ikconfig
 ....
 
-Source: link:rootfs_overlay/conf.sh[].
+Source: link:rootfs_overlay/lkmc/conf.sh[].
 
 This is enabled by:
 
@@ -5122,8 +5128,8 @@ and so it is Read Only as shown by `ro`.
 Disable userland address space randomization. Test it out by running <<rand_check-out>> twice:
 
 ....
-./run --eval-after '/rand_check.out;/poweroff.out'
-./run --eval-after '/rand_check.out;/poweroff.out'
+./run --eval-after './rand_check.out;./poweroff.out'
+./run --eval-after './rand_check.out;./poweroff.out'
 ....
 
 If we remove it from our link:run[] script by hacking it up, the addresses shown by `rand_check.out` vary across boots.
@@ -5211,16 +5217,16 @@ But the awesome `CONFIG_DYNAMIC_DEBUG=y` option which we enable by default allow
 ....
 echo 8 > /proc/sys/kernel/printk
 echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
-/myinsmod.out /hello.ko
+./myinsmod.out hello.ko
 ....
 
 and we have a shortcut at:
 
 ....
-/pr_debug.sh
+./pr_debug.sh
 ....
 
-Source: link:rootfs_overlay/pr_debug.sh[].
+Source: link:rootfs_overlay/lkmc/pr_debug.sh[].
 
 Syntax: https://www.kernel.org/doc/html/v4.11/admin-guide/dynamic-debug-howto.html
 
@@ -5241,7 +5247,7 @@ Enable messages in specific modules:
 ....
 echo 8 > /proc/sys/kernel/printk
 echo 'module myprintk +p' > /sys/kernel/debug/dynamic_debug/control
-insmod /myprintk.ko
+insmod myprintk.ko
 ....
 
 Source: link:kernel_modules/myprintk.c[]
@@ -5256,7 +5262,7 @@ but TODO: it also shows debug messages even without enabling them explicitly:
 
 ....
 echo 8 > /proc/sys/kernel/printk
-insmod /myprintk.ko
+insmod myprintk.ko
 ....
 
 and it shows as enabled:
@@ -5323,7 +5329,7 @@ This likely comes from the ifdef split at `init/main.c`:
 The Linux kernel allows passing module parameters at insertion time <<myinsmod,through the `init_module` and `finit_module` system calls>>:
 
 ....
-/params.sh
+./params.sh
 echo $?
 ....
 
@@ -5336,14 +5342,14 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/params.c[]
-* link:rootfs_overlay/params.sh[]
+* link:rootfs_overlay/lkmc/params.sh[]
 
 As shown in the example, module parameters can also be read and modified at runtime from <<sysfs>>.
 
 We can obtain the help text of the parameters with:
 
 ....
-modinfo /params.ko
+modinfo params.ko
 ....
 
 The output contains:
@@ -5377,7 +5383,7 @@ This is specially important when loading modules with <<kernel-module-dependenci
 One module can depend on symbols of another module that are exported with `EXPORT_SYMBOL`:
 
 ....
-/dep.sh
+./dep.sh
 echo $?
 ....
 
@@ -5391,14 +5397,14 @@ Sources:
 
 * link:kernel_modules/dep.c[]
 * link:kernel_modules/dep2.c[]
-* link:rootfs_overlay/dep.sh[]
+* link:rootfs_overlay/lkmc/dep.sh[]
 
 The kernel deduces dependencies based on the `EXPORT_SYMBOL` that each module uses.
 
 Symbols exported by `EXPORT_SYMBOL` can be seen with:
 
 ....
-insmod /dep.ko
+insmod dep.ko
 grep lkmc_dep /proc/kallsyms
 ....
 
@@ -5415,7 +5421,7 @@ This requires `CONFIG_KALLSYMS_ALL=y`.
 Dependency information is stored by the kernel module build system in the `.ko` files' <<module_info>>, e.g.:
 
 ....
-modinfo /dep2.ko
+modinfo dep2.ko
 ....
 
 contains:
@@ -5427,7 +5433,7 @@ depends:        dep
 We can double check with:
 
 ....
-strings 3 /dep2.ko  | grep -E 'depends'
+strings 3 dep2.ko  | grep -E 'depends'
 ....
 
 The output contains:
@@ -5511,7 +5517,7 @@ Bibliography:
 Module metadata is stored on module files at compile time. Some of the fields can be retrieved through the `THIS_MODULE` `struct module`:
 
 ....
-insmod /module_info.ko
+insmod module_info.ko
 ....
 
 Dmesg output:
@@ -5538,13 +5544,13 @@ Output:
 And we can also observe them with the `modinfo` command line utility:
 
 ....
-modinfo /module_info.ko
+modinfo module_info.ko
 ....
 
 sample output:
 
 ....
-filename:       /module_info.ko
+filename:       module_info.ko
 license:        GPL
 version:        1.0
 srcversion:     AF3DE8A8CFCDEB6B00E35B6
@@ -5598,7 +5604,7 @@ Bibliography:
 Vermagic is a magic string present in the kernel and on <<module_info>> of kernel modules. It is used to verify that the kernel module was compiled against a compatible kernel version and relevant configuration:
 
 ....
-insmod /vermagic.ko
+insmod vermagic.ko
 ....
 
 Possible dmesg output:
@@ -5612,7 +5618,7 @@ Source: link:kernel_modules/vermagic.c[]
 If we artificially create a mismatch with `MODULE_INFO(vermagic`, the insmod fails with:
 
 ....
-insmod: can't insert '/vermagic_fail.ko': invalid module format
+insmod: can't insert 'vermagic_fail.ko': invalid module format
 ....
 
 and `dmesg` says the expected and found vermagic found:
@@ -5658,7 +5664,7 @@ This option just strips `modversion` information from the module before loading,
 `init_module` and `cleantup_module` are an older alternative to the `module_init` and `module_exit` macros:
 
 ....
-insmod /init_module.ko
+insmod init_module.ko
 rmmod init_module
 ....
 
@@ -5678,8 +5684,8 @@ TODO why were `module_init` and `module_exit` created? https://stackoverflow.com
 To test out kernel panics and oops in controlled circumstances, try out the modules:
 
 ....
-insmod /panic.ko
-insmod /oops.ko
+insmod panic.ko
+insmod oops.ko
 ....
 
 Source:
@@ -5878,7 +5884,7 @@ If `CONFIG_KALLSYMS=n`, then addresses are shown on traces instead of symbol plu
 In v4.16 it does not seem possible to configure that at runtime. GDB step debugging with:
 
 ....
-./run --eval-after 'insmod /dump_stack.ko' --wait-gdb --tmux-args dump_stack
+./run --eval-after 'insmod dump_stack.ko' --wait-gdb --tmux-args dump_stack
 ....
 
 shows that traces are printed at `arch/x86/kernel/dumpstack.c`:
@@ -5914,7 +5920,7 @@ It is possible to make `oops` lead to panics always with:
 
 ....
 echo 1 > /proc/sys/kernel/panic_on_oops
-insmod /oops.ko
+insmod oops.ko
 ....
 
 An oops stack trace looks like:
@@ -5993,7 +5999,7 @@ This-did not work on `arm` due to <<gdb-step-debug-kernel-module-arm>> so we nee
 The `dump_stack` function produces a stack trace much like panic and oops, but causes no problems and we return to the normal control flow, and can cleanly remove the module afterwards:
 
 ....
-insmod /dump_stack.ko
+insmod dump_stack.ko
 ....
 
 Source: link:kernel_modules/dump_stack.c[]
@@ -6006,7 +6012,7 @@ One extra side effect is that we can make it also panic with:
 
 ....
 echo 1 > /proc/sys/kernel/panic_on_warn
-insmod /warn_on.ko
+insmod warn_on.ko
 ....
 
 Source: link:kernel_modules/warn_on.c[]
@@ -6029,7 +6035,7 @@ Bibliography:
 Debugfs is the simplest pseudo filesystem to play around with:
 
 ....
-/debugfs.sh
+./debugfs.sh
 echo $?
 ....
 
@@ -6042,7 +6048,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/debugfs.c[]
-* link:rootfs_overlay/debugfs.sh[]
+* link:rootfs_overlay/lkmc/debugfs.sh[]
 
 Debugfs is made specifically to help test kernel stuff. Just mount, set <<file-operations>>, and we are done.
 
@@ -6066,7 +6072,7 @@ Bibliography: https://github.com/chadversary/debugfs-tutorial
 Procfs is just another fops entry point:
 
 ....
-/procfs.sh
+./procfs.sh
 echo $?
 ....
 
@@ -6083,7 +6089,7 @@ Procfs can run all system calls, including ones that debugfs can't, e.g. <<mmap>
 Sources:
 
 * link:kernel_modules/procfs.c[]
-* link:rootfs_overlay/procfs.sh[]
+* link:rootfs_overlay/lkmc/procfs.sh[]
 
 Bibliography: https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
 
@@ -6112,7 +6118,7 @@ Linux version 4.19.0-dirty (lkmc@84df9525b0c27f3ebc2ebb1864fa62a97fdedb7d) (gcc 
 Sysfs is more restricted than <<procfs>>, as it does not take an arbitrary `file_operations`:
 
 ....
-/sysfs.sh
+./sysfs.sh
 echo $?
 ....
 
@@ -6125,7 +6131,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/sysfs.c[]
-* link:rootfs_overlay/sysfs.sh[]
+* link:rootfs_overlay/lkmc/sysfs.sh[]
 
 Vs procfs:
 
@@ -6151,7 +6157,7 @@ Bibliography:
 Character devices can have arbitrary <<file-operations>> associated to them:
 
 ....
-/character_device.sh
+./character_device.sh
 echo $?
 ....
 
@@ -6163,8 +6169,8 @@ Outcome: the test passes:
 
 Sources:
 
-* link:rootfs_overlay/character_device.sh[]
-* link:rootfs_overlay/mknoddev.sh[]
+* link:rootfs_overlay/lkmc/character_device.sh[]
+* link:rootfs_overlay/lkmc/mknoddev.sh[]
 * link:kernel_modules/character_device.c[]
 
 Unlike <<procfs>> entires, character device files are created with userland `mknod` or `mknodat` syscalls:
@@ -6206,7 +6212,7 @@ Bibliography: https://unix.stackexchange.com/questions/37829/understanding-chara
 And also destroy it on `rmmod`:
 
 ....
-/character_device_create.sh
+./character_device_create.sh
 echo $?
 ....
 
@@ -6219,7 +6225,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/character_device_create.c[]
-* link:rootfs_overlay/character_device_create.sh[]
+* link:rootfs_overlay/lkmc/character_device_create.sh[]
 
 Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device-node-from-the-init-module-code-of-a-linux-kernel-module/45531867#45531867
 
@@ -6232,7 +6238,7 @@ File operations are the main method of userland driver communication. `struct fi
 This example illustrates the most basic system calls: `open`, `read`, `write`, `close` and `lseek`:
 
 ....
-/fops.sh
+./fops.sh
 echo $?
 ....
 
@@ -6245,12 +6251,12 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/fops.c[]
-* link:rootfs_overlay/fops.sh[]
+* link:rootfs_overlay/lkmc/fops.sh[]
 
 Then give this a try:
 
 ....
-sh -x /fops.sh
+sh -x ./fops.sh
 ....
 
 We have put printks on each fop, so this allows you to see which system calls are being made for each command.
@@ -6262,7 +6268,7 @@ No, there no official documentation: http://stackoverflow.com/questions/15213932
 Writing trivial read <<file-operations>> is repetitive and error prone. The `seq_file` API makes the process much easier for those trivial cases:
 
 ....
-/seq_file.sh
+./seq_file.sh
 echo $?
 ....
 
@@ -6275,7 +6281,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/seq_file.c[]
-* link:rootfs_overlay/seq_file.sh[]
+* link:rootfs_overlay/lkmc/seq_file.sh[]
 
 In this example we create a debugfs file that behaves just like a file that contains:
 
@@ -6299,7 +6305,7 @@ Bibliography:
 If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>:
 
 ....
-/seq_file.sh
+./seq_file.sh
 echo $?
 ....
 
@@ -6312,7 +6318,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/seq_file_single_open.c[]
-* link:rootfs_overlay/seq_file_single_open.sh[]
+* link:rootfs_overlay/lkmc/seq_file_single_open.sh[]
 
 This example produces a debugfs file that behaves like a file that contains:
 
@@ -6326,7 +6332,7 @@ cd
 The poll system call allows an user process to do a non-busy wait on a kernel event:
 
 ....
-/poll.sh
+./poll.sh
 ....
 
 Outcome: `jiffies` gets printed to stdout every second from userland.
@@ -6335,7 +6341,7 @@ Sources:
 
 * link:kernel_modules/poll.c[]
 * link:kernel_modules/poll.c[]
-* link:rootfs_overlay/poll.sh[]
+* link:rootfs_overlay/lkmc/poll.sh[]
 
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
 
@@ -6350,7 +6356,7 @@ Bibliography: https://stackoverflow.com/questions/30035776/how-to-add-poll-funct
 The `ioctl` system call is the best way to pass an arbitrary number of parameters to the kernel in a single go:
 
 ....
-/ioctl.sh
+./ioctl.sh
 echo $?
 ....
 
@@ -6365,7 +6371,7 @@ Sources:
 * link:kernel_modules/ioctl.c[]
 * link:kernel_modules/ioctl.h[]
 * link:userland/ioctl.c[]
-* link:rootfs_overlay/ioctl.sh[]
+* link:rootfs_overlay/lkmc/ioctl.sh[]
 
 `ioctl` is one of the most important methods of communication with real device drivers, which often take several fields as input.
 
@@ -6399,7 +6405,7 @@ Bibliography:
 The `mmap` system call allows us to share memory between user and kernel space without copying:
 
 ....
-/mmap.sh
+./mmap.sh
 echo $?
 ....
 
@@ -6413,7 +6419,7 @@ Sources:
 
 * link:kernel_modules/mmap.c[]
 * link:userland/mmap.c[]
-* link:rootfs_overlay/mmap.sh[]
+* link:rootfs_overlay/lkmc/mmap.sh[]
 
 In this example, we make a tiny 4 byte kernel buffer available to user-space, and we then modify it on userspace, and check that the kernel can see the modification.
 
@@ -6435,7 +6441,7 @@ Bibliography:
 Anonymous inodes allow getting multiple file descriptors from a single filesystem entry, which reduces namespace pollution compared to creating multiple device files:
 
 ....
-/anonymous_inode.sh
+./anonymous_inode.sh
 echo $?
 ....
 
@@ -6450,7 +6456,7 @@ Sources:
 * link:kernel_modules/anonymous_inode.c[]
 * link:kernel_modules/anonymous_inode.h[]
 * link:userland/anonymous_inode.c[]
-* link:rootfs_overlay/anonymous_inode.sh[]
+* link:rootfs_overlay/lkmc/anonymous_inode.sh[]
 
 This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
 
@@ -6463,7 +6469,7 @@ Bibliography: https://stackoverflow.com/questions/4508998/what-is-an-anonymous-i
 Netlink sockets offer a socket API for kernel / userland communication:
 
 ....
-/netlink.sh
+./netlink.sh
 echo $?
 ....
 
@@ -6478,13 +6484,13 @@ Sources:
 * link:kernel_modules/netlink.c[]
 * link:kernel_modules/netlink.h[]
 * link:userland/netlink.c[]
-* link:rootfs_overlay/netlink.sh[]
+* link:rootfs_overlay/lkmc/netlink.sh[]
 
 Launch multiple user requests in parallel to stress our socket:
 
 ....
-insmod /netlink.ko sleep=1
-for i in `seq 16`; do /netlink.out & done
+insmod netlink.ko sleep=1
+for i in `seq 16`; do ./netlink.out & done
 ....
 
 TODO: what is the advantage over `read`, `write` and `poll`? https://stackoverflow.com/questions/16727212/how-netlink-socket-in-linux-kernel-is-different-from-normal-polling-done-by-appl
@@ -6499,7 +6505,7 @@ Bibliography:
 Kernel threads are managed exactly like userland threads; they also have a backing `task_struct`, and are scheduled with the same mechanism:
 
 ....
-insmod /kthread.ko
+insmod kthread.ko
 ....
 
 Source: link:kernel_modules/kthread.c[]
@@ -6537,7 +6543,7 @@ Bibliography:
 Let's launch two threads and see if they actually run in parallel:
 
 ....
-insmod /kthreads.ko
+insmod kthreads.ko
 ....
 
 Source: link:kernel_modules/kthreads.c[]
@@ -6571,7 +6577,7 @@ The threads almost always interleaved nicely, thus confirming that they are actu
 Count to dmesg every one second from `0` up to `n - 1`:
 
 ....
-insmod /sleep.ko n=5
+insmod sleep.ko n=5
 ....
 
 Source: link:kernel_modules/sleep.c[]
@@ -6588,7 +6594,7 @@ Bibliography:
 A more convenient front-end for <<kthread>>:
 
 ....
-insmod /workqueue_cheat.ko
+insmod workqueue_cheat.ko
 ....
 
 Outcome: count from `0` to `9` infinitely many times
@@ -6612,7 +6618,7 @@ Bibliography: https://github.com/torvalds/linux/blob/v4.17/Documentation/core-ap
 Count from `0` to `9` every second infinitely many times by scheduling a new work item from a work item:
 
 ....
-insmod /work_from_work.ko
+insmod work_from_work.ko
 ....
 
 Stop:
@@ -6630,7 +6636,7 @@ Source: link:kernel_modules/work_from_work.c[]
 Let's block the entire kernel! Yay:
 
 .....
-./run --eval-after 'dmesg -n 1;insmod /schedule.ko schedule=0'
+./run --eval-after 'dmesg -n 1;insmod schedule.ko schedule=0'
 .....
 
 Outcome: the system hangs, the only way out is to kill the VM.
@@ -6644,7 +6650,7 @@ Sleep functions like `usleep_range` also end up calling schedule.
 If we allow `schedule()` to be called, then the system becomes responsive:
 
 .....
-./run --eval-after 'dmesg -n 1;insmod /schedule.ko schedule=1'
+./run --eval-after 'dmesg -n 1;insmod schedule.ko schedule=1'
 .....
 
 
@@ -6657,7 +6663,7 @@ dmesg -w
 The system also responds if we <<number-of-cores,add another core>>:
 
 ....
-./run --cpus 2 --eval-after 'dmesg -n 1;insmod /schedule.ko schedule=0'
+./run --cpus 2 --eval-after 'dmesg -n 1;insmod schedule.ko schedule=0'
 ....
 
 ==== Wait queues
@@ -6665,7 +6671,7 @@ The system also responds if we <<number-of-cores,add another core>>:
 Wait queues are a way to make a thread sleep until an event happens on the queue:
 
 ....
-insmod /wait_queue.c
+insmod wait_queue.c
 ....
 
 Dmesg output:
@@ -6710,7 +6716,7 @@ while (!cond)
 Count from `0` to `9` infinitely many times in 1 second intervals using timers:
 
 ....
-insmod /timer.ko
+insmod timer.ko
 ....
 
 Stop counting:
@@ -6737,7 +6743,7 @@ Bibliography:
 Brute force monitor every shared interrupt that will accept us:
 
 ....
-./run --eval-after 'insmod /irq.ko' --graphic
+./run --eval-after 'insmod irq.ko' --graphic
 ....
 
 Source: link:kernel_modules/irq.c[].
@@ -6872,7 +6878,7 @@ https://github.com/torvalds/linux/blob/v4.17/Documentation/core-api/kernel-api.r
 Convert a string to an integer:
 
 ....
-/kstrto.sh
+./kstrto.sh
 echo $?
 ....
 
@@ -6885,7 +6891,7 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/kstrto.c[]
-* link:rootfs_overlay/kstrto.sh[]
+* link:rootfs_overlay/lkmc/kstrto.sh[]
 
 Bibliography: https://stackoverflow.com/questions/6139493/how-convert-char-to-int-in-linux-kernel/49811658#49811658
 
@@ -6894,7 +6900,7 @@ Bibliography: https://stackoverflow.com/questions/6139493/how-convert-char-to-in
 Convert a virtual address to physical:
 
 ....
-insmod /virt_to_phys.ko
+insmod virt_to_phys.ko
 cat /sys/kernel/debug/lkmc_virt_to_phys
 ....
 
@@ -6952,7 +6958,7 @@ In this section we will play with them.
 First get a virtual address to play with:
 
 ....
-/virt_to_phys_test.out &
+./virt_to_phys_test.out &
 ....
 
 Source: link:userland/virt_to_phys_test.c[]
@@ -6973,7 +6979,7 @@ The program:
 Then, translate the virtual address to physical using `/proc/<pid>/maps` and `/proc/<pid>/pagemap`:
 
 ....
-/virt_to_phys_user.out 110 0x600800
+./virt_to_phys_user.out 110 0x600800
 ....
 
 Sample output physical address:
@@ -7050,7 +7056,7 @@ After one second, we see on the screen:
 
 ....
 i 9abcdef0
-[1]+  Done                       /virt_to_phys_test.out
+[1]+  Done                       ./virt_to_phys_test.out
 ....
 
 so the value changed, and the `while` loop exited!
@@ -7075,26 +7081,26 @@ Dump the physical address of all pages mapped to a given process using `/proc/<p
 First launch `virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>. Suppose that the output was:
 
 ....
-# /virt_to_phys_test.out &
+# ./virt_to_phys_test.out &
 vaddr 0x601048
 pid 63
-# /virt_to_phys_user.out 63 0x601048
+# ./virt_to_phys_user.out 63 0x601048
 0x1a61048
 ....
 
 Now obtain the page map for the process:
 
 ....
-/pagemap_dump.out 63
+./pagemap_dump.out 63
 ....
 
 Sample output excerpt:
 
 ....
 vaddr pfn soft-dirty file/shared swapped present library
-400000 1ede 0 1 0 1 /virt_to_phys_test.out
-600000 1a6f 0 0 0 1 /virt_to_phys_test.out
-601000 1a61 0 0 0 1 /virt_to_phys_test.out
+400000 1ede 0 1 0 1 ./virt_to_phys_test.out
+600000 1a6f 0 0 0 1 ./virt_to_phys_test.out
+601000 1a61 0 0 0 1 ./virt_to_phys_test.out
 602000 2208 0 0 0 1 [heap]
 603000 220b 0 0 0 1 [heap]
 7ffff78ec000 1fd4 0 1 0 1 /lib/libuClibc-1.0.30.so
@@ -7181,7 +7187,7 @@ Logs proc events such as process creation to a link:kernel_modules/netlink.c[net
 We then have a userland program that listens to the events and prints them out:
 
 ....
-# /proc_events.out &
+# ./proc_events.out &
 # set mcast listen ok
 # sleep 2 & sleep 1
 fork: parent tid=48 pid=48 -> child tid=79 pid=79
@@ -7204,7 +7210,7 @@ Note how `echo a` is a Bash built-in, and therefore does not spawn a new process
 TODO: why does this produce no output?
 
 ....
-/proc_events.out >f &
+./proc_events.out >f &
 ....
 
 * https://stackoverflow.com/questions/6075013/detect-launching-of-programs-on-linux-platform/8255487#8255487
@@ -7390,7 +7396,7 @@ kprobes is an instrumentation mechanism that injects arbitrary code at a given a
 Then on guest:
 
 ....
-insmod /kprobe_example.ko
+insmod kprobe_example.ko
 sleep 4 & sleep 4 &'
 ....
 
@@ -7408,7 +7414,7 @@ Source: link:kernel_modules/kprobe_example.c[]
 TODO: it does not work if I try to immediately launch `sleep`, why?
 
 ....
-insmod /kprobe_example.ko
+insmod kprobe_example.ko
 sleep 4 & sleep 4 &
 ....
 
@@ -7552,7 +7558,7 @@ Detects buffer overflows for us:
 ./build-modules --clean
 ./build-modules
 ./build-buildroot
-./run --eval-after 'insmod /strlen_overflow.ko' --linux-build-id fortify
+./run --eval-after 'insmod strlen_overflow.ko' --linux-build-id fortify
 ....
 
 Possible dmesg output:
@@ -7570,7 +7576,7 @@ You may not get this error because this depends on `strlen` overflowing at least
 TODO not always reproducible. Find a more reproducible failure. I could not observe it on:
 
 ....
-insmod /memcpy_overflow.ko
+insmod memcpy_overflow.ko
 ....
 
 Source: link:kernel_modules/strlen_overflow.c[]
@@ -7671,7 +7677,7 @@ TODO how to write to registers. Currently using `/dev/mem` and `lspci`.
 This example should handle interrupts from userland and print a message to stdout:
 
 ....
-/uio_read.sh
+./uio_read.sh
 ....
 
 TODO: what is the expected behaviour? I should have documented this when I wrote this stuff, and I'm that lazy right now that I'm in the middle of a refactor :-)
@@ -7685,7 +7691,7 @@ UIO interface in a nutshell:
 Sources:
 
 * link:userland/uio_read.c[]
-* link:rootfs_overlay/uio_read.sh[]
+* link:rootfs_overlay/lkmc/uio_read.sh[]
 
 Bibliography:
 
@@ -7812,7 +7818,7 @@ echo 0 > /proc/sys/kernel/ctrl-alt-del
 Minimal example:
 
 ....
-./run --kernel-cli 'init=/ctrl_alt_del.out' --graphic
+./run --kernel-cli 'init=/lkmc/ctrl_alt_del.out' --graphic
 ....
 
 Source: link:userland/ctrl_alt_del.c[]
@@ -7913,7 +7919,7 @@ In order to play with TTYs, do this:
 
 ....
 printf '
-tty2::respawn:/sbin/getty -n -L -l /loginroot.sh tty2 0 vt100
+tty2::respawn:/sbin/getty -n -L -l /lkmc/loginroot.sh tty2 0 vt100
 tty3::respawn:-/bin/sh
 tty4::respawn:/sbin/getty 0 tty4
 tty63::respawn:-/bin/sh
@@ -7973,7 +7979,7 @@ The trailing dash `-` can be used on any command. It makes the command that foll
 The `getty` executable however also does this operation and therefore dispenses the `-`.
 * `/sbin/getty` asks for password, and then gives you an `sh`
 +
-We can overcome the password prompt with the `-l /loginroot.sh` technique explained at: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using but I don't see any advantage over `-/bin/sh` currently.
+We can overcome the password prompt with the `-l /lkmc/loginroot.sh` technique explained at: https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using but I don't see any advantage over `-/bin/sh` currently.
 
 Identify the current TTY with the command:
 
@@ -8015,10 +8021,10 @@ See also: https://stackoverflow.com/questions/16706423/two-instances-of-busybox-
 Get the TTY in bulk for all processes:
 
 ....
-/psa.sh
+./psa.sh
 ....
 
-Source: link:rootfs_overlay/psa.sh[].
+Source: link:rootfs_overlay/lkmc/psa.sh[].
 
 The TTY appears under the `TT` section, which is enabled by `-o tty`. This shows the TTY device number, e.g.:
 
@@ -8035,7 +8041,7 @@ ls -l /dev/tty1
 Next try:
 
 ....
-insmod /kthread.ko
+insmod kthread.ko
 ....
 
 and switch between virtual terminals, to understand that the dmesg goes to whatever current virtual terminal you are on, but not the others, and not to the serial terminals.
@@ -8084,7 +8090,7 @@ ____
 We can get some visibility into it to try and solve the problem with:
 
 ....
-/psa.sh
+./psa.sh
 ....
 
 ===== console kernel boot parameter
@@ -8129,7 +8135,7 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 ....
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
 ./build-userland --has-package libdrm -- libdrm_modeset
-./run --eval-after '/libdrm_modeset.out' --graphic
+./run --eval-after './libdrm_modeset.out' --graphic
 ....
 
 Source: link:userland/libdrm_modeset.c[]
@@ -8142,7 +8148,7 @@ TODO not working for `aarch64`, it takes over the screen for a few seconds and t
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
 ./build-userland --has-package libdrm
 ./build-buildroot
-./run --eval-after '/libdrm_modeset.out' --graphic
+./run --eval-after './libdrm_modeset.out' --graphic
 ....
 
 <<kmscube>> however worked, which means that it must be a bug with this demo?
@@ -8167,7 +8173,7 @@ Try creating new displays:
 to see multiple `/dev/dri/cardN`, and then use a different display with:
 
 ....
-./run --eval-after '/libdrm_modeset.out' --graphic
+./run --eval-after './libdrm_modeset.out' --graphic
 ....
 
 Bibliography:
@@ -8451,7 +8457,7 @@ qcow2 filesystems must be used for that to work.
 To test it out, login into the VM with and run:
 
 ....
-./run --eval-after 'umount /mnt/9p/*;/count.sh'
+./run --eval-after 'umount /mnt/9p/*;./count.sh'
 ....
 
 On another shell, take a snapshot:
@@ -8576,7 +8582,7 @@ PCI driver for our minimal `pci_min.c` QEMU fork device:
 then:
 
 ....
-insmod /pci_min.ko
+insmod pci_min.ko
 ....
 
 Sources:
@@ -8613,7 +8619,7 @@ Probe already does a MMIO write, which generates an IRQ and tests everything.
 Small upstream educational PCI device:
 
 ....
-/qemu_edu.sh
+./qemu_edu.sh
 ....
 
 This tests a lot of features of the edu device, to understand the results, compare the inputs with the documentation of the hardware: https://github.com/qemu/qemu/blob/v2.12.0/docs/specs/edu.txt
@@ -8622,7 +8628,7 @@ Sources:
 
 * kernel module: link:kernel_modules/qemu_edu.c[]
 * QEMU device: https://github.com/qemu/qemu/blob/v2.12.0/hw/misc/edu.c
-* test script: link:rootfs_overlay/qemu_edu.sh[]
+* test script: link:rootfs_overlay/lkmc/qemu_edu.sh[]
 
 Works because we add to our default QEMU CLI:
 
@@ -8633,7 +8639,7 @@ Works because we add to our default QEMU CLI:
 This example uses:
 
 * the QEMU `edu` educational device, which is a minimal educational in-tree PCI example
-* out `/pci.ko` kernel module, which exercises the `edu` hardware.
+* the `pci.ko` kernel module, which exercises the `edu` hardware.
 +
 I've contacted the awesome original author author of `edu` link:https://github.com/jirislaby[Jiri Slaby], and he told there is no official kernel module example because this was created for a kernel module university course that he gives, and he didn't want to give away answers. link:https://github.com/cirosantilli/how-to-teach-efficiently[I don't agree with that philosophy], so students, cheat away with this repo and go make startups instead.
 
@@ -8746,7 +8752,7 @@ followed by a trace.
 Next, also try using our <<irq-ko>> IRQ monitoring module before triggering the interrupt:
 
 ....
-insmod /irq.ko
+insmod irq.ko
 devmem 0xfeb54000 w 0x12345678
 ....
 
@@ -8869,10 +8875,10 @@ Then compile with:
 then test it out with:
 
 ....
-/gpio.sh
+./gpio.sh
 ....
 
-Source: link:rootfs_overlay/gpio.sh[]
+Source: link:rootfs_overlay/lkmc/gpio.sh[]
 
 Buildroot's Linux tools package provides some GPIO CLI tools: `lsgpio`, `gpio-event-mon`, `gpio-hammer`, TODO document them here.
 
@@ -8958,13 +8964,13 @@ We can also observe the interrupt with <<dummy-irq>>:
 
 ....
 modprobe dummy-irq irq=34
-insmod /platform_device.ko
+insmod platform_device.ko
 ....
 
 The IRQ number `34` was found by on the dmesg after:
 
 ....
-insmod /platform_device.ko
+insmod platform_device.ko
 ....
 
 Bibliography: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code/44612957#44612957
@@ -9078,7 +9084,7 @@ run
 And in QEMU:
 
 ....
-/qemu_edu.sh
+./qemu_edu.sh
 ....
 
 Or for a faster development loop:
@@ -9198,7 +9204,7 @@ QEMU also has a second trace mechanism in addition to `-trace`, find out the eve
 Let's pick the one that dumps executed instructions, `in_asm`:
 
 ....
-./run --eval '/poweroff.out' -- -D out/trace.txt -d in_asm
+./run --eval './poweroff.out' -- -D out/trace.txt -d in_asm
 less out/trace.txt
 ....
 
@@ -9274,15 +9280,15 @@ This awesome feature allows you to examine a single run as many times as you wou
 
 ....
 # Record a run.
-./run --eval-after '/rand_check.out;/poweroff.out;' --record
+./run --eval-after './rand_check.out;./poweroff.out;' --record
 # Replay the run.
-./run --eval-after '/rand_check.out;/poweroff.out;' --replay
+./run --eval-after './rand_check.out;./poweroff.out;' --replay
 ....
 
 A convenient shortcut to do both at once to test the feature is:
 
 ....
-./qemu-rr --eval-after '/rand_check.out;/poweroff.out;'
+./qemu-rr --eval-after './rand_check.out;./poweroff.out;'
 ....
 
 By comparing the terminal output of both runs, we can see that they are the exact same, including things which normally differ across runs:
@@ -9309,7 +9315,7 @@ EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
 TODO replay with network gets stuck:
 
 ....
-./qemu-rr --eval-after 'ifup -a;wget -S google.com;/poweroff.out;'
+./qemu-rr --eval-after 'ifup -a;wget -S google.com;./poweroff.out;'
 ....
 
 after the message:
@@ -9328,7 +9334,7 @@ Then, when I tried with <<initrd>> and no disk:
 
 ....
 ./build-buildroot --arch aarch64 --initrd
-./qemu-rr --arch aarch64 --eval-after '/rand_check.out;/poweroff.out;' --initrd
+./qemu-rr --arch aarch64 --eval-after './rand_check.out;./poweroff.out;' --initrd
 ....
 
 QEMU crashes with:
@@ -9348,8 +9354,8 @@ TODO get working.
 QEMU replays support checkpointing, and this allows for a simplistic "reverse debugging" implementation proposed at https://lists.gnu.org/archive/html/qemu-devel/2018-06/msg00478.html on the unmerged link:https://github.com/ispras/qemu/tree/rr-180725[]:
 
 ....
-./run --eval-after '/rand_check.out;/poweroff.out;' --record
-./run --eval-after '/rand_check.out;/poweroff.out;' --replay --wait-gdb
+./run --eval-after './rand_check.out;./poweroff.out;' --record
+./run --eval-after './rand_check.out;./poweroff.out;' --replay --wait-gdb
 ....
 
 On another shell:
@@ -9375,7 +9381,7 @@ and we are back at `start_kernel`
 TODO: is there any way to distinguish which instruction runs on each core? Doing:
 
 ....
-./run --arch x86_64 --cpus 2 --eval '/poweroff.out' --trace exec_tb
+./run --arch x86_64 --cpus 2 --eval './poweroff.out' --trace exec_tb
 ./qemu-trace2txt
 ....
 
@@ -9848,9 +9854,9 @@ Usage:
 ....
 ./run \
   --arch aarch64 \
-  --eval-after '/gem5.sh' \
+  --eval-after './gem5.sh' \
   --emulator gem5 \
-  --gem5-readfile '/bst_vs_heap.out' \
+  --gem5-readfile './bst_vs_heap.out' \
 ;
 ./bst-vs-heap --arch aarch64 --emulator gem5 > bst_vs_heap.dat
 ....
@@ -9867,7 +9873,7 @@ Sources:
 Implemented by GCC itself, so just a toolchain configuration, no external libs, and we enable it by default:
 
 ....
-/openmp.out
+./openmp.out
 ....
 
 Source: link:userland/openmp.c[]
@@ -9879,7 +9885,7 @@ Buildroot supports it, which makes everything just trivial:
 ....
 ./build-buildroot --config 'BR2_PACKAGE_OPENBLAS=y'
 ./build-userland --has-package openblas -- openblas_hello
-./run --eval-after '/openblas_hello.out; echo $?'
+./run --eval-after './openblas_hello.out; echo $?'
 ....
 
 Outcome: the test passes:
@@ -9924,7 +9930,7 @@ Header only linear algebra library with a mainline Buildroot package:
 Just create an array and print it:
 
 ....
-./run --eval-after '/eigen_hello.out'
+./run --eval-after './eigen_hello.out'
 ....
 
 Output:
@@ -10108,7 +10114,7 @@ You may also want to test if your patches are still functionally correct inside 
 Analogous <<kernel-command-line-parameters,to QEMU>>:
 
 ....
-./run --arch arm --kernel-cli 'init=/poweroff.out' --emulator gem5
+./run --arch arm --kernel-cli 'init=/lkmc/poweroff.out' --emulator gem5
 ....
 
 Internals: when we give `--command-line=` to gem5, it overrides default command lines, including some mandatory ones which are required to boot properly.
@@ -10151,7 +10157,7 @@ On a third shell:
 
 When you want to break, just do a `Ctrl-C` on GDB shell, and then `continue`.
 
-And we now see the boot messages, and then get a shell. Now try the `/count.sh` procedure described for QEMU: <<gdb-step-debug-kernel-post-boot>>.
+And we now see the boot messages, and then get a shell. Now try the `./count.sh` procedure described for QEMU: <<gdb-step-debug-kernel-post-boot>>.
 
 ==== gem5 GDB step debug userland process
 
@@ -10161,7 +10167,7 @@ The alternative is to do as in <<gdb-step-debug-userland-processes>>.
 
 Next, follow the exact same steps explained at <<gdb-step-debug-userland-non-init-without--d>>, but passing `-g` to every command as usual.
 
-But then TODO (I'll still go crazy one of those days): for `arm`, while debugging `/myinsmod.out /hello.ko`, after then line:
+But then TODO (I'll still go crazy one of those days): for `arm`, while debugging `./myinsmod.out hello.ko`, after then line:
 
 ....
 23     if (argc < 3) {
@@ -10293,7 +10299,7 @@ printf 'sh' > "$(./getvar gem5_readfile)"
 
 Since this is such a common setup, we provide some helpers for it as described at <<gem5-run-benchmark>>:
 
-* link:rootfs_overlay/gem5.sh[rootfs_overlay/gem5.sh]. This script is analogous to gem5's in-tree link:https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
+* link:rootfs_overlay/lkmc/gem5.sh[]. This script is analogous to gem5's in-tree link:https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
 * `./run --gem5-readfile` is a convenient way to set the `m5 readfile`
 
 Other loophole possibilities include:
@@ -10533,20 +10539,20 @@ adsf
 
 ==== m5ops instructions
 
-The executable `/m5ops.out` illustrates how to hard code with inline assembly the m5ops that you are most likely to hack into the benchmark you are analysing:
+The executable `./m5ops.out` illustrates how to hard code with inline assembly the m5ops that you are most likely to hack into the benchmark you are analysing:
 
 ....
 # checkpoint
-/m5ops.out c
+./m5ops.out c
 
 # dumpstats
-/m5ops.out d
+./m5ops.out d
 
 # exit
-/m5ops.out e
+./m5ops.out e
 
 # dump resetstats
-/m5ops.out r
+./m5ops.out r
 ....
 
 Sources:
@@ -10748,7 +10754,7 @@ Let's have some fun and try to correlate the gem5 cycle count `system.cpu.numCyc
 
 ....
 ./build-userland -- rdtsc
-./run --eval '/rdtsc.out;m5 exit;' --emulator gem5
+./run --eval './rdtsc.out;m5 exit;' --emulator gem5
 ./gem5-stat
 ....
 
@@ -12674,15 +12680,15 @@ cat "$(./getvar test_boot_benchmark_file)"
 Sample results at 8fb9db39316d43a6dbd571e04dd46ae73915027f:
 
 ....
-cmd ./run --arch x86_64 --eval '/poweroff.out'
+cmd ./run --arch x86_64 --eval './poweroff.out'
 time 8.25
 exit_status 0
 
-cmd ./run --arch x86_64 --eval '/poweroff.out' --kvm
+cmd ./run --arch x86_64 --eval './poweroff.out' --kvm
 time 1.22
 exit_status 0
 
-cmd ./run --arch x86_64 --eval '/poweroff.out' --trace exec_tb
+cmd ./run --arch x86_64 --eval './poweroff.out' --trace exec_tb
 time 8.83
 exit_status 0
 instructions 2244297
@@ -12692,10 +12698,10 @@ time 213.39
 exit_status 0
 instructions 318486337
 
-cmd ./run --arch arm --eval '/poweroff.out'
+cmd ./run --arch arm --eval './poweroff.out'
 time 6.62
 exit_status 0
-cmd ./run --arch arm --eval '/poweroff.out' --trace exec_tb
+cmd ./run --arch arm --eval './poweroff.out' --trace exec_tb
 time 6.90
 exit_status 0
 instructions 776374
@@ -12710,11 +12716,11 @@ time 2250.40
 exit_status 0
 instructions 151981914
 
-cmd ./run --arch aarch64 --eval '/poweroff.out'
+cmd ./run --arch aarch64 --eval './poweroff.out'
 time 4.94
 exit_status 0
 
-cmd ./run --arch aarch64 --eval '/poweroff.out' --trace exec_tb
+cmd ./run --arch aarch64 --eval './poweroff.out' --trace exec_tb
 time 5.04
 exit_status 0
 instructions 233162
@@ -13416,7 +13422,7 @@ Those packages get automatically added to Buildroot's `BR2_EXTERNAL`, so all you
 then test it out with:
 
 ....
-./run --eval-after '/sample_package.out'
+./run --eval-after './sample_package.out'
 ....
 
 and you should see:
@@ -13536,6 +13542,40 @@ Those files also contain arch specific helpers under ifdefs like:
 
 We try to keep as much as possible in those files. It bloats builds a little, but just makes everything simpler to understand.
 
+==== rand_check.out
+
+Print out several parameters that normally change randomly from boot to boot:
+
+....
+./run --eval-after './rand_check.out;./poweroff.out'
+....
+
+Source: link:userland/rand_check.c[]
+
+This can be used to check the determinism of:
+
+* <<norandmaps>>
+* <<qemu-record-and-replay>>
+
+==== lkmc_home
+
+`lkmc_home` refers to the target base directory in which we put all our custom built stuff, such as <<userland-setup,userland executables>> and <<your-first-kernel-module-hack,kernel modules>>.
+
+The current value can be found with:
+
+....
+./getvar guest_lkmc_home
+....
+
+In the past, we used to dump everything into the root filesystem, but as the userland structure got more complex with subfolders, we decided that the risk of conflicting with important root files was becoming too great.
+
+To save you from typing that path every time, we have made our most common commands `cd` into that directory by default for you, e.g.:
+
+* interactive shells `cd` there through <<busybox-shell-initrc-files>>
+* `--eval` and `--eval-after` through <<replace-init>> and <<init-busybox>>
+
+Whenever a relative path is used inside a guest sample command, e.g. `insmod hello.ko` or `./hello.out`, it means that the path lives in `lkmc_home` unless stated otherwise.
+
 === Test this repo
 
 ==== Automated tests
@@ -13614,7 +13654,7 @@ Run all userland tests from inside full system simulation (i.e. not <<user-mode-
 
 This includes, in particular, userland programs that test the kernel modules, which cannot be tested in user mode simulation.
 
-Basically just boots and runs: link:rootfs_overlay/test_all.sh[]
+Basically just boots and runs: link:rootfs_overlay/lkmc/test_all.sh[]
 
 Failure is detected by looking for the <<magic-failure-string>>
 
@@ -13674,7 +13714,7 @@ to the terminal, then our run scripts detect that and exit with status `1`.
 This magic output string is notably used by:
 
 * the `lkmc_assert_fail()` function, which is used by <<baremetal-tests>>
-* link:rootfs_overlay/test_fail.sh[], which is used by <<test-userland-in-full-system>>
+* link:rootfs_overlay/lkmc/test_fail.sh[], which is used by <<test-userland-in-full-system>>
 
 ==== Non-automated tests
 
@@ -13698,8 +13738,8 @@ Should break GDB at `start_kernel`.
 
 Then proceed to do the following tests:
 
-* `/count.sh` and `break __x64_sys_write`
-* `insmod /timer.ko` and `break lkmc_timer_callback`
+* `./count.sh` and `break __x64_sys_write`
+* `insmod timer.ko` and `break lkmc_timer_callback`
 
 ===== Test the Internet
 
@@ -13773,21 +13813,6 @@ git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
 # And update the README to show off.
 git commit -m "linux: update to ${next_mainline_revision}"
 ....
-
-==== rand_check.out
-
-Print out several parameters that normally change randomly from boot to boot:
-
-....
-./run --eval-after '/rand_check.out;/poweroff.out'
-....
-
-Source: link:userland/rand_check.c[]
-
-This can be used to check the determinism of:
-
-* <<norandmaps>>
-* <<qemu-record-and-replay>>
 
 === Release
 

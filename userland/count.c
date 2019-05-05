@@ -1,3 +1,5 @@
+/* Count to infinity with 1 second sleep between each increment. */
+
 #define _XOPEN_SOURCE 700
 #include <limits.h>
 #include <stdio.h>

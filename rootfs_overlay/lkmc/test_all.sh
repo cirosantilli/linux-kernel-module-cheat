@@ -20,7 +20,7 @@ for test in \
 ; do
   if ! "${test_dir}/${test}"; then
     echo "Test failed: ${test}"
-    test_fail.sh
+    ./test_fail.sh
     exit 1
   fi
 done

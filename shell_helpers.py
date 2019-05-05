@@ -124,12 +124,12 @@ class ShellHelpers:
         os.makedirs(destdir, exist_ok=True)
         for basename in sorted(os.listdir(srcdir)):
             src = os.path.join(srcdir, basename)
-            if os.path.isfile(src):
+            if os.path.isfile(src) or os.path.islink(src):
                 noext, ext = os.path.splitext(basename)
                 dest = os.path.join(destdir, basename)
                 if (
-                    (filter_ext is not None and ext == filter_ext) and
-                    (os.path.exists(dest) and os.path.getmtime(src) > os.path.getmtime(dest))
+                    (filter_ext is None or ext == filter_ext) and
+                    (not os.path.exists(dest) or os.path.getmtime(src) > os.path.getmtime(dest))
                 ):
                     self.cp(src, dest)
 
@@ -151,7 +151,13 @@ class ShellHelpers:
     def cp(self, src, dest, **kwargs):
         self.print_cmd(['cp', src, dest])
         if not self.dry_run:
-            shutil.copy2(src, dest)
+            if os.path.islink(src):
+                if os.path.lexists(dest):
+                    os.unlink(dest)
+                linkto = os.readlink(src)
+                os.symlink(linkto, dest)
+            else:
+                shutil.copy2(src, dest)
 
     def print_cmd(self, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
         '''

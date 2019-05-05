@@ -724,8 +724,12 @@ Valid emulators: {}
         env['kernel_modules_build_subdir'] = join(env['kernel_modules_build_dir'], env['kernel_modules_subdir'])
         env['kernel_modules_build_host_dir'] = join(env['kernel_modules_build_base_dir'], 'host')
         env['kernel_modules_build_host_subdir'] = join(env['kernel_modules_build_host_dir'], env['kernel_modules_subdir'])
+
+        # Overlay.
         env['out_rootfs_overlay_dir'] = join(env['out_dir'], 'rootfs_overlay', env['arch'])
-        env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_dir'], 'bin')
+        env['out_rootfs_overlay_lkmc_dir'] = join(env['out_rootfs_overlay_dir'], 'lkmc')
+        env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_lkmc_dir'], 'bin')
+        env['guest_lkmc_home'] = os.sep + 'lkmc'
 
         # Baremetal.
         env['baremetal_source_dir'] = join(env['root_dir'], 'baremetal')
