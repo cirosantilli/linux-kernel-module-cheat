@@ -486,10 +486,13 @@ CLI arguments to pass to the userland executable.
             default=False,
             help='''\
 Place build output inside source tree to conveniently run it, especially when
-building with the host native toolchain. Currently only supported by ./build-userland.
+building with the host native toolchain.
 
-When running, prefer in-tree executables instead of out-of-tree ones, e.g.:
+When running, use in-tree executables instead of out-of-tree ones,
 userland/c/hello resolves userland/c/hello.out instead of the out-of-tree one.
+
+Currently only supported by userland scripts such as ./build-userland and
+./run --userland.
 ''',
         )
         self.add_argument(
@@ -982,7 +985,13 @@ lunch aosp_{}-eng
         of the script.
         '''
         return {
-            key:self.env[key] for key in self._common_args if self.env['_args_given'][key]
+            key:self.env[key] for key in self._common_args if
+            (
+                # Args given on command line.
+                self.env['_args_given'][key] or
+                # Ineritance changed defaults.
+                key in self._defaults
+            )
         }
 
     def get_stats(self, stat_re=None, stats_file=None):

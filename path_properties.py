@@ -29,6 +29,10 @@ class PathProperties:
         # of how Python + QEMU + gem5 determine the exit status of signals.
         'receives_signal',
         'requires_kernel_modules',
+        # The example requires sudo, which usually implies that it can do something
+        # deeply to the system it runs on, which would preventing further interactive
+        # or test usage of the system, for example poweroff or messing up the GUI.
+        'sudo',
         'uses_dynamic_library',
     }
 
@@ -76,6 +80,7 @@ class PathProperties:
             not self['receives_signal'] and \
             not self['requires_kernel_modules'] and \
             not self['skip_run_unclassified'] and \
+            not self['sudo'] and \
             not (self['uses_dynamic_library'] and env['emulator'] == 'gem5')
 
     def update(self, other):
@@ -166,6 +171,7 @@ path_properties_tuples = (
         'receives_signal': False,
         'requires_kernel_modules': False,
         'skip_run_unclassified': False,
+        'sudo': False,
         'uses_dynamic_library': False,
     },
     {
@@ -264,7 +270,12 @@ path_properties_tuples = (
                         'assert_fail.c': {'exit_status': 1},
                     }
                 ),
-                'libs': {'uses_dynamic_library': True},
+                'libs': (
+                    {'uses_dynamic_library': True},
+                    {
+                        'libdrm': {'sudo': True},
+                    }
+                ),
                 'linux': {**gnu_extension_properties, **{'skip_run_unclassified': True}},
                 'posix': (
                     {},
