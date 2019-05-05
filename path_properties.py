@@ -23,7 +23,8 @@ class PathProperties:
             'exit_status',
             'interactive',
             # We should get rid of this if we ever properly implement dependency graphs.
-            'lkmc_common_obj',
+            'extra_objs_lkmc_common',
+            'extra_objs_userland_asm',
             # We were lazy to properly classify why we are skipping these tests.
             # TODO get it done.
             'skip_run_unclassified',
@@ -55,18 +56,22 @@ class PathProperties:
             other_tmp_properties['cc_flags'] = self.properties['cc_flags'] + other_tmp_properties['cc_flags']
         return self.properties.update(other_tmp_properties)
 
-    def should_be_tested(self, arch):
+    def should_be_built(self, arch):
         return \
-            not self['interactive'] and \
-            not self['more_than_1s'] and \
             not self['no_executable'] and \
-            not self['receives_signal'] and \
-            not self['requires_kernel_modules'] and \
-            not self['skip_run_unclassified'] and \
             (
                 self['allowed_archs'] is None or
                 arch in self['allowed_archs']
             )
+
+    def should_be_tested(self, arch):
+        return \
+            self.should_be_built(arch) and \
+            not self['interactive'] and \
+            not self['more_than_1s'] and \
+            not self['receives_signal'] and \
+            not self['requires_kernel_modules'] and \
+            not self['skip_run_unclassified']
 
 class PrefixTree:
     def __init__(self, path_properties_dict=None, children=None):
@@ -108,10 +113,18 @@ def get(test_path):
 
 default_c_std = 'c11'
 default_cxx_std = 'c++17'
-gnu_extensions = {
+gnu_extension_properties = {
     'c_std': 'gnu11',
     'cc_pedantic': False,
     'cxx_std': 'gnu++17'
+}
+freestanding_properties = {
+    'cc_flags': [
+        '-ffreestanding', LF,
+        '-nostdlib', LF,
+        '-static', LF,
+    ],
+    'extra_objs_userland_asm': False,
 }
 path_properties_tuples = (
     {
@@ -124,8 +137,9 @@ path_properties_tuples = (
         'cc_pedantic': True,
         'cxx_std': None,
         'exit_status': 0,
+        'extra_objs_lkmc_common': False,
+        'extra_objs_userland_asm': False,
         'interactive': False,
-        'lkmc_common_obj': False,
         'skip_run_unclassified': False,
         'more_than_1s': False,
         'no_executable': False,
@@ -142,7 +156,8 @@ path_properties_tuples = (
                         'cc_flags': [
                             '-fno-pie', LF,
                             '-no-pie', LF,
-                        ]
+                        ],
+                        'extra_objs_userland_asm': True,
                     },
                     {
                         'arm': (
@@ -165,9 +180,33 @@ path_properties_tuples = (
                                     # So we just write divided inline assembly for now.
                                     '-masm-syntax-unified', LF,
                                 ]
+                            },
+                            {
+                                'c': (
+                                    {
+                                        'extra_objs_userland_asm': False,
+                                    },
+                                    {
+                                        'freestanding': freestanding_properties,
+                                    },
+                                ),
+                                'freestanding': freestanding_properties,
                             }
                         ),
-                        'aarch64': {'allowed_archs': {'aarch64'}},
+                        'aarch64': (
+                            {'allowed_archs': {'aarch64'}},
+                            {
+                                'c': (
+                                    {
+                                        'extra_objs_userland_asm': False,
+                                    },
+                                    {
+                                        'freestanding': freestanding_properties,
+                                    },
+                                ),
+                                'freestanding': freestanding_properties,
+                            }
+                        ),
                         'empty.S': {'no_executable': True},
                         'fail.S': {'no_executable': True},
                         'main.c': {'no_executable': True},
@@ -175,11 +214,15 @@ path_properties_tuples = (
                             {'allowed_archs': {'x86_64'}},
                             {
                                 'c': (
-                                    {},
                                     {
+                                        'extra_objs_userland_asm': False,
+                                    },
+                                    {
+                                        'freestanding': freestanding_properties,
                                         'ring0.c': {'receives_signal': True}
                                     }
                                 ),
+                                'freestanding': freestanding_properties,
                             }
                         ),
                     }
@@ -192,16 +235,16 @@ path_properties_tuples = (
                         'infinite_loop.c': {'more_than_1s': True},
                     }
                 ),
-                'gcc': gnu_extensions,
-                'kernel_modules': {**gnu_extensions, **{'requires_kernel_modules': True}},
+                'gcc': gnu_extension_properties,
+                'kernel_modules': {**gnu_extension_properties, **{'requires_kernel_modules': True}},
                 'lkmc': (
-                    {'lkmc_common_obj': True},
+                    {'extra_objs_lkmc_common': True},
                     {
                         'assert_fail.c': {'exit_status': 1}
                     }
                 ),
                 'libs': {'skip_run_unclassified': True},
-                'linux': {**gnu_extensions, **{'skip_run_unclassified': True}},
+                'linux': {**gnu_extension_properties, **{'skip_run_unclassified': True}},
                 'posix': (
                     {},
                     {

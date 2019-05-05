@@ -1203,17 +1203,15 @@ lunch aosp_{}-eng
 
         If the input path is a file, add the executable extension automatically.
         '''
-        in_path_abs = os.path.abspath(in_path)
-        magic_in_dir_abs = os.path.abspath(magic_in_dir)
-        magic_out_dir_abs = os.path.abspath(magic_out_dir)
-        if self.is_subpath(in_path_abs, magic_in_dir_abs):
+        if self.is_subpath(in_path, magic_in_dir):
+            # Abspath needed to remove the trailing `/.` which makes e.g. rmrf fail.
             out = os.path.abspath(os.path.join(
-                magic_out_dir_abs,
+                magic_out_dir,
                 os.path.relpath(
-                    os.path.splitext(in_path_abs)[0],
-                    os.path.abspath(magic_in_dir_abs)
-                )),
-            )
+                    os.path.splitext(in_path)[0],
+                    magic_in_dir
+                )
+            ))
             if os.path.isfile(in_path):
                 out += executable_ext
             return out

@@ -180,6 +180,14 @@ class ShellHelpers:
                 f.write(cmd_string)
             self.chmod(cmd_file)
 
+    def rmrf(self, path):
+        self.print_cmd(['rm', '-r', '-f', path, LF])
+        if not self.dry_run and os.path.exists(path):
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.unlink(path)
+
     def run_cmd(
             self,
             cmd,
@@ -308,14 +316,6 @@ class ShellHelpers:
             return cmd
         else:
             return [x for x in cmd if x != LF]
-
-    def rmrf(self, path):
-        self.print_cmd(['rm', '-r', '-f', path, LF])
-        if not self.dry_run and os.path.exists(path):
-            if os.path.isdir(path):
-                shutil.rmtree(path)
-            else:
-                os.unlink(path)
 
     def walk(self, root):
         '''
