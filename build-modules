@@ -3,6 +3,7 @@
 import distutils.dir_util
 import os
 import platform
+import shlex
 import shutil
 
 import common
@@ -80,14 +81,18 @@ Place the modules on a separate magic directory from non --host builds.
             cc = '{} {}'.format(ccache, gcc)
         else:
             cc = gcc
-        if self.env['verbose']:
-            verbose = ['V=1']
-        else:
-            verbose = []
         if self.env['host']:
             linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
         else:
             linux_dir = self.env['linux_build_dir']
+        ccflags = [
+            '-I', self.env['root_dir'], LF,
+        ]
+        make_args_extra = []
+        if self.env['verbose']:
+            make_args_extra.extend(['V=1', LF])
+        if self.env['force_rebuild']:
+            make_args_extra.extend(['-B', LF])
         self.sh.run_cmd(
             (
                 [
@@ -95,13 +100,14 @@ Place the modules on a separate magic directory from non --host builds.
                     '-j', str(self.env['nproc']), LF,
                     'ARCH={}'.format(self.env['linux_arch']), LF,
                     'CC={}'.format(cc), LF,
+                    'CCFLAGS={}'.format(self.sh.cmd_to_string(ccflags)), LF,
                     'CROSS_COMPILE={}'.format(prefix), LF,
                     'LINUX_DIR={}'.format(linux_dir), LF,
                     'M={}'.format(build_subdir), LF,
                     'OBJECT_FILES={}'.format(' '.join(object_files)), LF,
                 ] +
-                self.sh.shlex_split(self.env['make_args']) +
-                verbose
+                make_args_extra +
+                self.sh.shlex_split(self.env['make_args'])
             ),
             cwd=os.path.join(self.env['kernel_modules_build_subdir']),
         )

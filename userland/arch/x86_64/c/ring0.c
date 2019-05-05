@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <include/ring0.h>
+#include <lkmc/ring0.h>
 
 int main(void) {
     LkmcRing0Regs ring0_regs;

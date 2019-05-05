@@ -1,5 +1,7 @@
-#ifndef NETLINK_H
-#define NETLINK_H
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets */
+
+#ifndef LKMC_NETLINK_H
+#define LKMC_NETLINK_H
 
 /* Socket identifier, matches userland. TODO can be anything?
  * Is there a more scalable way to do it? E.g. ioctl device,

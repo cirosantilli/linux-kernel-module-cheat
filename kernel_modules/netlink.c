@@ -6,7 +6,7 @@
 #include <linux/skbuff.h>
 #include <net/sock.h>
 
-#include "../include/netlink.h"
+#include <lkmc/netlink.h>
 
 struct sock *nl_sk = NULL;
 

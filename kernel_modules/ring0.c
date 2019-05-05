@@ -3,7 +3,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 
-#include "../include/ring0.h"
+#include <lkmc/ring0.h>
 
 static int myinit(void)
 {

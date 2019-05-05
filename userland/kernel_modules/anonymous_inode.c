@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h> /* sleep */
 
-#include <include/anonymous_inode.h>
+#include <lkmc/anonymous_inode.h>
 
 int main(int argc, char **argv) {
     char buf[1024];

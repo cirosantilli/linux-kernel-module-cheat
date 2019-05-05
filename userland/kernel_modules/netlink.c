@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <include/netlink.h>
+#include <lkmc/netlink.h>
 
 #define MAX_PAYLOAD 1024
 

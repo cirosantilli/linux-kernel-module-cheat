@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <include/ioctl.h>
+#include <lkmc/ioctl.h>
 
 int main(int argc, char **argv) {
     char *ioctl_path;

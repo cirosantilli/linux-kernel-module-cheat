@@ -1,5 +1,7 @@
-#ifndef IOCTL_H
-#define IOCTL_H
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#ioctl */
+
+#ifndef LKMC_IOCTL_H
+#define LKMC_IOCTL_H
 
 #include <linux/ioctl.h>
 

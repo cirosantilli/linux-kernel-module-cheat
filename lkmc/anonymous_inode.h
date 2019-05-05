@@ -1,5 +1,7 @@
-#ifndef IOCTL_H
-#define IOCTL_H
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#anonymous-inode */
+
+#ifndef LKMC_ANONYMOUS_INODE_H
+#define LKMC_ANONYMOUS_INODE_H
 
 #include <linux/ioctl.h>
 
