@@ -1372,11 +1372,13 @@ class TestResult:
         self,
         test_id: str ='',
         status : TestStatus =TestStatus.PASS,
-        ellapsed_seconds : float =0
+        ellapsed_seconds : float =0,
+        reason : str =''
     ):
         self.test_id = test_id
         self.status = status
         self.ellapsed_seconds = ellapsed_seconds
+        self.reason = reason
 
     def __eq__(self, other):
         return self.test_id == other.test_id
@@ -1385,12 +1387,13 @@ class TestResult:
         return self.test_id < other.test_id
 
     def __str__(self):
-        out = []
-        if self.status is not None:
-            out.append(self.status.name)
-        if self.ellapsed_seconds is not None:
-            out.append(LkmcCliFunction.seconds_to_hms(self.ellapsed_seconds))
-        out.append(self.test_id)
+        out = [
+            self.status.name,
+            LkmcCliFunction.seconds_to_hms(self.ellapsed_seconds),
+            repr(self.test_id),
+        ]
+        if self.status is TestStatus.FAIL:
+            out.append(repr(self.reason))
         return ' '.join(out)
 
 class TestCliFunction(LkmcCliFunction):
@@ -1455,11 +1458,16 @@ class TestCliFunction(LkmcCliFunction):
     ):
         if expected_exit_status is None:
             expected_exit_status = 0
+        reason = ''
         if not self.env['dry_run']:
             if exit_status == expected_exit_status:
                 test_result = TestStatus.PASS
             else:
                 test_result = TestStatus.FAIL
+                reason = 'wrong exit status, got {} expected {}'.format(
+                    exit_status,
+                    expected_exit_status
+                )
             ellapsed_seconds = run_obj.ellapsed_seconds
         else:
             test_result = TestStatus.PASS
@@ -1467,7 +1475,8 @@ class TestCliFunction(LkmcCliFunction):
         test_result = TestResult(
             test_id_string,
             test_result,
-            ellapsed_seconds
+            ellapsed_seconds,
+            reason
         )
         self.log_info(test_result)
         self.test_results.put(test_result)
