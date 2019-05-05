@@ -290,7 +290,10 @@ class CliFunction:
                 if value != default:
                     if argument.is_option:
                         if argument.is_bool:
-                            vals = [(argument.longname,)]
+                            if value:
+                                vals = [(argument.longname,)]
+                            else:
+                                vals = [('--no-' + argument.longname[2:],)]
                         elif 'action' in argument.kwargs and argument.kwargs['action'] == 'append':
                             vals = [(argument.longname, str(val)) for val in value]
                         else:
@@ -454,7 +457,8 @@ amazing function!
     # get_cli
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B', qwer='R') == [('--asdf', 'B'), ('--bool-cli',), ('--qwer', 'R'), ('1',)]
-    assert one_cli_function.get_cli(pos_mandatory=1, bool_true=False) == [('--bool-cli',), ('--bool-true',), ('1',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, bool_true=False) == [('--bool-cli',), ('--no-bool-true',), ('1',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, bool_false=True) == [('--bool-cli',), ('--bool-false',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('2',), ('asdf',), ('qwer',)]
     assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
 

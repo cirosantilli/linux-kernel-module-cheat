@@ -62,7 +62,7 @@ consts['kernel_modules_source_dir'] = os.path.join(consts['root_dir'], consts['k
 consts['userland_subdir'] = 'userland'
 consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
 consts['userland_source_arch_dir'] = os.path.join(consts['userland_source_dir'], 'arch')
-consts['userland_build_ext'] = '.out'
+consts['userland_executable_ext'] = '.out'
 consts['include_subdir'] = 'lkmc'
 consts['include_source_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
 consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
@@ -110,7 +110,7 @@ consts['userland_in_exts'] = [
     consts['cxx_ext'],
 ]
 consts['userland_out_exts'] = [
-    consts['userland_build_ext'],
+    consts['userland_executable_ext'],
     consts['obj_ext'],
 ]
 consts['config_file'] = os.path.join(consts['data_dir'], 'config.py')
@@ -358,10 +358,8 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#initrd
             help='''\
 Use the given baremetal executable instead of the Linux kernel.
 
-If the path is absolute, it is used as is.
-
-If the path is relative, we assume that it points to a source code
-inside baremetal/ and then try to use corresponding executable.
+If the path points to a source code inside baremetal/, then the
+corresponding executable is automatically found.
 '''
         )
 
@@ -467,6 +465,17 @@ CLI arguments to pass to the userland executable.
         )
 
         # Run.
+        self.add_argument(
+            '--in-tree',
+            default=False,
+            help='''\
+Place build output inside source tree to conveniently run it, especially when
+building with the host native toolchain. Currently only supported by ./build-userland.
+
+When running, prefer in-tree executables instead of out-of-tree ones, e.g.:
+userland/c/hello resolves userland/c/hello.out instead of the out-of-tree one.
+''',
+        )
         self.add_argument(
             '--port-offset',
             type=int,
@@ -759,7 +768,10 @@ Incompatible archs are skipped.
 
         # Userland
         env['userland_source_arch_arch_dir'] = join(env['userland_source_arch_dir'], env['arch'])
-        env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
+        if env['in_tree']:
+            env['userland_build_dir'] = self.env['userland_source_dir']
+        else:
+            env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])
@@ -821,7 +833,7 @@ Incompatible archs are skipped.
                     env['baremetal'],
                     env['baremetal_source_dir'],
                     env['baremetal_build_dir'],
-                    [env['baremetal_build_ext']],
+                    env['baremetal_build_ext'],
                 )
                 source_path_noext = os.path.splitext(join(
                     env['baremetal_source_dir'],
@@ -904,6 +916,15 @@ lunch aosp_{}-eng
         if self._is_common:
             self._common_args.add(key)
         super().add_argument(*args, **kwargs)
+
+    def assert_is_subpath(self, subpath, parent):
+        if not self.is_subpath(subpath, parent):
+            raise Exception(
+                'Can only accept targets inside {}, given: {}'.format(
+                    parent,
+                    subpath
+                )
+            )
 
     def get_elf_entry(self, elf_file_path):
         readelf_header = subprocess.check_output([
@@ -1028,6 +1049,12 @@ lunch aosp_{}-eng
             if flush:
                 sys.stdout.flush()
 
+    def is_subpath(self, subpath, parent):
+        '''
+        https://stackoverflow.com/questions/3812849/how-to-check-whether-a-directory-is-a-sub-directory-of-another-directory
+        '''
+        return os.path.abspath(subpath).startswith(os.path.abspath(parent))
+
     def main(self, *args, **kwargs):
         '''
         Run timed_main across all selected archs and emulators.
@@ -1049,10 +1076,6 @@ lunch aosp_{}-eng
             real_emulators = env['emulators']
         return_value = 0
         try:
-            ret = self.setup()
-            if ret is not None and ret != 0:
-                return_value = ret
-                raise ExitLoop()
             for emulator in real_emulators:
                 for arch in real_archs:
                     if arch in env['arch_short_to_long_dict']:
@@ -1079,6 +1102,7 @@ lunch aosp_{}-eng
                             dry_run=self.env['dry_run'],
                             quiet=self.env['quiet'],
                         )
+                        self.setup_one()
                         ret = self.timed_main()
                         if not env['dry_run']:
                             end_time = time.time()
@@ -1163,91 +1187,69 @@ lunch aosp_{}-eng
             ]
         )
 
-    def resolve_source_tree(self, in_path, exts, source_tree_root, empty_ok=False):
+    def resolve_executable(
+        self,
+        in_path,
+        magic_in_dir,
+        magic_out_dir,
+        executable_ext
+    ):
         '''
-        Convert a convenient shorthand user input string to paths of existing files
-        in the source tree.
+        Resolve the path of an userland or baremetal executable.
 
-        Ensure that the path lies inside source_tree_root.
+        If it is in tree, resolve source paths to their corresponding executables.
 
-        Multiple matches may happen if multiple multiple exts files exist.
-        E.g., after an in-tree build, in_path='hello' and exts=['.c', '.out']
-        would match both:
+        If it is out of tree, return the same exact path as input.
 
-        - userland/hello.c
-        - userland/hello.out
-
-        If you also want directories to be matched, just add an empty string
-        `''` to exts, which leads all of the following to match the arch directory:
-
-        - arch
-        - arch.c
-        - userland/arch
-        - /full/path/to/userland/arch
-
-        Note however that this potentially prevents differentiation between
-        files and directories: e.g. if you had both a file arch.c and a directory arch/,
-        and exts=['', '.c'], then both would get matched.
+        If the input path is a file, add the executable extension automatically.
         '''
-        in_path = os.path.abspath(in_path)
-        source_tree_root = os.path.abspath(source_tree_root)
-        if not in_path.startswith(source_tree_root):
-            raise Exception(
-                'The input path {} is not inside the source directory {}'.format(
-                    in_path,
-                    source_tree_root
-                )
+        in_path_abs = os.path.abspath(in_path)
+        magic_in_dir_abs = os.path.abspath(magic_in_dir)
+        magic_out_dir_abs = os.path.abspath(magic_out_dir)
+        if self.is_subpath(in_path_abs, magic_in_dir_abs):
+            out = os.path.abspath(os.path.join(
+                magic_out_dir_abs,
+                os.path.relpath(
+                    os.path.splitext(in_path_abs)[0],
+                    os.path.abspath(magic_in_dir_abs)
+                )),
             )
-        result = []
-        name, ext = os.path.splitext(in_path)
-        for try_ext in exts:
-            try_path = name + try_ext
-            if os.path.exists(try_path):
-                result.append(try_path)
-        if not result and not empty_ok:
-            raise Exception('No file not found for input: ' + in_path)
-        return result
-
-    def resolve_executable(self, in_path, magic_in_dir, magic_out_dir, out_exts):
-        if os.path.isabs(in_path):
-            return in_path
+            if os.path.isfile(in_path):
+                out += executable_ext
+            return out
         else:
-            paths = [
-                os.path.join(magic_out_dir, in_path),
-                os.path.join(
-                    magic_out_dir,
-                    os.path.relpath(in_path, magic_in_dir),
-                )
-            ]
-            for path in paths:
-                for out_ext in out_exts:
-                    path = os.path.splitext(path)[0] + out_ext
-                    if os.path.exists(path):
-                        return path
-            if not self.env['dry_run']:
-                raise Exception('Executable file not found. Tried:\n' + '\n'.join(paths))
+            return in_path_abs
+
+    def resolve_targets(self, source_dir, targets):
+        if not targets:
+            targets = [source_dir]
+        new_targets = []
+        for target in targets:
+            target = self.toplevel_to_source_dir(target, source_dir)
+            self.assert_is_subpath(target, source_dir)
+            new_targets.append(target)
+        return new_targets
 
     def resolve_userland_executable(self, path):
-        '''
-        Convert an userland source path-like string to an
-        absolute userland build output path.
-        '''
         return self.resolve_executable(
             path,
             self.env['userland_source_dir'],
             self.env['userland_build_dir'],
-            [self.env['userland_build_ext']],
+            self.env['userland_executable_ext'],
         )
 
-    def setup(self):
+    def setup_one(self):
         '''
-        Similar to timed_main, but gets run only once for all --arch and --emulator,
-        before timed_main.
-
-        Different from __init__, since at this point env has already been calculated,
-        so variables that don't depend on --arch or --emulator can be used.
+        Run just before timed_main, after _init_env.
         '''
         pass
+
+    def toplevel_to_source_dir(self, path, source_dir):
+        path = os.path.abspath(path)
+        if path == self.env['root_dir']:
+            return source_dir
+        else:
+            return path
 
     def timed_main(self):
         '''
@@ -1259,37 +1261,9 @@ lunch aosp_{}-eng
 
     def teardown(self):
         '''
-        Similar to setup, but run after timed_main.
+        Similar to setup, but run once after all timed_main are called.
         '''
         pass
-
-    def walk_source_targets(self, targets, exts, empty_ok=False):
-        '''
-        Resolve userland or baremetal source tree targets, and walk them.
-
-        Ignore the input extension of targets, and select only files
-        with the given extensions exts.
-        '''
-        if targets:
-            targets = targets
-        else:
-            targets = [self.env['userland_source_dir']]
-        for target in targets:
-            resolved_targets = self.resolve_source_tree(
-                target,
-                exts + [''],
-                self.env['userland_source_dir'],
-                empty_ok=empty_ok,
-            )
-            for resolved_target in resolved_targets:
-                for path, dirnames, filenames in self.sh.walk(resolved_target):
-                    dirnames.sort()
-                    filenames = [
-                        filename for filename in filenames
-                        if os.path.splitext(filename)[1] in exts
-                    ]
-                    filenames.sort()
-                    yield path, dirnames, filenames
 
 class BuildCliFunction(LkmcCliFunction):
     '''

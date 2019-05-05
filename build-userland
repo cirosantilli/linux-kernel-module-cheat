@@ -8,6 +8,7 @@ import threading
 from shell_helpers import LF
 import common
 from thread_pool import ThreadPool
+import path_properties
 
 class Main(common.BuildCliFunction):
     def __init__(self, *args, **kwargs):
@@ -16,12 +17,9 @@ class Main(common.BuildCliFunction):
 Build our compiled userland examples.
 '''
         super().__init__(*args, **kwargs)
-        self.default_cstd = 'c11'
-        self.default_cxxstd = 'c++17'
         self.add_argument(
             '--has-package',
             action='append',
-            default=[],
             help='''\
 Indicate that a given package is present in the root filesystem, which
 allows us to build examples that rely on it.
@@ -35,23 +33,23 @@ Indicate that all packages from --has-package are available.
 ''',
         )
         self.add_argument(
-            '--in-tree',
-            default=False,
-            help='''\
-Place build output inside soure tree to conveniently run it, especially when
-building with the host toolchain.
-''',
-        )
-        self.add_argument(
             'targets',
             default=[],
             help='''\
-Build only the given userland programs or all programs in the given directories.
+Select to build only the given userland programs, or all programs under
+the given directories.
+
+Default: build all.
+
+Must point to either sources or directories under userland/, or to LKMC
+toplevel which is a synonym for userland/.
 
 Default: build all examples that have their package dependencies met, e.g.:
+
 -   userland/arch/ programs only build if the target arch matches
 -   an OpenBLAS example can only be built if the target root filesystem
-    has the OpenBLAS libraries and headers installed, which you must inform with --has-package
+    has the OpenBLAS libraries and headers installed, which you must inform
+    with --has-package
 ''',
             nargs='*',
         )
@@ -63,10 +61,10 @@ Default: build all examples that have their package dependencies met, e.g.:
         self,
         in_path,
         out_path,
-        ccflags,
-        ccflags_after=None,
-        cstd=None,
-        cxxstd=None,
+        cc_flags,
+        cc_flags_after=None,
+        c_std=None,
+        cxx_std=None,
         extra_deps=None,
         extra_objs=None,
         link=True,
@@ -75,61 +73,57 @@ Default: build all examples that have their package dependencies met, e.g.:
             extra_deps = []
         if extra_objs is None:
             extra_objs = []
-        if ccflags_after is None:
-            ccflags_after = []
+        if cc_flags_after is None:
+            cc_flags_after = []
         ret = 0
         if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
-            ccflags = ccflags.copy()
+            cc_flags = cc_flags.copy()
             if not link:
-                ccflags.extend(['-c', LF])
+                cc_flags.extend(['-c', LF])
             in_ext = os.path.splitext(in_path)[1]
-            do_compile = True
             if in_ext in (self.env['c_ext'], self.env['asm_ext']):
                 cc = self.env['gcc']
-                if cstd is None:
-                    std = self.default_cstd
+                if c_std is None:
+                    std = path_properties.default_c_std
                 else:
-                    std = cstd
-                ccflags.extend([
+                    std = c_std
+                cc_flags.extend([
                     '-fopenmp', LF,
                 ])
             elif in_ext == self.env['cxx_ext']:
                 cc = self.env['gxx']
-                if cxxstd is None:
-                    std = self.default_cxxstd
+                if cxx_std is None:
+                    std = path_properties.default_cxx_std
                 else:
-                    std = cxxstd
-            else:
-                do_compile = False
-            if do_compile:
-                os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                ret = self.sh.run_cmd(
-                    (
-                        [
-                            cc, LF,
-                        ] +
-                        ccflags +
-                        [
-                            '-std={}'.format(std), LF,
-                            '-o', out_path, LF,
-                            in_path, LF,
-                        ] +
-                        self.sh.add_newlines(extra_objs) +
-                        [
-                            '-lm', LF,
-                            '-pthread', LF,
-                        ] +
-                        ccflags_after
-                    ),
-                    extra_paths=[self.env['ccache_dir']],
-                )
+                    std = cxx_std
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            ret = self.sh.run_cmd(
+                (
+                    [
+                        cc, LF,
+                    ] +
+                    cc_flags +
+                    [
+                        '-std={}'.format(std), LF,
+                        '-o', out_path, LF,
+                        in_path, LF,
+                    ] +
+                    self.sh.add_newlines(extra_objs) +
+                    [
+                        '-lm', LF,
+                        '-pthread', LF,
+                    ] +
+                    cc_flags_after
+                ),
+                extra_paths=[self.env['ccache_dir']],
+            )
         return ret
 
     def build(self):
         build_dir = self.get_build_dir()
         has_packages = set(self.env['has_package'])
         has_all_packages = self.env['has_all_packages']
-        ccflags = [
+        cc_flags = [
             '-I', self.env['root_dir'], LF,
             '-O{}'.format(self.env['optimization_level']), LF,
             '-Wall', LF,
@@ -139,7 +133,7 @@ Default: build all examples that have their package dependencies met, e.g.:
             '-ggdb3', LF,
         ] + self.sh.shlex_split(self.env['ccflags'])
         if self.env['static']:
-            ccflags.extend(['-static', LF])
+            cc_flags.extend(['-static', LF])
         common_obj = os.path.join(
             build_dir,
             self.env['common_basename_noext'] + self.env['obj_ext']
@@ -147,7 +141,7 @@ Default: build all examples that have their package dependencies met, e.g.:
         self._build_one(
             in_path=self.env['common_c'],
             out_path=common_obj,
-            ccflags=ccflags,
+            cc_flags=cc_flags,
             extra_deps=[self.env['common_h']],
             link=False,
         )
@@ -166,7 +160,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                 common_obj_asm_relpath
             ),
             out_path=common_obj_asm,
-            ccflags=ccflags,
+            cc_flags=cc_flags,
             extra_deps=[self.env['common_h']],
             link=False,
         )
@@ -180,7 +174,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                 # fatal error: Eigen/Dense: No such file or directory as of
                 # 975ce0723ee3fa1fea1766e6683e2f3acb8558d6
                 # http://lists.busybox.net/pipermail/buildroot/2018-June/222914.html
-                'ccflags': [
+                'cc_flags': [
                     '-I',
                     os.path.join(
                         eigen_root,
@@ -191,7 +185,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                     LF
                 ],
                 # Header only.
-                'ccflags_after': [],
+                'cc_flags_after': [],
             },
             'libdrm': {},
             'openblas': {},
@@ -202,46 +196,30 @@ Default: build all examples that have their package dependencies met, e.g.:
             nthreads=self.env['nproc'],
         ) as thread_pool:
             try:
-                for path, in_dirnames, in_filenames in self.walk_source_targets(
-                    self.env['targets'],
-                    self.env['userland_in_exts']
-                ):
-                    path_abs = os.path.abspath(path)
-                    dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
-                    dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
-                    dirpath_relative_root_components_len = len(dirpath_relative_root_components)
-                    out_dir = os.path.join(
-                        build_dir,
-                        dirpath_relative_root
-                    )
-                    common_objs_dir = [common_obj]
-                    ccflags_after = []
-                    ccflags_dir = ccflags.copy()
-                    if dirpath_relative_root_components_len > 0:
-                        if dirpath_relative_root_components[0] in (
-                            'gcc',
-                            'kernel_modules',
-                            'linux',
-                        ):
-                            cstd = 'gnu11'
-                            cxxstd = 'gnu++17'
-                        else:
-                            cstd = self.default_cstd
-                            cxxstd = self.default_cxxstd
-                            # -pedantic complains even if we use -std=gnu11.
-                            ccflags_dir.extend(['-pedantic', LF])
+                for target in self.env['targets']:
+                    for path, in_dirnames, in_filenames in self.sh.walk(target):
+                        path_abs = os.path.abspath(path)
+                        dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
+                        dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
+                        dirpath_relative_root_components_len = len(dirpath_relative_root_components)
+                        out_dir = os.path.join(
+                            build_dir,
+                            dirpath_relative_root
+                        )
+                        common_objs_dir = [common_obj]
+                        cc_flags_after = []
+                        cc_flags_dir = cc_flags.copy()
+                        if dirpath_relative_root_components_len > 0:
                             if dirpath_relative_root_components[0] == 'arch':
                                 if dirpath_relative_root_components_len > 1:
                                     if dirpath_relative_root_components[1] == self.env['arch']:
-                                        ccflags_dir.extend([
+                                        cc_flags_dir.extend([
                                             '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
                                             '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
-                                            '-fno-pie', LF,
-                                            '-no-pie', LF,
                                         ])
                                         if 'freestanding' in dirpath_relative_root_components:
                                             common_objs_dir = []
-                                            ccflags_dir.extend([
+                                            cc_flags_dir.extend([
                                                 '-ffreestanding', LF,
                                                 '-nostdlib', LF,
                                                 '-static', LF,
@@ -251,24 +229,6 @@ Default: build all examples that have their package dependencies met, e.g.:
                                                 common_objs_dir = []
                                             else:
                                                 common_objs_dir = [common_obj_asm]
-                                        if self.env['arch'] == 'arm':
-                                            ccflags_dir.extend([
-                                                '-Xassembler', '-mcpu=cortex-a72', LF,
-                                                # To prevent:
-                                                # > vfp.S: Error: selected processor does not support <FPU instruction> in ARM mode
-                                                # https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/52875732#52875732
-                                                # We aim to take the most extended mode currently available that works on QEMU.
-                                                '-Xassembler', '-mfpu=crypto-neon-fp-armv8.1', LF,
-                                                '-Xassembler', '-meabi=5', LF,
-                                                # Treat inline assembly as arm instead of thumb
-                                                # The opposite of -mthumb.
-                                                '-marm', LF,
-                                                # Make gcc generate .syntax unified for inline assembly.
-                                                # However, it gets ignored if -marm is given, which a GCC bug that was recently fixed:
-                                                # https://stackoverflow.com/questions/54078112/how-to-write-syntax-unified-ual-armv7-inline-assembly-in-gcc/54132097#54132097
-                                                # So we just write divided inline assembly for now.
-                                                '-masm-syntax-unified', LF,
-                                            ])
                                     else:
                                         continue
                                 else:
@@ -279,45 +239,48 @@ Default: build all examples that have their package dependencies met, e.g.:
                                     if not (has_all_packages or pkg_key in has_packages):
                                         continue
                                     pkg = pkgs[pkg_key]
-                                    if 'ccflags' in pkg:
-                                        ccflags_dir.extend(pkg['ccflags'])
+                                    if 'cc_flags' in pkg:
+                                        cc_flags_dir.extend(pkg['cc_flags'])
                                     else:
                                         pkg_config_output = subprocess.check_output([
                                             self.env['pkg_config'],
                                             '--cflags',
                                             pkg_key
                                         ]).decode()
-                                        ccflags_dir.extend(self.sh.shlex_split(pkg_config_output))
-                                    if 'ccflags_after' in pkg:
-                                        ccflags_dir.extend(pkg['ccflags_after'])
+                                        cc_flags_dir.extend(self.sh.shlex_split(pkg_config_output))
+                                    if 'cc_flags_after' in pkg:
+                                        cc_flags_dir.extend(pkg['cc_flags_after'])
                                     else:
                                         pkg_config_output = subprocess.check_output([
                                             self.env['pkg_config'],
                                             '--libs',
                                             pkg_key
                                         ]).decode()
-                                        ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
-                    for in_filename in in_filenames:
-                        path_relative_root = os.path.join(dirpath_relative_root, in_filename)
-                        if path_relative_root == common_obj_asm_relpath:
-                            continue
-                        in_path = os.path.join(path, in_filename)
-                        in_name, in_ext = os.path.splitext(in_filename)
-                        out_path = os.path.join(
-                            out_dir,
-                            in_name + self.env['userland_build_ext']
-                        )
-                        error = thread_pool.submit({
-                            'in_path': in_path,
-                            'out_path': out_path,
-                            'ccflags': ccflags_dir,
-                            'cstd': cstd,
-                            'cxxstd': cxxstd,
-                            'extra_objs': common_objs_dir,
-                            'ccflags_after': ccflags_after,
-                        })
-                        if error is not None:
-                            raise common.ExitLoop()
+                                        cc_flags_after.extend(self.sh.shlex_split(pkg_config_output))
+                        for in_filename in in_filenames:
+                            in_path = os.path.join(path, in_filename)
+                            cc_flags_file = cc_flags_dir.copy()
+                            in_ext = os.path.splitext(in_filename)[1]
+                            if not in_ext in self.env['userland_in_exts']:
+                                continue
+                            my_path_properties = path_properties.get(os.path.join(
+                                self.env['userland_subdir'],
+                                dirpath_relative_root,
+                                in_filename
+                            ))
+                            if my_path_properties['pedantic']:
+                                cc_flags_file.extend(['-pedantic', LF])
+                            error = thread_pool.submit({
+                                'c_std': my_path_properties['c_std'],
+                                'cc_flags': cc_flags_file + my_path_properties['cc_flags'],
+                                'cc_flags_after': cc_flags_after,
+                                'cxx_std': my_path_properties['cxx_std'],
+                                'extra_objs': common_objs_dir,
+                                'in_path': in_path,
+                                'out_path': self.resolve_userland_executable(in_path),
+                            })
+                            if error is not None:
+                                raise common.ExitLoop()
             except common.ExitLoop:
                 pass
         error = thread_pool.get_error()
@@ -328,27 +291,33 @@ Default: build all examples that have their package dependencies met, e.g.:
             self.sh.copy_dir_if_update(
                 srcdir=build_dir,
                 destdir=self.env['out_rootfs_overlay_lkmc_dir'],
-                filter_ext=self.env['userland_build_ext'],
+                filter_ext=self.env['userland_executable_ext'],
             )
         return 0
 
     def clean(self):
         if self.env['in_tree']:
-            for path, dirnames, filenames in self.walk_source_targets(
-                self.env['targets'],
-                self.env['userland_out_exts'],
-                empty_ok=True
-            ):
-                for filename in filenames:
-                    self.sh.rmrf(os.path.join(path, filename))
+            for target in self.env['targets']:
+                if os.path.exists(target):
+                    if os.path.isfile(target):
+                        self.sh.rmrf(self.resolve_userland_executable(target))
+                    else:
+                        for path, dirnames, filenames in self.sh.walk(target):
+                            for filename in filenames:
+                                if os.path.splitext(filename)[1] in self.env['userland_out_exts']:
+                                    self.sh.rmrf(os.path.join(path, filename))
         else:
-            self.sh.rmrf(self.get_build_dir())
+            for target in self.env['targets']:
+                self.sh.rmrf(self.resolve_userland_executable(target))
 
     def get_build_dir(self):
-        if self.env['in_tree']:
-            return self.env['userland_source_dir']
-        else:
-            return self.env['userland_build_dir']
+        return self.env['userland_build_dir']
+
+    def setup_one(self):
+        self.env['targets'] = self.resolve_targets(
+            self.env['userland_source_dir'],
+            self.env['targets']
+        )
 
 if __name__ == '__main__':
     Main().cli()

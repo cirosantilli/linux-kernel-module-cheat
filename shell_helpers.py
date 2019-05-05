@@ -136,8 +136,7 @@ class ShellHelpers:
         self.copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext)
         srcdir_abs = os.path.abspath(srcdir)
         srcdir_abs_len = len(srcdir_abs)
-        for path, dirnames, filenames in os.walk(srcdir_abs):
-            dirnames.sort()
+        for path, dirnames, filenames in self.walk(srcdir_abs):
             for dirname in dirnames:
                 dirpath = os.path.join(path, dirname)
                 dirpath_relative_root = dirpath[srcdir_abs_len + 1:]
@@ -329,6 +328,8 @@ class ShellHelpers:
             yield dirname, [], [basename]
         else:
             for path, dirnames, filenames in os.walk(root):
+                dirnames.sort()
+                filenames.sort()
                 yield path, dirnames, filenames
 
     def wget(self, url, download_path):

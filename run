@@ -18,7 +18,8 @@ Run some content on an emulator.
 '''
         )
         self.add_argument(
-            '--background', default=False,
+            '--background',
+            default=False,
             help='''\
 Send QEMU serial output to a file instead of the terminal so it does not require a
 terminal attached to run on the background. Interactive input cannot be given.
@@ -342,10 +343,10 @@ Extra options to append at the end of the emulator command line.
             if not self.env['_args_given']['gdb_wait']:
                 self.env['gdb_wait'] = True
             if not self.env['_args_given']['tmux_args']:
-                if self.env['userland'] is not None:
-                    self.env['tmux_args'] = 'main'
-                else:
+                if self.env['userland'] is None and self.env['baremetal'] is None:
                     self.env['tmux_args'] = 'start_kernel'
+                else:
+                    self.env['tmux_args'] = 'main'
             if not self.env['_args_given']['tmux_program']:
                 self.env['tmux_program'] = 'gdb'
         if self.env['tmux_args'] is not None or self.env['_args_given']['tmux_program']:
@@ -621,7 +622,11 @@ Extra options to append at the end of the emulator command line.
                         '-kernel', self.env['image'], LF,
                         '-m', self.env['memory'], LF,
                         '-monitor', 'telnet::{},server,nowait'.format(self.env['qemu_monitor_port']), LF,
-                        '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(self.env['qemu_hostfwd_generic_port'], self.env['qemu_hostfwd_generic_port'], self.env['qemu_hostfwd_ssh_port']), LF,
+                        '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(
+                            self.env['qemu_hostfwd_generic_port'],
+                            self.env['qemu_hostfwd_generic_port'],
+                            self.env['qemu_hostfwd_ssh_port']
+                        ), LF,
                         '-no-reboot', LF,
                         '-smp', str(self.env['cpus']), LF,
                     ] +
@@ -657,7 +662,12 @@ Extra options to append at the end of the emulator command line.
                             self.raw_to_qcow2(qemu_which=self.env['qemu_which'])
                         extra_emulator_args.extend([
                             '-drive',
-                            'file={},format=qcow2,if={}{}{}'.format(self.env['disk_image'], driveif, snapshot, rrid),
+                            'file={},format=qcow2,if={}{}{}'.format(
+                                self.env['disk_image'],
+                                driveif,
+                                snapshot,
+                                rrid
+                            ),
                             LF,
                         ])
                         if rr:
@@ -668,7 +678,10 @@ Extra options to append at the end of the emulator command line.
                 if rr:
                     extra_emulator_args.extend([
                         '-object', 'filter-replay,id=replay,netdev=net0',
-                        '-icount', 'shift=7,rr={},rrfile={}'.format('record' if self.env['record'] else 'replay', self.env['qemu_rrfile']),
+                        '-icount', 'shift=7,rr={},rrfile={}'.format(
+                            'record' if self.env['record'] else 'replay',
+                            self.env['qemu_rrfile']
+                        ),
                     ])
                     virtio_gpu_pci = []
                 else:
@@ -717,6 +730,8 @@ Extra options to append at the end of the emulator command line.
                     tmux_args += " --baremetal '{}'".format(self.env['baremetal'])
                 if self.env['userland']:
                     tmux_args += " --userland '{}'".format(self.env['userland'])
+                if self.env['in_tree']:
+                    tmux_args += ' --in-tree'
             if self.env['tmux_args'] is not None:
                 tmux_args += ' {}'.format(self.env['tmux_args'])
             subprocess.Popen([

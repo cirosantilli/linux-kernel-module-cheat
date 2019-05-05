@@ -350,7 +350,7 @@ Lol!
 We can also test our hacked glibc on <<user-mode-simulation>> with:
 
 ....
-./run --userland c/hello
+./run --userland userland/c/hello.c
 ....
 
 I just noticed that this is actually a good way to develop glibc for other archs.
@@ -427,7 +427,7 @@ Finally, rebuild Binutils, userland and test our program with <<user-mode-simula
 ....
 ./build-buildroot -- host-binutils-rebuild
 ./build-userland --static
-./run --static --userland arch/x86_64/binutils_hack
+./run --static --userland userland/arch/x86_64/binutils_hack.c
 ....
 
 and we se that `myinc` worked since the assert did not fail!
@@ -444,7 +444,7 @@ If we run the program link:userland/c/gcc_hack.c[]:
 
 ....
 ./build-userland --static
-./run --static --userland c/gcc_hack
+./run --static --userland userland/c/gcc_hack.c
 ....
 
 it produces the normal boring output:
@@ -496,7 +496,7 @@ Now rebuild GCC, the program and re-run it:
 ....
 ./build-buildroot -- host-gcc-final-rebuild
 ./build-userland --static
-./run --static --userland c/gcc_hack
+./run --static --userland userland/c/gcc_hack.c
 ....
 
 and the new ouptut is now:
@@ -1002,8 +1002,6 @@ cd userland/c
 ./test
 ....
 
-Note however that if you run this from link:userland/[] toplevel, it would try to build the link:userland/libs/[] folder, which depends on certain libraries being installed on the host, e.g. <<blas>>.
-
 You can install those libraries and do the build in one go with:
 
 ....
@@ -1043,7 +1041,7 @@ The `build` scripts inside link:userland/[] are just symlinks to link:build-user
 
 So you can use any option supported by `build-userland` script freely with `build-userland-in-tree` and `build`.
 
-The situation is analogous for link:userland/test[], link:test-user-mode-in-tree[] and link:test-user-mode[].
+The situation is analogous for link:userland/test[], link:test-user-mode-in-tree[] and link:test-user-mode[], which are further documented at: <<user-mode-tests>>.
 
 Do a more clean out-of-tree build instead and run the program:
 
@@ -1123,7 +1121,7 @@ For example, to run link:baremetal/hello.c[] in QEMU do:
 
 ....
 ./build --arch aarch64 --download-dependencies qemu-baremetal
-./run --arch aarch64 --baremetal hello
+./run --arch aarch64 --baremetal baremetal/hello.c
 ....
 
 The terminal prints:
@@ -1135,7 +1133,7 @@ hello
 Now let's run link:baremetal/arch/aarch64/add.S[]:
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/add
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
 ....
 
 This time, the terminal does not print anything, which indicates success.
@@ -1145,7 +1143,7 @@ If you look into the source, you will see that we just have an assertion there.
 You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[]:
 
 ....
-./run --arch aarch64 --baremetal interactive/assert_fail
+./run --arch aarch64 --baremetal baremetal/interactive/assert_fail.c
 ....
 
 and the terminal contains:
@@ -1161,7 +1159,7 @@ and the exit status of our script is 1:
 echo $?
 ....
 
-To modify a baremetal program, simply edit the file, .g.
+To modify a baremetal program, simply edit the file, e.g.
 
 ....
 vim baremetal/hello.c
@@ -1170,11 +1168,11 @@ vim baremetal/hello.c
 and rebuild:
 
 ....
-./build --arch aarch64 --download-dependencies qemu-baremetal
-./run --arch aarch64 --baremetal hello
+./build-baremetal --arch aarch64
+./run --arch aarch64 --baremetal baremetal/hello.c
 ....
 
-`./build qemu-baremetal` had called link:build-baremetal[] for us previously, in addition to its requirements.
+`./build qemu-baremetal` that we run previously is only needed for the initial build. That script calls link:build-baremetal[] for us, in addition to building prerequisites such as QEMU and crosstool-NG.
 
 `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
 
@@ -1188,14 +1186,14 @@ Alternatively, for the sake of tab completion, we also accept relative paths ins
 Absolute paths however are used as is and must point to the actual executable:
 
 ....
-./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 baremetal_build_dir)/exit.elf"
+./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 baremetal_build_dir)/hello.elf"
 ....
 
 To use gem5 instead of QEMU do:
 
 ....
 ./build --download-dependencies gem5-baremetal
-./run --arch aarch64 --baremetal interactive/prompt --emulator gem5
+./run --arch aarch64 --baremetal baremetal/hello.c --emulator gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -1207,7 +1205,7 @@ and then <<qemu-buildroot-setup,as usual>> open a shell with:
 Or as usual, <<tmux>> users can do both in one go with:
 
 ....
-./run --arch aarch64 --baremetal interactive/prompt --emulator gem5 --tmux
+./run --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --tmux
 ....
 
 TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
@@ -1215,8 +1213,8 @@ TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremet
 Note that `./build-baremetal` requires the `--emulator gem5` option, and generates separate executable images for both, as can be seen from:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator qemu image)"
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator qemu image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
@@ -1232,14 +1230,14 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 
 ....
 ./build-baremetal --arch aarch64 --emulator gem5 --machine RealViewPBX
-./run --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine RealViewPBX
+./run --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch aarch64 --baremetal interactive/prompt --emulator gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
@@ -3454,7 +3452,7 @@ Let's run link:userland/c/print_argv.c[] built with the Buildroot toolchain on Q
 ....
 ./build user-mode-qemu
 ./run \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args='asdf "qw er"' \
 ;
 ....
@@ -3485,7 +3483,7 @@ It's nice when <<gdb,the obvious>> just works, right?
 ./run \
   --arch aarch64 \
   --gdb-wait \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3495,7 +3493,7 @@ and on another shell:
 ....
 ./run-gdb \
   --arch aarch64 \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   main \
 ;
 ....
@@ -3506,7 +3504,7 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
 ./run \
   --arch aarch64 \
   --gdb \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3537,6 +3535,8 @@ This script skips a manually configured list of tests, notably:
 * tests that require user interaction
 * tests that take perceptible ammounts of time
 * known bugs we didn't have time to fix ;-)
+
+Tests under link:userland/libs/[] depend on certain libraries being available on the target, e.g. <<blas>> for link:userland/libs/blas[]. They are not run by default, but can be enabled with `--has-package` and `--has-all-packages`.
 
 The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
 
@@ -3570,7 +3570,7 @@ sudo apt-get install gcc-aarch64-linux-gnu qemu-system-aarch64
   --arch aarch64 \
   --qemu-which host
   --userland-build-id host \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3603,7 +3603,7 @@ We don't have this failure for QEMU on an 18.04 host, only gem5.
 QEMU by default copies the host `uname` value. However, our scripts set it by default to our the latest Buildroot kernel version with QEMU's `-r` option, which is exposed as `--kernel-version`:
 
 ....
-./run --arch aarch64 --kernel-version 4.18 --userland ./posix/uname
+./run --arch aarch64 --kernel-version 4.18 --userland userland/posix/uname.c
 ....
 
 Source: link:userland/posix/uname.c[].
@@ -3633,8 +3633,8 @@ Reproduction:
 
 ....
 rm -f "$(./getvar buildroot_target_dir)/etc/ld.so.cache"
-./run --userland c/hello
-./run --userland c/hello --qemu-which host
+./run --userland userland/c/hello.c
+./run --userland userland/c/hello.c --qemu-which host
 ....
 
 Outcome:
@@ -3672,7 +3672,7 @@ Example:
 ./run \
   --arch aarch64 \
   --static \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3734,7 +3734,7 @@ So let's just play with some static ones:
 ./run \
   --arch aarch64 \
   --emulator gem5 \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3749,14 +3749,14 @@ TODO: how to escape spaces on the command line arguments?
   --emulator gem5 \
   --gdb-wait \
   --static \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   --userland-args 'asdf "qw er"' \
 ;
 ./run-gdb \
   --arch aarch64 \
   --emulator gem5 \
   --static \
-  --userland c/print_argv \
+  --userland userland/c/print_argv.c \
   main \
 ;
 ....
@@ -3766,7 +3766,7 @@ TODO: how to escape spaces on the command line arguments?
 As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy `se.py` script does not forward the exit status of syscall emulation mode, you can test it with:
 
 ....
-./run --dry-run --emulator gem5 --static --userland c/false
+./run --dry-run --emulator gem5 --static --userland userland/c/false.c
 ....
 
 Source: link:userland/c/false.c[].
@@ -3889,6 +3889,28 @@ The same can be reproduced by copying the raw QEMU command and piping it through
 ....
 
 TODO: investigate further and then possibly post on QEMU mailing list.
+
+===== QEMU user mode does not show errors
+
+Similarly to <<qemu-user-mode-does-not-show-stdout-immediately>>, QEMU error messages do not show at all through pipes.
+
+In particular, it does not say anything if you pass it a non-existing executable:
+
+....
+./build-userland --clean userland/c/hello.c
+./run --userland userland/c/hello.c
+echo $?
+....
+
+does not output anything, except for the `1` exit status.
+
+If you run however the raw command without a pipe manually, it shows a helpful error message:
+
+....
+Error while loading /path/to/linux-kernel-module-cheat/out/userland/default/x86_64/c/hello.out: No such file or directory
+....
+
+Tested in de77c62c091f6418e73b64e8a0a19639c587a103 + 1.
 
 == Kernel module utilities
 
@@ -10017,7 +10039,7 @@ Usage:
   --arch aarch64 \
   --emulator gem5 \
   --static \
-  --userland cpp/bst_vs_heap \
+  --userland userland/cpp/bst_vs_heap.cpp \
   --userland-args='1000' \
 ;
 ./bst-vs-heap --arch aarch64 > bst_vs_heap.dat
@@ -11512,13 +11534,13 @@ This section will document ISA generic ideas. ISA specifics are documented on th
 The first example that you want to run for each arch is:
 
 ....
-./run --userland arch/<arch>/add
+./run --userland userland/arch/<arch>/add.S
 ....
 
 e.g.:
 
 ....
-./run --userland arch/x86_64/add
+./run --userland userland/arch/x86_64/add.S
 ....
 
 Sources:
@@ -11541,7 +11563,7 @@ And then watch the assertion fail:
 
 ....
 ./build-userland
-./run --userland arch/x86_64/add
+./run --userland userland/arch/x86_64/add.S
 ....
 
 with error message:
@@ -11598,8 +11620,8 @@ Such executables are called freestanding because they don't execute the glibc in
 In order to GDB step debug those executables, you will want to use `--no-continue`, e.g.:
 
 ....
-./run --arch aarch64 --userland arch/aarch64/freestanding/hello --gdb-wait
-./run-gdb --arch aarch64 --no-continue --userland arch/aarch64/freestanding/hello
+./run --arch aarch64 --userland userland/arch/aarch64/freestanding/linux/hello.S --gdb-wait
+./run-gdb --arch aarch64 --no-continue --userland userland/arch/aarch64/freestanding/linux/hello.S
 ....
 
 You are now left on the very first instruction of our tiny executable!
@@ -11774,24 +11796,26 @@ Getting started at: <<baremetal-setup>>
 
 === Baremetal GDB step debug
 
-GDB step debug works on baremetal exactly as it does on the Linux kernel, except that is is even cooler here since we can easily control and understand every single instruction that is being run!
+GDB step debug works on baremetal exactly as it does on the Linux kernel: <<gdb>>.
+
+Except that is is even cooler here since we can easily control and understand every single instruction that is being run!
 
 For example, on the first shell:
 
 ....
-./run --arch arm --baremetal interactive/prompt --gdb-wait
+./run --arch arm --baremetal baremetal/hello.c --gdb-wait
 ....
 
 then on the second shell:
 
 ....
-./run-gdb --arch arm --baremetal interactive/prompt -- main
+./run-gdb --arch arm --baremetal baremetal/hello.c -- main
 ....
 
 Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal interactive/prompt --gdb-wait --tmux-args main
+./run --arch arm --baremetal baremetal/hello.c --gdb
 ....
 
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
@@ -11799,20 +11823,20 @@ Alternatively, to start from the very first executed instruction of our tiny <<b
 ....
 ./run \
   --arch arm \
-  --baremetal interactive/prompt \
+  --baremetal baremetal/hello.c \
   --gdb-wait \
   --tmux-args=--no-continue \
 ;
 ....
 
-Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/interactive/prompt.c[].
+Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/hello.c[].
 
 This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
 ....
 ./run \
   --arch arm \
-  --baremetal arch/arm/no_bootloader/semihost_exit \
+  --baremetal baremetal/arch/arm/no_bootloader/semihost_exit.S \
   --gdb-wait \
   --tmux-args=--no-continue \
 ;
@@ -11858,7 +11882,7 @@ It is documented at: https://developer.arm.com/docs/100863/latest/introduction
 For example, the following code makes QEMU exit:
 
 ....
-./run --arch arm --baremetal arch/arm/semihost_exit
+./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.S
 ....
 
 Source: link:baremetal/arch/arm/no_bootloader/semihost_exit.S[]
@@ -11942,7 +11966,7 @@ For `arm`, some baremetal examples compile fine with:
 ....
 sudo apt-get install gcc-arm-none-eabi qemu-system-arm
 ./build-baremetal --arch arm --gcc-which host-baremetal
-./run --arch arm --baremetal interactive/prompt --qemu-which host
+./run --arch arm --baremetal baremetal/hello.c --qemu-which host
 ....
 
 However, there are as usual limitations to using prebuilts:
@@ -11971,7 +11995,7 @@ TODO: any advantage over QEMU? I doubt it, mostly using it as as toy for now:
 Without running `./run`, do directly:
 
 ....
-./run-gdb --arch arm --baremetal interactive/prompt --sim
+./run-gdb --arch arm --baremetal baremetal/hello.c --sim
 ....
 
 Then inside GDB:
@@ -12039,8 +12063,8 @@ ARM exception levels are analogous to x86 <<ring0,rings>>.
 Print the EL at the beginning of a baremetal simulation:
 
 ....
-./run --arch arm --baremetal arch/arm/el
-./run --arch aarch64 --baremetal arch/aarch64/el
+./run --arch arm --baremetal baremetal/arch/arm/el.c
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c
 ....
 
 Sources:
@@ -12055,12 +12079,12 @@ The lower ELs are not mandated by the architecture, and can be controlled throug
 In QEMU, you can configure the lowest EL as explained at https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
 
 ....
-./run --arch arm --baremetal arch/arm/el
-./run --arch arm --baremetal arch/arm/el -- -machine virtualization=on
-./run --arch arm --baremetal arch/arm/el -- -machine secure=on
-./run --arch aarch64 --baremetal arch/aarch64/el
-./run --arch aarch64 --baremetal arch/aarch64/el -- -machine virtualization=on
-./run --arch aarch64 --baremetal arch/aarch64/el -- -machine secure=on
+./run --arch arm --baremetal baremetal/arch/arm/el.c
+./run --arch arm --baremetal baremetal/arch/arm/el.c -- -machine virtualization=on
+./run --arch arm --baremetal baremetal/arch/arm/el.c -- -machine secure=on
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c -- -machine virtualization=on
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c -- -machine secure=on
 ....
 
 outputs respectively:
@@ -12079,17 +12103,17 @@ TODO: why is `arm` stuck at `19` which equals Supervisor mode?
 In gem5, you can configure the lowest EL with:
 
 ....
-./run --arch arm --baremetal arch/arm/el --emulator gem5
+./run --arch arm --baremetal baremeta/arch/arm/el.c --emulator gem5
 cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal arch/arm/el --emulator gem5 -- --param 'system.have_virtualization = True'
+./run --arch arm --baremetal baremetal/arch/arm/el.c --emulator gem5 -- --param 'system.have_virtualization = True'
 cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal arch/arm/el --emulator gem5 -- --param 'system.have_security = True'
+./run --arch arm --baremetal baremetal/arch/arm/el.c --emulator gem5 -- --param 'system.have_security = True'
 cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c --emulator gem5
 cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5 -- --param 'system.have_virtualization = True'
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c --emulator gem5 -- --param 'system.have_virtualization = True'
 cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal arch/aarch64/el --emulator gem5 -- --param 'system.have_security = True'
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c --emulator gem5 -- --param 'system.have_security = True'
 cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
 ....
 
@@ -12111,14 +12135,14 @@ This is the most basic example of exception handling we have.
 We a handler for `svc`, do an `svc`, and observe that the handler got called and returned from C and assembly:
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/svc
-./run --arch aarch64 --baremetal arch/aarch64/svc_asm
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/svc.c
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/svc_asm.S
 ....
 
 Sources:
 
-* link:baremetal/arch/aarch64/svc_asm.S[]
 * link:baremetal/arch/aarch64/svc.c[]
+* link:baremetal/arch/aarch64/svc_asm.S[]
 
 Sample output for the C one:
 
@@ -12171,7 +12195,7 @@ Both QEMU and gem5 are able to trace interrupts in addition to instructions, and
 ....
 ./run \
   --arch aarch64 \
-  --baremetal arch/aarch64/svc_asm
+  --baremetal baremetal/arch/aarch64/svc_asm.S
   -- -d in_asm,int \
 ;
 ....
@@ -12198,7 +12222,7 @@ and:
 ....
 ./run \
   --arch aarch64 \
-  --baremetal arch/aarch64/svc_asm \
+  --baremetal baremetal/arch/aarch64/svc_asm.S \
   --trace ExecAll,Faults \
   --trace-stdout \
 ;
@@ -12270,10 +12294,10 @@ Bibliography:
 ==== ARM multicore
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 2 --emulator gem5
-./run --arch arm --baremetal arch/aarch64/multicore --cpus 2
-./run --arch arm --baremetal arch/aarch64/multicore --cpus 2 --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 2
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 2 --emulator gem5
+./run --arch arm --baremetal baremetal/arch/aarch64/multicore.S --cpus 2
+./run --arch arm --baremetal baremetal/arch/aarch64/multicore.S --cpus 2 --emulator gem5
 ....
 
 Sources:
@@ -12288,7 +12312,7 @@ So, we need CPU 1 to come to the rescue and set that memory address to `1`, othe
 Don't believe me? Then try:
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1
 ....
 
 and watch it hang forever.
@@ -12296,7 +12320,7 @@ and watch it hang forever.
 Note that if you try the same thing on gem5:
 
 ....
-./run --arch aarch64 --baremetal arch/aarch64/multicore --cpus 1 --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1 --emulator gem5
 ....
 
 then the gem5 actually exits, but with a different message:
@@ -13888,14 +13912,14 @@ Sources:
 If a test fails, re-run the test commands manually and use `--verbose` to understand what happened:
 
 ....
-./run --arch arm --background --baremetal add --gdb-wait &
-./run-gdb --arch arm --baremetal add --verbose -- main
+./run --arch arm --background --baremetal baremetal/add.c --gdb-wait &
+./run-gdb --arch arm --baremetal baremetal/add.c --verbose -- main
 ....
 
 and possibly repeat the GDB steps manually with the usual:
 
 ....
-./run-gdb --arch arm --baremetal add --no-continue --verbose
+./run-gdb --arch arm --baremetal baremetal/add.c --no-continue --verbose
 ....
 
 To debug GDB problems on gem5, you might want to enable the following <<gem5-tracing,tracing>> options:
@@ -13903,7 +13927,7 @@ To debug GDB problems on gem5, you might want to enable the following <<gem5-tra
 ....
 ./run \
   --arch arm \
-  --baremetal add \
+  --baremetal baremetal/add.c \
   --gdb-wait \
   --trace GDBRecv,GDBSend \
   --trace-stdout \
@@ -13959,6 +13983,12 @@ You should also test that the Internet works:
 ....
 ./run --arch x86_64 --kernel-cli '- lkmc_eval="ifup -a;wget -S google.com;poweroff;"'
 ....
+
+===== test-build-userland
+
+`build-userland` has a wide variety of target selection modes, and it was hard to keep them all working without a test.
+
+So we've created the simple: link:test-build-userland[] to ensure that at least none of the build modes blows up.
 
 === Bisection
 

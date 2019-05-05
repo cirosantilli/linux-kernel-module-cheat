@@ -1,52 +1,71 @@
 #!/usr/bin/env bash
 
-# Quick sanity check that userland target resoltion at least does not blow up.
+# Quick sanity check that userland target resolution works.
 
 set -eux
 
-./build-userland
-./build-userland --clean
-./build-userland userland/c
-./build-userland --clean userland/c
-./build-userland userland/c/hello
-./build-userland --clean userland/c/hello
-./build-userland userland/c/hello.
-./build-userland --clean userland/c/hello.
-./build-userland userland/c/hello.c
-./build-userland --clean userland/c/hello.c
-./build-userland userland/c/hello.out
-./build-userland --clean userland/c/hello.out
-./build-userland "$(pwd)/userland/c/hello.out"
-./build-userland --clean "$(pwd)/userland/c/hello.out"
+for in_tree in '' --in-tree; do
+  userland_build_dir="$(./getvar $in_tree userland_build_dir)"
+  # Toplevel.
+  ./build-userland $in_tree
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
 
-./build-userland --in-tree
-./build-userland --in-tree --clean
-./build-userland --in-tree userland/c
-./build-userland --in-tree --clean userland/c
-./build-userland --in-tree userland/c/hello
-./build-userland --in-tree --clean userland/c/hello
-./build-userland --in-tree userland/c/hello.
-./build-userland --in-tree --clean userland/c/hello.
-./build-userland --in-tree userland/c/hello.c
-./build-userland --in-tree --clean userland/c/hello.c
-./build-userland --in-tree userland/c/hello.out
-./build-userland --in-tree --clean userland/c/hello.out
-./build-userland --in-tree "$(pwd)/userland/c/hello.out"
-./build-userland --in-tree --clean "$(pwd)/userland/c/hello.out"
-./build-userland --in-tree --clean
+  # Toplevel explicit.
+  ./build-userland $in_tree userland/
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Toplevel root dir.
+  ./build-userland $in_tree .
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Subdirectory.
+  ./build-userland $in_tree userland/c
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean userland/c
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # One program.
+  ./build-userland $in_tree userland/c/hello.c
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean userland/c/hello.c
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Things that don't work: building:
+  # - non-existent files
+  # - paths outside of tree
+  ! ./build-userland $in_tree userland/c/hello
+  ! ./build-userland $in_tree userland/c/hello.
+  ! ./build-userland $in_tree "${userland_build_dir}/c/hello.out"
+  tmpfile="$(mktemp)"
+  ! ./build-userland $in_tree "$tmpfile"
+  rm "$tmpfile"
+  ! ./build-userland $in_tree ..
+  ! ./build-userland $in_tree kernel_modules
+  ./build-userland --clean $in_tree
+
+  # Clean is however more forgiving and accepts paths that don't exist.
+  ./build-userland --clean $in_tree userland/does_not_exist
+done
+
+./build-userland-in-tree
+[ -f userland/c/hello.out ]
+./build-userland-in-tree --clean
+! [ -f userland/c/hello.out ]
 
 cd userland
 ./build
+[ -f c/hello.out ]
 ./build --clean
+! [ -f c/hello.out ]
 ./build c
+[ -f c/hello.out ]
 ./build --clean c
-./build c/hello
-./build --clean c/hello
-./build c/hello.
-./build --clean c/hello.
-./build c/hello.c
+! [ -f c/hello.out ]
 ./build --clean c/hello.c
-./build c/hello.out
-./build --clean c/hello.out
-./build "$(pwd)/c/hello.out"
-./build --clean "$(pwd)/c/hello.out"
+! [ -f c/hello.out ]
