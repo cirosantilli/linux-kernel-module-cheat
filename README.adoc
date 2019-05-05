@@ -11380,6 +11380,11 @@ TODO
 
 Notice how we give the actual assembly line number where the failing assert was!
 
+Other setup sanity checks that you might want to look into include:
+
+* link:userland/arch/empty.S[]
+* link:userland/arch/fail.S[]
+
 === User vs system assembly
 
 By "userland assembly", we mean "the parts of the ISA which can be freely used from userland".
@@ -11388,11 +11393,81 @@ Most ISAs are divided into a system and userland part, and to running the system
 
 One big difference between both is that we can run userland assembly on <<userland-setup>>, which is easier to get running and debug.
 
-In particular, all the examples outside of <<linux-system-calls,freestanding directories>> link to the C standard library for IO, which is very convenient and portable across host OSes.
+In particular, most userland assembly examples link to the C standard library: <<userland-assembly-c-standard-library>>.
 
 Userland assembly is generally simpler, and a pre-requisite for <<baremetal-setup>>.
 
 System-land assembly cheats will be put under: <<baremetal-setup>>.
+
+=== Userland assembly C standard library
+
+All examples outside of <<linux-system-calls,freestanding directories>> link to the C standard library.
+
+This allows using the C standard library for IO, which is very convenient and portable across host OSes.
+
+It also exposes other non-IO functionality that is very convenient such as `memcmp`.
+
+The C standard library infrastructure is implemented in the following files:
+
+* link:userland/arch/main.c[]
+* link:userland/arch/common.h[]
+* link:userland/arch/x86_64/common_arch.h[]
+* link:userland/arch/arm/common_arch.h[]
+* link:userland/arch/aarch64/common_arch.h[]
+
+=== Inline assembly
+
+Examples under `arch/<arch>/c/` directories show to how use inline assembly from higher level languages such as C:
+
+* x86_64
+** link:userland/arch/x86_64/c/inc.c[]
+** link:userland/arch/x86_64/c/add.c[]
+* arm
+** link:userland/arch/arm/c/inc.c[]
+** link:userland/arch/arm/c/inc_memory.c[]
+** link:userland/arch/arm/c/inc_memory_global.c[]
+** link:userland/arch/arm/c/add.c[]
+* aarch64
+** link:userland/arch/aarch64/c/earlyclobber.c[]
+** link:userland/arch/aarch64/c/inc.c[]
+** link:userland/arch/aarch64/c/multiline.cpp[]
+
+==== Inline assembly register variables
+
+Used notably in some of the <<linux-system-calls>> setups:
+
+* link:userland/arch/arm/reg_var.c[]
+* link:userland/arch/aarch64/reg_var.c[]
+* link:userland/arch/aarch64/reg_var_float.c[]
+
+In x86, makes it possible to access variables not exposed with the one letter register constraints.
+
+In arm, it is the only way to achieve this effect: https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
+
+==== Inline assembly scratch registers
+
+How to use temporary registers in inline assembly:
+
+* x86_64
+** link:userland/arch/x86_64/c/scratch.c[]
+** link:userland/arch/x86_64/c/scratch_hardcode.c[]
+
+Bibliography: https://stackoverflow.com/questions/6682733/gcc-prohibit-use-of-some-registers/54963829#54963829
+
+==== Inline assembly early-clobbers
+
+An example of using the `&` early-clobber modifier: link:userland/arch/aarch64/earlyclobber.c
+
+More details at: https://stackoverflow.com/questions/15819794/when-to-use-earlyclobber-constraint-in-extended-gcc-inline-assembly/54853663#54853663
+
+The assertion may fail without it. It actually does fail in GCC 8.2.0.
+
+==== Inline assembly floating point ARM
+
+Not documented as of GCC 8.2, but possible: https://stackoverflow.com/questions/53960240/armv8-floating-point-output-inline-assembly
+
+* link:userland/arch/arm/c/inc_float.c[]
+* link:userland/arch/aarch64/c/inc_float.c[]
 
 === Linux system calls
 
@@ -11436,11 +11511,35 @@ Determining the ARM syscall interface:
 
 Questions about the C inline assembly examples:
 
+* x86_64: https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
+* ARM: https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
+
+=== Calling conventions
+
 * x86_64
-** https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
-* ARM
-** https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
-** https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
+** link:userland/arch/x86_64/common_arch.h[] `ENTRY` and `EXIT`
+
+==== ARM calling convention
+
+Call C standard library functions from assembly and vice versa.
+
+* arm
+** link:userland/arch/arm/common_arch.h[] `ENTRY` and `EXIT`
+** link:userland/arch/arm/c_from_asm.S[]
+* aarch64
+** link:userland/arch/aarch64/common_arch.h[] `ENTRY` and `EXIT`
+** link:userland/arch/aarch64/c/asm_from_c.c[]
+
+ARM Architecture Procedure Call Standard (AAPCS) is the name that ARM Holdings gives to the calling convention.
+
+Official specification: http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
+
+Bibliography:
+
+* https://en.wikipedia.org/wiki/Calling_convention#ARM_(A32) Wiki contains the master list as usual.
+* http://stackoverflow.com/questions/8422287/calling-c-functions-from-arm-assembly
+* http://stackoverflow.com/questions/261419/arm-to-c-calling-convention-registers-to-save
+* https://stackoverflow.com/questions/10494848/arm-whats-the-difference-between-apcs-and-aapcs-abi
 
 == x86 userland assembly
 

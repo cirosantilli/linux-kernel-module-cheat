@@ -1,4 +1,4 @@
-/* https://stackoverflow.com/questions/6682733/gcc-prohibit-use-of-some-registers/54963829#54963829 */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly-scratch-registers */
 
 #include <assert.h>
 #include <inttypes.h>

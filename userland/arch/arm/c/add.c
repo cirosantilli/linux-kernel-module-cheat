@@ -1,4 +1,7 @@
-/* 1 + 2 == 3 */
+/* 1 + 2 == 3
+ *
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly
+ */
 
 #include <assert.h>
 #include <inttypes.h>

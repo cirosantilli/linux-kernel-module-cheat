@@ -1,4 +1,4 @@
-/* https://stackoverflow.com/questions/53960240/armv8-floating-point-output-inline-assembly */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly-floating-point-arm */
 
 #include <assert.h>
 

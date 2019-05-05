@@ -5,6 +5,8 @@
  * movt r3, #<higher address part>
  * ldr r0, [r3]
  * ....
+ *
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly
  */
 
 #include <assert.h>

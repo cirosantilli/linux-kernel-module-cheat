@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly */
+
 #include <assert.h>
 #include <inttypes.h>
 

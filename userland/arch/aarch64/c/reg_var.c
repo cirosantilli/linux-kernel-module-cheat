@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#register-variables */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly-register-variables */
 
 #include <assert.h>
 #include <inttypes.h>

@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly-c-standard-library */
+
 #ifndef COMMON_ARCH_H
 #define COMMON_ARCH_H
 

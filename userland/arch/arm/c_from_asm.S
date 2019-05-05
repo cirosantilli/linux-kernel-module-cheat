@@ -17,7 +17,7 @@ ENTRY
     /* r0 is first argument. */
     ldr r0, =puts_s
     bl puts
-    /* Check exit statut >= 0 for success. */
+    /* Check exit status >= 0 for success. */
     cmp r0, 0
     ASSERT(bge)
 
