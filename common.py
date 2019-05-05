@@ -10,7 +10,6 @@ import imp
 import inspect
 import json
 import math
-import multiprocessing
 import os
 import platform
 import re
@@ -824,6 +823,7 @@ lunch aosp_{}-eng
                 env['buildroot_toolchain_prefix']
             )
             env['userland_library_dir'] = env['buildroot_target_dir']
+            env['pkg_config'] = env['buildroot_pkg_config']
         elif env['gcc_which'] == 'crosstool-ng':
             env['toolchain_prefix'] = os.path.join(
                 env['crosstool_ng_bin_dir'],
@@ -837,6 +837,7 @@ lunch aosp_{}-eng
                 env['userland_library_dir'] = '/usr/arm-linux-gnueabihf'
             elif env['arch'] == 'aarch64':
                 env['userland_library_dir'] = '/usr/aarch64-linux-gnu/'
+            env['pkg_config'] = 'pkg-config'
         elif env['gcc_which'] == 'host-baremetal':
             if env['arch'] == 'arm':
                 env['toolchain_prefix'] = 'arm-none-eabi'
@@ -1249,7 +1250,7 @@ TODO: not yet implemented on all scripts.
         self.add_argument(
             '-j',
             '--nproc',
-            default=multiprocessing.cpu_count(),
+            default=len(os.sched_getaffinity(0)),
             type=int,
             help='Number of processors to use for the build.',
         )

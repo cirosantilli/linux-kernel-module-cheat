@@ -977,23 +977,38 @@ Build, run and example, and clean it in-tree with:
 
 ....
 cd userland
-./build
+./build c/hello
 ./c/hello.out
 ./build --clean
 ....
 
 Source: link:userland/c/hello.c[].
 
-Or build just one directory:
+Build an entire directory:
 
 ....
 ./build c
 ....
 
-or just one executable:
+Build the current directory:
 
 ....
-./build c/hello
+./build
+....
+
+Note however that this would try to build the link:userland/libs/[] folder, which depends on certain libraries being installed on the host, e.g. <<blas>>.
+
+You can install those libraries and do the build in one go with:
+
+....
+cd linux-kernel-module-cheat
+./build --download-dependencies userland-host
+....
+
+If you modify a dependency that is not currently considered such as a header file, force the rebuild with:
+
+....
+./build --force-rebuild
 ....
 
 Do a more clean out of tree build and run the program instead:
@@ -1003,11 +1018,7 @@ Do a more clean out of tree build and run the program instead:
 "$(./getvar --userland-build-id host userland_build_dir)/hello.out"
 ....
 
-If you modify a dependency that is not currently considered such as a header file, force the rebuild with:
-
-....
-./build --force-rebuild
-....
+Here we put the host executables in a separate <<build-variants,build-variant>> to avoid conflict with Buildroot builds.
 
 ===== Userland setup getting started full system
 
@@ -1699,7 +1710,7 @@ Alternatively, if the module panics before you can read `/proc/modules`, there i
 ....
 echo 8 > /proc/sys/kernel/printk
 echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
-./myinsmod.out hello.ko
+./linux/myinsmod.out hello.ko
 ....
 
 And then search for a line of type:
@@ -1874,12 +1885,12 @@ Non-init process:
 * Shell 2:
 +
 ....
-./run-gdb-user myinsmod main
+./run-gdb-user linux/myinsmod main
 ....
 * Shell 1 after the boot finishes:
 +
 ....
-./myinsmod.out hello.ko
+./linux/myinsmod.out hello.ko
 ....
 
 This is the least reliable setup as there might be other processes that use the given virtual address.
@@ -1995,10 +2006,10 @@ For a more minimal baremetal multicore setup, see: <<arm-multicore>>.
 We can set and get which cores the Linux kernel allows a program to run on with `sched_getaffinity` and `sched_setaffinity`:
 
 ....
-./run --cpus 2 --eval-after './sched_getaffinity.out'
+./run --cpus 2 --eval-after './linux/sched_getaffinity.out'
 ....
 
-Source: link:userland/sched_getaffinity.c[]
+Source: link:userland/linux/sched_getaffinity.c[]
 
 Sample output:
 
@@ -2025,7 +2036,7 @@ The number of cores is modified as explained at: <<number-of-cores>>
   --config 'BR2_PACKAGE_UTIL_LINUX=y' \
   --config 'BR2_PACKAGE_UTIL_LINUX_SCHEDUTILS=y' \
 ;
-./run --eval-after 'taskset -c 1,1 ./sched_getaffinity.out'
+./run --eval-after 'taskset -c 1,1 ./linux/sched_getaffinity.out'
 ....
 
 output:
@@ -2041,20 +2052,20 @@ so we see that the affinity was restricted to the second core from the start.
 
 Let's do a QEMU observation to justify this example being in the repository with <<gdb-step-debug-userland-non-init,userland breakpoints>>.
 
-We will run our `./sched_getaffinity.out` infinitely many time, on core 0 and core 1 alternatively:
+We will run our `./linux/sched_getaffinity.out` infinitely many time, on core 0 and core 1 alternatively:
 
 ....
 ./run \
   --cpus 2 \
   --wait-gdb \
-  --eval-after 'i=0; while true; do taskset -c $i,$i ./sched_getaffinity.out; i=$((! $i)); done' \
+  --eval-after 'i=0; while true; do taskset -c $i,$i ./linux/sched_getaffinity.out; i=$((! $i)); done' \
 ;
 ....
 
 on another shell:
 
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/sched_getaffinity.out" main
+./run-gdb-user "$(./getvar userland_build_dir)/linux/sched_getaffinity.out" main
 ....
 
 Then, inside GDB:
@@ -2079,13 +2090,13 @@ We should also try it out with kernel modules: https://stackoverflow.com/questio
 TODO we then tried:
 
 ....
-./run --cpus 2 --eval-after './sched_getaffinity_threads.out'
+./run --cpus 2 --eval-after './linux/sched_getaffinity_threads.out'
 ....
 
 and:
 
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/sched_getaffinity_threads.out"
+./run-gdb-user "$(./getvar userland_build_dir)/linux/sched_getaffinity_threads.out"
 ....
 
 to switch between two simultaneous live threads with different affinities, it just didn't break on our threads:
@@ -2431,10 +2442,10 @@ First build `gdbserver` into the root filesystem:
 ./build-buildroot --config 'BR2_PACKAGE_GDB=y'
 ....
 
-Then on guest, to debug link:userland/myinsmod.c[]:
+Then on guest, to debug link:userland/linux/myinsmod.c[]:
 
 ....
-./gdbserver.sh ./myinsmod.out hello.ko
+./gdbserver.sh ./linux/myinsmod.out hello.ko
 ....
 
 Source: link:rootfs_overlay/lkmc/gdbserver.sh[].
@@ -2442,13 +2453,13 @@ Source: link:rootfs_overlay/lkmc/gdbserver.sh[].
 And on host:
 
 ....
-./run-gdbserver myinsmod
+./run-gdbserver linux/myinsmod
 ....
 
 or alternatively with the full path:
 
 ....
-./run-gdbserver "$(./getvar userland_build_dir)/myinsmod.out"
+./run-gdbserver "$(./getvar userland_build_dir)/linux/myinsmod.out"
 ....
 
 https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-arm-mips-elf-with-qemu-toolchain/16214#16214
@@ -2587,7 +2598,7 @@ traps: ring0.out[55] general protection ip:40054c sp:7fffffffec20 error:0 in rin
 Sources:
 
 * link:kernel_modules/ring0.c[]
-* link:kernel_modules/ring0.h[]
+* link:include/ring0.h[]
 * link:userland/ring0.c[]
 
 In both cases, we attempt to run the exact same code which is shared on the `ring0.h` header file.
@@ -2832,14 +2843,14 @@ ____
 And you can try it out with:
 
 ....
-./run --kernel-cli 'init=/lkmc/init_env_poweroff.out - asdf=qwer zxcv'
+./run --kernel-cli 'init=/lkmc/linux/init_env_poweroff.out - asdf=qwer zxcv'
 ....
 
 Output:
 
 ....
 args:
-/lkmc/init_env_poweroff.out
+/lkmc/linux/init_env_poweroff.out
 -
 zxcv
 
@@ -2849,7 +2860,7 @@ TERM=linux
 asdf=qwer
 ....
 
-Source: link:userland/init_env_poweroff.c[].
+Source: link:userland/linux/init_env_poweroff.c[].
 
 ==== init arguments
 
@@ -2858,14 +2869,14 @@ The annoying dash `-` gets passed as a parameter to `init`, which makes it impos
 Arguments with dots that come after `-` are still treated specially (of the form `subsystem.somevalue`) and disappear, from args, e.g.:
 
 ....
-./run --kernel-cli 'init=/lkmc/init_env_poweroff.out - /lkmc/linux/poweroff.out'
+./run --kernel-cli 'init=/lkmc/linux/init_env_poweroff.out - /lkmc/linux/poweroff.out'
 ....
 
 outputs:
 
 ....
 args
-/lkmc/init_env_poweroff.out
+/lkmc/linux/init_env_poweroff.out
 -
 ab
 ....
@@ -3380,12 +3391,12 @@ See also: <<user-mode-simulation-with-glibc>>
 
 === QEMU user mode getting started
 
-Let's run link:userland/print_argv.c[] built with the Buildroot toolchain on QEMU user mode:
+Let's run link:userland/c/print_argv.c[] built with the Buildroot toolchain on QEMU user mode:
 
 ....
 ./build user-mode-qemu
 ./run \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3413,12 +3424,12 @@ The commands are analogous to full system <<gdb>>, e.g. without tmux:
 
 ....
 ./run \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
   --wait-gdb \
 ;
 ./run-gdb \
-  --userland print_argv \
+  --userland c/print_argv \
   main
 ;
 ....
@@ -3427,7 +3438,7 @@ or with <<tmux>>:
 
 ....
 ./run \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
   --tmux-args main \
   --wait-gdb \
@@ -3449,7 +3460,7 @@ sudo apt-get install gcc-aarch64-linux-gnu qemu-system-aarch64
   --arch aarch64 \
   --qemu-which host
   --userland-build-id host \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3544,7 +3555,7 @@ Example:
 ./run \
   --arch aarch64 \
   --static \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3567,7 +3578,7 @@ So programs that rely on those libraries might not compile as GCC can't find the
 For example, if we try to build <<blas>> statically:
 
 ....
-./build-userland --has-package openblas --static -- libs/openblas_hello
+./build-userland --has-package openblas --static -- libs/openblas/hello
 ....
 
 it fails with:
@@ -3583,7 +3594,7 @@ It's nice when <<gdb,the obvious>> just works, right?
 ....
 ./run \
   --arch aarch64 \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
   --wait-gdb \
 ;
@@ -3594,7 +3605,7 @@ and on another shell:
 ....
 ./run-gdb \
   --arch aarch64 \
-  --userland print_argv \
+  --userland c/print_argv \
   main \
 ;
 ....
@@ -3605,7 +3616,7 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
 ./run \
   --arch aarch64 \
   --tmux-args main \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
   --wait-gdb \
 ;
@@ -3643,7 +3654,7 @@ So let's just play with some static ones:
 ./run \
   --arch aarch64 \
   --emulator gem5 \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
 ;
 ....
@@ -3657,7 +3668,7 @@ TODO: how to escape spaces on the command line arguments?
   --arch aarch64 \
   --emulator gem5 \
   --static \
-  --userland print_argv \
+  --userland c/print_argv \
   --userland-args 'asdf "qw er"' \
   --wait-gdb \
 ;
@@ -3665,7 +3676,7 @@ TODO: how to escape spaces on the command line arguments?
   --arch aarch64 \
   --emulator gem5 \
   --static \
-  --userland print_argv \
+  --userland c/print_argv \
   main \
 ;
 ....
@@ -3794,18 +3805,18 @@ If you are feeling raw, you can insert and remove modules with our own minimal m
 
 ....
 # init_module
-./myinsmod.out hello.ko
+./linux/myinsmod.out hello.ko
 # finit_module
-./myinsmod.out hello.ko "" 1
-./myrmmod.out hello
+./linux/myinsmod.out hello.ko "" 1
+./linux/myrmmod.out hello
 ....
 
 which teaches you how it is done from C code.
 
 Source:
 
-* link:userland/myinsmod.c[]
-* link:userland/myrmmod.c[]
+* link:userland/linux/myinsmod.c[]
+* link:userland/linux/myrmmod.c[]
 
 The Linux kernel offers two system calls for module insertion:
 
@@ -5252,7 +5263,7 @@ But the awesome `CONFIG_DYNAMIC_DEBUG=y` option which we enable by default allow
 ....
 echo 8 > /proc/sys/kernel/printk
 echo 'file kernel/module.c +p' > /sys/kernel/debug/dynamic_debug/control
-./myinsmod.out hello.ko
+./linux/myinsmod.out hello.ko
 ....
 
 and we have a shortcut at:
@@ -6375,7 +6386,7 @@ Outcome: `jiffies` gets printed to stdout every second from userland.
 Sources:
 
 * link:kernel_modules/poll.c[]
-* link:kernel_modules/poll.c[]
+* link:include/poll.h[]
 * link:rootfs_overlay/lkmc/poll.sh[]
 
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
@@ -6404,8 +6415,8 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/ioctl.c[]
-* link:kernel_modules/ioctl.h[]
-* link:userland/ioctl.c[]
+* link:include/ioctl.h[]
+* link:userland/kernel_modules/ioctl.c[]
 * link:rootfs_overlay/lkmc/ioctl.sh[]
 
 `ioctl` is one of the most important methods of communication with real device drivers, which often take several fields as input.
@@ -6489,8 +6500,8 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/anonymous_inode.c[]
-* link:kernel_modules/anonymous_inode.h[]
-* link:userland/anonymous_inode.c[]
+* link:include/anonymous_inode.h[]
+* link:userland/kernel_modules/anonymous_inode.c[]
 * link:rootfs_overlay/lkmc/anonymous_inode.sh[]
 
 This example gets an anonymous inode via <<ioctl>> from a debugfs entry by using `anon_inode_getfd`.
@@ -6517,8 +6528,8 @@ Outcome: the test passes:
 Sources:
 
 * link:kernel_modules/netlink.c[]
-* link:kernel_modules/netlink.h[]
-* link:userland/netlink.c[]
+* link:include/netlink.h[]
+* link:userland/kernel_modules/netlink.c[]
 * link:rootfs_overlay/lkmc/netlink.sh[]
 
 Launch multiple user requests in parallel to stress our socket:
@@ -6993,10 +7004,10 @@ In this section we will play with them.
 First get a virtual address to play with:
 
 ....
-./virt_to_phys_test.out &
+./posix/virt_to_phys_test.out &
 ....
 
-Source: link:userland/virt_to_phys_test.c[]
+Source: link:userland/posix/virt_to_phys_test.c[]
 
 Sample output:
 
@@ -7091,7 +7102,7 @@ After one second, we see on the screen:
 
 ....
 i 9abcdef0
-[1]+  Done                       ./virt_to_phys_test.out
+[1]+  Done                       ./posix/virt_to_phys_test.out
 ....
 
 so the value changed, and the `while` loop exited!
@@ -7116,7 +7127,7 @@ Dump the physical address of all pages mapped to a given process using `/proc/<p
 First launch `linux/virt_to_phys_user.out` as described at <<userland-physical-address-experiments>>. Suppose that the output was:
 
 ....
-# ./virt_to_phys_test.out &
+# ./posix/virt_to_phys_test.out &
 vaddr 0x601048
 pid 63
 # ./linux/virt_to_phys_user.out 63 0x601048
@@ -7133,9 +7144,9 @@ Sample output excerpt:
 
 ....
 vaddr pfn soft-dirty file/shared swapped present library
-400000 1ede 0 1 0 1 ./virt_to_phys_test.out
-600000 1a6f 0 0 0 1 ./virt_to_phys_test.out
-601000 1a61 0 0 0 1 ./virt_to_phys_test.out
+400000 1ede 0 1 0 1 ./posix/virt_to_phys_test.out
+600000 1a6f 0 0 0 1 ./posix/virt_to_phys_test.out
+601000 1a61 0 0 0 1 ./posix/virt_to_phys_test.out
 602000 2208 0 0 0 1 [heap]
 603000 220b 0 0 0 1 [heap]
 7ffff78ec000 1fd4 0 1 0 1 /lib/libuClibc-1.0.30.so
@@ -7150,7 +7161,7 @@ Meaning of the flags:
 * `vaddr`: first virtual address of a page the belongs to the process. Notably:
 +
 ....
-./run-toolchain readelf -- -l "$(./getvar userland_build_dir)/virt_to_phys_test.out"
+./run-toolchain readelf -- -l "$(./getvar userland_build_dir)/posix/virt_to_phys_test.out"
 ....
 +
 contains:
@@ -7222,7 +7233,7 @@ Logs proc events such as process creation to a link:kernel_modules/netlink.c[net
 We then have a userland program that listens to the events and prints them out:
 
 ....
-# ./proc_events.out &
+# ./linux/proc_events.out &
 # set mcast listen ok
 # sleep 2 & sleep 1
 fork: parent tid=48 pid=48 -> child tid=79 pid=79
@@ -7236,7 +7247,7 @@ a
 #
 ....
 
-Source: link:userland/proc_events.c[]
+Source: link:userland/linux/proc_events.c[]
 
 TODO: why `exit: tid=79` shows after `exit: tid=80`?
 
@@ -7245,7 +7256,7 @@ Note how `echo a` is a Bash built-in, and therefore does not spawn a new process
 TODO: why does this produce no output?
 
 ....
-./proc_events.out >f &
+./linux/proc_events.out >f &
 ....
 
 * https://stackoverflow.com/questions/6075013/detect-launching-of-programs-on-linux-platform/8255487#8255487
@@ -7725,7 +7736,7 @@ UIO interface in a nutshell:
 
 Sources:
 
-* link:userland/uio_read.c[]
+* link:userland/kernel_modules/uio_read.c[]
 * link:rootfs_overlay/lkmc/uio_read.sh[]
 
 Bibliography:
@@ -8169,8 +8180,8 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
-./build-userland --has-package libdrm -- libs/libdrm_modeset
-./run --eval-after './libs/libdrm_modeset.out' --graphic
+./build-userland --has-package libdrm -- libs/libdrm/modeset
+./run --eval-after './libs/libdrm/modeset.out' --graphic
 ....
 
 Source: link:userland/libs/libdrm_modeset.c[]
@@ -8183,7 +8194,7 @@ TODO not working for `aarch64`, it takes over the screen for a few seconds and t
 ./build-buildroot --config 'BR2_PACKAGE_LIBDRM=y'
 ./build-userland --has-package libdrm
 ./build-buildroot
-./run --eval-after './libs/libdrm_modeset.out' --graphic
+./run --eval-after './libs/libdrm/modeset.out' --graphic
 ....
 
 <<kmscube>> however worked, which means that it must be a bug with this demo?
@@ -8208,7 +8219,7 @@ Try creating new displays:
 to see multiple `/dev/dri/cardN`, and then use a different display with:
 
 ....
-./run --eval-after './libs/libdrm_modeset.out' --graphic
+./run --eval-after './libs/libdrm/modeset.out' --graphic
 ....
 
 Bibliography:
@@ -9909,8 +9920,8 @@ Buildroot supports it, which makes everything just trivial:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_OPENBLAS=y'
-./build-userland --has-package openblas -- libs/openblas_hello
-./run --eval-after './libs/openblas_hello.out; echo $?'
+./build-userland --has-package openblas -- libs/openblas/hello
+./run --eval-after './libs/openblas/hello.out; echo $?'
 ....
 
 Outcome: the test passes:
@@ -9919,7 +9930,7 @@ Outcome: the test passes:
 0
 ....
 
-Source: link:userland/libs/openblas.c[]
+Source: link:userland/libs/openblas/hello.c[]
 
 The test performs a general matrix multiplication:
 
@@ -9949,13 +9960,13 @@ Header only linear algebra library with a mainline Buildroot package:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_EIGEN=y'
-./build-userland --has-package eigen -- libs/eigen_hello
+./build-userland --has-package eigen -- libs/eigen/hello
 ....
 
 Just create an array and print it:
 
 ....
-./run --eval-after './libs/eigen_hello.out'
+./run --eval-after './libs/eigen/hello.out'
 ....
 
 Output:
@@ -9965,7 +9976,7 @@ Output:
 2.5 1.5
 ....
 
-Source: link:userland/libs/eigen_hello.cpp[]
+Source: link:userland/libs/eigen/hello.cpp[]
 
 This example just creates a matrix and prints it out.
 
@@ -10192,7 +10203,7 @@ The alternative is to do as in <<gdb-step-debug-userland-processes>>.
 
 Next, follow the exact same steps explained at <<gdb-step-debug-userland-non-init-without--d>>, but passing `-g` to every command as usual.
 
-But then TODO (I'll still go crazy one of those days): for `arm`, while debugging `./myinsmod.out hello.ko`, after then line:
+But then TODO (I'll still go crazy one of those days): for `arm`, while debugging `./linux/myinsmod.out hello.ko`, after then line:
 
 ....
 23     if (argc < 3) {

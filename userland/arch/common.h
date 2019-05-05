@@ -23,8 +23,8 @@
 
 /* Assert that a register equals another register. */
 #define ASSERT_EQ_REG(reg1, reg2) \
-	cmp reg1, reg2; \
-	ASSERT(beq); \
+    cmp reg1, reg2; \
+    ASSERT(beq); \
 ;
 
 #endif

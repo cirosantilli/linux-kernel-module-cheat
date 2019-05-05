@@ -11,11 +11,11 @@ enum { I0 = 0x12345678 };
 static volatile uint32_t i = I0;
 
 int main(void) {
-	printf("vaddr %p\n", (void *)&i);
-	printf("pid %ju\n", (uintmax_t)getpid());
-	while (i == I0) {
-		sleep(1);
-	}
-	printf("i %jx\n", (uintmax_t)i);
-	return EXIT_SUCCESS;
+    printf("vaddr %p\n", (void *)&i);
+    printf("pid %ju\n", (uintmax_t)getpid());
+    while (i == I0) {
+        sleep(1);
+    }
+    printf("i %jx\n", (uintmax_t)i);
+    return EXIT_SUCCESS;
 }

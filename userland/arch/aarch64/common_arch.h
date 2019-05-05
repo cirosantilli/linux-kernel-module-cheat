@@ -5,13 +5,13 @@
 
 #define ASSERT_EQ(reg, const) \
     ldr x11, =const; \
-	cmp reg, x11; \
-	ASSERT(beq); \
+    cmp reg, x11; \
+    ASSERT(beq); \
 ;
 
 #define ASSERT_MEMCMP(s1, s2, n) \
-	MEMCMP(s1, s2, n); \
-	ASSERT_EQ(x0, 0); \
+    MEMCMP(s1, s2, n); \
+    ASSERT_EQ(x0, 0); \
 ;
 
 #define ENTRY \

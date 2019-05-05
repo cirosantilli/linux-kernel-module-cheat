@@ -5,16 +5,16 @@
 
 int main(void) {
 #if 0
-	uint64_t in = 0xFFFFFFFF;
-	uint64_t out = 0;
-	__asm__ (
-		"mov %[in], %%rax;"
-		"myinc %%rax;"
-		"movq %%rax, %[out]"
-		: [out] "=g" (out)
-		: [in] "g" (in)
-		: "rax"
-	);
-	assert(out == in + 1);
+    uint64_t in = 0xFFFFFFFF;
+    uint64_t out = 0;
+    __asm__ (
+        "mov %[in], %%rax;"
+        "myinc %%rax;"
+        "movq %%rax, %[out]"
+        : [out] "=g" (out)
+        : [in] "g" (in)
+        : "rax"
+    );
+    assert(out == in + 1);
 #endif
 }

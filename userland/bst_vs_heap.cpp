@@ -29,16 +29,16 @@ int main(int argc, char **argv) {
     }
     std::shuffle(randoms.begin(), randoms.end(), std::mt19937(seed));
     for (i = 0; i < n; ++i) {
-    	auto random = randoms[i];
+        auto random = randoms[i];
 
         // Heap.
-		m5_resetstats();
-		heap.emplace(random);
-		m5_dumpstats();
+        m5_resetstats();
+        heap.emplace(random);
+        m5_dumpstats();
 
         // BST.
-		m5_resetstats();
-		bst.insert(random);
-		m5_dumpstats();
+        m5_resetstats();
+        bst.insert(random);
+        m5_dumpstats();
     }
 }

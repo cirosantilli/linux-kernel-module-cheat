@@ -1,5 +1,6 @@
 #!/bin/sh
+# https://github.com/cirosantilli/linux-kernel-module-cheat#poll
 set -e
 insmod poll.ko
-./poll.out /sys/kernel/debug/lkmc_poll
+./kernel_modules/poll.out /sys/kernel/debug/lkmc_poll
 #rmmod poll

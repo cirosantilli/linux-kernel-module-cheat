@@ -1,7 +1,8 @@
 #!/bin/sh
+# https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets
 set -e
 insmod netlink.ko
-[ "$(/netlink.out)" = 0 ]
-[ "$(/netlink.out)" = 1 ]
-[ "$(/netlink.out)" = 2 ]
+[ "$(./linux/netlink.out)" = 0 ]
+[ "$(./linux/netlink.out)" = 1 ]
+[ "$(./linux/netlink.out)" = 2 ]
 rmmod netlink

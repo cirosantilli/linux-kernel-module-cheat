@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from typing import Any, Callable, Dict, Iterable, Union
-import multiprocessing
 import queue
 import sys
 import threading
@@ -66,7 +65,7 @@ class ThreadPool:
             handle_output = lambda input, output, exception: exception
         self.handle_output = handle_output
         if nthreads is None:
-            nthreads = multiprocessing.cpu_count()
+            nthreads = len(os.sched_getaffinity(0))
         self.nthreads = nthreads
         self.error_output = None
         self.error_output_lock = threading.Lock()

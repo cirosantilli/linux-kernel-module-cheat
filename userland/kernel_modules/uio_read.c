@@ -16,8 +16,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     char *dev = "/dev/uio0";
     if (argc > 1) {
         dev = argv[1];
@@ -30,12 +29,14 @@ int main(int argc, char **argv)
     }
 
     /* TODO not supported by this kernel module? */
-	/*int *addr = mmap(NULL, sysconf(_SC_PAGE_SIZE), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);*/
-	/*if (addr == MAP_FAILED) {*/
-		/*perror("mmap");*/
-		/*assert(0);*/
-	/*}*/
-	/**addr = 0x12345678;*/
+#if 0
+    int *addr = mmap(NULL, sysconf(_SC_PAGE_SIZE), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED) {
+        perror("mmap");
+        assert(0);
+    }
+    *addr = 0x12345678;
+#endif
 
     while (1) {
         uint32_t info = 1;
@@ -66,8 +67,7 @@ int main(int argc, char **argv)
 #include <unistd.h>
 #include <unistd.h>
 
-int main(void)
-{
+int main(void) {
     int uiofd;
     int configfd;
     int err;

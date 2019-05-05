@@ -13,5 +13,5 @@ int main(int argc, char **argv) {
     } else {
         ret = strtoull(argv[1], NULL, 0);
     }
-	return ret;
+    return ret;
 }

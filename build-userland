@@ -28,6 +28,13 @@ allows us to build examples that rely on it.
 ''',
         )
         self.add_argument(
+            '--has-all-packages',
+            action='store_true',
+            help='''\
+Indicate that all packages from --has-package are available.
+''',
+        )
+        self.add_argument(
             '--in-tree',
             default=False,
             help='''\
@@ -138,6 +145,7 @@ Default: build all examples that have their package dependencies met, e.g.:
     def build(self):
         build_dir = self.get_build_dir()
         has_packages = set(self.env['has_package'])
+        has_all_packages = self.env['has_all_packages']
         ccflags = [
             '-I', self.env['root_dir'], LF,
             '-O0', LF,
@@ -179,6 +187,10 @@ Default: build all examples that have their package dependencies met, e.g.:
             extra_deps=[self.env['common_h']],
             link=False,
         )
+        if self.env['gcc_which'] == 'host':
+            eigen_root = '/'
+        else:
+            eigen_root = self.env['buildroot_staging_dir']
         pkgs = {
             'eigen': {
                 # TODO: was failing with:
@@ -188,7 +200,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                 'ccflags': [
                     '-I',
                     os.path.join(
-                        self.env['buildroot_staging_dir'],
+                        eigen_root,
                         'usr',
                         'include',
                         'eigen3'
@@ -217,26 +229,19 @@ Default: build all examples that have their package dependencies met, e.g.:
                     dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
                     dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
                     dirpath_relative_root_components_len = len(dirpath_relative_root_components)
-                    do_build_dir = True
-                    in_arch = False
+                    out_dir = os.path.join(
+                        build_dir,
+                        dirpath_relative_root
+                    )
+                    common_objs_dir = [common_obj]
+                    ccflags_after = []
+                    ccflags_dir = ccflags.copy()
                     if dirpath_relative_root_components_len > 0:
-                        if dirpath_relative_root_components[0] == 'arch':
-                            if dirpath_relative_root_components_len > 1:
-                                if dirpath_relative_root_components[1] == self.env['arch']:
-                                    in_arch = True
-                                else:
-                                    do_build_dir = False
-                            else:
-                                do_build_dir = False
-                        in_libs = dirpath_relative_root_components[0] == 'libs'
-                    if do_build_dir:
-                        out_dir = os.path.join(
-                            build_dir,
-                            dirpath_relative_root
-                        )
-                        common_objs_dir = [common_obj]
-                        ccflags_dir = ccflags.copy()
-                        if dirpath_relative_root_components in ('gcc', 'kernel_modules', 'linux'):
+                        if dirpath_relative_root_components[0] in (
+                            'gcc',
+                            'kernel_modules',
+                            'linux',
+                        ):
                             cstd = 'gnu11'
                             cxxstd = 'gnu++17'
                         else:
@@ -244,90 +249,94 @@ Default: build all examples that have their package dependencies met, e.g.:
                             cxxstd = self.default_cxxstd
                             # -pedantic complains even if we use -std=gnu11.
                             ccflags_dir.extend(['-pedantic', LF])
-                            if in_arch:
-                                ccflags_dir.extend([
-                                    '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
-                                    '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
-                                    '-fno-pie', LF,
-                                    '-no-pie', LF,
-                                ])
-                                if 'freestanding' in dirpath_relative_root_components:
-                                    common_objs_dir = []
-                                    ccflags_dir.extend([
-                                        '-ffreestanding', LF,
-                                        '-nostdlib', LF,
-                                        '-static', LF,
-                                    ])
-                                else:
-                                    if 'c' in dirpath_relative_root_components:
-                                        common_objs_dir = []
+                            if dirpath_relative_root_components[0] == 'arch':
+                                if dirpath_relative_root_components_len > 1:
+                                    if dirpath_relative_root_components[1] == self.env['arch']:
+                                        ccflags_dir.extend([
+                                            '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
+                                            '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
+                                            '-fno-pie', LF,
+                                            '-no-pie', LF,
+                                        ])
+                                        if 'freestanding' in dirpath_relative_root_components:
+                                            common_objs_dir = []
+                                            ccflags_dir.extend([
+                                                '-ffreestanding', LF,
+                                                '-nostdlib', LF,
+                                                '-static', LF,
+                                            ])
+                                        else:
+                                            if 'c' in dirpath_relative_root_components:
+                                                common_objs_dir = []
+                                            else:
+                                                common_objs_dir = [common_obj_asm]
+                                        if self.env['arch'] == 'arm':
+                                            ccflags_dir.extend([
+                                                '-Xassembler', '-mcpu=cortex-a72', LF,
+                                                # To prevent:
+                                                # > vfp.S: Error: selected processor does not support <FPU instruction> in ARM mode
+                                                # https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/52875732#52875732
+                                                # We aim to take the most extended mode currently available that works on QEMU.
+                                                '-Xassembler', '-mfpu=crypto-neon-fp-armv8.1', LF,
+                                                '-Xassembler', '-meabi=5', LF,
+                                                # Treat inline assembly as arm instead of thumb
+                                                # The opposite of -mthumb.
+                                                '-marm', LF,
+                                                # Make gcc generate .syntax unified for inline assembly.
+                                                # However, it gets ignored if -marm is given, which a GCC bug that was recently fixed:
+                                                # https://stackoverflow.com/questions/54078112/how-to-write-syntax-unified-ual-armv7-inline-assembly-in-gcc/54132097#54132097
+                                                # So we just write divided inline assembly for now.
+                                                '-masm-syntax-unified', LF,
+                                            ])
                                     else:
-                                        common_objs_dir = [common_obj_asm]
-                                if self.env['arch'] == 'arm':
-                                    ccflags_dir.extend([
-                                        '-Xassembler', '-mcpu=cortex-a72', LF,
-                                        # To prevent:
-                                        # > vfp.S: Error: selected processor does not support <FPU instruction> in ARM mode
-                                        # https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/52875732#52875732
-                                        # We aim to take the most extended mode currently available that works on QEMU.
-                                        '-Xassembler', '-mfpu=crypto-neon-fp-armv8.1', LF,
-                                        '-Xassembler', '-meabi=5', LF,
-                                        # Treat inline assembly as arm instead of thumb
-                                        # The opposite of -mthumb.
-                                        '-marm', LF,
-                                        # Make gcc generate .syntax unified for inline assembly.
-                                        # However, it gets ignored if -marm is given, which a GCC bug that was recently fixed:
-                                        # https://stackoverflow.com/questions/54078112/how-to-write-syntax-unified-ual-armv7-inline-assembly-in-gcc/54132097#54132097
-                                        # So we just write divided inline assembly for now.
-                                        '-masm-syntax-unified', LF,
-                                    ])
-                        for in_filename in in_filenames:
-                            path_relative_root = os.path.join(dirpath_relative_root, in_filename)
-                            if path_relative_root == common_obj_asm_relpath:
-                                continue
-                            in_path = os.path.join(path, in_filename)
-                            in_name, in_ext = os.path.splitext(in_filename)
-                            out_path = os.path.join(
-                                out_dir,
-                                in_name + self.env['userland_build_ext']
-                            )
-                            ccflags_file = ccflags_dir.copy()
-                            ccflags_after = []
-                            if in_libs:
-                                pkg_key = in_name.split('_')[0]
-                                if pkg_key in pkgs:
-                                    if pkg_key not in has_packages:
+                                        continue
+                                else:
+                                    continue
+                            elif dirpath_relative_root_components[0] == 'libs':
+                                if dirpath_relative_root_components_len > 1:
+                                    pkg_key = dirpath_relative_root_components[1]
+                                    if not (has_all_packages or pkg_key in has_packages):
                                         continue
                                     pkg = pkgs[pkg_key]
                                     if 'ccflags' in pkg:
-                                        ccflags_file.extend(pkg['ccflags'])
+                                        ccflags_dir.extend(pkg['ccflags'])
                                     else:
                                         pkg_config_output = subprocess.check_output([
-                                            self.env['buildroot_pkg_config'],
+                                            self.env['pkg_config'],
                                             '--cflags',
                                             pkg_key
                                         ]).decode()
-                                        ccflags_file.extend(self.sh.shlex_split(pkg_config_output))
+                                        ccflags_dir.extend(self.sh.shlex_split(pkg_config_output))
                                     if 'ccflags_after' in pkg:
-                                        ccflags_file.extend(pkg['ccflags_after'])
+                                        ccflags_dir.extend(pkg['ccflags_after'])
                                     else:
                                         pkg_config_output = subprocess.check_output([
-                                            self.env['buildroot_pkg_config'],
+                                            self.env['pkg_config'],
                                             '--libs',
                                             pkg_key
                                         ]).decode()
                                         ccflags_after.extend(self.sh.shlex_split(pkg_config_output))
-                            error = thread_pool.submit({
-                                    'in_path': in_path,
-                                    'out_path': out_path,
-                                    'ccflags': ccflags_file,
-                                    'cstd': cstd,
-                                    'cxxstd': cxxstd,
-                                    'extra_objs': common_objs_dir,
-                                    'ccflags_after': ccflags_after,
-                            })
-                            if error is not None:
-                                raise ExitLoop()
+                    for in_filename in in_filenames:
+                        path_relative_root = os.path.join(dirpath_relative_root, in_filename)
+                        if path_relative_root == common_obj_asm_relpath:
+                            continue
+                        in_path = os.path.join(path, in_filename)
+                        in_name, in_ext = os.path.splitext(in_filename)
+                        out_path = os.path.join(
+                            out_dir,
+                            in_name + self.env['userland_build_ext']
+                        )
+                        error = thread_pool.submit({
+                                'in_path': in_path,
+                                'out_path': out_path,
+                                'ccflags': ccflags_dir,
+                                'cstd': cstd,
+                                'cxxstd': cxxstd,
+                                'extra_objs': common_objs_dir,
+                                'ccflags_after': ccflags_after,
+                        })
+                        if error is not None:
+                            raise ExitLoop()
         except ExitLoop:
             pass
         error = thread_pool.join()

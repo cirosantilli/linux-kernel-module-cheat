@@ -26,8 +26,7 @@ typedef struct {
  * @param[in]  vaddr      virtual address to get entry for
  * @return                0 for success, 1 for failure
  */
-int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
-{
+int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr) {
     size_t nread;
     ssize_t ret;
     uint64_t data;
@@ -62,8 +61,7 @@ int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
  * @param[in]  vaddr virtual address to get entry for
  * @return           0 for success, 1 for failure
  */
-int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr)
-{
+int virt_to_phys_user(uintptr_t *paddr, pid_t pid, uintptr_t vaddr) {
     char pagemap_file[BUFSIZ];
     int pagemap_fd;
 

@@ -5,5 +5,5 @@
 #include <unistd.h>
 
 int main(void) {
-	reboot(RB_POWER_OFF);
+    reboot(RB_POWER_OFF);
 }

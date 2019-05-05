@@ -12,14 +12,14 @@
  */
 #define ASSERT_EQ(reg, const) \
     ldr r11, =const; \
-	cmp reg, r11; \
-	ASSERT(beq); \
+    cmp reg, r11; \
+    ASSERT(beq); \
 ;
 
 /* Assert that two arrays are the same. */
 #define ASSERT_MEMCMP(s1, s2, n) \
-	MEMCMP(s1, s2, n); \
-	ASSERT_EQ(r0, 0); \
+    MEMCMP(s1, s2, n); \
+    ASSERT_EQ(r0, 0); \
 ;
 
 /* Store all callee saved registers, and LR in case we make further BL calls.
