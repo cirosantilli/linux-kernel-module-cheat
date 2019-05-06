@@ -115,7 +115,7 @@ consts['userland_out_exts'] = [
     consts['obj_ext'],
 ]
 consts['default_config_file'] = os.path.join(consts['data_dir'], 'config.py')
-consts['magic_fail_string'] = b'lkmc_test_fail'
+consts['serial_magic_exit_status_regexp_string'] = b'lkmc_exit_status_(\d+)'
 consts['baremetal_lib_basename'] = 'lib'
 consts['emulator_userland_only_short_to_long_dict'] = collections.OrderedDict([
     ('n', 'native'),
@@ -483,6 +483,25 @@ CLI arguments to pass to the userland executable.
 
         # Run.
         self.add_argument(
+            '--background',
+            default=False,
+            help='''\
+Make programs that would take over the terminal such as QEMU full system run on the
+background instead.
+
+Currently only implemented for ./run.
+
+Interactive input cannot be given.
+
+Send QEMU serial output to a file instead of the host terminal.
+
+TODO: use a port instead. If only there was a way to redirect a serial to multiple
+places, both to a port and a file? We use the file currently to be able to have
+any output at all.
+https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-both-a-file-and-the-terminal-or-a-port
+'''
+        )
+        self.add_argument(
             '--in-tree',
             default=False,
             help='''\
@@ -763,7 +782,10 @@ Incompatible archs are skipped.
             env['executable'] = env['qemu_executable']
             env['run_dir'] = env['qemu_run_dir']
             env['termout_file'] = env['qemu_termout_file']
-            env['guest_terminal_file'] = env['qemu_termout_file']
+            if env['background']:
+                env['guest_terminal_file'] = env['qemu_background_serial_file']
+            else:
+                env['guest_terminal_file'] = env['qemu_termout_file']
             env['trace_txt_file'] = env['qemu_trace_txt_file']
         env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
 
@@ -1352,7 +1374,6 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
             argument_name,
             **self._build_arguments[argument_name]
         )
-
 
     def _build_one(
         self,

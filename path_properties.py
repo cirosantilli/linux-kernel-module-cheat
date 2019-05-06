@@ -236,6 +236,7 @@ path_properties_tuples = (
                 ),
                 'getchar.c': {'interactive': True},
                 'return1.c': {'exit_status': 1},
+                'return2.c': {'exit_status': 2},
             }
         ),
         'userland': (

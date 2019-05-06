@@ -18,18 +18,6 @@ Run some content on an emulator.
 '''
         )
         self.add_argument(
-            '--background',
-            default=False,
-            help='''\
-Send QEMU serial output to a file instead of the terminal so it does not require a
-terminal attached to run on the background. Interactive input cannot be given.
-TODO: use a port instead. If only there was a way to redirect a serial to multiple
-places, both to a port and a file? We use the file currently to be able to have
-any output at all.
-https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-both-a-file-and-the-terminal-or-a-port
-'''
-        )
-        self.add_argument(
             '-c',
             '--cpus',
             default=1,
@@ -241,10 +229,11 @@ Setup a kernel init parameter that makes the emulator quit immediately after boo
             '--terminal',
             default=False,
             help='''\
-Output to the terminal, don't pipe to tee as the default.
-Does not save the output to a file, but allows you to use debuggers.
-Set automatically by --debug-vm, but you still need this option to debug
-gem5 Python scripts with pdb.
+Output directly to the terminal, don't pipe to tee as the default.
+With this, we don't not save the output to a file as is done by default,
+but we are able to do things that require not having a pipe suh as you to
+using debuggers. This option issSet automatically by --debug-vm, but you still need
+it to debug gem5 Python scripts with pdb.
 '''
         )
         self.add_argument(
@@ -570,7 +559,7 @@ Extra options to append at the end of the emulator command line.
                     serial_monitor = []
                 else:
                     if self.env['background']:
-                        serial_monitor = ['-serial', 'file:{}'.format(self.env['qemu_background_serial_file']), LF]
+                        serial_monitor = ['-serial', 'file:{}'.format(self.env['guest_terminal_file']), LF]
                         if self.env['quiet']:
                             show_stdout = False
                     else:
@@ -752,34 +741,36 @@ Extra options to append at the end of the emulator command line.
             show_stdout=show_stdout,
         )
         if exit_status == 0:
-            # Check if guest panicked.
-            if self.env['emulator'] == 'gem5':
-                # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
-                # Grepping for '^panic: ' does not work because some errors don't show that message.
-                panic_msg = b'--- BEGIN LIBC BACKTRACE ---$'
-            else:
-                panic_msg = b'Kernel panic - not syncing'
-            panic_re = re.compile(panic_msg)
             error_string_found = False
             exit_status = 0
             if out_file is not None and not self.env['dry_run']:
-                with open(self.env['termout_file'], 'br') as logfile:
-                    line = None
-                    for line in logfile:
-                        if panic_re.search(line):
-                            exit_status = 1
-                    if line is not None:
-                        last_line = line.rstrip()
-                        match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
-                        if match:
-                            exit_status = int(match.group(1))
+                if self.env['emulator'] == 'gem5':
+                    with open(self.env['termout_file'], 'br') as logfile:
+                        # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
+                        # Grepping for '^panic: ' does not work because some errors don't show that message...
+                        gem5_panic_re = re.compile(b'--- BEGIN LIBC BACKTRACE ---$')
+                        line = None
+                        for line in logfile:
+                            if gem5_panic_re.search(line):
+                                exit_status = 1
+                        if self.env['userland']:
+                            if line is not None:
+                                last_line = line.rstrip()
+                                match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
+                                if match:
+                                    exit_status = int(match.group(1))
                 if not self.env['userland']:
                     if os.path.exists(self.env['guest_terminal_file']):
                         with open(self.env['guest_terminal_file'], 'br') as logfile:
+                            linux_panic_re = re.compile(b'Kernel panic - not syncing')
+                            serial_magic_exit_status_regexp = re.compile(self.env['serial_magic_exit_status_regexp_string'])
                             for line in logfile.readlines():
-                                if line.rstrip() == self.env['magic_fail_string']:
+                                line = line.rstrip()
+                                if not self.env['baremetal'] and linux_panic_re.search(line):
                                     exit_status = 1
-                                    break
+                                match = serial_magic_exit_status_regexp.match(line)
+                                if match:
+                                    exit_status = int(match.group(1))
             if exit_status != 0 and self.env['show_stdout']:
                 self.log_error('simulation error detected by parsing logs')
         return exit_status

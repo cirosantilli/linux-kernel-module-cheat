@@ -62,13 +62,23 @@ int _write(int file, char *ptr, int len) {
     return len;
 }
 
-/* Only 0 is supported for now, arm semihosting cannot handle other values. */
 void _exit(int status) {
+    if (status != 0) {
+        /* https://github.com/cirosantilli/linux-kernel-module-cheat#magic-failure-string */
+        printf("lkmc_exit_status_%d\n", status);
+    }
 #if defined(GEM5)
     LKMC_M5OPS_EXIT;
 #else
 #if defined(__arm__)
-    __asm__ __volatile__ ("mov r0, #0x18; ldr r1, =#0x20026; svc 0x00123456" : : : "r0", "r1");
+    __asm__ __volatile__ (
+        "mov r0, #0x18\n"
+        "ldr r1, =#0x20026\n"
+        "svc 0x00123456\n"
+        :
+        :
+        : "r0", "r1"
+    );
 #elif defined(__aarch64__)
     /* TODO actually use the exit value here, just for fun. */
     __asm__ __volatile__ (
