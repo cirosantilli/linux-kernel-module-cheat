@@ -27,9 +27,10 @@ import time
 import urllib
 import urllib.request
 
-import cli_function
-import shell_helpers
 from shell_helpers import LF
+import cli_function
+import path_properties
+import shell_helpers
 
 common = sys.modules[__name__]
 
@@ -1351,6 +1352,138 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
             argument_name,
             **self._build_arguments[argument_name]
         )
+
+
+    def _build_one(
+        self,
+        in_path,
+        out_path,
+        build_exts=None,
+        cc_flags=None,
+        cc_flags_after=None,
+        extra_objs_userland_asm=None,
+        extra_objs_lkmc_common=None,
+        extra_deps=None,
+        link=True,
+    ):
+        '''
+        Build one userland or baremetal executable.
+        '''
+        if cc_flags is None:
+            cc_flags = []
+        else:
+            cc_flags = cc_flags.copy()
+        if cc_flags_after is None:
+            cc_flags_after = []
+        else:
+            cc_flags_after = cc_flags_after.copy()
+        if extra_deps is None:
+            extra_deps = []
+        ret = 0
+        in_dir, in_basename = os.path.split(in_path)
+        in_dir_abs = os.path.abspath(in_dir)
+        dirpath_relative_root = in_dir_abs[len(self.env['root_dir']) + 1:]
+        dirpath_relative_root_components = dirpath_relative_root.split(os.sep)
+        dirpath_relative_root_components_len = len(dirpath_relative_root_components)
+        my_path_properties = path_properties.get(os.path.join(
+            dirpath_relative_root,
+            in_basename
+        ))
+        if my_path_properties.should_be_built(self.env, link):
+            extra_objs= []
+            if my_path_properties['extra_objs_lkmc_common']:
+                extra_objs.extend(extra_objs_lkmc_common)
+            if my_path_properties['extra_objs_userland_asm']:
+                extra_objs.extend(extra_objs_userland_asm)
+            if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
+                cc_flags.extend(my_path_properties['cc_flags'])
+                cc_flags_after.extend(my_path_properties['cc_flags_after'])
+                if my_path_properties['cc_pedantic']:
+                    cc_flags.extend(['-pedantic', LF])
+                if not link:
+                    cc_flags.extend(['-c', LF])
+                in_ext = os.path.splitext(in_path)[1]
+                if in_ext in (self.env['c_ext'], self.env['asm_ext']):
+                    cc = self.env['gcc']
+                    std = my_path_properties['c_std']
+                elif in_ext == self.env['cxx_ext']:
+                    cc = self.env['gxx']
+                    std = my_path_properties['cxx_std']
+                if dirpath_relative_root_components_len > 0:
+                    if dirpath_relative_root_components[0] == 'userland':
+                        if dirpath_relative_root_components_len > 1:
+                            if dirpath_relative_root_components[1] == 'arch':
+                                cc_flags.extend([
+                                    '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
+                                    '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
+                                ])
+                            elif dirpath_relative_root_components[1] == 'libs':
+                                if dirpath_relative_root_components_len > 1:
+                                    if self.env['gcc_which'] == 'host':
+                                        eigen_root = '/'
+                                    else:
+                                        eigen_root = self.env['buildroot_staging_dir']
+                                    packages = {
+                                        'eigen': {
+                                            # TODO: was failing with:
+                                            # fatal error: Eigen/Dense: No such file or directory as of
+                                            # 975ce0723ee3fa1fea1766e6683e2f3acb8558d6
+                                            # http://lists.busybox.net/pipermail/buildroot/2018-June/222914.html
+                                            'cc_flags': [
+                                                '-I',
+                                                os.path.join(
+                                                    eigen_root,
+                                                    'usr',
+                                                    'include',
+                                                    'eigen3'
+                                                ),
+                                                LF
+                                            ],
+                                            # Header only.
+                                            'cc_flags_after': [],
+                                        },
+                                    }
+                                    package_key = dirpath_relative_root_components[1]
+                                    if package_key in packages:
+                                        package = packages[package_key]
+                                    else:
+                                        package = {}
+                                    if 'cc_flags' in package:
+                                        cc_flags.extend(package['cc_flags'])
+                                    else:
+                                        pkg_config_output = subprocess.check_output([
+                                            self.env['pkg_config'],
+                                            '--cflags',
+                                            package_key
+                                        ]).decode()
+                                        cc_flags.extend(self.sh.shlex_split(pkg_config_output))
+                                    if 'cc_flags_after' in package:
+                                        cc_flags.extend(package['cc_flags_after'])
+                                    else:
+                                        pkg_config_output = subprocess.check_output([
+                                            self.env['pkg_config'],
+                                            '--libs',
+                                            package_key
+                                        ]).decode()
+                                        cc_flags_after.extend(self.sh.shlex_split(pkg_config_output))
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                ret = self.sh.run_cmd(
+                    (
+                        [
+                            cc, LF,
+                        ] +
+                        cc_flags +
+                        [
+                            '-std={}'.format(std), LF,
+                            '-o', out_path, LF,
+                            in_path, LF,
+                        ] +
+                        self.sh.add_newlines(extra_objs) +
+                        cc_flags_after
+                    ),
+                    extra_paths=[self.env['ccache_dir']],
+                )
+        return ret
 
     def clean(self):
         build_dir = self.get_build_dir()

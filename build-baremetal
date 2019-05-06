@@ -135,28 +135,11 @@ Build the baremetal examples with crosstool-NG.
                         os.path.isfile(in_path) and
                         in_ext in (self.env['c_ext'], self.env['asm_ext'])
                     ):
-                        main_obj = os.path.join(
-                            out_dir,
-                            '{}{}'.format(
-                                in_name,
-                                self.env['obj_ext']
-                            )
-                        )
-                        src = os.path.join(self.env['baremetal_source_dir'], in_path)
-                        if self.need_rebuild([src, self.env['common_h']], main_obj):
-                            self.sh.run_cmd(
-                                [self.env['gcc'],  LF] +
-                                cflags +
-                                [
-                                    '-c', LF,
-                                    '-o', main_obj, LF,
-                                    src, LF,
-                                ] +
-                                cflags_after
-                            )
-                        objs = common_objs_bootloader + [main_obj]
                         out = os.path.join(out_dir, in_name + self.env['baremetal_build_ext'])
-                        if self.need_rebuild(objs + [self.env['baremetal_link_script']], out):
+                        if self.need_rebuild(
+                            common_objs_bootloader + [self.env['baremetal_link_script'] + self.env['common_h']],
+                            out
+                        ):
                             self.sh.run_cmd(
                                 [self.env['gcc'],  LF] +
                                 cflags +
@@ -165,10 +148,12 @@ Build the baremetal examples with crosstool-NG.
                                     '-o', out, LF,
                                     '-T', self.env['baremetal_link_script'], LF,
                                 ] +
-                                self.sh.add_newlines(objs) +
+                                [
+                                    os.path.join(self.env['baremetal_source_dir'], in_path), LF,
+                                ] +
+                                self.sh.add_newlines(common_objs_bootloader) +
                                 cflags_after
                             )
-
 
     def get_build_dir(self):
         return self.env['baremetal_build_dir']

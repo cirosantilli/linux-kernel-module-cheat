@@ -9,6 +9,7 @@ class PathProperties:
     default_cxx_std = 'c++17'
     default_properties = {
         'allowed_archs': None,
+        'allowed_emulators': None,
         'c_std': default_c_std,
         'cc_flags': [
             '-Wall', LF,
@@ -50,6 +51,14 @@ class PathProperties:
         # We were lazy to properly classify why we are skipping these tests.
         # TODO get it done.
         'skip_run_unclassified': False,
+        # Aruments added automatically to run when running tests,
+        # but not on manual running.
+        'test_run_args': {
+            'ctrl_c_host': True,
+            'show_stdout': False,
+            'show_time': False,
+            'background': True,
+        },
         'uses_dynamic_library': False,
     }
 
@@ -88,6 +97,10 @@ class PathProperties:
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
             ) and \
+            (
+                self['allowed_emulators'] is None or
+                env['emulator'] in self['allowed_emulators']
+            ) and \
             not (
                 link and
                 self['no_executable']
@@ -109,7 +122,14 @@ class PathProperties:
     def update(self, other):
         other_tmp_properties = other.properties.copy()
         if 'cc_flags' in self.properties and 'cc_flags' in other_tmp_properties:
-            other_tmp_properties['cc_flags'] = self.properties['cc_flags'] + other_tmp_properties['cc_flags']
+            other_tmp_properties['cc_flags'] = \
+                self.properties['cc_flags'] + \
+                other_tmp_properties['cc_flags']
+        if 'test_run_args' in self.properties and 'test_run_args' in other_tmp_properties:
+            other_tmp_properties['test_run_args'] = {
+                **self.properties['test_run_args'],
+                **other_tmp_properties['test_run_args']
+            }
         return self.properties.update(other_tmp_properties)
 
 class PrefixTree:
@@ -178,13 +198,31 @@ path_properties_tuples = (
                         'arm': (
                             {'allowed_archs': {'arm'}},
                             {
-                                'no_bootloader': {'extra_objs_baremetal_bootloader': False},
+                                'gem5_assert.S': {'allowed_emulators': {'gem5'}},
+                                'multicore.S': {'test_run_args': {'cpus': 2}},
+                                'no_bootloader': (
+                                    {'extra_objs_baremetal_bootloader': False},
+                                    {
+                                        'gem5_exit.S': {'allowed_emulators': {'gem5'}},
+                                        'semihost_exit.S': {'allowed_emulators': {'qemu'}},
+                                    }
+                                ),
+                                'semihost_exit.S': {'allowed_emulators': {'qemu'}},
                             },
+
                         ),
                         'aarch64': (
                             {'allowed_archs': {'aarch64'}},
                             {
-                                'no_bootloader': {'extra_objs_baremetal_bootloader': False},
+                                'multicore.S': {'test_run_args': {'cpus': 2}},
+                                'no_bootloader': (
+                                    {'extra_objs_baremetal_bootloader': False},
+                                    {
+                                        'gem5_exit.S': {'allowed_emulators': {'gem5'}},
+                                        'semihost_exit.S': {'allowed_emulators': {'qemu'}},
+                                    }
+                                ),
+                                'semihost_exit.S': {'allowed_emulators': {'qemu'}},
                             },
                         )
                     }

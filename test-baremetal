@@ -18,40 +18,52 @@ If given, run only the given tests. Otherwise, run all tests.
 '''
         )
 
+    def setup_one(self):
+        self.env['tests'] = self.resolve_targets(
+            self.env['baremetal_source_dir'],
+            self.env['tests']
+        )
+
     def timed_main(self):
-        run = self.import_path_main('run')
         run_args = self.get_common_args()
-        if self.env['emulator'] == 'gem5':
-            run_args['userland_build_id'] = 'static'
-        if self.env['tests'] == []:
-            baremetal_source_exts = (self.env['c_ext'], self.env['asm_ext'])
-            paths = []
-            for f in sorted(os.listdir(self.env['baremetal_source_dir'])):
-                path = os.path.join(self.env['baremetal_source_dir'], f)
-                if os.path.isfile(path) and os.path.splitext(path)[1] in baremetal_source_exts:
-                    paths.append(path)
-            for root, dirnames, filenames in os.walk(self.env['baremetal_source_arch_dir'], topdown=True):
-                dirnames[:] = [d for d in dirnames if d != 'interactive']
-                dirnames.sort()
-                for filename in filenames:
-                    path = os.path.join(root, filename)
-                    if os.path.splitext(path)[1] in baremetal_source_exts:
-                        paths.append(path)
-            sources = []
-            for path in paths:
-                if not (
-                        self.env['emulator'] == 'gem5' and os.path.basename(path).startswith('semihost_') or
-                        self.env['emulator'] == 'qemu' and os.path.basename(path).startswith('gem5_')
-                    ):
-                        sources.append(os.path.relpath(path, self.env['root_dir']))
+        with ThreadPool(
+            self.run_test,
+            nthreads=self.env['nproc'],
+            thread_id_arg='thread_id',
+        ) as thread_pool:
+            try:
+                for test in self.env['tests']:
+                    for path, in_dirnames, in_filenames in self.sh.walk(test):
+                        path_abs = os.path.abspath(path)
+                        dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
+                        for in_filename in in_filenames:
+                            if os.path.splitext(in_filename)[1] in (self.env['c_ext'], self.env['asm_ext']):
+                                path_relative_root = os.path.join(dirpath_relative_root, in_filename)
+                                my_path_properties = path_properties.get(path_relative_root)
+                                if my_path_properties.should_be_tested(self.env):
+                                    cur_run_args = run_args.copy()
+                                    cur_run_args.update({
+                                        'baremetal': os.path.relpath(os.path.join(path_abs, in_filename), os.getcwd()),
+                                    })
+                                    cur_run_args.update(my_path_properties['test_run_args'])
+                                    error = thread_pool.submit({
+                                        'expected_exit_status': my_path_properties['exit_status'],
+                                        'run_args': cur_run_args,
+                                        'run_obj':  self.import_path_main('run'),
+                                        'test_id': path_relative_root,
+                                    })
+                                    if error is not None:
+                                        if self.env['quit_on_fail']:
+                                            raise common.ExitLoop()
+
+            except common.ExitLoop:
+                pass
+        error = thread_pool.get_error()
+        if error is not None:
+            print(error)
+            return 1
         else:
-            sources = self.env['tests']
-        for source in sources:
-            run_args['baremetal'] = source
-            run_args['ctrl_c_host'] = True
-            if os.path.splitext(os.path.basename(source))[0] == 'multicore':
-                run_args['cpus'] = 2
-            self.run_test(run, run_args, source)
+            return 0
 
 if __name__ == '__main__':
     Main().cli()
