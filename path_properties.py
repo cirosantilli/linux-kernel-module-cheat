@@ -9,7 +9,6 @@ class PathProperties:
     default_cxx_std = 'c++17'
     default_properties = {
         'allowed_archs': None,
-        'allowed_emulators': None,
         'c_std': default_c_std,
         'cc_flags': [
             '-Wall', LF,
@@ -42,6 +41,11 @@ class PathProperties:
         'receives_signal': False,
         # The script requires a non-trivial argument to be passed to run properly.
         'requires_argument': False,
+        'requires_dynamic_library': False,
+        'requires_m5ops': False,
+        # gem5 fatal: syscall getcpu (#168) unimplemented.
+        'requires_syscall_getcpu': False,
+        'requires_semihosting': False,
         # Requires certain of our custom kernel modules to be inserted to run.
         'requires_kernel_modules': False,
         # The example requires sudo, which usually implies that it can do something
@@ -59,7 +63,6 @@ class PathProperties:
             'show_time': False,
             'background': True,
         },
-        'uses_dynamic_library': False,
     }
 
     '''
@@ -97,27 +100,37 @@ class PathProperties:
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
             ) and \
-            (
-                self['allowed_emulators'] is None or
-                env['emulator'] in self['allowed_emulators']
-            ) and \
             not (
                 link and
                 self['no_executable']
             )
 
     def should_be_tested(self, env):
-        return \
-            self.should_be_built(env) and \
-            not self['interactive'] and \
-            not self['more_than_1s'] and \
-            not self['no_executable'] and \
-            not self['receives_signal'] and \
-            not self['requires_argument'] and \
-            not self['requires_kernel_modules'] and \
-            not self['requires_sudo'] and \
-            not self['skip_run_unclassified'] and \
-            not (self['uses_dynamic_library'] and env['emulator'] == 'gem5')
+        return (
+            self.should_be_built(env) and
+            not self['interactive'] and
+            not self['more_than_1s'] and
+            not self['no_executable'] and
+            not self['receives_signal'] and
+            not self['requires_argument'] and
+            not self['requires_kernel_modules'] and
+            not self['requires_sudo'] and
+            not self['skip_run_unclassified'] and
+            not (
+                env['emulator'] == 'gem5' and
+                (
+                    self['requires_dynamic_library'] or
+                    self['requires_semihosting'] or
+                    self['requires_syscall_getcpu']
+                )
+            ) and
+            not (
+                env['emulator'] == 'qemu' and
+                (
+                    self['requires_m5ops']
+                )
+            )
+        )
 
     def update(self, other):
         other_tmp_properties = other.properties.copy()
@@ -185,7 +198,7 @@ freestanding_properties = {
     ],
     'extra_objs_userland_asm': False,
 }
-# See: https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-simulation-path_properties
+# See: https://github.com/cirosantilli/linux-kernel-module-cheat#path-properties
 path_properties_tuples = (
     PathProperties.default_properties,
     {
@@ -198,16 +211,16 @@ path_properties_tuples = (
                         'arm': (
                             {'allowed_archs': {'arm'}},
                             {
-                                'gem5_assert.S': {'allowed_emulators': {'gem5'}},
+                                'gem5_assert.S': {'requires_m5ops': True},
                                 'multicore.S': {'test_run_args': {'cpus': 2}},
                                 'no_bootloader': (
                                     {'extra_objs_baremetal_bootloader': False},
                                     {
-                                        'gem5_exit.S': {'allowed_emulators': {'gem5'}},
-                                        'semihost_exit.S': {'allowed_emulators': {'qemu'}},
+                                        'gem5_exit.S': {'requires_m5ops': True},
+                                        'semihost_exit.S': {'requires_semihosting': True},
                                     }
                                 ),
-                                'semihost_exit.S': {'allowed_emulators': {'qemu'}},
+                                'semihost_exit.S': {'requires_semihosting': True},
                             },
 
                         ),
@@ -218,11 +231,11 @@ path_properties_tuples = (
                                 'no_bootloader': (
                                     {'extra_objs_baremetal_bootloader': False},
                                     {
-                                        'gem5_exit.S': {'allowed_emulators': {'gem5'}},
-                                        'semihost_exit.S': {'allowed_emulators': {'qemu'}},
+                                        'gem5_exit.S': {'requires_m5ops': True},
+                                        'semihost_exit.S': {'requires_semihosting': True},
                                     }
                                 ),
-                                'semihost_exit.S': {'allowed_emulators': {'qemu'}},
+                                'semihost_exit.S': {'requires_semihosting': True},
                             },
                         )
                     }
@@ -343,7 +356,7 @@ path_properties_tuples = (
                     }
                 ),
                 'libs': (
-                    {'uses_dynamic_library': True},
+                    {'requires_dynamic_library': True},
                     {
                         'libdrm': {'requires_sudo': True},
                     }
@@ -359,7 +372,11 @@ path_properties_tuples = (
                         'poweroff.c': {'requires_sudo': True},
                         'proc_events.c': {'requires_sudo': True},
                         'proc_events.c': {'requires_sudo': True},
-                        'sched_getaffinity_threads.c': {'more_than_1s': True},
+                        'sched_getaffinity.c': {'requires_syscall_getcpu': True},
+                        'sched_getaffinity_threads.c': {
+                            'requires_syscall_getcpu': True,
+                            'more_than_1s': True,
+                        },
                         'time_boot.c': {'requires_sudo': True},
                         'virt_to_phys_user.c': {'requires_argument': True},
                     }

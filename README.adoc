@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-The perfect emulation setup to study and modify the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<gem5-buildroot-setup,gem5>>. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Automated <<test-this-repo,tests>>. Powered by <<about-the-qemu-buildroot-setup,Buildroot>>. "Tested" in Ubuntu 18.04 host, x86_64, ARMv7 and ARMv8 guests with kernel v5.0.
+The perfect emulation setup to study and develop the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<userland-assembly,userland>> and <<baremetal-setup,baremetal>> assembly. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Automated <<test-this-repo,tests>>. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<about-the-baremetal-setup,crosstool-NG>>. "Tested" in Ubuntu 18.04 host, x86_64, ARMv7 and ARMv8 guests with kernel v5.0.
 
 TL;DR: <<qemu-buildroot-setup-getting-started>>
 
@@ -3922,37 +3922,6 @@ Error while loading /path/to/linux-kernel-module-cheat/out/userland/default/x86_
 ....
 
 Tested in de77c62c091f6418e73b64e8a0a19639c587a103 + 1.
-
-=== User mode simulation path_properties
-
-In order to build and run each example properly, we need some file metadata which is stored in link:path_properties.py[] at `path_properties_tuples`.
-
-Maybe we should embed it magically into source files directories? But this was easier to implement so we started like this.
-
-The format is as follows:
-
-....
-'path_component': (
-    {'property': value},
-    {
-        'child_path_component':
-        {
-            {'child_property': },
-            {}
-        }
-    }
-)
-....
-
-and as a shortcut, paths that don't have any children can be written directly as:
-
-.....
-'path_component': {'property': value}
-.....
-
-Properties of parent directories apply to all children.
-
-Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.
 
 == Kernel module utilities
 
@@ -13957,6 +13926,10 @@ You can then see which tests failed on the test summary report at the end.
 
 ===== Test userland in full system
 
+TODO: we really need a mechanism to automatically generate the test list automatically e.g. based on <<path-properties>>, currently there are many tests missing, and we have to add everything manually which is very annoying.
+
+We could just generate it on the fly on the host, and forward it to guest through CLI arguments.
+
 Run all userland tests from inside full system simulation (i.e. not <<user-mode-simulation>>):
 
 ....
@@ -13970,8 +13943,6 @@ Basically just boots and runs: link:rootfs_overlay/lkmc/test_all.sh[]
 Failure is detected by looking for the <<magic-failure-string>>
 
 Most userland programs that don't rely on kernel modules can also be tested in user mode simulation as explained at: <<user-mode-tests>>.
-
-TODO: we really need a mechanism to automatically generate the test list much like user-mode-tests, currently there are many tests missing, and we have to add everything manually which is very annoying.
 
 ===== Test GDB
 
@@ -14114,6 +14085,40 @@ git submodule update
 ....
 
 TODO broken, fix: An example of Linux kernel commit bisection on gem5 boots can be found at: link:bisect-linux-boot-gem5[].
+
+[[path-properties]]
+=== path_properties
+
+In order to build and run each userland and <<baremetal-setup,baremetal>> example properly, we need per-file metadata such as compiler flags and required number of cores.
+
+This data is stored is stored in link:path_properties.py[] at `path_properties_tuples`.
+
+Maybe we should embed it magically into source files directories to make it easier to see? But one big Python dict was easier to implement so we started like this. And it allows factoring chunks out easily.
+
+The format is as follows:
+
+....
+'path_component': (
+    {'property': value},
+    {
+        'child_path_component':
+        {
+            {'child_property': },
+            {}
+        }
+    }
+)
+....
+
+and as a shortcut, paths that don't have any children can be written directly as:
+
+.....
+'path_component': {'property': value}
+.....
+
+Properties of parent directories apply to all children.
+
+Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.
 
 === Update a forked submodule
 

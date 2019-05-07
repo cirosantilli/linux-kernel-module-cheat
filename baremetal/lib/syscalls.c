@@ -63,10 +63,6 @@ int _write(int file, char *ptr, int len) {
 }
 
 void _exit(int status) {
-    if (status != 0) {
-        /* https://github.com/cirosantilli/linux-kernel-module-cheat#magic-failure-string */
-        printf("lkmc_exit_status_%d\n", status);
-    }
 #if defined(GEM5)
     LKMC_M5OPS_EXIT;
 #else

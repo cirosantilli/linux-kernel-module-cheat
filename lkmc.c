@@ -12,7 +12,8 @@ void lkmc_assert(bool condition) {
 }
 
 void lkmc_assert_fail(void) {
-    puts("lkmc_test_fail");
+    printf("%s\n", __func__);
+    puts("lkmc_exit_status_1");
     exit(1);
 }
 
