@@ -14,6 +14,12 @@ mystart:
     /* Prepare the stack for main, mandatory for C code. */
     ldr x0, =stack_top
     mov sp, x0
+
+    /* https://github.com/cirosantilli/linux-kernel-module-cheat#magic-failure-string */
+    adr x0, lkmc_baremetal_on_exit_callback
+    bl on_exit
+
+    /* Run main. */
     bl main
 
     /* If main returns, exit. */

@@ -12,9 +12,14 @@ void lkmc_assert(bool condition) {
 }
 
 void lkmc_assert_fail(void) {
-    printf("%s\n", __func__);
-    puts("lkmc_exit_status_1");
     exit(1);
+}
+
+void lkmc_baremetal_on_exit_callback(int status, void *arg) {
+    (void)arg;
+    if (status != 0) {
+        printf("lkmc_exit_status_%d\n", status);
+    }
 }
 
 #if defined(__aarch64__)

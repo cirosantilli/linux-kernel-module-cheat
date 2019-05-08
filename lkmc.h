@@ -11,6 +11,7 @@
 
 void lkmc_assert(bool);
 void lkmc_assert_fail();
+void lkmc_baremetal_on_exit_callback(int status, void *arg);
 #endif
 
 /* https://stackoverflow.com/questions/1489932/how-to-concatenate-twice-with-the-c-preprocessor-and-expand-a-macro-as-in-arg */

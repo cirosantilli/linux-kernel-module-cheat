@@ -220,6 +220,7 @@ path_properties_tuples = (
                                         'semihost_exit.S': {'requires_semihosting': True},
                                     }
                                 ),
+                                'return1.S': {'exit_status': 1},
                                 'semihost_exit.S': {'requires_semihosting': True},
                             },
 
@@ -235,12 +236,13 @@ path_properties_tuples = (
                                         'semihost_exit.S': {'requires_semihosting': True},
                                     }
                                 ),
+                                'return1.S': {'exit_status': 1},
                                 'semihost_exit.S': {'requires_semihosting': True},
                             },
                         )
                     }
                 ),
-                'assert_fail.c': {'exit_status': 1},
+                'lkmc_assert_fail.c': {'exit_status': 1},
                 'exit1.c': {'exit_status': 1},
                 'infinite_loop.c': {'more_than_1s': True},
                 'lib': (
