@@ -320,8 +320,7 @@ path_properties_tuples = (
                                 'freestanding': freestanding_properties,
                             }
                         ),
-                        'empty.S': {'no_build': True},
-                        'fail.S': {'no_build': True},
+                        'fail.S': {'exit_status': 1},
                         'main.c': {
                             'extra_objs_userland_asm': False,
                             'no_executable': True
