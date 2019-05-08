@@ -3,6 +3,7 @@
 #ifndef COMMON_ARCH_H
 #define COMMON_ARCH_H
 
+#if 0
 #define ASSERT_EQ(reg, const) \
     push %rax; \
     push %rbx; \
@@ -11,6 +12,19 @@
     cmp %rax, %rbx; \
     pop %rbx; \
     pop %rax; \
+    ASSERT(je); \
+;
+#endif
+
+#define ASSERT_EQ(reg, const) \
+    mov reg, %rdi; \
+    mov const, %rsi; \
+    ASSERT_EQ_DO(64); \
+;
+
+#define ASSERT_EQ_DO(bits) \
+    call assert_eq_ ## bits; \
+    cmp $0, %rax; \
     ASSERT(je); \
 ;
 
