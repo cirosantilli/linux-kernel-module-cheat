@@ -21,6 +21,8 @@ class PathProperties:
         'cc_flags_after': [],
         'cc_pedantic': True,
         'cxx_std': default_cxx_std,
+        # Expected program exit status. When signals are raised, this refers
+        # to the native exit status. as reported by Bash #?.
         'exit_status': 0,
         'extra_objs_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
@@ -111,7 +113,6 @@ class PathProperties:
             not self['interactive'] and
             not self['more_than_1s'] and
             not self['no_executable'] and
-            not self['receives_signal'] and
             not self['requires_argument'] and
             not self['requires_kernel_modules'] and
             not self['requires_sudo'] and
@@ -334,7 +335,10 @@ path_properties_tuples = (
                                     },
                                     {
                                         'freestanding': freestanding_properties,
-                                        'ring0.c': {'receives_signal': True}
+                                        'ring0.c': {
+                                            'exit_status': 139,
+                                            'receives_signal': True
+                                        }
                                     }
                                 ),
                                 'freestanding': freestanding_properties,
@@ -345,7 +349,10 @@ path_properties_tuples = (
                 'c': (
                     {},
                     {
-                        'assert_fail.c': {'receives_signal': True},
+                        'assert_fail.c': {
+                            'exit_status': 134,
+                            'receives_signal': True,
+                        },
                         'false.c': {'exit_status': 1},
                         'getchar.c': {'interactive': True},
                         'infinite_loop.c': {'more_than_1s': True},
