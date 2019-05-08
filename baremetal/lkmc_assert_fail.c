@@ -1,1 +1,1 @@
-../lkmc/assert_fail.c
+../lkmc/lkmc_assert_fail.c

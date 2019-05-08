@@ -242,6 +242,7 @@ path_properties_tuples = (
                         )
                     }
                 ),
+                'assert_fail.c': {'exit_status': 134},
                 'lkmc_assert_fail.c': {'exit_status': 1},
                 'exit1.c': {'exit_status': 1},
                 'infinite_loop.c': {'more_than_1s': True},
@@ -344,6 +345,7 @@ path_properties_tuples = (
                 'c': (
                     {},
                     {
+                        'assert_fail.c': {'receives_signal': True},
                         'false.c': {'exit_status': 1},
                         'getchar.c': {'interactive': True},
                         'infinite_loop.c': {'more_than_1s': True},
