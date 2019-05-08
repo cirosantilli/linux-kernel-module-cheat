@@ -16,9 +16,9 @@
 ;
 
 #define ASSERT_EQ_REG(reg1, reg2) \
-    str reg2, [sp, -8]!; \
+    str reg2, [sp, -16]!; \
     mov x0, reg1; \
-    ldr x1, [sp], 8; \
+    ldr x1, [sp], 16; \
     ASSERT_EQ_DO(64); \
 ;
 
