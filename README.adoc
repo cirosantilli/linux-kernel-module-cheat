@@ -3798,6 +3798,8 @@ Simulated exit code not 0! Exit code is 1
 
 which we parse in link:run[] and then exit with the correct result ourselves...
 
+Related thread: https://stackoverflow.com/questions/56032347/is-there-a-way-to-identify-if-gem5-run-got-over-successfully
+
 ==== gem5 syscall emulation mode program stdin
 
 gem5 shows its own stdout to terminal, and does not allow you to type stdin to programs.
@@ -6005,7 +6007,9 @@ One possibility that gets close would be to use <<gdb>> to break at the `panic` 
 
 ====== Exit gem5 on panic
 
-gem5 actually detects panics automatically by parsing kernel symbols and detecting when the PC reaches the address of the `panic` function. gem5 then prints to stdout:
+gem5 9048ef0ffbf21bedb803b785fb68f83e95c04db8 (January 2019) can detect panics automatically if the option `system.panic_on_panic` is on.
+
+It parses kernel symbols and detecting when the PC reaches the address of the `panic` function. gem5 then prints to stdout:
 
 ....
 Kernel panic in simulated kernel
@@ -6013,17 +6017,19 @@ Kernel panic in simulated kernel
 
 and exits with status -6.
 
+At gem5 ff52563a214c71fcd1e21e9f00ad839612032e3b (July 2018) behaviour was different, and just exited 0: https://www.mail-archive.com/gem5-users@gem5.org/msg15870.html TODO find fixing commit.
+
 We enable the `system.panic_on_panic` option by default on `arm` and `aarch64`, which makes gem5 exit immediately in case of panic, which is awesome!
 
-If we don't set `system.panic_on_panic`, then gem5 just hangs.
+If we don't set `system.panic_on_panic`, then gem5 just hangs on an infinite guest loop.
 
-TODO: why doesn't x86 support `system.panic_on_panic` as well? Trying to set `system.panic_on_panic` there fails with:
+TODO: why doesn't gem5 x86 ff52563a214c71fcd1e21e9f00ad839612032e3b support `system.panic_on_panic` as well? Trying to set `system.panic_on_panic` there fails with:
 
 ....
-AttributeError: Class LinuxX86System has no parameter panic_on_panic
+tried to set or access non-existentobject parameter: panic_on_panic
 ....
 
-However, as of f9eb0b72de9029ff16091a18de109c18a9ecc30a, panic on x86 makes gem5 crash with:
+However, at that commit panic on x86 makes gem5 crash with:
 
 ....
 panic: i8042 "System reset" command not implemented.
@@ -6039,6 +6045,8 @@ The implementation of panic detection happens at: https://github.com/gem5/gem5/b
 ....
 
 Here we see that the symbol `"panic"` for the `panic()` function is the one being tracked.
+
+Related thread: https://stackoverflow.com/questions/56032347/is-there-a-way-to-identify-if-gem5-run-got-over-successfully
 
 ===== Reboot on panic
 
