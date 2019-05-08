@@ -341,6 +341,8 @@ path_properties_tuples = (
                                     }
                                 ),
                                 'freestanding': freestanding_properties,
+                                'lkmc_assert_eq_fail.S': {'exit_status': 1},
+                                'lkmc_assert_memcmp_fail.S': {'exit_status': 1},
                             }
                         ),
                     }

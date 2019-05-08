@@ -3,19 +3,6 @@
 #ifndef COMMON_ARCH_H
 #define COMMON_ARCH_H
 
-#if 0
-#define ASSERT_EQ(reg, const) \
-    push %rax; \
-    push %rbx; \
-    mov reg, %rax; \
-    mov const, %rbx; \
-    cmp %rax, %rbx; \
-    pop %rbx; \
-    pop %rax; \
-    ASSERT(je); \
-;
-#endif
-
 #define ASSERT_EQ(reg, const) \
     mov reg, %rdi; \
     mov const, %rsi; \
@@ -28,11 +15,14 @@
     ASSERT(je); \
 ;
 
-# TODO
-##define ASSERT_MEMCMP(s1, s2, n) \
-#    MEMCMP(s1, s2, n); \
-#    ASSERT_EQ(x0, 0); \
-#;
+#define ASSERT_MEMCMP(label1, label2, const_size) \
+    lea label1(%rip), %rdi; \
+    lea label2(%rip), %rsi; \
+    mov const_size, %rdx; \
+    call assert_memcmp; \
+    cmp $0, %rax; \
+    ASSERT(je); \
+;
 
 /* Program entry point.
  *
@@ -89,13 +79,5 @@ pass: \
     mov $__LINE__, %eax; \
     jmp fail; \
 ;
-
-# TODO
-##define MEMCMP(s1, s2, n) \
-#    adr x0, s1; \
-#    adr x1, s2; \
-#    ldr x2, =n; \
-#    bl memcmp; \
-#;
 
 #endif
