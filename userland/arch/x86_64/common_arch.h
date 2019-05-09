@@ -3,6 +3,8 @@
 #ifndef COMMON_ARCH_H
 #define COMMON_ARCH_H
 
+/* This and other macros may make C function calls, and therefore can destroy
+ * non-callee saved registers. */
 #define ASSERT_EQ(general1, general2) \
     mov general2, %rdi; \
     push %rdi; \

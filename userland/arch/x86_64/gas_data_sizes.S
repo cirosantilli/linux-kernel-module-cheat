@@ -4,8 +4,9 @@
 
 ENTRY
 #define ASSERT_DIFF(label1, label2, result) \
-    mov $label2, %rax; \
-    sub $label1, %rax; \
+    lea label2(%rip), %rax; \
+    lea label1(%rip), %rbx; \
+    sub %rbx, %rax; \
     ASSERT_EQ(%rax, $result)
 
     ASSERT_DIFF(mybyte, myword, 1)
