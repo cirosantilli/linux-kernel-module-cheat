@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-The perfect emulation setup to study and develop the <<linux-kernel>>, kernel modules, <<qemu-buildroot-setup,QEMU>> and <<userland-assembly,userland>> and <<baremetal-setup,baremetal>> assembly. Highly automated. Thoroughly documented. <<gdb>> and <<kgdb>> just work. Automated <<test-this-repo,tests>>. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<about-the-baremetal-setup,crosstool-NG>>. "Tested" in Ubuntu 18.04 host, x86_64, ARMv7 and ARMv8 guests with kernel v5.0.
+The perfect emulation setup to study and develop the <<linux-kernel>> v5.0, kernel modules, <<qemu-buildroot-setup,QEMU>> and x86_64, ARMv7 and ARMv8 <<userland-assembly,userland>> and <<baremetal-setup,baremetal>> assembly. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<about-the-baremetal-setup,crosstool-NG>>.  Highly automated. Thoroughly documented. Automated <<test-this-repo,tests>>. "Tested" in an Ubuntu 18.04 host.
 
 TL;DR: <<qemu-buildroot-setup-getting-started>>
 
@@ -11603,7 +11603,7 @@ and notice how the error message gives both:
 * the actual assembly source line number where the failing assert was
 * the actual and expected values
 
-Other setup sanity checks that you might want to look into include:
+Other infrastructure sanity checks that you might want to look into include:
 
 * link:userland/arch/empty.S[]
 * `FAIL` tests
@@ -11658,7 +11658,7 @@ In order to GDB step debug those executables, you will want to use `--no-continu
 
 You are now left on the very first instruction of our tiny executable!
 
-=== Inline assembly
+=== GCC inline assembly
 
 Examples under `arch/<arch>/c/` directories show to how use inline assembly from higher level languages such as C:
 
@@ -11773,6 +11773,56 @@ Bibliography:
 * http://stackoverflow.com/questions/8422287/calling-c-functions-from-arm-assembly
 * http://stackoverflow.com/questions/261419/arm-to-c-calling-convention-registers-to-save
 * https://stackoverflow.com/questions/10494848/arm-whats-the-difference-between-apcs-and-aapcs-abi
+
+=== GAS directives
+
+==== GAS data sizes
+
+Let's see how may bytes go into each data type:
+
+* link:userland/arch/x86_64/gas_data_sizes.S[]
+* link:userland/arch/arm/gas_data_sizes.S[]
+* link:userland/arch/aarch64/gas_data_sizes.S[]
+
+Conclusion:
+
+[options="header"]
+|===
+|byte |word |long |quad |octa
+
+|x86
+|1
+|2
+|4
+|8
+|16
+
+|arm
+|1
+|4
+|4
+|8
+|16
+
+|aarch64
+|1
+|4
+|4
+|8
+|16
+
+|===
+
+and also keep in mind that:
+
+* `.int` is the same as `.long`
+* `.hword` is the same as `.short` which is usually the same as `.word`
+
+Bibliography:
+
+* https://sourceware.org/binutils/docs-2.32/as/Pseudo-Ops.html#Pseudo-Ops
+* https://stackoverflow.com/questions/43005411/how-does-the-quad-directive-work-in-assembly/43006616
+* https://gist.github.com/steakknife/d47d0b19a24817f48027
 
 == x86 userland assembly
 
@@ -14448,6 +14498,11 @@ We haven't found the ultimate distro yet, here is a summary table of trade-offs 
 * (6): yes, but the initial Poky build / download still took 5 hours on <<38mbps-internet>>, and QEMU failed to boot at the end... https://bugzilla.yoctoproject.org/show_bug.cgi?id=12953
 * (7): `ls recipes-* | wc`
 * (8): Poky reference system: http://git.yoctoproject.org/cgit/cgit.cgi/poky
+
+Other interesting possibilities that I haven't evaluated well:
+
+* NixOS https://nixos.org/ Seems to support full build from source well. Not much cross compilation information however.
+* Gentoo https://en.wikipedia.org/wiki/Gentoo_Linux Seems to support full build from source well.
 
 === Soft topics
 
