@@ -3,9 +3,11 @@
 #ifndef COMMON_ARCH_H
 #define COMMON_ARCH_H
 
-#define ASSERT_EQ(reg, const) \
-    mov reg, %rdi; \
-    mov const, %rsi; \
+#define ASSERT_EQ(general1, general2) \
+    mov general2, %rdi; \
+    push %rdi; \
+    mov general1, %rdi; \
+    pop %rsi; \
     ASSERT_EQ_DO(64); \
 ;
 
