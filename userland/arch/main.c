@@ -39,7 +39,7 @@ int assert_memcmp(const void *s1, const void *s2, size_t n) {
             printf(
                 "%s failed: "
                 "byte1, byte2, index: "
-                "0x%02" PRIX8 " 0x%02" PRIX8 " 0x%zx\n",
+                "0x%02" PRIX8 " 0x%02" PRIX8 " 0x%zX\n",
                 __func__,
                 b1,
                 b2,

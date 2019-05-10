@@ -13,7 +13,7 @@ ENTRY
 .data
     u32_0:          .word 0xF111F111, 0xF222F222, 0xF333F333, 0xF444F444
     u32_1:          .word 0x15551555, 0x16661666, 0x17771777, 0x18881888
-    u32_sum_expect: .word 0x06670666, 0x08890888, 0x0AAB0AAA, 0x0CCD0CCC
+    u32_sum_expect: .word 0x06670666, 0x08890889, 0x0AAB0AAA, 0x0CCD0CCC
 .bss
     u32_sum:        .skip 16
 .text
