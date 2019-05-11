@@ -1,21 +1,31 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-simd
  *
- * Add 4 32-bit integeres in one go.
+ * Add a bunch of integers in one go.
  */
 
 #include "common.h"
 
 ENTRY
 .data
-    u32_0:      .long 0xF111F111, 0xF222F222, 0xF333F333, 0xF444F444
-    u32_1:      .long 0x15551555, 0x16661666, 0x17771777, 0x18881888
-    u32_expect: .long 0x06670666, 0x08890889, 0x0AAB0AAA, 0x0CCD0CCD
+    input0:       .long 0xF1F1F1F1, 0xF2F2F2F2, 0xF3F3F3F3, 0xF4F4F4F4
+    input1:       .long 0x12121212, 0x13131313, 0x14141414, 0x15151515
+    paddb_expect: .long 0x03030303, 0x05050505, 0x07070707, 0x09090909
+    paddw_expect: .long 0x04030403, 0x06050605, 0x08070807, 0x0A090A09
+    paddd_expect: .long 0x04040403, 0x06060605, 0x08080807, 0x0A0A0A09
+    paddq_expect: .long 0x04040403, 0x06060606, 0x08080807, 0x0A0A0A0A
 .bss
-    u32_result: .skip 16
+    result: .skip 16
 .text
-    movups u32_0, %xmm0
-    movups u32_1, %xmm1
-    paddq %xmm1, %xmm0
-    movups %xmm0, u32_result
-    ASSERT_MEMCMP(u32_result, u32_expect, $0x10)
+    movups input1, %xmm1
+#define TEST(size) \
+    movups input0, %xmm0; \
+    padd ## size %xmm1, %xmm0; \
+    movups %xmm0, result; \
+    ASSERT_MEMCMP(result, padd ## size ## _expect, $0x10)
+
+    TEST(b)
+    TEST(w)
+    TEST(d)
+    TEST(q)
+#undef TEST
 EXIT
