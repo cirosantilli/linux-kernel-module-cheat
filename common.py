@@ -8,7 +8,7 @@ import datetime
 import enum
 import functools
 import glob
-import imp
+import importlib
 import inspect
 import itertools
 import json
@@ -105,7 +105,7 @@ consts['cxx_ext'] = '.cpp'
 consts['header_ext'] = '.h'
 consts['kernel_module_ext'] = '.ko'
 consts['obj_ext'] = '.o'
-consts['userland_in_exts'] = [
+consts['build_in_exts'] = [
     consts['asm_ext'],
     consts['c_ext'],
     consts['cxx_ext'],
@@ -135,6 +135,32 @@ for key in consts['emulator_short_to_long_dict']:
     consts['emulator_choices'].add(key)
     consts['emulator_choices'].add(consts['emulator_short_to_long_dict'][key])
 consts['host_arch'] = platform.processor()
+
+def import_path(path):
+    '''
+    https://stackoverflow.com/questions/2601047/import-a-python-module-without-the-py-extension
+    https://stackoverflow.com/questions/31773310/what-does-the-first-argument-of-the-imp-load-source-method-do
+    '''
+    module_name = os.path.basename(path).replace('-', '_')
+    spec = importlib.util.spec_from_loader(
+        module_name,
+        importlib.machinery.SourceFileLoader(module_name, path)
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sys.modules[module_name] = module
+    return module
+
+def import_path_relative_root(basename):
+    return import_path(os.path.join(consts['root_dir'], basename))
+
+def import_path_main(basename):
+    '''
+    Import an object of the Main class of a given file.
+
+    By convention, we call the main object of all our CLI scripts as Main.
+    '''
+    return import_path_relative_root(basename).Main()
 
 class ExitLoop(Exception):
     pass
@@ -905,6 +931,8 @@ Incompatible archs are skipped.
                         env['source_path'] = source_path
                         break
             env['image'] = path
+        elif env['userland'] is not None:
+            env['image'] = self.resolve_userland_executable(env['userland'])
         else:
             if env['emulator'] == 'gem5':
                 env['image'] = env['vmlinux']
@@ -1084,24 +1112,6 @@ lunch aosp_{}-eng
             _json = {}
         return _json
 
-    def import_path(self, basename):
-        '''
-        https://stackoverflow.com/questions/2601047/import-a-python-module-without-the-py-extension
-        https://stackoverflow.com/questions/31773310/what-does-the-first-argument-of-the-imp-load-source-method-do
-        '''
-        return imp.load_source(
-            basename.replace('-', '_'),
-            os.path.join(self.env['root_dir'], basename)
-        )
-
-    def import_path_main(self, path):
-        '''
-        Import an object of the Main class of a given file.
-
-        By convention, we call the main object of all our CLI scripts as Main.
-        '''
-        return self.import_path(path).Main()
-
     def is_arch_supported(self, arch):
         return self.supported_archs is None or arch in self.supported_archs
 
@@ -1270,6 +1280,8 @@ lunch aosp_{}-eng
 
         If the input path is a file, add the executable extension automatically.
         '''
+        if not self.env['dry_run'] and not os.path.exists(in_path):
+            raise Exception('Input path does not exist: ' + in_path)
         if self.is_subpath(in_path, magic_in_dir):
             # Abspath needed to remove the trailing `/.` which makes e.g. rmrf fail.
             out = os.path.abspath(os.path.join(

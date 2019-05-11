@@ -11,9 +11,10 @@ made to this file.
 import argparse
 import bisect
 import collections
-import imp
 import os
 import sys
+
+import common
 
 class _Argument:
     def __init__(
@@ -188,7 +189,7 @@ class CliFunction:
         if config_file is not None:
             if os.path.exists(config_file):
                 config_configs = {}
-                config = imp.load_source('config', config_file)
+                config = common.import_path(config_file)
                 if self.extra_config_params is None:
                     config.set_args(config_configs)
                 else:

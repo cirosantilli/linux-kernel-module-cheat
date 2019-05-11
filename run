@@ -404,12 +404,12 @@ Extra options to append at the end of the emulator command line.
             if not self.env['dry_run']:
                 raise Exception('Root filesystem not found. Did you build it? ' \
                                 'Tried to use: ' + self.env['disk_image'])
-        def raise_image_not_found():
+        def raise_image_not_found(image):
             if not self.env['dry_run']:
                 raise Exception('Executable image not found. Did you build it? ' \
-                                'Tried to use: ' + self.env['image'])
-        if self.env['image'] is None:
-            raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
+                                'Tried to use: ' + image)
+        if not os.path.exists(self.env['image']):
+            raise_image_not_found(self.env['image'])
         cmd = debug_vm.copy()
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
@@ -430,7 +430,7 @@ Extra options to append at the end of the emulator command line.
                     self.env['userland'] is None
                 ):
                     if not os.path.exists(self.env['linux_image']):
-                        raise_image_not_found()
+                        raise_image_not_found(self.env['image'])
                     self.sh.run_cmd([os.path.join(self.env['extract_vmlinux'], self.env['linux_image'])])
             os.makedirs(os.path.dirname(self.env['gem5_readfile']), exist_ok=True)
             self.sh.write_string_to_file(self.env['gem5_readfile'], self.env['gem5_readfile'])
@@ -457,7 +457,7 @@ Extra options to append at the end of the emulator command line.
             if self.env['userland'] is not None:
                 cmd.extend([
                     self.env['gem5_se_file'], LF,
-                    '--cmd', self.resolve_userland_executable(self.env['userland']), LF,
+                    '--cmd', self.env['image'], LF,
                 ])
                 if self.env['userland_args'] is not None:
                     cmd.extend(['--options', self.env['userland_args'], LF])
@@ -551,8 +551,6 @@ Extra options to append at the end of the emulator command line.
                     debug_args
                 )
             else:
-                if not os.path.exists(self.env['image']):
-                    raise_image_not_found()
                 extra_emulator_args.extend(extra_qemu_args)
                 self.make_run_dirs()
                 if self.env['debug_vm']:
@@ -725,7 +723,7 @@ Extra options to append at the end of the emulator command line.
         cmd.extend(self.env['extra_emulator_args'])
         if self.env['userland'] and self.env['emulator'] in ('qemu', 'native'):
             # The program and arguments must come at the every end of the CLI.
-            cmd.extend([self.resolve_userland_executable(self.env['userland']), LF])
+            cmd.extend([self.env['image'], LF])
             if self.env['userland_args'] is not None:
                 cmd.extend(self.sh.shlex_split(self.env['userland_args']))
         if debug_vm or self.env['terminal']:
