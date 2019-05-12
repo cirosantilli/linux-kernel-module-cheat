@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#bl */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-ret-instruction */
 
 #include "common.h"
 

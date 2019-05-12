@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-str */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-str-instruction */
 
 #include "common.h"
 

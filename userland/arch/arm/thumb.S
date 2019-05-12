@@ -1,4 +1,8 @@
-/* Illustrates features that are only available in thumb. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-instruction-encodings
+ *
+ * Illustrates features that are only available in thumb.
+ * TODO ensure that we are actually inside of thumb.
+ */
 
 .syntax unified
 .text

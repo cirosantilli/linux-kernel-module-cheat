@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly-early-clobbers */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly-early-clobbers */
 
 #include <assert.h>
 #include <inttypes.h>

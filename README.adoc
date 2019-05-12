@@ -9,7 +9,7 @@
 :toclevels: 6
 :toc-title:
 
-The perfect emulation setup to study and develop the <<linux-kernel>> v5.0, kernel modules, <<qemu-buildroot-setup,QEMU>> and x86_64, ARMv7 and ARMv8 <<userland-assembly,userland>> and <<baremetal-setup,baremetal>> assembly. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<about-the-baremetal-setup,crosstool-NG>>.  Highly automated. Thoroughly documented. Automated <<test-this-repo,tests>>. "Tested" in an Ubuntu 18.04 host.
+The perfect emulation setup to study and develop the <<linux-kernel>> v5.0, kernel modules, <<qemu-buildroot-setup,QEMU>>, <<gem5-buildroot-setup,gem5>> and x86_64, ARMv7 and ARMv8 <<userland-assembly,userland>> and <<baremetal-setup,baremetal>> assembly. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<about-the-baremetal-setup,crosstool-NG>>.  Highly automated. Thoroughly documented. Automated <<test-this-repo,tests>>. "Tested" in an Ubuntu 18.04 host.
 
 TL;DR: <<qemu-buildroot-setup-getting-started>>
 
@@ -373,7 +373,7 @@ Have you ever felt that a single `inc` instruction was not enough? Really? Me to
 
 So let's hack the <<gnu-gas-assembler>>, which is part of link:https://en.wikipedia.org/wiki/GNU_Binutils[GNU Binutils], to add a new shiny version of `inc` called... `myinc`!
 
-GCC uses GNU GAS as its backend, so we will test out new mnemonic with an inline assembly test program: link:userland/arch/x86_64/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/asm_hello.c[] but with `myinc` instead of `inc`.
+GCC uses GNU GAS as its backend, so we will test out new mnemonic with an <<gcc-inline-assembly>> test program: link:userland/arch/x86_64/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/asm_hello.c[] but with `myinc` instead of `inc`.
 
 The inline assembly is disabled with an `#ifdef`, so first modify the source to enable that.
 
@@ -955,7 +955,7 @@ Notable userland content included / moving into this repository includes:
 * <<c>>
 * <<cpp>>
 * <<posix>>
-* https://github.com/cirosantilli/algorithm-cheat will be good to move here for performance analysis
+* https://github.com/cirosantilli/algorithm-cheat TODO will be good to move here for performance analysis <<gem5-run-benchmark,with gem5>>
 
 ==== Userland setup getting started
 
@@ -11685,7 +11685,7 @@ corresponding register field is interpreted as returning zero when read or disca
 When instructions do not interpret this operand encoding as the zero register, use of the name XZR is an error
 ____
 
-=== Assembly SIMD
+=== SIMD assembly
 
 Much like ADD for non-SIMD, start learning SIMD instructions by looking at the integer and floating point SIMD ADD instructions of each ISA:
 
@@ -11980,7 +11980,7 @@ Some of the differences include:
 
 When reading disassembly, many instructions have either a `.n` or `.w` suffix.
 
-`.n` means narrow, and stands for the Thumb encoding of an instructions, while `.w` means wide and stands for the ARM encoding.
+`.n` means narrow, and stands for the <<arm-instruction-encodings,Thumb encoding>> of an instructions, while `.w` means wide and stands for the ARM encoding.
 
 Bibliography: https://stackoverflow.com/questions/27147043/n-suffix-to-branch-instruction
 
@@ -12145,7 +12145,7 @@ Understanding the basics of instruction encodings is fundamental to help you to 
 
 aarch32 has two "instruction sets", which to look just like encodings.
 
-Some control bit determines which one we are currently on, and userland can switch between them with the <<arm-bx-instruction>>.
+Some control bit must determine which one we are currently on, and userland can switch between them with the <<arm-bx-instruction>> TODO: details.
 
 The encodings are:
 
@@ -12153,6 +12153,8 @@ The encodings are:
 * T32: most common instructions are 2 bytes long. Many others less common ones are 4 bytes long.
 +
 T stands for "Thumb", which is the original name for the technology. The word "Thumb" does not appear on <<armarm8>> however. It does appear on <<armarm7>> though.
++
+Example: link:userland/arch/arm/thumb.S[]
 +
 See also: <<armarm8>> F2.1.3 "Instruction encodings".
 
@@ -12188,7 +12190,10 @@ TODO: what to do if we want to jump longer than that?
 
 Branch if equal based on the status registers.
 
-Example: link:userland/arch/arm/beq.S[].
+Examples:
+
+* link:userland/arch/arm/beq.S[].
+* link:userland/arch/aarch64/beq.S[].
 
 The family of instructions includes:
 
@@ -12217,13 +12222,13 @@ The current ARM / Thumb mode is encoded in the least significant bit of lr.
 
 Since `bl` encodes the current ARM / Thumb in the register, `bx` keeps the mode unchanged by default.
 
-===== ARM ret instruction
+===== ARMv8 aarch64 ret instruction
 
 Example: link:userland/arch/aarch64/ret.S[]
 
-In ARMv8 aarch64:
+ARMv8 AArch64 only:
 
-* there is no `bx` since no Thumb to worry about, so it is called just `br`
+* there is no `bx` in AArch64 since no Thumb to worry about, so it is called just `br`
 * the `ret` instruction was added in addition to `br`, with the following differences:
 ** provides a hint that this is a function call return
 ** has a default argument `x30` if none is given. This is where `bl` puts the return value.
@@ -12388,8 +12393,6 @@ AArch64 loses those instructions, likely because it was not possible anymore to 
 
 Arithmetic:
 
-* link:userland/arch/arm/add.S[]. We use this simple instruction to explain syntax common to most data processing instructions, so have a good look at that file.
-** link:userland/arch/aarch64/add.S[]
 * link:userland/arch/arm/mul.S[]: multiply
 * link:userland/arch/arm/sub.S[]: subtract
 * link:userland/arch/arm/rbit.S[]: reverse bit order
@@ -12588,6 +12591,18 @@ gdb-multiarch -batch -ex 'arch arm' -ex "file v7/nop.out" -ex "disassemble/rs as
 Bibliography: https://stackoverflow.com/questions/1875491/nop-for-iphone-binaries
 
 === ARM SIMD
+
+==== ARM fadd vs vadd
+
+It is very confusing, but `fadds` and `faddd` in Aarch32 are <<gnu-gas-assembler-arm-unified-syntax,pre-UAL>> for `vadd.f32` and `vadd.f64`.
+
+The same goes for most ARMv7 mnemonics: `f*` is old, and `v*` is the newer better syntax.
+
+But then, in ARMv8, they decided to use `fadd` as the main floating point add name, and get rid of `vadd`!
+
+Also keep in mind that fused multiply add is `fmadd`.
+
+Examples at: <<simd-assembly>>
 
 ==== ARM SIMD instructions
 

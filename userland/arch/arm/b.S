@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#b */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-b-instruction */
 
 #include "common.h"
 ENTRY

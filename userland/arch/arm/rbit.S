@@ -1,4 +1,7 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#rbit */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-data-processing-instructions
+ *
+ * Reverse bit order.
+ */
 
 #include "common.h"
 

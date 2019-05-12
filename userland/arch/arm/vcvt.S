@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#vcvt */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvt-instruction */
 
 #include "common.h"
 

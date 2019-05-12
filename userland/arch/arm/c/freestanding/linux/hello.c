@@ -1,5 +1,6 @@
-/* arm freestanding C inline assemby Linux hello world
- * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ *
+ * arm freestanding C inline assemby Linux hello world.
  */
 
 #include <inttypes.h>

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#movw-and-movt */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-movw-and-movt-instructions */
 
 #include "common.h"
 

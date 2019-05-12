@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly-scratch-registers */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly-scratch-registers */
 
 #include <assert.h>
 #include <inttypes.h>

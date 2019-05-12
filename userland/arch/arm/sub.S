@@ -1,4 +1,7 @@
-/* Subtraction. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-data-processing-instructions
+ *
+ * Subtraction.
+ */
 
 #include "common.h"
 

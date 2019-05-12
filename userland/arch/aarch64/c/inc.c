@@ -1,6 +1,6 @@
 /* Increment a variable in inline assembly.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#inline-assembly
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly
  */
 
 #include <assert.h>

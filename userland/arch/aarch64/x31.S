@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x31 */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-x31-register */
 
 #include "common.h"
 

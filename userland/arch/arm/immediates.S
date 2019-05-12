@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-immediates */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-gnu-instruction-gas-assembler-immediates */
 
 #include "common.h"
 

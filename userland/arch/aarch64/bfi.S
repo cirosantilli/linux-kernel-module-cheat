@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#bfi */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bfi-instruction */
 
 #include "common.h"
 

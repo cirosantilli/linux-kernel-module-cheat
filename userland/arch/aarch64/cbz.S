@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#cbz */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-cbz-instruction */
 
 #include "common.h"
 

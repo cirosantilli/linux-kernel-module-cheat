@@ -1,4 +1,7 @@
-/* Test. Same as ands, but don't store the result, just update flags. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-data-processing-instructions
+ *
+ * Test. Same as ands, but don't store the result, just update flags.
+ */
 
 #include "common.h"
 

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#data-processing-instructions */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#data-bitwise-instructions */
 
 #include "common.h"
 

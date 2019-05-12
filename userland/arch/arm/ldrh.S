@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ldrh-and-ldrb */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ldrh-instruction-and-ldrb */
 
 #include "common.h"
 

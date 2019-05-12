@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#bl */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bl-instruction */
 
 #include "common.h"
 

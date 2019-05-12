@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#assembly-simd
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#simd-assembly
  *
  * Add a bunch of integers in one go.
  *

@@ -1,4 +1,7 @@
-/* Multiplication. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-data-processing-instructions
+ *
+ * Multiplication.
+ */
 
 #include "common.h"
 

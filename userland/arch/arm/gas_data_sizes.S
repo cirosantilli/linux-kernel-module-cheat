@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler data sizes */
+
 #include "common.h"
 
 .data

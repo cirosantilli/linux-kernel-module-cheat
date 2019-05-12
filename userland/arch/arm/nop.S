@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#nop */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-nop-instruction */
 
 #include "common.h"
 

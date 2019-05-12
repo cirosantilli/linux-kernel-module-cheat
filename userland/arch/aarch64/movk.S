@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#movk */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-movk-instruction */
 
 #include "common.h"
 

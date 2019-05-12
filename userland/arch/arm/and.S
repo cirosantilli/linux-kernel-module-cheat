@@ -1,4 +1,4 @@
-/* Bitwise AND. */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bitwise-instructions */
 
 #include "common.h"
 
