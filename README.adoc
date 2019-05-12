@@ -11701,6 +11701,7 @@ Much like ADD for non-SIMD, start learning SIMD instructions by looking at the i
 Then it is just a huge copy paste of infinite boring details:
 
 * <<x86-simd>>
+* <<arm-simd>>
 
 === User vs system assembly
 
@@ -12086,6 +12087,8 @@ ARMv8 has link:https://en.wikipedia.org/wiki/ARM_architecture#ARMv8-A[had severa
 * v8.4: TODO
 * v8.5: 2018
 
+They are described at: <<armarm8>> A1.7 "ARMv8 architecture extensions".
+
 ===== AArch32
 
 32-bit mode of operation of ARMv8.
@@ -12099,7 +12102,7 @@ For this reason, QEMU and GAS seems to enable both AArch32 and ARMv7 under `arm`
 
 There are however some extensions over ARMv7, many of them are functionality that ARMv8 has and that designers decided to backport on AArch32 as well, e.g.:
 
-* <<vcvta>>
+* <<arm-vcvta-instruction>>
 
 ===== AArch32 vs AArch64
 
@@ -12107,6 +12110,7 @@ A great summary of differences can be found at: https://en.wikipedia.org/wiki/AR
 
 Some random ones:
 
+* aarch32 has two encodings: Thumb and ARM: <<arm-instruction-encodings>>
 * in ARMv8, the stack has to 16-byte aligned. Therefore, the main way to push things to stack is with 8-byte pair pushes with the <<armv8-aarch64-ldp-and-stp-instructions>>
 
 ==== Free ARM implementations
@@ -12135,6 +12139,36 @@ ____
 ARM designed CPUs however are mostly called `Coretx-A<id>`: https://en.wikipedia.org/wiki/List_of_applications_of_ARM_cores Vortex and Tempest are Apple designed ones.
 Bibliography: https://www.quora.com/Why-is-it-that-you-need-a-license-from-ARM-to-design-an-ARM-CPU-How-are-the-instruction-sets-protected
 
+==== ARM instruction encodings
+
+Understanding the basics of instruction encodings is fundamental to help you to remember what instructions do and why some things are possible or not, notably the <<arm-ldr-pseudo-instruction>> and the <<arm-adr-instruction,`adrp` instruction>>.
+
+aarch32 has two "instruction sets", which to look just like encodings.
+
+Some control bit determines which one we are currently on, and userland can switch between them with the <<arm-bx-instruction>>.
+
+The encodings are:
+
+* A32: every instruction is 4 bytes long. Can encode every instruction.
+* T32: most common instructions are 2 bytes long. Many others less common ones are 4 bytes long.
++
+T stands for "Thumb", which is the original name for the technology. The word "Thumb" does not appear on <<armarm8>> however. It does appear on <<armarm7>> though.
++
+See also: <<armarm8>> F2.1.3 "Instruction encodings".
+
+Within each instruction set, there can be multiple encodings for a given function, and they are noted simply as:
+
+* A1, A2, ...: A32 encodings
+* T1, T2, ..m: T32 encodings
+
+This RISC-y mostly fixed instruction length design likely makes processor design easier and allows for certain optimizations, at the cost of slightly more complex assembly, as you can't encode 4 / 8 byte addresses in a single instruction. Totally worth it IMHO.
+
+This design can be contrasted with x86, which has widely variable instruction length.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/28669905/what-is-the-difference-between-the-arm-thumb-and-thumb-2-instruction-encodings
+* https://reverseengineering.stackexchange.com/questions/6080/how-to-detect-thumb-mode-in-arm-disassembly
 
 === ARM branch instructions
 
@@ -12447,7 +12481,7 @@ Cannot load from or to memory, since only the `ldr` and `str` instruction famili
 
 Example: link:userland/arch/arm/mov.S[]
 
-Since every instruction <<arm-instruction-length,has a fixed 4 byte size>>, there is not enough space to encode arbitrary 32-bit immediates in a single instruction, since some of the bits are needed to actually encode the instruction itself.
+Since every instruction <<arm-instruction-encodings,has a fixed 4 byte size>>, there is not enough space to encode arbitrary 32-bit immediates in a single instruction, since some of the bits are needed to actually encode the instruction itself.
 
 The solutions to this problem are mentioned at:
 
@@ -12552,6 +12586,54 @@ gdb-multiarch -batch -ex 'arch arm' -ex "file v7/nop.out" -ex "disassemble/rs as
 ....
 
 Bibliography: https://stackoverflow.com/questions/1875491/nop-for-iphone-binaries
+
+=== ARM SIMD
+
+==== ARM SIMD instructions
+
+===== ARM vcvt instruction
+
+Example: link:userland/arch/arm/vcvt.S[]
+
+Convert between integers and floating point.
+
+<<armarm7>> on rounding:
+
+____
+The floating-point to fixed-point operation uses the Round towards Zero rounding mode. The fixed-point to floating-point operation uses the Round to Nearest rounding mode.
+____
+
+Notice how the opcode takes two types.
+
+E.g., in our 32-bit float to 32-bit unsigned example we use:
+
+....
+vld1.32.f32
+....
+
+====== ARM vcvtr instruction
+
+Example: link:userland/arch/arm/vcvtr.S[]
+
+Like <<arm-vcvt-instruction>>, but the rounding mode is selected by the FPSCR.RMode field.
+
+Selecting rounding mode explicitly per instruction was apparently not possible in ARMv7, but was made possible in <<aarch32>> e.g. with <<arm-vcvta-instruction>>.
+
+Rounding mode selection is exposed in the ANSI C standard through link:https://en.cppreference.com/w/c/numeric/fenv/feround[`fesetround`].
+
+TODO: is the initial rounding mode specified by the ELF standard? Could not find a reference.
+
+====== ARM vcvta instruction
+
+Example: link:userland/arch/arm/vcvt.S[]
+
+Added in ARMv8 <<aarch32>> only, not present in ARMv7.
+
+In ARMv7, to use a non-round-to-zero rounding mode, you had to set the rounding mode with FPSCR and use the R version of the instruction e.g. <<arm-vcvtr-instruction>>.
+
+Now in AArch32 it is possible to do it explicitly per-instruction.
+
+Also there was no ties to away mode in ARMv7. This mode does not exist in C99 either.
 
 === ARM assembly bibliography
 
