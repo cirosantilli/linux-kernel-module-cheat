@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#armv8-registers */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#assembly-registers */
 
 #include "common.h"
 

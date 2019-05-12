@@ -371,7 +371,7 @@ Tested on a30ed0f047523ff2368d421ee2cce0800682c44e + 1.
 
 Have you ever felt that a single `inc` instruction was not enough? Really? Me too!
 
-So let's hack the link:https://en.wikipedia.org/wiki/GNU_Assembler[GNU GAS assembler], which is part of link:https://en.wikipedia.org/wiki/GNU_Binutils[GNU Binutils], to add a new shiny version of `inc` called... `myinc`!
+So let's hack the <<gnu-gas-assembler>>, which is part of link:https://en.wikipedia.org/wiki/GNU_Binutils[GNU Binutils], to add a new shiny version of `inc` called... `myinc`!
 
 GCC uses GNU GAS as its backend, so we will test out new mnemonic with an inline assembly test program: link:userland/arch/x86_64/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/asm_hello.c[] but with `myinc` instead of `inc`.
 
@@ -11622,6 +11622,18 @@ Other infrastructure sanity checks that you might want to look into include:
 * `ASSERT_MEMCMP` tests
 ** link:userland/arch/x86_64/lkmc_assert_memcmp_fail.S[]
 
+=== Assembly registers
+
+After seeing an <<userland-assembly,ADD hello world>>, you need to learn the general registers:
+
+* arm
+** link:userland/arch/arm/registers.S[]
+* aarch64
+** link:userland/arch/aarch64/registers.S[]
+** link:userland/arch/aarch64/pc.S[]
+
+Bibliography: <<armarm7>> A2.3 "ARM core registers".
+
 === Assembly SIMD
 
 Much like ADD for non-SIMD, start learning SIMD instructions by looking at the integer and floating point SIMD ADD instructions of each ISA:
@@ -11673,7 +11685,7 @@ The C standard library infrastructure is implemented in the following files:
 
 Unlike most our other assembly examples, which use the C standard library for portability, examples under `freestanding/` directories don't link to the C standard library.
 
-As a result, those examples cannot do IO portably, and so they make raw system calls and only be run on one given OS, e.g. Linux: <<linux-system-calls>>
+As a result, those examples cannot do IO portably, and so they make raw system calls and only be run on one given OS, e.g. Linux: <<linux-system-calls>>.
 
 Such executables are called freestanding because they don't execute the glibc initialization code, but rather start directly on our custom hand written assembly.
 
@@ -11703,7 +11715,7 @@ Examples under `arch/<arch>/c/` directories show to how use inline assembly from
 ** link:userland/arch/aarch64/c/inc.c[]
 ** link:userland/arch/aarch64/c/multiline.cpp[]
 
-==== Inline assembly register variables
+==== GCC inline assembly register variables
 
 Used notably in some of the <<linux-system-calls>> setups:
 
@@ -11715,7 +11727,11 @@ In x86, makes it possible to access variables not exposed with the one letter re
 
 In arm, it is the only way to achieve this effect: https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
 
-==== Inline assembly scratch registers
+This feature notably useful for making system calls from C, see: <<linux-system-calls>>.
+
+Documentation: https://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Explicit-Reg-Vars.html
+
+==== GCC inline assembly scratch registers
 
 How to use temporary registers in inline assembly:
 
@@ -11725,7 +11741,7 @@ How to use temporary registers in inline assembly:
 
 Bibliography: https://stackoverflow.com/questions/6682733/gcc-prohibit-use-of-some-registers/54963829#54963829
 
-==== Inline assembly early-clobbers
+==== GCC inline assembly early-clobbers
 
 An example of using the `&` early-clobber modifier: link:userland/arch/aarch64/earlyclobber.c
 
@@ -11733,7 +11749,7 @@ More details at: https://stackoverflow.com/questions/15819794/when-to-use-earlyc
 
 The assertion may fail without it. It actually does fail in GCC 8.2.0.
 
-==== Inline assembly floating point ARM
+==== GCC inline assembly floating point ARM
 
 Not documented as of GCC 8.2, but possible: https://stackoverflow.com/questions/53960240/armv8-floating-point-output-inline-assembly
 
@@ -11802,11 +11818,44 @@ Bibliography:
 * http://stackoverflow.com/questions/261419/arm-to-c-calling-convention-registers-to-save
 * https://stackoverflow.com/questions/10494848/arm-whats-the-difference-between-apcs-and-aapcs-abi
 
-=== GAS directives
+=== GNU GAS assembler
 
-==== GAS data sizes
+link:https://en.wikipedia.org/wiki/GNU_Assembler[GNU GAS] is the default assembler used by GDB, and therefore it completely dominates in Linux.
 
-Let's see how may bytes go into each data type:
+The Linux kernel in particular uses GNU GAS assembly extensively for the arch specific parts under `arch/`.
+
+==== GNU GAS assembler comments
+
+In this tutorial, we use exclusively C Preprocessor `/**/` comments because:
+
+* they are the same for all archs
+* we are already stuck to the C Preprocessor because GNU GAS macros are unusable so we need `#define`
+* mixing `#` GNU GAS comments and `#define` is a bad idea ;-)
+
+But just in case you want to suffer, see this full explanation of GNU GAS comments: https://stackoverflow.com/questions/15663280/how-to-make-the-gnu-assembler-use-a-slash-for-comments/51991349#51991349
+
+Examples:
+
+* link:userland/arch/arm/comments.S[]
+* link:userland/arch/aarch64/comments.S[]
+
+==== GNU GAS assembler immediates
+
+Summary:
+
+* x86 always dollar `$` everywhere.
+* ARM: can use either `#`, `$` or nothing depending on v7 vs v8 and <<gnu-gas-assembler-arm-unified-syntax,`.syntax unified`>>. 
++
+Fuller explanation at: https://stackoverflow.com/questions/21652884/is-the-hash-required-for-immediate-values-in-arm-assembly/51987780#51987780
+
+Examples:
+
+* link:userland/arch/arm/immediates.S[]
+* link:userland/arch/aarch64/immediates.S[]
+
+==== GNU GAS assembler data sizes
+
+Let's see how many bytes go into each data type:
 
 * link:userland/arch/x86_64/gas_data_sizes.S[]
 * link:userland/arch/arm/gas_data_sizes.S[]
@@ -11851,6 +11900,37 @@ Bibliography:
 * https://sourceware.org/binutils/docs-2.32/as/Pseudo-Ops.html#Pseudo-Ops
 * https://stackoverflow.com/questions/43005411/how-does-the-quad-directive-work-in-assembly/43006616
 * https://gist.github.com/steakknife/d47d0b19a24817f48027
+
+===== GNU GAS assembler ARM specifics
+
+====== GNU GAS assembler ARM unified syntax
+
+There are two types of ARMv7 assemblies:
+
+* `.syntax divided`
+* `.syntax unified`
+
+They are very similar, but unified is the new and better one, which we use in this tutorial.
+
+Unfortunately, for backwards compatibility, GNU AS 2.31.1 and GCC 8.2.0 still use `.syntax divided` by default.
+
+The concept of unified assembly is mentioned in ARM's official assembler documentation: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0473c/BABJIHGJ.html and is often called Unified Assembly Language (UAL).
+
+Some of the differences include:
+
+* `#` is optional in unified syntax int literals, see <<gnu-gas-assembler-immediates>>
+* many mnemonics changed:
+** most of them are condition code position changes, e.g. `andseq` vs `andeqs`: https://stackoverflow.com/questions/51184921/wierd-gcc-behaviour-with-arm-assembler-andseq-instruction
+** but there are some more drastic ones, e.g. `swi` vs `svc`: https://stackoverflow.com/questions/8459279/are-arm-instructuons-swi-and-svc-exactly-same-thing/54078731#54078731
+* cannot have implicit destination with shift, see: <<shift-suffixes>>
+
+===== GNU GAS assembler ARM .n and .w suffixes
+
+When reading disassembly, many instructions have either a `.n` or `.w` suffix.
+
+`.n` means narrow, and stands for the Thumb encoding of an instructions, while `.w` means wide and stands for the ARM encoding.
+
+Bibliography: https://stackoverflow.com/questions/27147043/n-suffix-to-branch-instruction
 
 == x86 userland assembly
 
@@ -11913,11 +11993,101 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_m
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
 * https://blog.regehr.org/archives/794
 
-== arm userland assembly
+== ARM userland assembly
 
-Getting started at: <<userland-assembly>>.
+Arch general getting started at: <<userland-assembly>>.
 
-TODO
+=== Introduction to the ARM architecture
+
+The link:https://en.wikipedia.org/wiki/ARM_architecture[ARM architecture] is has been used on the vast majority of mobile phones in the 2010's, and on a large fraction of micro controllers.
+
+It competes with <<x86-userland-assembly>> because its implementations are designed for low power consumption, which is a major requirement of the cell phone market.
+
+ARM is generally considered a RISC instruction set, although there are some more complex instructions which would not generally be classified as purely RISC.
+
+ARM is developed by the British funded company ARM Holdings: https://en.wikipedia.org/wiki/Arm_Holdings which originated as a joint venture between Acorn Computers, Apple  and VLSI Technology in 1990.
+
+ARM Holdings was bought by the Japanese giant SoftBank in 2016.
+
+==== Free ARM implementations
+
+The ARM instruction set is itself protected by patents / copyright / whatever, and you have to pay ARM Holdings a licence to implement it, even if you are creating your own custom Verilog code.
+
+ARM has already sued people in the past for implementing ARM ISA: http://www.eetimes.com/author.asp?section_id=36&doc_id=1287452
+
+http://semiengineering.com/an-alternative-to-x86-arm-architectures/ mentions that:
+
+____
+Asanovic joked that the shortest unit of time is not the moment between a traffic light turning green in New York City and the cab driver behind the first vehicle blowing the horn; it’s someone announcing that they have created an open-source, ARM-compatible core and receiving a “cease and desist” letter from a law firm representing ARM.
+____
+
+This licensing however does have the following fairness to it: ARM Holdings invents a lot of money in making a great open source software environment for the ARM ISA, so it is only natural that it should be able to get some money from hardware manufacturers for using their ISA.
+
+Patents for very old ISAs however have expired, Amber is one implementation of those: https://en.wikipedia.org/wiki/Amber_%28processor_core%29 TODO does it have any application?
+
+
+Generally, it is mostly large companies that implement the CPUs themselves. For example, the link:https://en.wikipedia.org/wiki/Apple_A12[Apple A12 chip], which is used in iPhones, has verilog designs:
+
+____
+The A12 features an Apple-designed 64-bit ARMv8.3-A six-core CPU, with two high-performance cores running at 2.49 GHz called Vortex and four energy-efficient cores called Tempest.
+____
+
+ARM designed CPUs however are mostly called `Coretx-A<id>`: https://en.wikipedia.org/wiki/List_of_applications_of_ARM_cores Vortex and Tempest are Apple designed ones.
+Bibliography: https://www.quora.com/Why-is-it-that-you-need-a-license-from-ARM-to-design-an-ARM-CPU-How-are-the-instruction-sets-protected
+
+=== ARM assembly bibliography
+
+==== ARM non-official bibliography
+
+Good getting started tutorials:
+
+* http://www.davespace.co.uk/arm/introduction-to-arm/
+* https://azeria-labs.com/writing-arm-assembly-part-1/
+* https://thinkingeek.com/arm-assembler-raspberry-pi/
+* http://bob.cs.sonoma.edu/IntroCompOrg-RPi/app-make.html
+
+==== ARM official bibliography
+
+The official manuals were stored in http://infocenter.arm.com but as of 2017 they started to slowly move to link:https://developer.arm.com[].
+
+Each revision of a document has a "ARM DDI" unique document identifier.
+
+The "ARM Architecture Reference Manuals" are the official canonical ISA documentation document. In this repository, we always reference the following revisions:
+
+Bibliography: https://www.quora.com/Where-can-I-find-the-official-documentation-of-ARM-instruction-set-architectures-ISAs
+
+[[armarm7]]
+===== ARMv7 architecture reference manual
+
+https://developer.arm.com/products/architecture/a-profile/docs/ddi0406/latest/arm-architecture-reference-manual-armv7-a-and-armv7-r-edition
+
+The official comprehensive ARMv7 reference.
+
+We use by default: DDI 0406C.d: https://static.docs.arm.com/ddi0406/cd/DDI0406C_d_armv7ar_arm.pdf
+
+[[armarm8]]
+===== ARMv8 architecture reference manual
+
+https://static.docs.arm.com/ddi0487/ca/DDI0487C_a_armv8_arm.pdf
+
+Latest version: https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
+
+The official comprehensive ARMv8 reference.
+
+ISA quick references can be found in some places:
+
+* https://web.archive.org/web/20161009122630/http://infocenter.arm.com/help/topic/com.arm.doc.qrc0001m/QRC0001_UAL.pdf
+
+[[armv8-programmers-guide]]
+===== Programmer's Guide for ARMv8-A
+
+https://static.docs.arm.com/den0024/a/DEN0024A_v8_architecture_PG.pdf
+
+A more terse human readable introduction to the ARM architecture than the reference manuals.
+
+Does not have as many assembly code examples as you'd hope however...
+
+Latest version at: https://developer.arm.com/docs/den0024/latest/preface
 
 == Baremetal
 
@@ -12560,6 +12730,8 @@ TODO: create and study a minimal examples in gem5 where the `DMB` instruction le
 
 ==== ARM baremetal bibliography
 
+First, also consider the userland bibliography: <<arm-assembly-bibliography>>.
+
 The most useful ARM baremetal example sets we've seen so far are:
 
 * https://github.com/dwelch67/raspberrypi real hardware
@@ -12576,24 +12748,6 @@ The only QEMU `-m virt` aarch64 example set that I can find on the web. Awesome.
 A large part of the code is taken from the awesome educational OS under 2-clause BSD as can be seen from file headers: https://github.com/takeharukato/sample-tsk-sw/tree/ce7973aa5d46c9eedb58309de43df3b09d4f8d8d/hal/aarch64 but Nienfeng largely minimized it.
 
 I needed the following minor patches: https://github.com/NienfengYao/armv8-bare-metal/pull/1
-
-[[armarm8]]
-===== ARMv8 architecture reference manual
-
-The official comprehensive ARMv8 reference.
-
-Latest version: https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
-
-We use: DDI 0487C.a: https://static.docs.arm.com/ddi0487/ca/DDI0487C_a_armv8_arm.pdf
-
-[[armv8-programmers-guide]]
-===== Programmer's Guide for ARMv8-A
-
-A more terse human readable introduction to the ARM architecture than the reference manuals.
-
-Latest version: https://developer.arm.com/docs/den0024/latest/preface
-
-We use: DEN0024A https://static.docs.arm.com/den0024/a/DEN0024A_v8_architecture_PG.pdf
 
 === How we got some baremetal stuff to work
 

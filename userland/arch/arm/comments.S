@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#comments */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-comments */
 
 #include "common.h"
 ENTRY
