@@ -170,7 +170,14 @@ class LkmcCliFunction(cli_function.CliFunction):
     Common functionality shared across our CLI functions:
 
     * command timing
-    * some common flags, e.g.: --arch, --dry-run, --quiet, --verbose
+    * a lot some common flags, e.g.: --arch, --dry-run, --quiet, --verbose
+    * a lot of helpers that depend on self.env
+    +
+    self.env contains the command line arguments + a ton of values derived from those.
+    +
+    It would be beautiful to do this evaluation in a lazy way, e.g. with functions +
+    cache decorators:
+    https://stackoverflow.com/questions/815110/is-there-a-decorator-to-simply-cache-function-return-values
     '''
     def __init__(
         self,

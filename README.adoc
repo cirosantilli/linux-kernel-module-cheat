@@ -1891,13 +1891,13 @@ For executables from the link:userland/[] directory such as link:userland/posix/
 * Shell 2:
 +
 ....
-./run-gdb-user count main
+./run-gdb-user userland/posix/count.c main
 ....
 +
 Alternatively, we could also pass the full path to the executable:
 +
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/sleep_forever.out" main
+./run-gdb-user "$(./getvar userland_build_dir)/posix/count.out" main
 ....
 +
 Path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
@@ -1952,7 +1952,7 @@ Non-init process:
 * Shell 2:
 +
 ....
-./run-gdb-user linux/myinsmod main
+./run-gdb-user userland/linux/myinsmod.c main
 ....
 * Shell 1 after the boot finishes:
 +
@@ -1982,7 +1982,7 @@ We have also double checked the address with:
 
 ....
 ./run-toolchain --arch arm readelf -- \
-  -s "$(./getvar --arch arm kernel_modules_build_subdir)/fops.ko" | \
+  -s "$(./getvar --arch arm userland_build_dir)/linux/myinsmod.out" | \
   grep main
 ....
 
@@ -2520,16 +2520,16 @@ Source: link:rootfs_overlay/lkmc/gdbserver.sh[].
 And on host:
 
 ....
-./run-gdbserver linux/myinsmod
+./run-gdbserver userland/linux/myinsmod.c
 ....
 
-or alternatively with the full path:
+or alternatively with the path to the executable itself:
 
 ....
 ./run-gdbserver "$(./getvar userland_build_dir)/linux/myinsmod.out"
 ....
 
-https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-arm-mips-elf-with-qemu-toolchain/16214#16214
+Bibliography: https://reverseengineering.stackexchange.com/questions/8829/cross-debugging-for-arm-mips-elf-with-qemu-toolchain/16214#16214
 
 === gdbserver BusyBox
 
@@ -3832,7 +3832,7 @@ gem5 user mode:
 make \
   -B \
   -C "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2" \
-  CC="$(./run-toolchain --arch arm --dry gcc)" \
+  CC="$(./run-toolchain --arch arm --print-tool gcc)" \
   CFLAGS=-static \
 ;
 time \
@@ -5733,7 +5733,7 @@ vermagic:       4.17.0 SMP mod_unload modversions
 Module information is stored in a special `.modinfo` section of the ELF file:
 
 ....
-./run-toolchain readelf -- -SW "$(./getvar target_dir)/module_info.ko"
+./run-toolchain readelf -- -SW "$(./getvar kernel_modules_build_subdir)/module_info.ko"
 ....
 
 contains:
@@ -5745,7 +5745,7 @@ contains:
 and:
 
 ....
-./run-toolchain readelf -- -x .modinfo "$(./getvar buildroot_build_build_dir)/module_info.ko"
+./run-toolchain readelf -- -x .modinfo "$(./getvar kernel_modules_build_subdir)/module_info.ko"
 ....
 
 gives:
@@ -9169,9 +9169,9 @@ http://gedare-csphd.blogspot.co.uk/2013/02/adding-simple-io-device-to-gem5.html
 
 === QEMU monitor
 
-The QEMU monitor is a terminal that allows you to send text commands to the QEMU VM: https://en.wikibooks.org/wiki/QEMU/Monitor
+The QEMU monitor is a magic terminal that allows you to send text commands to the QEMU VM itself: https://en.wikibooks.org/wiki/QEMU/Monitor
 
-On another terminal, run:
+While QEMU is running, on another terminal, run:
 
 ....
 ./qemu-monitor
@@ -9193,7 +9193,7 @@ Source: link:qemu-monitor[]
 
 `qemu-monitor` uses the `-monitor` QEMU command line option, which makes the monitor listen from a socket.
 
-Alternatively, from text mode:
+Alternatively, we can also enter the QEMU monitor from inside `-nographics` <<qemu-text-mode>> with:
 
 ....
 Ctrl-A C
@@ -9208,13 +9208,27 @@ Ctrl-A C
 * http://stackoverflow.com/questions/14165158/how-to-switch-to-qemu-monitor-console-when-running-with-curses
 * https://superuser.com/questions/488263/how-to-switch-to-the-qemu-control-panel-with-nographics
 
-And in graphic mode from the GUI:
+When in graphic mode, we can do it from the GUI:
 
 ....
 Ctrl-Alt ?
 ....
 
 where `?` is a digit `1`, or `2`, or, `3`, etc. depending on what else is available on the GUI: serial, parallel and frame buffer.
+
+Finally, we can also access QEMU monitor commands directly from <<gdb>> with the `monitor` command:
+
+....
+./run-gdb
+....
+
+then inside that shell:
+
+....
+monitor info qtree
+....
+
+This way you can use both QEMU monitor and GDB commands to inspect the guest from inside a single shell! Pretty awesome.
 
 In general, `./qemu-monitor` is the best option, as it:
 
@@ -9438,6 +9452,8 @@ We can further use Binutils' `addr2line` to get the line that corresponds to eac
 ./trace2line --arch x86_64
 less "$(./getvar --arch x86_64 run_dir)/trace-lines.txt"
 ....
+
+The last commands takes several seconds.
 
 The format is as follows:
 
@@ -11350,7 +11366,7 @@ Note that dots cannot be used as in `1.5G`, so just use Megs as in `1500M` inste
 Unfortunately, TODO we don't have a perfect way to find the right value for `BR2_TARGET_ROOTFS_EXT2_SIZE`. One good heuristic is:
 
 ....
-du -hsx "$(./getvar --arch arm target_dir)"
+du -hsx "$(./getvar --arch arm buildroot_target_dir)"
 ....
 
 Some promising ways to overcome this problem include:

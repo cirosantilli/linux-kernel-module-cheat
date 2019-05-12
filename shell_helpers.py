@@ -189,18 +189,18 @@ class ShellHelpers:
                 os.unlink(path)
 
     def run_cmd(
-            self,
-            cmd,
-            cmd_file=None,
-            out_file=None,
-            show_stdout=True,
-            show_cmd=True,
-            extra_env=None,
-            extra_paths=None,
-            delete_env=None,
-            raise_on_failure=True,
-            **kwargs
-        ):
+        self,
+        cmd,
+        cmd_file=None,
+        out_file=None,
+        show_stdout=True,
+        show_cmd=True,
+        extra_env=None,
+        extra_paths=None,
+        delete_env=None,
+        raise_on_failure=True,
+        **kwargs
+    ):
         '''
         Run a command. Write the command to stdout before running it.
 

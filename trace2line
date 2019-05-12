@@ -8,27 +8,38 @@ now...
 '''
 
 import os
-import re
-import subprocess
-import sys
 
 import common
 from shell_helpers import LF
 
-parser = self.get_argparse(argparse_args={
-    'description': 'Convert an execution trace containing PC values into the Linux kernel linex executed'
-})
-args = self.setup(parser)
-sys.exit(subprocess.Popen([
-    os.path.join(kwargs['root_dir'], 'trace2line.sh'),
-    'true' if kwargs['emulator'] == 'gem5' else 'false',
-    kwargs['trace_txt_file'],
-    self.get_toolchain_tool('addr2line'),
-    kwargs['vmlinux'],
-    kwargs['run_dir'],
-]).wait())
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            defaults = {
+                'show_time': False,
+            },
+            description='''\
+Convert an execution trace containing PC values into the Linux kernel lines executed.
+''',
+        )
 
-# This was the full conversion attempt.
+    def timed_main(self):
+        self.sh.run_cmd([
+            os.path.join(self.env['root_dir'], 'trace2line.sh'), LF,
+            'true' if self.env['emulator'] == 'gem5' else 'false', LF,
+            self.env['trace_txt_file'], LF,
+            self.get_toolchain_tool('addr2line'), LF,
+            self.env['vmlinux'], LF,
+            self.env['run_dir'], LF,
+        ])
+
+if __name__ == '__main__':
+    Main().cli()
+
+# This was the old full Python port attempt that was failing:
+
+# import subprocess
+# import sys
 
 # if kwargs['emulator'] == 'gem5':
 #     def get_pc(line):

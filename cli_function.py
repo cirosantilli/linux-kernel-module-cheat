@@ -114,8 +114,7 @@ class _Argument:
 
 class CliFunction:
     '''
-    Represent a function that can be called either from Python code, or
-    from the command line.
+    A function that can be called either from Python code, or from the command line.
 
     Features:
 
@@ -135,6 +134,10 @@ class CliFunction:
 
     * that decorator API is insane
     * CLI + Python for single functions was wontfixed: https://github.com/pallets/click/issues/40
+    +
+    Oh, and I commented on that issue pointing to this alternative and they deleted my comment:
+    https://github.com/pallets/click/issues/40#event-2088718624 Lol. It could have been useful
+    for other Googlers and as an implementation reference.
     '''
     def __call__(self, **kwargs):
         '''

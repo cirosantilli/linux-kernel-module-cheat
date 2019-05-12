@@ -1,36 +1,42 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 
 import common
-rungdb = common.import_path_relative_root('run-gdb')
 
-parser = self.get_argparse(argparse_args={
-    'description': '''GDB step debug guest userland processes without gdbserver.
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''GDB step debug guest userland processes without gdbserver.
 
 More information at: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-userland-processes
 '''
-})
-parser.add_argument(
-    'executable',
-    help='Path to the executable to be debugged relative to the Buildroot build directory.'
-)
-parser.add_argument(
-    'break_at',
-    default=None,
-    help='Break at this point, e.g. main.',
-    nargs='?'
-)
-args = self.setup(parser)
-executable = self.resolve_userland_executable(kwargs['executable'])
-addr = self.get_elf_entry(os.path.join(kwargs['buildroot_build_build_dir'], executable))
-extra_args = {}
-extra_args['before'] = '-ex \"add-symbol-file {} {}\"'.format(executable, hex(addr))
-# Or else lx-symbols throws for arm:
-# gdb.MemoryError: Cannot access memory at address 0xbf0040cc
-# TODO understand better.
-# Also, lx-symbols overrides the add-symbol-file commands.
-extra_args['no_lxsymbols'] = True
-extra_args['break_at'] = kwargs['break_at']
-sys.exit(rungdb.main(args, extra_args))
+        )
+        self.add_argument(
+            'executable',
+            help='Path to the executable to be debugged relative to the Buildroot build directory.'
+        )
+        self.add_argument(
+            'break_at',
+            default=None,
+            help='Break at this point, e.g. main.',
+            nargs='?'
+        )
+
+    def timed_main(self):
+        raise Exception("This is known to be broken, but fixing shouldn't be too hard! Keyword: get_argparse. See also: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/63")
+        executable = self.env['image']
+        addr = self.get_elf_entry(os.path.join(self.env['buildroot_build_build_dir'], executable))
+        args = {}
+        args['before'] = '-ex \"add-symbol-file {} {}\"'.format(executable, hex(addr))
+        # Or else lx-symbols throws for arm:
+        # gdb.MemoryError: Cannot access memory at address 0xbf0040cc
+        # TODO understand better.
+        # Also, lx-symbols overrides the add-symbol-file commands.
+        args['no_lxsymbols'] = True
+        args['break_at'] = self.env['break_at']
+        rungdb = common.import_path_main('run-gdb')
+        return rungdb(**args)
+
+if __name__ == '__main__':
+    Main().cli()
