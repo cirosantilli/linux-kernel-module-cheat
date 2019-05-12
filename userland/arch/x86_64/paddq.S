@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-simd
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#assembly-simd
  *
  * Add a bunch of integers in one go.
  *
@@ -25,9 +25,14 @@ ENTRY
     movups %xmm0, output; \
     ASSERT_MEMCMP(output, padd ## size ## _expect, $0x10)
 
+    /* 16x 8-bit */
     TEST(b)
+    /* 8x 4-bit */
     TEST(w)
+    /* 4x 8-bit */
+    /*  4x long */
     TEST(d)
+    /* 2x 16-bit */
     TEST(q)
 #undef TEST
 EXIT

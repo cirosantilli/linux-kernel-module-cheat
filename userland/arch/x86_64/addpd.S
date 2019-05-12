@@ -23,7 +23,9 @@ ENTRY
     movups %xmm0, output; \
     ASSERT_MEMCMP(output, addp ## size ## _expect, $0x10)
 
+    /* 4x 32-bit */
     TEST(s)
+    /* 2x 64-bit */
     TEST(d)
 #undef TEST
 EXIT
