@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#vcvta */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#vcvta */
 
 #include "common.h"
 

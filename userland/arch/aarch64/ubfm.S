@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#ubfm */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#ubfm */
 
 #include "common.h"
 

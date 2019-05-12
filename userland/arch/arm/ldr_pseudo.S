@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#ldr-pseudo-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#ldr-pseudo-instruction */
 
 #include "common.h"
 

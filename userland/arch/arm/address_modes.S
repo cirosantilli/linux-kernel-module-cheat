@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#addressing-modes */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#addressing-modes */
 
 #include "common.h"
 

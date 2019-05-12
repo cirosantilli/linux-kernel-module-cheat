@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#nop */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#nop */
 
 #include "common.h"
 

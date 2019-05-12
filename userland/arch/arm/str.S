@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#load-and-store-instructions */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#load-and-store-instructions */
 
 #include "common.h"
 
@@ -44,7 +44,7 @@ ENTRY
      * but it will always segfault under Linux because the text segment is read-only.
      * This is however useful in baremetal programming.
      * This construct is not possible in ARMv8 for str:
-     * https://github.com/cirosantilli/arm-assembly-cheat#armv8-str
+     * https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-str
      */
     str r1, var_in_same_section
 var_in_same_section:

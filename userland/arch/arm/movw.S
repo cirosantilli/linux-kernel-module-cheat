@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#movw-and-movt */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#movw-and-movt */
 
 #include "common.h"
 

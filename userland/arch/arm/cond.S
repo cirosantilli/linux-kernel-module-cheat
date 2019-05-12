@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#conditional-execution */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#conditional-execution */
 
 #include "common.h"
 

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#rbit */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#rbit */
 
 #include "common.h"
 

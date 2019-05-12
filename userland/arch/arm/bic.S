@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#bic */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#bic */
 
 #include "common.h"
 

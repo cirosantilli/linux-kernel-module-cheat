@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#loop-over-array */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#loop-over-array */
 
 #include "common.h"
 

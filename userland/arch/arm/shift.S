@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#shift-suffixes */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#shift-suffixes */
 
 #include "common.h"
 

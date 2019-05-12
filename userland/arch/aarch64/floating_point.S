@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#advanced-simd-instructions */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#advanced-simd-instructions */
 
 #include "common.h"
 

@@ -330,7 +330,7 @@ index 706b20b492..23185948f3 100644
        && _IO_putc_unlocked ('\n', _IO_stdout) != EOF)
 -    result = MIN (INT_MAX, len + 1);
 +    result = MIN (INT_MAX, len + 1 + 7);
- 
+
    _IO_release_lock (_IO_stdout);
    return result;
 ....
@@ -11634,6 +11634,57 @@ After seeing an <<userland-assembly,ADD hello world>>, you need to learn the gen
 
 Bibliography: <<armarm7>> A2.3 "ARM core registers".
 
+==== ARMv8 aarch64 x31 register
+
+Example: link:userland/arch/aarch64/x31.S[]
+
+There is no `x31` name, and the encoding can have two different names depending on the instruction:
+
+* `xzr`: zero register:
+** https://stackoverflow.com/questions/42788696/why-might-one-use-the-xzr-register-instead-of-the-literal-0-on-armv8
+** https://community.arm.com/processors/f/discussions/3185/wzr-xzr-register-s-purpose
+* `sp`: stack pointer
+
+To make things more confusing, some aliases can take either name, which makes them alias to different things, e.g. `mov` accepts both:
+
+....
+mov x0, sp
+mov x0, xzr
+....
+
+and the first one is an alias to `add` while the second an alias to `orr`.
+
+The difference is documented on a per instruction basis. Instructions that encode 31 as SP say:
+
+....
+if d == 31 then
+  SP[] = result;
+else
+  X[d] = result;
+....
+
+And then those that don't say that, B1.2.1 "Registers in AArch64 state" implies the zero register:
+
+____
+In instruction encodings, the value 0b11111 (31) is used to indicate the ZR (zero register). This
+indicates that the argument takes the value zero, but does not indicate that the ZR is implemented
+as a physical register.
+____
+
+This is also described on <<armarm8>> C1.2.5 "Register names":
+
+____
+There is no register named W31 or X31.
+
+The name SP represents the stack pointer for 64-bit operands where an encoding of the value 31 in the
+corresponding register field is interpreted as a read or write of the current stack pointer. When instructions
+do not interpret this operand encoding as the stack pointer, use of the name SP is an error.
+
+The name XZR represents the zero register for 64-bit operands where an encoding of the value 31 in the
+corresponding register field is interpreted as returning zero when read or discarding the result when written.
+When instructions do not interpret this operand encoding as the zero register, use of the name XZR is an error
+____
+
 === Assembly SIMD
 
 Much like ADD for non-SIMD, start learning SIMD instructions by looking at the integer and floating point SIMD ADD instructions of each ISA:
@@ -11844,7 +11895,7 @@ Examples:
 Summary:
 
 * x86 always dollar `$` everywhere.
-* ARM: can use either `#`, `$` or nothing depending on v7 vs v8 and <<gnu-gas-assembler-arm-unified-syntax,`.syntax unified`>>. 
+* ARM: can use either `#`, `$` or nothing depending on v7 vs v8 and <<gnu-gas-assembler-arm-unified-syntax,`.syntax unified`>>.
 +
 Fuller explanation at: https://stackoverflow.com/questions/21652884/is-the-hash-required-for-immediate-values-in-arm-assembly/51987780#51987780
 
@@ -11922,7 +11973,7 @@ Some of the differences include:
 * many mnemonics changed:
 ** most of them are condition code position changes, e.g. `andseq` vs `andeqs`: https://stackoverflow.com/questions/51184921/wierd-gcc-behaviour-with-arm-assembler-andseq-instruction
 ** but there are some more drastic ones, e.g. `swi` vs `svc`: https://stackoverflow.com/questions/8459279/are-arm-instructuons-swi-and-svc-exactly-same-thing/54078731#54078731
-* cannot have implicit destination with shift, see: <<shift-suffixes>>
+* cannot have implicit destination with shift, see: <<arm-shift-suffixes>>
 
 ===== GNU GAS assembler ARM .n and .w suffixes
 
@@ -11997,6 +12048,10 @@ TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_m
 
 Arch general getting started at: <<userland-assembly>>.
 
+Instructions here loosely grouped based on that of the <<armarm7>> Chapter A4 "The Instruction Sets".
+
+We cover here mostly ARMv7, and then treat aarch64 differentially, since much of the ARMv7 userland is the same in aarch32.
+
 === Introduction to the ARM architecture
 
 The link:https://en.wikipedia.org/wiki/ARM_architecture[ARM architecture] is has been used on the vast majority of mobile phones in the 2010's, and on a large fraction of micro controllers.
@@ -12008,6 +12063,51 @@ ARM is generally considered a RISC instruction set, although there are some more
 ARM is developed by the British funded company ARM Holdings: https://en.wikipedia.org/wiki/Arm_Holdings which originated as a joint venture between Acorn Computers, Apple  and VLSI Technology in 1990.
 
 ARM Holdings was bought by the Japanese giant SoftBank in 2016.
+
+==== ARMv8 vs ARMv7 vs AArch64 vs AArch32
+
+ARMv7 is the older architecture described at: <<armarm7>>.
+
+ARMv8 is the newer architecture ISA link:https://developer.arm.com/docs/den0024/latest/preface[released in 2013] and described at: <<armarm8>>. It can be in either of two states:
+
+* <<aarch32>>
+* aarch64
+
+In the lose terminology of this repository:
+
+* `arm` means basically AArch32
+* `aarch64` means ARMv8 AArch64
+
+ARMv8 has link:https://en.wikipedia.org/wiki/ARM_architecture#ARMv8-A[had several updates] since its release:
+
+* v8.1: 2014
+* v8.2: 2016
+* v8.3: 2016
+* v8.4: TODO
+* v8.5: 2018
+
+===== AArch32
+
+32-bit mode of operation of ARMv8.
+
+Userland is highly / fully backwards compatible with ARMv7:
+
+* https://stackoverflow.com/questions/42972096/armv8-backward-compatibility-with-armv7-snapdragon-820-vs-cortex-a15
+* https://stackoverflow.com/questions/31848185/does-armv8-aarch32-mode-has-backward-compatible-with-armv4-armv5-or-armv6
+
+For this reason, QEMU and GAS seems to enable both AArch32 and ARMv7 under `arm` rather than `aarch64`.
+
+There are however some extensions over ARMv7, many of them are functionality that ARMv8 has and that designers decided to backport on AArch32 as well, e.g.:
+
+* <<vcvta>>
+
+===== AArch32 vs AArch64
+
+A great summary of differences can be found at: https://en.wikipedia.org/wiki/ARM_architecture#AArch64_features
+
+Some random ones:
+
+* in ARMv8, the stack has to 16-byte aligned. Therefore, the main way to push things to stack is with 8-byte pair pushes with the <<armv8-aarch64-ldp-and-stp-instructions>>
 
 ==== Free ARM implementations
 
@@ -12034,6 +12134,424 @@ ____
 
 ARM designed CPUs however are mostly called `Coretx-A<id>`: https://en.wikipedia.org/wiki/List_of_applications_of_ARM_cores Vortex and Tempest are Apple designed ones.
 Bibliography: https://www.quora.com/Why-is-it-that-you-need-a-license-from-ARM-to-design-an-ARM-CPU-How-are-the-instruction-sets-protected
+
+
+=== ARM branch instructions
+
+==== ARM b instruction
+
+Unconditional branch.
+
+Example: link:userland/arch/arm/b.S[]
+
+The encoding stores `pc` offsets in 24 bits. The destination must be a multiple of 4, which is easy since all instructions are 4 bytes.
+
+This allows for 26 bit long jumps, which is 64 MiB.
+
+TODO: what to do if we want to jump longer than that?
+
+==== ARM beq instruction
+
+Branch if equal based on the status registers.
+
+Example: link:userland/arch/arm/beq.S[].
+
+The family of instructions includes:
+
+* `beq`: branch if equal
+* `bne`: branch if not equal
+* `ble`: less or equal
+* `bge`: greater or equal
+* `blt`: less than
+* `bgt`: greater than
+
+==== ARM bl instruction
+
+Branch with link, i.e. branch and store the return address on the `rl` register.
+
+Example: link:userland/arch/arm/bl.S[]
+
+This is the major way to make function calls.
+
+The current ARM / Thumb mode is encoded in the least significant bit of lr.
+
+===== ARM bx instruction
+
+`bx`: branch and switch between ARM / Thumb mode, encoded in the least significant bit of the given register.
+
+`bx lr` is the main way to return from function calls after a `bl` call.
+
+Since `bl` encodes the current ARM / Thumb in the register, `bx` keeps the mode unchanged by default.
+
+===== ARM ret instruction
+
+Example: link:userland/arch/aarch64/ret.S[]
+
+In ARMv8 aarch64:
+
+* there is no `bx` since no Thumb to worry about, so it is called just `br`
+* the `ret` instruction was added in addition to `br`, with the following differences:
+** provides a hint that this is a function call return
+** has a default argument `x30` if none is given. This is where `bl` puts the return value.
+
+See also: https://stackoverflow.com/questions/32304646/arm-assembly-branch-to-address-inside-register-or-memory/54145818#54145818
+
+==== ARM cbz instruction
+
+Compare and branch if zero.
+
+Example: link:userland/arch/aarch64/cbz.S[]
+
+Only in ARMv8 and ARMv7 Thumb mode, not in armv7 ARM mode.
+
+Very handy!
+
+==== ARM conditional execution
+
+Weirdly, <<arm-b-instruction>> and family are not the only instructions that can execute conditionally on the flags: the same also applies to most instructions, e.g. `add`.
+
+Example: link:userland/arch/arm/cond.S[]
+
+Just add the usual `eq`, `ne`, etc. suffixes just as for `b`.
+
+The list of all extensions is documented at <<armarm7>> "A8.3 Conditional execution".
+
+=== ARM load and store instructions
+
+In ARM, there are only two instruction families that do memory access: <<arm-ldr-instruction>>  to load and <<arm-str-instruction>> to store.
+
+Everything else works on register and immediates.
+
+This is part of the RISC-y beauty of the ARM instruction set, unlike x86 in which several operations can read from memory, and helps to predict how to optimize for a given CPU pipeline.
+
+This kind of architecture is called a link:https://en.wikipedia.org/wiki/Load/store_architecture[Load/store architecture].
+
+==== ARM ldr instruction
+
+===== ARM ldr pseudo-instruction
+
+`ldr` can be either a regular instruction that loads stuff into memory, or also a pseudo-instruction (assembler magic): http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0041c/Babbfdih.html
+
+The pseudo instruction version is when an equal sign appears on one of the operators.
+
+The `ldr` pseudo instruction can automatically create hidden variables in a place called the "literal pool", and load them from memory with PC relative loads.
+
+Example: link:userland/arch/arm/ldr_pseudo.S[]
+
+This is done basically because all instructions are 32-bit wide, and there is not enough space to encode 32-bit addresses in them.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/37840754/what-does-an-equals-sign-on-the-right-side-of-a-ldr-instruction-in-arm-mean
+* https://stackoverflow.com/questions/17214962/what-is-the-difference-between-label-equals-sign-and-label-brackets-in-ar
+* https://stackoverflow.com/questions/14046686/why-use-ldr-over-mov-or-vice-versa-in-arm-assembly
+
+===== ARM addressing modes
+
+Example: link:userland/arch/arm/address_modes.S[]
+
+Load and store instructions can update the source register with the following modes:
+
+* offset: add an offset, don't change the address register. Notation:
++
+....
+ldr r1, [r0, 4]
+....
+* pre-indexed: change the address register, and then use it modified. Notation:
++
+....
+ldr r1, [r0, 4]!
+....
+* post-indexed: use the address register unmodified, and then modify it. Notation:
++
+....
+ldr r1, [r0], 4
+....
+
+The offset itself can come from the following sources:
+
+* immediate
+* register
+* scaled register: left shift the register and use that as an offset
+
+The indexed modes are convenient to loop over arrays.
+
+Bibliography: <<armarm7>>:
+
+* A4.6.5 "Addressing modes"
+* A8.5 "Memory accesses"
+
+====== ARM loop over array
+
+As an application of the post-indexed addressing mode, let's increment an array.
+
+Example: link:userland/arch/arm/inc_array.S[]
+
+===== ARM ldrh and ldrb instructions
+
+There are `ldr` variants that load less than full 4 bytes:
+
+* link:userland/arch/arm/ldrb.S[]: load byte
+* link:userland/arch/arm/ldrh.S[]: load half word
+
+==== ARM str instruction
+
+Store from memory into registers.
+
+Example: link:userland/arch/arm/str.S[]
+
+Basically everything that applies to <<arm-ldr-instruction>> also applies here so we won't go into much detail.
+
+===== ARMv8 aarch64 str instruction
+
+PC-relative `str` is not possible in aarch64.
+
+For `ldr` it works <<arm-ldr-instruction,as in aarch32>>.
+
+As a result, it is not possible to load from the literal pool for `str`.
+
+Example: link:userland/arch/aarch64/str.S[]
+
+This can be seen from <<armarm8>> C3.2.1 "Load/Store register": `ldr` simply has on extra PC encoding that `str` does not.
+
+===== ARMv8 aarch64 ldp and stp instructions
+
+Push a pair of registers to the stack.
+
+TODO minimal example. Currently used on link:v8/commmon_arch.h[] since it is the main way to restore register state.
+
+==== ARM ldmia instruction
+
+Pop values form stack into the register and optionally update the address register.
+
+`stmdb` is the push version.
+
+Example: link:userland/arch/arm/ldmia.S[]
+
+The mnemonics stand for:
+
+* `stmdb`: STore Multiple Decrement Before
+* `ldmia`: LoaD Multiple Increment After
+
+Example: link:userland/arch/arm/push.S[]
+
+`push` and `pop` are just mnemonics `stdmdb` and `ldmia` using the stack pointer `sp` as address register:
+
+....
+stmdb sp!, reglist
+ldmia sp!, reglist
+....
+
+The `!` indicates that we want to update the register.
+
+The registers are encoded as single bits inside the instruction: each bit represents one register.
+
+As a consequence, the push order is fixed no matter how you write the assembly instruction: there is just not enough space to encode ordering.
+
+AArch64 loses those instructions, likely because it was not possible anymore to encode all registers: http://stackoverflow.com/questions/27941220/push-lr-and-pop-lr-in-arm-arch64 and replaces them with the <<armv8-aarch64-ldp-and-stp-instructions>>
+
+=== ARM data processing instructions
+
+Arithmetic:
+
+* link:userland/arch/arm/add.S[]. We use this simple instruction to explain syntax common to most data processing instructions, so have a good look at that file.
+** link:userland/arch/aarch64/add.S[]
+* link:userland/arch/arm/mul.S[]: multiply
+* link:userland/arch/arm/sub.S[]: subtract
+* link:userland/arch/arm/rbit.S[]: reverse bit order
+* link:userland/arch/arm/rev.S[]: reverse byte order
+* link:userland/arch/arm/tst.S[]
+
+==== ARM cset instruction
+
+Example: link:userland/arch/aarch64/cset.S[]
+
+Set a register conditionally depending on the condition flags:
+
+ARMv8-only, likely because in ARMv8 you can't have conditional suffixes for every instruction.
+
+==== ARM bitwise instructions
+
+* link:userland/arch/arm/and.S[]
+* `eor`: exclusive OR
+* `orr`: OR
+* link:userland/arch/arm/clz.S[]: count leading zeroes
+
+===== ARM bic instruction
+
+Bitwise Bit Clear: clear some bits.
+
+....
+dest = `left & ~right`
+....
+
+Example: link:userland/arch/arm/bic.S[]
+
+===== ARM ubfm instruction
+
+Unsigned Bitfield Move.
+
+____
+copies any number of low-order bits from a source register into the same number of adjacent bits at any position in the destination register, with zeros in the upper and lower bits.
+____
+
+Example: link:userland/arch/aarch64/ubfm.S[]
+
+TODO: explain full behaviour. Very complicated. Has several simpler to understand aliases.
+
+====== ARM ubfx instruction
+
+Alias for:
+
+....
+UBFM <Wd>, <Wn>, #<lsb>, #(<lsb>+<width>-1)
+....
+
+Example: link:userland/arch/aarch64/ubfx.S[]
+
+The operation:
+
+....
+UBFX dest, src, lsb, width
+....
+
+does:
+
+....
+dest = (src & ((1 << width) - 1)) >> lsb;
+....
+
+Bibliography: https://stackoverflow.com/questions/8366625/arm-bit-field-extract
+
+===== ARM bfm instruction
+
+TODO: explain. Similar to <<arm-ubfm-instruction,`ubfm`>> but leave untouched bits unmodified.
+
+====== ARM bfi instruction
+
+Examples:
+
+* link:userland/arch/arm/bfi.S[]
+* link:userland/arch/aarch64/bfi.S[]
+
+Move the lower bits of source register into any position in the destination:
+
+* ARMv8: an alias for <<arm-bfm-instruction,`bfm`>>
+* ARMv7: a real instruction
+
+==== ARM mov instruction
+
+Move an immediate to a register, or a register to another register.
+
+Cannot load from or to memory, since only the `ldr` and `str` instruction families can do that in ARM: <<arm-load-and-store-instructions>>
+
+Example: link:userland/arch/arm/mov.S[]
+
+Since every instruction <<arm-instruction-length,has a fixed 4 byte size>>, there is not enough space to encode arbitrary 32-bit immediates in a single instruction, since some of the bits are needed to actually encode the instruction itself.
+
+The solutions to this problem are mentioned at:
+
+* https://stackoverflow.com/questions/38689886/loading-32-bit-values-to-a-register-in-arm-assembly
+* https://community.arm.com/processors/b/blog/posts/how-to-load-constants-in-assembly-for-arm-architecture
+
+Summary of solutions:
+
+* <<arm-movw-and-movt-instructions>>
+* place it in memory. But then how to load the address, which is also a 32-bit value?
+** use pc-relative addressing if the memory is close enough
+** use `orr` encodable shifted immediates
+
+The blog article summarizes nicely which immediates can be encoded and the design rationale:
+
+____
+An Operand 2 immediate must obey the following rule to fit in the instruction: an 8-bit value rotated right by an even number of bits between 0 and 30 (inclusive). This allows for constants such as 0xFF (0xFF rotated right by 0), 0xFF00 (0xFF rotated right by 24) or 0xF000000F (0xFF rotated right by 4).
+
+In software - especially in languages like C - constants tend to be small. When they are not small they tend to be bit masks. Operand 2 immediates provide a reasonable compromise between constant coverage and encoding space; most common constants can be encoded directly.
+____
+
+Assemblers however support magic memory allocations which may hide what is truly going on: https://stackoverflow.com/questions/14046686/why-use-ldr-over-mov-or-vice-versa-in-arm-assembly Always ask your friendly disassembly for a good confirmation.
+
+==== ARM movw and movt instructions
+
+Set the higher or lower 16 bits of a register to an immediate in one go.
+
+Example: link:userland/arch/arm/movw.S[]
+
+The armv8 version analogue is <<armv8-aarch64-movk-instruction>>.
+
+===== ARMv8 aarch64 movk instruction
+
+Fill a 64 bit register with 4 16-bit instructions one at a time.
+
+Similar to <<arm-movw-and-movt-instructions>> in v7.
+
+Example: link:userland/arch/aarch64/movk.S[]
+
+Bibliography: https://stackoverflow.com/questions/27938768/moving-a-32-bit-constant-in-arm-arch64-register
+
+===== ARMv8 aarch64 movn instruction
+
+Set 16-bits negated and the rest to `1`.
+
+Example: link:userland/arch/aarch64/movn.S[]
+
+==== ARM data processing instruction suffixes
+
+===== ARM shift suffixes
+
+Most data processing instructions can also optionally shift the second register operand.
+
+Example: link:userland/arch/arm/shift.S[]
+
+The shift types are:
+
+* `lsr` and `lfl`: Logical Shift Right / Left. Insert zeroes.
+* `ror`: Rotate Right / Left. Wrap bits around.
+* `asr`: Arithmetic Shift Right. Keep sign.
+
+Documented at: <<armarm7>> "A4.4.1 Standard data-processing instructions"
+
+===== ARM S suffix
+
+Example: link:userland/arch/arm/s_suffix.S[]
+
+The `S` suffix, present on most <<arm-data-processing-instructions>>, makes the instruction also set the Status register flags that control conditional jumps.
+
+If the result of the operation is `0`, then it triggers `beq`, since comparison is a subtraction, with success on 0.
+
+`cmp` sets the flags by default of course.
+
+==== ARM adr instruction
+
+Similar rationale to the <<arm-ldr-pseudo-instruction>>, allowing to easily store a PC-relative reachable address into a register in one go, to overcome the 4-byte fixed instruction size.
+
+Examples:
+
+* link:userland/arch/arm/adr.S[]
+* link:userland/arch/aarch64/adr.S[]
+* link:userland/arch/aarch64/adrp.S[]
+
+More details: https://stackoverflow.com/questions/41906688/what-are-the-semantics-of-adrp-and-adrl-instructions-in-arm-assembly/54042899#54042899
+
+===== ARM adrl instruction
+
+See: <<arm-adr-instruction>>.
+
+=== ARM miscellaneous instructions
+
+==== ARM nop instruction
+
+There are a few different ways to encode `nop`, notably `mov` a register into itself, and a dedicated miscellaneous instruction.
+
+Example: link:userland/arch/arm/nop.S[]
+
+Try disassembling the executable to see what the assembler is emitting:
+
+....
+gdb-multiarch -batch -ex 'arch arm' -ex "file v7/nop.out" -ex "disassemble/rs asm_main_after_prologue"
+....
+
+Bibliography: https://stackoverflow.com/questions/1875491/nop-for-iphone-binaries
 
 === ARM assembly bibliography
 

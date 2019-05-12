@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#data-processing-instructions */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#data-processing-instructions */
 
 #include "common.h"
 
@@ -28,7 +28,7 @@ ENTRY
 
 #if 0
     /* But we cannot omit the register if there is a shift when using .syntx unified:
-     * https://github.com/cirosantilli/arm-assembly-cheat#shift-suffixes
+     * https://github.com/cirosantilli/linux-kernel-module-cheat#shift-suffixes
      */
     .syntax unified
     /* Error: garbage following instruction */

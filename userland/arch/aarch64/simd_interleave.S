@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/arm-assembly-cheat#simd-interleaving */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#simd-interleaving */
 
 #include "common.h"
 
