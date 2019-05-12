@@ -35,7 +35,7 @@ ENTRY
     u64_1:          .quad 0x1555555515555555, 0x1666666616666666
     u64_sum_expect: .quad 0x0666666706666666, 0x0888888908888888
 .bss
-    u64_sum: .skip 16
+    u64_sum:        .skip 16
 .text
     adr x0, u64_0
     ld1 {v0.2d}, [x0]
@@ -56,7 +56,7 @@ ENTRY
     f32_1:          .float 5.5, 6.5,  7.5,  8.5
     f32_sum_expect: .float 7.0, 9.0, 11.0, 13.0
 .bss
-    f32_sum: .skip 16
+    f32_sum:        .skip 16
 .text
     adr x0, f32_0
     ld1 {v0.4s}, [x0]

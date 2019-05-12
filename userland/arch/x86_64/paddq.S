@@ -1,6 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-simd
  *
  * Add a bunch of integers in one go.
+ *
+ * The different variants basically determine if carries get forwarded or not.
  */
 
 #include "common.h"
@@ -14,14 +16,14 @@ ENTRY
     paddd_expect: .long 0x04040403, 0x06060605, 0x08080807, 0x0A0A0A09
     paddq_expect: .long 0x04040403, 0x06060606, 0x08080807, 0x0A0A0A0A
 .bss
-    result: .skip 16
+    output:       .skip 16
 .text
     movups input1, %xmm1
 #define TEST(size) \
     movups input0, %xmm0; \
     padd ## size %xmm1, %xmm0; \
-    movups %xmm0, result; \
-    ASSERT_MEMCMP(result, padd ## size ## _expect, $0x10)
+    movups %xmm0, output; \
+    ASSERT_MEMCMP(output, padd ## size ## _expect, $0x10)
 
     TEST(b)
     TEST(w)
