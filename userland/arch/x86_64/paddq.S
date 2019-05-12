@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#simd-assembly
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-paddq-instruction
  *
  * Add a bunch of integers in one go.
  *

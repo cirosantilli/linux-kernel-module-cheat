@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-simd
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-addpq-instruction
  *
  * Add a bunch of floating point numbers in one go.
  */
