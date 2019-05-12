@@ -7,7 +7,7 @@ import threading
 
 from shell_helpers import LF
 import common
-from thread_pool import ThreadPool
+import thread_pool
 
 class Main(common.BuildCliFunction):
     def __init__(self, *args, **kwargs):
@@ -79,10 +79,10 @@ Default: build all examples that have their package dependencies met, e.g.:
             extra_deps=[self.env['common_h']],
             link=False,
         )
-        with ThreadPool(
+        with thread_pool.ThreadPool(
             self._build_one,
             nthreads=self.env['nproc'],
-        ) as thread_pool:
+        ) as my_thread_pool:
             try:
                 for target in self.env['targets']:
                     for path, in_dirnames, in_filenames in self.sh.walk(target):
@@ -91,7 +91,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                             if not in_ext in self.env['build_in_exts']:
                                 continue
                             in_path = os.path.join(path, in_filename)
-                            error = thread_pool.submit({
+                            error = my_thread_pool.submit({
                                 'in_path': in_path,
                                 'out_path': self.resolve_userland_executable(in_path),
                                 'cc_flags': cc_flags,
@@ -102,7 +102,7 @@ Default: build all examples that have their package dependencies met, e.g.:
                                 raise common.ExitLoop()
             except common.ExitLoop:
                 pass
-        error = thread_pool.get_error()
+        error = my_thread_pool.get_error()
         if error is not None:
             print(error)
             return 1

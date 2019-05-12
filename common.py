@@ -8,7 +8,6 @@ import datetime
 import enum
 import functools
 import glob
-import importlib
 import inspect
 import itertools
 import json
@@ -64,7 +63,7 @@ consts['userland_subdir'] = 'userland'
 consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
 consts['userland_source_arch_dir'] = os.path.join(consts['userland_source_dir'], 'arch')
 consts['userland_executable_ext'] = '.out'
-consts['include_subdir'] = 'lkmc'
+consts['include_subdir'] = consts['repo_short_id']
 consts['include_source_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
 consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
 consts['buildroot_source_dir'] = os.path.join(consts['submodules_dir'], 'buildroot')
@@ -135,32 +134,7 @@ for key in consts['emulator_short_to_long_dict']:
     consts['emulator_choices'].add(key)
     consts['emulator_choices'].add(consts['emulator_short_to_long_dict'][key])
 consts['host_arch'] = platform.processor()
-
-def import_path(path):
-    '''
-    https://stackoverflow.com/questions/2601047/import-a-python-module-without-the-py-extension
-    https://stackoverflow.com/questions/31773310/what-does-the-first-argument-of-the-imp-load-source-method-do
-    '''
-    module_name = os.path.basename(path).replace('-', '_')
-    spec = importlib.util.spec_from_loader(
-        module_name,
-        importlib.machinery.SourceFileLoader(module_name, path)
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    sys.modules[module_name] = module
-    return module
-
-def import_path_relative_root(basename):
-    return import_path(os.path.join(consts['root_dir'], basename))
-
-def import_path_main(basename):
-    '''
-    Import an object of the Main class of a given file.
-
-    By convention, we call the main object of all our CLI scripts as Main.
-    '''
-    return import_path_relative_root(basename).Main()
+consts['guest_lkmc_home'] = os.sep + consts['repo_short_id']
 
 class ExitLoop(Exception):
     pass
@@ -452,8 +426,8 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
         )
         self.add_argument(
             '--qemu-which',
-            choices=['lkmc', 'host'],
-            default='lkmc',
+            choices=[consts['repo_short_id'], 'host'],
+            default=consts['repo_short_id'],
             help='''\
 Which qemu binaries to use: qemu-system-, qemu-, qemu-img, etc.:
 - lkmc: the ones we built with ./build-qemu
@@ -850,7 +824,11 @@ Incompatible archs are skipped.
         if env['emulator']== 'gem5':
             env['userland_quit_cmd'] = './gem5_exit.sh'
         else:
-            env['userland_quit_cmd'] = './poweroff.out'
+            env['userland_quit_cmd'] = join(
+                env['guest_lkmc_home'],
+                'linux',
+                'poweroff' + env['userland_executable_ext']
+            )
         env['ramfs'] = env['initrd'] or env['initramfs']
         if env['ramfs']:
             env['initarg'] = 'rdinit'
@@ -874,9 +852,8 @@ Incompatible archs are skipped.
 
         # Overlay.
         env['out_rootfs_overlay_dir'] = join(env['out_dir'], 'rootfs_overlay', env['arch'])
-        env['out_rootfs_overlay_lkmc_dir'] = join(env['out_rootfs_overlay_dir'], 'lkmc')
+        env['out_rootfs_overlay_lkmc_dir'] = join(env['out_rootfs_overlay_dir'], env['repo_short_id'])
         env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_lkmc_dir'], 'bin')
-        env['guest_lkmc_home'] = os.sep + 'lkmc'
 
         # Baremetal.
         env['baremetal_source_dir'] = join(env['root_dir'], 'baremetal')
@@ -893,7 +870,7 @@ Incompatible archs are skipped.
         env['baremetal_build_ext'] = '.elf'
 
         # Userland / baremetal common source.
-        env['common_basename_noext'] = 'lkmc'
+        env['common_basename_noext'] = env['repo_short_id']
         env['common_c'] = common_c = os.path.join(
             env['root_dir'],
             env['common_basename_noext'] + env['c_ext']
@@ -1165,8 +1142,6 @@ lunch aosp_{}-eng
                     if arch in env['arch_short_to_long_dict']:
                         arch = env['arch_short_to_long_dict'][arch]
                     if emulator == 'native':
-                        if env['userland'] is None:
-                            raise Exception('Emulator only supported in user mode: {}'.format(emulator))
                         if arch != env['host_arch']:
                             continue
                     if self.is_arch_supported(arch):
@@ -1286,6 +1261,8 @@ lunch aosp_{}-eng
         If it is out of tree, return the same exact path as input.
 
         If the input path is a file, add the executable extension automatically.
+
+        Directories map to the directories that would contain executable in that directory.
         '''
         if not self.env['dry_run'] and not os.path.exists(in_path):
             raise Exception('Input path does not exist: ' + in_path)

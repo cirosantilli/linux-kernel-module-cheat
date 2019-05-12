@@ -7,10 +7,7 @@
 
 ENTRY
 .bss
-    output: .skip 16
-
-#define t
-
+    output:       .skip 16
 .data
     addps_input0: .float 1.5, 2.5,  3.5,  4.5
     addps_input1: .float 5.5, 6.5,  7.5,  8.5

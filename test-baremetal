@@ -4,8 +4,9 @@ import os
 import sys
 
 import common
+import lkmc.import_path
 import path_properties
-from thread_pool import ThreadPool
+import thread_pool
 
 class Main(common.TestCliFunction):
     def __init__(self):
@@ -29,11 +30,11 @@ If given, run only the given tests. Otherwise, run all tests.
     def timed_main(self):
         run_args = self.get_common_args()
         rootdir_abs_len = len(self.env['root_dir'])
-        with ThreadPool(
+        with thread_pool.ThreadPool(
             self.run_test,
             nthreads=self.env['nproc'],
             thread_id_arg='thread_id',
-        ) as thread_pool:
+        ) as my_thread_pool:
             try:
                 for test in self.env['tests']:
                     for path, in_dirnames, in_filenames in self.sh.walk(test):
@@ -52,17 +53,17 @@ If given, run only the given tests. Otherwise, run all tests.
                                     test_args = {
                                         'expected_exit_status': my_path_properties['exit_status'],
                                         'run_args': cur_run_args,
-                                        'run_obj': common.import_path_main('run'),
+                                        'run_obj': lkmc.import_path.import_path_main('run'),
                                         'test_id': path_relative_root,
                                     }
-                                    error = thread_pool.submit(test_args)
+                                    error = my_thread_pool.submit(test_args)
                                     if error is not None:
                                         if self.env['quit_on_fail']:
                                             raise common.ExitLoop()
 
             except common.ExitLoop:
                 pass
-        error = thread_pool.get_error()
+        error = my_thread_pool.get_error()
         if error is not None:
             print(error)
             return 1

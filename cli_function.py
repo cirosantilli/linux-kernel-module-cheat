@@ -14,7 +14,7 @@ import collections
 import os
 import sys
 
-import common
+import lkmc.import_path
 
 class _Argument:
     def __init__(
@@ -192,7 +192,7 @@ class CliFunction:
         if config_file is not None:
             if os.path.exists(config_file):
                 config_configs = {}
-                config = common.import_path(config_file)
+                config = lkmc.import_path.import_path(config_file)
                 if self.extra_config_params is None:
                     config.set_args(config_configs)
                 else:
