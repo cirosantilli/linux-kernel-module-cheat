@@ -1117,6 +1117,10 @@ lunch aosp_{}-eng
             if flush:
                 sys.stdout.flush()
 
+    def log_warn(self, msg):
+        with self.print_lock:
+            print('warning: {}'.format(msg), file=sys.stdout)
+
     def is_subpath(self, subpath, parent):
         '''
         https://stackoverflow.com/questions/3812849/how-to-check-whether-a-directory-is-a-sub-directory-of-another-directory
