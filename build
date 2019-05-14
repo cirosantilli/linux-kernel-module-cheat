@@ -7,6 +7,7 @@ import cli_function
 import collections
 import common
 import copy
+import subprocess
 import shell_helpers
 from shell_helpers import LF
 
@@ -109,10 +110,8 @@ so looping over all of them would waste time.
         )
         buildroot_component = _Component(
             self._build_file('build-buildroot'),
-            submodules = {
-                'buildroot',
-            },
             submodules_shallow = {
+                'buildroot',
                 'binutils-gdb',
                 'gcc',
                 'glibc',
@@ -166,7 +165,7 @@ so looping over all of them would waste time.
                 # Generate graphs of config.ini under m5out.
                 'pydot',
             },
-            'submodules': {'gem5'},
+            'submodules_shallow': {'gem5'},
         }
 
         self.name_to_component_map = {
@@ -229,7 +228,7 @@ so looping over all of them would waste time.
                     'python-dev',
                     'texinfo',
                 },
-                submodules={'crosstool-ng'},
+                submodules_shallow={'crosstool-ng'},
             ),
             'doc': _Component(
                 self._build_file('build-doc'),
@@ -274,7 +273,7 @@ so looping over all of them would waste time.
             'm5': _Component(
                 self._build_file('build-m5'),
                 dependencies=['buildroot'],
-                submodules={'gem5'},
+                submodules_shallow={'gem5'},
             ),
             'overlay': _Component(dependencies=[
                 'copy-overlay',
@@ -286,7 +285,7 @@ so looping over all of them would waste time.
                 'overlay',
             ]),
             'parsec-benchmark': _Component(
-                submodules={'parsec-benchmark'},
+                submodules_shallow={'parsec-benchmark'},
                 dependencies=['buildroot'],
             ),
             'qemu': _Component(
@@ -514,25 +513,26 @@ Which components to build. Default: qemu-buildroot
                     ['python3', '-m', 'pip', 'install', '--user', LF] +
                     self.sh.add_newlines(sorted(python3_pkgs))
                 )
-            git_cmd_common = ['git', 'submodule', 'update', '--init', '--recursive']
-            if submodules:
-                # == Other nice git options for when distros move to newer Git
-                #
-                # Currently not on Ubuntu 16.04:
-                #
-                # `--progress`: added on Git 2.10:
-                #
+            git_version_tuple = tuple(int(x) for x in subprocess.check_output(['git', '--version']).decode().split(' ')[-1].split('.'))
+            git_cmd_common = [
+                'git', LF,
+                'submodule', LF,
+                'update', LF,
+                '--init', LF,
+                '--recursive', LF,
+            ]
+            if git_version_tuple >= (2, 9, 0):
+                # https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
+                git_cmd_common.extend(['--jobs', str(len(os.sched_getaffinity(0))), LF])
+            if git_version_tuple >= (2, 10, 0):
                 # * https://stackoverflow.com/questions/32944468/how-to-show-progress-for-submodule-fetching
                 # * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
-                #
-                # `--jobs"`: https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
-                self.sh.run_cmd(
-                    git_cmd_common + ['--', LF] +
-                    self.sh.add_newlines([os.path.join(common.consts['submodules_dir'], x) for x in sorted(submodules)])
-                )
+                git_cmd_common.extend(['--progress', LF])
+            def submodule_ids_to_cmd(submodules):
+                return self.sh.add_newlines([os.path.join(common.consts['submodules_dir'], x) for x in sorted(submodules)])
+            if submodules:
+                self.sh.run_cmd(git_cmd_common + ['--', LF] + submodule_ids_to_cmd(submodules))
             if submodules_shallow:
-                # == Shallow cloning.
-                #
                 # TODO Ideally we should shallow clone --depth 1 all of them.
                 #
                 # However, most git servers out there are crap or craply configured
@@ -549,11 +549,14 @@ Which components to build. Default: qemu-buildroot
                 # * https://stackoverflow.com/questions/3489173/how-to-clone-git-repository-with-specific-revision-changeset
                 # * https://stackoverflow.com/questions/2144406/git-shallow-submodules/47374702#47374702
                 # * https://unix.stackexchange.com/questions/338578/why-is-the-git-clone-of-the-linux-kernel-source-code-much-larger-than-the-extrac
-                #
-                self.sh.run_cmd(
-                    git_cmd_common + ['--depth', '1', '--', LF] +
-                    self.sh.add_newlines([os.path.join(common.consts['submodules_dir'], x) for x in sorted(submodules_shallow)])
-                )
+                cmd = git_cmd_common.copy()
+                if git_version_tuple > (2, 7, 4):
+                    # Then there is a bug in Ubuntu 16.04 git 2.7.4 where --depth 1 fails...
+                    # OMG git submodules implementation sucks:
+                    # * https://stackoverflow.com/questions/2155887/git-submodule-head-reference-is-not-a-tree-error/25875273#25875273
+                    # * https://github.com/boostorg/boost/issues/245
+                    cmd.extend(['--depth', '1', LF])
+                self.sh.run_cmd(cmd + ['--', LF] + submodule_ids_to_cmd(submodules_shallow))
 
         # Do the build.
         for component in selected_components:
