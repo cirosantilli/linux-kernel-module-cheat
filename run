@@ -702,9 +702,10 @@ Extra options to append at the end of the emulator command line.
                 # Part of me wants to: https://github.com/jonathanslenders/pymux
                 # but it cannot be used as a library properly it seems, and it is
                 # slower than tmux.
-                tmux_args += " --arch {} --emulator '{}' --linux-build-id '{}' --run-id '{}' --userland-build-id '{}'".format(
+                tmux_args += " --arch {} --emulator '{}' --gcc-which '{}' --linux-build-id '{}' --run-id '{}' --userland-build-id '{}'".format(
                     self.env['arch'],
                     self.env['emulator'],
+                    self.env['gcc_which'],
                     self.env['linux_build_id'],
                     self.env['run_id'],
                     self.env['userland_build_id'],
@@ -717,10 +718,12 @@ Extra options to append at the end of the emulator command line.
                     tmux_args += ' --in-tree'
             if self.env['tmux_args'] is not None:
                 tmux_args += ' {}'.format(self.env['tmux_args'])
-            subprocess.Popen([
+            tmux_cmd = [
                 os.path.join(self.env['root_dir'], 'tmux-split'),
                 "sleep 2;{} {}".format(tmux_cmd, tmux_args)
-            ])
+            ]
+            self.log_info(tmux_cmd)
+            subprocess.Popen(tmux_cmd)
         cmd.extend(extra_emulator_args)
         cmd.extend(self.env['extra_emulator_args'])
         if self.env['userland'] and self.env['emulator'] in ('qemu', 'native'):

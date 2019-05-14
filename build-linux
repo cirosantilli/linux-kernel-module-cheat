@@ -86,17 +86,14 @@ Run `make modules_install` after `make`.
     def build(self):
         build_dir = self.get_build_dir()
         os.makedirs(build_dir, exist_ok=True)
-        tool = 'gcc'
-        gcc = self.get_toolchain_tool(tool)
-        prefix = gcc[:-len(tool)]
         common_args = {
             'cwd': self.env['linux_source_dir'],
         }
         ccache = shutil.which('ccache')
         if ccache is not None:
-            cc = '{} {}'.format(ccache, gcc)
+            cc = '{} {}'.format(ccache, self.env['gcc_path'])
         else:
-            cc = gcc
+            cc = self.env['gcc_path']
         if self.env['verbose']:
             verbose = ['V=1']
         else:
@@ -105,7 +102,7 @@ Run `make modules_install` after `make`.
             'make', LF,
             '-j', str(self.env['nproc']), LF,
             'ARCH={}'.format(self.env['linux_arch']), LF,
-            'CROSS_COMPILE={}'.format(prefix), LF,
+            'CROSS_COMPILE={}-'.format(self.env['toolchain_prefix']), LF,
             'CC={}'.format(cc), LF,
             'O={}'.format(build_dir), LF,
         ] + verbose

@@ -963,10 +963,20 @@ There are several ways to run our userland content, notably:
 
 * natively on the host as shown at: <<userland-setup-getting-started-natively>>
 +
-Can only run examples compatible with your host architecture and OS, but has the fastest setup and runtimes.
-* from user mode simulation as shown at: <<qemu-user-mode-getting-started>>
+Can only run examples compatible with your host CPU architecture and OS, but has the fastest setup and runtimes.
+* from user mode simulation with:
 +
-Can run most examples, with the notable exception of examples that rely on kernel modules.
+--
+** the host prebuilt toolchain: <<userland-setup-getting-started-with-prebuilt-toolchain-and-qemu-user-mode>>
+** the Buildroot toolchain you built yourself: <<qemu-user-mode-getting-started>>
+--
++
+This setup:
++
+--
+** can run most examples, including those for other CPU architectures, with the notable exception of examples that rely on kernel modules
+** can run reproducible approximate performance experiments with gem5, see e.g. <<bst-vs-heap>>
+--
 * from full system simulation as shown at: <<qemu-buildroot-setup-getting-started>>.
 +
 This is the most reproducible and controlled environment, and all examples work there. But also the slower one to setup.
@@ -980,6 +990,7 @@ No installation or toolchain build is required, so you can just jump straight in
 Build, run and example, and clean it in-tree with:
 
 ....
+sudo apt-get install gcc
 cd userland
 ./build c/hello
 ./c/hello.out
@@ -1073,6 +1084,60 @@ In this case you can debub the program with:
 ....
 
 as shown at: <<debug-the-emulator>>, although direct GDB host usage works as well of course.
+
+===== Userland setup getting started with prebuilt toolchain and QEMU user mode
+
+If you are lazy to built the Buildroot toolchain and QEMU, but want to run e.g. ARM <<userland-assembly>> in <<user-mode-simulation>>, you can get away on Ubuntu 18.04 with just:
+
+....
+sudo apt-get install gcc-aarch64-linux-gnu qemu-system-aarch64
+./build-userland \
+  --arch aarch64 \
+  --gcc-which host \
+  --userland-build-id host \
+;
+./run \
+  --arch aarch64 \
+  --qemu-which host \
+  --userland-build-id host \
+  --userland userland/c/print_argv.c \
+  --userland-args 'asdf "qw er"' \
+;
+....
+
+where:
+
+* `--gcc-which host`: use the host toolchain.
++
+We must pass this to `./run` as well because QEMU must know which dynamic libraries to use. See also: <<user-mode-static-executables>>.
+* `--userland-build-id host`: put the host built into a <<build-variants>>
+
+This present the usual trade-offs of using prebuilts as mentioned at: <<prebuilt>>.
+
+Other functionality are analogous, e.g. testing:
+
+....
+./test-user-mode \
+  --arch aarch64 \
+  --gcc-which host \
+  --qemu-which host \
+  --userland-build-id host \
+;
+....
+
+and <<user-mode-gdb>>:
+
+....
+./run \
+  --arch aarch64 \
+  --gdb \
+  --gcc-which host \
+  --qemu-which host \
+  --userland-build-id host \
+  --userland userland/c/print_argv.c \
+  --userland-args 'asdf "qw er"' \
+;
+....
 
 ===== Userland setup getting started full system
 
@@ -3565,37 +3630,6 @@ If you followed <<qemu-buildroot-setup>>, you can now run the executables create
 ....
 
 Here is an interesting examples of this: <<linux-test-project>>
-
-=== User mode with host toolchain and QEMU
-
-If you are lazy to built the Buildroot toolchain and QEMU, you can get away on Ubuntu 18.04 with just:
-
-....
-sudo apt-get install gcc-aarch64-linux-gnu qemu-system-aarch64
-./build-userland \
-  --arch aarch64 \
-  --gcc-which host \
-  --userland-build-id host \
-;
-./run \
-  --arch aarch64 \
-  --qemu-which host
-  --userland-build-id host \
-  --userland userland/c/print_argv.c \
-  --userland-args 'asdf "qw er"' \
-;
-....
-
-where:
-
-* `--gcc-which host`: use the host toolchain.
-+
-We must pass this to `./run` as well because QEMU must know which dynamic libraries to use. See also: <<user-mode-static-executables>>.
-* `--userland-build-id host`: put the host built into a <<build-variants>>
-
-This present the usual trade-offs of using prebuilts as mentioned at: <<prebuilt>>.
-
-When you build with the native host toolchain, you can also execute many of the executables directly natively on the host: <<userland-setup-getting-started-natively>>.
 
 === User mode simulation with glibc
 
@@ -11497,7 +11531,11 @@ git -C "$(./getvar buildroot_source_dir)" grep 'depends on BR2_TOOLCHAIN_USES_GL
 
 One "downside" of glibc is that it exercises much more kernel functionality on its more bloated pre-main init, which breaks user mode C hello worlds more often, see: <<user-mode-simulation-with-glibc>>. I quote "downside" because glibc is actually exposing emulator bugs which we should actually go and fix.
 
-== C
+== Userland content
+
+See: <<about-the-userland-setup>>
+
+=== C
 
 Programs under link:userland/c/[] are examples of link:https://en.wikipedia.org/wiki/ANSI_C[ANSI C] programming:
 
@@ -11505,9 +11543,11 @@ Programs under link:userland/c/[] are examples of link:https://en.wikipedia.org/
 ** assert.h
 *** link:userland/c/assert_fail.c[]
 
-=== GCC C extensions
+These programs were originally moved from: https://github.com/
 
-==== C empty struct
+==== GCC C extensions
+
+===== C empty struct
 
 Example: link:userland/gcc/empty_struct.c[]
 
@@ -11515,7 +11555,7 @@ Documentation: https://gcc.gnu.org/onlinedocs/gcc-8.2.0/gcc/Empty-Structures.htm
 
 Question: https://stackoverflow.com/questions/24685399/c-empty-struct-what-does-this-mean-do
 
-==== OpenMP
+===== OpenMP
 
 GCC implements the <<OpenMP>> threading implementation: https://stackoverflow.com/questions/3949901/pthreads-vs-openmp
 
@@ -11532,11 +11572,11 @@ The implementation lives under `libgomp` in the GCC tree, and is documented at: 
 `strace` shows that OpenMP makes `clone()` syscalls in Linux. TODO: does it actually call `pthread_` functions, or does it make syscalls directly? Or in other words, can it work on <<freestanding-programs>>? A quick grep shows many references to pthreads.
 
 [[cpp]]
-== C++
+=== C++
 
 Programs under link:userland/cpp/[] are examples of link:https://en.wikipedia.org/wiki/C%2B%2B#Standardization[ISO C] programming.
 
-== POSIX
+=== POSIX
 
 Programs under link:userland/posix/[] are examples of POSIX C programming.
 
@@ -11559,6 +11599,13 @@ ISA specifics are covered at:
 ** link:userland/arch/aarch64/[]
 
 Like other userland programs, these programs can be run as explained at: <<userland-setup>>.
+
+As a quick reminder, the fastest setups to get started are:
+
+* <<userland-setup-getting-started-natively>> if your host can run the examples, e.g. x86 example on an x86 host
+* <<userland-setup-getting-started-with-prebuilt-toolchain-and-qemu-user-mode>> otherwise
+
+However, as usual, it is saner to build your toolchain as explained at: <<qemu-user-mode-getting-started>>.
 
 The first example that you want to run for each arch is:
 
@@ -11685,6 +11732,21 @@ corresponding register field is interpreted as returning zero when read or disca
 When instructions do not interpret this operand encoding as the zero register, use of the name XZR is an error
 ____
 
+=== Floating point assembly
+
+Keep in mind that many ISAs started floating point as an optional thing, and it later got better integrated into the main CPU, side by side with SIMD.
+
+For this reason, there are sometimes multiple ways to do floating point operations in each ISA.
+
+Let's start as usual with floating point addition + register file:
+
+* arm
+** <<arm-vadd-instruction>>
+** <<arm-vfp-registers>>
+* aarch64
+** <<armv8-aarch64-fadd-instruction>>
+** <<armv8-aarch64-floating-point-registers>>
+
 === SIMD assembly
 
 Much like ADD for non-SIMD, start learning SIMD instructions by looking at the integer and floating point SIMD ADD instructions of each ISA:
@@ -11696,7 +11758,7 @@ Much like ADD for non-SIMD, start learning SIMD instructions by looking at the i
 ** <<arm-vadd-instruction>>
 * aarch64
 ** <<armv8-aarch64-add-vector-instruction>>
-** <<armv8-aarch64-fadd-vector-instruction>>
+** <<armv8-aarch64-fadd-instruction>>
 
 Then it is just a huge copy paste of infinite boring details:
 
@@ -12023,7 +12085,7 @@ link:userland/arch/x86_64/paddq.S[]: `paddq`, `paddl`, `paddw`, `paddb`
 
 Good first instruction to learn SIMD: <<simd-assembly>>
 
-=== rdtsc
+=== x86 rdtsc instruction
 
 TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
 
@@ -12053,7 +12115,7 @@ Bibliography:
 
 ==== ARM pmccntr
 
-TODO We didn't manage to find a working ARM analogue to <<rdtsc>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
 
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
@@ -12116,7 +12178,7 @@ For this reason, QEMU and GAS seems to enable both AArch32 and ARMv7 under `arm`
 
 There are however some extensions over ARMv7, many of them are functionality that ARMv8 has and that designers decided to backport on AArch32 as well, e.g.:
 
-* <<arm-vcvta-instruction>>
+* <<armv8-aarch32-vcvta-instruction>>
 
 ===== AArch32 vs AArch64
 
@@ -12522,7 +12584,7 @@ ____
 
 Assemblers however support magic memory allocations which may hide what is truly going on: https://stackoverflow.com/questions/14046686/why-use-ldr-over-mov-or-vice-versa-in-arm-assembly Always ask your friendly disassembly for a good confirmation.
 
-==== ARM movw and movt instructions
+===== ARM movw and movt instructions
 
 Set the higher or lower 16 bits of a register to an immediate in one go.
 
@@ -12606,47 +12668,65 @@ Bibliography: https://stackoverflow.com/questions/1875491/nop-for-iphone-binarie
 
 === ARM SIMD
 
-==== ARM vadd instruction
+==== ARM VFP
 
-link:userland/arch/arm/vadd.S[]
+The name for the ARMv7 and AArch32 floating point and SIMD instructions / registers.
 
-Good first instruction to learn SIMD: <<simd-assembly>>
+Vector Floating Point extension.
 
-==== ARMv8 aarch64 add vector instruction
+TODO I think it was optional in ARMv7, find quote.
 
-link:userland/arch/aarch64/add_vector.S[]
+VFP has several revisions, named as VFPv1, VFPv2, etc. TODO: announcement dates.
 
-Good first instruction to learn SIMD: <<simd-assembly>>
+As mentioned at: https://stackoverflow.com/questions/37790029/what-is-difference-between-arm64-and-armhf/48954012#48954012 the Linux kernel shows those capabilities in `/proc/cpuinfo` with flags such as `vfp`, `vfpv3` and others, see:
 
-==== ARMv8 aarch64 fadd vector instruction
+* https://github.com/torvalds/linux/blob/v4.18/arch/arm/kernel/setup.c#L1199
+* https://github.com/torvalds/linux/blob/v4.18/arch/arm64/kernel/cpuinfo.c#L95
 
-link:userland/arch/aarch64/fadd_vector.S[]
+When a certain version of VFP is present on a CPU, the compiler prefix typically contains the `hf` characters which stands for Hard Float, e.g.: `arm-linux-gnueabihf`. This means that the compiler will emit VFP instructions instead of just using software implementations.
 
-Good first instruction to learn SIMD: <<simd-assembly>>
+Bibliography:
 
-===== ARM fadd vs vadd
+* <<armarm7>> Appendix D6 "Common VFP Subarchitecture Specification". It is not part of the ISA, but just an extension. TODO: that spec does not seem to have the instructions documented, and instruction like `VMOV` just live with the main instructions. Is `VMOV` part of VFP?
+* https://mindplusplus.wordpress.com/2013/06/25/arm-vfp-vector-programming-part-1-introduction/
+* https://en.wikipedia.org/wiki/ARM_architecture#Floating-point_(VFP)
 
-It is very confusing, but `fadds` and `faddd` in Aarch32 are <<gnu-gas-assembler-arm-unified-syntax,pre-UAL>> for `vadd.f32` and `vadd.f64` which we use in this tutorial: <<arm-vadd-instruction>>
+===== ARM VFP registers
 
-The same goes for most ARMv7 mnemonics: `f*` is old, and `v*` is the newer better syntax.
+TODO example
 
-But then, in ARMv8, they decided to use <<armv8-aarch64-fadd-vector-instruction>> as the main floating point add name, and get rid of `vadd`!
+<<armarm8>> E1.3.1 "The SIMD and floating-point register file" Figure E1-1 "SIMD and floating-point register file, AArch32 operation":
 
-Also keep in mind that fused multiply add is `fmadd`.
+....
++-----+-----+-----+
+| S0  |     |     |
++-----+ D0  +     |
+| S1  |     |     |
++-----+-----+ Q0  |
+| S2  |     |     |
++-----+ D1  +     |
+| S3  |     |     |
++-----+-----+-----+
+| S4  |     |     |
++-----+ D2  +     |
+| S5  |     |     |
++-----+-----+ Q1  |
+| S6  |     |     |
++-----+ D3  +     |
+| S7  |     |     |
++-----+-----+-----+
+....
 
-Examples at: <<simd-assembly>>
+Note how Sn is weirdly packed inside Dn, and Dn weirdly packed inside Qn, likely for historical reasons.
 
-==== arm ld2 instruction
+And you can't access the higher bytes at D16 or greater with Sn.
 
-Example: link:userland/arch/aarch64/ld2.S[]
+===== ARM vadd instruction
 
-We can load multiple vectors interleaved from memory in one single instruction!
+* link:userland/arch/arm/vadd_scalar.S[]: see also: <<floating-point-assembly>>
+* link:userland/arch/arm/vadd_vector.S[]: see also: <<simd-assembly>>
 
-This is why the `ldN` instructions take an argument list denoted by `{}` for the registers, much like armv7 <<ldmia>>.
-
-There are analogous `ld3` and `ld4` instruction.
-
-==== ARM vcvt instruction
+===== ARM vcvt instruction
 
 Example: link:userland/arch/arm/vcvt.S[]
 
@@ -12666,19 +12746,19 @@ E.g., in our 32-bit float to 32-bit unsigned example we use:
 vld1.32.f32
 ....
 
-===== ARM vcvtr instruction
+====== ARM vcvtr instruction
 
 Example: link:userland/arch/arm/vcvtr.S[]
 
 Like <<arm-vcvt-instruction>>, but the rounding mode is selected by the FPSCR.RMode field.
 
-Selecting rounding mode explicitly per instruction was apparently not possible in ARMv7, but was made possible in <<aarch32>> e.g. with <<arm-vcvta-instruction>>.
+Selecting rounding mode explicitly per instruction was apparently not possible in ARMv7, but was made possible in <<aarch32>> e.g. with <<armv8-aarch32-vcvta-instruction>>.
 
 Rounding mode selection is exposed in the ANSI C standard through link:https://en.cppreference.com/w/c/numeric/fenv/feround[`fesetround`].
 
 TODO: is the initial rounding mode specified by the ELF standard? Could not find a reference.
 
-===== ARM vcvta instruction
+====== ARMv8 AArch32 vcvta instruction
 
 Example: link:userland/arch/arm/vcvt.S[]
 
@@ -12689,6 +12769,110 @@ In ARMv7, to use a non-round-to-zero rounding mode, you had to set the rounding 
 Now in AArch32 it is possible to do it explicitly per-instruction.
 
 Also there was no ties to away mode in ARMv7. This mode does not exist in C99 either.
+
+==== ARMv8 Advanced SIMD and floating-point support
+
+The <<armarm8>> specifies floating point and SIMD support in the main architecture at A1.5 "Advanced SIMD and floating-point support".
+
+The feature is often refered to simply as "SIMD&FP" throughout the manual.
+
+The Linux kernel shows `/proc/cpuinfo` compatibility as `neon`, which is yet another intermediate name that came up at some point: <<arm-neon>>
+
+Vs <<arm-vfp>>: https://stackoverflow.com/questions/4097034/arm-cortex-a8-whats-the-difference-between-vfp-and-neon
+
+===== ARMv8 floating point availability
+
+Support is semi-mandatory. <<armarm8>> A1.5 "Advanced SIMD and floating-point support":
+
+____
+ARMv8 can support the following levels of support for Advanced SIMD and floating-point instructions:
+
+- Full SIMD and floating-point support without exception trapping.
+- Full SIMD and floating-point support with exception trapping.
+- No floating-point or SIMD support. This option is licensed only for implementations targeting specialized markets.
+
+Note: All systems that support standard operating systems with rich application environments provide hardware
+support for Advanced SIMD and floating-point. It is a requirement of the ARM Procedure Call Standard for
+AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.
+____
+
+Therefore it is in theory optional, but highly available.
+
+This is unlike ARMv7, where floating point is completely optional through <<arm-vfp>>.
+
+===== ARM NEON
+
+Just an informal name for the "Advanced SIMD instructions"? Very confusing.
+
+<<armarm8>> F2.9 "Additional information about Advanced SIMD and floating-point instructions" says:
+
+____
+The Advanced SIMD architecture, its associated implementations, and supporting software, are commonly referred to as NEON technology.
+____
+
+https://developer.arm.com/technologies/neon mentions that is is present on both ARMv7 and ARMv8:
+
+____
+NEON technology was introduced to the Armv7-A and Armv7-R profiles. It is also now an extension to the Armv8-A and Armv8-R profiles.
+____
+
+==== ARMv8 AArch64 floating point registers
+
+TODO example.
+
+<<armarm8>> B1.2.1 "Registers in AArch64 state" describes the registers:
+
+____
+32 SIMD&FP registers, `V0` to `V31`. Each register can be accessed as:
+
+* A 128-bit register named `Q0` to `Q31`.
+* A 64-bit register named `D0` to `D31`.
+* A 32-bit register named `S0` to `S31`.
+* A 16-bit register named `H0` to `H31`.
+* An 8-bit register named `B0` to `B31`.
+____
+
+Notice how Sn is very different between v7 and v8! In v7 it goes across Dn, and in v8 inside each Dn.
+
+===== ARMv8 aarch64 add vector instruction
+
+link:userland/arch/aarch64/add_vector.S[]
+
+Good first instruction to learn SIMD: <<simd-assembly>>
+
+===== ARMv8 aarch64 fadd instruction
+
+* link:userland/arch/aarch64/fadd_vector.S[]: see also: <<simd-assembly>>
+* link:userland/arch/aarch64/fadd_scalar.S[]: see also: <<floating-point-assembly>>
+
+====== ARM fadd vs vadd
+
+It is very confusing, but `fadds` and `faddd` in Aarch32 are <<gnu-gas-assembler-arm-unified-syntax,pre-UAL>> for `vadd.f32` and `vadd.f64` which we use in this tutorial: <<arm-vadd-instruction>>
+
+The same goes for most ARMv7 mnemonics: `f*` is old, and `v*` is the newer better syntax.
+
+But then, in ARMv8, they decided to use <<armv8-aarch64-fadd-instruction>> as the main floating point add name, and get rid of `vadd`!
+
+Also keep in mind that fused multiply add is `fmadd`.
+
+Examples at: <<simd-assembly>>
+
+===== ARMv8 aarch64 ld2 instruction
+
+Example: link:userland/arch/aarch64/ld2.S[]
+
+We can load multiple vectors interleaved from memory in one single instruction!
+
+This is why the `ldN` instructions take an argument list denoted by `{}` for the registers, much like armv7 <<arm-ldmia-instruction>>.
+
+There are analogous `ld3` and `ld4` instruction.
+
+==== ARM SIMD bibliography
+
+* GNU GAS tests under link:https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=tree;f=gas/testsuite/gas/aarch64;hb=00f223631fa9803b783515a2f667f86997e2cdbe[`gas/testsuite/gas/aarch64`]
+* https://stackoverflow.com/questions/2851421/is-there-a-good-reference-for-arm-neon-intrinsics
+* assembly optimized libraries:
+** https://github.com/projectNe10/Ne10
 
 === ARM assembly bibliography
 

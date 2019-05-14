@@ -972,9 +972,16 @@ lunch aosp_{}-eng
                 raise Exception('There is no host baremetal chain for arch: ' + env['arch'])
         else:
             raise Exception('Unknown toolchain: ' + env['gcc_which'])
-        env['gcc'] = self.get_toolchain_tool('gcc')
-        env['gxx'] = self.get_toolchain_tool('g++')
-        env['ld'] = self.get_toolchain_tool('ld')
+        env['gcc_path'] = self.get_toolchain_tool('gcc')
+        env['gxx_path'] = self.get_toolchain_tool('g++')
+        env['ld_path'] = self.get_toolchain_tool('ld')
+        if env['gcc_which'] == 'host':
+            if env['arch'] == 'x86_64':
+                env['gdb_path'] = 'gdb'
+            else:
+                env['gdb_path'] = 'gdb-multiarch'
+        else:
+            env['gdb_path'] = self.get_toolchain_tool('gdb')
 
     def add_argument(self, *args, **kwargs):
         '''
@@ -1421,10 +1428,10 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                     cc_flags.extend(['-c', LF])
                 in_ext = os.path.splitext(in_path)[1]
                 if in_ext in (self.env['c_ext'], self.env['asm_ext']):
-                    cc = self.env['gcc']
+                    cc = self.env['gcc_path']
                     std = my_path_properties['c_std']
                 elif in_ext == self.env['cxx_ext']:
-                    cc = self.env['gxx']
+                    cc = self.env['gxx_path']
                     std = my_path_properties['cxx_std']
                 if dirpath_relative_root_components_len > 0:
                     if dirpath_relative_root_components[0] == 'userland':

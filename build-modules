@@ -77,14 +77,11 @@ Place the modules on a separate magic directory from non --host builds.
             build_subdir = self.env['kernel_modules_build_host_subdir']
         else:
             build_subdir = self.env['kernel_modules_build_subdir']
-        tool = 'gcc'
-        gcc = self.get_toolchain_tool(tool)
-        prefix = gcc[:-len(tool)]
         ccache = shutil.which('ccache')
         if ccache is not None:
-            cc = '{} {}'.format(ccache, gcc)
+            cc = '{} {}'.format(ccache, self.env['gcc_path'])
         else:
-            cc = gcc
+            cc = self.env['gcc_path']
         if self.env['host']:
             linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
         else:
@@ -105,7 +102,7 @@ Place the modules on a separate magic directory from non --host builds.
                     'ARCH={}'.format(self.env['linux_arch']), LF,
                     'CC={}'.format(cc), LF,
                     'CCFLAGS={}'.format(self.sh.cmd_to_string(ccflags)), LF,
-                    'CROSS_COMPILE={}'.format(prefix), LF,
+                    'CROSS_COMPILE={}-'.format(self.env['toolchain_prefix']), LF,
                     'LINUX_DIR={}'.format(linux_dir), LF,
                     'M={}'.format(build_subdir), LF,
                     'OBJECT_FILES={}'.format(' '.join(object_files)), LF,
