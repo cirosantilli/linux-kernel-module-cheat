@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#pmccntr */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-pmccntr */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */

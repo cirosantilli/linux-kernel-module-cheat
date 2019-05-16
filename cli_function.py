@@ -11,9 +11,10 @@ made to this file.
 import argparse
 import bisect
 import collections
-import imp
 import os
 import sys
+
+import lkmc.import_path
 
 class _Argument:
     def __init__(
@@ -113,8 +114,7 @@ class _Argument:
 
 class CliFunction:
     '''
-    Represent a function that can be called either from Python code, or
-    from the command line.
+    A function that can be called either from Python code, or from the command line.
 
     Features:
 
@@ -134,6 +134,10 @@ class CliFunction:
 
     * that decorator API is insane
     * CLI + Python for single functions was wontfixed: https://github.com/pallets/click/issues/40
+    +
+    Oh, and I commented on that issue pointing to this alternative and they deleted my comment:
+    https://github.com/pallets/click/issues/40#event-2088718624 Lol. It could have been useful
+    for other Googlers and as an implementation reference.
     '''
     def __call__(self, **kwargs):
         '''
@@ -147,15 +151,15 @@ class CliFunction:
     def _do_main(self, kwargs):
         return self.main(**self._get_args(kwargs))
 
-    def __init__(self, config_file=None, description=None, extra_config_params=None):
+    def __init__(self, default_config_file=None, description=None, extra_config_params=None):
         self._arguments = collections.OrderedDict()
-        self._config_file = config_file
+        self._default_config_file = default_config_file
         self._description = description
         self.extra_config_params = extra_config_params
-        if self._config_file is not None:
+        if self._default_config_file is not None:
             self.add_argument(
                 '--config-file',
-                default=self._config_file,
+                default=self._default_config_file,
                 help='Path to the configuration file to use'
             )
 
@@ -172,30 +176,35 @@ class CliFunction:
         args_with_defaults = kwargs.copy()
         # Add missing args from config file.
         config_file = None
+        args_given = {}
         if 'config_file' in args_with_defaults and args_with_defaults['config_file'] is not None:
             config_file = args_with_defaults['config_file']
+            args_given['config_file'] = True
         else:
-            config_file = self._config_file
-        args_given = {}
+            config_file = self._default_config_file
+            args_given['config_file'] = False
         for key in self._arguments:
             args_given[key] = not (
                 not key in args_with_defaults or
                 args_with_defaults[key] is None or
                 self._arguments[key].nargs == '*' and args_with_defaults[key] == []
             )
-        if config_file is not None and os.path.exists(config_file):
-            config_configs = {}
-            config = imp.load_source('config', config_file)
-            if self.extra_config_params is None:
-                config.set_args(config_configs)
-            else:
-                config.set_args(config_configs, self.extra_config_params)
-            for key in config_configs:
-                if key not in self._arguments:
-                    raise Exception('Unknown key in config file: ' + key)
-                if not args_given[key]:
-                    args_with_defaults[key] = config_configs[key]
-                    args_given[key] = True
+        if config_file is not None:
+            if os.path.exists(config_file):
+                config_configs = {}
+                config = lkmc.import_path.import_path(config_file)
+                if self.extra_config_params is None:
+                    config.set_args(config_configs)
+                else:
+                    config.set_args(config_configs, self.extra_config_params)
+                for key in config_configs:
+                    if key not in self._arguments:
+                        raise Exception('Unknown key in config file: ' + key)
+                    if not args_given[key]:
+                        args_with_defaults[key] = config_configs[key]
+                        args_given[key] = True
+            elif args_given['config_file']:
+                raise Exception('Config file does not exist: ' + config_file)
         # Add missing args from hard-coded defaults.
         for key in self._arguments:
             argument = self._arguments[key]
@@ -290,7 +299,10 @@ class CliFunction:
                 if value != default:
                     if argument.is_option:
                         if argument.is_bool:
-                            vals = [(argument.longname,)]
+                            if value:
+                                vals = [(argument.longname,)]
+                            else:
+                                vals = [('--no-' + argument.longname[2:],)]
                         elif 'action' in argument.kwargs and argument.kwargs['action'] == 'append':
                             vals = [(argument.longname, str(val)) for val in value]
                         else:
@@ -326,7 +338,7 @@ if __name__ == '__main__':
     class OneCliFunction(CliFunction):
         def __init__(self):
             super().__init__(
-                config_file='cli_function_test_config.py',
+                default_config_file='cli_function_test_config.py',
                 description = '''\
 Description of this
 amazing function!
@@ -454,7 +466,8 @@ amazing function!
     # get_cli
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B') == [('--asdf', 'B'), ('--bool-cli',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, asdf='B', qwer='R') == [('--asdf', 'B'), ('--bool-cli',), ('--qwer', 'R'), ('1',)]
-    assert one_cli_function.get_cli(pos_mandatory=1, bool_true=False) == [('--bool-cli',), ('--bool-true',), ('1',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, bool_true=False) == [('--bool-cli',), ('--no-bool-true',), ('1',)]
+    assert one_cli_function.get_cli(pos_mandatory=1, bool_false=True) == [('--bool-cli',), ('--bool-false',), ('1',)]
     assert one_cli_function.get_cli(pos_mandatory=1, pos_optional=2, args_star=['asdf', 'qwer']) == [('--bool-cli',), ('1',), ('2',), ('asdf',), ('qwer',)]
     assert one_cli_function.get_cli(pos_mandatory=1, append=['2', '3']) == [('--append', '2'), ('--append', '3',), ('--bool-cli',), ('1',)]
 

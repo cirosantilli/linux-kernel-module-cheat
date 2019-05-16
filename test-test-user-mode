@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# https://github.com/cirosantilli/linux-kernel-module-cheat#cli-script-tests
+
+set -eux
+
+./build-userland
+./build-userland-in-tree
+
+f="$(tempfile)"
+
+./test-user-mode | tee "$f"
+grep -E '^PASS .* userland/c/hello' "$f"
+grep -E '^PASS .* userland/posix/uname' "$f"
+
+./test-user-mode userland | tee "$f"
+grep -E '^PASS .* userland/c/hello' "$f"
+grep -E '^PASS .* userland/posix/uname' "$f"
+
+./test-user-mode userland/c | tee "$f"
+grep -E '^PASS .* userland/c/hello' "$f"
+! grep -E '^PASS .* userland/posix/uname' "$f"
+
+./test-user-mode userland/c/hello.c | tee "$f"
+grep -E '^PASS .* userland/c/hello' "$f"
+! grep -E '^PASS .* userland/c/false' "$f"
+! grep -E '^PASS .* userland/posix/uname' "$f"
+
+./test-user-mode-in-tree | tee "$f"
+grep -E '^PASS .* userland/c/hello' "$f"
+grep -E '^PASS .* userland/posix/uname' "$f"
+
+cd userland
+./test
+grep -E '^PASS .* userland/c/hello' "$f"
+grep -E '^PASS .* userland/posix/uname' "$f"
+cd ..
+
+rm "$f"

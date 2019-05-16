@@ -11,22 +11,15 @@ void lkmc_assert(bool condition) {
         lkmc_assert_fail();
 }
 
-void lkmc_assert_fail() {
-    puts("lkmc_test_fail");
+void lkmc_assert_fail(void) {
     exit(1);
 }
 
-bool lkmc_vector_equal(size_t n, double *v1, double *v2, double max_err) {
-    double sum = 0.0;
-    double diff;
-    size_t i;
-    for (i = 0; i < n; ++i) {
-        diff = v1[i] - v2[i];
-        sum += diff * diff;
+void lkmc_baremetal_on_exit_callback(int status, void *arg) {
+    (void)arg;
+    if (status != 0) {
+        printf("lkmc_exit_status_%d\n", status);
     }
-    if (sqrt(sum)/n > max_err)
-        return false;
-    return true;
 }
 
 #if defined(__aarch64__)

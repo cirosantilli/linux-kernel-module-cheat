@@ -52,10 +52,9 @@ class ShellHelpers:
         https://stackoverflow.com/questions/3029816/how-do-i-get-a-thread-safe-print-in-python-2-6
         The initial use case was test-gdb which must create a thread for GDB to run the program in parallel.
         '''
-        cls._print_lock.acquire()
-        sys.stdout.write(string + '\n')
-        sys.stdout.flush()
-        cls._print_lock.release()
+        with cls._print_lock:
+            sys.stdout.write(string + '\n')
+            sys.stdout.flush()
 
     def add_newlines(self, cmd):
         out = []
@@ -124,21 +123,20 @@ class ShellHelpers:
         os.makedirs(destdir, exist_ok=True)
         for basename in sorted(os.listdir(srcdir)):
             src = os.path.join(srcdir, basename)
-            if os.path.isfile(src):
+            if os.path.isfile(src) or os.path.islink(src):
                 noext, ext = os.path.splitext(basename)
-                if filter_ext is not None and ext == filter_ext:
-                    distutils.file_util.copy_file(
-                        src,
-                        os.path.join(destdir, basename),
-                        update=1,
-                    )
+                dest = os.path.join(destdir, basename)
+                if (
+                    (filter_ext is None or ext == filter_ext) and
+                    (not os.path.exists(dest) or os.path.getmtime(src) > os.path.getmtime(dest))
+                ):
+                    self.cp(src, dest)
 
     def copy_dir_if_update(self, srcdir, destdir, filter_ext=None):
         self.copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext)
         srcdir_abs = os.path.abspath(srcdir)
         srcdir_abs_len = len(srcdir_abs)
-        for path, dirnames, filenames in os.walk(srcdir_abs):
-            dirnames.sort()
+        for path, dirnames, filenames in self.walk(srcdir_abs):
             for dirname in dirnames:
                 dirpath = os.path.join(path, dirname)
                 dirpath_relative_root = dirpath[srcdir_abs_len + 1:]
@@ -151,7 +149,13 @@ class ShellHelpers:
     def cp(self, src, dest, **kwargs):
         self.print_cmd(['cp', src, dest])
         if not self.dry_run:
-            shutil.copy2(src, dest)
+            if os.path.islink(src):
+                if os.path.lexists(dest):
+                    os.unlink(dest)
+                linkto = os.readlink(src)
+                os.symlink(linkto, dest)
+            else:
+                shutil.copy2(src, dest)
 
     def print_cmd(self, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
         '''
@@ -170,24 +174,33 @@ class ShellHelpers:
         if not self.quiet:
             self._print_thread_safe('+ ' + cmd_string)
         if cmd_file is not None:
+            os.makedirs(os.path.dirname(cmd_file), exist_ok=True)
             with open(cmd_file, 'w') as f:
                 f.write('#!/usr/bin/env bash\n')
                 f.write(cmd_string)
             self.chmod(cmd_file)
 
+    def rmrf(self, path):
+        self.print_cmd(['rm', '-r', '-f', path, LF])
+        if not self.dry_run and os.path.exists(path):
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.unlink(path)
+
     def run_cmd(
-            self,
-            cmd,
-            cmd_file=None,
-            out_file=None,
-            show_stdout=True,
-            show_cmd=True,
-            extra_env=None,
-            extra_paths=None,
-            delete_env=None,
-            raise_on_failure=True,
-            **kwargs
-        ):
+        self,
+        cmd,
+        cmd_file=None,
+        out_file=None,
+        show_stdout=True,
+        show_cmd=True,
+        extra_env=None,
+        extra_paths=None,
+        delete_env=None,
+        raise_on_failure=True,
+        **kwargs
+    ):
         '''
         Run a command. Write the command to stdout before running it.
 
@@ -211,16 +224,16 @@ class ShellHelpers:
         :return: exit status of the command
         :rtype: int
         '''
-        if out_file is not None:
-            stdout = subprocess.PIPE
-            stderr = subprocess.STDOUT
-        else:
+        if out_file is None:
             if show_stdout:
                 stdout = None
                 stderr = None
             else:
                 stdout = subprocess.DEVNULL
                 stderr = subprocess.DEVNULL
+        else:
+            stdout = subprocess.PIPE
+            stderr = subprocess.STDOUT
         if extra_env is None:
             extra_env = {}
         if delete_env is None:
@@ -283,7 +296,9 @@ class ShellHelpers:
                 #signal.signal(signal.SIGPIPE, sigpipe_old)
             returncode = proc.returncode
             if returncode != 0 and raise_on_failure:
-                raise Exception('Command exited with status: {}'.format(returncode))
+                e = Exception('Command exited with status: {}'.format(returncode))
+                e.returncode = returncode
+                raise e
             return returncode
         else:
             return 0
@@ -302,14 +317,6 @@ class ShellHelpers:
         else:
             return [x for x in cmd if x != LF]
 
-    def rmrf(self, path):
-        self.print_cmd(['rm', '-r', '-f', path, LF])
-        if not self.dry_run and os.path.exists(path):
-            if os.path.isdir(path):
-                shutil.rmtree(path)
-            else:
-                os.unlink(path)
-
     def walk(self, root):
         '''
         Extended walk that can take files or directories.
@@ -321,6 +328,8 @@ class ShellHelpers:
             yield dirname, [], [basename]
         else:
             for path, dirnames, filenames in os.walk(root):
+                dirnames.sort()
+                filenames.sort()
                 yield path, dirnames, filenames
 
     def wget(self, url, download_path):

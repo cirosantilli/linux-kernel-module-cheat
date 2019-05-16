@@ -81,21 +81,19 @@ Run `make modules_install` after `make`.
             metavar='extra-make-args',
             nargs='*'
         )
+        self._add_argument('--force-rebuild')
 
     def build(self):
         build_dir = self.get_build_dir()
         os.makedirs(build_dir, exist_ok=True)
-        tool = 'gcc'
-        gcc = self.get_toolchain_tool(tool)
-        prefix = gcc[:-len(tool)]
         common_args = {
             'cwd': self.env['linux_source_dir'],
         }
         ccache = shutil.which('ccache')
         if ccache is not None:
-            cc = '{} {}'.format(ccache, gcc)
+            cc = '{} {}'.format(ccache, self.env['gcc_path'])
         else:
-            cc = gcc
+            cc = self.env['gcc_path']
         if self.env['verbose']:
             verbose = ['V=1']
         else:
@@ -104,10 +102,12 @@ Run `make modules_install` after `make`.
             'make', LF,
             '-j', str(self.env['nproc']), LF,
             'ARCH={}'.format(self.env['linux_arch']), LF,
-            'CROSS_COMPILE={}'.format(prefix), LF,
+            'CROSS_COMPILE={}-'.format(self.env['toolchain_prefix']), LF,
             'CC={}'.format(cc), LF,
             'O={}'.format(build_dir), LF,
         ] + verbose
+        if self.env['force_rebuild']:
+            common_make_args.extend(['-B', LF])
         if self.env['configure']:
             if self.env['custom_config_target']:
                 base_config_given = True
@@ -182,13 +182,13 @@ Run `make modules_install` after `make`.
                     ] +
                     self.sh.add_newlines(config_fragments)
                 )
-                self.sh.run_cmd(
-                    (
-                        common_make_args +
-                        ['olddefconfig', LF]
-                    ),
-                    **common_args
-                )
+            self.sh.run_cmd(
+                (
+                    common_make_args +
+                    ['olddefconfig', LF]
+                ),
+                **common_args
+            )
         if self.env['build']:
             self.sh.run_cmd(
                 (
@@ -199,7 +199,7 @@ Run `make modules_install` after `make`.
                 extra_env={
                     'KBUILD_BUILD_VERSION': '1',
                     'KBUILD_BUILD_TIMESTAMP': 'Thu Jan  1 00:00:00 UTC 1970',
-                    'KBUILD_BUILD_USER': 'lkmc',
+                    'KBUILD_BUILD_USER': self.env['repo_short_id'],
                     'KBUILD_BUILD_HOST': common.git_sha(self.env['linux_source_dir']),
                 },
                 **common_args
@@ -209,7 +209,7 @@ Run `make modules_install` after `make`.
                     (
                         common_make_args +
                         [
-                            'INSTALL_MOD_PATH={}'.format(self.env['out_rootfs_overlay_dir']), LF,
+                            'INSTALL_MOD_PATH={}'.format(self.env['out_rootfs_overlay_lkmc_dir']), LF,
                             'modules_install', LF,
                         ]
                     ),

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 
 import common
 from shell_helpers import LF
 
-parser = self.get_argparse(argparse_args={
-    'description': '''Run a Buildroot ToolChain tool like readelf or objdump.
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            defaults = {
+                'show_time': False,
+            },
+            description='''Run a Buildroot ToolChain tool like readelf or objdump.
 
 For example, to get some information about the arm vmlinux:
 
@@ -20,31 +24,40 @@ Get the list of available tools with:
 ....
 ls "$(./getvar -a arm buildroot_host_bin_dir)"
 ....
-'''
-})
-parser.add_argument(
-    '--dry',
-    help='Just output the tool path to stdout but actually run it',
-)
-parser.add_argument('tool', help='Which tool to run.')
-parser.add_argument(
-    'extra_args',
-    default=[],
-    help='Extra arguments for the tool.',
-    metavar='extra-args',
-    nargs='*'
-)
-args = self.setup(parser)
-if kwargs['baremetal'] is None:
-    image = kwargs['vmlinux']
-else:
-    image = kwargs['image']
-tool= self.get_toolchain_tool(kwargs['tool'])
-if kwargs['dry']:
-    print(tool)
-else:
-    sys.exit(self.sh.run_cmd(
-        [tool, LF]
-        + self.sh.add_newlines(kwargs['extra_args']),
-        cmd_file=os.path.join(kwargs['run_dir'], 'run-toolchain.sh'),
-    ))
+''',
+        )
+        self.add_argument(
+            '--print-tool',
+            default=False,
+            help='''
+Just output print tool path to stdout but don't actually run it.
+Suitable for programmatic consumption by other shell programs.
+''',
+        )
+        self.add_argument('tool', help='Which tool to run.')
+        self.add_argument(
+            'extra_args',
+            default=[],
+            help='Extra arguments for the tool.',
+            metavar='extra-args',
+            nargs='*'
+        )
+
+    def timed_main(self):
+        if self.env['baremetal'] is None:
+            image = self.env['vmlinux']
+        else:
+            image = self.env['image']
+        tool = self.get_toolchain_tool(self.env['tool'])
+        if self.env['print_tool']:
+            print(tool)
+            return 0
+        else:
+            return self.sh.run_cmd(
+                [tool, LF]
+                + self.sh.add_newlines(self.env['extra_args']),
+                cmd_file=os.path.join(self.env['run_dir'], 'run-toolchain.sh'),
+            )
+
+if __name__ == '__main__':
+    Main().cli()

@@ -3,6 +3,7 @@
 import distutils.dir_util
 import os
 import platform
+import shlex
 import shutil
 
 import common
@@ -19,6 +20,9 @@ See also: https://github.com/cirosantilli/linux-kernel-module-cheat#host
         self.add_argument(
             '--make-args',
             default='',
+            help='''
+Pass custom options to make.
+''',
         )
         self.add_argument(
             '--host',
@@ -34,6 +38,7 @@ Place the modules on a separate magic directory from non --host builds.
             help='Which kernel modules to build. Default: build all',
             nargs='*',
         )
+        self._add_argument('--force-rebuild')
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -72,22 +77,23 @@ Place the modules on a separate magic directory from non --host builds.
             build_subdir = self.env['kernel_modules_build_host_subdir']
         else:
             build_subdir = self.env['kernel_modules_build_subdir']
-        tool = 'gcc'
-        gcc = self.get_toolchain_tool(tool)
-        prefix = gcc[:-len(tool)]
         ccache = shutil.which('ccache')
         if ccache is not None:
-            cc = '{} {}'.format(ccache, gcc)
+            cc = '{} {}'.format(ccache, self.env['gcc_path'])
         else:
-            cc = gcc
-        if self.env['verbose']:
-            verbose = ['V=1']
-        else:
-            verbose = []
+            cc = self.env['gcc_path']
         if self.env['host']:
             linux_dir = os.path.join('/lib', 'modules', platform.uname().release, 'build')
         else:
             linux_dir = self.env['linux_build_dir']
+        ccflags = [
+            '-I', self.env['root_dir'], LF,
+        ]
+        make_args_extra = []
+        if self.env['verbose']:
+            make_args_extra.extend(['V=1', LF])
+        if self.env['force_rebuild']:
+            make_args_extra.extend(['-B', LF])
         self.sh.run_cmd(
             (
                 [
@@ -95,20 +101,21 @@ Place the modules on a separate magic directory from non --host builds.
                     '-j', str(self.env['nproc']), LF,
                     'ARCH={}'.format(self.env['linux_arch']), LF,
                     'CC={}'.format(cc), LF,
-                    'CROSS_COMPILE={}'.format(prefix), LF,
+                    'CCFLAGS={}'.format(self.sh.cmd_to_string(ccflags)), LF,
+                    'CROSS_COMPILE={}-'.format(self.env['toolchain_prefix']), LF,
                     'LINUX_DIR={}'.format(linux_dir), LF,
                     'M={}'.format(build_subdir), LF,
                     'OBJECT_FILES={}'.format(' '.join(object_files)), LF,
                 ] +
-                self.sh.shlex_split(self.env['make_args']) +
-                verbose
+                make_args_extra +
+                self.sh.shlex_split(self.env['make_args'])
             ),
             cwd=os.path.join(self.env['kernel_modules_build_subdir']),
         )
         if not self.env['host']:
             self.sh.copy_dir_if_update_non_recursive(
                 srcdir=self.env['kernel_modules_build_subdir'],
-                destdir=self.env['out_rootfs_overlay_dir'],
+                destdir=self.env['out_rootfs_overlay_lkmc_dir'],
                 filter_ext=self.env['kernel_module_ext'],
             )
 

@@ -16,6 +16,7 @@ main:
 1:
 
     /* Go home. */
+    mov x0, 0
     ret
 
 LKMC_GLOBAL(lkmc_vector_trap_handler)

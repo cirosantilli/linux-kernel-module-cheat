@@ -32,6 +32,7 @@ spinlock_start:
     wfe
     cmp r0, #0
     beq spinlock_start
+    mov r0, #0
     bx lr
 spinlock:
     .skip 4

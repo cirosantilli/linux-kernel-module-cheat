@@ -3,7 +3,7 @@
 .global main
 main:
     /* Reset spinlock. */
-    mov x0, #0
+    mov x0, 0
     ldr x1, =spinlock
     str x0, [x1]
 
@@ -66,6 +66,7 @@ spinlock_start:
     wfe
     cbz x0, spinlock_start
 
+    mov x0, 0
     ret
 
 spinlock:

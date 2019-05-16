@@ -1,6 +1,1 @@
-#include <stdio.h>
-
-int main(void) {
-    puts("hello");
-    return 0;
-}
+../lkmc/hello.c

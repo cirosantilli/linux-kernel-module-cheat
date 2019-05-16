@@ -1,4 +1,4 @@
-/* Empty struct */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#c-empty-struct */
 
 #include <assert.h>
 #include <stdlib.h>

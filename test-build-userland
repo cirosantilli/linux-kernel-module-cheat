@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+# https://github.com/cirosantilli/linux-kernel-module-cheat#cli-script-tests
+
+set -eux
+
+for in_tree in '' --in-tree; do
+  userland_build_dir="$(./getvar $in_tree userland_build_dir)"
+  # Toplevel.
+  ./build-userland $in_tree
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Toplevel explicit.
+  ./build-userland $in_tree userland/
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Toplevel root dir.
+  ./build-userland $in_tree .
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Subdirectory.
+  ./build-userland $in_tree userland/c
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean userland/c
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # One program.
+  ./build-userland $in_tree userland/c/hello.c
+  [ -f "${userland_build_dir}/c/hello.out" ]
+  ./build-userland $in_tree --clean userland/c/hello.c
+  ! [ -f "${userland_build_dir}/c/hello.out" ]
+
+  # Things that don't work: building:
+  # - non-existent files
+  # - paths outside of tree
+  ! ./build-userland $in_tree userland/c/hello
+  ! ./build-userland $in_tree userland/c/hello.
+  ! ./build-userland $in_tree "${userland_build_dir}/c/hello.out"
+  tmpfile="$(mktemp)"
+  ! ./build-userland $in_tree "$tmpfile"
+  ! ./build-userland --clean $in_tree "$tmpfile"
+  rm "$tmpfile"
+  ! ./build-userland $in_tree ..
+  ! ./build-userland $in_tree kernel_modules
+  ! ./build-userland --clean $in_tree userland/does_not_exist
+  ./build-userland --clean $in_tree
+done
+
+./build-userland-in-tree
+[ -f userland/c/hello.out ]
+./build-userland-in-tree --clean
+! [ -f userland/c/hello.out ]
+
+cd userland
+./build
+[ -f c/hello.out ]
+./build --clean
+! [ -f c/hello.out ]
+./build c
+[ -f c/hello.out ]
+./build --clean c
+! [ -f c/hello.out ]
+./build --clean c/hello.c
+! [ -f c/hello.out ]

@@ -9,7 +9,7 @@
 #include <linux/printk.h> /* printk */
 #include <linux/uaccess.h> /* copy_from_user */
 
-#include "../include/anonymous_inode.h"
+#include <lkmc/anonymous_inode.h>
 
 static struct dentry *debugfs_file;
 static u32 myval = 1;

@@ -18,32 +18,31 @@ Run some content on an emulator.
 '''
         )
         self.add_argument(
-            '--background', default=False,
-            help='''\
-Send QEMU output to a file instead of the terminal so it does not require a
-terminal attached to run on the background. Interactive input cannot be given.
-TODO: use a port instead. If only there was a way to redirect a serial to multiple
-places, both to a port and a file? We use the file currently to be able to have
-any output at all.
-https://superuser.com/questions/1373226/how-to-redirect-qemu-serial-output-to-both-a-file-and-the-terminal-or-a-port
-'''
-        )
-        self.add_argument(
-            '-c', '--cpus', default=1, type=int,
+            '-c',
+            '--cpus',
+            default=1,
+            type=int,
             help='Number of guest CPUs to emulate. Default: %(default)s'
         )
         self.add_argument(
-            '--ctrl-c-host', default=False,
+            '--ctrl-c-host',
+            default=False,
             help='''\
 Ctrl +C kills the QEMU simulator instead of being passed to the guest.
 '''
         )
         self.add_argument(
-            '-D', '--debug-vm', default=False,
-            help='Run GDB on the emulator itself.'
+            '-D',
+            '--debug-vm',
+            default=False,
+            help='''\
+Run GDB on the emulator itself.
+For --emulator native, this debugs the target program.
+'''
         )
         self.add_argument(
-            '--debug-vm-args', default='',
+            '--debug-vm-args',
+            default='',
             help='Pass arguments to GDB. Implies --debug-vm.'
         )
         self.add_argument(
@@ -54,10 +53,90 @@ which is what you usually want.
 '''
         )
         self.add_argument(
-            '-E', '--eval',
+            '-E',
+            '--eval',
             help='''\
-Replace the normal init with a minimal init that just evals the given string.
+Replace the normal init with a minimal init that just evals the given sh string.
 See: https://github.com/cirosantilli/linux-kernel-module-cheat#replace-init
+chdir into lkmc_home before running the command:
+https://github.com/cirosantilli/linux-kernel-module-cheat#lkmc_home
+'''
+        )
+        self.add_argument(
+            '-F',
+            '--eval-after',
+            help='''\
+Similar to --eval, but the string gets evaled at the last init script,
+after the normal init finished.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#init-busybox
+'''
+        )
+        self.add_argument(
+            '-G',
+            '--gem5-exe-args',
+            default='',
+            help='''\
+Pass extra options to the gem5 executable.
+Do not confuse with the arguments passed to config scripts,
+like `fs.py`. Example:
+./run --emulator gem5 --gem5-exe-args '--debug-flags=Exec --debug' -- --cpu-type=HPI --caches
+will run:
+gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
+'''
+        )
+        self.add_argument(
+            '--gdb',
+            default=False,
+            help='''\
+Shortcut for the most common GDB options that you want most of the time. Implies:
+* --gdb-wait
+* --tmux-args <main> where <main> is:
+** start_kernel in full system
+** main in user mode
+* --tmux-program gdb
+'''
+        )
+        self.add_argument(
+            '--gdb-wait',
+            default=False,
+            help='''\
+Wait for GDB to connect before starting execution
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb
+'''
+        )
+        self.add_argument(
+            '--gem5-script',
+            default='fs',
+            choices=['fs', 'biglittle'],
+            help='Which gem5 script to use'
+        )
+        self.add_argument(
+            '--gem5-readfile',
+            default='',
+            help='Set the contents of m5 readfile to this string.'
+        )
+        self.add_argument(
+            '--gem5-restore',
+            type=int,
+            help='''\
+Restore the nth most recently taken gem5 checkpoint according to directory
+timestamps.
+'''
+        )
+        self.add_argument(
+            '--graphic',
+            default=False,
+            help='''\
+Run in graphic mode.
+See: http://github.com/cirosantilli/linux-kernel-module-cheat#graphics
+'''
+        )
+        self.add_argument(
+            '--kdb',
+            default=False,
+            help='''\
+Setup KDB kernel CLI options.
+See: http://github.com/cirosantilli/linux-kernel-module-cheat#kdb
 '''
         )
         self.add_argument(
@@ -66,15 +145,7 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#replace-init
 Pass an extra Linux kernel command line options, and place them before
 the dash separator `-`. Only options that come before the `-`, i.e.
 "standard" options, should be passed with this option.
-Example: `./run --arch arm --kernel-cli 'init=/poweroff.out'`
-'''
-        )
-        self.add_argument(
-            '-F', '--eval-after',
-            help='''\
-Pass a base64 encoded command line parameter that gets evalled at the end of
-the normal init.
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#init-busybox
+Example: `./run --arch arm --kernel-cli 'init=/lkmc/poweroff.out'`
 '''
         )
         self.add_argument(
@@ -88,45 +159,41 @@ Example: `./run --kernel-cli-after-dash 'lkmc_eval="wget google.com" lkmc_lala=y
 '''
         )
         self.add_argument(
-            '-G', '--gem5-exe-args', default='',
+            '--kernel-version',
+            default='5.0',
             help='''\
-Pass extra options to the gem5 executable.
-Do not confuse with the arguments passed to config scripts,
-like `fs.py`. Example:
-./run --emulator gem5 --gem5-exe-args '--debug-flags=Exec --debug' -- --cpu-type=HPI --caches
-will run:
-gem.op5 --debug-flags=Exec fs.py --cpu-type=HPI --caches
+Pass a base64 encoded command line parameter that gets evalled at the end of
+the normal init.
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#init-busybox
+chdir into lkmc_home before running the command:
+https://github.com/cirosantilli/linux-kernel-module-cheat#lkmc_home
+Specify the Linux kernel version to be reported by syscall emulation.
+Defaults to the same kernel version as our default Buildroot build.
+Currently only works for QEMU.
+See: http://github.com/cirosantilli/linux-kernel-module-cheat#fatal-kernel-too-old
 '''
         )
         self.add_argument(
-            '--gem5-script',
-            default='fs',
-            choices=['fs', 'biglittle'],
-            help='Which gem5 script to use'
-        )
-        self.add_argument(
-            '--gem5-readfile', default='',
-            help='Set the contents of m5 readfile to this string.'
-        )
-        self.add_argument(
-            '-K', '--kvm', default=False,
-            help='Use KVM. Only works if guest arch == host arch'
-        )
-        self.add_argument(
-            '--kgdb', default=False,
-        )
-        self.add_argument(
-            '--kdb', default=False,
-        )
-        self.add_argument(
-            '--gem5-restore', type=int,
+            '--kgdb',
+            default=False,
             help='''\
-Restore the nth most recently taken gem5 checkpoint according to directory
-timestamps.
+Setup KGDB kernel CLI options.
+See: http://github.com/cirosantilli/linux-kernel-module-cheat#kgdb
 '''
         )
         self.add_argument(
-            '-m', '--memory', default='256M',
+            '-K',
+            '--kvm',
+            default=False,
+            help='''\
+Use KVM. Only works if guest arch == host arch.
+See: http://github.com/cirosantilli/linux-kernel-module-cheat#kvm
+'''
+        )
+        self.add_argument(
+            '-m',
+            '--memory',
+            default='256M',
             help='''\
 Set the memory size of the guest. E.g.: `-m 512M`. We try to keep the default
 at the minimal ammount amount that boots all archs. Anything lower could lead
@@ -142,21 +209,43 @@ Setup a kernel init parameter that makes the emulator quit immediately after boo
 '''
         )
         self.add_argument(
-            '-R', '--replay', default=False,
+            '-R',
+            '--replay',
+            default=False,
             help='Replay a QEMU run record deterministically'
         )
         self.add_argument(
-            '-r', '--record', default=False,
+            '-r',
+            '--record',
+            default=False,
             help='Record a QEMU run record for later replay with `-R`'
         )
         self.add_argument(
-            '-T', '--trace',
+            '--show-stdout',
+            default=True,
+            help='''Show emulator stdout and stderr on the host terminal.'''
+        )
+        self.add_argument(
+            '--terminal',
+            default=False,
+            help='''\
+Output directly to the terminal, don't pipe to tee as the default.
+With this, we don't not save the output to a file as is done by default,
+but we are able to do things that require not having a pipe suh as you to
+using debuggers. This option issSet automatically by --debug-vm, but you still need
+it to debug gem5 Python scripts with pdb.
+'''
+        )
+        self.add_argument(
+            '-T',
+            '--trace',
             help='''\
 Set trace events to be enabled. If not given, gem5 tracing is completely
 disabled, while QEMU tracing is enabled but uses default traces that are very
 rare and don't affect performance, because `./configure
 --enable-trace-backends=simple` seems to enable some traces by default, e.g.
 `pr_manager_run`, and I don't know how to get rid of them.
+See: http://github.com/cirosantilli/linux-kernel-module-cheat#tracing
 '''
         )
         self.add_argument(
@@ -174,16 +263,9 @@ Trace instructions run to stdout. Shortcut for --trace --trace-stdout.
 '''
         )
         self.add_argument(
-            '--terminal', default=False,
-            help='''\
-Output to the terminal, don't pipe to tee as the default.
-Does not save the output to a file, but allows you to use debuggers.
-Set automatically by --debug-vm, but you still need this option to debug
-gem5 Python scripts with pdb.
-'''
-        )
-        self.add_argument(
-            '-t', '--tmux', default=False,
+            '-t',
+            '--tmux',
+            default=False,
             help='''\
 Create a tmux split the window. You must already be inside of a `tmux` session
 to use this option:
@@ -201,27 +283,35 @@ Parameters to pass to the program running on the tmux split. Implies --tmux.
 '''
         )
         self.add_argument(
-            '-w', '--wait-gdb', default=False,
-            help='Wait for GDB to connect before starting execution'
+            '--tmux-program',
+            choices=('gdb', 'shell'),
+            help='''\
+Which program to run in tmux. Implies --tmux. Defaults:
+* 'gdb' in qemu
+* 'shell' in gem5. 'shell' is only supported in gem5 currently.
+'''
         )
         self.add_argument(
-            '-x', '--graphic', default=False,
-            help='Run in graphic mode. Mnemonic: X11'
-        )
-        self.add_argument(
-            '-V', '--vnc', default=False,
+            '--vnc',
+            default=False,
             help='''\
 Run QEMU with VNC instead of the default SDL. Connect to it with:
 `vinagre localhost:5900`.
 '''
         )
         self.add_argument(
-            'extra_emulator_args', nargs='*', default=[],
-            help='Extra options to append at the end of the emulator command line'
+            'extra_emulator_args',
+            nargs='*',
+            default=[],
+            help='''\
+Extra options to append at the end of the emulator command line.
+'''
         )
 
     def timed_main(self):
-        show_stdout = True
+        if self.env['emulator'] == 'native' and self.env['userland'] is None:
+            raise Exception('native emulator only supported in user mode')
+        show_stdout = self.env['show_stdout']
         # Common qemu / gem5 logic.
         # nokaslr:
         # * https://unix.stackexchange.com/questions/397939/turning-off-kaslr-to-debug-linux-kernel-using-qemu-and-gdb
@@ -232,16 +322,31 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             kernel_cli += ' {}'.format(self.env['kernel_cli'])
         if self.env['quit_after_boot']:
             kernel_cli += ' {}'.format(self.env['quit_init'])
-        kernel_cli_after_dash = ''
+        kernel_cli_after_dash = ' lkmc_home={}'.format(self.env['guest_lkmc_home'])
         extra_emulator_args = []
         extra_qemu_args = []
-        if self.env['tmux_args'] is not None:
+        if not self.env['_args_given']['tmux_program']:
+            if self.env['emulator'] == 'qemu':
+                self.env['tmux_program'] = 'gdb'
+            elif self.env['emulator'] == 'gem5':
+                self.env['tmux_program'] = 'shell'
+        if self.env['gdb']:
+            if not self.env['_args_given']['gdb_wait']:
+                self.env['gdb_wait'] = True
+            if not self.env['_args_given']['tmux_args']:
+                if self.env['userland'] is None and self.env['baremetal'] is None:
+                    self.env['tmux_args'] = 'start_kernel'
+                else:
+                    self.env['tmux_args'] = 'main'
+            if not self.env['_args_given']['tmux_program']:
+                self.env['tmux_program'] = 'gdb'
+        if self.env['tmux_args'] is not None or self.env['_args_given']['tmux_program']:
             self.env['tmux'] = True
         if self.env['debug_vm'] or self.env['debug_vm_args']:
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
         else:
             debug_vm = []
-        if self.env['wait_gdb']:
+        if self.env['gdb_wait']:
             extra_qemu_args.extend(['-S', LF])
         if self.env['eval_after'] is not None:
             kernel_cli_after_dash += ' lkmc_eval_base64="{}"'.format(self.sh.base64_encode(self.env['eval_after']))
@@ -252,7 +357,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
         else:
             vnc = []
         if self.env['eval'] is not None:
-            kernel_cli += ' {}=/eval_base64.sh'.format(self.env['initarg'])
+            kernel_cli += ' {}=/lkmc/eval_base64.sh'.format(self.env['initarg'])
             kernel_cli_after_dash += ' lkmc_eval="{}"'.format(self.sh.base64_encode(self.env['eval']))
         if not self.env['graphic']:
             extra_qemu_args.extend(['-nographic', LF])
@@ -301,36 +406,40 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             if not self.env['dry_run']:
                 raise Exception('Root filesystem not found. Did you build it? ' \
                                 'Tried to use: ' + self.env['disk_image'])
-        def raise_image_not_found():
+        def raise_image_not_found(image):
             if not self.env['dry_run']:
                 raise Exception('Executable image not found. Did you build it? ' \
-                                'Tried to use: ' + self.env['image'])
-        if self.env['image'] is None:
-            raise Exception('Baremetal ELF file not found. Tried:\n' + '\n'.join(paths))
+                                'Tried to use: ' + image)
+        if not os.path.exists(self.env['image']):
+            raise_image_not_found(self.env['image'])
         cmd = debug_vm.copy()
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
-            if self.env['baremetal'] is None:
+            if not self.env['baremetal'] is None:
+                if not os.path.exists(self.env['gem5_fake_iso']):
+                    os.makedirs(os.path.dirname(self.env['gem5_fake_iso']), exist_ok=True)
+                    self.sh.write_string_to_file(self.env['gem5_fake_iso'], 'a' * 512)
+            elif self.env['userland'] is None:
                 if not os.path.exists(self.env['rootfs_raw_file']):
                     if not os.path.exists(self.env['qcow2_file']):
                         raise_rootfs_not_found()
                     self.raw_to_qcow2(qemu_which=self.env['qemu_which'], reverse=True)
-            else:
-                if not os.path.exists(self.env['gem5_fake_iso']):
-                    os.makedirs(os.path.dirname(self.env['gem5_fake_iso']), exist_ok=True)
-                    self.sh.write_string_to_file(self.env['gem5_fake_iso'], 'a' * 512)
             if not os.path.exists(self.env['image']):
                 # This is to run gem5 from a prebuilt download.
-                if (not self.env['baremetal'] is None) or (not os.path.exists(self.env['linux_image'])):
-                    raise_image_not_found()
-                self.sh.run_cmd([os.path.join(self.env['extract_vmlinux'], self.env['linux_image'])])
+                if (
+                    self.env['baremetal'] is None and
+                    self.env['userland'] is None
+                ):
+                    if not os.path.exists(self.env['linux_image']):
+                        raise_image_not_found(self.env['image'])
+                    self.sh.run_cmd([os.path.join(self.env['extract_vmlinux'], self.env['linux_image'])])
             os.makedirs(os.path.dirname(self.env['gem5_readfile']), exist_ok=True)
             self.sh.write_string_to_file(self.env['gem5_readfile'], self.env['gem5_readfile'])
             memory = '{}B'.format(self.env['memory'])
             gem5_exe_args = self.sh.shlex_split(self.env['gem5_exe_args'])
             if do_trace:
-                gem5_exe_args.extend(['--debug-flags={}'.format(trace_type), LF])
+                gem5_exe_args.extend(['--debug-flags', trace_type, LF])
             extra_env['M5_PATH'] = self.env['gem5_system_dir']
             # https://stackoverflow.com/questions/52312070/how-to-modify-a-file-under-src-python-and-run-it-without-rebuilding-in-gem5/52312071#52312071
             extra_env['M5_OVERRIDE_PY_SOURCE'] = 'true'
@@ -350,7 +459,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             if self.env['userland'] is not None:
                 cmd.extend([
                     self.env['gem5_se_file'], LF,
-                    '--cmd', self.resolve_userland_executable(self.env['userland']), LF,
+                    '--cmd', self.env['image'], LF,
                 ])
                 if self.env['userland_args'] is not None:
                     cmd.extend(['--options', self.env['userland_args'], LF])
@@ -421,7 +530,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     ])
                     if self.env['dtb']:
                         cmd.extend(['--dtb', os.path.join(self.env['gem5_system_dir'], 'arm', 'dt', 'armv8_gem5_v1_big_little_2_2.dtb'), NL])
-            if self.env['wait_gdb']:
+            if self.env['gdb_wait']:
                 # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
                 cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True', LF])
         elif self.env['emulator'] == 'qemu':
@@ -429,38 +538,28 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 '-trace', 'enable={},file={}'.format(trace_type, self.env['qemu_trace_file']), LF,
             ]
             if self.env['userland'] is not None:
-                if self.env['wait_gdb']:
+                if self.env['gdb_wait']:
                     debug_args = ['-g', str(self.env['gdb_port']), LF]
                 else:
                     debug_args = []
                 cmd.extend(
                     [
-                        os.path.join(self.env['qemu_build_dir'], '{}-linux-user'.format(self.env['arch']), 'qemu-{}'.format(self.env['arch'])), LF,
-                        '-L', self.env['userland_library_dir'], LF
+                        self.env['qemu_executable'], LF,
+                        '-L', self.env['userland_library_dir'], LF,
+                        '-r', self.env['kernel_version'], LF,
+                        '-seed', '0', LF,
                     ] +
                     qemu_user_and_system_options +
                     debug_args
                 )
             else:
-                if not os.path.exists(self.env['image']):
-                    raise_image_not_found()
                 extra_emulator_args.extend(extra_qemu_args)
                 self.make_run_dirs()
-                if self.env['qemu_which'] == 'host' or not os.path.exists(self.env['qemu_executable']):
-                    qemu_executable = self.env['qemu_executable_basename']
-                    qemu_executable_host = True
-                else:
-                    qemu_executable = self.env['qemu_executable']
-                    qemu_executable_host = False
-                qemu_executable = shutil.which(qemu_executable)
-                if qemu_executable is None:
-                    raise Exception('QEMU executable not found, did you forget to build or install it?\n' \
-                                    'Tried to use: ' + qemu_executable)
                 if self.env['debug_vm']:
                     serial_monitor = []
                 else:
                     if self.env['background']:
-                        serial_monitor = ['-serial', 'file:{}'.format(self.env['qemu_background_serial_file']), LF]
+                        serial_monitor = ['-serial', 'file:{}'.format(self.env['guest_terminal_file']), LF]
                         if self.env['quiet']:
                             show_stdout = False
                     else:
@@ -496,7 +595,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     machine2 = []
                 cmd.extend(
                     [
-                        qemu_executable, LF,
+                        self.env['qemu_executable'], LF,
                         '-machine', self.env['machine'], LF,
                     ] +
                     machine2 +
@@ -506,7 +605,11 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                         '-kernel', self.env['image'], LF,
                         '-m', self.env['memory'], LF,
                         '-monitor', 'telnet::{},server,nowait'.format(self.env['qemu_monitor_port']), LF,
-                        '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(self.env['qemu_hostfwd_generic_port'], self.env['qemu_hostfwd_generic_port'], self.env['qemu_hostfwd_ssh_port']), LF,
+                        '-netdev', 'user,hostfwd=tcp::{}-:{},hostfwd=tcp::{}-:22,id=net0'.format(
+                            self.env['qemu_hostfwd_generic_port'],
+                            self.env['qemu_hostfwd_generic_port'],
+                            self.env['qemu_hostfwd_ssh_port']
+                        ), LF,
                         '-no-reboot', LF,
                         '-smp', str(self.env['cpus']), LF,
                     ] +
@@ -516,7 +619,7 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 )
                 if self.env['dtb'] is not None:
                     cmd.extend(['-dtb', self.env['dtb'], LF])
-                if not qemu_executable_host:
+                if not self.env['qemu_which'] == 'host':
                     cmd.extend(qemu_user_and_system_options)
                 if self.env['initrd']:
                     extra_emulator_args.extend(['-initrd', self.env['buildroot_cpio'], LF])
@@ -542,7 +645,12 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                             self.raw_to_qcow2(qemu_which=self.env['qemu_which'])
                         extra_emulator_args.extend([
                             '-drive',
-                            'file={},format=qcow2,if={}{}{}'.format(self.env['disk_image'], driveif, snapshot, rrid),
+                            'file={},format=qcow2,if={}{}{}'.format(
+                                self.env['disk_image'],
+                                driveif,
+                                snapshot,
+                                rrid
+                            ),
                             LF,
                         ])
                         if rr:
@@ -553,7 +661,10 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                 if rr:
                     extra_emulator_args.extend([
                         '-object', 'filter-replay,id=replay,netdev=net0',
-                        '-icount', 'shift=7,rr={},rrfile={}'.format('record' if self.env['record'] else 'replay', self.env['qemu_rrfile']),
+                        '-icount', 'shift=7,rr={},rrfile={}'.format(
+                            'record' if self.env['record'] else 'replay',
+                            self.env['qemu_rrfile']
+                        ),
                     ])
                     virtio_gpu_pci = []
                 else:
@@ -580,34 +691,44 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
                     cmd.extend(append)
         if self.env['tmux']:
             tmux_args = '--run-id {}'.format(self.env['run_id'])
-            if self.env['emulator'] == 'gem5':
-                tmux_cmd = './gem5-shell'
-            else:
-                tmux_cmd = './run-gdb'
+            if self.env['tmux_program'] == 'shell':
+                if self.env['emulator'] == 'gem5':
+                    tmux_cmd = './gem5-shell'
+                else:
+                    raise Exception('--tmux-program is only supported in gem5 currently.')
+            elif self.env['tmux_program'] == 'gdb':
+                tmux_cmd = os.path.join(self.env['root_dir'], 'run-gdb')
                 # TODO find a nicer way to forward all those args automatically.
                 # Part of me wants to: https://github.com/jonathanslenders/pymux
                 # but it cannot be used as a library properly it seems, and it is
                 # slower than tmux.
-                tmux_args += " --arch {} --linux-build-id '{}' --run-id '{}'".format(
+                tmux_args += " --arch {} --emulator '{}' --gcc-which '{}' --linux-build-id '{}' --run-id '{}' --userland-build-id '{}'".format(
                     self.env['arch'],
+                    self.env['emulator'],
+                    self.env['gcc_which'],
                     self.env['linux_build_id'],
                     self.env['run_id'],
+                    self.env['userland_build_id'],
                 )
                 if self.env['baremetal']:
                     tmux_args += " --baremetal '{}'".format(self.env['baremetal'])
                 if self.env['userland']:
                     tmux_args += " --userland '{}'".format(self.env['userland'])
+                if self.env['in_tree']:
+                    tmux_args += ' --in-tree'
             if self.env['tmux_args'] is not None:
                 tmux_args += ' {}'.format(self.env['tmux_args'])
-            subprocess.Popen([
-                os.path.join(self.env['root_dir'], 'tmu'),
+            tmux_cmd = [
+                os.path.join(self.env['root_dir'], 'tmux-split'),
                 "sleep 2;{} {}".format(tmux_cmd, tmux_args)
-            ])
+            ]
+            self.log_info(tmux_cmd)
+            subprocess.Popen(tmux_cmd)
         cmd.extend(extra_emulator_args)
         cmd.extend(self.env['extra_emulator_args'])
-        if self.env['emulator'] == 'qemu' and self.env['userland']:
+        if self.env['userland'] and self.env['emulator'] in ('qemu', 'native'):
             # The program and arguments must come at the every end of the CLI.
-            cmd.extend([self.resolve_userland_executable(self.env['userland']), LF])
+            cmd.extend([self.env['image'], LF])
             if self.env['userland_args'] is not None:
                 cmd.extend(self.sh.shlex_split(self.env['userland_args']))
         if debug_vm or self.env['terminal']:
@@ -623,35 +744,37 @@ Run QEMU with VNC instead of the default SDL. Connect to it with:
             show_stdout=show_stdout,
         )
         if exit_status == 0:
-            # Check if guest panicked.
-            if self.env['emulator'] == 'gem5':
-                # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
-                # Grepping for '^panic: ' does not work because some errors don't show that message.
-                panic_msg = b'--- BEGIN LIBC BACKTRACE ---$'
-            else:
-                panic_msg = b'Kernel panic - not syncing'
-            panic_re = re.compile(panic_msg)
             error_string_found = False
             exit_status = 0
             if out_file is not None and not self.env['dry_run']:
-                with open(self.env['termout_file'], 'br') as logfile:
-                    line = None
-                    for line in logfile:
-                        if panic_re.search(line):
-                            exit_status = 1
-                    if line is not None:
-                        last_line = line.rstrip()
-                        match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
-                        if match:
-                            exit_status = int(match.group(1))
+                if self.env['emulator'] == 'gem5':
+                    with open(self.env['termout_file'], 'br') as logfile:
+                        # We have to do some parsing here because gem5 exits with status 0 even when panic happens.
+                        # Grepping for '^panic: ' does not work because some errors don't show that message...
+                        gem5_panic_re = re.compile(b'--- BEGIN LIBC BACKTRACE ---$')
+                        line = None
+                        for line in logfile:
+                            if gem5_panic_re.search(line):
+                                exit_status = 1
+                        if self.env['userland']:
+                            if line is not None:
+                                last_line = line.rstrip()
+                                match = re.search(b'Simulated exit code not 0! Exit code is (\d+)', last_line)
+                                if match:
+                                    exit_status = int(match.group(1))
                 if not self.env['userland']:
                     if os.path.exists(self.env['guest_terminal_file']):
                         with open(self.env['guest_terminal_file'], 'br') as logfile:
+                            linux_panic_re = re.compile(b'Kernel panic - not syncing')
+                            serial_magic_exit_status_regexp = re.compile(self.env['serial_magic_exit_status_regexp_string'])
                             for line in logfile.readlines():
-                                if line.rstrip() == self.env['magic_fail_string']:
+                                line = line.rstrip()
+                                if not self.env['baremetal'] and linux_panic_re.search(line):
                                     exit_status = 1
-                                    break
-            if exit_status != 0:
+                                match = serial_magic_exit_status_regexp.match(line)
+                                if match:
+                                    exit_status = int(match.group(1))
+            if exit_status != 0 and self.env['show_stdout']:
                 self.log_error('simulation error detected by parsing logs')
         return exit_status
 
