@@ -15,7 +15,6 @@ class PathProperties:
             '-Werror', LF,
             '-Wextra', LF,
             '-Wno-unused-function', LF,
-            '-fopenmp', LF,
             '-ggdb3', LF,
             # PIE causes the following problems:
             # * QEMU GDB step debug does not find breakpoints:
@@ -27,12 +26,13 @@ class PathProperties:
             '-fno-pie', LF,
             '-no-pie', LF,
         ],
-        'cc_flags_after': [],
+        'cc_flags_after': ['-lm'],
         'cc_pedantic': True,
         'cxx_std': default_cxx_std,
         # Expected program exit status. When signals are raised, this refers
         # to the native exit status. as reported by Bash #?.
         'exit_status': 0,
+        'extra_objs': [],
         'extra_objs_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
@@ -142,12 +142,17 @@ class PathProperties:
             )
         )
 
+    def _update_list(self, other_tmp_properties, key):
+        if key in self.properties and key in other_tmp_properties:
+            other_tmp_properties[key] = \
+                self.properties[key] + \
+                other_tmp_properties[key]
+
     def update(self, other):
         other_tmp_properties = other.properties.copy()
-        if 'cc_flags' in self.properties and 'cc_flags' in other_tmp_properties:
-            other_tmp_properties['cc_flags'] = \
-                self.properties['cc_flags'] + \
-                other_tmp_properties['cc_flags']
+        self._update_list(other_tmp_properties, 'cc_flags')
+        self._update_list(other_tmp_properties, 'cc_flags_after')
+        self._update_list(other_tmp_properties, 'extra_objs')
         if 'test_run_args' in self.properties and 'test_run_args' in other_tmp_properties:
             other_tmp_properties['test_run_args'] = {
                 **self.properties['test_run_args'],
@@ -213,7 +218,10 @@ path_properties_tuples = (
     PathProperties.default_properties,
     {
         'baremetal': (
-            {},
+            {
+                'extra_objs_baremetal_bootloader': True,
+                'extra_objs_lkmc_common': True,
+            },
             {
                 'arch': (
                     {},
@@ -256,10 +264,7 @@ path_properties_tuples = (
                 'lkmc_assert_fail.c': {'exit_status': 1},
                 'exit1.c': {'exit_status': 1},
                 'infinite_loop.c': {'more_than_1s': True},
-                'lib': (
-                    {'no_executable': True},
-                    {}
-                ),
+                'lib': {'no_executable': True},
                 'getchar.c': {'interactive': True},
                 'return1.c': {'exit_status': 1},
                 'return2.c': {'exit_status': 2},
@@ -267,8 +272,10 @@ path_properties_tuples = (
         ),
         'userland': (
             {
+                'cc_flags': [
+                    '-fopenmp', LF,
+                ],
                 'cc_flags_after': [
-                    '-lm', LF,
                     '-pthread', LF,
                 ],
             },

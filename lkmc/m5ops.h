@@ -3,7 +3,7 @@
 #ifndef LKMC_M5OPS_H
 #define LKMC_M5OPS_H
 
-#if LKMC_M5OPS_ENABLE == 1
+#if LKMC_M5OPS_ENABLE
 
 #if defined(__arm__)
 

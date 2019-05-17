@@ -36,7 +36,7 @@ cpu1_sleep_forever:
 cpu0_only:
     /* Only CPU 0 reaches this point. */
 
-#if !defined(GEM5)
+#if !LKMC_GEM5
     /* Wake up CPU 1 from initial sleep!
      * See:https://github.com/cirosantilli/linux-kernel-module-cheat#psci
      */

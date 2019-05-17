@@ -16,6 +16,9 @@ class Main(common.BuildCliFunction):
 Build our compiled userland examples.
 '''
         super().__init__(*args, **kwargs)
+        self._add_argument('--ccflags')
+        self._add_argument('--force-rebuild')
+        self._add_argument('--optimization-level')
         self.add_argument(
             'targets',
             default=[],
@@ -37,9 +40,6 @@ Default: build all examples that have their package dependencies met, e.g.:
 ''',
             nargs='*',
         )
-        self._add_argument('--ccflags')
-        self._add_argument('--force-rebuild')
-        self._add_argument('--optimization-level')
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -92,11 +92,11 @@ Default: build all examples that have their package dependencies met, e.g.:
                                 continue
                             in_path = os.path.join(path, in_filename)
                             error = my_thread_pool.submit({
-                                'in_path': in_path,
-                                'out_path': self.resolve_userland_executable(in_path),
                                 'cc_flags': cc_flags,
                                 'extra_objs_lkmc_common': [extra_obj_lkmc_common],
                                 'extra_objs_userland_asm': [extra_obj_userland_asm],
+                                'in_path': in_path,
+                                'out_path': self.resolve_userland_executable(in_path),
                             })
                             if error is not None:
                                 raise common.ExitLoop()

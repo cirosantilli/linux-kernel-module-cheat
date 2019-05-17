@@ -2,6 +2,7 @@
 import os
 
 import common
+import thread_pool
 from shell_helpers import LF
 
 class Main(common.BuildCliFunction):
@@ -18,14 +19,20 @@ Build the baremetal examples with crosstool-NG.
         self._add_argument('--ccflags')
         self._add_argument('--force-rebuild')
         self._add_argument('--optimization-level')
+        self.add_argument(
+            'targets',
+            default=[],
+            help='Analogous to ./build-userland target selection',
+            nargs='*',
+        )
 
     def build(self):
         build_dir = self.get_build_dir()
-        bootloader_obj = os.path.join(
+        extra_obj_baremetal_bootloader = os.path.join(
             self.env['baremetal_build_lib_dir'],
             'bootloader{}'.format(self.env['obj_ext'])
         )
-        common_obj = os.path.join(
+        extra_obj_lkmc_common = os.path.join(
             self.env['baremetal_build_lib_dir'],
             self.env['common_basename_noext'] + self.env['obj_ext']
         )
@@ -38,17 +45,14 @@ Build the baremetal examples with crosstool-NG.
             self.env['baremetal_build_lib_dir'],
             syscalls_basename_noext + self.env['obj_ext']
         )
-        common_objs = [common_obj, syscalls_obj]
-        cflags = [
-            '-I', self.env['baremetal_source_lib_dir'], LF,
+        cc_flags = [
             '-I', self.env['root_dir'], LF,
             '-O{}'.format(self.env['optimization_level']), LF,
-            '-ggdb3', LF,
             '-mcpu={}'.format(self.env['mcpu']), LF,
             '-nostartfiles', LF,
         ]
         if self.env['arch'] == 'arm':
-            cflags.extend([
+            cc_flags.extend([
                 '-mhard-float', LF,
                 # This uses the soft float ABI for calling functions from objets in Newlib which
                 # our crosstool-NG config compiles with soft floats, while emiting hard float
@@ -61,7 +65,6 @@ Build the baremetal examples with crosstool-NG.
                 '-mfloat-abi=softfp', LF,
                 '-mfpu=crypto-neon-fp-armv8', LF,
             ])
-        cflags_after = ['-lm']
         if self.env['emulator'] == 'gem5':
             if self.env['machine'] == 'VExpress_GEM5_V1':
                 entry_address = 0x80000000
@@ -71,98 +74,80 @@ Build the baremetal examples with crosstool-NG.
                 uart_address = 0x10009000
             else:
                 raise Exception('unknown machine: ' + self.env['machine'])
-            cflags.extend([
-                '-D', 'GEM5'.format(uart_address), LF,
+            cc_flags.extend([
+                '-DLKMC_GEM5=1', LF,
                 '-DLKMC_M5OPS_ENABLE=1', LF,
             ])
         else:
             entry_address = 0x40000000
             uart_address = 0x09000000
-        os.makedirs(build_dir, exist_ok=True)
-        os.makedirs(self.env['baremetal_build_lib_dir'], exist_ok=True)
-        src = os.path.join(
+        cc_flags.extend(['-D', 'LKMC_UART0_ADDR={:#x}'.format(uart_address), LF])
+        cc_flags.extend(self.sh.shlex_split(self.env['ccflags']))
+        bootloader_src = os.path.join(
             self.env['baremetal_source_lib_dir'],
             '{}{}'.format(
                 self.env['arch'],
                 self.env['asm_ext']
             )
         )
-        cflags.extend(self.sh.shlex_split(self.env['ccflags']))
-        if self.need_rebuild([src], bootloader_obj):
-            self.sh.run_cmd(
-                [self.env['gcc_path'],  LF] +
-                cflags +
-                [
-                    '-c', LF,
-                    '-o', bootloader_obj, LF,
-                    src, LF,
-                ] +
-                cflags_after
-            )
-        for src, obj in [
-            (self.env['common_c'], common_obj),
+        for in_path, out_path in [
+            (bootloader_src, extra_obj_baremetal_bootloader),
+            (self.env['common_c'], extra_obj_lkmc_common),
             (syscalls_src, syscalls_obj),
         ]:
-            if self.need_rebuild([src, self.env['common_h']], obj):
-                self.sh.run_cmd(
-                    [self.env['gcc_path'],  LF] +
-                    cflags +
-                    [
-                        '-D', 'UART0_ADDR={:#x}'.format(uart_address), LF,
-                        '-c', LF,
-                        '-o', obj, LF,
-                        src, LF,
-                    ] +
-                    cflags_after
-                )
-        for subpath in [
-            '',
-            'interactive',
-            self.env['baremetal_source_arch_subpath'],
-            os.path.join(self.env['baremetal_source_arch_subpath'], 'no_bootloader'),
-        ]:
-            in_dir = os.path.join(self.env['baremetal_source_dir'], subpath)
-            if os.path.isdir(in_dir):
-                out_dir = os.path.join(self.env['baremetal_build_dir'], subpath)
-                os.makedirs(out_dir, exist_ok=True)
-                common_objs_bootloader = common_objs.copy()
-                if os.path.basename(subpath) != 'no_bootloader':
-                    common_objs_bootloader.append(bootloader_obj)
-                for in_basename in sorted(os.listdir(in_dir)):
-                    in_path = os.path.join(in_dir, in_basename)
-                    in_name, in_ext = os.path.splitext(in_basename)
-                    if  (
-                        os.path.isfile(in_path) and
-                        in_ext in self.env['build_in_exts']
-                    ):
-                        out = os.path.join(out_dir, in_name + self.env['baremetal_build_ext'])
-                        src = os.path.join(self.env['baremetal_source_dir'], in_path)
-                        if self.need_rebuild(
-                            common_objs_bootloader +
-                            [
-                                src,
-                                self.env['baremetal_link_script'],
-                                self.env['common_h']
-                            ],
-                            out
-                        ):
-                            self.sh.run_cmd(
-                                [self.env['gcc_path'],  LF] +
-                                cflags +
-                                [
-                                    '-Wl,--section-start=.text={:#x}'.format(entry_address), LF,
-                                    '-o', out, LF,
-                                    '-T', self.env['baremetal_link_script'], LF,
-                                ] +
-                                [
-                                    src, LF,
-                                ] +
-                                self.sh.add_newlines(common_objs_bootloader) +
-                                cflags_after
-                            )
+            self._build_one(
+                in_path=in_path,
+                out_path=out_path,
+                cc_flags=cc_flags,
+                extra_deps=[self.env['common_h']],
+                link=False,
+            )
+        cc_flags.extend([
+            '-Wl,--section-start=.text={:#x}'.format(entry_address), LF,
+            '-T', self.env['baremetal_link_script'], LF,
+        ])
+        with thread_pool.ThreadPool(
+            self._build_one,
+            nthreads=self.env['nproc'],
+        ) as my_thread_pool:
+            try:
+                for target in self.env['targets']:
+                    for path, in_dirnames, in_filenames in self.sh.walk(target):
+                        for in_filename in in_filenames:
+                            in_ext = os.path.splitext(in_filename)[1]
+                            if not in_ext in self.env['build_in_exts']:
+                                continue
+                            in_path = os.path.join(path, in_filename)
+                            error = my_thread_pool.submit({
+                                'cc_flags': cc_flags,
+                                'extra_deps': [
+                                    self.env['baremetal_link_script'],
+                                    self.env['common_h']
+                                ],
+                                'extra_objs': [syscalls_obj],
+                                'extra_objs_baremetal_bootloader': [extra_obj_baremetal_bootloader],
+                                'extra_objs_lkmc_common': [extra_obj_lkmc_common],
+                                'in_path': in_path,
+                                'out_path': self.resolve_baremetal_executable(in_path),
+                            })
+                            if error is not None:
+                                raise common.ExitLoop()
+            except common.ExitLoop:
+                pass
+        error = my_thread_pool.get_error()
+        if error is not None:
+            print(error)
+            return 1
+
 
     def get_build_dir(self):
         return self.env['baremetal_build_dir']
+
+    def setup_one(self):
+        self.env['targets'] = self.resolve_targets(
+            self.env['baremetal_source_dir'],
+            self.env['targets']
+        )
 
 if __name__ == '__main__':
     Main().cli()

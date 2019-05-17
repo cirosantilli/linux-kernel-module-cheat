@@ -6,11 +6,6 @@
 
 #include <lkmc.h>
 
-void lkmc_assert(bool condition) {
-    if (!condition)
-        lkmc_assert_fail();
-}
-
 void lkmc_assert_fail(void) {
     exit(1);
 }

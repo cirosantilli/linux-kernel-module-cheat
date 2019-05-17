@@ -16,7 +16,7 @@ int main(void) {
             puts("out of memory");
             break;
         } else {
-            printf("new alloc of %d bytes at address 0x%p\n", alloc_size, ptr);
+            printf("new alloc of %zu bytes at address 0x%p\n", alloc_size, ptr);
             alloc_size <<= 1;
         }
     }

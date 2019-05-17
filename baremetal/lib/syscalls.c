@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#include <lkmc.h>
 #include <lkmc/m5ops.h>
 
 enum {
@@ -11,10 +12,14 @@ enum {
 #define UART_DR(baseaddr) (*(unsigned int *)(baseaddr))
 #define UART_FR(baseaddr) (*(((unsigned int *)(baseaddr))+6))
 
-int _close(int file) { return -1; }
+int _close(int file) {
+    LKMC_UNUSED(file);
+    return -1;
+}
 
 void _exit(int status) {
-#if defined(GEM5)
+    LKMC_UNUSED(status);
+#if LKMC_GEM5
     LKMC_M5OPS_EXIT;
 #else
 #if defined(__arm__)
@@ -46,6 +51,7 @@ void _exit(int status) {
 }
 
 int _fstat(int file, struct stat *st) {
+    LKMC_UNUSED(file);
     st->st_mode = S_IFCHR;
     return 0;
 }
@@ -55,26 +61,41 @@ int _getpid(void) { return 0; }
 
 /* Required by assert. */
 int _kill(pid_t pid, int sig) {
+    LKMC_UNUSED(pid);
     exit(128 + sig);
 }
 
-int _isatty(int file) { return 1; }
+int _isatty(int file) {
+    LKMC_UNUSED(file);
+    return 1;
+}
 
-int _lseek(int file, int ptr, int dir) { return 0; }
+int _lseek(int file, int ptr, int dir) {
+    LKMC_UNUSED(file);
+    LKMC_UNUSED(ptr);
+    LKMC_UNUSED(dir);
+    return 0;
+}
 
-int _open(const char *name, int flags, int mode) { return -1; }
+int _open(const char *name, int flags, int mode) {
+    LKMC_UNUSED(name);
+    LKMC_UNUSED(flags);
+    LKMC_UNUSED(mode);
+    return -1;
+}
 
 int _read(int file, char *ptr, int len) {
     int todo;
+    LKMC_UNUSED(file);
     if (len == 0)
         return 0;
-    while (UART_FR(UART0_ADDR) & UART_FR_RXFE);
-    *ptr++ = UART_DR(UART0_ADDR);
+    while (UART_FR(LKMC_UART0_ADDR) & UART_FR_RXFE);
+    *ptr++ = UART_DR(LKMC_UART0_ADDR);
     for (todo = 1; todo < len; todo++) {
-        if (UART_FR(UART0_ADDR) & UART_FR_RXFE) {
+        if (UART_FR(LKMC_UART0_ADDR) & UART_FR_RXFE) {
             break;
         }
-        *ptr++ = UART_DR(UART0_ADDR);
+        *ptr++ = UART_DR(LKMC_UART0_ADDR);
     }
     return todo;
 }
@@ -98,8 +119,9 @@ caddr_t _sbrk(int incr) {
 
 int _write(int file, char *ptr, int len) {
     int todo;
+    LKMC_UNUSED(file);
     for (todo = 0; todo < len; todo++) {
-        UART_DR(UART0_ADDR) = *ptr++;
+        UART_DR(LKMC_UART0_ADDR) = *ptr++;
     }
     return len;
 }

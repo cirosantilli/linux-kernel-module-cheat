@@ -63,6 +63,7 @@ consts['userland_subdir'] = 'userland'
 consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
 consts['userland_source_arch_dir'] = os.path.join(consts['userland_source_dir'], 'arch')
 consts['userland_executable_ext'] = '.out'
+consts['baremetal_executable_ext'] = '.elf'
 consts['include_subdir'] = consts['repo_short_id']
 consts['include_source_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
 consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
@@ -867,7 +868,6 @@ Incompatible archs are skipped.
             env['simulator_name'] = 'qemu'
         env['baremetal_build_dir'] = join(env['out_dir'], 'baremetal', env['arch'], env['simulator_name'], env['machine'])
         env['baremetal_build_lib_dir'] = join(env['baremetal_build_dir'], env['baremetal_lib_basename'])
-        env['baremetal_build_ext'] = '.elf'
 
         # Userland / baremetal common source.
         env['common_basename_noext'] = env['repo_short_id']
@@ -896,24 +896,16 @@ Incompatible archs are skipped.
         # Image
         if env['_args_given']['baremetal']:
             env['disk_image'] = env['gem5_fake_iso']
-            if env['baremetal'] == 'all':
-                path = env['baremetal']
-            else:
-                path = self.resolve_executable(
-                    env['baremetal'],
-                    env['baremetal_source_dir'],
-                    env['baremetal_build_dir'],
-                    env['baremetal_build_ext'],
-                )
-                source_path_noext = os.path.splitext(join(
-                    env['baremetal_source_dir'],
-                    os.path.relpath(path, env['baremetal_build_dir'])
-                ))[0]
-                for ext in [env['c_ext'], env['asm_ext']]:
-                    source_path = source_path_noext + ext
-                    if os.path.exists(source_path):
-                        env['source_path'] = source_path
-                        break
+            path = self.resolve_baremetal_executable(env['baremetal'])
+            source_path_noext = os.path.splitext(join(
+                env['baremetal_source_dir'],
+                os.path.relpath(path, env['baremetal_build_dir'])
+            ))[0]
+            for ext in [env['c_ext'], env['asm_ext']]:
+                source_path = source_path_noext + ext
+                if os.path.exists(source_path):
+                    env['source_path'] = source_path
+                    break
             env['image'] = path
         elif env['userland'] is not None:
             env['image'] = self.resolve_userland_executable(env['userland'])
@@ -1302,6 +1294,14 @@ lunch aosp_{}-eng
             new_targets.append(target)
         return new_targets
 
+    def resolve_baremetal_executable(self, path):
+        return self.resolve_executable(
+            path,
+            self.env['baremetal_source_dir'],
+            self.env['baremetal_build_dir'],
+            self.env['baremetal_executable_ext'],
+        )
+
     def resolve_userland_executable(self, path):
         return self.resolve_executable(
             path,
@@ -1389,8 +1389,10 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
         build_exts=None,
         cc_flags=None,
         cc_flags_after=None,
+        extra_objs=None,
         extra_objs_userland_asm=None,
         extra_objs_lkmc_common=None,
+        extra_objs_baremetal_bootloader=None,
         extra_deps=None,
         link=True,
     ):
@@ -1418,11 +1420,15 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
             in_basename
         ))
         if my_path_properties.should_be_built(self.env, link):
-            extra_objs= []
-            if my_path_properties['extra_objs_lkmc_common']:
-                extra_objs.extend(extra_objs_lkmc_common)
-            if my_path_properties['extra_objs_userland_asm']:
-                extra_objs.extend(extra_objs_userland_asm)
+            if extra_objs is None:
+                extra_objs= []
+            if link:
+                if my_path_properties['extra_objs_lkmc_common']:
+                    extra_objs.extend(extra_objs_lkmc_common)
+                if my_path_properties['extra_objs_userland_asm']:
+                    extra_objs.extend(extra_objs_userland_asm)
+                if my_path_properties['extra_objs_baremetal_bootloader']:
+                    extra_objs.extend(extra_objs_baremetal_bootloader)
             if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
                 cc_flags.extend(my_path_properties['cc_flags'])
                 cc_flags_after.extend(my_path_properties['cc_flags_after'])

@@ -19,7 +19,7 @@ cpu1_sleep_forever:
     wfe
     b cpu1_sleep_forever
 cpu0_only:
-#if !defined(GEM5)
+#if !LKMC_GEM5
     /* PSCI CPU_ON. */
     ldr r0, =0x84000003
     mov r1, #1

@@ -4,12 +4,13 @@
 #define LKMC_H
 
 /* Common C definitions. */
+#define LKMC_UNUSED(x) (void)x
+
 #if !defined(__ASSEMBLER__)
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
-void lkmc_assert(bool);
 void lkmc_assert_fail();
 void lkmc_baremetal_on_exit_callback(int status, void *arg);
 #endif
