@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-void lkmc_assert_fail();
 void lkmc_baremetal_on_exit_callback(int status, void *arg);
 #endif
 

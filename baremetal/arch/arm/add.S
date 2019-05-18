@@ -7,7 +7,7 @@ main:
     /* test-gdb-result */
     cmp r1, #3
     beq 1f
-    bl lkmc_assert_fail
+    bl abort
 1:
     mov r0, #0
     bx lr
