@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import threading
+from typing import List, Union
 import urllib.request
 
 class LF:
@@ -85,10 +86,22 @@ class ShellHelpers:
         os.chmod(path, new_mode)
 
     @staticmethod
-    def cmd_to_string(cmd, cwd=None, extra_env=None, extra_paths=None):
+    def cmd_to_string(
+        cmd: List[Union[str, LF]],
+        cwd=None,
+        extra_env=None,
+        extra_paths=None,
+        force_oneline: bool =False,
+    ):
         '''
         Format a command given as a list of strings so that it can
         be viewed nicely and executed by bash directly and print it to stdout.
+
+        If cmd contains:
+
+        * no LF, then newlines are added after every word
+        * exactly one LF at the end, then no newlines are added
+        * otherwise: newlines are added exactly at each LF
         '''
         last_newline = ' \\\n'
         newline_separator = last_newline + '  '
@@ -105,14 +118,22 @@ class ShellHelpers:
         newline_count = 0
         for arg in cmd:
             if arg == LF:
-                cmd_quote.append(arg)
-                newline_count += 1
+                if not force_oneline:
+                    cmd_quote.append(arg)
+                    newline_count += 1
             else:
                 cmd_quote.append(shlex.quote(arg))
-        if newline_count > 0:
-            cmd_quote = [' '.join(list(y)) for x, y in itertools.groupby(cmd_quote, lambda z: z == LF) if not x]
+        if force_oneline or newline_count > 0:
+            cmd_quote = [
+                ' '.join(list(y))
+                for x, y in itertools.groupby(
+                    cmd_quote,
+                    lambda z: z == LF
+                )
+                if not x
+            ]
         out.extend(cmd_quote)
-        if newline_count == 1 and cmd[-1] == LF:
+        if force_oneline or newline_count == 1 and cmd[-1] == LF:
             ending = ''
         else:
             ending = last_newline + ';'
@@ -157,20 +178,31 @@ class ShellHelpers:
             else:
                 shutil.copy2(src, dest)
 
-    def print_cmd(self, cmd, cwd=None, cmd_file=None, extra_env=None, extra_paths=None):
+    def print_cmd(
+        self,
+        cmd,
+        cwd=None,
+        cmd_file=None,
+        extra_env=None,
+        extra_paths=None,
+        force_oneline=False,
+    ):
         '''
         Print cmd_to_string to stdout.
 
         Optionally save the command to cmd_file file, and add extra_env
         environment variables to the command generated.
-
-        If cmd contains at least one LF, newlines are only added on LF.
-        Otherwise, newlines are added automatically after every word.
         '''
         if type(cmd) is str:
             cmd_string = cmd
         else:
-            cmd_string = self.cmd_to_string(cmd, cwd=cwd, extra_env=extra_env, extra_paths=extra_paths)
+            cmd_string = self.cmd_to_string(
+                cmd,
+                cwd=cwd,
+                extra_env=extra_env,
+                extra_paths=extra_paths,
+                force_oneline=force_oneline,
+            )
         if not self.quiet:
             self._print_thread_safe('+ ' + cmd_string)
         if cmd_file is not None:
@@ -371,3 +403,29 @@ class ShellHelpers:
         if not self.dry_run:
             with open(path, mode) as f:
                 f.write(string)
+
+if __name__ == '__main__':
+    shell_helpers = ShellHelpers()
+    if 'cmd_to_string':
+        # Default.
+        assert shell_helpers.cmd_to_string(['cmd']) == 'cmd \\\n;'
+        assert shell_helpers.cmd_to_string(['cmd', 'arg1']) == 'cmd \\\n  arg1 \\\n;'
+        assert shell_helpers.cmd_to_string(['cmd', 'arg1', 'arg2']) == 'cmd \\\n  arg1 \\\n  arg2 \\\n;'
+
+        # Argument with a space gets escaped.
+        assert shell_helpers.cmd_to_string(['cmd', 'arg1 arg2']) == "cmd \\\n  'arg1 arg2' \\\n;"
+
+        # Ending in LF with no other LFs get separated only by spaces.
+        assert shell_helpers.cmd_to_string(['cmd', LF]) == 'cmd'
+        assert shell_helpers.cmd_to_string(['cmd', 'arg1', LF]) == 'cmd arg1'
+        assert shell_helpers.cmd_to_string(['cmd', 'arg1', 'arg2', LF]) == 'cmd arg1 arg2'
+
+        # More than one LF adds newline separators at each LF.
+        assert shell_helpers.cmd_to_string(['cmd', LF, 'arg1', LF]) == 'cmd \\\n  arg1 \\\n;'
+        assert shell_helpers.cmd_to_string(['cmd', LF, 'arg1', LF, 'arg2', LF]) == 'cmd \\\n  arg1 \\\n  arg2 \\\n;'
+        assert shell_helpers.cmd_to_string(['cmd', LF, 'arg1', 'arg2', LF]) == 'cmd \\\n  arg1 arg2 \\\n;'
+
+        # force_oneline separates everything simply by spaces.
+        assert \
+            shell_helpers.cmd_to_string(['cmd', LF, 'arg1', LF, 'arg2', LF], force_oneline=True) \
+            == 'cmd arg1 arg2'

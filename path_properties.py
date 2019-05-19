@@ -68,12 +68,7 @@ class PathProperties:
         'skip_run_unclassified': False,
         # Aruments added automatically to run when running tests,
         # but not on manual running.
-        'test_run_args': {
-            'ctrl_c_host': True,
-            'show_stdout': False,
-            'show_time': False,
-            'background': True,
-        },
+        'test_run_args': {},
     }
 
     '''
@@ -142,6 +137,13 @@ class PathProperties:
             )
         )
 
+    def _update_dict(self, other_tmp_properties, key):
+        if key in self.properties and key in other_tmp_properties:
+            other_tmp_properties[key] = {
+                **self.properties[key],
+                **other_tmp_properties[key]
+            }
+
     def _update_list(self, other_tmp_properties, key):
         if key in self.properties and key in other_tmp_properties:
             other_tmp_properties[key] = \
@@ -153,11 +155,7 @@ class PathProperties:
         self._update_list(other_tmp_properties, 'cc_flags')
         self._update_list(other_tmp_properties, 'cc_flags_after')
         self._update_list(other_tmp_properties, 'extra_objs')
-        if 'test_run_args' in self.properties and 'test_run_args' in other_tmp_properties:
-            other_tmp_properties['test_run_args'] = {
-                **self.properties['test_run_args'],
-                **other_tmp_properties['test_run_args']
-            }
+        self._update_dict(other_tmp_properties, 'test_run_args')
         return self.properties.update(other_tmp_properties)
 
 class PrefixTree:

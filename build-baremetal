@@ -109,36 +109,28 @@ Build the baremetal examples with crosstool-NG.
         with thread_pool.ThreadPool(
             self._build_one,
             nthreads=self.env['nproc'],
+            submit_raise_exit=self.env['quit_on_fail'],
         ) as my_thread_pool:
-            try:
-                for target in self.env['targets']:
-                    for path, in_dirnames, in_filenames in self.sh.walk(target):
-                        for in_filename in in_filenames:
-                            in_ext = os.path.splitext(in_filename)[1]
-                            if not in_ext in self.env['build_in_exts']:
-                                continue
-                            in_path = os.path.join(path, in_filename)
-                            error = my_thread_pool.submit({
-                                'cc_flags': cc_flags,
-                                'extra_deps': [
-                                    self.env['baremetal_link_script'],
-                                    self.env['common_h']
-                                ],
-                                'extra_objs': [syscalls_obj],
-                                'extra_objs_baremetal_bootloader': [extra_obj_baremetal_bootloader],
-                                'extra_objs_lkmc_common': [extra_obj_lkmc_common],
-                                'in_path': in_path,
-                                'out_path': self.resolve_baremetal_executable(in_path),
-                            })
-                            if error is not None:
-                                raise common.ExitLoop()
-            except common.ExitLoop:
-                pass
-        error = my_thread_pool.get_error()
-        if error is not None:
-            print(error)
-            return 1
-
+            for target in self.env['targets']:
+                for path, in_dirnames, in_filenames in self.sh.walk(target):
+                    for in_filename in in_filenames:
+                        in_ext = os.path.splitext(in_filename)[1]
+                        if not in_ext in self.env['build_in_exts']:
+                            continue
+                        in_path = os.path.join(path, in_filename)
+                        my_thread_pool.submit({
+                            'cc_flags': cc_flags,
+                            'extra_deps': [
+                                self.env['baremetal_link_script'],
+                                self.env['common_h']
+                            ],
+                            'extra_objs': [syscalls_obj],
+                            'extra_objs_baremetal_bootloader': [extra_obj_baremetal_bootloader],
+                            'extra_objs_lkmc_common': [extra_obj_lkmc_common],
+                            'in_path': in_path,
+                            'out_path': self.resolve_baremetal_executable(in_path),
+                        })
+        return self._handle_thread_pool_errors(my_thread_pool)
 
     def get_build_dir(self):
         return self.env['baremetal_build_dir']

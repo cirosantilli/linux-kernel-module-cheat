@@ -82,37 +82,32 @@ Default: build all examples that have their package dependencies met, e.g.:
         with thread_pool.ThreadPool(
             self._build_one,
             nthreads=self.env['nproc'],
+            submit_raise_exit=self.env['quit_on_fail'],
         ) as my_thread_pool:
-            try:
-                for target in self.env['targets']:
-                    for path, in_dirnames, in_filenames in self.sh.walk(target):
-                        for in_filename in in_filenames:
-                            in_ext = os.path.splitext(in_filename)[1]
-                            if not in_ext in self.env['build_in_exts']:
-                                continue
-                            in_path = os.path.join(path, in_filename)
-                            error = my_thread_pool.submit({
-                                'cc_flags': cc_flags,
-                                'extra_objs_lkmc_common': [extra_obj_lkmc_common],
-                                'extra_objs_userland_asm': [extra_obj_userland_asm],
-                                'in_path': in_path,
-                                'out_path': self.resolve_userland_executable(in_path),
-                            })
-                            if error is not None:
-                                raise common.ExitLoop()
-            except common.ExitLoop:
-                pass
-        error = my_thread_pool.get_error()
-        if error is not None:
-            print(error)
-            return 1
+            for target in self.env['targets']:
+                for path, in_dirnames, in_filenames in self.sh.walk(target):
+                    for in_filename in in_filenames:
+                        in_ext = os.path.splitext(in_filename)[1]
+                        if not in_ext in self.env['build_in_exts']:
+                            continue
+                        in_path = os.path.join(path, in_filename)
+                        my_thread_pool.submit({
+                            'cc_flags': cc_flags,
+                            'extra_objs_lkmc_common': [extra_obj_lkmc_common],
+                            'extra_objs_userland_asm': [extra_obj_userland_asm],
+                            'in_path': in_path,
+                            'out_path': self.resolve_userland_executable(in_path),
+                        })
+        exit_status = self._handle_thread_pool_errors(my_thread_pool)
+        if exit_status != 0:
+            return exit_status
         if not self.env['in_tree']:
             self.sh.copy_dir_if_update(
                 srcdir=build_dir,
                 destdir=self.env['out_rootfs_overlay_lkmc_dir'],
                 filter_ext=self.env['userland_executable_ext'],
             )
-        return 0
+        return exit_status
 
     def clean(self):
         if self.env['in_tree']:
