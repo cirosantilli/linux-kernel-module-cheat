@@ -24,8 +24,7 @@ static void vm_close(struct vm_area_struct *vma)
 }
 
 /* First page access. */
-int (*fault)(struct vm_fault *vmf);
-static int vm_fault(struct vm_fault *vmf)
+static vm_fault_t vm_fault(struct vm_fault *vmf)
 {
 	struct page *page;
 	struct mmap_info *info;
