@@ -949,7 +949,10 @@ lunch aosp_{}-eng
                 env['crosstool_ng_toolchain_prefix']
             )
         elif env['gcc_which'] == 'host':
-            env['toolchain_prefix'] = env['ubuntu_toolchain_prefix']
+            if env['arch'] == env['host_arch']:
+                env['toolchain_prefix'] = ''
+            else:
+                env['toolchain_prefix'] = env['ubuntu_toolchain_prefix']
             if env['arch'] == 'x86_64':
                 env['userland_library_dir'] = '/'
             elif env['arch'] == 'arm':
@@ -964,6 +967,10 @@ lunch aosp_{}-eng
                 raise Exception('There is no host baremetal chain for arch: ' + env['arch'])
         else:
             raise Exception('Unknown toolchain: ' + env['gcc_which'])
+        if env['toolchain_prefix'] == '':
+            env['toolchain_prefix_dash'] = ''
+        else:
+            env['toolchain_prefix_dash'] = '{}-'.format(env['toolchain_prefix'])
         env['gcc_path'] = self.get_toolchain_tool('gcc')
         env['gxx_path'] = self.get_toolchain_tool('g++')
         env['ld_path'] = self.get_toolchain_tool('ld')
@@ -1062,7 +1069,7 @@ lunch aosp_{}-eng
         return ret
 
     def get_toolchain_tool(self, tool):
-        return '{}-{}'.format(self.env['toolchain_prefix'], tool)
+        return '{}{}'.format(self.env['toolchain_prefix_dash'], tool)
 
     def github_make_request(
             self,
