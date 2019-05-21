@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # https://github.com/cirosantilli/linux-kernel-module-cheat#bisection
 set -eu
-./build-linux --clean "$@"
-./build-linux "$@"
+cd ../..
+./build-gem5 --gem5-build-id bisect
 set +e
-./run --quit-after-boot "$@" || status=$?
+# Setup for quick failures:
 # https://stackoverflow.com/questions/4713088/how-to-use-git-bisect/22592593#22592593
-if [ "$status" -eq 125 ] || [ "$status" -gt 127 ]; then
-  status=1
+timeout 5 ./run --emulator gem5 --gem5-build-id bisect --quit-after-boot
+if [ $? -ne 124 ]; then
+  exit 1
 fi
-exit "$status"
