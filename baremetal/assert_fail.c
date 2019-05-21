@@ -1,1 +1,0 @@
-../lkmc/assert_fail.c

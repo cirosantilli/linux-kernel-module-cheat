@@ -755,7 +755,7 @@ Or to run a baremetal example instead:
 ....
 ./run \
   --arch aarch64 \
-  --baremetal baremetal/hello.c \
+  --baremetal baremetal/c/hello.c \
   --qemu-which host \
 ;
 ....
@@ -1193,11 +1193,11 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 
 Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image.
 
-For example, to run link:baremetal/hello.c[] in QEMU do:
+For example, to run link:baremetal/c/hello.c[] in QEMU do:
 
 ....
 ./build --arch aarch64 --download-dependencies qemu-baremetal
-./run --arch aarch64 --baremetal baremetal/hello.c
+./run --arch aarch64 --baremetal baremetal/c/hello.c
 ....
 
 The terminal prints:
@@ -1238,14 +1238,14 @@ echo $?
 To modify a baremetal program, simply edit the file, e.g.
 
 ....
-vim baremetal/hello.c
+vim baremetal/c/hello.c
 ....
 
 and rebuild:
 
 ....
 ./build-baremetal --arch aarch64
-./run --arch aarch64 --baremetal baremetal/hello.c
+./run --arch aarch64 --baremetal baremetal/c/hello.c
 ....
 
 `./build qemu-baremetal` that we run previously is only needed for the initial build. That script calls link:build-baremetal[] for us, in addition to building prerequisites such as QEMU and crosstool-NG.
@@ -1255,7 +1255,7 @@ and rebuild:
 Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`, for example the following also work:
 
 ....
-./run --arch aarch64 --baremetal baremetal/hello.c
+./run --arch aarch64 --baremetal baremetal/c/hello.c
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
 ....
 
@@ -1269,7 +1269,7 @@ To use gem5 instead of QEMU do:
 
 ....
 ./build --download-dependencies gem5-baremetal
-./run --arch aarch64 --baremetal baremetal/hello.c --emulator gem5
+./run --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -1281,7 +1281,7 @@ and then <<qemu-buildroot-setup,as usual>> open a shell with:
 Or as usual, <<tmux>> users can do both in one go with:
 
 ....
-./run --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --tmux
+./run --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --tmux
 ....
 
 TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
@@ -1289,8 +1289,8 @@ TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremet
 Note that `./build-baremetal` requires the `--emulator gem5` option, and generates separate executable images for both, as can be seen from:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator qemu image)"
-echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator qemu image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
@@ -1306,14 +1306,14 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 
 ....
 ./build-baremetal --arch aarch64 --emulator gem5 --machine RealViewPBX
-./run --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --machine RealViewPBX
+./run --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch aarch64 --baremetal baremetal/hello.c --emulator gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
@@ -12685,7 +12685,7 @@ Guaranteed undefined! Therefore raise illegal instruction signal. Used by GCC `_
 * link:userland/arch/arm/udf.S[]
 * link:userland/arch/aarch64/udf.S[]
 
-TODO: why GNU GAS 2.29 does not have a mnemonic for it?
+Why GNU GAS 2.29 does not have a mnemonic for it in A64 because it is very recent: shows in [[armarm8-db]] but not `ca`.
 
 === ARM SIMD
 
@@ -12932,11 +12932,29 @@ https://static.docs.arm.com/ddi0487/ca/DDI0487C_a_armv8_arm.pdf
 
 Latest version: https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
 
+Versions are determined by two letteres in lexicographical order, e.g.:
+
+* a
+* af
+* aj
+* aj
+* b
+* ba
+* bb
+* ca
+
+The link: https://static.docs.arm.com/ddi0487/ca/DDI0487C_a_armv8_arm.pdf is the `ca` version for example.
+
 The official comprehensive ARMv8 reference.
 
 ISA quick references can be found in some places:
 
 * https://web.archive.org/web/20161009122630/http://infocenter.arm.com/help/topic/com.arm.doc.qrc0001m/QRC0001_UAL.pdf
+
+[[armarm8-db]]
+===== ARMv8 architecture reference manual db
+
+https://static.docs.arm.com/ddi0487/db/DDI0487D_b_armv8_arm.pdf
 
 [[armv8-programmers-guide]]
 ===== Programmer's Guide for ARMv8-A
@@ -12962,19 +12980,19 @@ Except that is is even cooler here since we can easily control and understand ev
 For example, on the first shell:
 
 ....
-./run --arch arm --baremetal baremetal/hello.c --gdb-wait
+./run --arch arm --baremetal baremetal/c/hello.c --gdb-wait
 ....
 
 then on the second shell:
 
 ....
-./run-gdb --arch arm --baremetal baremetal/hello.c -- main
+./run-gdb --arch arm --baremetal baremetal/c/hello.c -- main
 ....
 
 Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal baremetal/hello.c --gdb
+./run --arch arm --baremetal baremetal/c/hello.c --gdb
 ....
 
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
@@ -12982,13 +13000,13 @@ Alternatively, to start from the very first executed instruction of our tiny <<b
 ....
 ./run \
   --arch arm \
-  --baremetal baremetal/hello.c \
+  --baremetal baremetal/c/hello.c \
   --gdb-wait \
   --tmux-args=--no-continue \
 ;
 ....
 
-Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/hello.c[].
+Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/c/hello.c[].
 
 This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
@@ -13125,7 +13143,7 @@ For `arm`, some baremetal examples compile fine with:
 ....
 sudo apt-get install gcc-arm-none-eabi qemu-system-arm
 ./build-baremetal --arch arm --gcc-which host-baremetal
-./run --arch arm --baremetal baremetal/hello.c --qemu-which host
+./run --arch arm --baremetal baremetal/c/hello.c --qemu-which host
 ....
 
 However, there are as usual limitations to using prebuilts:
@@ -13154,7 +13172,7 @@ TODO: any advantage over QEMU? I doubt it, mostly using it as as toy for now:
 Without running `./run`, do directly:
 
 ....
-./run-gdb --arch arm --baremetal baremetal/hello.c --sim
+./run-gdb --arch arm --baremetal baremetal/c/hello.c --sim
 ....
 
 Then inside GDB:
@@ -13720,12 +13738,12 @@ Source: link:test-baremetal[]
 Analogously to <<user-mode-tests>>, we can select individual tests or directories with:
 
 ....
-./test-baremetal --arch aarch64 baremetal/hello.c baremetal/arch/aarch64/no_bootloader/
+./test-baremetal --arch aarch64 baremetal/c/hello.c baremetal/arch/aarch64/no_bootloader/
 ....
 
 which would run all of:
 
-* link:baremetal/hello.c[]
+* link:baremetal/c/hello.c[]
 * all tests under the directory: link:baremetal/arch/aarch64/no_bootloader/[]
 
 We detect if tests failed by parsing logs for the <<magic-failure-string>>.
@@ -15097,14 +15115,14 @@ Sources:
 If a test fails, re-run the test commands manually and use `--verbose` to understand what happened:
 
 ....
-./run --arch arm --background --baremetal baremetal/add.c --gdb-wait &
-./run-gdb --arch arm --baremetal baremetal/add.c --verbose -- main
+./run --arch arm --background --baremetal baremetal/c/add.c --gdb-wait &
+./run-gdb --arch arm --baremetal baremetal/c/add.c --verbose -- main
 ....
 
 and possibly repeat the GDB steps manually with the usual:
 
 ....
-./run-gdb --arch arm --baremetal baremetal/add.c --no-continue --verbose
+./run-gdb --arch arm --baremetal baremetal/c/add.c --no-continue --verbose
 ....
 
 To debug GDB problems on gem5, you might want to enable the following <<gem5-tracing,tracing>> options:
@@ -15112,7 +15130,7 @@ To debug GDB problems on gem5, you might want to enable the following <<gem5-tra
 ....
 ./run \
   --arch arm \
-  --baremetal baremetal/add.c \
+  --baremetal baremetal/c/add.c \
   --gdb-wait \
   --trace GDBRecv,GDBSend \
   --trace-stdout \
@@ -15163,7 +15181,7 @@ So setup this `on_exit` automatically from all our <<baremetal-bootloaders>>, so
 +
 The following examples end up testing that our setup is working:
 +
-* link:baremetal/assert_fail.c[]
+* link:baremetal/c/assert_fail.c[]
 * link:baremetal/return1.c[]
 * link:baremetal/return2.c[]
 * link:baremetal/exit0.c[]

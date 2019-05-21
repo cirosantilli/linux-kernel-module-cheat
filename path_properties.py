@@ -258,9 +258,14 @@ path_properties_tuples = (
                         )
                     }
                 ),
-                'assert_fail.c': {'exit_status': 134},
+                'c': (
+                    {},
+                    {
+                        'assert_fail.c': {'exit_status': 134},
+                        'infinite_loop.c': {'more_than_1s': True},
+                    }
+                ),
                 'exit1.c': {'exit_status': 1},
-                'infinite_loop.c': {'more_than_1s': True},
                 'lib': {'no_executable': True},
                 'getchar.c': {'interactive': True},
                 'return1.c': {'exit_status': 1},

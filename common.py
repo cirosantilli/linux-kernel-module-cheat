@@ -155,10 +155,14 @@ class LkmcCliFunction(cli_function.CliFunction):
     It would be beautiful to do this evaluation in a lazy way, e.g. with functions +
     cache decorators:
     https://stackoverflow.com/questions/815110/is-there-a-decorator-to-simply-cache-function-return-values
+
+    :param is_userland: on ./run, we detect if userland based on --userland. However, ./test-user-mode
+                        does not take --userland, and that causes problems.
     '''
     def __init__(
         self,
         *args,
+        is_userland=False,
         defaults=None,
         supported_archs=None,
         **kwargs
@@ -171,6 +175,7 @@ class LkmcCliFunction(cli_function.CliFunction):
         kwargs['extra_config_params'] = os.path.basename(inspect.getfile(self.__class__))
         if defaults is None:
             defaults = {}
+        self._is_userland = is_userland
         self._defaults = defaults
         self._is_common = True
         self._common_args = set()
@@ -1199,7 +1204,7 @@ lunch aosp_{}-eng
                                 continue
                             else:
                                 raise Exception('native emulator only supported in if target arch == host arch')
-                        if env['userland'] is None:
+                        if env['userland'] is None and not self._is_userland:
                             if real_all_emulators:
                                 continue
                             else:
