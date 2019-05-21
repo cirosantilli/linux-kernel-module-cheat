@@ -22,6 +22,7 @@ import signal
 import subprocess
 import sys
 import threading
+from typing import Union
 import time
 import urllib
 import urllib.request
@@ -30,6 +31,7 @@ from shell_helpers import LF
 import cli_function
 import path_properties
 import shell_helpers
+import thread_pool
 
 common = sys.modules[__name__]
 
@@ -265,6 +267,14 @@ TODO: implement fully, some stuff is escaping it currently.
             default=True,
             help='''\
 Stop running at the first failed test.
+'''
+        )
+        self.add_argument(
+            '--show-cmds',
+            default=True,
+            help='''\
+Print the exact Bash command equivalents being run by this script.
+Implied by --quiet.
 '''
         )
         self.add_argument(
@@ -583,18 +593,39 @@ Incompatible archs are skipped.
 
     def __call__(self, *args, **kwargs):
         '''
-        For Python code calls, in addition to base:
+        For Python code calls, in addition to base class behaviour:
 
-        - print the CLI equivalent of the call
-        - automatically forward common arguments
+        * print the CLI equivalent of the call
+        * automatically forward common arguments
         '''
         print_cmd = ['./' + self.extra_config_params, LF]
+        if 'print_cmd_oneline' in kwargs:
+            force_oneline = kwargs['print_cmd_oneline']
+            del kwargs['print_cmd_oneline']
+        else:
+            force_oneline=False
         for line in self.get_cli(**kwargs):
             print_cmd.extend(line)
             print_cmd.append(LF)
         if not ('quiet' in kwargs and kwargs['quiet']):
-            shell_helpers.ShellHelpers().print_cmd(print_cmd)
+            shell_helpers.ShellHelpers().print_cmd(
+                print_cmd,
+                force_oneline=force_oneline
+            )
         return super().__call__(**kwargs)
+
+    def _handle_thread_pool_errors(self, my_thread_pool):
+        handle_output_result = my_thread_pool.get_handle_output_result()
+        if handle_output_result is not None:
+            work_function_input, work_function_return, exception = handle_output_result
+            if not type(exception) is thread_pool.ThreadPoolExitException:
+                print('work_function or handle_output raised unexpectedly:')
+                print(thread_pool.ThreadPool.exception_traceback_string(exception), end='')
+                print('work_function_input: {}'.format(work_function_input))
+                print('work_function_return: {}'.format(work_function_return))
+            return 1
+        else:
+            return 0
 
     def _init_env(self, env):
         '''
@@ -823,7 +854,10 @@ Incompatible archs are skipped.
             env['linux_image'] = env['lkmc_linux_image']
         env['linux_config'] = join(env['linux_build_dir'], '.config')
         if env['emulator']== 'gem5':
-            env['userland_quit_cmd'] = './gem5_exit.sh'
+            env['userland_quit_cmd'] = join(
+                env['guest_lkmc_home'],
+                'gem5_exit.sh'
+            )
         else:
             env['userland_quit_cmd'] = join(
                 env['guest_lkmc_home'],
@@ -1141,11 +1175,17 @@ lunch aosp_{}-eng
             real_archs = consts['all_long_archs']
         else:
             real_archs = env['archs']
-        if env['all_emulators']:
+        real_all_emulators = env['all_emulators']
+        if real_all_emulators:
             real_emulators = consts['all_long_emulators']
         else:
             real_emulators = env['emulators']
         return_value = 0
+        if env['_args_given']['show_cmds']:
+            show_cmds = env['show_cmds']
+        else:
+            show_cmds = not env['quiet']
+        self.setup(env)
         try:
             for emulator in real_emulators:
                 for arch in real_archs:
@@ -1153,7 +1193,15 @@ lunch aosp_{}-eng
                         arch = env['arch_short_to_long_dict'][arch]
                     if emulator == 'native':
                         if arch != env['host_arch']:
-                            continue
+                            if real_all_archs:
+                                continue
+                            else:
+                                raise Exception('native emulator only supported in if target arch == host arch')
+                        if env['userland'] is None:
+                            if real_all_emulators:
+                                continue
+                            else:
+                                raise Exception('native emulator only supported in user mode')
                     if self.is_arch_supported(arch):
                         if not env['dry_run']:
                             start_time = time.time()
@@ -1169,7 +1217,7 @@ lunch aosp_{}-eng
                         self._init_env(self.env)
                         self.sh = shell_helpers.ShellHelpers(
                             dry_run=self.env['dry_run'],
-                            quiet=self.env['quiet'],
+                            quiet=(not show_cmds),
                         )
                         self.setup_one()
                         ret = self.timed_main()
@@ -1317,6 +1365,14 @@ lunch aosp_{}-eng
             self.env['userland_executable_ext'],
         )
 
+    def setup(self, env):
+        '''
+        Similar to setup run before all timed_main are called.
+
+        _init_env has not yet been called, so only primary CLI arguments may be used.
+        '''
+        pass
+
     def setup_one(self):
         '''
         Run just before timed_main, after _init_env.
@@ -1338,9 +1394,11 @@ lunch aosp_{}-eng
         '''
         pass
 
-    def teardown(self):
+    def teardown(self) -> Union[None,int]:
         '''
         Similar to setup, but run once after all timed_main are called.
+
+        :return: if not None, the return integer gets used as the exit status of the program.
         '''
         pass
 
@@ -1602,6 +1660,7 @@ class TestCliFunction(LkmcCliFunction):
 
     def __init__(self, *args, **kwargs):
         defaults = {
+            'quit_on_fail': False,
             'show_time': False,
         }
         if 'defaults' in kwargs:
@@ -1609,6 +1668,17 @@ class TestCliFunction(LkmcCliFunction):
         kwargs['defaults'] = defaults
         super().__init__(*args, **kwargs)
         self.test_results = queue.Queue()
+
+    def handle_output_function(
+        self,
+        work_function_input,
+        work_function_return,
+        work_function_exception
+    ):
+        if work_function_exception is not None:
+            return work_function_exception
+        if work_function_return.status != TestStatus.PASS:
+            return thread_pool.ThreadPoolExitException()
 
     def run_test(
         self,
@@ -1624,17 +1694,33 @@ class TestCliFunction(LkmcCliFunction):
         More complex tests might need to run the steps separately, e.g. gdb tests
         must run multiple commands: one for the run and one GDB.
 
+        This function is meant to be called from threads. In particular,
+        those threads have to cross over archs: the original motivation is to parallelize
+        super slow gem5 boot tests. Therefore, we cannot use self.env['arch'] and selv.env['emulator']
+        in this function or callees!
+
+        Ideally, we should make this static and pass all arguments to the call... but lazy to refactor.
+        I have the feeling I will regret this one day down the line.
+
         :param run_obj: callable object
         :param run_args: arguments to be passed to the runnable object
         :param test_id: test identifier, to be added in addition to of arch and emulator ids
         :param thread_id: which thread the test is running under
         '''
-        if run_obj.is_arch_supported(self.env['arch']):
-            if run_args is None:
-                run_args = {}
-            run_args['run_id'] = thread_id
-            test_id_string = self.test_setup(test_id)
-            exit_status = run_obj(**run_args)
+        if run_obj.is_arch_supported(run_args['archs'][0]):
+            cur_run_args = {
+                'background': True,
+                'ctrl_c_host': True,
+                'print_cmd_oneline': True,
+                'run_id': thread_id,
+                'show_cmds': False,
+                'show_stdout': False,
+                'show_time': False,
+            }
+            if run_args is not None:
+                cur_run_args.update(run_args)
+            test_id_string = self.test_setup(run_args, test_id)
+            exit_status = run_obj(**cur_run_args)
             return self.test_teardown(
                 run_obj,
                 exit_status,
@@ -1642,11 +1728,11 @@ class TestCliFunction(LkmcCliFunction):
                 expected_exit_status=expected_exit_status
             )
 
-    def test_setup(self, test_id):
-        test_id_string = '{} {}'.format(self.env['emulator'], self.env['arch'])
-        if test_id is not None:
+    def test_setup(self, run_args, test_id):
+        test_id_string = '{} {}'.format(run_args['emulators'][0], run_args['archs'][0])
+        if test_id is not None and str(test_id) != '':
             test_id_string += ' {}'.format(test_id)
-        self.log_info('test_id {}'.format(test_id_string), flush=True)
+        self.log_info('Starting: {}'.format(repr(test_id_string)), flush=True)
         return test_id_string
 
     def test_teardown(
@@ -1661,24 +1747,24 @@ class TestCliFunction(LkmcCliFunction):
         reason = ''
         if not self.env['dry_run']:
             if exit_status == expected_exit_status:
-                test_result = TestStatus.PASS
+                test_status = TestStatus.PASS
             else:
-                test_result = TestStatus.FAIL
+                test_status = TestStatus.FAIL
                 reason = 'wrong exit status, got {} expected {}'.format(
                     exit_status,
                     expected_exit_status
                 )
             ellapsed_seconds = run_obj.ellapsed_seconds
         else:
-            test_result = TestStatus.PASS
+            test_status = TestStatus.PASS
             ellapsed_seconds = 0
         test_result = TestResult(
             test_id_string,
-            test_result,
+            test_status,
             ellapsed_seconds,
             reason
         )
-        self.log_info(test_result)
+        self.log_info('Result: ' + str(test_result))
         self.test_results.put(test_result)
         return test_result
 
@@ -1686,7 +1772,7 @@ class TestCliFunction(LkmcCliFunction):
         '''
         :return: 1 if any test failed, 0 otherwise
         '''
-        self.log_info('\nTest result summary')
+        self.log_info('\nTest result summary:')
         passes = []
         fails = []
         while not self.test_results.empty():

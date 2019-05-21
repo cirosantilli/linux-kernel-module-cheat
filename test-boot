@@ -2,6 +2,7 @@
 
 import common
 import lkmc.import_path
+import thread_pool
 import shell_helpers
 from shell_helpers import LF
 
@@ -21,14 +22,24 @@ See ./test --help for --size.
 '''
         )
 
-    def _bench(self, **kwargs):
+    def _bench(self, **run_args):
+        run_obj = lkmc.import_path.import_path_main('run')
         words = []
-        for line in self.run.get_cli(**kwargs):
+        test_id_args = run_args.copy()
+        del test_id_args['run_id']
+        for line in run_obj.get_cli(**test_id_args):
             words.extend(line)
-        extra_params = shell_helpers.ShellHelpers().cmd_to_string(words + [LF])
-        run_args = kwargs.copy()
-        run_args.update(self.common_args)
-        self.run_test(self.run, run_args, extra_params)
+        test_id = shell_helpers.ShellHelpers().cmd_to_string(words, force_oneline=True)
+        return self.run_test(run_obj, run_args, test_id)
+
+    def setup(self, env):
+        self.my_thread_pool = thread_pool.ThreadPool(
+            self._bench,
+            handle_output=self.handle_output_function,
+            nthreads=env['nproc'],
+            thread_id_arg='run_id',
+            submit_skip_exit=env['quit_on_fail'],
+        )
 
     def timed_main(self):
         # TODO bring this benchmark code back to life. Likely should go inside run with an option
@@ -46,19 +57,20 @@ See ./test --help for --size.
         #)
         #
         #rm -f "${self.env['test_boot_benchmark_file']}"
-        self.run = lkmc.import_path.import_path_main('run')
-        self.common_args = self.get_common_args()
-        self.common_args['ctrl_c_host'] = True
-        self.common_args['quit_after_boot'] = True
+        common_args = self.get_common_args()
+        common_args['ctrl_c_host'] = True
+        common_args['quit_after_boot'] = True
+        # To see it blow up during development.
+        # self.common_args['eval'] = 'insmod /lkmc/panic.ko'
         if (self.env['emulator'] == 'qemu' or
                 (self.env['emulator'] == 'gem5' and self.env['size'] >= 2)):
-            self._bench()
+            self.my_thread_pool.submit(common_args)
         if self.env['host_arch'] == self.env['arch']:
             # TODO: find out why it fails.
             if self.env['emulator'] != 'gem5':
-                self._bench(kvm=True)
+                self.my_thread_pool.submit({**common_args, **{'kvm': True}})
         if self.env['emulator'] == 'qemu' and self.env['size'] >= 2:
-            self._bench(trace='exec_tb')
+            self.my_thread_pool.submit({**common_args, **{'trace': 'exec_tb'}})
         if self.env['emulator'] == 'gem5' and self.env['size'] >= 3:
             if self.env['arch'] == 'x86_64':
                 cpu_types = [
@@ -71,23 +83,28 @@ See ./test --help for --size.
                     'HPI',
                 ]
             for cpu_type in cpu_types:
-                self._bench(
-                    extra_emulator_args=[
-                        '--cpu-type', cpu_type,
-                        '--caches',
-                        '--l2cache',
-                        '--l1d_size', '1024kB',
-                        '--l1i_size', '1024kB',
-                        '--l2_size', '1024kB',
-                        '--l3_size', '1024kB',
+                self.my_thread_pool.submit({**common_args, **{
+                    'extra_emulator_args': [
+                        '--cpu-type', cpu_type, LF,
+                        '--caches', LF,
+                        '--l2cache', LF,
+                        '--l1d_size', '1024kB', LF,
+                        '--l1i_size', '1024kB', LF,
+                        '--l2_size', '1024kB', LF,
+                        '--l3_size', '1024kB', LF,
                     ],
-                )
+                }})
             if self.env['arch'] == 'aarch64':
                 # Do a fuller testing for aarch64.
                 for build_type in ['debug', 'fast']:
-                    self._bench(gem5_build_type=build_type)
+                    self.my_thread_pool.submit({**common_args, **{'gem5_build_type': build_type}})
                 # Requires patching the executable.
-                # self._bench(gem5_script='biglittle')
+                # self.my_thread_pool.submit({{**common_args, 'gem5_script': 'biglittle'}})
+
+    def teardown(self):
+        self.my_thread_pool.join()
+        self._handle_thread_pool_errors(self.my_thread_pool)
+        return super().teardown()
 
 if __name__ == '__main__':
     Main().cli()
