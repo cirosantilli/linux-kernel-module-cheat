@@ -4,5 +4,5 @@
 
 #include "common.h"
 
-ENTRY
-EXIT
+LKMC_ENTRY
+LKMC_EXIT

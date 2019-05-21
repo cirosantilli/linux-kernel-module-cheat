@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* SIMD positive. */
 .data
     vcvta_positive_0:      .float 1.25, 2.5, 3.75, 4.0
@@ -15,7 +15,7 @@ ENTRY
     vcvta.u32.f32 q1, q0
     ldr r0, =vcvta_positive_result
     vst1.32 {q1}, [r0]
-    ASSERT_MEMCMP(
+    LKMC_ASSERT_MEMCMP(
         vcvta_positive_result,
         vcvta_positive_expect,
         0x10
@@ -33,9 +33,9 @@ ENTRY
     vcvta.s32.f32 q1, q0
     ldr r0, =vcvta_negative_result
     vst1.32 {q1}, [r0]
-    ASSERT_MEMCMP(
+    LKMC_ASSERT_MEMCMP(
         vcvta_negative_result,
         vcvta_negative_expect,
         0x10
     )
-EXIT
+LKMC_EXIT

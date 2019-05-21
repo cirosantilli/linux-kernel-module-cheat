@@ -5,7 +5,7 @@
 .data
 data_label:
     .word 0x1234678
-ENTRY
+LKMC_ENTRY
     adr r4, label
     /* objdump tells us that this uses the literal pool,
      * it does not get converted to adr, which is the better
@@ -14,8 +14,8 @@ ENTRY
     ldr r5, =label
     adrl r6, label
 label:
-    ASSERT_EQ_REG(r4, r5)
-    ASSERT_EQ_REG(r4, r6)
+    LKMC_ASSERT_EQ_REG(r4, r5)
+    LKMC_ASSERT_EQ_REG(r4, r6)
 
 #if 0
     /* Error: symbol .data is in a different section.
@@ -30,4 +30,4 @@ label:
      */
     adr r5, data_label
 #endif
-EXIT
+LKMC_EXIT

@@ -2,11 +2,11 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     ldr r0, =myvar
     mov r1, 0x0
     ldrh r1, [r0]
-    ASSERT_EQ(r1, 0x00005678)
-EXIT
+    LKMC_ASSERT_EQ(r1, 0x00005678)
+LKMC_EXIT
 myvar:
     .word 0x12345678

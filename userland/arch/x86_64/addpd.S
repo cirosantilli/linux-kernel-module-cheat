@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 .bss
     output:       .skip 16
 .data
@@ -21,11 +21,11 @@ ENTRY
     movups addp ## size ## _input1, %xmm1; \
     addp ## size %xmm1, %xmm0; \
     movups %xmm0, output; \
-    ASSERT_MEMCMP(output, addp ## size ## _expect, $0x10)
+    LKMC_ASSERT_MEMCMP(output, addp ## size ## _expect, $0x10)
 
     /* 4x 32-bit */
     TEST(s)
     /* 2x 64-bit */
     TEST(d)
 #undef TEST
-EXIT
+LKMC_EXIT

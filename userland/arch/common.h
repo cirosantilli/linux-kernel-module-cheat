@@ -15,17 +15,17 @@
 ;
 
 /* Assert that the given branch instruction is taken. */
-#define ASSERT(branch_if_pass) \
+#define LKMC_ASSERT(branch_if_pass) \
     branch_if_pass 1f; \
-    FAIL; \
+    LKMC_FAIL; \
 1: \
 ;
 
-#ifndef ASSERT_EQ_REG
+#ifndef LKMC_ASSERT_EQ_REG
 /* Assert that a register equals another register. */
-#define ASSERT_EQ_REG(reg1, reg2) \
+#define LKMC_ASSERT_EQ_REG(reg1, reg2) \
     cmp reg1, reg2; \
-    ASSERT(beq); \
+    LKMC_ASSERT(beq); \
 ;
 #endif
 

@@ -2,15 +2,14 @@
  * https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly-c-standard-library
  */
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdint.h>
-
-#include <lkmc.h>
 
 int asm_main(uint32_t *line);
 
 #define ASSERT_EQ_DEFINE(bits) \
-    int assert_eq_ ## bits(uint ## bits ## _t val1, uint ## bits ## _t val2) { \
+    int lkmc_assert_eq_ ## bits(uint ## bits ## _t val1, uint ## bits ## _t val2) { \
         if (val1 != val2) { \
             printf("%s failed\n", __func__); \
             printf("val1 0x%" PRIX ## bits "\n", val1); \
@@ -19,11 +18,11 @@ int asm_main(uint32_t *line);
         } \
         return 0; \
     }
-
 ASSERT_EQ_DEFINE(32)
 ASSERT_EQ_DEFINE(64)
+#undef ASSERT_EQ_DEFINE
 
-int assert_memcmp(const void *s1, const void *s2, size_t n) {
+int lkmc_assert_memcmp(const void *s1, const void *s2, size_t n) {
     int ret;
     size_t i;
     uint8_t *s1b, *s2b;

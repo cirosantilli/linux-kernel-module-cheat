@@ -1,9 +1,9 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-b-instruction */
 
 #include "common.h"
-ENTRY
+LKMC_ENTRY
     /* Jump over the fail. 26-bit PC-relative. */
     b ok
-    FAIL
+    LKMC_FAIL
 ok:
-EXIT
+LKMC_EXIT

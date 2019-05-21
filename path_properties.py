@@ -26,7 +26,7 @@ class PathProperties:
             '-fno-pie', LF,
             '-no-pie', LF,
         ],
-        'cc_flags_after': ['-lm'],
+        'cc_flags_after': ['-lm', LF],
         'cc_pedantic': True,
         'cxx_std': default_cxx_std,
         # Expected program exit status. When signals are raised, this refers

@@ -2,18 +2,18 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 
     /* Branch. */
     mov x0, 0x0
     cbz x0, ok
-    FAIL
+    LKMC_FAIL
 ok:
 
     /* Don't branch. */
     mov x0, 0x1
     cbz x0, ko
 
-EXIT
+LKMC_EXIT
 ko:
-    FAIL
+    LKMC_FAIL

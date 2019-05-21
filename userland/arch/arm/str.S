@@ -7,13 +7,13 @@
 myvar:
     .word 0x12345678
 
-ENTRY
+LKMC_ENTRY
     /* Sanity check. */
     ldr r0, =myvar
     ldr r1, [r0]
     movw r2, 0x5678
     movt r2, 0x1234
-    ASSERT_EQ_REG(r1, r2)
+    LKMC_ASSERT_EQ_REG(r1, r2)
 
     /* Modify the value. */
     ldr r0, =myvar
@@ -26,7 +26,7 @@ ENTRY
     ldr r1, [r0]
     movw r2, 0xDEF0
     movt r2, 0x9ABC
-    ASSERT_EQ_REG(r1, r2)
+    LKMC_ASSERT_EQ_REG(r1, r2)
 
     /* Cannot use PC relative addressing to a different segment,
      * or else it fails with:
@@ -57,4 +57,4 @@ var_in_same_section:
     str r1, =myvar
 #endif
 
-EXIT
+LKMC_EXIT

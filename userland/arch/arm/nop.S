@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* Disassembles as:
      *
      * ....
@@ -29,4 +29,4 @@ ENTRY
 
     /* And there are other nops as well? Disassembles as `and`. */
     and r0, r0, r0
-EXIT
+LKMC_EXIT

@@ -2,9 +2,9 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     ldr r0, =0x11223344
     ldr r1, =0xFFFFFFFF
     bfi r1, r0, 8, 16
-    ASSERT_EQ(r1, 0xFF3344FF)
-EXIT
+    LKMC_ASSERT_EQ(r1, 0xFF3344FF)
+LKMC_EXIT

@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* ERROR: can never use the name x31. */
 #if 0
     mov x31, 31
@@ -11,12 +11,12 @@ ENTRY
     /* mov (register) is an alias for ORR, which accepts xzr. */
     mov x19, 1
     mov x19, xzr
-    ASSERT_EQ(x19, 0)
+    LKMC_ASSERT_EQ(x19, 0)
 
     /* Same encoding as the mov version. */
     mov x19, 1
     orr x19, xzr, xzr
-    ASSERT_EQ(x19, 0)
+    LKMC_ASSERT_EQ(x19, 0)
 
     /* So, orr, which is not an alias, can only take xzr, not sp. */
 #if 0
@@ -26,7 +26,7 @@ ENTRY
     /* Zero register discards result if written to. */
     mov x19, 1
     orr xzr, x19, x19
-    ASSERT_EQ(xzr, 0)
+    LKMC_ASSERT_EQ(xzr, 0)
 
     /* MOV (to/from SP) is an alias for ADD (immediate). */
     mov x19, sp
@@ -36,7 +36,7 @@ ENTRY
     /* Exact same encoding as above. */
     add x20, sp, 0
     mov sp, x19
-    ASSERT_EQ(x20, 1)
+    LKMC_ASSERT_EQ(x20, 1)
 
     /* So, ADD (immediate), which is not an alias, can only take sp, not xzr. */
 #if 0
@@ -48,4 +48,4 @@ ENTRY
      * does not say anything about SP, and so does accept xzr just fine.
      */
     add xzr, xzr, xzr
-EXIT
+LKMC_EXIT

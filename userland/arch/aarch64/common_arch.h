@@ -3,42 +3,42 @@
 #ifndef COMMON_ARCH_H
 #define COMMON_ARCH_H
 
-#define ASSERT_EQ(reg, const) \
+#define LKMC_ASSERT_EQ(reg, const) \
     mov x0, reg; \
     ldr x1, =const; \
-    ASSERT_EQ_DO(64); \
+    LKMC_ASSERT_EQ_DO(64); \
 ;
 
-#define ASSERT_EQ_DO(bits) \
-    bl assert_eq_ ## bits; \
+#define LKMC_ASSERT_EQ_DO(bits) \
+    bl lkmc_assert_eq_ ## bits; \
     cmp x0, 0; \
-    ASSERT(beq); \
+    LKMC_ASSERT(beq); \
 ;
 
-#define ASSERT_EQ_REG(reg1, reg2) \
+#define LKMC_ASSERT_EQ_REG(reg1, reg2) \
     str reg2, [sp, -16]!; \
     mov x0, reg1; \
     ldr x1, [sp], 16; \
-    ASSERT_EQ_DO(64); \
+    LKMC_ASSERT_EQ_DO(64); \
 ;
 
-#define ASSERT_EQ_REG_32(reg1, reg2) \
+#define LKMC_ASSERT_EQ_REG_32(reg1, reg2) \
     str reg2, [sp, -4]!; \
     mov w0, reg1; \
     ldr w1, [sp], 4; \
-    ASSERT_EQ_DO(32); \
+    LKMC_ASSERT_EQ_DO(32); \
 ;
 
-#define ASSERT_MEMCMP(label1, label2, const_size) \
+#define LKMC_ASSERT_MEMCMP(label1, label2, const_size) \
     adr x0, label1; \
     adr x1, label2; \
     ldr x2, =const_size; \
-    bl assert_memcmp; \
+    bl lkmc_assert_memcmp; \
     cmp x0, 0; \
-    ASSERT(beq); \
+    LKMC_ASSERT(beq); \
 ;
 
-#define ENTRY \
+#define LKMC_ENTRY \
 .text; \
 .global asm_main; \
 asm_main: \
@@ -56,7 +56,7 @@ asm_main: \
 asm_main_after_prologue: \
 ;
 
-#define EXIT \
+#define LKMC_EXIT \
     mov w0, 0; \
     mov w1, 0; \
     b pass; \
@@ -75,7 +75,7 @@ pass: \
     ret; \
 ;
 
-#define FAIL \
+#define LKMC_FAIL \
     ldr w0, =__LINE__; \
     b fail; \
 ;

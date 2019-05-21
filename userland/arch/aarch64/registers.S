@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 
     /* 31 64-bit eXtended general purpose registers. */
     mov x0, 0
@@ -43,5 +43,5 @@ ENTRY
     ldr x0, =0x1111222233334444
     ldr x1, =0x5555666677778888
     mov w0, w1
-    ASSERT_EQ(x0, 0x0000000077778888)
-EXIT
+    LKMC_ASSERT_EQ(x0, 0x0000000077778888)
+LKMC_EXIT

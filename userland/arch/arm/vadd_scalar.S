@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* Minimal single precision floating point example.
      * TODO: floating point representation constraints due to 4-byte instruction?
      */
@@ -18,7 +18,7 @@ ENTRY
     /* Move the nzcv bits from fpscr to apsr */
     vmrs apsr_nzcv, fpscr
     /* This branch uses the Z bit of apsr, which was set accordingly. */
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* Now the same from memory with vldr and vstr. */
 .data
@@ -39,7 +39,7 @@ my_float_sum:
     vadd.f32 s2, s0, s1
     ldr r0, =my_float_sum
     vstr.f32 s2, [r0]
-    ASSERT_MEMCMP(my_float_sum, my_float_sum_expect, 4)
+    LKMC_ASSERT_MEMCMP(my_float_sum, my_float_sum_expect, 4)
 
 #if 0
     /* We can't do pseudo vldr as for ldr, fails with:
@@ -56,7 +56,7 @@ my_float_sum:
     vmov.f64 d3, 4.0
     vcmp.f64 d2, d3
     vmrs apsr_nzcv, fpscr
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* vmov can also move to general purpose registers.
      *
@@ -68,5 +68,5 @@ my_float_sum:
     vmov s0, r0
     vmov s1, s0
     vmov r1, s1
-    ASSERT_EQ_REG(r0, r1)
-EXIT
+    LKMC_ASSERT_EQ_REG(r0, r1)
+LKMC_EXIT

@@ -2,6 +2,6 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     udf 0
-EXIT
+LKMC_EXIT

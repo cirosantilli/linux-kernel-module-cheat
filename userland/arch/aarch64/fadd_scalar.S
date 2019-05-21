@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* 1.5 + 2.5 == 4.0
      * using 64-bit double immediates.
      */
@@ -14,7 +14,7 @@ ENTRY
      * automatically in the main CPSR.
      */
     fcmp d2, d3
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* Now with a memory stored value. */
 .data
@@ -30,7 +30,7 @@ my_double_sum_expect:
     fadd d2, d0, d1
     ldr d3, my_double_sum_expect
     fcmp d2, d3
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* Now in 32-bit. */
     fmov s0, 1.5
@@ -38,7 +38,7 @@ my_double_sum_expect:
     fadd s2, s0, s1
     fmov s3, 4.0
     fcmp s2, s3
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* TODO why? What's the point of q then?
      * Error: operand mismatch -- `fmov q0,1.5'
@@ -57,4 +57,4 @@ my_double_sum_expect:
 #if 0
     fmov d0, 1.23456798
 #endif
-EXIT
+LKMC_EXIT

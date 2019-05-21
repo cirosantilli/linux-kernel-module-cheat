@@ -2,16 +2,16 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     ldr r0, =0x7FFFFFFF
     clz r1, r0
-    ASSERT_EQ(r1, 1)
+    LKMC_ASSERT_EQ(r1, 1)
 
     ldr r0, =0x3FFFFFFF
     clz r1, r0
-    ASSERT_EQ(r1, 2)
+    LKMC_ASSERT_EQ(r1, 2)
 
     ldr r0, =0x1FFFFFFF
     clz r1, r0
-    ASSERT_EQ(r1, 3)
-EXIT
+    LKMC_ASSERT_EQ(r1, 3)
+LKMC_EXIT

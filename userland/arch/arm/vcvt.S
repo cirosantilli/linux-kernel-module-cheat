@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* SIMD positive. */
 .data
     vcvt_positive_0:      .float 1.25, 2.5, 3.75, 4.0
@@ -15,7 +15,7 @@ ENTRY
     vcvt.u32.f32 q1, q0
     ldr r0, =vcvt_positive_result
     vst1.32 {q1}, [r0]
-    ASSERT_MEMCMP(vcvt_positive_result, vcvt_positive_expect, 0x10)
+    LKMC_ASSERT_MEMCMP(vcvt_positive_result, vcvt_positive_expect, 0x10)
 
     /* SIMD negative. */
 .data
@@ -29,7 +29,7 @@ ENTRY
     vcvt.s32.f32 q1, q0
     ldr r0, =vcvt_negative_result
     vst1.32 {q1}, [r0]
-    ASSERT_MEMCMP(vcvt_negative_result, vcvt_negative_expect, 0x10)
+    LKMC_ASSERT_MEMCMP(vcvt_negative_result, vcvt_negative_expect, 0x10)
 
     /* Floating point. */
 .data
@@ -44,7 +44,7 @@ ENTRY
     vcvt.u32.f32 s0, s0
     ldr r0, =vcvt_positive_float_result
     vst1.32 {d0}, [r0]
-    ASSERT_MEMCMP(vcvt_positive_float_result, vcvt_positive_float_expect, 0x8)
+    LKMC_ASSERT_MEMCMP(vcvt_positive_float_result, vcvt_positive_float_expect, 0x8)
 
     /* Floating point but with immediates.
      *
@@ -63,12 +63,12 @@ ENTRY
     vmov.i32 d1, 1
     vcmp.f32 s0, s2
     vmrs apsr_nzcv, fpscr
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
     /* Check that s1 wasn't modified by vcvt. */
     vmov.f32 s2, 1.5
     vcmp.f32 s1, s2
     vmrs apsr_nzcv, fpscr
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* Floating point double precision. */
 .data
@@ -82,9 +82,9 @@ ENTRY
     vcvt.u32.f64 s0, d0
     ldr r0, =vcvt_positive_double_result
     vst1.32 {d0}, [r0]
-    ASSERT_MEMCMP(
+    LKMC_ASSERT_MEMCMP(
         vcvt_positive_double_result,
         vcvt_positive_double_expect,
         0x4
     )
-EXIT
+LKMC_EXIT

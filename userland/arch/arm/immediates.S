@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* This is the default. We hack it in common.h however. */
 .syntax divided
    /* These fail. */
@@ -21,4 +21,4 @@ ENTRY
     mov r0, 0x1
     mov r0, $1
     mov r0, $0x1
-EXIT
+LKMC_EXIT

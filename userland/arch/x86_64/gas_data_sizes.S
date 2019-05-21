@@ -2,12 +2,12 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 #define ASSERT_DIFF(label1, label2, result) \
     lea label2(%rip), %rax; \
     lea label1(%rip), %rbx; \
     sub %rbx, %rax; \
-    ASSERT_EQ(%rax, $result)
+    LKMC_ASSERT_EQ(%rax, $result)
 
     ASSERT_DIFF(mybyte, myword, 1)
     ASSERT_DIFF(myword, mylong, 2)
@@ -15,7 +15,7 @@ ENTRY
     ASSERT_DIFF(myquad, myocta, 8)
     ASSERT_DIFF(myocta, theend, 16)
 #undef ASSERT_DIF
-EXIT
+LKMC_EXIT
 mybyte:
     .byte 0x12
 myword:

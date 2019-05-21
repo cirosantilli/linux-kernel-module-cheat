@@ -7,7 +7,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 .data
     input0:       .long 0xF1F1F1F1, 0xF2F2F2F2, 0xF3F3F3F3, 0xF4F4F4F4
     input1:       .long 0x12121212, 0x13131313, 0x14141414, 0x15151515
@@ -23,7 +23,7 @@ ENTRY
     movups input0, %xmm0; \
     padd ## size %xmm1, %xmm0; \
     movups %xmm0, output; \
-    ASSERT_MEMCMP(output, padd ## size ## _expect, $0x10)
+    LKMC_ASSERT_MEMCMP(output, padd ## size ## _expect, $0x10)
 
     /* 16x 8-bit */
     TEST(b)
@@ -35,4 +35,4 @@ ENTRY
     /* 2x 16-bit */
     TEST(q)
 #undef TEST
-EXIT
+LKMC_EXIT

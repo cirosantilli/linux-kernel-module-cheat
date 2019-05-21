@@ -5,32 +5,32 @@
 
 /* This and other macros may make C function calls, and therefore can destroy
  * non-callee saved registers. */
-#define ASSERT_EQ(general1, general2) \
+#define LKMC_ASSERT_EQ(general1, general2) \
     mov general2, %rdi; \
     push %rdi; \
     mov general1, %rdi; \
     pop %rsi; \
-    ASSERT_EQ_DO(64); \
+    LKMC_ASSERT_EQ_DO(64); \
 ;
 
-#define ASSERT_EQ_DO(bits) \
-    call assert_eq_ ## bits; \
+#define LKMC_ASSERT_EQ_DO(bits) \
+    call lkmc_assert_eq_ ## bits; \
     cmp $0, %rax; \
-    ASSERT(je); \
+    LKMC_ASSERT(je); \
 ;
 
-#define ASSERT_MEMCMP(label1, label2, const_size) \
+#define LKMC_ASSERT_MEMCMP(label1, label2, const_size) \
     lea label1(%rip), %rdi; \
     lea label2(%rip), %rsi; \
     mov const_size, %rdx; \
-    call assert_memcmp; \
+    call lkmc_assert_memcmp; \
     cmp $0, %rax; \
-    ASSERT(je); \
+    LKMC_ASSERT(je); \
 ;
 
 /* Program entry point.
  *
- * Return with EXIT.
+ * Return with LKMC_EXIT.
  *
  * Basically implements an x86_64 prologue:
  *
@@ -38,7 +38,7 @@
  *   x86_64 explained at: https://stackoverflow.com/questions/18024672/what-registers-are-preserved-through-a-linux-x86-64-function-call/55207335#55207335
  * - save register arguments for later usage
  */
-#define ENTRY \
+#define LKMC_ENTRY \
 .text; \
 .global asm_main; \
 asm_main: \
@@ -54,13 +54,13 @@ asm_main: \
 asm_main_after_prologue: \
 ;
 
-/* Meant to be called at the end of ENTRY.*
+/* Meant to be called at the end of LKMC_ENTRY.*
  *
  * Branching to "fail" makes tests fail with exit status 1.
  *
- * If EXIT is reached, the program ends successfully.
+ * If LKMC_EXIT is reached, the program ends successfully.
  */
-#define EXIT \
+#define LKMC_EXIT \
     mov $0, %rax; \
     jmp pass; \
 fail: \
@@ -79,7 +79,7 @@ pass: \
     ret; \
 ;
 
-#define FAIL \
+#define LKMC_FAIL \
     mov $__LINE__, %eax; \
     jmp fail; \
 ;

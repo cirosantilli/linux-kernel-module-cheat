@@ -5,7 +5,7 @@
 .data
 data_label:
     .word 0x1234678
-ENTRY
+LKMC_ENTRY
     /* This is not possible in v7 because the label is in another section.
      * objdump says that this generates a R_AARCH64_ADR_PRE relocation.
      * which looks specific to ADR, and therefore makes it more likely
@@ -17,5 +17,5 @@ ENTRY
     adr x0, data_label
     ldr x1, =data_label
 label:
-    ASSERT_EQ_REG(x0, x1)
-EXIT
+    LKMC_ASSERT_EQ_REG(x0, x1)
+LKMC_EXIT

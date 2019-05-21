@@ -2,11 +2,11 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     mov r0, 1
     bl inc
-    ASSERT_EQ(r0, 2)
-EXIT
+    LKMC_ASSERT_EQ(r0, 2)
+LKMC_EXIT
 
 /* void inc(int *i) { (*i)++ } */
 inc:

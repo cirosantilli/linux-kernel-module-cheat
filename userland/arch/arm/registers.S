@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 
     /* 13 general purpose registers. */
     mov r0, 0
@@ -39,12 +39,12 @@ ENTRY
      * https://stackoverflow.com/questions/32304646/arm-assembly-branch-to-address-inside-register-or-memory/54145818#54145818
      */
     ldr pc, =10f
-    FAIL
+    LKMC_FAIL
 10:
 
     /* Same with r15, which is the same as pc. */
     ldr r15, =10f
-    FAIL
+    LKMC_FAIL
 10:
 
     /* Another example with mov reading from pc. */
@@ -60,10 +60,10 @@ pc_addr:
     b 1f
     .word 0x12345678
 1:
-    ASSERT_EQ(r0, 0x12345678)
+    LKMC_ASSERT_EQ(r0, 0x12345678)
 
     /* We can also use fp in GNU GAS assembly. */
     mov r11, 0
     mov fp, 1
-    ASSERT_EQ(r11, 1)
-EXIT
+    LKMC_ASSERT_EQ(r11, 1)
+LKMC_EXIT

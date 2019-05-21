@@ -2,8 +2,8 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     mov $1, %rax
     add $2, %rax
-    ASSERT_EQ(%rax, $3)
-EXIT
+    LKMC_ASSERT_EQ(%rax, $3)
+LKMC_EXIT

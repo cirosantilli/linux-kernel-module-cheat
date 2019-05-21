@@ -2,27 +2,27 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 
     /* Smaller*/
     mov r0, 1
     cmp r0, 2
-    ASSERT(ble)
-    ASSERT(blt)
-    ASSERT(bne)
+    LKMC_ASSERT(ble)
+    LKMC_ASSERT(blt)
+    LKMC_ASSERT(bne)
 
     /* Equal. */
     mov r1, 0
     cmp r1, 0
-    ASSERT(beq)
-    ASSERT(bge)
-    ASSERT(ble)
+    LKMC_ASSERT(beq)
+    LKMC_ASSERT(bge)
+    LKMC_ASSERT(ble)
 
     /* Greater. */
     mov r0, 2
     cmp r0, 1
-    ASSERT(bge)
-    ASSERT(bgt)
-    ASSERT(bne)
+    LKMC_ASSERT(bge)
+    LKMC_ASSERT(bgt)
+    LKMC_ASSERT(bne)
 
-EXIT
+LKMC_EXIT

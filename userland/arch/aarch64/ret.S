@@ -2,15 +2,15 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     mov x19, 1
     bl inc
-    ASSERT_EQ(x19, 2)
+    LKMC_ASSERT_EQ(x19, 2)
     bl inc2
-    ASSERT_EQ(x19, 3)
+    LKMC_ASSERT_EQ(x19, 3)
     bl inc3
-    ASSERT_EQ(x19, 4)
-EXIT
+    LKMC_ASSERT_EQ(x19, 4)
+LKMC_EXIT
 
 /* void inc(uint64_t *i) { (*i)++ } */
 inc:

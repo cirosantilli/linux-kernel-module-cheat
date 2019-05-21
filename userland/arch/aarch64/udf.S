@@ -2,9 +2,9 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     .long 0
 #if 0
     udf 0
 #endif
-EXIT
+LKMC_EXIT

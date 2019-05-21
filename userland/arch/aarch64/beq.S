@@ -2,11 +2,11 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
     /* cbz == 0 */
     mov x0, 0
     cbz x0, 1f
-    FAIL
+    LKMC_FAIL
 1:
 
     /* cbz != 0 */
@@ -14,13 +14,13 @@ ENTRY
     cbz x0, 1f
     b 2f
 1:
-    FAIL
+    LKMC_FAIL
 2:
 
     /* cbnz != 0 */
     mov x0, 1
     cbnz x0, 1f
-    FAIL
+    LKMC_FAIL
 1:
 
     /* cbnz == 0 */
@@ -28,6 +28,6 @@ ENTRY
     cbnz x0, 1f
     b 2f
 1:
-    FAIL
+    LKMC_FAIL
 2:
-EXIT
+LKMC_EXIT

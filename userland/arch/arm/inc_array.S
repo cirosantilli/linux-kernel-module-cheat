@@ -11,7 +11,7 @@ my_array:
 my_array_expect:
     .word 0x11111112, 0x22222223, 0x33333334, 0x44444445
 
-ENTRY
+LKMC_ENTRY
     /* Increment. */
     ldr r0, =my_array
     mov r1, NELEM
@@ -23,5 +23,5 @@ increment:
     sub r1, 1
     cmp r1, 0
     bne increment
-    ASSERT_MEMCMP(my_array, my_array_expect, 0x10)
-EXIT
+    LKMC_ASSERT_MEMCMP(my_array, my_array_expect, 0x10)
+LKMC_EXIT

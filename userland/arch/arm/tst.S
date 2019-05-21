@@ -5,18 +5,18 @@
 
 #include "common.h"
 
-ENTRY
+LKMC_ENTRY
 
     /* 0x0F && 0xF0 == 0x00, so beq. */
     mov r0, 0x0F
     tst r0, 0xF0
-    ASSERT(beq)
+    LKMC_ASSERT(beq)
 
     /* bne */
     mov r0, 0xFF
     tst r0, 0x0F
-    ASSERT(bne)
+    LKMC_ASSERT(bne)
     # r0 was not modified.
-    ASSERT_EQ(r0, 0xFF)
+    LKMC_ASSERT_EQ(r0, 0xFF)
 
-EXIT
+LKMC_EXIT
