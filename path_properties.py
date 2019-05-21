@@ -313,6 +313,10 @@ path_properties_tuples = (
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
+                                'udf.S': {
+                                    'exit_status': 132,
+                                    'receives_signal': True
+                                },
                             }
                         ),
                         'aarch64': (
@@ -327,6 +331,10 @@ path_properties_tuples = (
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
+                                'udf.S': {
+                                    'exit_status': 132,
+                                    'receives_signal': True
+                                },
                             }
                         ),
                         'fail.S': {'exit_status': 1},
