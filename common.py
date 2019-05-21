@@ -1191,6 +1191,8 @@ lunch aosp_{}-eng
                 for arch in real_archs:
                     if arch in env['arch_short_to_long_dict']:
                         arch = env['arch_short_to_long_dict'][arch]
+                    if emulator in env['emulator_short_to_long_dict']:
+                        emulator = env['emulator_short_to_long_dict'][emulator]
                     if emulator == 'native':
                         if arch != env['host_arch']:
                             if real_all_archs:
