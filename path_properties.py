@@ -261,7 +261,6 @@ path_properties_tuples = (
                     }
                 ),
                 'assert_fail.c': {'exit_status': 134},
-                'lkmc_assert_fail.c': {'exit_status': 1},
                 'exit1.c': {'exit_status': 1},
                 'infinite_loop.c': {'more_than_1s': True},
                 'lib': {'no_executable': True},
@@ -376,7 +375,6 @@ path_properties_tuples = (
                 'lkmc': (
                     {'extra_objs_lkmc_common': True},
                     {
-                        'assert_fail.c': {'exit_status': 1},
                     }
                 ),
                 'libs': (

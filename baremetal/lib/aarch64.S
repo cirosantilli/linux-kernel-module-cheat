@@ -31,6 +31,6 @@ LKMC_VECTOR_TABLE
 LKMC_WEAK(lkmc_vector_trap_handler)
     ldr x0, =lkmc_vector_trap_handler_error
     bl puts
-    bl lkmc_assert_fail
+    bl abort
 lkmc_vector_trap_handler_error:
     .asciz "error: unexpected interrupt"

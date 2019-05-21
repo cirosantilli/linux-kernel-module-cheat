@@ -12,7 +12,7 @@ main:
     fmov d3, 4.0
     fcmp d2, d3
     beq 1f
-    bl lkmc_assert_fail
+    bl abort
 1:
 
     /* Now in 32-bit. */
@@ -26,7 +26,7 @@ main:
     fmov s3, 4.0
     fcmp s2, s3
     beq 1f
-    bl lkmc_assert_fail
+    bl abort
 1:
 
     /* Higher registers. */
@@ -40,7 +40,7 @@ main:
     /* test-gdb-d31 */
     fcmp d30, d31
     beq 1f
-    bl lkmc_assert_fail
+    bl abort
 1:
 
     mov x0, 0

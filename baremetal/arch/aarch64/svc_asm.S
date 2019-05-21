@@ -12,7 +12,7 @@ main:
     ldr x1, mynewvar
     cmp x0, x1
     beq 1f
-    bl lkmc_assert_fail
+    bl abort
 1:
 
     /* Go home. */

@@ -6,10 +6,6 @@
 
 #include <lkmc.h>
 
-void lkmc_assert_fail(void) {
-    exit(1);
-}
-
 void lkmc_baremetal_on_exit_callback(int status, void *arg) {
     (void)arg;
     if (status != 0) {
