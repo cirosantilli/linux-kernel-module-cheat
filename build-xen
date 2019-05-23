@@ -4,6 +4,7 @@
 # Bibliography:
 # https://wiki.xenproject.org/wiki/Xen_ARM_with_Virtualization_Extensions/qemu-system-aarch64
 # https://blog.xenproject.org/2014/04/01/virtualization-on-arm-with-xen/
+set -eux
 cd submodules/xen
 make \
   -j`nproc` \
@@ -13,9 +14,13 @@ make \
   CROSS_COMPILE=aarch64-linux-gnu- \
   XEN_TARGET_ARCH=arm64 \
 ;
-cd ../boot-wraper-aarch64
+cd ../boot-wrapper-aarch64
 autoreconf -i
-# DTB dumped from QEMU with: -machine dumpdtb=dtb.dtb
+../../out/qemu/default/aarch64-softmmu/qemu-system-aarch64 \
+  -machine virt \
+  -machine virtualization=on \
+  -machine dumpdtb=dtb.dtb \
+;
 ./configure \
   --enable-gicv3 \
   --enable-psci \
@@ -26,7 +31,6 @@ autoreconf -i
   --with-xen-cmdline="dtuart=/uart@1c090000 console=dtuart no-bootscrub dom0_mem=1G loglvl=all guest_loglvl=all" \
   --with-xen=../xen/xen/xen \
 ;
-dtb.dtb -j`nproc`
 ../../out/qemu/default/aarch64-softmmu/qemu-system-aarch64 \
   -M virt \
   -M virtualization=on \
