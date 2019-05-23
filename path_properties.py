@@ -9,6 +9,8 @@ class PathProperties:
     default_cxx_std = 'c++17'
     default_properties = {
         'allowed_archs': None,
+        # Examples that can be built in baremetal.
+        'baremetal': False,
         'c_std': default_c_std,
         'cc_flags': [
             '-Wall', LF,
@@ -68,6 +70,8 @@ class PathProperties:
         # Aruments added automatically to run when running tests,
         # but not on manual running.
         'test_run_args': {},
+        # Examples that can be built in userland.
+        'userland': False,
     }
 
     '''
@@ -93,7 +97,13 @@ class PathProperties:
     def set_path_components(self, path_components):
         self.path_components = path_components
 
-    def should_be_built(self, env, link=False):
+    def should_be_built(
+        self,
+        env,
+        link=False,
+        is_baremetal=False,
+        is_userland=False,
+    ):
         if len(self.path_components) > 1 and \
                 self.path_components[1] == 'libs' and \
                 not env['package_all'] and \
@@ -104,6 +114,10 @@ class PathProperties:
             (
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
+            ) and \
+            (
+                (    is_userland and self['userland'] ) or
+                (not is_baremetal and self['baremetal'])
             ) and \
             not (
                 link and
@@ -203,6 +217,7 @@ gnu_extension_properties = {
     'cxx_std': 'gnu++17'
 }
 freestanding_properties = {
+    'baremetal': False,
     'cc_flags': [
         '-ffreestanding', LF,
         '-nostdlib', LF,
@@ -216,6 +231,7 @@ path_properties_tuples = (
     {
         'baremetal': (
             {
+                'baremetal': True,
                 'extra_objs_baremetal_bootloader': True,
                 'extra_objs_lkmc_common': True,
             },
@@ -257,13 +273,6 @@ path_properties_tuples = (
                         )
                     }
                 ),
-                'c': (
-                    {},
-                    {
-                        'assert_fail.c': {'exit_status': 134},
-                        'infinite_loop.c': {'more_than_1s': True},
-                    }
-                ),
                 'exit1.c': {'exit_status': 1},
                 'lib': {'no_executable': True},
                 'getchar.c': {'interactive': True},
@@ -271,6 +280,10 @@ path_properties_tuples = (
                 'return2.c': {'exit_status': 2},
             }
         ),
+        'lkmc.c': {
+            'baremetal': True,
+            'userland': True,
+        }
         'userland': (
             {
                 'cc_flags': [
@@ -279,10 +292,12 @@ path_properties_tuples = (
                 'cc_flags_after': [
                     '-pthread', LF,
                 ],
+                'userland': True,
             },
             {
                 'arch': (
                     {
+                        'baremetal': True,
                         'extra_objs_lkmc_common': True,
                     },
                     {
@@ -366,7 +381,9 @@ path_properties_tuples = (
                     }
                 ),
                 'c': (
-                    {},
+                    {
+                        'baremetal': True,
+                    },
                     {
                         'assert_fail.c': {
                             'exit_status': 134,

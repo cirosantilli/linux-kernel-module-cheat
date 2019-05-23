@@ -20,6 +20,7 @@ mystart:
     bl on_exit
 
     /* Run main. */
+    mov x0, 0
     bl main
 
     /* If main returns, exit. */

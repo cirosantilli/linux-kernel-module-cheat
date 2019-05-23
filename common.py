@@ -162,6 +162,7 @@ class LkmcCliFunction(cli_function.CliFunction):
     def __init__(
         self,
         *args,
+        is_baremetal=False,
         is_userland=False,
         defaults=None,
         supported_archs=None,
@@ -175,7 +176,8 @@ class LkmcCliFunction(cli_function.CliFunction):
         kwargs['extra_config_params'] = os.path.basename(inspect.getfile(self.__class__))
         if defaults is None:
             defaults = {}
-        self._is_userland = is_userland
+        self.is_baremetal = is_baremetal
+        self.is_userland = is_userland
         self._defaults = defaults
         self._is_common = True
         self._common_args = set()
@@ -1035,8 +1037,12 @@ lunch aosp_{}-eng
             self._common_args.add(key)
         super().add_argument(*args, **kwargs)
 
-    def assert_is_subpath(self, subpath, parent):
-        if not self.is_subpath(subpath, parent):
+    def assert_is_subpath(self, subpath, parents):
+        is_subpath = False
+        for parent in parents:
+            if self.is_subpath(subpath, parent):
+                is_subpath = True
+        if not is_subpath:
             raise Exception(
                 'Can only accept targets inside {}, given: {}'.format(
                     parent,
@@ -1204,7 +1210,7 @@ lunch aosp_{}-eng
                                 continue
                             else:
                                 raise Exception('native emulator only supported in if target arch == host arch')
-                        if env['userland'] is None and not self._is_userland:
+                        if env['userland'] is None and not self.is_userland:
                             if real_all_emulators:
                                 continue
                             else:
@@ -1346,13 +1352,13 @@ lunch aosp_{}-eng
         else:
             return in_path
 
-    def resolve_targets(self, source_dir, targets):
+    def resolve_targets(self, source_dirs, targets):
         if not targets:
-            targets = [source_dir]
+            targets = source_dirs.copy()
         new_targets = []
         for target in targets:
-            target = self.toplevel_to_source_dir(target, source_dir)
-            self.assert_is_subpath(target, source_dir)
+            target = self.toplevel_to_source_dir(target, source_dirs)
+            self.assert_is_subpath(target, source_dirs)
             new_targets.append(target)
         return new_targets
 
@@ -1386,10 +1392,10 @@ lunch aosp_{}-eng
         '''
         pass
 
-    def toplevel_to_source_dir(self, path, source_dir):
+    def toplevel_to_source_dir(self, path, source_dirs):
         path = os.path.abspath(path)
         if path == self.env['root_dir']:
-            return source_dir
+            return source_dirs
         else:
             return path
 
@@ -1491,7 +1497,12 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
             dirpath_relative_root,
             in_basename
         ))
-        if my_path_properties.should_be_built(self.env, link):
+        if my_path_properties.should_be_built(
+            self.env,
+            link,
+            is_baremetal=self.is_baremetal,
+            is_userland=self.is_userland
+        ):
             if extra_objs is None:
                 extra_objs= []
             if link:
