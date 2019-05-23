@@ -36,7 +36,6 @@ class PathProperties:
         'extra_objs_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
-        'extra_objs_userland_asm': False,
         'interactive': False,
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
@@ -209,7 +208,7 @@ freestanding_properties = {
         '-nostdlib', LF,
         '-static', LF,
     ],
-    'extra_objs_userland_asm': False,
+    'extra_objs_lkmc_common': False,
 }
 # See: https://github.com/cirosantilli/linux-kernel-module-cheat#path-properties
 path_properties_tuples = (
@@ -284,7 +283,7 @@ path_properties_tuples = (
             {
                 'arch': (
                     {
-                        'extra_objs_userland_asm': True,
+                        'extra_objs_lkmc_common': True,
                     },
                     {
                         'arm': (
@@ -311,13 +310,14 @@ path_properties_tuples = (
                             {
                                 'c': (
                                     {
-                                        'extra_objs_userland_asm': False,
                                     },
                                     {
                                         'freestanding': freestanding_properties,
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
+                                'lkmc_assert_eq_fail.S': {'exit_status': 1},
+                                'lkmc_assert_memcmp_fail.S': {'exit_status': 1},
                                 'udf.S': {
                                     'exit_status': 132,
                                     'receives_signal': True
@@ -329,13 +329,14 @@ path_properties_tuples = (
                             {
                                 'c': (
                                     {
-                                        'extra_objs_userland_asm': False,
                                     },
                                     {
                                         'freestanding': freestanding_properties,
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
+                                'lkmc_assert_eq_fail.S': {'exit_status': 1},
+                                'lkmc_assert_memcmp_fail.S': {'exit_status': 1},
                                 'udf.S': {
                                     'exit_status': 132,
                                     'receives_signal': True
@@ -343,16 +344,11 @@ path_properties_tuples = (
                             }
                         ),
                         'fail.S': {'exit_status': 1},
-                        'main.c': {
-                            'extra_objs_userland_asm': False,
-                            'no_executable': True
-                        },
                         'x86_64': (
                             {'allowed_archs': {'x86_64'}},
                             {
                                 'c': (
                                     {
-                                        'extra_objs_userland_asm': False,
                                     },
                                     {
                                         'freestanding': freestanding_properties,
@@ -383,11 +379,6 @@ path_properties_tuples = (
                 ),
                 'gcc': gnu_extension_properties,
                 'kernel_modules': {**gnu_extension_properties, **{'requires_kernel_modules': True}},
-                'lkmc': (
-                    {'extra_objs_lkmc_common': True},
-                    {
-                    }
-                ),
                 'libs': (
                     {'requires_dynamic_library': True},
                     {

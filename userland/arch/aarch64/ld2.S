@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ld2-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 .data
     u32_interleave: .word \
         0x11111111, 0x55555555, \
@@ -22,5 +22,5 @@ LKMC_ENTRY
     add v2.4s, v0.4s, v1.4s
     adr x0, u32_interleave_sum
     st1 {v2.4s}, [x0]
-    LKMC_ASSERT_MEMCMP(u32_interleave_sum, u32_interleave_sum_expect, 0x10)
-LKMC_EXIT
+    LKMC_ASSERT_MEMCMP(u32_interleave_sum, u32_interleave_sum_expect, =0x10)
+LKMC_EPILOGUE

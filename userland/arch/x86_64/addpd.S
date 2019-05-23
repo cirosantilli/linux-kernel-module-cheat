@@ -3,9 +3,9 @@
  * Add a bunch of floating point numbers in one go.
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 .bss
     output:       .skip 16
 .data
@@ -28,4 +28,4 @@ LKMC_ENTRY
     /* 2x 64-bit */
     TEST(d)
 #undef TEST
-LKMC_EXIT
+LKMC_EPILOGUE

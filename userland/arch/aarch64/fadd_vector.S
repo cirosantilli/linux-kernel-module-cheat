@@ -3,9 +3,9 @@
  * Add a bunch of floating point numbers in one go.
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 .data
     input0_4s: .float 1.5, 2.5,  3.5,  4.5
     input1_4s: .float 5.5, 6.5,  7.5,  8.5
@@ -24,11 +24,11 @@ LKMC_ENTRY
     fadd v2. ## size, v0. ## size, v1. ## size; \
     adr x0, output; \
     st1 {v2. ## size}, [x0]; \
-    LKMC_ASSERT_MEMCMP(output, expect_ ## size, 0x10)
+    LKMC_ASSERT_MEMCMP(output, expect_ ## size, =0x10)
 
     /* 4x 32-bit */
     TEST(4s)
     /* 2x 64-bit */
     TEST(2d)
 #undef TEST
-LKMC_EXIT
+LKMC_EPILOGUE

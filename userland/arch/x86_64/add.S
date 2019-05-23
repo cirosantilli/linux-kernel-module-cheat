@@ -1,9 +1,9 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     mov $1, %rax
     add $2, %rax
     LKMC_ASSERT_EQ(%rax, $3)
-LKMC_EXIT
+LKMC_EPILOGUE

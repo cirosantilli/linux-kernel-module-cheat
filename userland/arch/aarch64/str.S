@@ -1,13 +1,13 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-str-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     ldr x0, myvar
-    LKMC_ASSERT_EQ(x0, 0x12346789ABCDEF0)
+    LKMC_ASSERT_EQ(x0, =0x12346789ABCDEF0)
 #if 0
     /* Error: invalid addressing mode at operand 2 -- `str x0,myvar' */
     str x0, myvar
 #endif
-LKMC_EXIT
+LKMC_EPILOGUE
     myvar: .quad 0x12346789ABCDEF0

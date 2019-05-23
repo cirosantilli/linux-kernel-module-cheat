@@ -1,12 +1,12 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-beq-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* cbz == 0 */
     mov x0, 0
     cbz x0, 1f
-    LKMC_FAIL
+    LKMC_ASSERT_FAIL
 1:
 
     /* cbz != 0 */
@@ -14,13 +14,13 @@ LKMC_ENTRY
     cbz x0, 1f
     b 2f
 1:
-    LKMC_FAIL
+    LKMC_ASSERT_FAIL
 2:
 
     /* cbnz != 0 */
     mov x0, 1
     cbnz x0, 1f
-    LKMC_FAIL
+    LKMC_ASSERT_FAIL
 1:
 
     /* cbnz == 0 */
@@ -28,6 +28,6 @@ LKMC_ENTRY
     cbnz x0, 1f
     b 2f
 1:
-    LKMC_FAIL
+    LKMC_ASSERT_FAIL
 2:
-LKMC_EXIT
+LKMC_EPILOGUE

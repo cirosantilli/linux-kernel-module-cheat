@@ -11647,7 +11647,7 @@ It is then a big copy paste for most other data instructions.
 Then, modify that program to make the assertion fail:
 
 ....
-ASSERT_EQ(%rax, $4)
+LKMC_ASSERT_EQ(%rax, $4)
 ....
 
 because 1 + 2 tends to equal 3 instead of 4.
@@ -11676,10 +11676,16 @@ and notice how the error message gives both:
 Other infrastructure sanity checks that you might want to look into include:
 
 * link:userland/arch/empty.S[]
-* `FAIL` tests
+* `LKMC_FAIL` tests
 ** link:userland/arch/fail.S[]
-* `ASSERT_MEMCMP` tests
+* `LKMC_ASSERT_EQ` tests
+** link:userland/arch/x86_64/lkmc_assert_eq_fail.S[]
+** link:userland/arch/arm/lkmc_assert_eq_fail.S[]
+** link:userland/arch/aarch64/lkmc_assert_eq_fail.S[]
+* `LKMC_ASSERT_MEMCMP` tests
 ** link:userland/arch/x86_64/lkmc_assert_memcmp_fail.S[]
+** link:userland/arch/arm/lkmc_assert_memcmp_fail.S[]
+** link:userland/arch/aarch64/lkmc_assert_memcmp_fail.S[]
 
 === Assembly registers
 
@@ -11799,13 +11805,13 @@ This allows using the C standard library for IO, which is very convenient and po
 
 It also exposes other non-IO functionality that is very convenient such as `memcmp`.
 
-The C standard library infrastructure is implemented in the following files:
+The C standard library infrastructure is implemented in the common userland / baremetal source files:
 
-* link:userland/arch/main.c[]
-* link:userland/arch/common.h[]
-* link:userland/arch/x86_64/common_arch.h[]
-* link:userland/arch/arm/common_arch.h[]
-* link:userland/arch/aarch64/common_arch.h[]
+* link:lkmc.c[]
+* link:lkmc.h[]
+* link:lkmc/aarch64.h[]
+* link:lkmc/arm.h[]
+* link:lkmc/x86_64.h[]
 
 ==== Freestanding programs
 
@@ -11914,23 +11920,51 @@ Questions about the C inline assembly examples:
 * x86_64: https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
 * ARM: https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
 
-=== Calling conventions
+=== Linux calling conventions
+
+Summary:
+
+[options="header"]
+|===
+|arch |arguments |return value |callee saved registers
+
+|x86_64
+|rdi, rsi, rdx, rcx, r8, r9, xmm0–7
+|rax, rdx
+|rbx, rbp, r12–r15
+
+|arm
+|r0-r3
+|r0-r3
+|r4-r11
+
+|aarch64
+|x0-x7
+|x0-x7
+|x19-x29
+
+|===
 
 ==== x86_64 calling convention
 
 Examples:
 
-* link:userland/arch/x86_64/common_arch.h[] `ENTRY` and `EXIT`
+* link:lkmc/x86_64.h[] `ENTRY` and `EXIT`
+
+Bibliography:
+
+* https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI
+* https://stackoverflow.com/questions/18024672/what-registers-are-preserved-through-a-linux-x86-64-function-call/55207335#55207335
 
 ==== ARM calling convention
 
 Call C standard library functions from assembly and vice versa.
 
 * arm
-** link:userland/arch/arm/common_arch.h[] `ENTRY` and `EXIT`
+** link:lkmc/arm.h[] `ENTRY` and `EXIT`
 ** link:userland/arch/arm/linux/c_from_asm.S[]
 * aarch64
-** link:userland/arch/aarch64/common_arch.h[] `ENTRY` and `EXIT`
+** link:lkmc/aarch64.h[] `ENTRY` and `EXIT`
 ** link:userland/arch/aarch64/c/linux/asm_from_c.c[]
 
 ARM Architecture Procedure Call Standard (AAPCS) is the name that ARM Holdings gives to the calling convention.
@@ -12685,7 +12719,7 @@ Guaranteed undefined! Therefore raise illegal instruction signal. Used by GCC `_
 * link:userland/arch/arm/udf.S[]
 * link:userland/arch/aarch64/udf.S[]
 
-Why GNU GAS 2.29 does not have a mnemonic for it in A64 because it is very recent: shows in [[armarm8-db]] but not `ca`.
+Why GNU GAS 2.29 does not have a mnemonic for it in A64 because it is very recent: shows in <<armarm8-db>> but not `ca`.
 
 === ARM SIMD
 

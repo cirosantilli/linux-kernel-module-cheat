@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvt-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* SIMD positive. */
 .data
     vcvt_positive_0:      .float 1.25, 2.5, 3.75, 4.0
@@ -15,7 +15,7 @@ LKMC_ENTRY
     vcvt.u32.f32 q1, q0
     ldr r0, =vcvt_positive_result
     vst1.32 {q1}, [r0]
-    LKMC_ASSERT_MEMCMP(vcvt_positive_result, vcvt_positive_expect, 0x10)
+    LKMC_ASSERT_MEMCMP(vcvt_positive_result, vcvt_positive_expect, =0x10)
 
     /* SIMD negative. */
 .data
@@ -29,7 +29,7 @@ LKMC_ENTRY
     vcvt.s32.f32 q1, q0
     ldr r0, =vcvt_negative_result
     vst1.32 {q1}, [r0]
-    LKMC_ASSERT_MEMCMP(vcvt_negative_result, vcvt_negative_expect, 0x10)
+    LKMC_ASSERT_MEMCMP(vcvt_negative_result, vcvt_negative_expect, =0x10)
 
     /* Floating point. */
 .data
@@ -44,7 +44,7 @@ LKMC_ENTRY
     vcvt.u32.f32 s0, s0
     ldr r0, =vcvt_positive_float_result
     vst1.32 {d0}, [r0]
-    LKMC_ASSERT_MEMCMP(vcvt_positive_float_result, vcvt_positive_float_expect, 0x8)
+    LKMC_ASSERT_MEMCMP(vcvt_positive_float_result, vcvt_positive_float_expect, =0x8)
 
     /* Floating point but with immediates.
      *
@@ -85,6 +85,6 @@ LKMC_ENTRY
     LKMC_ASSERT_MEMCMP(
         vcvt_positive_double_result,
         vcvt_positive_double_expect,
-        0x4
+        =0x4
     )
-LKMC_EXIT
+LKMC_EPILOGUE

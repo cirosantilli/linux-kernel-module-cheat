@@ -1,13 +1,13 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#load-and-store-instructions */
 
-#include "common.h"
+#include <lkmc.h>
 
 .data;
     /* Must be in the .data section, since we want to modify it. */
 myvar:
     .word 0x12345678
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* Sanity check. */
     ldr r0, =myvar
     ldr r1, [r0]
@@ -57,4 +57,4 @@ var_in_same_section:
     str r1, =myvar
 #endif
 
-LKMC_EXIT
+LKMC_EPILOGUE

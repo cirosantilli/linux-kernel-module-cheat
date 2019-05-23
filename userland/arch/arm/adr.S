@@ -1,11 +1,11 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-adr-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
 .data
 data_label:
     .word 0x1234678
-LKMC_ENTRY
+LKMC_PROLOGUE
     adr r4, label
     /* objdump tells us that this uses the literal pool,
      * it does not get converted to adr, which is the better
@@ -30,4 +30,4 @@ label:
      */
     adr r5, data_label
 #endif
-LKMC_EXIT
+LKMC_EPILOGUE

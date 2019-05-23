@@ -2,9 +2,59 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <lkmc.h>
+
+#define LKMC_ASSERT_EQ_DEFINE(bits) \
+    LKMC_ASSERT_EQ_DECLARE(bits) \
+    { \
+        if (val1 != val2) { \
+            printf("%s failed\n", __func__); \
+            printf("val1 0x%" PRIX ## bits "\n", val1); \
+            printf("val2 0x%" PRIX ## bits "\n", val2); \
+            lkmc_assert_fail(line); \
+        } \
+    }
+LKMC_ASSERT_EQ_DEFINE(32)
+LKMC_ASSERT_EQ_DEFINE(64)
+#undef ASSERT_EQ_DEFINE
+
+void lkmc_assert_fail(uint32_t line) {
+    printf("error: assertion failed at line: %" PRIu32 "\n", line);
+    exit(1);
+}
+
+void lkmc_assert_memcmp(
+    const void *s1,
+    const void *s2,
+    size_t n,
+    uint32_t line
+) {
+    size_t i;
+    uint8_t *s1b, *s2b;
+    uint8_t b1, b2;
+
+    s1b = (uint8_t *)s1;
+    s2b = (uint8_t *)s2;
+    for (i = 0; i < n; ++i) {
+        b1 = s1b[i];
+        b2 = s2b[i];
+        if (b1 != b2) {
+            printf(
+                "%s failed: "
+                "byte1, byte2, index: "
+                "0x%02" PRIX8 " 0x%02" PRIX8 " 0x%zX\n",
+                __func__,
+                b1,
+                b2,
+                i
+            );
+            lkmc_assert_fail(line);
+        }
+    }
+}
 
 void lkmc_baremetal_on_exit_callback(int status, void *arg) {
     (void)arg;

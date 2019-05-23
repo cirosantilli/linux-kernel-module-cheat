@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#advanced-simd-instructions */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* 1.5 + 2.5 == 4.0
      * using 64-bit double immediates.
      */
@@ -57,4 +57,4 @@ my_double_sum_expect:
 #if 0
     fmov d0, 1.23456798
 #endif
-LKMC_EXIT
+LKMC_EPILOGUE

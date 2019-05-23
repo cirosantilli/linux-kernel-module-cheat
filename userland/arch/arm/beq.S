@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-beq-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 
     /* Smaller*/
     mov r0, 1
@@ -25,4 +25,4 @@ LKMC_ENTRY
     LKMC_ASSERT(bgt)
     LKMC_ASSERT(bne)
 
-LKMC_EXIT
+LKMC_EPILOGUE

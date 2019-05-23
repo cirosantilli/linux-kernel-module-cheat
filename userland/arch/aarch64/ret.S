@@ -1,16 +1,16 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-ret-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     mov x19, 1
     bl inc
-    LKMC_ASSERT_EQ(x19, 2)
+    LKMC_ASSERT_EQ(x19, =2)
     bl inc2
-    LKMC_ASSERT_EQ(x19, 3)
+    LKMC_ASSERT_EQ(x19, =3)
     bl inc3
-    LKMC_ASSERT_EQ(x19, 4)
-LKMC_EXIT
+    LKMC_ASSERT_EQ(x19, =4)
+LKMC_EPILOGUE
 
 /* void inc(uint64_t *i) { (*i)++ } */
 inc:

@@ -1,13 +1,13 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler data sizes */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 #define ASSERT_DIFF(label1, label2, result) \
     adr x0, label1; \
     adr x1, label2; \
     sub x0, x1, x0; \
-    LKMC_ASSERT_EQ(x0, result)
+    LKMC_ASSERT_EQ(x0, =result)
 
     ASSERT_DIFF(mybyte, myword, 1)
     ASSERT_DIFF(myword, mylong, 4)
@@ -15,7 +15,7 @@ LKMC_ENTRY
     ASSERT_DIFF(myquad, myocta, 8)
     ASSERT_DIFF(myocta, theend, 16)
 #undef ASSERT_DIF
-LKMC_EXIT
+LKMC_EPILOGUE
 mybyte:
     .byte 0x12
 myword:

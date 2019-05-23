@@ -3,9 +3,9 @@
  * Test. Same as ands, but don't store the result, just update flags.
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 
     /* 0x0F && 0xF0 == 0x00, so beq. */
     mov r0, 0x0F
@@ -17,6 +17,6 @@ LKMC_ENTRY
     tst r0, 0x0F
     LKMC_ASSERT(bne)
     # r0 was not modified.
-    LKMC_ASSERT_EQ(r0, 0xFF)
+    LKMC_ASSERT_EQ(r0, =0xFF)
 
-LKMC_EXIT
+LKMC_EPILOGUE

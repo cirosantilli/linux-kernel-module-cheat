@@ -5,9 +5,9 @@
  * The different variants basically determine if carries get forwarded or not.
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 .data
     input0:       .long 0xF1F1F1F1, 0xF2F2F2F2, 0xF3F3F3F3, 0xF4F4F4F4
     input1:       .long 0x12121212, 0x13131313, 0x14141414, 0x15151515
@@ -35,4 +35,4 @@ LKMC_ENTRY
     /* 2x 16-bit */
     TEST(q)
 #undef TEST
-LKMC_EXIT
+LKMC_EPILOGUE

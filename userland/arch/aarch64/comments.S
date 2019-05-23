@@ -1,7 +1,7 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-comments */
 
-#include "common.h"
-LKMC_ENTRY
+#include <lkmc.h>
+LKMC_PROLOGUE
     # mycomment
 
     /* ARMv8 has // instead of @ as for comments. */
@@ -14,4 +14,4 @@ LKMC_ENTRY
     @ mycomment
     nop @ mycomment
 #endif
-LKMC_EXIT
+LKMC_EPILOGUE

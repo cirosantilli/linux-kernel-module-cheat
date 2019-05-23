@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#assembly-registers */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 #if 0
     /* Unlike v7, we can't use PC like any other register in ARMv8,
      * since it is not a general purpose register anymore.
@@ -16,7 +16,7 @@ LKMC_ENTRY
      * exception return.
      */
     ldr pc, =10f
-    LKMC_FAIL
+    LKMC_ASSERT_FAIL
 10:
 #endif
 #if 0
@@ -32,7 +32,7 @@ LKMC_ENTRY
 pc_relative_ldr:
     .quad 0x123456789ABCDEF0
 1:
-    LKMC_ASSERT_EQ(x0, 0x123456789ABCDEF0)
+    LKMC_ASSERT_EQ(x0, =0x123456789ABCDEF0)
 
     /* Just for fun, we can also use relative numbers instead of labels.
      * https://reverseengineering.stackexchange.com/questions/17666/how-does-the-ldr-instruction-work-on-arm/20567#20567
@@ -41,14 +41,14 @@ pc_relative_ldr:
     b 1f
     .quad 0x123456789ABCDEF0
 1:
-    LKMC_ASSERT_EQ(x0, 0x123456789ABCDEF0)
+    LKMC_ASSERT_EQ(x0, =0x123456789ABCDEF0)
 
     /* Analogous for b with PC. */
     mov x0, 0
     /* Jumps over mov to LKMC_ASSERT_EQ. */
     b 8
     mov x0, 1
-    LKMC_ASSERT_EQ(x0, 0)
+    LKMC_ASSERT_EQ(x0, =0)
 
     /* Trying to use the old "LDR (immediate)" PC-relative
      * syntax does not work.
@@ -66,13 +66,13 @@ pc_relative_ldr:
 
     /* You just have to use adr + "STR (register)". */
     ldr x0, pc_relative_str
-    LKMC_ASSERT_EQ(x0, 0x0)
+    LKMC_ASSERT_EQ(x0, =0x0)
     adr x1, pc_relative_str
     ldr x0, pc_relative_ldr
     str x0, [x1]
     ldr x0, pc_relative_str
-    LKMC_ASSERT_EQ(x0, 0x123456789ABCDEF0)
-LKMC_EXIT
+    LKMC_ASSERT_EQ(x0, =0x123456789ABCDEF0)
+LKMC_EPILOGUE
 .data
 pc_relative_str:
     .quad 0x0000000000000000

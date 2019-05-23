@@ -2,7 +2,7 @@
  * https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
-LKMC_EXIT
+LKMC_PROLOGUE
+LKMC_EPILOGUE

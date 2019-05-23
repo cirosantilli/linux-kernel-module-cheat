@@ -1,9 +1,9 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-immediates */
 
-#include "common.h"
-LKMC_ENTRY
+#include <lkmc.h>
+LKMC_PROLOGUE
     mov x0, 1
     mov x0, 0x1
     mov x0, 1
     mov x0, 0x1
-LKMC_EXIT
+LKMC_EPILOGUE

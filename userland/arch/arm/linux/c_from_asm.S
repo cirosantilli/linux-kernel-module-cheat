@@ -1,6 +1,6 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#calling-convention */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-calling-convention */
 
-#include "common.h"
+#include <lkmc.h>
 
 .data
 puts_s:
@@ -12,7 +12,7 @@ my_array_0:
 my_array_1:
     .word 0x55555555, 0x66666666, 0x77777777, 0x88888888
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* puts("hello world") */
     /* r0 is first argument. */
     ldr r0, =puts_s
@@ -49,11 +49,11 @@ LKMC_ENTRY
         ldr r1, =my_array_1
         ldr r2, =0x10
         bl memcmp
-        LKMC_ASSERT_EQ(r0, 0)
+        LKMC_ASSERT_EQ(r0, =0)
 
     /* exit(0) */
     mov r0, 0
     bl exit
 
     /* Never reached, just for the fail symbol. */
-LKMC_EXIT
+LKMC_EPILOGUE

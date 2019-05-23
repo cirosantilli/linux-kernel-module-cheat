@@ -1,7 +1,7 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-comments */
 
-#include "common.h"
-LKMC_ENTRY
+#include <lkmc.h>
+LKMC_PROLOGUE
     # mycomment
     @ mycomment
     /* # only works at the beginning of the line.
@@ -11,4 +11,4 @@ LKMC_ENTRY
     nop # mycomment
 #endif
     nop @ mycomment
-LKMC_EXIT
+LKMC_EPILOGUE

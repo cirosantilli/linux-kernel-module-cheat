@@ -1497,8 +1497,6 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
             if link:
                 if my_path_properties['extra_objs_lkmc_common']:
                     extra_objs.extend(extra_objs_lkmc_common)
-                if my_path_properties['extra_objs_userland_asm']:
-                    extra_objs.extend(extra_objs_userland_asm)
                 if my_path_properties['extra_objs_baremetal_bootloader']:
                     extra_objs.extend(extra_objs_baremetal_bootloader)
             if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
@@ -1518,12 +1516,7 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                 if dirpath_relative_root_components_len > 0:
                     if dirpath_relative_root_components[0] == 'userland':
                         if dirpath_relative_root_components_len > 1:
-                            if dirpath_relative_root_components[1] == 'arch':
-                                cc_flags.extend([
-                                    '-I', os.path.join(self.env['userland_source_arch_arch_dir']), LF,
-                                    '-I', os.path.join(self.env['userland_source_arch_dir']), LF,
-                                ])
-                            elif dirpath_relative_root_components[1] == 'libs':
+                            if dirpath_relative_root_components[1] == 'libs':
                                 if dirpath_relative_root_components_len > 1:
                                     if self.env['gcc_which'] == 'host':
                                         eigen_root = '/'

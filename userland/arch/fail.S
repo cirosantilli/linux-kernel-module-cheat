@@ -1,9 +1,9 @@
-/* See what happens on test failure with LKMC_FAIL.
+/* See what happens on test failure with LKMC_ASSERT_FAIL.
  * https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
-    LKMC_FAIL
-LKMC_EXIT
+LKMC_PROLOGUE
+    LKMC_ASSERT_FAIL
+LKMC_EPILOGUE

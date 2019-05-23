@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-shift-suffixes */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 
     /* lsr */
     ldr r0, =0xFFF00FFF
@@ -76,4 +76,4 @@ LKMC_ENTRY
     ldr r2, =0x00000120
     LKMC_ASSERT_EQ_REG(r1, r2)
 
-LKMC_EXIT
+LKMC_EPILOGUE

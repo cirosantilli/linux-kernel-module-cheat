@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvtrr-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 .data
     vcvtr_0:                    .float 1.25, 2.5, 3.75, 4.0
     vcvtr_expect_zero:          .word  1,    2,   3,    4
@@ -24,7 +24,7 @@ LKMC_ENTRY
     LKMC_ASSERT_MEMCMP(
         vcvtr_result_zero,
         vcvtr_expect_zero,
-        0x10
+        =0x10
     )
 
 #if 0
@@ -40,7 +40,7 @@ LKMC_ENTRY
     LKMC_ASSERT_MEMCMP(
         vcvtr_result_plus_infinity,
         vcvtr_expect_plus_infinity,
-        0x10
+        =0x10
     )
 #endif
-LKMC_EXIT
+LKMC_EPILOGUE

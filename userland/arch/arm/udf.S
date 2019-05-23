@@ -1,7 +1,7 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-udf-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     udf 0
-LKMC_EXIT
+LKMC_EPILOGUE

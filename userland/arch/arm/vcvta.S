@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvta-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* SIMD positive. */
 .data
     vcvta_positive_0:      .float 1.25, 2.5, 3.75, 4.0
@@ -18,7 +18,7 @@ LKMC_ENTRY
     LKMC_ASSERT_MEMCMP(
         vcvta_positive_result,
         vcvta_positive_expect,
-        0x10
+        =0x10
     )
 
     /* SIMD negative. */
@@ -36,6 +36,6 @@ LKMC_ENTRY
     LKMC_ASSERT_MEMCMP(
         vcvta_negative_result,
         vcvta_negative_expect,
-        0x10
+        =0x10
     )
-LKMC_EXIT
+LKMC_EPILOGUE

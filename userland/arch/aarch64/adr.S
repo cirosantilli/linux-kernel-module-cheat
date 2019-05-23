@@ -1,11 +1,11 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-adr-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
 .data
 data_label:
     .word 0x1234678
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* This is not possible in v7 because the label is in another section.
      * objdump says that this generates a R_AARCH64_ADR_PRE relocation.
      * which looks specific to ADR, and therefore makes it more likely
@@ -18,4 +18,4 @@ LKMC_ENTRY
     ldr x1, =data_label
 label:
     LKMC_ASSERT_EQ_REG(x0, x1)
-LKMC_EXIT
+LKMC_EPILOGUE

@@ -1,12 +1,12 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bl-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     mov r0, 1
     bl inc
-    LKMC_ASSERT_EQ(r0, 2)
-LKMC_EXIT
+    LKMC_ASSERT_EQ(r0, =2)
+LKMC_EPILOGUE
 
 /* void inc(int *i) { (*i)++ } */
 inc:

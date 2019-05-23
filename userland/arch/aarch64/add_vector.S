@@ -3,9 +3,9 @@
  * Add a bunch of integers in one go.
  */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 .data
     input0:    .long 0xF1F1F1F1, 0xF2F2F2F2, 0xF3F3F3F3, 0xF4F4F4F4
     input1:    .long 0x12121212, 0x13131313, 0x14141414, 0x15151515
@@ -22,11 +22,11 @@ LKMC_ENTRY
     add v2. ## size, v0. ## size, v1. ## size; \
     adr x0, output; \
     st1 {v2. ## size}, [x0]; \
-    LKMC_ASSERT_MEMCMP(output, expect_ ## size, 0x10)
+    LKMC_ASSERT_MEMCMP(output, expect_ ## size, =0x10)
 
     /* 4x 32-bit */
     TEST(4s)
     /* 2x 64-bit */
     TEST(2d)
 #undef TEST
-LKMC_EXIT
+LKMC_EPILOGUE

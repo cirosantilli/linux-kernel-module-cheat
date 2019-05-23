@@ -1,10 +1,10 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vadd-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
 .bss
     output:      .skip 16
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* Integer. */
 .data
     input0_u:    .long 0xF1F1F1F1, 0xF2F2F2F2, 0xF3F3F3F3, 0xF4F4F4F4
@@ -20,7 +20,7 @@ LKMC_ENTRY
     vadd.u ## size q2, q0, q1; \
     ldr r0, =output; \
     vst1.u ## size {q2}, [r0]; \
-    LKMC_ASSERT_MEMCMP(output, expect_u_ ## size, 0x10)
+    LKMC_ASSERT_MEMCMP(output, expect_u_ ## size, =0x10)
 
     /* vadd.u32
      *
@@ -54,7 +54,7 @@ LKMC_ENTRY
     vadd.f ## size q2, q0, q1; \
     ldr r0, =output; \
     vst1. ## size {q2}, [r0]; \
-    LKMC_ASSERT_MEMCMP(output, expect_f_ ## size, 0x10)
+    LKMC_ASSERT_MEMCMP(output, expect_f_ ## size, =0x10)
 
     /* 4x 32-bit. */
     TEST(32)
@@ -68,4 +68,4 @@ LKMC_ENTRY
     TEST(64)
 #endif
 #undef TEST
-LKMC_EXIT
+LKMC_EPILOGUE

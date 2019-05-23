@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#assembly-registers */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
 
     /* 31 64-bit eXtended general purpose registers. */
     mov x0, 0
@@ -43,5 +43,5 @@ LKMC_ENTRY
     ldr x0, =0x1111222233334444
     ldr x1, =0x5555666677778888
     mov w0, w1
-    LKMC_ASSERT_EQ(x0, 0x0000000077778888)
-LKMC_EXIT
+    LKMC_ASSERT_EQ(x0, =0x0000000077778888)
+LKMC_EPILOGUE

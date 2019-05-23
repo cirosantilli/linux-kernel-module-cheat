@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-gnu-instruction-gas-assembler-immediates */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* This is the default. We hack it in common.h however. */
 .syntax divided
    /* These fail. */
@@ -21,4 +21,4 @@ LKMC_ENTRY
     mov r0, 0x1
     mov r0, $1
     mov r0, $0x1
-LKMC_EXIT
+LKMC_EPILOGUE

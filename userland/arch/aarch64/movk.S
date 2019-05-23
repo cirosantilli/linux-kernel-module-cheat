@@ -1,13 +1,13 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-movk-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     movk x0, 0x4444, lsl 0
     movk x0, 0x3333, lsl 16
     movk x0, 0x2222, lsl 32
     movk x0, 0x1111, lsl 48
-    LKMC_ASSERT_EQ(x0, 0x1111222233334444)
+    LKMC_ASSERT_EQ(x0, =0x1111222233334444)
 
     /* Set a label (addresses are 48-bit) with immediates:
      *
@@ -23,4 +23,4 @@ LKMC_ENTRY
     adr x1, label
 label:
     LKMC_ASSERT_EQ_REG(x0, x1)
-LKMC_EXIT
+LKMC_EPILOGUE

@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-adr-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     adrp x0, label
     adr x1, label
 label:
@@ -10,4 +10,4 @@ label:
     bic x1, x1, 0xFF
     bic x1, x1, 0xF00
     LKMC_ASSERT_EQ_REG(x0, x1)
-LKMC_EXIT
+LKMC_EPILOGUE

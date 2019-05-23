@@ -1,12 +1,12 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ldrh-instruction-and-ldrb */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     ldr r0, =myvar
     mov r1, 0x0
     ldrh r1, [r0]
-    LKMC_ASSERT_EQ(r1, 0x00005678)
-LKMC_EXIT
+    LKMC_ASSERT_EQ(r1, =0x00005678)
+LKMC_EPILOGUE
 myvar:
     .word 0x12345678

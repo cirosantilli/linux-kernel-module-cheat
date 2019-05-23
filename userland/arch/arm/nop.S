@@ -1,8 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-nop-instruction */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* Disassembles as:
      *
      * ....
@@ -29,4 +29,4 @@ LKMC_ENTRY
 
     /* And there are other nops as well? Disassembles as `and`. */
     and r0, r0, r0
-LKMC_EXIT
+LKMC_EPILOGUE

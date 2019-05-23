@@ -1,9 +1,9 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#vfp
  * Adapted from: https://mindplusplus.wordpress.com/2013/06/27/arm-vfp-vector-programming-part-2-examples/ */
 
-#include "common.h"
+#include <lkmc.h>
 
-LKMC_ENTRY
+LKMC_PROLOGUE
     /* Minimal single precision floating point example.
      * TODO: floating point representation constraints due to 4-byte instruction?
      */
@@ -39,7 +39,7 @@ my_float_sum:
     vadd.f32 s2, s0, s1
     ldr r0, =my_float_sum
     vstr.f32 s2, [r0]
-    LKMC_ASSERT_MEMCMP(my_float_sum, my_float_sum_expect, 4)
+    LKMC_ASSERT_MEMCMP(my_float_sum, my_float_sum_expect, =4)
 
 #if 0
     /* We can't do pseudo vldr as for ldr, fails with:
@@ -69,4 +69,4 @@ my_float_sum:
     vmov s1, s0
     vmov r1, s1
     LKMC_ASSERT_EQ_REG(r0, r1)
-LKMC_EXIT
+LKMC_EPILOGUE
