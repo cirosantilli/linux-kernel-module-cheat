@@ -18,6 +18,12 @@ LKMC_PROLOGUE
 
     /* Now with a memory stored value. */
 .data
+    /* TODO why is this align required, and why only the in the baremetal toolchain?
+     * Otherwise at edfbe9f0d7e9cc40cffd1c68c7c7c30a47fda2a8 + 1 was failing with:
+     * /path/to/linux-kernel-module-cheat/userland/arch/aarch64/fadd_scalar.S:28:(.text+0x3c): relocation truncated to fit: R_AARCH64_LD_PREL_LO19 against `.data'
+     * /path/to/linux-kernel-module-cheat/userland/arch/aarch64/fadd_scalar.S:28: warning: One possible cause of this error is that the symbol is being referenced in the indicated code as if it had a larger alignment than was declared where it was defined.
+     */
+.align 4
 my_double_0:
     .double 1.5
 my_double_1:

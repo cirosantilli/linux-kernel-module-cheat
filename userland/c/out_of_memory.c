@@ -1,18 +1,18 @@
-/* Test out of memory. */
+/* Let's see how much memory Linux lets us allocate. */
 
 #include <stdio.h>
 #include <stdlib.h>
 
 int main(void) {
     char *ptr = NULL;
-    size_t alloc_size = 1;
+    size_t size = 1;
     while (1) {
-        ptr = realloc(ptr, alloc_size);
+        printf("0x%zx\n", size);
+        ptr = realloc(ptr, size);
         if (ptr == NULL) {
-            puts("out of memory");
             break;
         } else {
-            alloc_size <<= 1;
+            size <<= 1;
         }
     }
 }

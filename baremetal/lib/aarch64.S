@@ -1,7 +1,7 @@
 #include <lkmc.h>
 
-.global mystart
-mystart:
+.global lkmc_start
+lkmc_start:
     /* = NEON setup */
     mov x1, #(0x3 << 20)
     msr cpacr_el1, x1
@@ -20,6 +20,7 @@ mystart:
     bl on_exit
 
     /* Run main. */
+    mov x0, 0
     bl main
 
     /* If main returns, exit. */

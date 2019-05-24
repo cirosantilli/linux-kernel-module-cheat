@@ -1206,35 +1206,6 @@ The terminal prints:
 hello
 ....
 
-Now let's run link:baremetal/arch/aarch64/add.S[]:
-
-....
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
-....
-
-This time, the terminal does not print anything, which indicates success.
-
-If you look into the source, you will see that we just have an assertion there.
-
-You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[]:
-
-....
-./run --arch aarch64 --baremetal baremetal/interactive/assert_fail.c
-....
-
-and the terminal contains:
-
-....
-lkmc_test_fail
-error: simulation error detected by parsing logs
-....
-
-and the exit status of our script is 1:
-
-....
-echo $?
-....
-
 To modify a baremetal program, simply edit the file, e.g.
 
 ....
@@ -1252,17 +1223,44 @@ and rebuild:
 
 `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
 
-Alternatively, for the sake of tab completion, we also accept relative paths inside `baremetal/`, for example the following also work:
+
+Now let's run link:baremetal/arch/aarch64/add.S[]:
 
 ....
-./run --arch aarch64 --baremetal baremetal/c/hello.c
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
 ....
 
-Absolute paths however are used as is and must point to the actual executable:
+This time, the terminal does not print anything, which indicates success: if you look into the source, you will see that we just have an assertion there.
+
+You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[]:
 
 ....
-./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 baremetal_build_dir)/hello.elf"
+./run --arch aarch64 --baremetal userland/c/assert_fail.c
+....
+
+and the terminal contains:
+
+....
+lkmc_test_fail
+error: simulation error detected by parsing logs
+....
+
+and the exit status of our script is 1:
+
+....
+echo $?
+....
+
+As suggested by the above example, several of the <<userland-content,userland examples>> can also be run in baremetal! This is largely due to the <<about-the-baremetal-setup,awesomeness of Newlib>>.
+
+The examples that work include most <<c,C examples>> that don't rely on complicated syscalls such as threads, and almost all the <<userland-assembly>> examples.
+
+The exact list of userland programs that work in baremetal is specified in <<path-properties>> with the `baremetal` property.
+
+You can run all the baremetal examples in one go and check that all assertions passed with:
+
+....
+./test-baremetal --arch aarch64
 ....
 
 To use gem5 instead of QEMU do:
@@ -11554,6 +11552,9 @@ Programs under link:userland/c/[] are examples of link:https://en.wikipedia.org/
 * Standard library
 ** assert.h
 *** link:userland/c/assert_fail.c[]
+** `stdlib.h`
+*** Exit related
+**** link:userland/c/abort.c[]
 
 Userland assembly content is located at: <<userland-assembly>>. It was split from this section basically becase we were hitting the HTML `h6` limit, stupid web :-)
 
@@ -11677,7 +11678,7 @@ Other infrastructure sanity checks that you might want to look into include:
 
 * link:userland/arch/empty.S[]
 * `LKMC_FAIL` tests
-** link:userland/arch/fail.S[]
+** link:userland/arch/lkmc_assert_fail.S[]
 * `LKMC_ASSERT_EQ` tests
 ** link:userland/arch/x86_64/lkmc_assert_eq_fail.S[]
 ** link:userland/arch/arm/lkmc_assert_eq_fail.S[]
@@ -13609,8 +13610,8 @@ info threads
 shows something like:
 
 ....
-* 1    Thread 1 (CPU#0 [running]) mystart
-  2    Thread 2 (CPU#1 [halted ]) mystart
+* 1    Thread 1 (CPU#0 [running]) lkmc_start
+  2    Thread 2 (CPU#1 [halted ]) lkmc_start
 ....
 
 To wake up CPU 1 on QEMU, we must use the Power State Coordination Interface (PSCI) which is documented at: link:https://developer.arm.com/docs/den0022/latest/arm-power-state-coordination-interface-platform-design-document[].

@@ -162,6 +162,7 @@ class LkmcCliFunction(cli_function.CliFunction):
     def __init__(
         self,
         *args,
+        is_baremetal=False,
         is_userland=False,
         defaults=None,
         supported_archs=None,
@@ -175,7 +176,8 @@ class LkmcCliFunction(cli_function.CliFunction):
         kwargs['extra_config_params'] = os.path.basename(inspect.getfile(self.__class__))
         if defaults is None:
             defaults = {}
-        self._is_userland = is_userland
+        self.is_baremetal = is_baremetal
+        self.is_userland = is_userland
         self._defaults = defaults
         self._is_common = True
         self._common_args = set()
@@ -1035,8 +1037,12 @@ lunch aosp_{}-eng
             self._common_args.add(key)
         super().add_argument(*args, **kwargs)
 
-    def assert_is_subpath(self, subpath, parent):
-        if not self.is_subpath(subpath, parent):
+    def assert_is_subpath(self, subpath, parents):
+        is_subpath = False
+        for parent in parents:
+            if self.is_subpath(subpath, parent):
+                is_subpath = True
+        if not is_subpath:
             raise Exception(
                 'Can only accept targets inside {}, given: {}'.format(
                     parent,
@@ -1204,7 +1210,7 @@ lunch aosp_{}-eng
                                 continue
                             else:
                                 raise Exception('native emulator only supported in if target arch == host arch')
-                        if env['userland'] is None and not self._is_userland:
+                        if env['userland'] is None and not self.is_userland:
                             if real_all_emulators:
                                 continue
                             else:
@@ -1314,7 +1320,7 @@ lunch aosp_{}-eng
     def resolve_executable(
         self,
         in_path,
-        magic_in_dir,
+        magic_in_dirs,
         magic_out_dir,
         executable_ext
     ):
@@ -1331,35 +1337,47 @@ lunch aosp_{}-eng
         '''
         if not self.env['dry_run'] and not os.path.exists(in_path):
             raise Exception('Input path does not exist: ' + in_path)
-        if self.is_subpath(in_path, magic_in_dir):
-            # Abspath needed to remove the trailing `/.` which makes e.g. rmrf fail.
-            out = os.path.abspath(os.path.join(
-                magic_out_dir,
-                os.path.relpath(
-                    os.path.splitext(in_path)[0],
-                    magic_in_dir
-                )
-            ))
-            if os.path.isfile(in_path):
-                out += executable_ext
-            return out
+        if len(magic_in_dirs) > 1:
+            relative_subpath = self.env['root_dir']
         else:
-            return in_path
+            relative_subpath = magic_in_dirs[0]
+        for magic_in_dir in magic_in_dirs:
+            if self.is_subpath(in_path, magic_in_dir):
+                # Abspath needed to remove the trailing `/.` which makes e.g. rmrf fail.
+                out = os.path.abspath(os.path.join(
+                    magic_out_dir,
+                    os.path.relpath(
+                        os.path.splitext(in_path)[0],
+                        relative_subpath
+                    )
+                ))
+                if os.path.isfile(in_path):
+                    out += executable_ext
+                return out
+        return in_path
 
-    def resolve_targets(self, source_dir, targets):
+    def resolve_targets(self, source_dirs, targets):
+        '''
+        Resolve userland or baremetal CLI provided targets to final paths.
+
+        Notably converts the toplevel directory into all source directories needed.
+        '''
         if not targets:
-            targets = [source_dir]
+            targets = source_dirs.copy()
         new_targets = []
         for target in targets:
-            target = self.toplevel_to_source_dir(target, source_dir)
-            self.assert_is_subpath(target, source_dir)
-            new_targets.append(target)
+            for resolved_target in self.toplevel_to_source_dirs(target, source_dirs):
+                self.assert_is_subpath(resolved_target, source_dirs)
+                new_targets.append(resolved_target)
         return new_targets
 
     def resolve_baremetal_executable(self, path):
         return self.resolve_executable(
             path,
-            self.env['baremetal_source_dir'],
+            [
+                self.env['baremetal_source_dir'],
+                self.env['userland_source_dir']
+            ],
             self.env['baremetal_build_dir'],
             self.env['baremetal_executable_ext'],
         )
@@ -1367,7 +1385,7 @@ lunch aosp_{}-eng
     def resolve_userland_executable(self, path):
         return self.resolve_executable(
             path,
-            self.env['userland_source_dir'],
+            [self.env['userland_source_dir']],
             self.env['userland_build_dir'],
             self.env['userland_executable_ext'],
         )
@@ -1386,12 +1404,12 @@ lunch aosp_{}-eng
         '''
         pass
 
-    def toplevel_to_source_dir(self, path, source_dir):
+    def toplevel_to_source_dirs(self, path, source_dirs):
         path = os.path.abspath(path)
         if path == self.env['root_dir']:
-            return source_dir
+            return source_dirs
         else:
-            return path
+            return [path]
 
     def timed_main(self):
         '''
@@ -1491,13 +1509,21 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
             dirpath_relative_root,
             in_basename
         ))
-        if my_path_properties.should_be_built(self.env, link):
+        if my_path_properties.should_be_built(
+            self.env,
+            link,
+            is_baremetal=self.is_baremetal,
+            is_userland=self.is_userland
+        ):
             if extra_objs is None:
                 extra_objs= []
             if link:
-                if my_path_properties['extra_objs_lkmc_common']:
+                if self.is_baremetal or my_path_properties['extra_objs_lkmc_common']:
                     extra_objs.extend(extra_objs_lkmc_common)
-                if my_path_properties['extra_objs_baremetal_bootloader']:
+                if (
+                    self.is_baremetal and
+                    not my_path_properties['extra_objs_disable_baremetal_bootloader']
+                ):
                     extra_objs.extend(extra_objs_baremetal_bootloader)
             if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
                 cc_flags.extend(my_path_properties['cc_flags'])
@@ -1542,7 +1568,7 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                                             'cc_flags_after': [],
                                         },
                                     }
-                                    package_key = dirpath_relative_root_components[1]
+                                    package_key = dirpath_relative_root_components[2]
                                     if package_key in packages:
                                         package = packages[package_key]
                                     else:

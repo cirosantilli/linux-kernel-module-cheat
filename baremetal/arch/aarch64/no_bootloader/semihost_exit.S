@@ -1,7 +1,7 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#semihosting */
 
-.global mystart
-mystart:
+.global lkmc_start
+lkmc_start:
     mov x1, 0x26
     movk x1, 2, lsl 16
     ldr x2, =semihost_args

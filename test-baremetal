@@ -11,6 +11,7 @@ import thread_pool
 class Main(common.TestCliFunction):
     def __init__(self):
         super().__init__(
+            is_baremetal=True,
             supported_archs=common.consts['crosstool_ng_supported_archs'],
         )
         self.add_argument(
@@ -23,7 +24,10 @@ If given, run only the given tests. Otherwise, run all tests.
 
     def setup_one(self):
         self.env['tests'] = self.resolve_targets(
-            self.env['baremetal_source_dir'],
+            [
+                self.env['baremetal_source_dir'],
+                self.env['userland_source_dir']
+            ],
             self.env['tests']
         )
 
@@ -45,7 +49,7 @@ If given, run only the given tests. Otherwise, run all tests.
                         if os.path.splitext(in_filename)[1] in (self.env['c_ext'], self.env['asm_ext']):
                             path_relative_root = os.path.join(dirpath_relative_root, in_filename)
                             my_path_properties = path_properties.get(path_relative_root)
-                            if my_path_properties.should_be_tested(self.env):
+                            if my_path_properties.should_be_tested(self.env, is_baremetal=True):
                                 cur_run_args = run_args.copy()
                                 cur_run_args.update({
                                     'baremetal': os.path.relpath(os.path.join(path_abs, in_filename), os.getcwd()),

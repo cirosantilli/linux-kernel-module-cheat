@@ -74,5 +74,6 @@ pc_relative_ldr:
     LKMC_ASSERT_EQ(x0, =0x123456789ABCDEF0)
 LKMC_EPILOGUE
 .data
+.align 4
 pc_relative_str:
     .quad 0x0000000000000000

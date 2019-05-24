@@ -20,7 +20,6 @@ LKMC_ASSERT_EQ_DECLARE(32);
 LKMC_ASSERT_EQ_DECLARE(64);
 void lkmc_assert_fail(uint32_t line);
 void lkmc_assert_memcmp(const void *s1, const void *s2, size_t n, uint32_t line);
-void lkmc_baremetal_on_exit_callback(int status, void *arg);
 #endif
 
 /* Assert that the given branch instruction is taken. */

@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
 import os
+import signal
 
 from shell_helpers import LF
 
 class PathProperties:
     default_c_std = 'c11'
     default_cxx_std = 'c++17'
+    # All new properties must be listed here or else you get an error.
     default_properties = {
         'allowed_archs': None,
+        # Examples that can be built in baremetal.
+        'baremetal': False,
         'c_std': default_c_std,
         'cc_flags': [
             '-Wall', LF,
@@ -29,11 +33,14 @@ class PathProperties:
         'cc_flags_after': ['-lm', LF],
         'cc_pedantic': True,
         'cxx_std': default_cxx_std,
+        'disrupts_system': False,
         # Expected program exit status. When signals are raised, this refers
         # to the native exit status. as reported by Bash #?.
         'exit_status': 0,
         'extra_objs': [],
-        'extra_objs_baremetal_bootloader': False,
+        # Explicitly don't add the baremetal bootloader object which normally gets automatically
+        # added to baremetal examples.
+        'extra_objs_disable_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
         'interactive': False,
@@ -45,10 +52,7 @@ class PathProperties:
         # it only generates intermediate object files. Therefore it
         # should not be run while testing.
         'no_executable': False,
-        # the test receives a signal. We skip those tests for now,
-        # on userland because we are lazy to figure out the exact semantics
-        # of how Python + QEMU + gem5 determine the exit status of signals.
-        'receives_signal': False,
+        'receives_signal': None,
         # The script requires a non-trivial argument to be passed to run properly.
         'requires_argument': False,
         'requires_dynamic_library': False,
@@ -68,6 +72,8 @@ class PathProperties:
         # Aruments added automatically to run when running tests,
         # but not on manual running.
         'test_run_args': {},
+        # Examples that can be built in userland.
+        'userland': False,
     }
 
     '''
@@ -93,7 +99,13 @@ class PathProperties:
     def set_path_components(self, path_components):
         self.path_components = path_components
 
-    def should_be_built(self, env, link=False):
+    def should_be_built(
+        self,
+        env,
+        link=False,
+        is_baremetal=False,
+        is_userland=False,
+    ):
         if len(self.path_components) > 1 and \
                 self.path_components[1] == 'libs' and \
                 not env['package_all'] and \
@@ -105,14 +117,22 @@ class PathProperties:
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
             ) and \
+            (
+                (is_userland  and self['userland'] ) or
+                (is_baremetal and self['baremetal'])
+            ) and \
             not (
                 link and
                 self['no_executable']
             )
 
-    def should_be_tested(self, env):
+    def should_be_tested(self, env, is_baremetal=False, is_userland=False):
         return (
-            self.should_be_built(env) and
+            self.should_be_built(
+                env,
+                is_baremetal=is_baremetal,
+                is_userland=is_userland
+            ) and
             not self['interactive'] and
             not self['more_than_1s'] and
             not self['no_executable'] and
@@ -203,6 +223,7 @@ gnu_extension_properties = {
     'cxx_std': 'gnu++17'
 }
 freestanding_properties = {
+    'baremetal': False,
     'cc_flags': [
         '-ffreestanding', LF,
         '-nostdlib', LF,
@@ -216,8 +237,7 @@ path_properties_tuples = (
     {
         'baremetal': (
             {
-                'extra_objs_baremetal_bootloader': True,
-                'extra_objs_lkmc_common': True,
+                'baremetal': True,
             },
             {
                 'arch': (
@@ -229,7 +249,7 @@ path_properties_tuples = (
                                 'gem5_assert.S': {'requires_m5ops': True},
                                 'multicore.S': {'test_run_args': {'cpus': 2}},
                                 'no_bootloader': (
-                                    {'extra_objs_baremetal_bootloader': False},
+                                    {'extra_objs_disable_baremetal_bootloader': True},
                                     {
                                         'gem5_exit.S': {'requires_m5ops': True},
                                         'semihost_exit.S': {'requires_semihosting': True},
@@ -245,7 +265,7 @@ path_properties_tuples = (
                             {
                                 'multicore.S': {'test_run_args': {'cpus': 2}},
                                 'no_bootloader': (
-                                    {'extra_objs_baremetal_bootloader': False},
+                                    {'extra_objs_disable_baremetal_bootloader': True},
                                     {
                                         'gem5_exit.S': {'requires_m5ops': True},
                                         'semihost_exit.S': {'requires_semihosting': True},
@@ -257,32 +277,22 @@ path_properties_tuples = (
                         )
                     }
                 ),
-                'c': (
-                    {},
-                    {
-                        'assert_fail.c': {'exit_status': 134},
-                        'infinite_loop.c': {'more_than_1s': True},
-                    }
-                ),
-                'exit1.c': {'exit_status': 1},
                 'lib': {'no_executable': True},
                 'getchar.c': {'interactive': True},
-                'return1.c': {'exit_status': 1},
-                'return2.c': {'exit_status': 2},
             }
         ),
+        'lkmc.c': {
+            'baremetal': True,
+            'userland': True,
+        },
         'userland': (
             {
-                'cc_flags': [
-                    '-fopenmp', LF,
-                ],
-                'cc_flags_after': [
-                    '-pthread', LF,
-                ],
+                'userland': True,
             },
             {
                 'arch': (
                     {
+                        'baremetal': True,
                         'extra_objs_lkmc_common': True,
                     },
                     {
@@ -316,11 +326,10 @@ path_properties_tuples = (
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
-                                'lkmc_assert_eq_fail.S': {'exit_status': 1},
-                                'lkmc_assert_memcmp_fail.S': {'exit_status': 1},
+                                'lkmc_assert_eq_fail.S': {'receives_signal': signal.Signals.SIGABRT},
+                                'lkmc_assert_memcmp_fail.S': {'receives_signal': signal.Signals.SIGABRT},
                                 'udf.S': {
-                                    'exit_status': 132,
-                                    'receives_signal': True
+                                    'receives_signal': signal.Signals.SIGILL
                                 },
                             }
                         ),
@@ -335,15 +344,16 @@ path_properties_tuples = (
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
-                                'lkmc_assert_eq_fail.S': {'exit_status': 1},
-                                'lkmc_assert_memcmp_fail.S': {'exit_status': 1},
+                                'lkmc_assert_eq_fail.S': {'receives_signal': signal.Signals.SIGABRT},
+                                'lkmc_assert_memcmp_fail.S': {'receives_signal': signal.Signals.SIGABRT},
                                 'udf.S': {
-                                    'exit_status': 132,
-                                    'receives_signal': True
+                                    'receives_signal': signal.Signals.SIGILL
                                 },
                             }
                         ),
-                        'fail.S': {'exit_status': 1},
+                        'lkmc_assert_fail.S': {
+                            'receives_signal': signal.Signals.SIGABRT,
+                        },
                         'x86_64': (
                             {'allowed_archs': {'x86_64'}},
                             {
@@ -353,31 +363,44 @@ path_properties_tuples = (
                                     {
                                         'freestanding': freestanding_properties,
                                         'ring0.c': {
-                                            'exit_status': 139,
-                                            'receives_signal': True
+                                            'receives_signal': signal.Signals.SIGSEGV
                                         }
                                     }
                                 ),
                                 'freestanding': freestanding_properties,
-                                'lkmc_assert_eq_fail.S': {'exit_status': 1},
-                                'lkmc_assert_memcmp_fail.S': {'exit_status': 1},
+                                'lkmc_assert_eq_fail.S': {'receives_signal': signal.Signals.SIGABRT},
+                                'lkmc_assert_memcmp_fail.S': {'receives_signal': signal.Signals.SIGABRT},
                             }
                         ),
                     }
                 ),
                 'c': (
-                    {},
                     {
-                        'assert_fail.c': {
-                            'exit_status': 134,
-                            'receives_signal': True,
+                        'baremetal': True,
+                    },
+                    {
+                        'abort.c': {
+                            'receives_signal': signal.Signals.SIGABRT,
                         },
+                        'assert_fail.c': {
+                            'receives_signal': signal.Signals.SIGABRT,
+                        },
+                        'exit1.c': {'exit_status': 1},
+                        'exit2.c': {'exit_status': 2},
                         'false.c': {'exit_status': 1},
                         'getchar.c': {'interactive': True},
                         'infinite_loop.c': {'more_than_1s': True},
+                        'out_of_memory.c': {'disrupts_system': True},
+                        'return1.c': {'exit_status': 1},
+                        'return2.c': {'exit_status': 2},
                     }
                 ),
-                'gcc': gnu_extension_properties,
+                'gcc': (
+                    gnu_extension_properties,
+                    {
+                        'openmp.c': {'cc_flags': ['-fopenmp', LF]},
+                    }
+                ),
                 'kernel_modules': {**gnu_extension_properties, **{'requires_kernel_modules': True}},
                 'libs': (
                     {'requires_dynamic_library': True},
@@ -398,8 +421,9 @@ path_properties_tuples = (
                         'proc_events.c': {'requires_sudo': True},
                         'sched_getaffinity.c': {'requires_syscall_getcpu': True},
                         'sched_getaffinity_threads.c': {
-                            'requires_syscall_getcpu': True,
+                            'cc_flags_after': ['-pthread', LF],
                             'more_than_1s': True,
+                            'requires_syscall_getcpu': True,
                         },
                         'time_boot.c': {'requires_sudo': True},
                         'virt_to_phys_user.c': {'requires_argument': True},

@@ -1,7 +1,7 @@
 #include <lkmc.h>
 
-.global mystart
-mystart:
+.global lkmc_start
+lkmc_start:
     /* Prepare the stack for main, mandatory for C code. */
     ldr sp, =stack_top
 
@@ -10,6 +10,7 @@ mystart:
     bl on_exit
 
     /* Run main. */
+    mov r0, 0
     bl main
 
     /* If main returns, exit. */

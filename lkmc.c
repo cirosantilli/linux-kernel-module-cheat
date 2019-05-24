@@ -23,7 +23,7 @@ LKMC_ASSERT_EQ_DEFINE(64)
 
 void lkmc_assert_fail(uint32_t line) {
     printf("error: assertion failed at line: %" PRIu32 "\n", line);
-    exit(1);
+    abort();
 }
 
 void lkmc_assert_memcmp(
@@ -53,13 +53,6 @@ void lkmc_assert_memcmp(
             );
             lkmc_assert_fail(line);
         }
-    }
-}
-
-void lkmc_baremetal_on_exit_callback(int status, void *arg) {
-    (void)arg;
-    if (status != 0) {
-        printf("lkmc_exit_status_%d\n", status);
     }
 }
 

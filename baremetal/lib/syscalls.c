@@ -5,6 +5,13 @@
 #include <lkmc.h>
 #include <lkmc/m5ops.h>
 
+void lkmc_baremetal_on_exit_callback(int status, void *arg) {
+    (void)arg;
+    if (status != 0) {
+        printf("lkmc_exit_status_%d\n", status);
+    }
+}
+
 enum {
     UART_FR_RXFE = 0x10,
 };
