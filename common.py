@@ -107,10 +107,13 @@ consts['cxx_ext'] = '.cpp'
 consts['header_ext'] = '.h'
 consts['kernel_module_ext'] = '.ko'
 consts['obj_ext'] = '.o'
-consts['build_in_exts'] = [
+# https://github.com/cirosantilli/linux-kernel-module-cheat#baremetal-cpp
+consts['baremetal_build_in_exts'] = [
     consts['asm_ext'],
     consts['c_ext'],
-    consts['cxx_ext'],
+]
+consts['build_in_exts'] = consts['baremetal_build_in_exts'] + [
+    consts['cxx_ext']
 ]
 consts['userland_out_exts'] = [
     consts['userland_executable_ext'],
@@ -939,7 +942,7 @@ Incompatible archs are skipped.
             env['disk_image'] = env['gem5_fake_iso']
             path = self.resolve_baremetal_executable(env['baremetal'])
             source_path_noext = os.path.splitext(join(
-                env['baremetal_source_dir'],
+                env['root_dir'],
                 os.path.relpath(path, env['baremetal_build_dir'])
             ))[0]
             for ext in [env['c_ext'], env['asm_ext']]:

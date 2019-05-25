@@ -9795,7 +9795,7 @@ but the approximation is reasonable.
 +
 It is used mostly for microarchitecture research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
 ** runs are deterministic by default, unlike QEMU which has a special <<qemu-record-and-replay>> mode, that requires first playing the content once and then replaying
-** gem5 ARM at least appears to implement more low level CPU functionality than QEMU, e.g. QEMU only added EL2 in 2018: https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up See also: <<arm-exception-level>>
+** gem5 ARM at least appears to implement more low level CPU functionality than QEMU, e.g. QEMU only added EL2 in 2018: https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up See also: <<arm-exception-levels>>
 * disadvantage of gem5: slower than QEMU, see: <<benchmark-linux-kernel-boot>>
 +
 This implies that the user base is much smaller, since no Android devs.
@@ -13034,6 +13034,19 @@ Does not have as many assembly code examples as you'd hope however...
 
 Latest version at: https://developer.arm.com/docs/den0024/latest/preface
 
+===== ARM processor documentation
+
+ARM also releases documentation specific to each given processor.
+
+This adds extra details to the more portable <<armarm8>> ISA documentation.
+
+[[arm-cortex15-trm]]
+===== ARM Cortex-A15 MPCore Processor Technical Reference Manual r4p0
+
+http://infocenter.arm.com/help/topic/com.arm.doc.ddi0438i/DDI0438I_cortex_a15_r4p0_trm.pdf
+
+2013.
+
 == Baremetal
 
 Getting started at: <<baremetal-setup>>
@@ -13226,9 +13239,51 @@ collect2: error: ld returned 1 exit status
 with the prebuilt toolchain, and I'm lazy to debug.
 * there seems to to be no analogous `aarch64` Ubuntu package to `gcc-arm-none-eabi`: https://askubuntu.com/questions/1049249/is-there-a-package-with-the-aarch64-version-of-gcc-arm-none-eabi-for-bare-metal
 
-=== C++ baremetal
+[[baremetal-cpp]]
+=== Baremetal C++
 
-TODO I tried by there was an error. Not yet properly reported. Should not be hard in theory since `libstdc++` is just part of GCC, as shown at: https://stackoverflow.com/questions/21872229/how-to-edit-and-re-build-the-gcc-libstdc-c-standard-library-source/51946224#51946224
+TODO not working as of 8825222579767f2ee7e46ffd8204b9e509440759 + 1. Not yet properly researched / reported upstream yet.
+
+Should not be hard in theory since `libstdc++` is just part of GCC, as shown at: https://stackoverflow.com/questions/21872229/how-to-edit-and-re-build-the-gcc-libstdc-c-standard-library-source/51946224#51946224
+
+To test it out, I first hack link:common.py[] to enable `C++`:
+
+....
+consts['baremetal_build_in_exts'] = consts['build_in_exts']
+....
+
+and then I hack link:userland/arch/aarch64/c/multiline.cpp[] to consist only of an empty main:
+
+....
+int main() {}
+....
+
+then for example:
+
+....
+./build-baremetal --arch aarch64
+./run --arch aarch64 --baremetal userland/arch/aarch64/c/multiline.cpp
+....
+
+fails with:
+
+....
+rom: requested regions overlap (rom dtb. free=0x00000000000000a0, addr=0x0000000000000000)
+qemu-system-aarch64: rom check and register reset failed
+....
+
+and the gem5 build fails completely:
+
+....
+./build-baremetal --arch aarch64 --emulator gem5 userland/arch/aarch64/c/multiline.cpp
+....
+
+fails with:
+
+....
+/tmp/ccFd2YIB.o:(.eh_frame+0x1c): relocation truncated to fit: R_AARCH64_PREL32 against `.text'
+collect2: error: ld returned 1 exit status
+....
 
 === GDB builtin CPU simulator
 
@@ -13300,7 +13355,7 @@ In this section we will focus on learning ARM architecture concepts that can onl
 
 Userland information can be found at: https://github.com/cirosantilli/arm-assembly-cheat
 
-==== ARM exception level
+==== ARM exception levels
 
 ARM exception levels are analogous to x86 <<ring0,rings>>.
 
@@ -13512,7 +13567,7 @@ The first part of the table contains:
 
 and the following other parts are analogous, but referring to `SPx` and lower ELs.
 
-We are going to do everything in <<arm-exception-level,EL1>> for now.
+We are going to do everything in <<arm-exception-levels,EL1>> for now.
 
 On the terminal output, we observe the initial values of:
 
@@ -13729,7 +13784,21 @@ class RealViewPBX(RealView):
 
 ==== aarch64 baremetal NEON setup
 
-Inside link:baremetal/lib/aarch64.S[] there is a chunk of code called "NEON setup".
+Inside link:baremetal/lib/aarch64.S[] there is a chunk of code that enables floating point operations:
+
+....
+mov x1, 0x3 << 20
+msr cpacr_el1, x1
+isb
+....
+
+`cpacr_el1` is documented at <<armarm8>> D10.2.29 "CPACR_EL1, Architectural Feature Access Control Register".
+
+Here we touch the FPEN bits to 3, which enable floating point operations:
+
+____
+11 This control does not cause any instructions to be trapped.
+____
 
 Without that, the `printf`:
 
@@ -13787,7 +13856,7 @@ ISB
 
 but it entered an exception loop at `MSR CPTR_EL3, XZR`.
 
-We then found out that QEMU starts in EL1, and so we kept just the EL1 part, and it worked. Related:
+We then found out that QEMU <<arm-exception-levels,<starts in EL1>>, and so we kept just the EL1 part, and it worked. Related:
 
 * https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
 * https://stackoverflow.com/questions/37299524/neon-support-in-armv8-system-mode-qemu
@@ -15248,13 +15317,13 @@ So setup this `on_exit` automatically from all our <<baremetal-bootloaders>>, so
 +
 The following examples end up testing that our setup is working:
 +
-* link:baremetal/c/assert_fail.c[]
-* link:baremetal/return1.c[]
-* link:baremetal/return2.c[]
-* link:baremetal/exit0.c[]
-* link:baremetal/exit1.c[]
-* link:baremetal/arch/arm/return1.S[]
-* link:baremetal/arch/aarch64/return1.S[]
+* link:userland/c/assert_fail.c[]
+* link:userland/c/return0.c[]
+* link:userland/c/return1.c[]
+* link:userland/c/return2.c[]
+* link:userland/c/exit0.c[]
+* link:userland/c/exit1.c[]
+* link:userland/c/exit2.c[]
 
 Beware that on Linux kernel simulations, you cannot even echo that string from userland, since userland stdout shows up on the serial.
 

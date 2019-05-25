@@ -6,6 +6,7 @@
 #define ELEM_SIZE 4
 
 .data;
+.align 4
 my_array_0:
     .word 0x11111111, 0x22222222, 0x33333333, 0x44444444
 my_array_1:

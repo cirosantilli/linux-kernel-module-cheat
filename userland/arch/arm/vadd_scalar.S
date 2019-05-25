@@ -22,6 +22,7 @@ LKMC_PROLOGUE
 
     /* Now the same from memory with vldr and vstr. */
 .data
+.align 4
 my_float_0:
     .float 1.5
 my_float_1:

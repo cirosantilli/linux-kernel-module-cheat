@@ -9,7 +9,7 @@
 
 int main(int argc, char **argv) {
     int ret;
-    if (argc == 1) {
+    if (argc <= 1) {
         ret = 1;
     } else {
         ret = strtoull(argv[1], NULL, 0);

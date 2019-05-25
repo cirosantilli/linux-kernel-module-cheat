@@ -1,7 +1,8 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-multicore */
 
-.global main
-main:
+#include <lkmc.h>
+
+LKMC_PROLOGUE
     /* Reset spinlock. */
     mov x0, 0
     ldr x1, =spinlock
@@ -65,9 +66,6 @@ spinlock_start:
     /* Hint CPU 0 to enter low power mode. */
     wfe
     cbz x0, spinlock_start
-
-    mov x0, 0
-    ret
-
+LKMC_EPILOGUE
 spinlock:
     .skip 8

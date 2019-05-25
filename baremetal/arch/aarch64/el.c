@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-exception-level */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-exception-levels */
 
 #include <stdio.h>
 #include <inttypes.h>

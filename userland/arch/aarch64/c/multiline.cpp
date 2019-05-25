@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <inttypes.h>
 
-int main(void) {
+int main() {
     uint64_t io = 0;
     __asm__ (
         R"(
