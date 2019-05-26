@@ -1,9 +1,8 @@
-/* Test that we can move:
- * - set registers
- * - read x30
- */
-.global main
-main:
+/* Test that we can set registers from GDB. */
+
+#include <lkmc.h>
+
+LKMC_PROLOGUE
     mov x0, 1
     /* test-gdb-x0 */
     mov x1, 2
@@ -27,3 +26,5 @@ main:
     /* Exit required since we messed up with x30 which is the lr. */
     mov x0, 0
     bl exit
+
+LKMC_EPILOGUE
