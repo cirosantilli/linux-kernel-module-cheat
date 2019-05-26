@@ -373,7 +373,7 @@ Have you ever felt that a single `inc` instruction was not enough? Really? Me to
 
 So let's hack the <<gnu-gas-assembler>>, which is part of link:https://en.wikipedia.org/wiki/GNU_Binutils[GNU Binutils], to add a new shiny version of `inc` called... `myinc`!
 
-GCC uses GNU GAS as its backend, so we will test out new mnemonic with an <<gcc-inline-assembly>> test program: link:userland/arch/x86_64/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/asm_hello.c[] but with `myinc` instead of `inc`.
+GCC uses GNU GAS as its backend, so we will test out new mnemonic with an <<gcc-inline-assembly>> test program: link:userland/arch/x86_64/c/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/c/binutils_nohack.c[] but with `myinc` instead of `inc`.
 
 The inline assembly is disabled with an `#ifdef`, so first modify the source to enable that.
 
@@ -1218,6 +1218,14 @@ For example, we can run the C hello world link:userland/c/hello.c[] simply as:
 ./run --arch aarch64 --baremetal userland/c/hello.c
 ....
 
+and that outputs to the serial port the string:
+
+....
+hello
+....
+
+which QEMU shows on the host terminal.
+
 To modify a baremetal program, simply edit the file, e.g.
 
 ....
@@ -1235,15 +1243,15 @@ and rebuild:
 
 `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
 
-Now let's run link:baremetal/arch/aarch64/add.S[]:
+Now let's run link:userland/arch/aarch64/add.S[]:
 
 ....
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/add.S
+./run --arch aarch64 --baremetal userland/arch/aarch64/add.S
 ....
 
 This time, the terminal does not print anything, which indicates success: if you look into the source, you will see that we just have an assertion there.
 
-You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[]:
+You can see a sample assertion fail in link:userland/c/assert_fail.c[]:
 
 ....
 ./run --arch aarch64 --baremetal userland/c/assert_fail.c
@@ -1252,7 +1260,7 @@ You can see a sample assertion fail in link:baremetal/interactive/assert_fail.c[
 and the terminal contains:
 
 ....
-lkmc_test_fail
+lkmc_exit_status_134
 error: simulation error detected by parsing logs
 ....
 
@@ -2734,7 +2742,7 @@ Sources:
 
 * link:kernel_modules/ring0.c[]
 * link:lkmc/ring0.h[]
-* link:userland/ring0.c[]
+* link:userland/arch/x86_64/c/ring0.c[]
 
 In both cases, we attempt to run the exact same code which is shared on the `ring0.h` header file.
 
@@ -3615,7 +3623,7 @@ This script skips a manually configured list of tests, notably:
 * tests that take perceptible ammounts of time
 * known bugs we didn't have time to fix ;-)
 
-Tests under link:userland/libs/[] depend on certain libraries being available on the target, e.g. <<blas>> for link:userland/libs/blas[]. They are not run by default, but can be enabled with `--package` and `--package-all`.
+Tests under link:userland/libs/[] depend on certain libraries being available on the target, e.g. <<blas>> for link:userland/libs/openblas[]. They are not run by default, but can be enabled with `--package` and `--package-all`.
 
 The gem5 tests require building statically with build id `static`, see also: <<gem5-syscall-emulation-mode>>. TODO automate this better.
 
@@ -5009,7 +5017,7 @@ linux_config/buildroot-<arch>
 
 e.g.: link:linux_config/buildroot-x86_64[].
 
-These configs are extracted directly from a Buildroot build with link:update-buildroot-kernel-config[].
+These configs are extracted directly from a Buildroot build with link:update-buildroot-kernel-configs[].
 
 Note that Buildroot can `sed` override some of the configurations, e.g. it forces `CONFIG_BLK_DEV_INITRD=y` when `BR2_TARGET_ROOTFS_CPIO` is on. For this reason, those configs are not simply copy pasted from Buildroot files, but rather from a Buildroot kernel build, and then minimized with `make savedefconfig`: https://stackoverflow.com/questions/27899104/how-to-create-a-defconfig-file-from-a-config
 
@@ -5870,7 +5878,7 @@ This option just strips `modversion` information from the module before loading,
 
 ==== module_init
 
-`init_module` and `cleantup_module` are an older alternative to the `module_init` and `module_exit` macros:
+`init_module` and `cleanup_module` are an older alternative to the `module_init` and `module_exit` macros:
 
 ....
 insmod init_module.ko
@@ -5884,7 +5892,7 @@ init_module
 cleanup_module
 ....
 
-Source: link:kernel_modules/module_init.c[]
+Source: link:kernel_modules/init_module.c[]
 
 TODO why were `module_init` and `module_exit` created? https://stackoverflow.com/questions/3218320/what-is-the-difference-between-module-init-and-init-module-in-a-linux-kernel-mod
 
@@ -6555,7 +6563,6 @@ Outcome: `jiffies` gets printed to stdout every second from userland.
 Sources:
 
 * link:kernel_modules/poll.c[]
-* link:include/poll.h[]
 * link:rootfs_overlay/lkmc/poll.sh[]
 
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
@@ -8352,7 +8359,7 @@ DRM / DRI is the new interface that supersedes `fbdev`:
 ./run --eval-after './libs/libdrm/modeset.out' --graphic
 ....
 
-Source: link:userland/libs/libdrm_modeset.c[]
+Source: link:userland/libs/libdrm/modeset.c[]
 
 Outcome: for a few seconds, the screen that contains the terminal gets taken over by changing colors of the rainbow.
 
@@ -8586,7 +8593,7 @@ TODO: get prototype working and then properly integrate:
 
 Source: link:build-xen[]
 
-This script attempts to build Xen for aarch64 and feed it into QEMU through link:boot-wrapper-arch64[]
+This script attempts to build Xen for aarch64 and feed it into QEMU through link:submodules/boot-wrapper-aarch64[]
 
 TODO: other archs not yet attempted.
 
@@ -8618,7 +8625,7 @@ link:https://en.wikipedia.org/wiki/QEMU[QEMU] is a system simulator: it simulate
 
 If you are familiar with link:https://en.wikipedia.org/wiki/VirtualBox[VirtualBox], then QEMU then basically does the same thing: it opens a "window" inside your desktop that can run an operating system inside your operating system.
 
-Also both can use very similar techniques: either link:lhttps://en.wikipedia.org/wiki/Binary_translation[binary translation] or <<KVM>>. VirtualBox' binary translator is / was based on QEMU's it seems: https://en.wikipedia.org/wiki/VirtualBox#Software-based_virtualization
+Also both can use very similar techniques: either link:https://en.wikipedia.org/wiki/Binary_translation[binary translation] or <<KVM>>. VirtualBox' binary translator is / was based on QEMU's it seems: https://en.wikipedia.org/wiki/VirtualBox#Software-based_virtualization
 
 The huge advantage of QEMU over VirtualBox is that is supports cross arch simulation, e.g. simulate an ARM guest on an x86 host.
 
@@ -11304,7 +11311,7 @@ You will likely want to change that to:
 BR2_OPTIMIZE_3=y
 ....
 
-Our link:kernel_modules/user[] package correctly forwards the Buildroot options to the build with `$(TARGET_CONFIGURE_OPTS)`, so you don't have to do any extra work.
+Our link:buildroot_packages/sample_package[] package correctly forwards the Buildroot options to the build with `$(TARGET_CONFIGURE_OPTS)`, so you don't have to do any extra work.
 
 Don't forget to do that if you are <<add-new-buildroot-packages,adding a new package>> with your own build system.
 
@@ -11401,7 +11408,7 @@ with:
 
 First, see if you can't get away without actually adding a new package, for example:
 
-* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:kernel_modules/user[] and you are done
+* if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under link:buildroot_packages/sample_package[] and you are done
 * if you have a dependency on a library, first check if Buildroot doesn't have a package for it already with `ls buildroot/package`. If yes, just enable that package as explained at: <<custom-buildroot-configs>>
 
 If none of those methods are flexible enough for you, you can just fork or hack up link:buildroot_packages/sample_package[] the sample package to do what you want.
@@ -11891,9 +11898,9 @@ Examples under `arch/<arch>/c/` directories show to how use inline assembly from
 
 Used notably in some of the <<linux-system-calls>> setups:
 
-* link:userland/arch/arm/reg_var.c[]
-* link:userland/arch/aarch64/reg_var.c[]
-* link:userland/arch/aarch64/reg_var_float.c[]
+* link:userland/arch/arm/c/reg_var.c[]
+* link:userland/arch/aarch64/c/reg_var.c[]
+* link:userland/arch/aarch64/c/reg_var_float.c[]
 
 In x86, makes it possible to access variables not exposed with the one letter register constraints.
 
@@ -12183,7 +12190,7 @@ Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numC
 ./gem5-stat
 ....
 
-Source: link:userland/rdtsc.c[]
+Source: link:userland/arch/x86_64/c/rdtsc.c[]
 
 `rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
 
@@ -12519,7 +12526,7 @@ This can be seen from <<armarm8>> C3.2.1 "Load/Store register": `ldr` simply has
 
 Push a pair of registers to the stack.
 
-TODO minimal example. Currently used on link:v8/commmon_arch.h[] since it is the main way to restore register state.
+TODO minimal example. Currently used in `LKMC_PROLOGUE` at link:lkmc/aarch64.h[] since it is the main way to restore register state.
 
 ==== ARM ldmia instruction
 
@@ -13129,7 +13136,7 @@ The most important things that we setup in the bootloaders are:
 The C functions that become available as a result are:
 
 * Newlib functions implemented at link:baremetal/lib/syscalls.c[]
-* non-Newlib functions implemented at link:kwargs['c'][]
+* `lkmc_` non-Newlib functions implemented at link:lkmc.c[]
 
 It is not possible to call those C functions from the examples that don't use a bootloader.
 
@@ -13161,7 +13168,7 @@ svc 0x00123456
 
 and we can see from the docs that `0x18` stands for the `SYS_EXIT` command.
 
-This is also how we implement the `exit(0)` system call in C for QEMU for link:baremetal/exit0.c[] through the Newlib via the function `_exit` at link:baremetal/lib/kwargs['c'][].
+This is also how we implement the `exit(0)` system call in C for QEMU, which is used for example at link:userland/c/exit0.c[] through the Newlib via the `_exit` function at link:baremetal/lib/syscalls.c[].
 
 Other magic operations we can do with semihosting besides exiting the on the host include:
 
@@ -13235,7 +13242,7 @@ sudo apt-get install gcc-arm-none-eabi qemu-system-arm
 
 However, there are as usual limitations to using prebuilts:
 
-* certain examples fail to build with the Ubuntu packaged toolchain. E.g.: link:baremetal/exit0.c[] fails with:
+* certain examples fail to build with the Ubuntu packaged toolchain. E.g.: link:userland/c/exit0.c[] fails with:
 +
 ....
 /usr/lib/gcc/arm-none-eabi/6.3.1/../../../arm-none-eabi/lib/libg.a(lib_a-fini.o): In function `__libc_fini_array':
@@ -14581,6 +14588,31 @@ xdg-open out/README.html
 
 Source: link:build-doc[]
 
+==== Documentation verification
+
+When running link:build-doc[], we do the following checks:
+
+* `<<>>` inner links are not broken
+* `+link:somefile[]+` links point to paths that exist via <<asciidoctor-extract-links>>. Upstream wontfix at: https://github.com/asciidoctor/asciidoctor/issues/3210
+
+The scripts prints what you have to fix and exits with an error status if there are any errors.
+
+===== asciidoctor-extract-links
+
+Documentation for link:asciidoctor-extract-links[]
+
+Extract link targets from Asciidoctor document.
+
+Usage:
+
+....
+./asciidoctor-extract-links README.adoc
+....
+
+Output: one link target per line.
+
+Hastily hacked from: https://asciidoctor.org/docs/user-manual/#inline-macro-processor-example
+
 === Clean the build
 
 You did something crazy, and nothing seems to work anymore?
@@ -15081,7 +15113,7 @@ We use this directory for:
 * customized configuration files
 * userland module test scripts that don't need to be compiled.
 +
-C files for example need compilation, and must go through the regular package system, e.g. through link:kernel_modules/user[].
+Contrast this with <<userland-content,C examples>> that need compilation.
 
 This directory is copied into the target filesystem by:
 
@@ -15252,7 +15284,6 @@ We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests fo
 
 Sources:
 
-* link:build-test-gdb[]
 * link:test-gdb[]
 * link:userland/arch/arm/gdb_tests/[]
 * link:userland/arch/aarch64/gdb_tests/[]

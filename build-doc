@@ -4,6 +4,8 @@ import re
 
 import common
 from shell_helpers import LF
+import os
+import subprocess
 
 class Main(common.LkmcCliFunction):
     def __init__(self):
@@ -33,6 +35,15 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
                     if error_re.search(line):
                         exit_status = 1
                         break
+        external_link_re = re.compile('^https?://')
+        for link in subprocess.check_output([
+            os.path.join(self.env['root_dir'], 'asciidoctor-extract-links'),
+            self.env['readme']
+        ]).decode().splitlines():
+            if not external_link_re.match(link):
+                if not os.path.lexists(link):
+                    print('error: broken link: ' + link)
+                    exit_status = 1
         return exit_status
 
 if __name__ == '__main__':
