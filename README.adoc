@@ -755,7 +755,7 @@ Or to run a baremetal example instead:
 ....
 ./run \
   --arch aarch64 \
-  --baremetal baremetal/c/hello.c \
+  --baremetal userland/c/hello.c \
   --qemu-which host \
 ;
 ....
@@ -1193,36 +1193,47 @@ Our C bare-metal compiler is built with link:https://github.com/crosstool-ng/cro
 
 Every `.c` file inside link:baremetal/[] and `.S` file inside `baremetal/arch/<arch>/` generates a separate baremetal image.
 
-For example, to run link:baremetal/c/hello.c[] in QEMU do:
+For example, to run link:baremetal/arch/aarch64/dump_regs.c[] in QEMU do:
 
 ....
 ./build --arch aarch64 --download-dependencies qemu-baremetal
-./run --arch aarch64 --baremetal baremetal/c/hello.c
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c
 ....
 
-The terminal prints:
+And the terminal prints the values of certain system registers. This example prints registers that are only accessible from <<arm-exception-levels,EL1>> or higher, and thus could not be run in userland.
+
+In addition to the examples under link:baremetal/[],  several of the <<userland-content,userland examples>> can also be run in baremetal! This is largely due to the <<about-the-baremetal-setup,awesomeness of Newlib>>.
+
+The examples that work include most <<c,C examples>> that don't rely on complicated syscalls such as threads, and almost all the <<userland-assembly>> examples.
+
+The exact list of userland programs that work in baremetal is specified in <<path-properties>> with the `baremetal` property, but you can also easily find it out with a <<baremetal-tests,baremetal test dry run>>:
 
 ....
-hello
+./test-baremetal --arch aarch64 --dry-run
+....
+
+For example, we can run the C hello world link:userland/c/hello.c[] simply as:
+
+....
+./run --arch aarch64 --baremetal userland/c/hello.c
 ....
 
 To modify a baremetal program, simply edit the file, e.g.
 
 ....
-vim baremetal/c/hello.c
+vim userland/c/hello.c
 ....
 
 and rebuild:
 
 ....
 ./build-baremetal --arch aarch64
-./run --arch aarch64 --baremetal baremetal/c/hello.c
+./run --arch aarch64 --baremetal userland/c/hello.c
 ....
 
 `./build qemu-baremetal` that we run previously is only needed for the initial build. That script calls link:build-baremetal[] for us, in addition to building prerequisites such as QEMU and crosstool-NG.
 
 `./build-baremetal` uses crosstool-NG, and so it must be preceded by link:build-crosstool-ng[], which `./build qemu-baremetal` also calls.
-
 
 Now let's run link:baremetal/arch/aarch64/add.S[]:
 
@@ -1251,12 +1262,6 @@ and the exit status of our script is 1:
 echo $?
 ....
 
-As suggested by the above example, several of the <<userland-content,userland examples>> can also be run in baremetal! This is largely due to the <<about-the-baremetal-setup,awesomeness of Newlib>>.
-
-The examples that work include most <<c,C examples>> that don't rely on complicated syscalls such as threads, and almost all the <<userland-assembly>> examples.
-
-The exact list of userland programs that work in baremetal is specified in <<path-properties>> with the `baremetal` property.
-
 You can run all the baremetal examples in one go and check that all assertions passed with:
 
 ....
@@ -1267,7 +1272,7 @@ To use gem5 instead of QEMU do:
 
 ....
 ./build --download-dependencies gem5-baremetal
-./run --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5
+./run --arch aarch64 --baremetal userland/c/hello.c --emulator gem5
 ....
 
 and then <<qemu-buildroot-setup,as usual>> open a shell with:
@@ -1279,7 +1284,7 @@ and then <<qemu-buildroot-setup,as usual>> open a shell with:
 Or as usual, <<tmux>> users can do both in one go with:
 
 ....
-./run --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --tmux
+./run --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 --tmux
 ....
 
 TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremetal-carriage-return>>.
@@ -1287,8 +1292,8 @@ TODO: the carriage returns are a bit different than in QEMU, see: <<gem5-baremet
 Note that `./build-baremetal` requires the `--emulator gem5` option, and generates separate executable images for both, as can be seen from:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator qemu image)"
-echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 image)"
+echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator qemu image)"
+echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 image)"
 ....
 
 This is unlike the Linux kernel that has a single image for both QEMU and gem5:
@@ -1304,14 +1309,14 @@ The reason for that is that on baremetal we don't parse the <<device-tree,device
 
 ....
 ./build-baremetal --arch aarch64 --emulator gem5 --machine RealViewPBX
-./run --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --machine RealViewPBX
+./run --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 --machine RealViewPBX
 ....
 
 This generates yet new separate images with new magic constants:
 
 ....
-echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --machine VExpress_GEM5_V1 image)"
-echo "$(./getvar --arch aarch64 --baremetal baremetal/c/hello.c --emulator gem5 --machine RealViewPBX      image)"
+echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 --machine VExpress_GEM5_V1 image)"
+echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 --machine RealViewPBX      image)"
 ....
 
 But just stick to newer and better `VExpress_GEM5_V1` unless you have a good reason to use `RealViewPBX`.
@@ -8583,6 +8588,8 @@ Source: link:build-xen[]
 
 This script attempts to build Xen for aarch64 and feed it into QEMU through link:boot-wrapper-arch64[]
 
+TODO: other archs not yet attempted.
+
 The current bad behaviour is that it prints just:
 
 ....
@@ -13060,19 +13067,19 @@ Except that is is even cooler here since we can easily control and understand ev
 For example, on the first shell:
 
 ....
-./run --arch arm --baremetal baremetal/c/hello.c --gdb-wait
+./run --arch arm --baremetal userland/c/hello.c --gdb-wait
 ....
 
 then on the second shell:
 
 ....
-./run-gdb --arch arm --baremetal baremetal/c/hello.c -- main
+./run-gdb --arch arm --baremetal userland/c/hello.c -- main
 ....
 
 Or if you are a <<tmux,tmux pro>>, do everything in one go with:
 
 ....
-./run --arch arm --baremetal baremetal/c/hello.c --gdb
+./run --arch arm --baremetal userland/c/hello.c --gdb
 ....
 
 Alternatively, to start from the very first executed instruction of our tiny <<baremetal-bootloaders>>:
@@ -13080,13 +13087,13 @@ Alternatively, to start from the very first executed instruction of our tiny <<b
 ....
 ./run \
   --arch arm \
-  --baremetal baremetal/c/hello.c \
+  --baremetal userland/c/hello.c \
   --gdb-wait \
   --tmux-args=--no-continue \
 ;
 ....
 
-Now you can just `stepi` to when jumping into main to go to the C code in link:baremetal/c/hello.c[].
+Now you can just `stepi` to when jumping into main to go to the C code in link:userland/c/hello.c[].
 
 This is specially interesting for the executables that don't use the bootloader from under `baremetal/arch/<arch>/no_bootloader/*.S`, e.g.:
 
@@ -13223,7 +13230,7 @@ For `arm`, some baremetal examples compile fine with:
 ....
 sudo apt-get install gcc-arm-none-eabi qemu-system-arm
 ./build-baremetal --arch arm --gcc-which host-baremetal
-./run --arch arm --baremetal baremetal/c/hello.c --qemu-which host
+./run --arch arm --baremetal userland/c/hello.c --qemu-which host
 ....
 
 However, there are as usual limitations to using prebuilts:
@@ -13294,7 +13301,7 @@ TODO: any advantage over QEMU? I doubt it, mostly using it as as toy for now:
 Without running `./run`, do directly:
 
 ....
-./run-gdb --arch arm --baremetal baremetal/c/hello.c --sim
+./run-gdb --arch arm --baremetal userland/c/hello.c --sim
 ....
 
 Then inside GDB:
@@ -13874,12 +13881,12 @@ Source: link:test-baremetal[]
 Analogously to <<user-mode-tests>>, we can select individual tests or directories with:
 
 ....
-./test-baremetal --arch aarch64 baremetal/c/hello.c baremetal/arch/aarch64/no_bootloader/
+./test-baremetal --arch aarch64 userland/c/hello.c baremetal/arch/aarch64/no_bootloader/
 ....
 
 which would run all of:
 
-* link:baremetal/c/hello.c[]
+* link:userland/c/hello.c[]
 * all tests under the directory: link:baremetal/arch/aarch64/no_bootloader/[]
 
 We detect if tests failed by parsing logs for the <<magic-failure-string>>.
@@ -15171,7 +15178,7 @@ The link:test[] script runs several different types of tests, which can also be 
 * <<test-userland-in-full-system>>
 * <<user-mode-tests>>
 * <<baremetal-tests>>
-* <<test-gdb>>
+* <<gdb-tests>>
 * <<gem5-unit-tests>>
 
 link:test[] does not all possible tests, because there are too many possible variations and that would take forever. The rationale is the same as for `./build all` and is explained in `./build --help`.
@@ -15234,7 +15241,7 @@ Failure is detected by looking for the <<magic-failure-string>>
 
 Most userland programs that don't rely on kernel modules can also be tested in user mode simulation as explained at: <<user-mode-tests>>.
 
-===== Test GDB
+===== GDB tests
 
 We have some link:https://github.com/pexpect/pexpect[pexpect] automated tests for the baremetal programs!
 
@@ -15247,6 +15254,8 @@ Sources:
 
 * link:build-test-gdb[]
 * link:test-gdb[]
+* link:userland/arch/arm/gdb_tests/[]
+* link:userland/arch/aarch64/gdb_tests/[]
 
 If a test fails, re-run the test commands manually and use `--verbose` to understand what happened:
 
