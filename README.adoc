@@ -13443,6 +13443,22 @@ CurrentEL.EL 0x2
 CurrentEL.EL 0x3
 ....
 
+TODO: the call:
+
+....
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
+....
+
+started failing with an exception since https://github.com/cirosantilli/linux-kernel-module-cheat/commit/add6eedb76636b8f443b815c6b2dd160afdb7ff4 at the instruction:
+
+....
+vmsr fpexc, r0
+....
+
+in link:baremetal/lib/arm.S[]. That patch however enables SIMD in baremetal, which I feel is more important.
+
+According to <<armarm7>>, access to that register is controlled by other registers `NSACR.{CP11, CP10}` and `HCPTR` so those must be turned off, but I'm lazy to investigate now, even just trying to dump those registers in link:baremetal/arch/arm/dump_regs.c[] also leads to exceptions...
+
 ==== svc
 
 This is the most basic example of exception handling we have.
