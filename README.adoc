@@ -13376,14 +13376,14 @@ ARM exception levels are analogous to x86 <<ring0,rings>>.
 Print the EL at the beginning of a baremetal simulation:
 
 ....
-./run --arch arm --baremetal baremetal/arch/arm/el.c
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c
 ....
 
 Sources:
 
-* link:baremetal/arch/arm/el.c[]
-* link:baremetal/arch/aarch64/el.c[]
+* link:baremetal/arch/arm/dump_regs.c[]
+* link:baremetal/arch/aarch64/dump_regs.c[]
 
 The instructions that find the ARM EL are explained at: https://stackoverflow.com/questions/31787617/what-is-the-current-execution-mode-exception-level-etc
 
@@ -13392,53 +13392,53 @@ The lower ELs are not mandated by the architecture, and can be controlled throug
 In QEMU, you can configure the lowest EL as explained at https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
 
 ....
-./run --arch arm --baremetal baremetal/arch/arm/el.c
-./run --arch arm --baremetal baremetal/arch/arm/el.c -- -machine virtualization=on
-./run --arch arm --baremetal baremetal/arch/arm/el.c -- -machine secure=on
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c -- -machine virtualization=on
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c -- -machine secure=on
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c | grep CPSR.M
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c -- -machine virtualization=on | grep CPSR.M
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c -- -machine secure=on | grep CPSR.M
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c | grep CurrentEL.EL
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c -- -machine virtualization=on | grep CurrentEL.EL
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c -- -machine secure=on | grep CurrentEL.EL
 ....
 
 outputs respectively:
 
 ....
-19
-19
-19
-1
-2
-3
+CPSR.M 0x3
+CPSR.M 0x3
+CPSR.M 0x3
+CurrentEL.EL 0x1
+CurrentEL.EL 0x2
+CurrentEL.EL 0x3
 ....
 
-TODO: why is `arm` stuck at `19` which equals Supervisor mode?
+TODO: why is arm `CPSR.M` stuck at `0x3` which equals Supervisor mode?
 
 In gem5, you can configure the lowest EL with:
 
 ....
-./run --arch arm --baremetal baremeta/arch/arm/el.c --emulator gem5
-cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal baremetal/arch/arm/el.c --emulator gem5 -- --param 'system.have_virtualization = True'
-cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal baremetal/arch/arm/el.c --emulator gem5 -- --param 'system.have_security = True'
-cat "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c --emulator gem5
-cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c --emulator gem5 -- --param 'system.have_virtualization = True'
-cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/el.c --emulator gem5 -- --param 'system.have_security = True'
-cat "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5
+grep CPSR.M "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
+grep CPSR.M "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_security = True'
+grep CPSR.M "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c --emulator gem5
+grep CurrentEL.EL "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
+grep CurrentEL.EL "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c --emulator gem5 -- --param 'system.have_security = True'
+grep CurrentEL.EL "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
 ....
 
 output:
 
 ....
-19
-26
-19
-1
-2
-3
+CPSR.M 0x3
+CPSR.M 0x3
+CPSR.M 0x3
+CurrentEL.EL 0x1
+CurrentEL.EL 0x2
+CurrentEL.EL 0x3
 ....
 
 ==== svc
