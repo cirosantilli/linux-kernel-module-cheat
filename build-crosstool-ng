@@ -16,20 +16,27 @@ Build crosstool-NG with Newlib for bare metal compilation
 
     def build(self):
         build_dir = self.get_build_dir()
-        defconfig_dest = os.path.join(self.env['crosstool_ng_util_dir'], 'defconfig')
-        os.makedirs(self.env['crosstool_ng_util_dir'], exist_ok=True)
+        defconfig_dest = os.path.join(self.env['crosstool_ng_source_copy_dir'], 'defconfig')
         os.makedirs(self.env['crosstool_ng_download_dir'], exist_ok=True)
 
         # Bootstrap out-ot-tree WONTFIX. I've tried.
         # https://github.com/crosstool-ng/crosstool-ng/issues/1021
-        os.chdir(self.env['crosstool_ng_source_dir'])
-        self.sh.run_cmd(
-            [os.path.join(self.env['crosstool_ng_source_dir'], 'bootstrap'), LF],
+        #
+        # Then out-of-tree ./ctng usage also started to fail in 1.24.0.
+        #
+        # So instead of fighting upstream, I'll just take the Buildroot approach
+        # to life and rsync the entire source tree into the build tree. Fun times.
+        self.sh.copy_dir_if_update(
+            self.env['crosstool_ng_source_dir'],
+            self.env['crosstool_ng_source_copy_dir'],
         )
-        os.chdir(self.env['crosstool_ng_util_dir'])
+        os.chdir(self.env['crosstool_ng_source_copy_dir'])
+        self.sh.run_cmd(
+            [os.path.join(self.env['crosstool_ng_source_copy_dir'], 'bootstrap'), LF],
+        )
         self.sh.run_cmd(
             [
-                os.path.join(self.env['crosstool_ng_source_dir'], 'configure'), LF,
+                os.path.join(self.env['crosstool_ng_source_copy_dir'], 'configure'), LF,
                 '--enable-local', LF,
             ],
         )

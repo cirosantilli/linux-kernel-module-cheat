@@ -139,7 +139,12 @@ class ShellHelpers:
             ending = last_newline + ';'
         return newline_separator.join(out) + ending
 
-    def copy_dir_if_update_non_recursive(self, srcdir, destdir, filter_ext=None):
+    def copy_dir_if_update_non_recursive(
+        self,
+        srcdir,
+        destdir,
+        filter_ext=None
+    ):
         # TODO print rsync equivalent.
         os.makedirs(destdir, exist_ok=True)
         for basename in sorted(os.listdir(srcdir)):
@@ -153,7 +158,12 @@ class ShellHelpers:
                 ):
                     self.cp(src, dest)
 
-    def copy_dir_if_update(self, srcdir, destdir, filter_ext=None):
+    def copy_dir_if_update(
+        self,
+        srcdir,
+        destdir,
+        filter_ext=None
+    ):
         self.copy_dir_if_update_non_recursive(srcdir, destdir, filter_ext)
         srcdir_abs = os.path.abspath(srcdir)
         srcdir_abs_len = len(srcdir_abs)
