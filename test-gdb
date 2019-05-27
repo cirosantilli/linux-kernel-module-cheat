@@ -5,13 +5,15 @@ import os
 
 import common
 import lkmc.import_path
+import path_properties
 
 class Main(common.TestCliFunction):
     def __init__(self):
         super().__init__(
             description='''\
 https://github.com/cirosantilli/linux-kernel-module-cheat#test-gdb
-'''
+''',
+            supported_archs=common.consts['crosstool_ng_supported_archs'],
         )
         self.add_argument(
             'tests',
@@ -22,52 +24,43 @@ found by searching for the Python test files.
 '''
         )
 
+    def setup_one(self):
+        self.env['tests'] = self.resolve_targets(
+            [
+                self.env['baremetal_source_dir'],
+                self.env['userland_source_dir']
+            ],
+            self.env['tests']
+        )
+
     def timed_main(self):
         run = lkmc.import_path.import_path_main('run')
         run_gdb = lkmc.import_path.import_path_main('run-gdb')
-        if self.env['arch'] in self.env['crosstool_ng_supported_archs']:
-            test_sources = []
-            if self.env['tests'] == []:
-                source_paths = []
-                for filename in sorted(os.listdir(self.env['baremetal_source_dir'])):
-                    base, ext = os.path.splitext(filename)
-                    if ext in self.env['build_in_exts']:
-                        test_sources.append(
-                            os.path.join(
-                                self.env['baremetal_source_dir'],
-                                filename
-                            )
-                        )
-                for root, dirnames, filenames in os.walk(
-                    os.path.join(
-                        self.env['baremetal_source_dir'],
-                        'arch',
-                        self.env['arch']
-                    )
-                ):
-                    for filename in filenames:
-                        base, ext = os.path.splitext(filename)
-                        if ext in self.env['build_in_exts']:
-                            test_sources.append(os.path.join(root, filename))
-            else:
-                test_sources = self.env['tests']
-            for test_source_full in test_sources:
-                base, ext = os.path.splitext(test_source_full)
-                if os.path.exists(base + '.py'):
-                    test_source_base = os.path.relpath(base, self.env['root_dir'])
-                    common_args = self.get_common_args()
-                    common_args['baremetal'] = test_source_base + ext
-                    run_args = common_args.copy()
-                    run_args['gdb_wait'] = True
-                    run_args['background'] = True
-                    test_id_string = self.test_setup(run_args, test_source_base)
-                    run_thread = threading.Thread(target=lambda: run(**run_args))
-                    run_thread.start()
-                    gdb_args = common_args.copy()
-                    gdb_args['test'] = True
-                    run_gdb(**gdb_args)
-                    run_thread.join()
-                    self.test_teardown(run, 0, test_id_string)
+        rootdir_abs_len = len(self.env['root_dir'])
+        for test in self.env['tests']:
+            for path, in_dirnames, in_filenames in self.sh.walk(test):
+                path_abs = os.path.abspath(path)
+                dirpath_relative_root = path_abs[rootdir_abs_len + 1:]
+                for in_filename in in_filenames:
+                    in_file_abs = os.path.join(path_abs, in_filename)
+                    path_relative_root = os.path.join(dirpath_relative_root, in_filename)
+                    path_relative_root_base, ext = os.path.splitext(path_relative_root)
+                    if ext in self.env['baremetal_build_in_exts'] and os.path.exists(path_relative_root_base + '.py'):
+                        my_path_properties = path_properties.get(path_relative_root)
+                        if my_path_properties.should_be_tested(self.env, is_baremetal=True):
+                            common_args = self.get_common_args()
+                            common_args['baremetal'] = path_relative_root
+                            run_args = common_args.copy()
+                            run_args['gdb_wait'] = True
+                            run_args['background'] = True
+                            test_id_string = self.test_setup(run_args, path_relative_root)
+                            run_thread = threading.Thread(target=lambda: run(**run_args))
+                            run_thread.start()
+                            gdb_args = common_args.copy()
+                            gdb_args['test'] = True
+                            run_gdb(**gdb_args)
+                            run_thread.join()
+                            self.test_teardown(run, 0, test_id_string)
 
 if __name__ == '__main__':
     Main().cli()

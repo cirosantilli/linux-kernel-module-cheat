@@ -419,6 +419,7 @@ path_properties_tuples = (
                         'openmp.c': {'cc_flags': ['-fopenmp', LF]},
                     }
                 ),
+                'gdb_tests': {'baremetal': True},
                 'kernel_modules': {**gnu_extension_properties, **{'requires_kernel_modules': True}},
                 'libs': (
                     {'requires_dynamic_library': True},
