@@ -31,6 +31,7 @@
  * https://github.com/cirosantilli/linux-kernel-module-cheat#x86_64-calling-convention
  */
 #define LKMC_EPILOGUE \
+    add $8, %rsp; \
     pop %rbx; \
     pop %r12; \
     pop %r13; \
@@ -56,6 +57,7 @@ main: \
     push %r13; \
     push %r12; \
     push %rbx; \
+    sub $8, %rsp; \
 main_after_prologue: \
 ;
 
