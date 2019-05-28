@@ -16,6 +16,10 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#test-gdb
             supported_archs=common.consts['crosstool_ng_supported_archs'],
         )
         self.add_argument(
+            '--userland-mode',
+            default=False
+        )
+        self.add_argument(
             'tests',
             nargs='*',
             help='''\
@@ -34,6 +38,16 @@ found by searching for the Python test files.
         )
 
     def timed_main(self):
+        if self.env['userland_mode']:
+            source_key = 'userland'
+            is_baremetal = False
+            is_userland = True
+            exts = self.env['build_in_exts']
+        else:
+            source_key = 'baremetal'
+            is_baremetal = True
+            is_userland = False
+            exts = self.env['baremetal_build_in_exts']
         rootdir_abs_len = len(self.env['root_dir'])
         for test in self.env['tests']:
             for path, in_dirnames, in_filenames in self.sh.walk(test):
@@ -43,13 +57,17 @@ found by searching for the Python test files.
                     in_file_abs = os.path.join(path_abs, in_filename)
                     path_relative_root = os.path.join(dirpath_relative_root, in_filename)
                     path_relative_root_base, ext = os.path.splitext(path_relative_root)
-                    if ext in self.env['baremetal_build_in_exts'] and os.path.exists(path_relative_root_base + '.py'):
+                    if ext in exts and os.path.exists(path_relative_root_base + '.py'):
                         my_path_properties = path_properties.get(path_relative_root)
-                        if my_path_properties.should_be_tested(self.env, is_baremetal=True):
+                        if my_path_properties.should_be_tested(
+                            self.env,
+                            is_baremetal=is_baremetal,
+                            is_userland=is_userland
+                        ):
                             run = lkmc.import_path.import_path_main('run')
                             run_gdb = lkmc.import_path.import_path_main('run-gdb')
                             common_args = self.get_common_args()
-                            common_args['baremetal'] = path_relative_root
+                            common_args[source_key] = path_relative_root
                             run_args = common_args.copy()
                             run_args['gdb_wait'] = True
                             run_args.update(self.base_run_args)
