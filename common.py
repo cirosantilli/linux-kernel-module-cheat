@@ -944,8 +944,9 @@ Incompatible archs are skipped.
             env['image'] = self.resolve_baremetal_executable(env['baremetal'])
             source_path_noext = os.path.splitext(join(
                 env['root_dir'],
-                os.path.relpath(env['image'], env['baremetal_build_dir'])
+                env['image'][len(env['baremetal_build_dir']) + 1:]
             ))[0]
+            env['source_path'] = None
             for ext in env['baremetal_build_in_exts']:
                 source_path = source_path_noext + ext
                 if os.path.exists(source_path):
@@ -953,6 +954,16 @@ Incompatible archs are skipped.
                     break
         elif env['userland'] is not None:
             env['image'] = self.resolve_userland_executable(env['userland'])
+            source_path_noext = os.path.splitext(join(
+                env['userland_source_dir'],
+                env['image'][len(env['userland_build_dir']) + 1:]
+            ))[0]
+            env['source_path'] = None
+            for ext in env['build_in_exts']:
+                source_path = source_path_noext + ext
+                if os.path.exists(source_path):
+                    env['source_path'] = source_path
+                    break
         else:
             if env['emulator'] == 'gem5':
                 env['image'] = env['vmlinux']
