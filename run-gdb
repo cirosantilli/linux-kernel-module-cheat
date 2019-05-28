@@ -5,9 +5,10 @@ import signal
 import subprocess
 import sys
 
+from shell_helpers import LF
 import common
 import lkmc.import_path
-from shell_helpers import LF
+import thread_pool
 
 class GdbTestcase:
     def __init__(
@@ -38,12 +39,11 @@ class GdbTestcase:
         exception = None
         try:
             test.test(self)
-        except AssertionError as e:
+        except Exception as e:
             exception = e
         self.child.sendcontrol('d')
         self.child.close()
-        if exception is not None:
-            raise exception
+        self.exception = exception
 
     def before(self):
         return self.child.before.rstrip()
@@ -83,48 +83,53 @@ class Main(common.LkmcCliFunction):
 Connect with GDB to an emulator to debug Linux itself
 ''')
         self.add_argument(
-            '--after', default='',
+            '--after',
+            default='',
             help='Pass extra arguments to GDB, to be appended after all other arguments'
         )
         self.add_argument(
-            '--before', default='',
+            '--before',
+            default='',
             help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
         )
         self.add_argument(
-            'break_at', nargs='?',
-            help='Extra options to append at the end of the emulator command line'
-        )
-        self.add_argument(
-            '-k', '--kgdb', default=False,
-        )
-        self.add_argument(
-            '-C', '--no-continue', default=False,
+            '--continue',
+            default=True,
             help="Don't run continue after connecting"
         )
         self.add_argument(
-            '-X', '--no-lxsymbols', default=False,
+            '--kgdb',
+            default=False,
         )
         self.add_argument(
-            '--test', default=False,
+            '--lxsymbols',
+            default=True,
+        )
+        self.add_argument(
+            '--sim',
+            default=False,
+            help='''Use the built-in GDB CPU simulator
+See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
+'''
+        )
+        self.add_argument(
+            '--test',
+            default=False,
             help='''\
 Run an expect test case instead of interactive usage. For baremetal and userland,
 the script is a .py file next to the source code.
 '''
         )
         self.add_argument(
-            '--sim', default=False,
-            help='''Use the built-in GDB CPU simulator
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
-'''
-        )
-        self.add_argument(
-            '-u', '--userland',
+            'break_at',
+            nargs='?',
+            help='Extra options to append at the end of the emulator command line'
         )
 
     def timed_main(self):
         after = self.sh.shlex_split(self.env['after'])
         before = self.sh.shlex_split(self.env['before'])
-        no_continue = self.env['no_continue']
+        no_continue = not self.env['continue']
         if self.env['test']:
             no_continue = True
             before.extend([
@@ -149,7 +154,6 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-s
             image = self.env['image']
         elif self.env['baremetal']:
             image = self.env['image']
-            test_script_path = os.path.splitext(self.env['source_path'])[0] + '.py'
         else:
             image = self.env['vmlinux']
         cmd = (
@@ -193,18 +197,24 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-s
             # The lx-symbols commands gets loaded through the file vmlinux-gdb.py
             # which gets put on the kernel build root when python debugging scripts are enabled.
             cmd.extend(['-ex', 'continue', LF])
-            if not self.env['no_lxsymbols'] and linux_full_system:
+            if self.env['lxsymbols'] and linux_full_system:
                 cmd.extend(['-ex', 'lx-symbols {}'.format(self.env['kernel_modules_build_subdir']), LF])
         cmd.extend(after)
         if self.env['test']:
             self.sh.print_cmd(cmd)
             if not self.env['dry_run']:
-                GdbTestcase(
+                exception = GdbTestcase(
                     self.env['source_path'],
-                    test_script_path,
+                    os.path.splitext(self.env['source_path'])[0] + '.py',
                     self.sh.strip_newlines(cmd),
                     verbose=self.env['verbose'],
-                )
+                ).exception
+                if exception is None:
+                    exit_status = 0
+                else:
+                    exit_status = 1
+                    self.log_info(thread_pool.ThreadPool.exception_traceback_string(exception))
+                return exit_status
         else:
             # I would rather have cwd be out_rootfs_overlay_dir,
             # but then lx-symbols cannot fine the vmlinux and fails with:

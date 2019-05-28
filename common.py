@@ -939,19 +939,18 @@ Incompatible archs are skipped.
             env['qcow2_file'] = env['buildroot_qcow2_file']
 
         # Image
-        if env['_args_given']['baremetal']:
+        if env['baremetal'] is not None:
             env['disk_image'] = env['gem5_fake_iso']
-            path = self.resolve_baremetal_executable(env['baremetal'])
+            env['image'] = self.resolve_baremetal_executable(env['baremetal'])
             source_path_noext = os.path.splitext(join(
                 env['root_dir'],
-                os.path.relpath(path, env['baremetal_build_dir'])
+                os.path.relpath(env['image'], env['baremetal_build_dir'])
             ))[0]
-            for ext in [env['c_ext'], env['asm_ext']]:
+            for ext in env['baremetal_build_in_exts']:
                 source_path = source_path_noext + ext
                 if os.path.exists(source_path):
                     env['source_path'] = source_path
                     break
-            env['image'] = path
         elif env['userland'] is not None:
             env['image'] = self.resolve_userland_executable(env['userland'])
         else:
@@ -1688,6 +1687,15 @@ class TestCliFunction(LkmcCliFunction):
     Automates test reporting boilerplate for those commands.
     '''
 
+    base_run_args = {
+        'background': True,
+        'ctrl_c_host': True,
+        'print_cmd_oneline': True,
+        'show_cmds': False,
+        'show_stdout': False,
+        'show_time': False,
+    }
+
     def __init__(self, *args, **kwargs):
         defaults = {
             'quit_on_fail': False,
@@ -1739,14 +1747,9 @@ class TestCliFunction(LkmcCliFunction):
         '''
         if run_obj.is_arch_supported(run_args['archs'][0]):
             cur_run_args = {
-                'background': True,
-                'ctrl_c_host': True,
-                'print_cmd_oneline': True,
                 'run_id': thread_id,
-                'show_cmds': False,
-                'show_stdout': False,
-                'show_time': False,
             }
+            cur_run_args.update(self.base_run_args)
             if run_args is not None:
                 cur_run_args.update(run_args)
             test_id_string = self.test_setup(run_args, test_id)
