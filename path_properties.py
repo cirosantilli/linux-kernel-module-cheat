@@ -47,6 +47,7 @@ class PathProperties:
         'extra_objs_disable_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
+        'gem5_unimplemented_instruction': False,
         'interactive': False,
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
@@ -149,6 +150,7 @@ class PathProperties:
                     self['signal_generated_by_os']
                 )
             ) and
+            not self['disrupts_system'] and
             not self['interactive'] and
             not self['more_than_1s'] and
             not self['no_executable'] and
@@ -159,6 +161,9 @@ class PathProperties:
             not (
                 env['emulator'] == 'gem5' and
                 (
+                    self['gem5_unimplemented_instruction'] or
+                    # gem5 does not report signals properly.
+                    self['signal_received'] is not None or
                     self['requires_dynamic_library'] or
                     self['requires_semihosting'] or
                     self['requires_syscall_getcpu']
@@ -347,7 +352,10 @@ path_properties_tuples = (
                                     'signal_generated_by_os': True,
                                     'signal_received': signal.Signals.SIGILL,
                                 },
-                                'vcvta.S': {'arm_aarch32': True},
+                                'vcvta.S': {
+                                    'arm_aarch32': True,
+                                    'gem5_unimplemented_instruction': True,
+                                },
                             }
                         ),
                         'aarch64': (
@@ -452,6 +460,10 @@ path_properties_tuples = (
                     {},
                     {
                         'count.c': {'more_than_1s': True},
+                        'kill.c': {
+                            'baremetal': True,
+                            'signal_received': signal.Signals.SIGHUP,
+                        },
                         'sleep_forever.c': {'more_than_1s': True},
                         'virt_to_phys_test.c': {'more_than_1s': True},
                     }
