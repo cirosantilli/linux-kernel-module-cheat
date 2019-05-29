@@ -3648,15 +3648,13 @@ At 125d14805f769104f93c510bedaa685a52ec025d we <<libc-choice,moved Buildroot fro
 
 ==== FATAL: kernel too old
 
-Happens on all gem5 <<user-mode-simulation>> setups, but not on QEMU on Ubuntu 18.04 host.
-
 glibc has a check for kernel version, likely obtained from the `uname` syscall, and if the kernel is not new enough, it quits.
 
-Determining the right number to put there is of course highly non-trivial and would require an extensive userland test suite, which most emulator don't have.
+Both gem5 and QEMU however allow setting the reported `uname` version from the command line, which we do to always match our toolchain.
 
-We don't have this failure for QEMU on an 18.04 host, only gem5.
+QEMU by default copies the host `uname` value, but we always override it in our scripts.
 
-QEMU by default copies the host `uname` value. However, our scripts set it by default to our the latest Buildroot kernel version with QEMU's `-r` option, which is exposed as `--kernel-version`:
+Determining the right number to use for the kernel version is of course highly non-trivial and would require an extensive userland test suite, which most emulator don't have.
 
 ....
 ./run --arch aarch64 --kernel-version 4.18 --userland userland/posix/uname.c
@@ -3664,14 +3662,11 @@ QEMU by default copies the host `uname` value. However, our scripts set it by de
 
 Source: link:userland/posix/uname.c[].
 
-gem5 does not have such runtime configuration, but the error can be worked around for now by patching the hardcoded Linux version as mentioned at: https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m to be a recent Linux version such as `v4.17.0`.
-
-We override the default QEMU uname because otherwise all executables fail with "kernel too old" on older Ubuntu hosts. The downside is that you might hit syscalls which your host does not have for QEMU to forward to, but we'll let you be the judge of that.
-
 The QEMU source that does this is at: https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931
 
-In gem5, there are tons of missing syscalls, and that number currently just gets bumped up randomly from time to time when someone gets fed up:
+Bibliography:
 
+* https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
 * https://stackoverflow.com/questions/53085048/how-to-compile-and-run-an-executable-in-gem5-syscall-emulation-mode-with-se-py/53085049#53085049
 * https://gem5-review.googlesource.com/c/public/gem5/+/15855
 
@@ -3765,7 +3760,6 @@ ld: cannot find -lopenblas
 Less robust than QEMU's, but still usable:
 
 * https://stackoverflow.com/questions/48986597/when-should-you-use-full-system-fs-vs-syscall-emulation-se-with-userland-program
-* https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m
 
 There are much more unimplemented syscalls in gem5 than in QEMU. Many of those are trivial to implement however.
 
@@ -10155,8 +10149,6 @@ Sources:
 * link:userland/cpp/bst_vs_heap.cpp[]
 * link:bst-vs-heap[]
 * link:bst-vs-heap.gnuplot[]
-
-Tested on e70103b9b32e6e33dbab9eaf2ff00c358f55d8db + 1 with the workaround patch mentioned at: <<fatal-kernel-too-old>>.
 
 ===== BLAS
 
