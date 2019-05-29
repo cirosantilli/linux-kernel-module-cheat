@@ -9,11 +9,6 @@ class Main(common.BuildCliFunction):
     def __init__(self):
         super().__init__()
         self.add_argument(
-            '--user-mode',
-            default=False,
-            help='Build QEMU user mode instead of system.',
-        )
-        self.add_argument(
             'extra_config_args',
             default=[],
             metavar='extra-config-args',
@@ -27,7 +22,7 @@ class Main(common.BuildCliFunction):
             verbose = ['V=1']
         else:
             verbose = []
-        if self.env['user_mode']:
+        if self.env['mode'] == 'userland':
             target_list = '{}-linux-user'.format(self.env['arch'])
         else:
             target_list = '{}-softmmu'.format(self.env['arch'])
@@ -38,7 +33,6 @@ class Main(common.BuildCliFunction):
                 '--enable-trace-backends=simple', LF,
                 '--target-list={}'.format(target_list), LF,
                 '--enable-sdl', LF,
-                '--with-sdlabi=2.0', LF,
             ] +
             self.sh.add_newlines(self.env['extra_config_args']),
             extra_paths=[self.env['ccache_dir']],
