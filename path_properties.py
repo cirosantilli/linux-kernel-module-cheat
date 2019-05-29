@@ -115,25 +115,39 @@ class PathProperties:
         env,
         link=False,
     ):
-        if len(self.path_components) > 1 and \
+        ext = os.path.splitext(self.path_components[-1])[1]
+        return (
+            not (
+                len(self.path_components) > 1 and \
                 self.path_components[1] == 'libs' and \
                 not env['package_all'] and \
-                not self.path_components[2] in env['package']:
-            return False
-        return \
-            not self['no_build'] and \
+                not self.path_components[2] in env['package']
+            ) and
+            not self['no_build'] and
             (
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
-            ) and \
+            ) and
             (
-                (env['mode'] == 'userland'  and self['userland'] ) or
-                (env['mode'] == 'baremetal' and self['baremetal'])
-            ) and \
+                (
+                    env['mode'] == 'userland' and
+                    (
+                        self['userland'] and
+                        ext in env['build_in_exts']
+                    )
+                ) or
+                (
+                    env['mode'] == 'baremetal' and (
+                        self['baremetal'] and
+                        ext in env['baremetal_build_in_exts']
+                    )
+                )
+            ) and
             not (
                 link and
                 self['no_executable']
             )
+        )
 
     def should_be_tested(self, env):
         return (

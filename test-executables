@@ -12,8 +12,12 @@ class Main(common.TestCliFunction):
     def __init__(self, *args, **kwargs):
         if not 'description' in kwargs:
             kwargs['description'] = '''\
-https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-tests
-TODO: expose all userland relevant ./run args here as well somehow.
+Test userland executables in user mode, or baremetal executables in full system
+depending on the value of the --mode option. See also:
+
+* https://github.com/cirosantilli/linux-kernel-module-cheat#user-mode-tests
+* https://github.com/cirosantilli/linux-kernel-module-cheat#baremetal-tests
+* https://github.com/cirosantilli/linux-kernel-module-cheat#userland-setup-getting-started-natively
 '''
         if not 'defaults' in kwargs:
             kwargs['defaults'] = {}
@@ -30,15 +34,17 @@ If given, run only the given tests. Otherwise, run all tests.
 
     def setup_one(self):
         self.env['tests'] = self.resolve_targets(
-            [self.env['userland_source_dir']],
+            [
+                self.env['baremetal_source_dir'],
+                self.env['userland_source_dir']
+            ],
             self.env['tests']
         )
 
     def timed_main(self):
         run_args = self.get_common_args()
-        if self.env['emulator'] == 'gem5':
+        if self.env['mode'] == 'userland' and self.env['emulator'] == 'gem5':
             run_args['userland_build_id'] = 'static'
-        had_failure = False
         rootdir_abs_len = len(self.env['root_dir'])
         with thread_pool.ThreadPool(
             self.run_test,
@@ -58,19 +64,25 @@ If given, run only the given tests. Otherwise, run all tests.
                             if my_path_properties.should_be_tested(self.env):
                                 cur_run_args = run_args.copy()
                                 cur_run_args.update({
-                                    'userland': os.path.relpath(os.path.join(path_abs, in_filename), os.getcwd()),
+                                    self.env['mode']: os.path.relpath(
+                                        os.path.join(path_abs, in_filename),
+                                        os.getcwd()
+                                    ),
                                 })
                                 cur_run_args.update(my_path_properties['test_run_args'])
                                 run_test_args = {
                                     'expected_exit_status': my_path_properties['exit_status'],
                                     'run_args': cur_run_args,
                                     'run_obj': lkmc.import_path.import_path_main('run'),
-                                    'test_id': path_relative_root,
+                                    'test_id': '{} {}'.format(self.env['mode'], path_relative_root),
                                 }
                                 signal = my_path_properties['signal_received']
                                 if signal is not None:
-                                    # Python subprocess reports signals differently from Bash's 128 + signal rule.
-                                    run_test_args['expected_exit_status'] = -signal.value
+                                    if self.env['mode'] == 'baremetal':
+                                        run_test_args['expected_exit_status'] = 128 + signal.value
+                                    elif self.env['mode'] == 'userland':
+                                        # Python subprocess reports signals differently from Bash's 128 + signal rule.
+                                        run_test_args['expected_exit_status'] = -signal.value
                                 my_thread_pool.submit(run_test_args)
         return self._handle_thread_pool_errors(my_thread_pool)
 

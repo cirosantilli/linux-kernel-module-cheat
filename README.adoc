@@ -1063,7 +1063,7 @@ The `build` scripts inside link:userland/[] are just symlinks to link:build-user
 
 So you can use any option supported by `build-userland` script freely with `build-userland-in-tree` and `build`.
 
-The situation is analogous for link:userland/test[], link:test-user-mode-in-tree[] and link:test-user-mode[], which are further documented at: <<user-mode-tests>>.
+The situation is analogous for link:userland/test[], link:test-executables-in-tree[] and link:test-executables[], which are further documented at: <<user-mode-tests>>.
 
 Do a more clean out-of-tree build instead and run the program:
 
@@ -1117,7 +1117,7 @@ This present the usual trade-offs of using prebuilts as mentioned at: <<prebuilt
 Other functionality are analogous, e.g. testing:
 
 ....
-./test-user-mode \
+./test-executables \
   --arch aarch64 \
   --gcc-which host \
   --qemu-which host \
@@ -1209,7 +1209,7 @@ The examples that work include most <<c,C examples>> that don't rely on complica
 The exact list of userland programs that work in baremetal is specified in <<path-properties>> with the `baremetal` property, but you can also easily find it out with a <<baremetal-tests,baremetal test dry run>>:
 
 ....
-./test-baremetal --arch aarch64 --dry-run
+./test-executables --arch aarch64 --dry-run --mode baremetal
 ....
 
 For example, we can run the C hello world link:userland/c/hello.c[] simply as:
@@ -1273,7 +1273,7 @@ echo $?
 You can run all the baremetal examples in one go and check that all assertions passed with:
 
 ....
-./test-baremetal --arch aarch64
+./test-executables --arch aarch64 --mode baremetal
 ....
 
 To use gem5 instead of QEMU do:
@@ -3603,18 +3603,18 @@ To stop at the very first instruction of a freestanding program, just use `--no-
 Automatically run all userland tests that can be run in user mode simulation, and check that they exit with status 0:
 
 ....
-./build --all-archs test-user-mode
-./test-user-mode --all-archs --all-emulators
+./build --all-archs test-executables-userland
+./test-executables --all-archs --all-emulators
 ....
 
 Or just for QEMU:
 
 ....
-./build --all-archs test-user-mode-qemu
-./test-user-mode --all-archs --emulator qemu
+./build --all-archs test-executables-userland-qemu
+./test-executables --all-archs --emulator qemu
 ....
 
-Source: link:test-user-mode[]
+Source: link:test-executables[]
 
 This script skips a manually configured list of tests, notably:
 
@@ -13898,15 +13898,20 @@ We then found out that QEMU <<arm-exception-levels,<starts in EL1>>, and so we k
 Automatically run all non-interactive baremetal tests:
 
 ....
-./test-baremetal --arch aarch64
+./test-executables --mode baremetal --arch aarch64
 ....
 
-Source: link:test-baremetal[]
+Source: link:test-executables[]
 
 Analogously to <<user-mode-tests>>, we can select individual tests or directories with:
 
 ....
-./test-baremetal --arch aarch64 userland/c/hello.c baremetal/arch/aarch64/no_bootloader/
+./test-executables \
+    --arch aarch64 \
+    --mode baremetal \
+    userland/c/hello.c \
+    baremetal/arch/aarch64/no_bootloader/ \
+;
 ....
 
 which would run all of:
@@ -15238,7 +15243,7 @@ link:test[] does not all possible tests, because there are too many possible var
 You can select multiple archs and emulators of interest, as for an other command, with:
 
 ....
-./test-user-mode \
+./test-executables \
   --arch x86_64 \
   --arch aarch64 \
   --emulator gem5 \
@@ -15249,7 +15254,7 @@ You can select multiple archs and emulators of interest, as for an other command
 You can also test all supported archs and emulators with:
 
 ....
-./test-user-mode \
+./test-executables \
   --all-archs \
   --all-emulators \
 ;
@@ -15261,15 +15266,13 @@ Without those flags, it defaults to just running the default arch and emulator o
 
 ===== Quit on fail
 
-By default, tests stop running as soon as the first failure happens.
+By default, continue running even after the first failure happens, and they show a summary at the end.
 
-You can prevent this with the `--no-quit-on-fail option, e.g.:
+You can make them exit immediately with the `--no-quit-on-fail` option, e.g.:
 
 ....
-./test-user-mode --no-quit-on-fail
+./test-executables --quit-on-fail
 ....
-
-You can then see which tests failed on the test summary report at the end.
 
 ===== Test userland in full system
 
@@ -15430,10 +15433,10 @@ You should also test that the Internet works:
 
 ===== CLI script tests
 
-`build-userland` and `test-user-mode` have a wide variety of target selection modes, and it was hard to keep them all working without some tests:
+`build-userland` and `test-executables` have a wide variety of target selection modes, and it was hard to keep them all working without some tests:
 
 * link:test-build-userland[]
-* link:test-test-user-mode[]
+* link:test-test-executables[]
 
 === Bisection
 

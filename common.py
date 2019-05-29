@@ -260,10 +260,7 @@ If given, this differentiates between them.
             '--nproc',
             default=len(os.sched_getaffinity(0)),
             type=int,
-            help='''Number of processors to use for the action.
-This is currently only implemented for the following scripts:
-all ./build-* scripts, test-user-mode.
-''',
+            help='''Number of processors (Jobs) to use for the action.''',
         )
         self.add_argument(
             '-q',
