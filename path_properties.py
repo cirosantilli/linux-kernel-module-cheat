@@ -114,8 +114,6 @@ class PathProperties:
         self,
         env,
         link=False,
-        is_baremetal=False,
-        is_userland=False,
     ):
         if len(self.path_components) > 1 and \
                 self.path_components[1] == 'libs' and \
@@ -129,23 +127,21 @@ class PathProperties:
                 env['arch'] in self['allowed_archs']
             ) and \
             (
-                (is_userland  and self['userland'] ) or
-                (is_baremetal and self['baremetal'])
+                (env['mode'] == 'userland'  and self['userland'] ) or
+                (env['mode'] == 'baremetal' and self['baremetal'])
             ) and \
             not (
                 link and
                 self['no_executable']
             )
 
-    def should_be_tested(self, env, is_baremetal=False, is_userland=False):
+    def should_be_tested(self, env):
         return (
             self.should_be_built(
                 env,
-                is_baremetal=is_baremetal,
-                is_userland=is_userland
             ) and
             not (
-                is_baremetal and (
+                env['mode'] == 'baremetal' and (
                     self['arm_aarch32'] or
                     self['signal_generated_by_os']
                 )

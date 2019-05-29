@@ -13,11 +13,9 @@ class Main(common.TestCliFunction):
             description='''\
 https://github.com/cirosantilli/linux-kernel-module-cheat#test-gdb
 ''',
-            supported_archs=common.consts['crosstool_ng_supported_archs'],
-        )
-        self.add_argument(
-            '--userland-mode',
-            default=False
+            defaults={
+                'mode': 'userland',
+            }
         )
         self.add_argument(
             'tests',
@@ -38,15 +36,9 @@ found by searching for the Python test files.
         )
 
     def timed_main(self):
-        if self.env['userland_mode']:
-            source_key = 'userland'
-            is_baremetal = False
-            is_userland = True
+        if self.env['mode'] == 'userland':
             exts = self.env['build_in_exts']
-        else:
-            source_key = 'baremetal'
-            is_baremetal = True
-            is_userland = False
+        elif self.env['mode'] == 'baremetal':
             exts = self.env['baremetal_build_in_exts']
         rootdir_abs_len = len(self.env['root_dir'])
         for test in self.env['tests']:
@@ -61,17 +53,18 @@ found by searching for the Python test files.
                         my_path_properties = path_properties.get(path_relative_root)
                         if my_path_properties.should_be_tested(
                             self.env,
-                            is_baremetal=is_baremetal,
-                            is_userland=is_userland
                         ):
                             run = lkmc.import_path.import_path_main('run')
                             run_gdb = lkmc.import_path.import_path_main('run-gdb')
                             common_args = self.get_common_args()
-                            common_args[source_key] = path_relative_root
+                            common_args[self.env['mode']] = path_relative_root
                             run_args = common_args.copy()
                             run_args['gdb_wait'] = True
                             run_args.update(self.base_run_args)
-                            test_id_string = self.test_setup(run_args, path_relative_root)
+                            test_id_string = self.test_setup(
+                                run_args,
+                                '{} {}'.format(self.env['mode'], path_relative_root)
+                            )
                             run_thread = threading.Thread(target=lambda: run(**run_args))
                             run_thread.start()
                             gdb_args = common_args.copy()

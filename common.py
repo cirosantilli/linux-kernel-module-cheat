@@ -159,17 +159,11 @@ class LkmcCliFunction(cli_function.CliFunction):
     It would be beautiful to do this evaluation in a lazy way, e.g. with functions +
     cache decorators:
     https://stackoverflow.com/questions/815110/is-there-a-decorator-to-simply-cache-function-return-values
-
-    :param is_userland: on ./run, we detect if userland based on --userland. However, ./test-user-mode
-                        does not take --userland, and that causes problems.
     '''
     def __init__(
         self,
         *args,
-        is_baremetal=False,
-        is_userland=False,
         defaults=None,
-        supported_archs=None,
         **kwargs
     ):
         '''
@@ -180,13 +174,10 @@ class LkmcCliFunction(cli_function.CliFunction):
         kwargs['extra_config_params'] = os.path.basename(inspect.getfile(self.__class__))
         if defaults is None:
             defaults = {}
-        self.is_baremetal = is_baremetal
-        self.is_userland = is_userland
         self._defaults = defaults
         self._is_common = True
         self._common_args = set()
         super().__init__(*args, **kwargs)
-        self.supported_archs = supported_archs
         self.print_lock = threading.Lock()
 
         # Args for all scripts.
@@ -252,6 +243,16 @@ Which toolchain binaries to use:
 - crosstool-ng: the ones we built with ./build-crosstool-ng. For baremetal, links to newlib.
 - host: the host distro pre-packaged userland ones. For userland, links to glibc.
 - host-baremetal: the host distro pre-packaged bare one. For baremetal, links to newlib.
+'''
+        )
+        self.add_argument(
+            '--mode',
+            choices=('userland', 'baremetal'),
+            default=None,
+            help='''Differentiate between userland and baremetal for scripts that can do both.
+./run differentiates between them based on the --userland and --baremetal options,
+however those options take arguments, Certain scripts can be run on either user or baremetal mode.
+If given, this differentiates between them.
 '''
         )
         self.add_argument(
@@ -1161,8 +1162,11 @@ lunch aosp_{}-eng
             _json = {}
         return _json
 
-    def is_arch_supported(self, arch):
-        return self.supported_archs is None or arch in self.supported_archs
+    def is_arch_supported(self, arch, mode):
+        return not (
+            mode == 'baremetal' and
+            not arch in consts['crosstool_ng_supported_archs']
+        )
 
     def log_error(self, msg):
         with self.print_lock:
@@ -1224,12 +1228,12 @@ lunch aosp_{}-eng
                                 continue
                             else:
                                 raise Exception('native emulator only supported in if target arch == host arch')
-                        if env['userland'] is None and not self.is_userland:
+                        if env['userland'] is None and not env['mode'] == 'userland':
                             if real_all_emulators:
                                 continue
                             else:
                                 raise Exception('native emulator only supported in user mode')
-                    if self.is_arch_supported(arch):
+                    if self.is_arch_supported(arch, env['mode']):
                         if not env['dry_run']:
                             start_time = time.time()
                         env['arch'] = arch
@@ -1526,16 +1530,14 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
         if my_path_properties.should_be_built(
             self.env,
             link,
-            is_baremetal=self.is_baremetal,
-            is_userland=self.is_userland
         ):
             if extra_objs is None:
                 extra_objs= []
             if link:
-                if self.is_baremetal or my_path_properties['extra_objs_lkmc_common']:
+                if self.env['mode'] == 'baremetal' or my_path_properties['extra_objs_lkmc_common']:
                     extra_objs.extend(extra_objs_lkmc_common)
                 if (
-                    self.is_baremetal and
+                    self.env['mode'] == 'baremetal' and
                     not my_path_properties['extra_objs_disable_baremetal_bootloader']
                 ):
                     extra_objs.extend(extra_objs_baremetal_bootloader)
@@ -1756,7 +1758,7 @@ class TestCliFunction(LkmcCliFunction):
         :param test_id: test identifier, to be added in addition to of arch and emulator ids
         :param thread_id: which thread the test is running under
         '''
-        if run_obj.is_arch_supported(run_args['archs'][0]):
+        if run_obj.is_arch_supported(run_args['archs'][0], run_args.get('mode', None)):
             cur_run_args = {
                 'run_id': thread_id,
             }
