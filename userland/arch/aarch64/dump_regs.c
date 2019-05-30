@@ -1,4 +1,7 @@
-/* Dump registers that cannot be read from EL0. */
+/* Dump non-EL0 readable registers. We need a separate program from EL0
+ * because we cannot determine the current EL from EL0, since CurrentEL
+ * cannot be read from it.
+ */
 
 #include <stdio.h>
 #include <inttypes.h>

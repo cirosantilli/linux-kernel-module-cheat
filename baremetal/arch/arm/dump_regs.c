@@ -1,12 +1,14 @@
+/* Dump registers that cannot be read from EL0. */
+
 #include <stdio.h>
 #include <inttypes.h>
 
 int main(void) {
-    uint32_t cpsr;
-    __asm__ ("mrs %0, cpsr" : "=r" (cpsr) : :);
-    printf("CPSR 0x%" PRIX32 "\n", cpsr);
+    uint32_t spsr;
+    __asm__ ("mrs %0, spsr" : "=r" (spsr) : :);
+    printf("SPSR 0x%" PRIX32 "\n", spsr);
     /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-exception-levels */
-    printf("CPSR.M 0x%" PRIX32 "\n", cpsr & 0xF);
+    printf("SPSR.M 0x%" PRIX32 "\n", spsr & 0xF);
 
 #if 0
     /* TODO blows up exception in EL, but works with -machine secure=on. */

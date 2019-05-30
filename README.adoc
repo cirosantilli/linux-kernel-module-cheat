@@ -12312,16 +12312,16 @@ Understanding the basics of instruction encodings is fundamental to help you to 
 
 aarch32 has two "instruction sets", which to look just like encodings.
 
-Some control bit must determine which one we are currently on, and userland can switch between them with the <<arm-bx-instruction>> TODO: details.
-
 The encodings are:
 
 * A32: every instruction is 4 bytes long. Can encode every instruction.
 * T32: most common instructions are 2 bytes long. Many others less common ones are 4 bytes long.
 +
-T stands for "Thumb", which is the original name for the technology. The word "Thumb" does not appear on <<armarm8>> however. It does appear on <<armarm7>> though.
+T stands for "Thumb", which is the original name for the technology, <<armarm8>> A1.3.2 "The ARM instruction sets" says:
 +
-Example: link:userland/arch/arm/thumb.S[]
+____
+In previous documentation, these instruction sets were called the ARM and Thumb instruction sets
+____
 +
 See also: <<armarm8>> F2.1.3 "Instruction encodings".
 
@@ -12330,14 +12330,61 @@ Within each instruction set, there can be multiple encodings for a given functio
 * A1, A2, ...: A32 encodings
 * T1, T2, ..m: T32 encodings
 
+The state bit `PSTATE.T` determines if the processor is in thumb mode or not. <<armarm8>> says that this bit it can only be read from <<arm-bx-instruction>>
+
+https://stackoverflow.com/questions/22660025/how-can-i-tell-if-i-am-in-arm-mode-or-thumb-mode-in-gdb
+
+TODO: details: https://stackoverflow.com/questions/22660025/how-can-i-tell-if-i-am-in-arm-mode-or-thumb-mode-in-gdb says it is `0x20 & CPSR`.
+
 This RISC-y mostly fixed instruction length design likely makes processor design easier and allows for certain optimizations, at the cost of slightly more complex assembly, as you can't encode 4 / 8 byte addresses in a single instruction. Totally worth it IMHO.
 
 This design can be contrasted with x86, which has widely variable instruction length.
 
+We can swap between A32 and T32 with the `bx` and `blx` instructions: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.kui0100a/armasm_cihfddaf.htm puts it really nicely:
+
+____
+* The BL and BLX instructions copy the address of the next instruction into lr (r14, the link register).
+* The BX and BLX instructions can change the processor state from ARM to Thumb, or from Thumb to ARM.
+** BLX label always changes the state.
+** BX Rm and BLX Rm derive the target state from bit[0] of Rm:
+*** if bit[0] of Rm is 0, the processor changes to, or remains in, ARM state
+*** if bit[0] of Rm is 1, the processor changes to, or remains in, Thumb state.
+
+The BXJ instruction changes the processor state to Jazelle.
+____
+
 Bibliography:
 
 * https://stackoverflow.com/questions/28669905/what-is-the-difference-between-the-arm-thumb-and-thumb-2-instruction-encodings
-* https://reverseengineering.stackexchange.com/questions/6080/how-to-detect-thumb-mode-in-arm-disassembly
+
+===== ARM Thumb encoding
+
+Thumb examples are available at:
+
+* link:userland/arch/arm/thumb.S[]
+* link:userland/arch/arm/freestanding/linux/hello_thumb.S[]
+
+For both of them, we can check that we are in thumb from inside GDB with:
+
+* `disassemble`, and observe that some of the instructions are only 2 bytes long instead of always 4 as in ARM
+* `print $cpsr & 0x20` which is `1` on thumb and `0` otherwise
+
+You should contrast those examples with similar non-thumb ones of course.
+
+We also note that thumbness of those sources is determined solely by the `.thumb_func` directive, which implies that there must be some metadata to allow the linker to decide how that code should be called:
+
+* for the freestanding example, this is determined by the first bit of the entry address ELF header as mentioned at: https://stackoverflow.com/questions/20369440/can-start-be-the-thumb-function/20374451#20374451
++
+We verify that with:
++
+....
+./run-toolchain --arch arm readelf -- -h "$(./getvar --arch arm userland_build_dir)/arch/arm/freestanding/linux/hello_thumb.out"
+....
++
+The Linux kernel must use that to decide put the CPU in thumb mode: that could be done simply with a regular `bx`.
+* on the non-freestanding one, the linker uses some ELF metadata to decide that `main` is thumb and jumps to it appropriately: https://reverseengineering.stackexchange.com/questions/6080/how-to-detect-thumb-mode-in-arm-disassembly
++
+TODO details. Does the linker then resolve thumbness with address relocation? Doesn't this imply that the compiler cannot generate `bl` (never changes) or `blx` (always changes) across object files, only `bx` (target state controlled by lower bit)?
 
 === ARM branch instructions
 
@@ -12383,11 +12430,7 @@ The current ARM / Thumb mode is encoded in the least significant bit of lr.
 
 ===== ARM bx instruction
 
-`bx`: branch and switch between ARM / Thumb mode, encoded in the least significant bit of the given register.
-
-`bx lr` is the main way to return from function calls after a `bl` call.
-
-Since `bl` encodes the current ARM / Thumb in the register, `bx` keeps the mode unchanged by default.
+See: <<arm-thumb-encoding>>
 
 ===== ARMv8 aarch64 ret instruction
 
@@ -13371,12 +13414,17 @@ Userland information can be found at: https://github.com/cirosantilli/arm-assemb
 
 ARM exception levels are analogous to x86 <<ring0,rings>>.
 
-Print the EL at the beginning of a baremetal simulation:
+The current EL can be determined by reading from certain registers, which we do with bit disassembly at:
 
 ....
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c
 ....
+
+The relevant bits are:
+
+* arm: `CPSR.M`
+* aarch64: `CurrentEl.EL`. This register is not accessible from EL0 for some weird reason however.
 
 Sources:
 
@@ -13390,9 +13438,9 @@ The lower ELs are not mandated by the architecture, and can be controlled throug
 In QEMU, you can configure the lowest EL as explained at https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
 
 ....
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c | grep CPSR.M
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c -- -machine virtualization=on | grep CPSR.M
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c -- -machine secure=on | grep CPSR.M
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c | grep CPSR.M
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c -- -machine virtualization=on | grep CPSR.M
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c -- -machine secure=on | grep CPSR.M
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c | grep CurrentEL.EL
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c -- -machine virtualization=on | grep CurrentEL.EL
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c -- -machine secure=on | grep CurrentEL.EL
@@ -13414,11 +13462,11 @@ TODO: why is arm `CPSR.M` stuck at `0x3` which equals Supervisor mode?
 In gem5, you can configure the lowest EL with:
 
 ....
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c --emulator gem5
 grep CPSR.M "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
 grep CPSR.M "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_security = True'
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_security = True'
 grep CPSR.M "$(./getvar --arch arm --emulator gem5 gem5_guest_terminal_file)"
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/dump_regs.c --emulator gem5
 grep CurrentEL.EL "$(./getvar --arch aarch64 --emulator gem5 gem5_guest_terminal_file)"
@@ -13442,7 +13490,7 @@ CurrentEL.EL 0x3
 TODO: the call:
 
 ....
-./run --arch arm --baremetal baremetal/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
+./run --arch arm --baremetal userland/arch/arm/dump_regs.c --emulator gem5 -- --param 'system.have_virtualization = True'
 ....
 
 started failing with an exception since https://github.com/cirosantilli/linux-kernel-module-cheat/commit/add6eedb76636b8f443b815c6b2dd160afdb7ff4 at the instruction:
@@ -13453,7 +13501,7 @@ vmsr fpexc, r0
 
 in link:baremetal/lib/arm.S[]. That patch however enables SIMD in baremetal, which I feel is more important.
 
-According to <<armarm7>>, access to that register is controlled by other registers `NSACR.{CP11, CP10}` and `HCPTR` so those must be turned off, but I'm lazy to investigate now, even just trying to dump those registers in link:baremetal/arch/arm/dump_regs.c[] also leads to exceptions...
+According to <<armarm7>>, access to that register is controlled by other registers `NSACR.{CP11, CP10}` and `HCPTR` so those must be turned off, but I'm lazy to investigate now, even just trying to dump those registers in link:userland/arch/arm/dump_regs.c[] also leads to exceptions...
 
 ==== svc
 

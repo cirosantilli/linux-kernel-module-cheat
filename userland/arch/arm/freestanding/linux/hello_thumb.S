@@ -1,11 +1,11 @@
-/* arm freestanding Linux hello world
- * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
- */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-thumb-encoding */
 
+.thumb_func
 .syntax unified
 .text
 .global _start
 _start:
+asm_main_after_prologue:
     /* write */
     mov r0, 1     /* stdout */
     adr r1, msg   /* buffer */
