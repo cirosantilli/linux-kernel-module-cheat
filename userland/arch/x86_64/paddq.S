@@ -30,7 +30,6 @@ LKMC_PROLOGUE
     /* 8x 4-bit */
     TEST(w)
     /* 4x 8-bit */
-    /*  4x long */
     TEST(d)
     /* 2x 16-bit */
     TEST(q)
