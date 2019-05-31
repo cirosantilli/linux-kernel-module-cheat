@@ -373,7 +373,7 @@ Have you ever felt that a single `inc` instruction was not enough? Really? Me to
 
 So let's hack the <<gnu-gas-assembler>>, which is part of link:https://en.wikipedia.org/wiki/GNU_Binutils[GNU Binutils], to add a new shiny version of `inc` called... `myinc`!
 
-GCC uses GNU GAS as its backend, so we will test out new mnemonic with an <<gcc-inline-assembly>> test program: link:userland/arch/x86_64/c/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/c/binutils_nohack.c[] but with `myinc` instead of `inc`.
+GCC uses GNU GAS as its backend, so we will test out new mnemonic with an <<gcc-inline-assembly>> test program: link:userland/arch/x86_64/binutils_hack.c[], which is just a copy of link:userland/arch/x86_64/binutils_nohack.c[] but with `myinc` instead of `inc`.
 
 The inline assembly is disabled with an `#ifdef`, so first modify the source to enable that.
 
@@ -2742,7 +2742,7 @@ Sources:
 
 * link:kernel_modules/ring0.c[]
 * link:lkmc/ring0.h[]
-* link:userland/arch/x86_64/c/ring0.c[]
+* link:userland/arch/x86_64/ring0.c[]
 
 In both cases, we attempt to run the exact same code which is shared on the `ring0.h` header file.
 
@@ -8611,9 +8611,24 @@ If we pass to QEMU the xen image directly instead of the boot wrapper one:
 -kernel ../xen/xen/xen
 ....
 
-then Xen messages do show up, so it seems that the configuration failure lies in the boot wrapper itself rather than Xen.
+then Xen messages do show up! So it seems that the configuration failure lies in the boot wrapper itself rather than Xen.
 
-Bibliography: this attempt was based on: https://wiki.xenproject.org/wiki/Xen_ARM_with_Virtualization_Extensions/FastModels which is the documentation for the ARM Fast Models closed source simulators.
+Maybe it is also possible to run Xen directly like this: QEMU can already load multiple images at different memory locations with the generic loader: https://github.com/qemu/qemu/blob/master/docs/generic-loader.txt which looks something along:
+
+....
+-kernel file1.elf -device loader,file=file2.elf
+....
+
+so as long as we craft the correct DTB and feed it into Xen so that it can see the kernel, it should work. TODO does QEMU support patching the auto-generated DTB with pre-generated options? In the worst case we can just dump it hand hack it up though with `-machine dumpdtb`: <<device-tree-emulator-generation>>.
+
+Bibliography:
+
+* this attempt was based on: https://wiki.xenproject.org/wiki/Xen_ARM_with_Virtualization_Extensions/FastModels which is the documentation for the ARM Fast Models closed source simulators.
+* https://wiki.xenproject.org/wiki/Xen_ARM_with_Virtualization_Extensions/qemu-system-aarch64 this is the only QEMU aarch64 Xen page on the web. It uses the Ubuntu aarc64 image, which has EDK2.
++
+I however see no joy on blobs. Buildroot does not seem to support EDK 2.
+
+Link on readme https://stackoverflow.com/questions/49348453/xen-on-qemu-with-arm64-architecture
 
 == QEMU
 
@@ -11878,25 +11893,89 @@ You are now left on the very first instruction of our tiny executable!
 Examples under `arch/<arch>/c/` directories show to how use inline assembly from higher level languages such as C:
 
 * x86_64
-** link:userland/arch/x86_64/c/inc.c[]
-** link:userland/arch/x86_64/c/add.c[]
+** link:userland/arch/x86_64/inline_asm/inc.c[]
+** link:userland/arch/x86_64/inline_asm/add.c[]
 * arm
-** link:userland/arch/arm/c/inc.c[]
-** link:userland/arch/arm/c/inc_memory.c[]
-** link:userland/arch/arm/c/inc_memory_global.c[]
-** link:userland/arch/arm/c/add.c[]
+** link:userland/arch/arm/inline_asm/inc.c[]
+** link:userland/arch/arm/inline_asm/inc_memory.c[]
+** link:userland/arch/arm/inline_asm/inc_memory_global.c[]
+** link:userland/arch/arm/inline_asm/add.c[]
 * aarch64
-** link:userland/arch/aarch64/c/earlyclobber.c[]
-** link:userland/arch/aarch64/c/inc.c[]
-** link:userland/arch/aarch64/c/multiline.cpp[]
+** link:userland/arch/aarch64/inline_asm/earlyclobber.c[]
+** link:userland/arch/aarch64/inline_asm/inc.c[]
+** link:userland/arch/aarch64/inline_asm/multiline.cpp[]
+
+==== GCC intrinsics
+
+Pre-existing C wrappers using inline assembly, this is what production programs should use instead of inline assembly for SIMD:
+
+* x86_64
+** link:userland/arch/x86_64/intrinsics/paddq.c[]. Intrinsics version of link:userland/arch/x86_64/paddq.S[]
+** link:userland/arch/x86_64/intrinsics/addpd.c[]. Intrinsics version of link:userland/arch/x86_64/addpd.S[]
+
+===== GCC x86 intrinsics
+
+Good official cheatsheet with all intrinsics and what they expand to: https://software.intel.com/sites/landingpage/IntrinsicsGuide
+
+The functions use the the following naming convention:
+
+....
+<vector_size>_<intrin_op>_<suffix>
+....
+
+where:
+
+* `<vector_size>`:
+** `mm`: 128-bit vectors (SSE)
+** `mm256`: 256-bit vectors (AVX and AVX2)
+** `mm512`: 512-bit vectors (AVX512)
+* `<intrin_op>`: operation of the intrinsic function, e.g. add, sub, mul, etc.
+* `<suffix>`: data type:
+** `ps`: 4 floats (Packed Single)
+** `pd`: 2 doubles (Packed Double)
+** `ss`: 1 float (Single Single)
+** `sd`: 1 double (Single Double)
+** `ep<int_type>` integer types, e.g.:
+*** `epi32`: 32 bit signed integers
+*** `epu16`: 16 bit unsigned integers
+
+Data types:
+
+* `__m128`: four floats
+* `__m128d`: two doubles
+* `__m128i`: integers: 8 x 16-bit, 4 x 32-bit, 2 x 64-bit
+
+The headers to include are clarified at: https://stackoverflow.com/questions/11228855/header-files-for-x86-simd-intrinsics
+
+....
+x86intrin.h everything
+mmintrin.h  MMX
+xmmintrin.h SSE
+emmintrin.h SSE2
+pmmintrin.h SSE3
+tmmintrin.h SSSE3
+smmintrin.h SSE4.1
+nmmintrin.h SSE4.2
+ammintrin.h SSE4A
+wmmintrin.h AES
+immintrin.h AVX
+zmmintrin.h AVX512
+....
+
+Present in `gcc-7_3_0-release` tree at: `gcc/config/i386/x86intrin.h`.
+
+Bibliography:
+
+* https://www.cs.virginia.edu/~cr4bd/3330/S2018/simdref.html
+* https://www.cs.virginia.edu/~cr4bd/3330/S2018/simdref.html
 
 ==== GCC inline assembly register variables
 
 Used notably in some of the <<linux-system-calls>> setups:
 
-* link:userland/arch/arm/c/reg_var.c[]
-* link:userland/arch/aarch64/c/reg_var.c[]
-* link:userland/arch/aarch64/c/reg_var_float.c[]
+* link:userland/arch/arm/inline_asm/reg_var.c[]
+* link:userland/arch/aarch64/inline_asm/reg_var.c[]
+* link:userland/arch/aarch64/inline_asm/reg_var_float.c[]
 
 In x86, makes it possible to access variables not exposed with the one letter register constraints.
 
@@ -11911,8 +11990,8 @@ Documentation: https://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Explicit-Reg-Vars.ht
 How to use temporary registers in inline assembly:
 
 * x86_64
-** link:userland/arch/x86_64/c/scratch.c[]
-** link:userland/arch/x86_64/c/scratch_hardcode.c[]
+** link:userland/arch/x86_64/inline_asm/scratch.c[]
+** link:userland/arch/x86_64/inline_asm/scratch_hardcode.c[]
 
 Bibliography: https://stackoverflow.com/questions/6682733/gcc-prohibit-use-of-some-registers/54963829#54963829
 
@@ -11928,8 +12007,8 @@ The assertion may fail without it. It actually does fail in GCC 8.2.0.
 
 Not documented as of GCC 8.2, but possible: https://stackoverflow.com/questions/53960240/armv8-floating-point-output-inline-assembly
 
-* link:userland/arch/arm/c/inc_float.c[]
-* link:userland/arch/aarch64/c/inc_float.c[]
+* link:userland/arch/arm/inline_asm/inc_float.c[]
+* link:userland/arch/aarch64/inline_asm/inc_float.c[]
 
 === Linux system calls
 
@@ -11937,15 +12016,15 @@ The following <<userland-setup>> programs illustrate how to make system calls:
 
 * x86_64
 ** link:userland/arch/x86_64/freestanding/linux/hello.S[]
-** link:userland/arch/x86_64/c/freestanding/linux/hello.c[]
-** link:userland/arch/x86_64/c/freestanding/linux/hello_regvar.c[]
+** link:userland/arch/x86_64/inline_asm/freestanding/linux/hello.c[]
+** link:userland/arch/x86_64/inline_asm/freestanding/linux/hello_regvar.c[]
 * arm
 ** link:userland/arch/arm/freestanding/linux/hello.S[]
-** link:userland/arch/arm/c/freestanding/linux/hello.c[]
+** link:userland/arch/arm/inline_asm/freestanding/linux/hello.c[]
 * aarch64
 ** link:userland/arch/aarch64/freestanding/linux/hello.S[]
-** link:userland/arch/aarch64/c/freestanding/linux/hello.c[]
-** link:userland/arch/aarch64/c/freestanding/linux/hello_clobbers.c[]
+** link:userland/arch/aarch64/inline_asm/freestanding/linux/hello.c[]
+** link:userland/arch/aarch64/inline_asm/freestanding/linux/hello_clobbers.c[]
 
 Determining the ARM syscall numbers:
 
@@ -12010,7 +12089,7 @@ Call C standard library functions from assembly and vice versa.
 ** link:userland/arch/arm/linux/c_from_asm.S[]
 * aarch64
 ** link:lkmc/aarch64.h[] `ENTRY` and `EXIT`
-** link:userland/arch/aarch64/c/linux/asm_from_c.c[]
+** link:userland/arch/aarch64/inline_asm/linux/asm_from_c.c[]
 
 ARM Architecture Procedure Call Standard (AAPCS) is the name that ARM Holdings gives to the calling convention.
 
@@ -12153,12 +12232,12 @@ Once those are done, everything else left on userland is just to learn a huge li
 
 History:
 
-* link:https://en.wikipedia.org/wiki/MMX_(instruction_set)[MMX]: 1997
-* link:https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions[SSE]: Streaming SIMD Extensions. 1999. 128-bit XMM registers.
+* link:https://en.wikipedia.org/wiki/MMX_(instruction_set)[MMX]: MultiMedia eXtension (unofficial name). 1997. MM0-MM7 64-bit registers.
+* link:https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions[SSE]: Streaming SIMD Extensions. 1999. XMM0-XMM7 128-bit registers, XMM0-XMM15 for AMD in 64-bit mode.
 * link:https://en.wikipedia.org/wiki/SSE2[SSE2]: 2004
 * link:https://en.wikipedia.org/wiki/SSE3[SSE3]: 2006
 * link:https://en.wikipedia.org/wiki/SSE4[SSE4]: 2006
-* link:https://en.wikipedia.org/wiki/Advanced_Vector_Extensions[AVX]: Advanced Vector Extensions. 2011. 256-bit YMM registers. Extension of XMM.
+* link:https://en.wikipedia.org/wiki/Advanced_Vector_Extensions[AVX]: Advanced Vector Extensions. 2011. YMM0–YMM15 256-bit registers in 64-bit mode. Extension of XMM.
 * AVX2:2013
 * AVX-512: 2016. 512-bit ZMM registers. Extension of YMM.
 
@@ -12183,12 +12262,12 @@ TODO: review this section, make a more controlled userland experiment with <<m5o
 Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
 
 ....
-./build-userland --static userland/arch/x86_64/c/rdtsc.c
+./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.c
 ./run --eval './arch/x86_64/c/rdtsc.out;m5 exit;' --emulator gem5
 ./gem5-stat
 ....
 
-Source: link:userland/arch/x86_64/c/rdtsc.c[]
+Source: link:userland/arch/x86_64/rdtsc.c[]
 
 `rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
 
@@ -13307,7 +13386,7 @@ To test it out, I first hack link:common.py[] to enable `C++`:
 consts['baremetal_build_in_exts'] = consts['build_in_exts']
 ....
 
-and then I hack link:userland/arch/aarch64/c/multiline.cpp[] to consist only of an empty main:
+and then I hack link:userland/arch/aarch64/inline_asm/multiline.cpp[] to consist only of an empty main:
 
 ....
 int main() {}
@@ -13317,7 +13396,7 @@ then for example:
 
 ....
 ./build-baremetal --arch aarch64
-./run --arch aarch64 --baremetal userland/arch/aarch64/c/multiline.cpp
+./run --arch aarch64 --baremetal userland/arch/aarch64/inline_asm/multiline.cpp
 ....
 
 fails with:
@@ -13330,7 +13409,7 @@ qemu-system-aarch64: rom check and register reset failed
 and the gem5 build fails completely:
 
 ....
-./build-baremetal --arch aarch64 --emulator gem5 userland/arch/aarch64/c/multiline.cpp
+./build-baremetal --arch aarch64 --emulator gem5 userland/arch/aarch64/inline_asm/multiline.cpp
 ....
 
 fails with:

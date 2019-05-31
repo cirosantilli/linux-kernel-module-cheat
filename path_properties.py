@@ -348,7 +348,7 @@ path_properties_tuples = (
                                 ]
                             },
                             {
-                                'c': (
+                                'inline_asm': (
                                     {
                                     },
                                     {
@@ -371,7 +371,7 @@ path_properties_tuples = (
                         'aarch64': (
                             {'allowed_archs': {'aarch64'}},
                             {
-                                'c': (
+                                'inline_asm': (
                                     {
                                     },
                                     {
@@ -393,19 +393,19 @@ path_properties_tuples = (
                         'x86_64': (
                             {'allowed_archs': {'x86_64'}},
                             {
-                                'c': (
+                                'inline_asm': (
                                     {
                                     },
                                     {
                                         'freestanding': freestanding_properties,
-                                        'ring0.c': {
-                                            'signal_received': signal.Signals.SIGSEGV
-                                        }
                                     }
                                 ),
                                 'freestanding': freestanding_properties,
                                 'lkmc_assert_eq_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'lkmc_assert_memcmp_fail.S': {'signal_received': signal.Signals.SIGABRT},
+                                'ring0.c': {
+                                    'signal_received': signal.Signals.SIGSEGV,
+                                }
                             }
                         ),
                     }

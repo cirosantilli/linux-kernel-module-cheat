@@ -1,6 +1,6 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-addpq-instruction
  *
- * Add a bunch of floating point numbers in one go.
+ * Add a few floating point numbers in one go (P == packaged)
  */
 
 #include <lkmc.h>

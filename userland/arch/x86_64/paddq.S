@@ -1,8 +1,9 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-paddq-instruction
  *
- * Add a bunch of integers in one go.
+ * Add several integers in one go.
  *
- * The different variants basically determine if carries get forwarded or not.
+ * The different variants basically determine integer size, which basically
+ * determines if carries get forwarded or not.
  */
 
 #include <lkmc.h>
