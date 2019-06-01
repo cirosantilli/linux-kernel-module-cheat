@@ -18,13 +18,19 @@ int main(void) {
          */
         float f;
         _MM_EXTRACT_FLOAT(f, output, 3);
-        assert(f ==  7.0f);
+        assert(f == 7.0f);
         _MM_EXTRACT_FLOAT(f, output, 2);
-        assert(f ==  9.0f);
+        assert(f == 9.0f);
         _MM_EXTRACT_FLOAT(f, output, 1);
-        assert(f ==  11.0f);
+        assert(f == 11.0f);
         _MM_EXTRACT_FLOAT(f, output, 0);
-        assert(f ==  13.0f);
+        assert(f == 13.0f);
+
+        /* And we also have _mm_cvtss_f32 + _mm_shuffle_ps, */
+        assert(_mm_cvtss_f32(output) == 13.0f);
+        assert(_mm_cvtss_f32(_mm_shuffle_ps(output, output, 1)) == 11.0f);
+        assert(_mm_cvtss_f32(_mm_shuffle_ps(output, output, 2)) ==  9.0f);
+        assert(_mm_cvtss_f32(_mm_shuffle_ps(output, output, 3)) ==  7.0f);
     }
 
     /* 64-bit add (addpd). */
@@ -32,14 +38,12 @@ int main(void) {
         __m128d input0 = _mm_set_pd(1.5, 2.5);
         __m128d input1 = _mm_set_pd(5.5, 6.5);
         __m128d output = _mm_add_pd(input0, input1);
-        double d;
-        /* TODO: there is no _MM_EXTRACT_DOUBLE, and the asserts below fail. */
-#if 0
-        _MM_EXTRACT_FLOAT(d, output, 1);
-        assert(d ==  7.0);
-        _MM_EXTRACT_FLOAT(d, output, 0);
-        assert(d ==  9.0);
-#endif
+        /* OK, and this is how we get the doubles out:
+         * with _mm_cvtsd_f64 + _mm_unpackhi_pd
+         * https://stackoverflow.com/questions/19359372/mm-cvtsd-f64-analogon-for-higher-order-floating-point
+         */
+        assert(_mm_cvtsd_f64(output) == 9.0);
+        assert(_mm_cvtsd_f64(_mm_unpackhi_pd(output, output)) == 7.0);
     }
 
     return 0;
