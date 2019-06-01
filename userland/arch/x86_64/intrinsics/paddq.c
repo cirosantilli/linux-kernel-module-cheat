@@ -11,6 +11,8 @@ int main(void) {
         __m128i input0 = _mm_set_epi32(1, 2, 3, 4);
         __m128i input1 = _mm_set_epi32(5, 6, 7, 8);
         __m128i output = _mm_add_epi32(input0, input1);
+        /* _mm_extract_epi32 mentioned at:
+         * https://stackoverflow.com/questions/12495467/how-to-store-the-contents-of-a-m128d-simd-vector-as-doubles-without-accessing/56404421#56404421 */
         assert(_mm_extract_epi32(output, 3) == 6);
         assert(_mm_extract_epi32(output, 2) == 8);
         assert(_mm_extract_epi32(output, 1) == 10);
