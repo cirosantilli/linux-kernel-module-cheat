@@ -1,8 +1,15 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-intrinsics */
 
 #include <assert.h>
+#include <inttypes.h>
+#include <string.h>
 
 #include <x86intrin.h>
+
+uint32_t global_input0[] __attribute__((aligned(16))) = {1, 2, 3, 4};
+uint32_t global_input1[] __attribute__((aligned(16))) = {5, 6, 7, 8};
+uint32_t global_output[4] __attribute__((aligned(16)));
+uint32_t global_expected[] __attribute__((aligned(16))) = {6, 8, 10, 12};
 
 int main(void) {
 
@@ -17,6 +24,14 @@ int main(void) {
         assert(_mm_extract_epi32(output, 2) == 8);
         assert(_mm_extract_epi32(output, 1) == 10);
         assert(_mm_extract_epi32(output, 0) == 12);
+    }
+
+    /* Now from memory. */
+    {
+        __m128i *input0 = (__m128i *)global_input0;
+        __m128i *input1 = (__m128i *)global_input1;
+        _mm_store_si128((__m128i *)global_output, _mm_add_epi32(*input0, *input1));
+        assert(!memcmp(global_output, global_expected, sizeof(global_output)));
     }
 
     /* Now a bunch of other sizes. */

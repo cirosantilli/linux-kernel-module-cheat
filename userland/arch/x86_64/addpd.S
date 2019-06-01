@@ -6,15 +6,17 @@
 #include <lkmc.h>
 
 LKMC_PROLOGUE
-.bss
-    output:       .skip 16
 .data
+    .align 16
     addps_input0: .float 1.5, 2.5,  3.5,  4.5
     addps_input1: .float 5.5, 6.5,  7.5,  8.5
     addps_expect: .float 7.0, 9.0, 11.0, 13.0
     addpd_input0: .double 1.5, 2.5
     addpd_input1: .double 5.5, 6.5
     addpd_expect: .double 7.0, 9.0
+.bss
+    .align 16
+    output:       .skip 16
 .text
 #define TEST(size) \
     movups addp ## size ## _input0, %xmm0; \

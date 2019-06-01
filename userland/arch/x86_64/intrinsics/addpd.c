@@ -1,11 +1,16 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-intrinsics */
 
 #include <assert.h>
+#include <string.h>
 
 #include <x86intrin.h>
 
-int main(void) {
+float global_input0[] __attribute__((aligned(16))) = {1.5f, 2.5f, 3.5f, 4.5f};
+float global_input1[] __attribute__((aligned(16))) = {5.5f, 6.5f, 7.5f, 8.5f};
+float global_output[4] __attribute__((aligned(16)));
+float global_expected[] __attribute__((aligned(16))) = {7.0f, 9.0f, 11.0f, 13.0f};
 
+int main(void) {
     /* 32-bit add (addps). */
     {
         __m128 input0 = _mm_set_ps(1.5f, 2.5f, 3.5f, 4.5f);
@@ -31,6 +36,14 @@ int main(void) {
         assert(_mm_cvtss_f32(_mm_shuffle_ps(output, output, 1)) == 11.0f);
         assert(_mm_cvtss_f32(_mm_shuffle_ps(output, output, 2)) ==  9.0f);
         assert(_mm_cvtss_f32(_mm_shuffle_ps(output, output, 3)) ==  7.0f);
+    }
+
+    /* Now from memory. */
+    {
+        __m128 *input0 = (__m128 *)global_input0;
+        __m128 *input1 = (__m128 *)global_input1;
+        _mm_store_ps(global_output, _mm_add_ps(*input0, *input1));
+        assert(!memcmp(global_output, global_expected, sizeof(global_output)));
     }
 
     /* 64-bit add (addpd). */
