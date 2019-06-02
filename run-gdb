@@ -85,31 +85,49 @@ Connect with GDB to an emulator to debug Linux itself
         self.add_argument(
             '--after',
             default='',
-            help='Pass extra arguments to GDB, to be appended after all other arguments'
+            help='''Pass extra arguments to GDB, to be appended after all other arguments.'''
         )
         self.add_argument(
             '--before',
             default='',
-            help='Pass extra arguments to GDB to be prepended before any of the arguments passed by this script'
+            help='''Pass extra arguments to GDB to be prepended before any of the arguments passed by this script.'''
         )
         self.add_argument(
             '--continue',
             default=True,
-            help="Don't run continue after connecting"
+            help='''\
+Run `continue` in GDB after connecting.
+* https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-early-boot
+* https://github.com/cirosantilli/linux-kernel-module-cheat#freestanding-programs
+* https://github.com/cirosantilli/linux-kernel-module-cheat#baremetal-gdb-step-debug
+'''
+        )
+        self.add_argument(
+            '--gdbserver',
+            default=False,
+            help='''https://github.com/cirosantilli/linux-kernel-module-cheat#gdbserver'''
         )
         self.add_argument(
             '--kgdb',
             default=False,
+            help='''https://github.com/cirosantilli/linux-kernel-module-cheat#kgdb'''
         )
         self.add_argument(
             '--lxsymbols',
             default=True,
+            help='''\
+Use the Linux kernel lxsymbols GDB script.
+Only enabled by default when debugging the Linux kernel, not on userland or baremetal.
+* https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-kernel-module
+* https://github.com/cirosantilli/linux-kernel-module-cheat#bypass-lx-symbols
+'''
         )
         self.add_argument(
             '--sim',
             default=False,
-            help='''Use the built-in GDB CPU simulator
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
+            help='''\
+Use the built-in GDB CPU simulator.
+https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-builtin-cpu-simulator
 '''
         )
         self.add_argument(
@@ -123,7 +141,10 @@ the script is a .py file next to the source code.
         self.add_argument(
             'break_at',
             nargs='?',
-            help='Extra options to append at the end of the emulator command line'
+            help='''\
+If given, break at the given expression, e.g. `main`. You will be left there automatically
+by default due to --continue if this breakpoint is reached.
+'''
         )
 
     def timed_main(self):
@@ -152,6 +173,10 @@ the script is a .py file next to the source code.
         if self.env['userland']:
             image = self.env['image']
             linux_full_system = False
+            if self.env['gdbserver']:
+                before.extend([
+                    '-ex', 'set sysroot {}'.format(self.env['buildroot_staging_dir']),
+                ])
         elif self.env['baremetal']:
             image = self.env['image']
             linux_full_system = False
@@ -167,7 +192,9 @@ the script is a .py file next to the source code.
         if self.env['sim']:
             target = 'sim'
         else:
-            if self.env['kgdb']:
+            if self.env['gdbserver']:
+                port = self.env['qemu_hostfwd_generic_port']
+            elif self.env['kgdb']:
                 port = self.env['extra_serial_port']
             else:
                 port = self.env['gdb_port']
