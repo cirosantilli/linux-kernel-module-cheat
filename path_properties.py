@@ -29,7 +29,7 @@ class PathProperties:
             #   https://stackoverflow.com/questions/51310756/how-to-gdb-step-debug-a-dynamically-linked-executable-in-qemu-user-mode/51343326#51343326
             # * when writing assembly code, we have to constantly think about it:
             #   https://stackoverflow.com/questions/2463150/what-is-the-fpie-option-for-position-independent-executables-in-gcc-and-ld/51308031#51308031
-            # As of 91986fb2955f96e06d1c5ffcc5536ba9f0af1fd9, our Buildroot toolchain
+            # As of lkmc 91986fb2955f96e06d1c5ffcc5536ba9f0af1fd9, our Buildroot toolchain
             # does not have it enabled by default, but the Ubuntu 18.04 host toolchain does.
             '-fno-pie', LF,
             '-no-pie', LF,

@@ -1944,6 +1944,8 @@ You will generally want to use <<gdbserver>> for this as it is more reliable, bu
 Known limitations of direct userland debugging:
 
 * the kernel might switch context to another process or to the kernel itself e.g. on a system call, and then TODO confirm the PIC would go to weird places and source code would be missing.
++
+Solutions to this are being researched at: <<lx-ps>>.
 * TODO step into shared libraries. If I attempt to load them explicitly:
 +
 ....
@@ -1967,13 +1969,13 @@ For executables from the link:userland/[] directory such as link:userland/posix/
 * Shell 2:
 +
 ....
-./run-gdb-user userland/posix/count.c main
+./run-gdb --userland userland/posix/count.c main
 ....
 +
 Alternatively, we could also pass the full path to the executable:
 +
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/posix/count.out" main
+./run-gdb --userland "$(./getvar userland_build_dir)/posix/count.out" main
 ....
 +
 Path resolution is analogous to <<baremetal-setup-getting-started,that of `./run --baremetal`>>.
@@ -1992,7 +1994,7 @@ BusyBox custom init process:
 * Shell 2:
 +
 ....
-./run-gdb-user "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox ls_main
+./run-gdb --userland "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox ls_main
 ....
 
 This follows BusyBox' convention of calling the main for each executable as `<exec>_main` since the `busybox` executable has many "mains".
@@ -2007,7 +2009,7 @@ BusyBox default init process:
 * Shell 2:
 +
 ....
-./run-gdb-user "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox init_main
+./run-gdb --userland "$(./getvar buildroot_build_build_dir)"/busybox-*/busybox init_main
 ....
 
 `init` cannot be debugged with <<gdbserver>> without modifying the source, or else `/sbin/init` exits early with:
@@ -2028,19 +2030,20 @@ Non-init process:
 * Shell 2:
 +
 ....
-./run-gdb-user userland/linux/myinsmod.c main
+./run-gdb --userland userland/linux/rand_check.c main
 ....
 * Shell 1 after the boot finishes:
 +
 ....
-./linux/myinsmod.out hello.ko
+./linux/rand_check.out
 ....
 
 This is the least reliable setup as there might be other processes that use the given virtual address.
 
+[[gdb-step-debug-userland-non-init-without-gdb-wait]]
 ===== GDB step debug userland non-init without --gdb-wait
 
-TODO: without `--gdb-wait` and the `break main` that we do inside `./run-gdb-user` says:
+TODO: if I try <<gdb-step-debug-userland-non-init>> without `--gdb-wait` and the `break main` that we do inside `./run-gdb` says:
 
 ....
 Cannot access memory at address 0x10604
@@ -2195,7 +2198,7 @@ so we see that the affinity was restricted to the second core from the start.
 
 Let's do a QEMU observation to justify this example being in the repository with <<gdb-step-debug-userland-non-init,userland breakpoints>>.
 
-We will run our `./linux/sched_getaffinity.out` infinitely many time, on core 0 and core 1 alternatively:
+We will run our `./linux/sched_getaffinity.out` infinitely many times, on core 0 and core 1 alternatively:
 
 ....
 ./run \
@@ -2208,7 +2211,7 @@ We will run our `./linux/sched_getaffinity.out` infinitely many time, on core 0 
 on another shell:
 
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/linux/sched_getaffinity.out" main
+./run-gdb --userland "$(./getvar userland_build_dir)/linux/sched_getaffinity.out" main
 ....
 
 Then, inside GDB:
@@ -2239,7 +2242,7 @@ TODO we then tried:
 and:
 
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/linux/sched_getaffinity_threads.out"
+./run-gdb --userland "$(./getvar userland_build_dir)/linux/sched_getaffinity_threads.out"
 ....
 
 to switch between two simultaneous live threads with different affinities, it just didn't break on our threads:
@@ -7807,7 +7810,7 @@ TODO `--arch arm` and `--arch aarch64` does not count firmware instructions prop
 * We can also discount the instructions after `init` runs by using `readelf` to get the initial address of `init`. One easy way to do that now is to just run:
 +
 ....
-./run-gdb-user "$(./getvar userland_build_dir)/linux/poweroff.out" main
+./run-gdb --userland "$(./getvar userland_build_dir)/linux/poweroff.out" main
 ....
 +
 And get that from the traces, e.g. if the address is `4003a0`, then we search:
@@ -10518,7 +10521,7 @@ We are unable to use `gdbserver` because of networking: <<gem5-host-to-guest-net
 
 The alternative is to do as in <<gdb-step-debug-userland-processes>>.
 
-Next, follow the exact same steps explained at <<gdb-step-debug-userland-non-init-without--d>>, but passing `-g` to every command as usual.
+Next, follow the exact same steps explained at <<gdb-step-debug-userland-non-init-without-gdb-wait>>, but passing `--emulator gem5` to every command as usual.
 
 But then TODO (I'll still go crazy one of those days): for `arm`, while debugging `./linux/myinsmod.out hello.ko`, after then line:
 
@@ -10532,7 +10535,7 @@ I press `n`, it just runs the program until the end, instead of stopping on the 
 TODO:
 
 ....
-./run-gdb-user --arch arm --emulator gem5 gem5-1.0/gem5/util/m5/m5 main
+./run-gdb --arch arm --emulator gem5 --userland gem5-1.0/gem5/util/m5/m5 main
 ....
 
 breaks when `m5` is run on guest, but does not show the source code.
