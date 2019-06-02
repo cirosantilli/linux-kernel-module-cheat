@@ -8,6 +8,7 @@ import shutil
 
 import common
 from shell_helpers import LF
+import path_properties
 
 class Main(common.BuildCliFunction):
     def __init__(self):
@@ -32,13 +33,15 @@ Build the Linux kernel modules against the host kernel.
 Place the modules on a separate magic directory from non --host builds.
 ''',
         )
+        self._add_argument('--force-rebuild')
         self.add_argument(
             'kernel-modules',
             default=[],
-            help='Which kernel modules to build. Default: build all',
+            help='''\
+Which kernel modules to build. Default: build all.
+Can be either the path to the C file, or its basename without extension.''',
             nargs='*',
         )
-        self._add_argument('--force-rebuild')
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -63,11 +66,14 @@ Place the modules on a separate magic directory from non --host builds.
         )
         all_kernel_modules = []
         for basename in os.listdir(self.env['kernel_modules_source_dir']):
-            src = os.path.join(self.env['kernel_modules_source_dir'], basename)
-            if os.path.isfile(src):
+            abspath = os.path.join(self.env['kernel_modules_source_dir'], basename)
+            if os.path.isfile(abspath):
                 noext, ext = os.path.splitext(basename)
                 if ext == self.env['c_ext']:
-                    all_kernel_modules.append(noext)
+                    relpath = abspath[len(self.env['root_dir']) + 1:]
+                    my_path_properties = path_properties.get(relpath)
+                    if my_path_properties.should_be_built(self.env):
+                        all_kernel_modules.append(noext)
         if self.env['kernel_modules'] == []:
             kernel_modules = all_kernel_modules
         else:

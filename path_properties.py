@@ -128,18 +128,18 @@ class PathProperties:
                 self['allowed_archs'] is None or
                 env['arch'] in self['allowed_archs']
             ) and
-            (
+            not (
                 (
                     env['mode'] == 'userland' and
                     (
-                        self['userland'] and
-                        ext in env['build_in_exts']
+                        not self['userland'] or
+                        not ext in env['build_in_exts']
                     )
                 ) or
                 (
                     env['mode'] == 'baremetal' and (
-                        self['baremetal'] and
-                        ext in env['baremetal_build_in_exts']
+                        not self['baremetal'] or
+                        not ext in env['baremetal_build_in_exts']
                     )
                 )
             ) and
@@ -310,6 +310,12 @@ path_properties_tuples = (
                 'lib': {'no_executable': True},
                 'getchar.c': {'interactive': True},
             }
+        ),
+        'kernel_modules': (
+            {},
+            {
+                'float.c': {'allowed_archs': 'x86_64'}
+            },
         ),
         'lkmc.c': {
             'baremetal': True,

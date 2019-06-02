@@ -5537,7 +5537,23 @@ This likely comes from the ifdef split at `init/main.c`:
 
 ==== Kernel module parameters
 
-The Linux kernel allows passing module parameters at insertion time <<myinsmod,through the `init_module` and `finit_module` system calls>>:
+The Linux kernel allows passing module parameters at insertion time <<myinsmod,through the `init_module` and `finit_module` system calls>>.
+
+The `insmod` tool exposes that as:
+
+....
+insmod params.ko i=3 j=4
+....
+
+Parameters are declared in the module as:
+
+....
+static u32 i = 0;
+module_param(i, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(i, "my favorite int");
+....
+
+Automated test:
 
 ....
 ./params.sh
@@ -5889,6 +5905,52 @@ cleanup_module
 Source: link:kernel_modules/init_module.c[]
 
 TODO why were `module_init` and `module_exit` created? https://stackoverflow.com/questions/3218320/what-is-the-difference-between-module-init-and-init-module-in-a-linux-kernel-mod
+
+==== Floating point in kernel modules
+
+It is generally hard / impossible to use floating point operations in the kernel. TODO understand details.
+
+A quick (x86-only for now because lazy) example is shown at: link:kernel_modules/float.c[]
+
+Usage:
+
+....
+insmod float.ko myfloat=1 enable_fpu=1
+....
+
+We have to call: `kernel_fpu_begin()` before starting FPU operations, and `kernel_fpu_end()` when we are done. This particular example however did not blow up without it at lkmc 7f917af66b17373505f6c21d75af9331d624b3a9 + 1:
+
+....
+insmod float.ko myfloat=1 enable_fpu=0
+....
+
+The v5.1 documentation under link:https://github.com/cirosantilli/linux/blob/v5.1/arch/x86/include/asm/fpu/api.h#L15[arch/x86/include/asm/fpu/api.h] reads:
+
+....
+ * Use kernel_fpu_begin/end() if you intend to use FPU in kernel context. It
+ * disables preemption so be careful if you intend to use it for long periods
+ * of time.
+....
+
+The example sets in the link:kernel_modules/Makefile[]:
+
+....
+CFLAGS_REMOVE_float.o += -mno-sse -mno-sse2
+....
+
+to avoid:
+
+....
+error: SSE register return with SSE disabled
+....
+
+We found those flags with `./build-modules --verbose`.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/13886338/use-of-floating-point-in-the-linux-kernel
+* https://stackoverflow.com/questions/15883947/why-am-i-able-to-perform-floating-point-operations-inside-a-linux-kernel-module/47056242
+* https://stackoverflow.com/questions/1556142/sse-register-return-with-sse-disabled
 
 === Kernel panic and oops
 
