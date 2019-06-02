@@ -22,19 +22,28 @@ LKMC_PROLOGUE
     output:       .skip 16
 .text
     movaps input1, %xmm1
-#define TEST(size) \
-    movaps input0, %xmm0; \
-    padd ## size %xmm1, %xmm0; \
-    movaps %xmm0, output; \
-    LKMC_ASSERT_MEMCMP(output, padd ## size ## _expect, $0x10)
 
-    /* 16x 8-bit */
-    TEST(b)
-    /* 8x 4-bit */
-    TEST(w)
-    /* 4x 8-bit */
-    TEST(d)
-    /* 2x 16-bit */
-    TEST(q)
-#undef TEST
+    /* 16x 8bit */
+    movaps input0, %xmm0
+    paddb %xmm1, %xmm0
+    movaps %xmm0, output
+    LKMC_ASSERT_MEMCMP(output, paddb_expect, $0x10)
+
+    /* 8x 16-bit */
+    movaps input0, %xmm0
+    paddw %xmm1, %xmm0
+    movaps %xmm0, output
+    LKMC_ASSERT_MEMCMP(output, paddw_expect, $0x10)
+
+    /* 4x 32-bit */
+    movaps input0, %xmm0
+    paddd %xmm1, %xmm0
+    movaps %xmm0, output
+    LKMC_ASSERT_MEMCMP(output, paddd_expect, $0x10)
+
+    /* 2x 64-bit */
+    movaps input0, %xmm0
+    paddq %xmm1, %xmm0
+    movaps %xmm0, output
+    LKMC_ASSERT_MEMCMP(output, paddq_expect, $0x10)
 LKMC_EPILOGUE

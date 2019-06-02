@@ -18,16 +18,17 @@ LKMC_PROLOGUE
     .align 16
     output:       .skip 16
 .text
-#define TEST(size) \
-    movups addp ## size ## _input0, %xmm0; \
-    movups addp ## size ## _input1, %xmm1; \
-    addp ## size %xmm1, %xmm0; \
-    movups %xmm0, output; \
-    LKMC_ASSERT_MEMCMP(output, addp ## size ## _expect, $0x10)
-
     /* 4x 32-bit */
-    TEST(s)
+    movaps addps_input0, %xmm0
+    movaps addps_input1, %xmm1
+    addps %xmm1, %xmm0
+    movaps %xmm0, output
+    LKMC_ASSERT_MEMCMP(output, addps_expect, $0x10)
+
     /* 2x 64-bit */
-    TEST(d)
-#undef TEST
+    movaps addpd_input0, %xmm0
+    movaps addpd_input1, %xmm1
+    addpd %xmm1, %xmm0
+    movaps %xmm0, output
+    LKMC_ASSERT_MEMCMP(output, addpd_expect, $0x10)
 LKMC_EPILOGUE
