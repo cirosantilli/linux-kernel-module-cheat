@@ -11737,34 +11737,34 @@ Like other userland programs, these programs can be run as explained at: <<userl
 
 As a quick reminder, the fastest setups to get started are:
 
-* <<userland-setup-getting-started-natively>> if your host can run the examples, e.g. x86 example on an x86 host
+* <<userland-setup-getting-started-natively>> if your host can run the examples, e.g. x86 example on an x86 host:
 * <<userland-setup-getting-started-with-prebuilt-toolchain-and-qemu-user-mode>> otherwise
 
 However, as usual, it is saner to build your toolchain as explained at: <<qemu-user-mode-getting-started>>.
 
-The first examples that you want to run for each arch are:
+The first examples you should look into are:
 
-* how to move data between registers and memory
-* how to add two numbers!
-
-These examples are located at:
-
-* x86
+* add
 ** link:userland/arch/x86_64/add.S[]
-** link:userland/arch/x86_64/mov.S[]
-* arm
-** <<arm-mov-instruction>>
 ** link:userland/arch/arm/add.S[]
 ** link:userland/arch/aarch64/add.S[]
+* mov between register and memory
+** link:userland/arch/x86_64/mov.S[]
+** <<arm-mov-instruction>>
+** <<arm-load-and-store-instructions>>
+* addressing modes
+** <<x86-addressing-modes>>
+** <<arm-addressing-modes>>
+* registers: <<assembly-registers>>
 
-These examples use the venerable ADD instruction to:
+The add examples in particular:
 
 * introduce the basics of how a given assembly works: how many inputs / outputs, who is input and output, can it use memory or just registers, etc.
 +
 It is then a big copy paste for most other data instructions.
 * verify that the venerable `add` instruction and our assertions are working
 
-Then, modify that program to make the assertion fail:
+Now try to modify modify the x86_64 add program to see the assertion fail:
 
 ....
 LKMC_ASSERT_EQ(%rax, $4)
@@ -11969,6 +11969,47 @@ Examples under `arch/<arch>/c/` directories show to how use inline assembly from
 ** link:userland/arch/aarch64/inline_asm/inc.c[]
 ** link:userland/arch/aarch64/inline_asm/multiline.cpp[]
 
+==== GCC inline assembly register variables
+
+Used notably in some of the <<linux-system-calls>> setups:
+
+* link:userland/arch/arm/inline_asm/reg_var.c[]
+* link:userland/arch/aarch64/inline_asm/reg_var.c[]
+* link:userland/arch/aarch64/inline_asm/reg_var_float.c[]
+
+In x86, makes it possible to access variables not exposed with the one letter register constraints.
+
+In arm, it is the only way to achieve this effect: https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
+
+This feature notably useful for making system calls from C, see: <<linux-system-calls>>.
+
+Documentation: https://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Explicit-Reg-Vars.html
+
+==== GCC inline assembly scratch registers
+
+How to use temporary registers in inline assembly:
+
+* x86_64
+** link:userland/arch/x86_64/inline_asm/scratch.c[]
+** link:userland/arch/x86_64/inline_asm/scratch_hardcode.c[]
+
+Bibliography: https://stackoverflow.com/questions/6682733/gcc-prohibit-use-of-some-registers/54963829#54963829
+
+==== GCC inline assembly early-clobbers
+
+An example of using the `&` early-clobber modifier: link:userland/arch/aarch64/earlyclobber.c
+
+More details at: https://stackoverflow.com/questions/15819794/when-to-use-earlyclobber-constraint-in-extended-gcc-inline-assembly/54853663#54853663
+
+The assertion may fail without it. It actually does fail in GCC 8.2.0.
+
+==== GCC inline assembly floating point ARM
+
+Not documented as of GCC 8.2, but possible: https://stackoverflow.com/questions/53960240/armv8-floating-point-output-inline-assembly
+
+* link:userland/arch/arm/inline_asm/inc_float.c[]
+* link:userland/arch/aarch64/inline_asm/inc_float.c[]
+
 ==== GCC intrinsics
 
 Pre-existing C wrappers using inline assembly, this is what production programs should use instead of inline assembly for SIMD:
@@ -12033,47 +12074,6 @@ Bibliography:
 
 * https://www.cs.virginia.edu/~cr4bd/3330/S2018/simdref.html
 * https://software.intel.com/en-us/articles/how-to-use-intrinsics
-
-==== GCC inline assembly register variables
-
-Used notably in some of the <<linux-system-calls>> setups:
-
-* link:userland/arch/arm/inline_asm/reg_var.c[]
-* link:userland/arch/aarch64/inline_asm/reg_var.c[]
-* link:userland/arch/aarch64/inline_asm/reg_var_float.c[]
-
-In x86, makes it possible to access variables not exposed with the one letter register constraints.
-
-In arm, it is the only way to achieve this effect: https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler
-
-This feature notably useful for making system calls from C, see: <<linux-system-calls>>.
-
-Documentation: https://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Explicit-Reg-Vars.html
-
-==== GCC inline assembly scratch registers
-
-How to use temporary registers in inline assembly:
-
-* x86_64
-** link:userland/arch/x86_64/inline_asm/scratch.c[]
-** link:userland/arch/x86_64/inline_asm/scratch_hardcode.c[]
-
-Bibliography: https://stackoverflow.com/questions/6682733/gcc-prohibit-use-of-some-registers/54963829#54963829
-
-==== GCC inline assembly early-clobbers
-
-An example of using the `&` early-clobber modifier: link:userland/arch/aarch64/earlyclobber.c
-
-More details at: https://stackoverflow.com/questions/15819794/when-to-use-earlyclobber-constraint-in-extended-gcc-inline-assembly/54853663#54853663
-
-The assertion may fail without it. It actually does fail in GCC 8.2.0.
-
-==== GCC inline assembly floating point ARM
-
-Not documented as of GCC 8.2, but possible: https://stackoverflow.com/questions/53960240/armv8-floating-point-output-inline-assembly
-
-* link:userland/arch/arm/inline_asm/inc_float.c[]
-* link:userland/arch/aarch64/inline_asm/inc_float.c[]
 
 === Linux system calls
 
@@ -12285,6 +12285,41 @@ Bibliography: https://stackoverflow.com/questions/27147043/n-suffix-to-branch-in
 
 Arch agnostic infrastructure getting started at: <<userland-assembly>>.
 
+=== x86 addressing modes
+
+Example: link:userland/arch/x86_64/address_modes.S[]
+
+Several x86 instructions can calculate addresses of a complex form:
+
+....
+s:a(b, c, d)
+....
+
+which expands to:
+
+....
+a + b + c * d
+....
+
+Where the instruction encoding allows for:
+
+* `a`: any 8 or 32-bit general purpose register
+* `b`: any 32-bit general purpose register except ESP
+* `c`: 1, 2, 4 or 8 (encoded in 2 SIB bits)
+* `d`: immediate constant
+* `s`: a segment register. Cannot be tested simply from userland, so we won't talk about them here. See: https://github.com/cirosantilli/x86-bare-metal-examples/blob/6606a2647d44bc14e6fd695c0ea2b6b7a5f04ca3/segment_registers_real_mode.S
+
+The common compiler usage is:
+
+* `a`: base pointer
+* `b`: array offset
+* `c` and `d`: struct offset
+
+Bibliography:
+
+* <<intel-manual-1>> 3.7.5 "Specifying an Offset"
+* https://sourceware.org/binutils/docs-2.18/as/i386_002dMemory.html
+
 === x86 SIMD
 
 History:
@@ -12347,6 +12382,43 @@ TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
 * https://blog.regehr.org/archives/794
+
+=== x86 assembly bibliography
+
+==== x86 official bibliography
+
+[[intel-manual]]
+===== Intel 64 and IA-32 Architectures Software Developer's Manuals
+
+We are using the May 2019 version unless otherwise noted.
+
+There are a few download forms at: https://software.intel.com/en-us/articles/intel-sdm
+
+The single PDF one is useless however because it does not have a unified ToC nor inter Volume links, so I just download the 4-part one.
+
+The Volumes are well split, so it is usually easy to guess where you should look into.
+
+Also I can't find older versions on the website easily, so I just web archive everything.
+
+[[intel-manual-1]]
+====== Intel 64 and IA-32 Architectures Software Developer's Manuals Volume 1
+
+Userland basics: http://web.archive.org/web/20190606075544/https://software.intel.com/sites/default/files/managed/a4/60/253665-sdm-vol-1.pdf
+
+[[intel-manual-2]]
+====== Intel 64 and IA-32 Architectures Software Developer's Manuals Volume 2
+
+Instruction list: http://web.archive.org/web/20190606075330/https://software.intel.com/sites/default/files/managed/a4/60/325383-sdm-vol-2abcd.pdf
+
+[[intel-manual-3]]
+====== Intel 64 and IA-32 Architectures Software Developer's Manuals Volume 2
+
+Kernel land: http://web.archive.org/web/20190606075534/https://software.intel.com/sites/default/files/managed/a4/60/325384-sdm-vol-3abcd.pdf
+
+[[intel-manual-4]]
+====== Intel 64 and IA-32 Architectures Software Developer's Manuals Volume 2
+
+Model specific extensions: http://web.archive.org/web/20190606075325/https://software.intel.com/sites/default/files/managed/22/0d/335592-sdm-vol-4.pdf
 
 == ARM userland assembly
 

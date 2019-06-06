@@ -12,6 +12,15 @@
     call lkmc_assert_eq_64; \
 ;
 
+#define LKMC_ASSERT_EQ_32(general1, general2) \
+    mov general2, %edi; \
+    push %rdi; \
+    mov general1, %edi; \
+    pop %rsi; \
+    mov $__LINE__, %edx; \
+    call lkmc_assert_eq_32; \
+;
+
 #define LKMC_ASSERT_FAIL \
     mov $__LINE__, %edi; \
     call lkmc_assert_fail; \
