@@ -1,4 +1,7 @@
-/* Increment: i++. */
+/* Increment: i++.
+ *
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
+ */
 
 #include <lkmc.h>
 
