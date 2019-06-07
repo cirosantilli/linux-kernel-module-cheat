@@ -5,6 +5,7 @@
 LKMC_PROLOGUE
     mov $0x123456789ABCDEF0, %r12
     mov $0x123456789ABCDEF0, %r13
+    mov $0x111111119ABCDEF0, %r14
 
     /* Passing examples. */
 
@@ -20,7 +21,12 @@ LKMC_PROLOGUE
     LKMC_ASSERT_EQ(%r12, myvar)
     LKMC_ASSERT_EQ(myvar, %r12)
 
+    /* 32-bit versions. */
+    LKMC_ASSERT_EQ_32(%r12d, %r14d)
+    LKMC_ASSERT_EQ_32(%r12d, myvar2)
+
     /* Now let's fail. */
     LKMC_ASSERT_EQ(%r12, $0x123456789ABCDEF1)
 LKMC_EPILOGUE
-myvar: .quad 0x123456789ABCDEF0
+myvar:  .quad 0x123456789ABCDEF0
+myvar2: .quad 0x111111119ABCDEF0
