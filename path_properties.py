@@ -430,6 +430,7 @@ path_properties_tuples = (
                         'exit1.c': {'exit_status': 1},
                         'exit2.c': {'exit_status': 2},
                         'false.c': {'exit_status': 1},
+                        'file_write_read.c': {'baremetal': False},
                         'getchar.c': {'interactive': True},
                         'infinite_loop.c': {'more_than_1s': True},
                         'out_of_memory.c': {'disrupts_system': True},

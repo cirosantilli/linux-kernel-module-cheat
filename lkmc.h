@@ -4,6 +4,7 @@
 #define LKMC_H
 
 #if !defined(__ASSEMBLER__)
+#include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,6 +21,15 @@ LKMC_ASSERT_EQ_DECLARE(32);
 LKMC_ASSERT_EQ_DECLARE(64);
 void lkmc_assert_fail(uint32_t line);
 void lkmc_assert_memcmp(const void *s1, const void *s2, size_t n, uint32_t line);
+
+#define LKMC_ARRAY_SIZE(array) (sizeof(array)/sizeof(array[0]))
+/* Standard action to take in case of a file IO error. */
+#define LKMC_IO_ERROR(function, path) \
+    fprintf(stderr, "error: %s errno = %d, path = %s\n", function, errno, path); \
+    exit(EXIT_FAILURE);
+#define LKMC_TMP_EXT ".tmp"
+#define LKMC_TMP_FILE __FILE__ LKMC_TMP_EXT
+#define LKMC_TMP_FILE_NAMED(name) __FILE__ "__" name LKMC_TMP_EXT
 #endif
 
 /* Assert that the given branch instruction is taken. */
