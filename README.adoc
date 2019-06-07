@@ -14083,6 +14083,43 @@ A large part of the code is taken from the awesome educational OS under 2-clause
 
 I needed the following minor patches: https://github.com/NienfengYao/armv8-bare-metal/pull/1
 
+Handles an SVC and setups and handles the timer about once per second, going through the GICv3.
+
+===== tukl-msd/gem5.bare-metal
+
+https://github.com/tukl-msd/gem5.bare-metal
+
+Reiterated at: https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal
+
+Basic gem5 aarch64 baremetal setup that just works. Does serial IO and timer through GICv2. Usage:
+
+....
+# Build gem5.
+git clone https://gem5.googlesource.com/public/gem5
+cd gem5
+git checkout 60600f09c25255b3c8f72da7fb49100e2682093a
+scons --ignore-style -j`nproc` build/ARM/gem5.opt
+cd ..
+
+# Build example.
+sudo apt-get install gcc-arm-none-eabi
+git clone https://github.com/tukl-msd/gem5.bare-metal
+cd gem5.bare-metal
+git checkout 6ad1069d4299b775b5491e9252739166bfac9bfe
+cd Simple
+make CROSS_COMPILE_DIR=/usr/bin
+
+# Run example.
+../../gem5/default/build/ARM/gem5.opt' \
+  ../../gem5/configs/example/fs.py' \
+  --bare-metal \
+  --disk-image="$(pwd)/../common/fake.iso" \
+  --kernel="$(pwd)/main.elf" \
+  --machine-type=RealView_PBX \
+  --mem-size=256MB \
+;
+....
+
 === How we got some baremetal stuff to work
 
 It is nice when thing just work.
@@ -14206,39 +14243,6 @@ Baremetal tests work exactly like <<user-mode-tests>>, except that you have to a
 In baremetal, we detect if tests failed by parsing logs for the <<magic-failure-string>>.
 
 See: <<test-this-repo>> for more useful testing tips.
-
-=== Baremetal bibliography
-
-https://stackoverflow.com/questions/43682311/uart-communication-in-gem5-with-arm-bare-metal
-
-https://github.com/tukl-msd/gem5.bare-metal contains an alternative working baremetal setup. Our setup has more features at the time of writing however. Usage:
-
-....
-# Build gem5.
-git clone https://gem5.googlesource.com/public/gem5
-cd gem5
-git checkout 60600f09c25255b3c8f72da7fb49100e2682093a
-scons --ignore-style -j`nproc` build/ARM/gem5.opt
-cd ..
-
-# Build example.
-sudo apt-get install gcc-arm-none-eabi
-git clone https://github.com/tukl-msd/gem5.bare-metal
-cd gem5.bare-metal
-git checkout 6ad1069d4299b775b5491e9252739166bfac9bfe
-cd Simple
-make CROSS_COMPILE_DIR=/usr/bin
-
-# Run example.
-../../gem5/default/build/ARM/gem5.opt' \
-  ../../gem5/configs/example/fs.py' \
-  --bare-metal \
-  --disk-image="$(pwd)/../common/fake.iso" \
-  --kernel="$(pwd)/main.elf" \
-  --machine-type=RealView_PBX \
-  --mem-size=256MB \
-;
-....
 
 == Android
 
