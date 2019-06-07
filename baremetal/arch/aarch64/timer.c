@@ -2,6 +2,7 @@
 #include <inttypes.h>
 
 #include <lkmc.h>
+#include <lkmc/gicv3.h>
 
 #define CNTV_CTL_ENABLE  (1 << 0)
 #define CNTV_CTL_IMASK   (1 << 1)
@@ -20,6 +21,10 @@ void cntv_ctl_el0_enable(void) {
     lkmc_sysreg_cntv_ctl_el0_write(lkmc_sysreg_cntv_ctl_el0_read() | CNTV_CTL_ENABLE);
 }
 
+
+void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception __attribute__((unused))) {
+}
+
 int main(void) {
     /* Initial state. */
     printf("cntv_ctl_el0 0x%" PRIx32 "\n", lkmc_sysreg_cntv_ctl_el0_read());
@@ -30,6 +35,18 @@ int main(void) {
     printf("cntvct_el0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
     printf("cntvct_el0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
     printf("cntvct_el0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
+
+    /*gic_v3_initialize();*/
+    {
+        /*uint64_t ticks, current_cnt;*/
+        /*uint32_t cntfrq;*/
+        /*cntfrq = raw_read_cntfrq_el0();*/
+        /*ticks = cntfrq;*/
+        /*current_cnt = raw_read_cntvct_el0();*/
+        /*raw_write_cntv_cval_el0(current_cnt + ticks);*/
+        /*enable_cntv();*/
+        /*enable_irq();*/
+    }
 
 #if 0
     /* TODO crashes gem5. */

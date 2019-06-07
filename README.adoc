@@ -14083,7 +14083,38 @@ A large part of the code is taken from the awesome educational OS under 2-clause
 
 I needed the following minor patches: https://github.com/NienfengYao/armv8-bare-metal/pull/1
 
-Handles an SVC and setups and handles the timer about once per second, going through the GICv3.
+Handles an SVC and setups and handles the timer about once per second.
+
+The source claims GICv3, however if I try to add `-machine gic_version=3` on their command line with our QEMU v4.0.0, then it blows up at:
+
+....
+static void init_gicc(void)
+{
+    uint32_t pending_irq;
+
+    /* Disable CPU interface */
+    *REG_GIC_GICC_CTLR = GICC_CTLR_DISABLE;
+....
+
+which tries to write to 0x8010000 according to GDB.
+
+Without `-machine`, QEMU's DTB clearly states GICv2, so I'm starting to wonder if Nienfeng just made a mistake there? The QEMU GICv3 dtb contains:
+
+....
+reg = <0x0 0x8000000 0x0 0x10000 0x0 0x80a0000 0x0 0xf60000>;
+....
+
+and the GICv2 one:
+
+....
+reg = <0x0 0x8000000 0x0 0x10000 0x0 0x8010000 0x0 0x10000>;
+....
+
+which further confirms that the exception is correct: v2 has a register range at 0x8010000 while in v3 it moved to 0x80a0000 and 0x8010000 is empty.
+
+The original source does not mention GICv3 anywhere, only link:https://github.com/takeharukato/sample-tsk-sw/blob/c7bbc9dce6b14660bcce8d20735f8c6ebb09396b/hal/aarch64/gic-pl390.c[pl390], which is a specific GIC model that predates the GICv2 spec I believe.
+
+TODO I hacked `#define GIC_GICC_BASE (GIC_BASE + 0xa0000)` and now continuing attempt.
 
 ===== tukl-msd/gem5.bare-metal
 
