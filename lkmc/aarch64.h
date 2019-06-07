@@ -17,9 +17,9 @@
 ;
 
 #define LKMC_ASSERT_EQ_REG_32(reg1, reg2) \
-    str reg2, [sp, -4]!; \
+    str reg2, [sp, -16]!; \
     mov w0, reg1; \
-    ldr w1, [sp], 4; \
+    ldr w1, [sp], 16; \
     ldr w2, =__LINE__; \
     bl lkmc_assert_eq_32; \
 ;
