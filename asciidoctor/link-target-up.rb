@@ -27,5 +27,3 @@ end
 Asciidoctor::Extensions.register do
   inline_macro Main
 end
-
-#(Asciidoctor.load_file(ARGV[0])).convert
