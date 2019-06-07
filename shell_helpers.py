@@ -147,7 +147,11 @@ class ShellHelpers:
     ):
         # TODO print rsync equivalent.
         os.makedirs(destdir, exist_ok=True)
-        for basename in sorted(os.listdir(srcdir)):
+        if not os.path.exists(srcdir) and self.dry_run:
+            basenames = []
+        else:
+            basenames = os.listdir(srcdir)
+        for basename in sorted(basenames):
             src = os.path.join(srcdir, basename)
             if os.path.isfile(src) or os.path.islink(src):
                 noext, ext = os.path.splitext(basename)
