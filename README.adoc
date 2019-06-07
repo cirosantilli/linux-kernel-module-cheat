@@ -13741,11 +13741,11 @@ in link:baremetal/lib/arm.S[]. That patch however enables SIMD in baremetal, whi
 
 According to <<armarm7>>, access to that register is controlled by other registers `NSACR.{CP11, CP10}` and `HCPTR` so those must be turned off, but I'm lazy to investigate now, even just trying to dump those registers in link:userland/arch/arm/dump_regs.c[] also leads to exceptions...
 
-==== svc
+==== ARM SVC instruction
 
 This is the most basic example of exception handling we have.
 
-We a handler for `svc`, do an `svc`, and observe that the handler got called and returned from C and assembly:
+We a handler for SVC, do an SVC, and observe that the handler got called and returned from C and assembly:
 
 ....
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/svc.c
@@ -13954,7 +13954,7 @@ When GDB step debugging, switch between cores with the usual `thread` commands, 
 
 Bibliography: https://stackoverflow.com/questions/980999/what-does-multicore-assembly-language-look-like/33651438#33651438
 
-===== WFE and SEV
+===== ARM WFE and SEV instructions
 
 The `WFE` and `SEV` instructions are just hints: a compliant implementation can treat them as NOPs.
 
@@ -14000,7 +14000,7 @@ The following Raspberry Pi bibliography helped us get this sample up and running
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart64.S
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart32.S
 
-===== PSCI
+===== ARM PSCI
 
 In QEMU, CPU 1 starts in a halted state. This can be observed from GDB, where:
 
@@ -14038,9 +14038,9 @@ In gem5, CPU 1 starts woken up from the start, so PSCI is not needed. TODO gem5 
 
 Bibliography: https://stackoverflow.com/questions/20055754/arm-start-wakeup-bringup-the-other-cpu-cores-aps-and-pass-execution-start-addre/53473447#53473447
 
-===== DMB
+===== ARM DMB instruction
 
-TODO: create and study a minimal examples in gem5 where the `DMB` instruction leads to less cycles: https://stackoverflow.com/questions/15491751/real-life-use-cases-of-barriers-dsb-dmb-isb-in-arm
+TODO: create and study a minimal examples in gem5 where the DMB instruction leads to less cycles: https://stackoverflow.com/questions/15491751/real-life-use-cases-of-barriers-dsb-dmb-isb-in-arm
 
 ==== ARM baremetal bibliography
 
@@ -14053,7 +14053,7 @@ The most useful ARM baremetal example sets we've seen so far are:
 * https://github.com/bztsrc/raspi3-tutorial real hardware + QEMU `-m raspi`
 * https://github.com/LdB-ECM/Raspberry-Pi real hardware
 
-===== armv8-bare-metal
+===== NienfengYao/armv8-bare-metal
 
 https://github.com/NienfengYao/armv8-bare-metal
 
@@ -14177,36 +14177,13 @@ We then found out that QEMU <<arm-exception-levels,<starts in EL1>>, and so we k
 
 === Baremetal tests
 
-Automatically run all non-interactive baremetal tests:
+Baremetal tests work exactly like <<user-mode-tests>>, except that you have to add the `--mode baremetal` option, for example:
 
 ....
 ./test-executables --mode baremetal --arch aarch64
 ....
 
-Source: link:test-executables[]
-
-Analogously to <<user-mode-tests>>, we can select individual tests or directories with:
-
-....
-./test-executables \
-    --arch aarch64 \
-    --mode baremetal \
-    userland/c/hello.c \
-    baremetal/arch/aarch64/no_bootloader/ \
-;
-....
-
-which would run all of:
-
-* link:userland/c/hello.c[]
-* all tests under the directory: link:baremetal/arch/aarch64/no_bootloader/[]
-
-We detect if tests failed by parsing logs for the <<magic-failure-string>>.
-
-We also skip tests that cannot work on certain conditions based on their basenames, e.g.:
-
-* tests that start with `gem5_` only run in `gem5`
-* tests that start with `semihost_` only run in QEMU, until we find a better way to automate <<gem5-semihosting>>
+In baremetal, we detect if tests failed by parsing logs for the <<magic-failure-string>>.
 
 See: <<test-this-repo>> for more useful testing tips.
 
