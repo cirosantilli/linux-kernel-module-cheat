@@ -19,25 +19,22 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
         )
 
     def timed_main(self):
-        self.sh.run_cmd(
+        asciidoctor_dir = os.path.join(self.env['root_dir'], 'asciidoctor')
+        exit_status = self.sh.run_cmd(
             [
                 'asciidoctor', LF,
-                '-o', self.env['readme_out'], LF,
-                '-v', self.env['readme'], LF,
+                '--failure-level', 'info', LF,
+                '--require', os.path.join(asciidoctor_dir, 'link-target-up.rb'), LF,
+                '--out-file', self.env['readme_out'], LF,
+                '--trace', LF,
+                '--verbose', LF,
+                self.env['readme'], LF,
             ],
             out_file=self.env['build_doc_log'],
         )
-        error_re = re.compile('^asciidoctor: WARNING: ')
-        exit_status = 0
-        if not self.env['dry_run']:
-            with open(self.env['build_doc_log']) as f:
-                for line in f:
-                    if error_re.search(line):
-                        exit_status = 1
-                        break
         external_link_re = re.compile('^https?://')
         for link in subprocess.check_output([
-            os.path.join(self.env['root_dir'], 'asciidoctor-extract-links'),
+            os.path.join(asciidoctor_dir, 'extract-link-targets'),
             self.env['readme']
         ]).decode().splitlines():
             if not external_link_re.match(link):
