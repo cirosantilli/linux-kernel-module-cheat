@@ -1006,8 +1006,10 @@ lunch aosp_{}-eng
                 env['toolchain_prefix'] = ''
             else:
                 env['toolchain_prefix'] = env['ubuntu_toolchain_prefix']
-            if env['arch'] == 'x86_64':
-                env['userland_library_dir'] = '/'
+            if env['arch'] == env['host_arch']:
+                 env['userland_library_dir'] = '/'
+            elif env['arch'] == 'x86_64':
+                env['userland_library_dir'] = '/usr/x86_64-linux-gnu/'
             elif env['arch'] == 'arm':
                 env['userland_library_dir'] = '/usr/arm-linux-gnueabihf'
             elif env['arch'] == 'aarch64':
