@@ -1,3 +1,5 @@
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#c */
+
 #include <lkmc.h>
 
 #include <assert.h>

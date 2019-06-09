@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvta-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch32-vcvta-instruction */
 
 #include <lkmc.h>
 

@@ -32,6 +32,8 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
             ],
             out_file=self.env['build_doc_log'],
         )
+
+        # Check that all local files linked from README exist.
         external_link_re = re.compile('^https?://')
         for link in subprocess.check_output([
             os.path.join(asciidoctor_dir, 'extract-link-targets'),
@@ -39,8 +41,35 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
         ]).decode().splitlines():
             if not external_link_re.match(link):
                 if not os.path.lexists(link):
-                    print('error: broken link: ' + link)
+                    self.log_error('broken link: ' + link)
                     exit_status = 1
+
+        # Check that non-README links to README IDs exit.
+        header_ids = set()
+        grep_line_location_re = re.compile('^(.*?:\d+):')
+        grep_line_hash_re = re.compile('^([a-z0-9_-]+)')
+        for header_id in subprocess.check_output([
+            os.path.join(asciidoctor_dir, 'extract-header-ids'),
+            self.env['readme']
+        ]).decode().splitlines():
+            header_ids.add(header_id)
+        for grep_line in subprocess.check_output([
+            'git',
+            'grep',
+            '--fixed-strings',
+            self.env['github_repo_id_url'] + '#'
+        ]).decode().splitlines():
+            url_index = grep_line.index(self.env['github_repo_id_url'])
+            hash_start_index = url_index + len(self.env['github_repo_id_url'])
+            if len(grep_line) > hash_start_index:
+                hash_str = grep_line_hash_re.search(grep_line[hash_start_index + 1:]).group(1)
+                if not hash_str in header_ids:
+                    self.log_error('broken link to {} at {}'.format(
+                        hash_str,
+                        grep_line_location_re.search(grep_line).group(1))
+                    )
+                    exit_status = 1
+
         return exit_status
 
 if __name__ == '__main__':

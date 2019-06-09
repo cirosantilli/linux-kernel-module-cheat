@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#data-bitwise-instructions */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bitwise-instructions */
 
 #include <lkmc.h>
 

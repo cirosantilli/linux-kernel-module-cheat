@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#svc */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-svc-instruction */
 
 #include <assert.h>
 #include <inttypes.h>

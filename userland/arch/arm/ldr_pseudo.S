@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ldr-instruction-pseudo-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ldr-pseudo-instruction */
 
 #include <lkmc.h>
 

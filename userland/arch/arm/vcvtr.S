@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvtrr-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vcvtr-instruction */
 
 #include <lkmc.h>
 

@@ -102,6 +102,7 @@ consts['sha'] = common.git_sha(consts['root_dir'])
 consts['release_dir'] = os.path.join(consts['out_dir'], 'release')
 consts['release_zip_file'] = os.path.join(consts['release_dir'], 'lkmc-{}.zip'.format(consts['sha']))
 consts['github_repo_id'] = 'cirosantilli/linux-kernel-module-cheat'
+consts['github_repo_id_url'] = 'https://github.com/' + consts['github_repo_id']
 consts['asm_ext'] = '.S'
 consts['c_ext'] = '.c'
 consts['cxx_ext'] = '.cpp'
@@ -1131,15 +1132,15 @@ lunch aosp_{}-eng
         return '{}{}'.format(self.env['toolchain_prefix_dash'], tool)
 
     def github_make_request(
-            self,
-            authenticate=False,
-            data=None,
-            extra_headers=None,
-            path='',
-            subdomain='api',
-            url_params=None,
-            **extra_request_args
-        ):
+        self,
+        authenticate=False,
+        data=None,
+        extra_headers=None,
+        path='',
+        subdomain='api',
+        url_params=None,
+        **extra_request_args
+    ):
         if extra_headers is None:
             extra_headers = {}
         headers = {'Accept': 'application/vnd.github.v3+json'}

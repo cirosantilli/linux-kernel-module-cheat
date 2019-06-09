@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-fadd-vector-instruction
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-fadd-instruction
  *
  * Add a bunch of floating point numbers in one go.
  */

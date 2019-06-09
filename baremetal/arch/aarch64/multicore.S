@@ -39,7 +39,7 @@ cpu0_only:
 
 #if !LKMC_GEM5
     /* Wake up CPU 1 from initial sleep!
-     * See:https://github.com/cirosantilli/linux-kernel-module-cheat#psci
+     * See:https://github.com/cirosantilli/linux-kernel-module-cheat#arm-psci
      */
     /* PCSI function identifier: CPU_ON. */
     ldr w0, =0xc4000003

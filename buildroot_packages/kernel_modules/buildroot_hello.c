@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#getting-started-natively */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel_modules-buildroot-package */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

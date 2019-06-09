@@ -4023,7 +4023,7 @@ This is the default install path for `CONFIG_SOME_MOD=m` modules built with `mak
 
 Currently, there are only two kinds of kernel modules that you can try out with `modprobe`:
 
-* modules built with Buildroot, see: <<kernel_modules-package>>
+* modules built with Buildroot, see: <<kernel_modules-buildroot-package>>
 * modules built from the kernel tree itself, see: <<dummy-irq>>
 
 We are not installing out custom `./build-modules` modules there, because:
@@ -5692,7 +5692,7 @@ TODO: what for, and at which point point does Buildroot / BusyBox generate that 
 
 Unlike `insmod`, <<modprobe>> deals with kernel module dependencies for us.
 
-First get <<kernel_modules-package>> working.
+First get <<kernel_modules-buildroot-package>> working.
 
 Then, for example:
 
@@ -5889,7 +5889,7 @@ TODO how to get the vermagic from running kernel from userland? https://lists.ke
 
 This option just strips `modversion` information from the module before loading, so it is not a kernel feature.
 
-==== module_init
+==== init_module
 
 `init_module` and `cleanup_module` are an older alternative to the `module_init` and `module_exit` macros:
 
@@ -6378,6 +6378,7 @@ Bibliography:
 * https://superuser.com/questions/619955/how-does-proc-work/1442571#1442571
 * https://stackoverflow.com/questions/8516021/proc-create-example-for-kernel-module/18924359#18924359
 
+[[proc-version]]
 ===== /proc/version
 
 Its data is shared with `uname()`, which is a <<posix,POSIX C>> function and has a Linux syscall to back it up.
@@ -10940,7 +10941,10 @@ In theory, the cleanest way to add m5ops to your benchmarks would be to do exact
 
 However, I think it is usually not worth the trouble of hacking up the build system of the benchmark to do this, and I recommend just hardcoding in a few raw instructions here and there, and managing it with version control + `sed`.
 
-Related: https://www.mail-archive.com/gem5-users@gem5.org/msg15418.html
+Bibliography:x
+
+* https://stackoverflow.com/questions/56506154/how-to-analyze-only-interest-area-in-source-code-by-using-gem5/56506419#56506419
+* https://www.mail-archive.com/gem5-users@gem5.org/msg15418.html
 
 ===== m5ops instructions interface
 
@@ -11729,6 +11733,8 @@ The implementation lives under `libgomp` in the GCC tree, and is documented at: 
 
 Programs under link:userland/cpp/[] are examples of link:https://en.wikipedia.org/wiki/C%2B%2B#Standardization[ISO C] programming.
 
+* link:userland/cpp/hello.cpp[]
+
 === POSIX
 
 Programs under link:userland/posix/[] are examples of POSIX C programming.
@@ -11783,7 +11789,7 @@ The add examples in particular:
 * introduce the basics of how a given assembly works: how many inputs / outputs, who is input and output, can it use memory or just registers, etc.
 +
 It is then a big copy paste for most other data instructions.
-* verify that the venerable `add` instruction and our assertions are working
+* verify that the venerable ADD instruction and our assertions are working
 
 Now try to modify modify the x86_64 add program to see the assertion fail:
 
@@ -11844,21 +11850,21 @@ Bibliography: <<armarm7>> A2.3 "ARM core registers".
 
 Example: link:userland/arch/aarch64/x31.S[]
 
-There is no `x31` name, and the encoding can have two different names depending on the instruction:
+There is no X31 name, and the encoding can have two different names depending on the instruction:
 
-* `xzr`: zero register:
+* XZR: zero register:
 ** https://stackoverflow.com/questions/42788696/why-might-one-use-the-xzr-register-instead-of-the-literal-0-on-armv8
 ** https://community.arm.com/processors/f/discussions/3185/wzr-xzr-register-s-purpose
-* `sp`: stack pointer
+* SP: stack pointer
 
-To make things more confusing, some aliases can take either name, which makes them alias to different things, e.g. `mov` accepts both:
+To make things more confusing, some aliases can take either name, which makes them alias to different things, e.g. MOV accepts both:
 
 ....
 mov x0, sp
 mov x0, xzr
 ....
 
-and the first one is an alias to `add` while the second an alias to `orr`.
+and the first one is an alias to ADD while the second an alias to <<arm-bitwise-instructions,ORR>>.
 
 The difference is documented on a per instruction basis. Instructions that encode 31 as SP say:
 
@@ -12290,8 +12296,8 @@ Some of the differences include:
 
 * `#` is optional in unified syntax int literals, see <<gnu-gas-assembler-immediates>>
 * many mnemonics changed:
-** most of them are condition code position changes, e.g. `andseq` vs `andeqs`: https://stackoverflow.com/questions/51184921/wierd-gcc-behaviour-with-arm-assembler-andseq-instruction
-** but there are some more drastic ones, e.g. `swi` vs `svc`: https://stackoverflow.com/questions/8459279/are-arm-instructuons-swi-and-svc-exactly-same-thing/54078731#54078731
+** most of them are condition code position changes, e.g. ANDSEQ vs ANDEQS: https://stackoverflow.com/questions/51184921/wierd-gcc-behaviour-with-arm-assembler-andseq-instruction
+** but there are some more drastic ones, e.g. SWI vs <<arm-svc-instruction,SVC>>: https://stackoverflow.com/questions/8459279/are-arm-instructuons-swi-and-svc-exactly-same-thing/54078731#54078731
 * cannot have implicit destination with shift, see: <<arm-shift-suffixes>>
 
 ===== GNU GAS assembler ARM .n and .w suffixes
@@ -12365,23 +12371,23 @@ History:
 
 ==== x86 SSE2
 
-===== x86 addpd instruction
+===== x86 ADDPD instruction
 
-link:userland/arch/x86_64/addpd.S[]: `addps`, `addpd`
-
-Good first instruction to learn SIMD: <<simd-assembly>>
-
-===== x86 paddq instruction
-
-link:userland/arch/x86_64/paddq.S[]: `paddq`, `paddl`, `paddw`, `paddb`
+link:userland/arch/x86_64/addpd.S[]: ADDPS, ADDPD
 
 Good first instruction to learn SIMD: <<simd-assembly>>
 
-=== x86 rdtsc instruction
+===== x86 PADDQ instruction
+
+link:userland/arch/x86_64/paddq.S[]: PADDQ, PADDL, PADDW, PADDB
+
+Good first instruction to learn SIMD: <<simd-assembly>>
+
+=== x86 RDTSC instruction
 
 TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
 
-Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 `rdtsc` instruction] that is supposed to do the same thing:
+Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
 
 ....
 ./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.c
@@ -12391,14 +12397,14 @@ Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numC
 
 Source: link:userland/arch/x86_64/rdtsc.c[]
 
-`rdtsc` outputs a cycle count which we compare with gem5's `gem5-stat`:
+RDTSC outputs a cycle count which we compare with gem5's `gem5-stat`:
 
-* `3828578153`: `rdtsc`
+* `3828578153`: RDTSC
 * `3830832635`: `gem5-stat`
 
 which gives pretty close results, and serve as a nice sanity check that the cycle counter is coherent.
 
-It is also nice to see that `rdtsc` is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
+It is also nice to see that RDTSC is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
 
 Bibliography:
 
@@ -12560,7 +12566,7 @@ Bibliography: https://www.quora.com/Why-is-it-that-you-need-a-license-from-ARM-t
 
 ==== ARM instruction encodings
 
-Understanding the basics of instruction encodings is fundamental to help you to remember what instructions do and why some things are possible or not, notably the <<arm-ldr-pseudo-instruction>> and the <<arm-adr-instruction,`adrp` instruction>>.
+Understanding the basics of instruction encodings is fundamental to help you to remember what instructions do and why some things are possible or not, notably the <<arm-ldr-pseudo-instruction>> and the <<arm-adr-instruction,ADRP instruction>>.
 
 aarch32 has two "instruction sets", which to look just like encodings.
 
@@ -12592,7 +12598,7 @@ This RISC-y mostly fixed instruction length design likely makes processor design
 
 This design can be contrasted with x86, which has widely variable instruction length.
 
-We can swap between A32 and T32 with the `bx` and `blx` instructions: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.kui0100a/armasm_cihfddaf.htm puts it really nicely:
+We can swap between A32 and T32 with the BX and BLX instructions: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.kui0100a/armasm_cihfddaf.htm puts it really nicely:
 
 ____
 * The BL and BLX instructions copy the address of the next instruction into lr (r14, the link register).
@@ -12633,26 +12639,26 @@ We verify that with:
 ./run-toolchain --arch arm readelf -- -h "$(./getvar --arch arm userland_build_dir)/arch/arm/freestanding/linux/hello_thumb.out"
 ....
 +
-The Linux kernel must use that to decide put the CPU in thumb mode: that could be done simply with a regular `bx`.
+The Linux kernel must use that to decide put the CPU in thumb mode: that could be done simply with a regular BX.
 * on the non-freestanding one, the linker uses some ELF metadata to decide that `main` is thumb and jumps to it appropriately: https://reverseengineering.stackexchange.com/questions/6080/how-to-detect-thumb-mode-in-arm-disassembly
 +
-TODO details. Does the linker then resolve thumbness with address relocation? Doesn't this imply that the compiler cannot generate `bl` (never changes) or `blx` (always changes) across object files, only `bx` (target state controlled by lower bit)?
+TODO details. Does the linker then resolve thumbness with address relocation? Doesn't this imply that the compiler cannot generate BL (never changes) or BLX (always changes) across object files, only BX (target state controlled by lower bit)?
 
 === ARM branch instructions
 
-==== ARM b instruction
+==== ARM B instruction
 
 Unconditional branch.
 
 Example: link:userland/arch/arm/b.S[]
 
-The encoding stores `pc` offsets in 24 bits. The destination must be a multiple of 4, which is easy since all instructions are 4 bytes.
+The encoding stores PC offsets in 24 bits. The destination must be a multiple of 4, which is easy since all instructions are 4 bytes.
 
 This allows for 26 bit long jumps, which is 64 MiB.
 
 TODO: what to do if we want to jump longer than that?
 
-==== ARM beq instruction
+==== ARM BEQ instruction
 
 Branch if equal based on the status registers.
 
@@ -12663,16 +12669,16 @@ Examples:
 
 The family of instructions includes:
 
-* `beq`: branch if equal
-* `bne`: branch if not equal
-* `ble`: less or equal
-* `bge`: greater or equal
-* `blt`: less than
-* `bgt`: greater than
+* BEQ: branch if equal
+* BNE: branch if not equal
+* BLE: less or equal
+* BGE: greater or equal
+* BLT: less than
+* BGT: greater than
 
-==== ARM bl instruction
+==== ARM BL instruction
 
-Branch with link, i.e. branch and store the return address on the `rl` register.
+Branch with link, i.e. branch and store the return address on the RL register.
 
 Example: link:userland/arch/arm/bl.S[]
 
@@ -12680,7 +12686,7 @@ This is the major way to make function calls.
 
 The current ARM / Thumb mode is encoded in the least significant bit of lr.
 
-===== ARM bx instruction
+===== ARM BX instruction
 
 See: <<arm-thumb-encoding>>
 
@@ -12690,14 +12696,14 @@ Example: link:userland/arch/aarch64/ret.S[]
 
 ARMv8 AArch64 only:
 
-* there is no `bx` in AArch64 since no Thumb to worry about, so it is called just `br`
-* the `ret` instruction was added in addition to `br`, with the following differences:
+* there is no BX in AArch64 since no Thumb to worry about, so it is called just BR
+* the RET instruction was added in addition to BR, with the following differences:
 ** provides a hint that this is a function call return
-** has a default argument `x30` if none is given. This is where `bl` puts the return value.
+** has a default argument X30 if none is given. This is where BL puts the return value.
 
 See also: https://stackoverflow.com/questions/32304646/arm-assembly-branch-to-address-inside-register-or-memory/54145818#54145818
 
-==== ARM cbz instruction
+==== ARM CBZ instruction
 
 Compare and branch if zero.
 
@@ -12709,11 +12715,11 @@ Very handy!
 
 ==== ARM conditional execution
 
-Weirdly, <<arm-b-instruction>> and family are not the only instructions that can execute conditionally on the flags: the same also applies to most instructions, e.g. `add`.
+Weirdly, <<arm-b-instruction>> and family are not the only instructions that can execute conditionally on the flags: the same also applies to most instructions, e.g. ADD.
 
 Example: link:userland/arch/arm/cond.S[]
 
-Just add the usual `eq`, `ne`, etc. suffixes just as for `b`.
+Just add the usual `eq`, `ne`, etc. suffixes just as for B.
 
 The list of all extensions is documented at <<armarm7>> "A8.3 Conditional execution".
 
@@ -12727,15 +12733,15 @@ This is part of the RISC-y beauty of the ARM instruction set, unlike x86 in whic
 
 This kind of architecture is called a link:https://en.wikipedia.org/wiki/Load/store_architecture[Load/store architecture].
 
-==== ARM ldr instruction
+==== ARM LDR instruction
 
-===== ARM ldr pseudo-instruction
+===== ARM LDR pseudo-instruction
 
-`ldr` can be either a regular instruction that loads stuff into memory, or also a pseudo-instruction (assembler magic): http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0041c/Babbfdih.html
+LDR can be either a regular instruction that loads stuff into memory, or also a pseudo-instruction (assembler magic): http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0041c/Babbfdih.html
 
 The pseudo instruction version is when an equal sign appears on one of the operators.
 
-The `ldr` pseudo instruction can automatically create hidden variables in a place called the "literal pool", and load them from memory with PC relative loads.
+The LDR pseudo instruction can automatically create hidden variables in a place called the "literal pool", and load them from memory with PC relative loads.
 
 Example: link:userland/arch/arm/ldr_pseudo.S[]
 
@@ -12790,14 +12796,14 @@ As an application of the post-indexed addressing mode, let's increment an array.
 
 Example: link:userland/arch/arm/inc_array.S[]
 
-===== ARM ldrh and ldrb instructions
+===== ARM LDRH and LDRB instructions
 
-There are `ldr` variants that load less than full 4 bytes:
+There are LDR variants that load less than full 4 bytes:
 
 * link:userland/arch/arm/ldrb.S[]: load byte
 * link:userland/arch/arm/ldrh.S[]: load half word
 
-==== ARM str instruction
+==== ARM STR instruction
 
 Store from memory into registers.
 
@@ -12805,40 +12811,40 @@ Example: link:userland/arch/arm/str.S[]
 
 Basically everything that applies to <<arm-ldr-instruction>> also applies here so we won't go into much detail.
 
-===== ARMv8 aarch64 str instruction
+===== ARMv8 aarch64 STR instruction
 
-PC-relative `str` is not possible in aarch64.
+PC-relative STR is not possible in aarch64.
 
-For `ldr` it works <<arm-ldr-instruction,as in aarch32>>.
+For LDR it works <<arm-ldr-instruction,as in aarch32>>.
 
-As a result, it is not possible to load from the literal pool for `str`.
+As a result, it is not possible to load from the literal pool for STR.
 
 Example: link:userland/arch/aarch64/str.S[]
 
-This can be seen from <<armarm8>> C3.2.1 "Load/Store register": `ldr` simply has on extra PC encoding that `str` does not.
+This can be seen from <<armarm8>> C3.2.1 "Load/Store register": LDR simply has on extra PC encoding that STR does not.
 
-===== ARMv8 aarch64 ldp and stp instructions
+===== ARMv8 aarch64 LDP and STP instructions
 
 Push a pair of registers to the stack.
 
 TODO minimal example. Currently used in `LKMC_PROLOGUE` at link:lkmc/aarch64.h[] since it is the main way to restore register state.
 
-==== ARM ldmia instruction
+==== ARM LDMIA instruction
 
 Pop values form stack into the register and optionally update the address register.
 
-`stmdb` is the push version.
+STMDB is the push version.
 
 Example: link:userland/arch/arm/ldmia.S[]
 
 The mnemonics stand for:
 
-* `stmdb`: STore Multiple Decrement Before
-* `ldmia`: LoaD Multiple Increment After
+* STMDB: STore Multiple Decrement Before
+* LDMIA: LoaD Multiple Increment After
 
 Example: link:userland/arch/arm/push.S[]
 
-`push` and `pop` are just mnemonics `stdmdb` and `ldmia` using the stack pointer `sp` as address register:
+PUSH and POP are just mnemonics STDMDB and LDMIA using the stack pointer SP as address register:
 
 ....
 stmdb sp!, reglist
@@ -12863,7 +12869,7 @@ Arithmetic:
 * link:userland/arch/arm/rev.S[]: reverse byte order
 * link:userland/arch/arm/tst.S[]
 
-==== ARM cset instruction
+==== ARM CSET instruction
 
 Example: link:userland/arch/aarch64/cset.S[]
 
@@ -12874,11 +12880,11 @@ ARMv8-only, likely because in ARMv8 you can't have conditional suffixes for ever
 ==== ARM bitwise instructions
 
 * link:userland/arch/arm/and.S[]
-* `eor`: exclusive OR
-* `orr`: OR
+* EOR: exclusive OR
+* ORR: OR
 * link:userland/arch/arm/clz.S[]: count leading zeroes
 
-===== ARM bic instruction
+===== ARM BIC instruction
 
 Bitwise Bit Clear: clear some bits.
 
@@ -12888,7 +12894,7 @@ dest = `left & ~right`
 
 Example: link:userland/arch/arm/bic.S[]
 
-===== ARM ubfm instruction
+===== ARM UBFM instruction
 
 Unsigned Bitfield Move.
 
@@ -12900,7 +12906,7 @@ Example: link:userland/arch/aarch64/ubfm.S[]
 
 TODO: explain full behaviour. Very complicated. Has several simpler to understand aliases.
 
-====== ARM ubfx instruction
+====== ARM UBFX instruction
 
 Alias for:
 
@@ -12924,11 +12930,11 @@ dest = (src & ((1 << width) - 1)) >> lsb;
 
 Bibliography: https://stackoverflow.com/questions/8366625/arm-bit-field-extract
 
-===== ARM bfm instruction
+===== ARM BFM instruction
 
-TODO: explain. Similar to <<arm-ubfm-instruction,`ubfm`>> but leave untouched bits unmodified.
+TODO: explain. Similar to <<arm-ubfm-instruction,UBFM>> but leave untouched bits unmodified.
 
-====== ARM bfi instruction
+====== ARM BFI instruction
 
 Examples:
 
@@ -12937,14 +12943,14 @@ Examples:
 
 Move the lower bits of source register into any position in the destination:
 
-* ARMv8: an alias for <<arm-bfm-instruction,`bfm`>>
+* ARMv8: an alias for <<arm-bfm-instruction>>
 * ARMv7: a real instruction
 
-==== ARM mov instruction
+==== ARM MOV instruction
 
 Move an immediate to a register, or a register to another register.
 
-Cannot load from or to memory, since only the `ldr` and `str` instruction families can do that in ARM: <<arm-load-and-store-instructions>>
+Cannot load from or to memory, since only the LDR and STR instruction families can do that in ARM: <<arm-load-and-store-instructions>>
 
 Example: link:userland/arch/arm/mov.S[]
 
@@ -12960,7 +12966,7 @@ Summary of solutions:
 * <<arm-movw-and-movt-instructions>>
 * place it in memory. But then how to load the address, which is also a 32-bit value?
 ** use pc-relative addressing if the memory is close enough
-** use `orr` encodable shifted immediates
+** use <<arm-bitwise-instructions,ORR>> encodable shifted immediates
 
 The blog article summarizes nicely which immediates can be encoded and the design rationale:
 
@@ -13006,9 +13012,9 @@ Example: link:userland/arch/arm/shift.S[]
 
 The shift types are:
 
-* `lsr` and `lfl`: Logical Shift Right / Left. Insert zeroes.
-* `ror`: Rotate Right / Left. Wrap bits around.
-* `asr`: Arithmetic Shift Right. Keep sign.
+* LSR and LFL: Logical Shift Right / Left. Insert zeroes.
+* ROR: Rotate Right / Left. Wrap bits around.
+* ASR: Arithmetic Shift Right. Keep sign.
 
 Documented at: <<armarm7>> "A4.4.1 Standard data-processing instructions"
 
@@ -13018,11 +13024,11 @@ Example: link:userland/arch/arm/s_suffix.S[]
 
 The `S` suffix, present on most <<arm-data-processing-instructions>>, makes the instruction also set the Status register flags that control conditional jumps.
 
-If the result of the operation is `0`, then it triggers `beq`, since comparison is a subtraction, with success on 0.
+If the result of the operation is `0`, then it triggers BEQ, since comparison is a subtraction, with success on 0.
 
-`cmp` sets the flags by default of course.
+CMP sets the flags by default of course.
 
-==== ARM adr instruction
+==== ARM ADR instruction
 
 Similar rationale to the <<arm-ldr-pseudo-instruction>>, allowing to easily store a PC-relative reachable address into a register in one go, to overcome the 4-byte fixed instruction size.
 
@@ -13034,15 +13040,15 @@ Examples:
 
 More details: https://stackoverflow.com/questions/41906688/what-are-the-semantics-of-adrp-and-adrl-instructions-in-arm-assembly/54042899#54042899
 
-===== ARM adrl instruction
+===== ARM ADRL instruction
 
 See: <<arm-adr-instruction>>.
 
 === ARM miscellaneous instructions
 
-==== ARM nop instruction
+==== ARM NOP instruction
 
-There are a few different ways to encode `nop`, notably `mov` a register into itself, and a dedicated miscellaneous instruction.
+There are a few different ways to encode NOP, notably MOV a register into itself, and a dedicated miscellaneous instruction.
 
 Example: link:userland/arch/arm/nop.S[]
 
@@ -13054,7 +13060,7 @@ gdb-multiarch -batch -ex 'arch arm' -ex "file v7/nop.out" -ex "disassemble/rs as
 
 Bibliography: https://stackoverflow.com/questions/1875491/nop-for-iphone-binaries
 
-==== ARM udf instruction
+==== ARM UDF instruction
 
 Guaranteed undefined! Therefore raise illegal instruction signal. Used by GCC `__builtin_trap` apparently: https://stackoverflow.com/questions/16081618/programmatically-cause-undefined-instruction-exception
 
@@ -13084,7 +13090,7 @@ When a certain version of VFP is present on a CPU, the compiler prefix typically
 
 Bibliography:
 
-* <<armarm7>> Appendix D6 "Common VFP Subarchitecture Specification". It is not part of the ISA, but just an extension. TODO: that spec does not seem to have the instructions documented, and instruction like `VMOV` just live with the main instructions. Is `VMOV` part of VFP?
+* <<armarm7>> Appendix D6 "Common VFP Subarchitecture Specification". It is not part of the ISA, but just an extension. TODO: that spec does not seem to have the instructions documented, and instruction like VMOV just live with the main instructions. Is VMOV part of VFP?
 * https://mindplusplus.wordpress.com/2013/06/25/arm-vfp-vector-programming-part-1-introduction/
 * https://en.wikipedia.org/wiki/ARM_architecture#Floating-point_(VFP)
 
@@ -13123,7 +13129,7 @@ And you can't access the higher bytes at D16 or greater with Sn.
 * link:userland/arch/arm/vadd_scalar.S[]: see also: <<floating-point-assembly>>
 * link:userland/arch/arm/vadd_vector.S[]: see also: <<simd-assembly>>
 
-===== ARM vcvt instruction
+===== ARM VCVT instruction
 
 Example: link:userland/arch/arm/vcvt.S[]
 
@@ -13143,7 +13149,7 @@ E.g., in our 32-bit float to 32-bit unsigned example we use:
 vld1.32.f32
 ....
 
-====== ARM vcvtr instruction
+====== ARM VCVTR instruction
 
 Example: link:userland/arch/arm/vcvtr.S[]
 
@@ -13155,7 +13161,7 @@ Rounding mode selection is exposed in the ANSI C standard through link:https://e
 
 TODO: is the initial rounding mode specified by the ELF standard? Could not find a reference.
 
-====== ARMv8 AArch32 vcvta instruction
+====== ARMv8 AArch32 VCVTA instruction
 
 Example: link:userland/arch/arm/vcvt.S[]
 
@@ -13220,13 +13226,13 @@ TODO example.
 <<armarm8>> B1.2.1 "Registers in AArch64 state" describes the registers:
 
 ____
-32 SIMD&FP registers, `V0` to `V31`. Each register can be accessed as:
+32 SIMD&FP registers, V0 to V31. Each register can be accessed as:
 
-* A 128-bit register named `Q0` to `Q31`.
-* A 64-bit register named `D0` to `D31`.
-* A 32-bit register named `S0` to `S31`.
-* A 16-bit register named `H0` to `H31`.
-* An 8-bit register named `B0` to `B31`.
+* A 128-bit register named Q0 to Q31.
+* A 64-bit register named D0 to D31.
+* A 32-bit register named S0 to S31.
+* A 16-bit register named H0 to H31.
+* An 8-bit register named B0 to B31.
 ____
 
 Notice how Sn is very different between v7 and v8! In v7 it goes across Dn, and in v8 inside each Dn.
@@ -13244,7 +13250,7 @@ Good first instruction to learn SIMD: <<simd-assembly>>
 
 ====== ARM FADD vs VADD
 
-It is very confusing, but `fadds` and `faddd` in Aarch32 are <<gnu-gas-assembler-arm-unified-syntax,pre-UAL>> for `vadd.f32` and `vadd.f64` which we use in this tutorial: <<arm-vadd-instruction>>
+It is very confusing, but FADDS and FADDD in Aarch32 are <<gnu-gas-assembler-arm-unified-syntax,pre-UAL>> for `vadd.f32` and `vadd.f64` which we use in this tutorial: <<arm-vadd-instruction>>
 
 The same goes for most ARMv7 mnemonics: `f*` is old, and `v*` is the newer better syntax.
 
@@ -13262,7 +13268,7 @@ We can load multiple vectors interleaved from memory in one single instruction!
 
 This is why the `ldN` instructions take an argument list denoted by `{}` for the registers, much like armv7 <<arm-ldmia-instruction>>.
 
-There are analogous `ld3` and `ld4` instruction.
+There are analogous LD3 and LD4 instruction.
 
 ==== ARM SIMD bibliography
 
@@ -13640,7 +13646,7 @@ Since I had this compiled, I also decided to try it out on userland.
 
 I was also able to run a freestanding Linux userland example on it: https://github.com/cirosantilli/arm-assembly-cheat/blob/cd232dcaf32c0ba6399b407e0b143d19b6ec15f4/v7/linux/hello.S
 
-It just ignores the `swi` however, and does not forward syscalls to the host like QEMU does.
+It just ignores the <<arm-svc-instruction>> however, and does not forward syscalls to the host like QEMU does.
 
 Then I tried a glibc example: https://github.com/cirosantilli/arm-assembly-cheat/blob/cd232dcaf32c0ba6399b407e0b143d19b6ec15f4/v7/mov.S
 
@@ -13865,7 +13871,7 @@ contains:
    4500: system.cpu A0 T0 : @vector_table+512    :   b   <_curr_el_spx_sync>  : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
 ....
 
-So we see in both cases that the `svc` is done, then an exception happens, and then we just continue running from the exception handler address.
+So we see in both cases that the SVC is done, then an exception happens, and then we just continue running from the exception handler address.
 
 The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
 
@@ -13895,21 +13901,21 @@ The first part of the table contains:
 
 |===
 
-and the following other parts are analogous, but referring to `SPx` and lower ELs.
+and the following other parts are analogous, but referring to SPx and lower ELs.
 
 We are going to do everything in <<arm-exception-levels,EL1>> for now.
 
 On the terminal output, we observe the initial values of:
 
-* `DAIF`: `0x3c0`, i.e. 4 bits (6 to 9) set to 1, which means that exceptions are masked for each exception type: Synchronous, System error, IRQ and FIQ.
+* DAIF: 0x3c0, i.e. 4 bits (6 to 9) set to 1, which means that exceptions are masked for each exception type: Synchronous, System error, IRQ and FIQ.
 +
 This reset value is defined by <<armarm8>> C5.2.2 "DAIF, Interrupt Mask Bits".
-* `SPSel`: `0x1`, which means: use `SPx` instead of `SP0`.
+* SPSel: 0x1, which means: use SPx instead of SP0.
 +
 This reset value is defined by <<armarm8>> C5.2.16 "SPSel, Stack Pointer Select".
-* `VBAR_EL1`: `0x0` holds the base address of the vector table
+* VBAR_EL1: 0x0 holds the base address of the vector table
 +
-This reset value is defined `UNKNOWN` by <<armarm8>> D10.2.116 "VBAR_EL1, Vector Base Address Register (EL1)", so we must set it to something ourselves to have greater portability.
+This reset value is defined UNKNOWN by <<armarm8>> D10.2.116 "VBAR_EL1, Vector Base Address Register (EL1)", so we must set it to something ourselves to have greater portability.
 
 Bibliography:
 
@@ -13934,9 +13940,9 @@ Sources:
 * link:baremetal/arch/aarch64/multicore.S[]
 * link:baremetal/arch/arm/multicore.S[]
 
-CPU 0 of this program enters a spinlock loop: it repeatedly checks if a given memory address is `1`.
+CPU 0 of this program enters a spinlock loop: it repeatedly checks if a given memory address is 1.
 
-So, we need CPU 1 to come to the rescue and set that memory address to `1`, otherwise CPU 0 will be stuck there forever!
+So, we need CPU 1 to come to the rescue and set that memory address to 1, otherwise CPU 0 will be stuck there forever!
 
 Don't believe me? Then try:
 
@@ -13972,16 +13978,16 @@ Bibliography: https://stackoverflow.com/questions/980999/what-does-multicore-ass
 
 ===== ARM WFE and SEV instructions
 
-The `WFE` and `SEV` instructions are just hints: a compliant implementation can treat them as NOPs.
+The WFE and SEV instructions are just hints: a compliant implementation can treat them as NOPs.
 
 However, likely no implementation likely does (TODO confirm), since:
 
-* `WFE` puts the core in a low power mode
-* `SEV` wakes up cores from a low power mode
+* WFE puts the core in a low power mode
+* SEV wakes up cores from a low power mode
 
 and power consumption is key in ARM applications.
 
-In QEMU 3.0.0, `SEV` is a NOPs, and `WFE` might be, but I'm not sure, see: https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423
+In QEMU 3.0.0, SEV is a NOPs, and WFE might be, but I'm not sure, see: https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423
 
 ....
     case 2: /* WFE */
@@ -14007,7 +14013,7 @@ TODO: what does the WFE code do? How can it not be a NOP if SEV is a NOP? https:
  */
 ....
 
-For gem5 however, if we comment out the `SVE` instruction, then it actually exits with `simulate() limit reached`, so the CPU truly never wakes up, which is a more realistic behaviour.
+For gem5 however, if we comment out the SVE instruction, then it actually exits with `simulate() limit reached`, so the CPU truly never wakes up, which is a more realistic behaviour.
 
 The following Raspberry Pi bibliography helped us get this sample up and running:
 
@@ -14033,7 +14039,7 @@ shows something like:
 
 To wake up CPU 1 on QEMU, we must use the Power State Coordination Interface (PSCI) which is documented at: link:https://developer.arm.com/docs/den0022/latest/arm-power-state-coordination-interface-platform-design-document[].
 
-This interface uses `HVC` calls, and the calling convention is documented at "SMC CALLING CONVENTION" link:https://developer.arm.com/docs/den0028/latest[].
+This interface uses HVC calls, and the calling convention is documented at "SMC CALLING CONVENTION" link:https://developer.arm.com/docs/den0028/latest[].
 
 If we boot the Linux kernel on QEMU and <<get-device-tree-from-a-running-kernel,dump the auto-generated device tree>>, we observe that it contains the address of the PSCI CPU_ON call:
 
@@ -14050,7 +14056,7 @@ If we boot the Linux kernel on QEMU and <<get-device-tree-from-a-running-kernel,
 
 The Linux kernel wakes up the secondary cores in this exact same way at: https://github.com/torvalds/linux/blob/v4.19/drivers/firmware/psci.c#L122 We first actually got it working here by grepping the kernel and step debugging that call :-)
 
-In gem5, CPU 1 starts woken up from the start, so PSCI is not needed. TODO gem5 actually blows up if we try to do the `hvc` call, understand why.
+In gem5, CPU 1 starts woken up from the start, so PSCI is not needed. TODO gem5 actually blows up if we try to do the HVC call, understand why.
 
 Bibliography: https://stackoverflow.com/questions/20055754/arm-start-wakeup-bringup-the-other-cpu-cores-aps-and-pass-execution-start-addre/53473447#53473447
 
@@ -14926,12 +14932,14 @@ xdg-open out/README.html
 
 Source: link:build-doc[]
 
+[[documentation-verification]]
 ==== Documentation verification
 
 When running link:build-doc[], we do the following checks:
 
 * `<<>>` inner links are not broken
 * `+link:somefile[]+` links point to paths that exist via <<asciidoctor-extract-link-targets>>. Upstream wontfix at: https://github.com/asciidoctor/asciidoctor/issues/3210
+* all links in non-README files to README IDs exist via `git grep` + <<asciidoctor-extract-header-ids>>
 
 The scripts prints what you have to fix and exits with an error status if there are any errors.
 
@@ -14951,6 +14959,37 @@ Usage:
 Output: one link target per line.
 
 Hastily hacked from: https://asciidoctor.org/docs/user-manual/#inline-macro-processor-example
+
+[[asciidoctor-extract-header-ids]]
+===== asciidoctor/extract-header-ids
+
+Documentation for link:asciidoctor/extract-header-ids[]
+
+Extract header IDs, both auto-generatd and manually given.
+
+E.g., for the document `test.adoc`:
+
+....
+= Auto generated
+
+[[explicitly-given]]
+== La la
+....
+
+the script:
+
+....
+./asciidoctor/extract-header-ids tes.adoc
+....
+
+produces:
+
+....
+auto-generated
+explicitly-given
+....
+
+One application we have in mind for this is that as of 2.0.10 Asciidoctor does not warn on header ID collisions between auto-generated IDs: https://github.com/asciidoctor/asciidoctor/issues/3147 But this script doesn't solve that yet as it would require generating the section IDs without the `-N` suffix. Section generation happens at `Section.generate_id` in Asciidoctor code.
 
 === Clean the build
 
@@ -15391,7 +15430,7 @@ Buildroot packages are convenient, but in general, if a package if very importan
 
 A custom build script can give you more flexibility: e.g. the package can be made work with other root filesystems more easily, have better <<9p>> support, and rebuild faster as it evades some Buildroot boilerplate.
 
-===== kernel_modules package
+===== kernel_modules buildroot package
 
 Source: link:buildroot_packages/kernel_modules/[]
 
@@ -15427,7 +15466,8 @@ Implementattion described at: https://stackoverflow.com/questions/40307328/how-t
 
 ==== patches directory
 
-===== patches/global
+[[patches-global-directory]]
+===== patches/global directory
 
 Has the following structure:
 
@@ -15439,7 +15479,8 @@ The patches are then applied to the corresponding packages before build.
 
 Uses `BR2_GLOBAL_PATCH_DIR`.
 
-===== patches/manual
+[[patches-manual-directory]]
+===== patches/manual directory
 
 Patches in this directory are never applied automatically: it is up to users to manually apply them before usage following the instructions in this documentation.
 

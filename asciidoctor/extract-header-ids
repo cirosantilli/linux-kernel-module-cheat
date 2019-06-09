@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require 'asciidoctor'
+require 'asciidoctor/extensions'
+require 'pry'
+
+class Main < Asciidoctor::Extensions::TreeProcessor
+  def process document
+    return unless document.blocks?
+    process_blocks document
+    nil
+  end
+
+  def process_blocks node
+    node.blocks.each_with_index do |block, i|
+      if block.context == :section
+        puts block.id
+      end
+      process_blocks block if block.blocks?
+    end
+  end
+end
+
+Asciidoctor::Extensions.register do
+  treeprocessor Main
+end
+
+(Asciidoctor.load_file(ARGV[0])).convert

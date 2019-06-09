@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ld2-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-ld2-instruction */
 
 #include <lkmc.h>
 

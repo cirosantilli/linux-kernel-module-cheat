@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#rdtsc */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-rdtsc-instruction */
 
 #include <stdint.h>
 #include <stdio.h>
