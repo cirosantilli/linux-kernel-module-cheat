@@ -12522,21 +12522,7 @@ A great summary of differences can be found at: https://en.wikipedia.org/wiki/AR
 Some random ones:
 
 * aarch32 has two encodings: Thumb and ARM: <<arm-instruction-encodings>>
-* in ARMv8, the stack has to 16-byte aligned. Therefore, the main way to push things to stack is with 8-byte pair pushes with the <<armv8-aarch64-ldp-and-stp-instructions>>
-+
-<<armarm8-db>> C1.3.3 "Load/Store addressing modes" says:
-+
-____
-When stack alignment checking is enabled by system software and the base register is the SP, the current stack pointer must be initially quadword aligned, that is aligned to 16 bytes. Misalignment generates a Stack Alignment fault. The offset does not have to be a multiple of 16 bytes unless the specific Load/Store instruction requires this. SP cannot be used as a register offset.
-____
-+
-<<armarm8-db>> C3.2 "Loads and stores" says:
-+
-____
-The additional control bits SCTLR_ELx.SA and SCTLR_EL1.SA0 control whether the stack pointer must be quadword aligned when used as a base register. See SP alignment checking on page D1-2164. Using a misaligned stack pointer generates an SP alignment fault exception.
-____
-+
-<<armarm8-db>> D1.8.2 "SP alignment checking" is then the main section.
+* in ARMv8, the stack can be enforced to 16-byte alignment: <<armv8-aarch64-stack-alignment>>
 
 ==== Free ARM implementations
 
@@ -12828,6 +12814,32 @@ This can be seen from <<armarm8>> C3.2.1 "Load/Store register": LDR simply has o
 Push a pair of registers to the stack.
 
 TODO minimal example. Currently used in `LKMC_PROLOGUE` at link:lkmc/aarch64.h[] since it is the main way to restore register state.
+
+====== ARMV8 aarch64 stack alignment
+
+In ARMv8, the stack can be enforced to 16-byte alignment.
+
+This is why the main way to push things to stack is with 8-byte pair pushes with the <<armv8-aarch64-ldp-and-stp-instructions>>.
+
+<<armarm8-db>> C1.3.3 "Load/Store addressing modes" says:
+
+____
+When stack alignment checking is enabled by system software and the base register is the SP, the current stack pointer must be initially quadword aligned, that is aligned to 16 bytes. Misalignment generates a Stack Alignment fault. The offset does not have to be a multiple of 16 bytes unless the specific Load/Store instruction requires this. SP cannot be used as a register offset.
+____
+
+<<armarm8-db>> C3.2 "Loads and stores" says:
+
+____
+The additional control bits SCTLR_ELx.SA and SCTLR_EL1.SA0 control whether the stack pointer must be quadword aligned when used as a base register. See SP alignment checking on page D1-2164. Using a misaligned stack pointer generates an SP alignment fault exception.
+____
+
+<<armarm8-db>> D1.8.2 "SP alignment checking" is then the main section.
+
+TODO: what does the ABI say on this? Why don't I observe faults on QEMU as mentioned at: https://stackoverflow.com/questions/212466/what-is-a-bus-error/31877230#31877230
+
+See also:
+
+* https://stackoverflow.com/questions/38535738/does-aarch64-support-unaligned-access
 
 ==== ARM LDMIA instruction
 
