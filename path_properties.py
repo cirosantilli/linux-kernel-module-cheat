@@ -406,6 +406,8 @@ path_properties_tuples = (
                                         'freestanding': freestanding_properties,
                                     }
                                 ),
+                                'div_overflow.S': {'signal_received': signal.Signals.SIGFPE},
+                                'div_zero.S': {'signal_received': signal.Signals.SIGFPE},
                                 'freestanding': freestanding_properties,
                                 'lkmc_assert_eq_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'lkmc_assert_memcmp_fail.S': {'signal_received': signal.Signals.SIGABRT},
