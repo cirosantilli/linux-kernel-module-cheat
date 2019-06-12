@@ -42,4 +42,18 @@ LKMC_PROLOGUE
      */
     addq memory_immediate, memory_register
 #endif
+
+    /* ADD and many other instructions automatically update the status flags
+     * which controls branches.
+     */
+
+        /* Equals 0. */
+        mov $1, %rax
+        add $-1, %rax
+        LKMC_ASSERT(je)
+
+        /* Not equals 0. */
+        mov $2, %rax
+        add $-1, %rax
+        LKMC_ASSERT(jne)
 LKMC_EPILOGUE
