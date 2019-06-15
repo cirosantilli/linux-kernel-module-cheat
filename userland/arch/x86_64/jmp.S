@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-jmp-instruction
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-control-transfer-instructions
  *
  * Unconditional branch, address relative to the current address.
  */
