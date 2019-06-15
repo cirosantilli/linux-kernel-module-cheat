@@ -44,12 +44,12 @@ LKMC_PROLOGUE
         popf
         pushf
 
-        /* ! 0 > 255 */
+        /* !(0 > 255) */
         LKMC_ASSERT(jna)
         popf
         pushf
 
-        /* ! 0 < -1 */
+        /* !(0 < -1) */
         LKMC_ASSERT(jnl)
         popf
         pushf
