@@ -12489,6 +12489,85 @@ Generated some polemic when kernel devs wanted to use it as part of `/dev/random
 
 RDRAND sets the carry flag when data is ready so we must loop if the carry flag isn't set.
 
+=== x86 system instructions
+
+<<intel-manual-1>> 5.20 "SYSTEM INSTRUCTIONS"
+
+==== x86 RDTSC instruction
+
+Sources:
+
+* link:userland/arch/x86_64/rdtsc.S[]
+* link:userland/arch/x86_64/intrinsics/rdtsc.c[]
+
+Try running the programs multiple times, and watch the value increase, and then try to correlate it with `/proc/cpuinfo` frequency!
+
+....
+while true; do sleep 1 && ./userland/arch/x86_64/rdtsc.out; done
+....
+
+RDTSC stores its output to EDX:EAX, even in 64-bit mode, top bits are zeroed out.
+
+TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
+
+Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
+
+....
+./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.S
+./run --eval './arch/x86_64/rdtsc.out;m5 exit;' --emulator gem5
+./gem5-stat
+....
+
+RDTSC outputs a cycle count which we compare with gem5's `gem5-stat`:
+
+* `3828578153`: RDTSC
+* `3830832635`: `gem5-stat`
+
+which gives pretty close results, and serve as a nice sanity check that the cycle counter is coherent.
+
+It is also nice to see that RDTSC is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
+
+Bibliography:
+
+* https://en.wikipedia.org/wiki/Time_Stamp_Counter
+* https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
+
+===== x86 RDTSCP instruction
+
+RDTSCP is like RDTSP, but it also stores the CPU ID into ECX: this is convenient because the value of RDTSC depends on which core we are currently on, so you often also want the core ID when you want the RDTSC.
+
+Sources:
+
+* link:userland/arch/x86_64/rdtscp.S[]
+* link:userland/arch/x86_64/intrinsics/rdtscp.c[]
+
+We can observe its operation with the good and old `taskset`, for example:
+
+....
+taskset -c 0 ./userland/arch/x86_64/rdtscp.out | tail -n 1
+taskset -c 1 ./userland/arch/x86_64/rdtscp.out | tail -n 1
+....
+
+produces:
+
+....
+0x00000000
+0x00000001
+....
+
+
+There is also the RDPID instruction that reads just the processor ID, but it appears to be very new for QEMU 4.0.0 or <<p51>>, as it fails with SIGILL on both.
+
+Bibliography: https://stackoverflow.com/questions/22310028/is-there-an-x86-instruction-to-tell-which-core-the-instruction-is-being-run-on/56622112#56622112
+
+===== ARM PMCCNTR register
+
+TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+
+* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
+* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
+* https://blog.regehr.org/archives/794
+
 === x86 SIMD
 
 History:
@@ -12515,42 +12594,6 @@ Good first instruction to learn SIMD: <<simd-assembly>>
 link:userland/arch/x86_64/paddq.S[]: PADDQ, PADDL, PADDW, PADDB
 
 Good first instruction to learn SIMD: <<simd-assembly>>
-
-=== x86 RDTSC instruction
-
-TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
-
-Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
-
-....
-./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.c
-./run --eval './arch/x86_64/c/rdtsc.out;m5 exit;' --emulator gem5
-./gem5-stat
-....
-
-Source: link:userland/arch/x86_64/rdtsc.c[]
-
-RDTSC outputs a cycle count which we compare with gem5's `gem5-stat`:
-
-* `3828578153`: RDTSC
-* `3830832635`: `gem5-stat`
-
-which gives pretty close results, and serve as a nice sanity check that the cycle counter is coherent.
-
-It is also nice to see that RDTSC is a bit smaller than the `stats.txt` value, since the latter also includes the exec syscall for `m5`.
-
-Bibliography:
-
-* https://en.wikipedia.org/wiki/Time_Stamp_Counter
-* https://stackoverflow.com/questions/9887839/clock-cycle-count-wth-gcc/9887979
-
-==== ARM PMCCNTR register
-
-TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
-
-* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
-* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
-* https://blog.regehr.org/archives/794
 
 === x86 assembly bibliography
 

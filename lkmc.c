@@ -56,8 +56,12 @@ void lkmc_assert_memcmp(
     }
 }
 
+void lkmc_print_hex_32(uint32_t x) {
+    printf("0x%08" PRIX32, x);
+}
+
 void lkmc_print_hex_64(uint64_t x) {
-    printf("0x%016" PRIx64, x);
+    printf("0x%016" PRIX64, x);
 }
 
 void lkmc_print_newline() {
