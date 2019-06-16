@@ -303,6 +303,7 @@ path_properties_tuples = (
                                 ),
                                 'return1.S': {'exit_status': 1},
                                 'semihost_exit.S': {'requires_semihosting': True},
+                                'timer.c': {'skip_run_unclassified': True},
                             },
                         )
                     }

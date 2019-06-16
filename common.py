@@ -699,7 +699,7 @@ Incompatible archs are skipped.
                         # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
                         env['machine2'] = 'highmem=off'
                     elif env['arch'] == 'aarch64':
-                        env['machine2'] = 'gic_version=3'
+                        env['machine2'] = None
         else:
             env['machine2'] = None
 

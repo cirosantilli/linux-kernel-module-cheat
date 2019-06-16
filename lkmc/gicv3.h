@@ -7,7 +7,7 @@
 typedef int32_t irq_no;
 
 #define GIC_GICD_BASE (GIC_BASE)
-#define GIC_GICC_BASE (GIC_BASE + 0xa0000)
+#define GIC_GICC_BASE (GIC_BASE + 0x10000)
 
 #define GIC_GICD_INT_PER_REG            (32)
 #define GIC_GICD_IPRIORITY_PER_REG      (4)
@@ -135,9 +135,11 @@ static void init_gicc(void) {
     *REG_GIC_GICC_BPR = GICC_BPR_NO_GROUP;
 
     /* Clear all of the active interrupts */
-    for(pending_irq = ( *REG_GIC_GICC_IAR & GICC_IAR_INTR_IDMASK );
-        ( pending_irq != GICC_IAR_SPURIOUS_INTR );
-        pending_irq = ( *REG_GIC_GICC_IAR & GICC_IAR_INTR_IDMASK ) )
+    for (
+        pending_irq = (*REG_GIC_GICC_IAR & GICC_IAR_INTR_IDMASK);
+        pending_irq != GICC_IAR_SPURIOUS_INTR;
+        pending_irq = (*REG_GIC_GICC_IAR & GICC_IAR_INTR_IDMASK)
+    )
         *REG_GIC_GICC_EOIR = *REG_GIC_GICC_IAR;
 
     /* Enable CPU interface */
@@ -215,7 +217,6 @@ static int gicd_probe_pending(irq_no irq) {
 
     is_pending = ( *REG_GIC_GICD_ISPENDR( (irq / GIC_GICD_ISPENDR_PER_REG) ) &
         ( 1U << ( irq % GIC_GICD_ISPENDR_PER_REG ) ) );
-
     return ( is_pending != 0 );
 }
 
@@ -232,7 +233,6 @@ static void gicd_set_target(irq_no irq, uint32_t p){
     uint32_t    reg;
 
     shift = (irq % GIC_GICD_ITARGETSR_PER_REG) * GIC_GICD_ITARGETSR_SIZE_PER_REG;
-
     reg = *REG_GIC_GICD_ITARGETSR(irq / GIC_GICD_ITARGETSR_PER_REG);
     reg &= ~( ((uint32_t)(0xff)) << shift);
     reg |= (p << shift);
