@@ -3,9 +3,9 @@
 #include <lkmc.h>
 
 LKMC_PROLOGUE
-    adrp x0, label
-    adr x1, label
-label:
+    adrp x0, .Llabel
+    adr x1, .Llabel
+.Llabel:
     /* Clear the lower 12 bits. */
     bic x1, x1, 0xFF
     bic x1, x1, 0xF00

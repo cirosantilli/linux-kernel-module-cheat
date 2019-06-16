@@ -48,7 +48,6 @@ LKMC_PROLOGUE
 10:
 
     /* Another example with mov reading from pc. */
-pc_addr:
     mov r0, pc
     /* Why sub 8:
      * https://stackoverflow.com/questions/24091566/why-does-the-arm-pc-register-point-to-the-instruction-after-the-next-one-to-be-e

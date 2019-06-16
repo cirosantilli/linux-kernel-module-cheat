@@ -27,11 +27,11 @@ LKMC_PROLOGUE
      * "LDR (literal)" instead of "LDR (immediate)":
      * https://stackoverflow.com/questions/28638981/howto-write-pc-relative-adressing-on-arm-asm/54480999#54480999
      */
-    ldr x0, pc_relative_ldr
-    b 1f
-pc_relative_ldr:
+    ldr x0, .Lpc_relative_ldr
+    b 2f
+.Lpc_relative_ldr:
     .quad 0x123456789ABCDEF0
-1:
+2:
     LKMC_ASSERT_EQ(x0, =0x123456789ABCDEF0)
 
     /* Just for fun, we can also use relative numbers instead of labels.
@@ -68,7 +68,7 @@ pc_relative_ldr:
     ldr x0, pc_relative_str
     LKMC_ASSERT_EQ(x0, =0x0)
     adr x1, pc_relative_str
-    ldr x0, pc_relative_ldr
+    ldr x0, .Lpc_relative_ldr
     str x0, [x1]
     ldr x0, pc_relative_str
     LKMC_ASSERT_EQ(x0, =0x123456789ABCDEF0)

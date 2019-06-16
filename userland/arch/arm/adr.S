@@ -6,14 +6,14 @@
 data_label:
     .word 0x1234678
 LKMC_PROLOGUE
-    adr r4, label
+    adr r4, .Llabel
     /* objdump tells us that this uses the literal pool,
      * it does not get converted to adr, which is the better
      * alternative here.
      */
-    ldr r5, =label
-    adrl r6, label
-label:
+    ldr r5, =.Llabel
+    adrl r6, .Llabel
+.Llabel:
     LKMC_ASSERT_EQ_REG(r4, r5)
     LKMC_ASSERT_EQ_REG(r4, r6)
 

@@ -46,8 +46,8 @@ LKMC_PROLOGUE
      * This construct is not possible in ARMv8 for str:
      * https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-str-instruction
      */
-    str r1, var_in_same_section
-var_in_same_section:
+    str r1, .Lvar_in_same_section
+.Lvar_in_same_section:
 #endif
 
     /* = sign just doesn't make sense for str, you can't set the

@@ -13,9 +13,9 @@ LKMC_PROLOGUE
      */
     mov $0, %rax
     mov $3, %rcx
-loop_label:
+.Lloop_label:
     inc %rax
-    loop loop_label
+    loop .Lloop_label
     LKMC_ASSERT_EQ(%rax, $3)
 
     /* LOOPE
@@ -37,10 +37,10 @@ loop_label:
     /* Array length. */
     mov $4, %rcx
     mov $-1, %rax
-loope_label:
+.Lloope_label:
     inc %rax
     cmpb $0, loope_array(%rax)
-    loope loope_label
+    loope .Lloope_label
     /* The first non-zero item (1) was at index 2. */
     LKMC_ASSERT_EQ(%rax, $2)
 

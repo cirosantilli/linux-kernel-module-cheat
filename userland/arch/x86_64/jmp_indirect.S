@@ -8,15 +8,15 @@
 LKMC_PROLOGUE
     /* Address in memory. */
 .section .rodata
-    label_address: .quad memory_label
+    label_address: .quad .Lmemory_label
 .text
     jmp *label_address
     LKMC_ASSERT_FAIL
-memory_label:
+.Lmemory_label:
 
     /* Address in register. */
-    lea register_label(%rip), %rax
+    lea .Lregister_label(%rip), %rax
     jmp *%rax
     LKMC_ASSERT_FAIL
-register_label:
+.Lregister_label:
 LKMC_EPILOGUE

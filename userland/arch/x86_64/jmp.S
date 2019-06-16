@@ -6,7 +6,7 @@
 #include <lkmc.h>
 
 LKMC_PROLOGUE
-    jmp after_fail
+    jmp .Lafter_fail
     LKMC_ASSERT_FAIL
-after_fail:
+.Lafter_fail:
 LKMC_EPILOGUE

@@ -6,14 +6,13 @@ LKMC_PROLOGUE
 
     /* Branch. */
     mov x0, 0x0
-    cbz x0, ok
+    cbz x0, .Lok
     LKMC_ASSERT_FAIL
-ok:
+.Lok:
 
     /* Don't branch. */
     mov x0, 0x1
-    cbz x0, ko
-
+    cbz x0, .Lko
 LKMC_EPILOGUE
-ko:
+.Lko:
     LKMC_ASSERT_FAIL

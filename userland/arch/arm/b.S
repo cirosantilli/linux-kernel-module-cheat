@@ -3,7 +3,7 @@
 #include <lkmc.h>
 LKMC_PROLOGUE
     /* Jump over the fail. 26-bit PC-relative. */
-    b ok
+    b .Lok
     LKMC_ASSERT_FAIL
-ok:
+.Lok:
 LKMC_EPILOGUE

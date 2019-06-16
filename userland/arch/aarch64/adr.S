@@ -16,6 +16,5 @@ LKMC_PROLOGUE
      */
     adr x0, data_label
     ldr x1, =data_label
-label:
     LKMC_ASSERT_EQ_REG(x0, x1)
 LKMC_EPILOGUE
