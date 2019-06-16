@@ -56,6 +56,14 @@ void lkmc_assert_memcmp(
     }
 }
 
+void lkmc_print_hex_64(uint64_t x) {
+    printf("0x%016" PRIx64, x);
+}
+
+void lkmc_print_newline() {
+    printf("\n");
+}
+
 #if defined(__aarch64__)
 #define LKMC_SYSREG_READ_WRITE(type, name) \
     type LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read(void)) { \
