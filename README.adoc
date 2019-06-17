@@ -12506,6 +12506,44 @@ Generated some polemic when kernel devs wanted to use it as part of `/dev/random
 
 RDRAND sets the carry flag when data is ready so we must loop if the carry flag isn't set.
 
+==== x86 CPUID instruction
+
+Example: link:userland/arch/x86_64/cpuid.S[CPUID]
+
+Fills EAX, EBX, ECX and EDX with CPU information.
+
+The exact data to show depends on the value of EAX, and for a few cases instructions ECX. When it depends on ECX, it is called a sub-leaf. Out test program prints `eax == 0`.
+
+On <<p51>> for example the output EAX, EBX, ECX and EDX are:
+
+....
+0x00000016
+0x756E6547
+0x6C65746E
+0x49656E69
+....
+
+EBX and ECX are easy to interpret:
+
+* EBX: 75 6e 65 47 == 'u', 'n', 'e', 'G' in ASCII
+* ECX: 6C 65 74 6E == 'l', 'e', 't', 'n'
+
+so we see the string `Genu ntel` which is a shorthand for "Genuine Intel". Ha, I wonder if they had serious CPU pirating problems in the past? :-)
+
+Information available includes:
+
+* vendor
+* version
+* features (mmx, simd, rdrand, etc.) <http://en.wikipedia.org/wiki/CPUID# EAX.3D1:_Processor_Info_and_Feature_Bits>
+* caches
+* tlbs http://en.wikipedia.org/wiki/Translation_lookaside_buffer
+
+The cool thing about this instruction is that it allows you to check the CPU specs and take alternative actions based on that inside your program.
+
+On Linux, the capacity part of this information is parsed and made available at `cat /proc/cpuinfo`. See: http://unix.stackexchange.com/questions/43539/what-do-the-flags-in-proc-cpuinfo-mean
+
+There is also the `cpuinfo` command line tool that parses the CPUID instruction from the command line. Source: http://www.etallen.com/cpuid.html
+
 === x86 x87 FPU instructions
 
 <<intel-manual-1>> 5.2 "X87 FPU INSTRUCTIONS"
