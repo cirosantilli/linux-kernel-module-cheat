@@ -4,19 +4,25 @@
 /* This and other macros may make C function calls, and therefore can destroy
  * non-callee saved registers. */
 #define LKMC_ASSERT_EQ(general1, general2) \
+    push %rdi; \
     mov general2, %rdi; \
     push %rdi; \
+    mov 8(%rsp), %rdi; \
     mov general1, %rdi; \
     pop %rsi; \
+    add $8, %rsp; \
     mov $__LINE__, %edx; \
     call lkmc_assert_eq_64; \
 ;
 
 #define LKMC_ASSERT_EQ_32(general1, general2) \
+    push %rdi; \
     mov general2, %edi; \
     push %rdi; \
+    mov 8(%rsp), %rdi; \
     mov general1, %edi; \
     pop %rsi; \
+    add $8, %rsp; \
     mov $__LINE__, %edx; \
     call lkmc_assert_eq_32; \
 ;
