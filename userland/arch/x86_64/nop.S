@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-nop-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#nop-instructions */
 
 #include <lkmc.h>
 
