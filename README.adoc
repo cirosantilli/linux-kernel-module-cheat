@@ -12361,6 +12361,102 @@ Bibliography:
 * <<intel-manual-1>> 3.7.5 "Specifying an Offset"
 * https://sourceware.org/binutils/docs-2.18/as/i386_002dMemory.html
 
+=== x86 data transfer instructions
+
+5.1.1 "Data Transfer Instructions"
+
+* link:userland/arch/x86_64/lea.S[]: LEA
+* Integer typecasts
+** link:userland/arch/x86_64/movzx.S[]: MOVZX
+** link:userland/arch/x86_64/movsx.S[]: MOVSX
+
+==== x86 CQTO and CLTQ instructions
+
+Examples:
+
+* link:userland/arch/x86_64/cqto.S[] CQTO
+* link:userland/arch/x86_64/cltq.S[] CLTQ
+
+Instructions without E suffix: sign extend RAX into RDX:RAX.
+
+Instructions E suffix: sign extend withing RAX itself.
+
+Common combo with idiv 32-bit, which takes the input from `edx:eax`: so you need to set up `edx` before calling it.
+
+Has some Intel vs AT&T name overload hell:
+
+* https://stackoverflow.com/questions/17170388/trying-to-understand-the-assembly-instruction-cltd-on-x86/50315201#50315201
+* https://sourceware.org/binutils/docs/as/i386_002dMnemonics.html
+
+GNU GAS accepts both syntaxes:
+
+[options="header"]
+|===
+|Intel |AT&T |From |To
+
+|CBW
+|CBTW
+|AL
+|AX
+
+|CWDE
+|CWTL
+|AX
+|EAX
+
+|CWD
+|CWTD
+|AX
+|DX:AX
+
+|CDQ
+|CLTD
+|EAX
+|EDX:EAX
+
+|CDQE
+|CLTQ
+|EAX
+|RAX
+
+|CQO
+|CQTO
+|RAX
+|RDX:RAX
+
+|===
+
+==== x86 CMOVcc instructions
+
+* link:userland/arch/x86_64/cmovcc.S[]: CMOVcc
+
+mov if a condition is met:
+
+....
+CMOVcc a, b
+....
+
+Equals:
+
+....
+if(flag) a = b
+....
+
+where `cc` are the same flags as Jcc.
+
+Vs jmp:
+
+* http://stackoverflow.com/questions/14131096/why-is-a-conditional-move-not-vulnerable-for-branch-prediction-failure
+* http://stackoverflow.com/questions/27136961/what-is-it-about-cmov-which-improves-cpu-pipeline-performance
+* http://stackoverflow.com/questions/26154488/difference-between-conditional-instructions-cmov-and-jump-instructions
+* http://stackoverflow.com/questions/6754454/speed-difference-between-if-else-and-ternary-operator-in-c?lq=1#comment8007791_6754495
+
+Not necessarily faster because of branch prediction.
+
+This is partly why the ternary `?` C operator exists: http://stackoverflow.com/questions/3565368/ternary-operator-vs-if-else
+
+It is interesting to compare this with ARMv7 conditional executaion: which is available for all instructions: <<arm-conditional-execution>>
+
 === x86 binary arithmetic instructions
 
 <<intel-manual-1>> 5.1.2 "Binary Arithmetic Instructions":
