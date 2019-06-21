@@ -7,6 +7,7 @@ import cli_function
 import collections
 import common
 import copy
+import math
 import subprocess
 import shell_helpers
 from shell_helpers import LF
@@ -513,7 +514,6 @@ Which components to build. Default: qemu-buildroot
                     ['python3', '-m', 'pip', 'install', '--user', LF] +
                     self.sh.add_newlines(sorted(python3_pkgs))
                 )
-            git_version_tuple = tuple(int(x) for x in subprocess.check_output(['git', '--version']).decode().split(' ')[-1].split('.'))
             git_cmd_common = [
                 'git', LF,
                 'submodule', LF,
@@ -521,13 +521,20 @@ Which components to build. Default: qemu-buildroot
                 '--init', LF,
                 '--recursive', LF,
             ]
-            if git_version_tuple >= (2, 9, 0):
-                # https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
-                git_cmd_common.extend(['--jobs', str(len(os.sched_getaffinity(0))), LF])
-            if git_version_tuple >= (2, 10, 0):
-                # * https://stackoverflow.com/questions/32944468/how-to-show-progress-for-submodule-fetching
-                # * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
-                git_cmd_common.extend(['--progress', LF])
+            if self.env['dry_run']:
+                git_version_tuple = (math.inf, math.inf, math.inf)
+            else:
+                git_version_tuple = tuple(
+                    int(x) for x in self.sh.check_output(['git', '--version']) \
+                    .split(' ')[-1].split('.')
+                )
+                if git_version_tuple >= (2, 9, 0):
+                    # https://stackoverflow.com/questions/26957237/how-to-make-git-clone-faster-with-multiple-threads/52327638#52327638
+                    git_cmd_common.extend(['--jobs', str(len(os.sched_getaffinity(0))), LF])
+                if git_version_tuple >= (2, 10, 0):
+                    # * https://stackoverflow.com/questions/32944468/how-to-show-progress-for-submodule-fetching
+                    # * https://stackoverflow.com/questions/4640020/progress-indicator-for-git-clone
+                    git_cmd_common.extend(['--progress', LF])
             def submodule_ids_to_cmd(submodules):
                 return self.sh.add_newlines([os.path.join(common.consts['submodules_dir'], x) for x in sorted(submodules)])
             if submodules:

@@ -1066,7 +1066,7 @@ lunch aosp_{}-eng
             )
 
     def get_elf_entry(self, elf_file_path):
-        readelf_header = subprocess.check_output([
+        readelf_header = self.sh.check_output([
             self.get_toolchain_tool('readelf'),
             '-h',
             elf_file_path
@@ -1592,7 +1592,7 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                                     if 'cc_flags' in package:
                                         cc_flags.extend(package['cc_flags'])
                                     else:
-                                        pkg_config_output = subprocess.check_output([
+                                        pkg_config_output = self.sh.check_output([
                                             self.env['pkg_config'],
                                             '--cflags',
                                             package_key

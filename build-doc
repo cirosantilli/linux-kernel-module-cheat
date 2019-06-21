@@ -35,10 +35,10 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
 
         # Check that all local files linked from README exist.
         external_link_re = re.compile('^https?://')
-        for link in subprocess.check_output([
+        for link in self.sh.check_output([
             os.path.join(asciidoctor_dir, 'extract-link-targets'),
             self.env['readme']
-        ]).decode().splitlines():
+        ]).splitlines():
             if not external_link_re.match(link):
                 if not os.path.lexists(link):
                     self.log_error('broken link: ' + link)
@@ -48,17 +48,18 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
         header_ids = set()
         grep_line_location_re = re.compile('^(.*?:\d+):')
         grep_line_hash_re = re.compile('^([a-z0-9_-]+)')
-        for header_id in subprocess.check_output([
+        for header_id in self.sh.check_output([
             os.path.join(asciidoctor_dir, 'extract-header-ids'),
             self.env['readme']
-        ]).decode().splitlines():
+        ]).splitlines():
             header_ids.add(header_id)
-        for grep_line in subprocess.check_output([
+        for grep_line in self.sh.check_output([
             'git',
             'grep',
             '--fixed-strings',
-            self.env['github_repo_id_url'] + '#'
-        ]).decode().splitlines():
+            self.env['github_repo_id_url'] + '#',
+            LF
+        ]).splitlines():
             url_index = grep_line.index(self.env['github_repo_id_url'])
             hash_start_index = url_index + len(self.env['github_repo_id_url'])
             if len(grep_line) > hash_start_index:

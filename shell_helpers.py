@@ -2,6 +2,7 @@
 
 import base64
 import distutils.file_util
+import io
 import itertools
 import os
 import shlex
@@ -54,8 +55,12 @@ class ShellHelpers:
         The initial use case was test-gdb which must create a thread for GDB to run the program in parallel.
         '''
         with cls._print_lock:
-            sys.stdout.write(string + '\n')
-            sys.stdout.flush()
+            try:
+                print(string, flush=True)
+            except BrokenPipeError:
+                # https://stackoverflow.com/questions/26692284/how-to-prevent-brokenpipeerror-when-doing-a-flush-in-python
+                # https://stackoverflow.com/questions/16314321/suppressing-printout-of-exception-ignored-message-in-python-3
+                pass
 
     def add_newlines(self, cmd):
         out = []
@@ -71,6 +76,17 @@ class ShellHelpers:
 
     def base64_decode(self, string):
         return base64.b64decode(string.encode()).decode()
+
+    def check_output(self, *args, **kwargs):
+        out_str = []
+        self.run_cmd(
+            *args,
+            out_str=out_str,
+            show_stdout=False,
+            show_cmd=False,
+            **kwargs
+        )
+        return out_str[0]
 
     def chmod(self, path, add_rm_abs='+', mode_delta=stat.S_IXUSR):
         '''
@@ -245,6 +261,8 @@ class ShellHelpers:
         extra_paths=None,
         delete_env=None,
         raise_on_failure=True,
+        *,
+        out_str=None,
         **kwargs
     ):
         '''
@@ -261,6 +279,9 @@ class ShellHelpers:
         :param out_file: if not None, write the stdout and stderr of the command the file
         :type out_file: str
 
+        :param out_str: if not None, append the stdout and stderr string to this list
+        :type out_str: Union(List,None)
+
         :param show_stdout: wether to show stdout and stderr on the terminal or not
         :type show_stdout: bool
 
@@ -270,7 +291,7 @@ class ShellHelpers:
         :return: exit status of the command
         :rtype: int
         '''
-        if out_file is None:
+        if out_file is None and out_str is None:
             if show_stdout:
                 stdout = None
                 stderr = None
@@ -299,14 +320,21 @@ class ShellHelpers:
             if key in env:
                 del env[key]
         if show_cmd:
-            self.print_cmd(cmd, cwd=cwd, cmd_file=cmd_file, extra_env=extra_env, extra_paths=extra_paths)
+            self.print_cmd(
+                cmd,
+                cwd=cwd,
+                cmd_file=cmd_file,
+                extra_env=extra_env,
+                extra_paths=extra_paths
+            )
 
         # Otherwise, if called from a non-main thread:
         # ValueError: signal only works in main thread
         if threading.current_thread() == threading.main_thread():
             # Otherwise Ctrl + C gives:
             # - ugly Python stack trace for gem5 (QEMU takes over terminal and is fine).
-            # - kills Python, and that then kills GDB: https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
+            # - kills Python, and that then kills GDB:
+            #   https://stackoverflow.com/questions/19807134/does-python-always-raise-an-exception-if-you-do-ctrlc-when-a-subprocess-is-exec
             sigint_old = signal.getsignal(signal.SIGINT)
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
@@ -320,23 +348,39 @@ class ShellHelpers:
         cmd = self.strip_newlines(cmd)
         if not self.dry_run:
             # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
-            with subprocess.Popen(cmd, stdout=stdout, stderr=stderr, env=env, **kwargs) as proc:
-                if out_file is not None:
-                    os.makedirs(os.path.split(os.path.abspath(out_file))[0], exist_ok=True)
-                    with open(out_file, 'bw') as logfile:
-                        while True:
-                            byte = proc.stdout.read(1)
-                            if byte:
-                                if show_stdout:
-                                    sys.stdout.buffer.write(byte)
-                                    try:
-                                        sys.stdout.flush()
-                                    except BlockingIOError:
-                                        # TODO understand. Why, Python, why.
-                                        pass
+            with subprocess.Popen(
+                cmd,
+                stdout=stdout,
+                stderr=stderr,
+                env=env,
+                **kwargs
+            ) as proc:
+                if out_file is not None or out_str is not None:
+                    if out_file is not None:
+                        os.makedirs(os.path.split(os.path.abspath(out_file))[0], exist_ok=True)
+                    if out_file is not None:
+                        logfile = open(out_file, 'bw')
+                    logfile_str = []
+                    while True:
+                        byte = proc.stdout.read(1)
+                        if byte:
+                            if show_stdout:
+                                sys.stdout.buffer.write(byte)
+                                try:
+                                    sys.stdout.flush()
+                                except BlockingIOError:
+                                    # TODO understand. Why, Python, why.
+                                    pass
+                            if out_file is not None:
                                 logfile.write(byte)
-                            else:
-                                break
+                            if out_str is not None:
+                                logfile_str.append(byte)
+                        else:
+                            break
+                    if out_file is not None:
+                        logfile.close()
+                    if out_str is not None:
+                        out_str.append((b''.join(logfile_str)).decode())
             if threading.current_thread() == threading.main_thread():
                 signal.signal(signal.SIGINT, sigint_old)
                 #signal.signal(signal.SIGPIPE, sigpipe_old)
@@ -347,6 +391,8 @@ class ShellHelpers:
                 raise e
             return returncode
         else:
+            if not out_str is None:
+                out_str.append('')
             return 0
 
     def shlex_split(self, string):
