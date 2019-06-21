@@ -35,6 +35,7 @@ class _Component:
         submodules_shallow=None,
         python2_pkgs=None,
         python3_pkgs=None,
+        ruby_pkgs=None,
     ):
         self.build_callback = build_callback
         self.supported_archs = supported_archs
@@ -45,6 +46,7 @@ class _Component:
         self.submodules_shallow = submodules_shallow or set()
         self.python2_pkgs = python2_pkgs or set()
         self.python3_pkgs = python3_pkgs or set()
+        self.ruby_pkgs = ruby_pkgs or set()
 
     def build(self, arch):
         if (
@@ -233,6 +235,9 @@ so looping over all of them would waste time.
             ),
             'doc': _Component(
                 self._build_file('build-doc'),
+                ruby_pkgs={
+                    'asciidoctor',
+                },
             ),
             'gem5': _Component(
                 self._build_file('build-gem5'),
@@ -457,6 +462,7 @@ Which components to build. Default: qemu-buildroot
             python3_pkgs = {
                 'pexpect==4.6.0',
             }
+            ruby_pkgs = set()
             for component in selected_components:
                 apt_get_pkgs.update(component.apt_get_pkgs)
                 apt_build_deps.update(component.apt_build_deps)
@@ -464,6 +470,10 @@ Which components to build. Default: qemu-buildroot
                 submodules_shallow.update(component.submodules_shallow)
                 python2_pkgs.update(component.python2_pkgs)
                 python3_pkgs.update(component.python3_pkgs)
+                python3_pkgs.update(component.python3_pkgs)
+                ruby_pkgs.update(component.ruby_pkgs)
+            if ruby_pkgs:
+                apt_get_pkgs.add('ruby')
             if apt_get_pkgs or apt_build_deps:
                 if self.env['travis']:
                     interacive_pkgs = {
@@ -514,6 +524,10 @@ Which components to build. Default: qemu-buildroot
                     ['python3', '-m', 'pip', 'install', '--user', LF] +
                     self.sh.add_newlines(sorted(python3_pkgs))
                 )
+            if ruby_pkgs:
+                # TODO fails without sudo and with --local on Ubuntu 18.04.
+                self.sh.run_cmd(['sudo', 'gem', 'install', 'bundler', LF])
+                self.sh.run_cmd(['bundle', 'install', LF])
             git_cmd_common = [
                 'git', LF,
                 'submodule', LF,
