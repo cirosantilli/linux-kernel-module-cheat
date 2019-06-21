@@ -40,8 +40,8 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
             self.env['readme']
         ]).splitlines():
             if not external_link_re.match(link):
-                if not os.path.lexists(link):
-                    self.log_error('broken link: ' + link)
+                if not os.path.lexists(os.path.join(self.env['root_dir'], link)):
+                    self.log_error('broken link to local file: ' + link)
                     exit_status = 1
 
         # Check that non-README links to README IDs exit.
@@ -53,13 +53,16 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentatio
             self.env['readme']
         ]).splitlines():
             header_ids.add(header_id)
-        for grep_line in self.sh.check_output([
-            'git',
-            'grep',
-            '--fixed-strings',
-            self.env['github_repo_id_url'] + '#',
-            LF
-        ]).splitlines():
+        for grep_line in self.sh.check_output(
+            [
+                'git',
+                'grep',
+                '--fixed-strings',
+                self.env['github_repo_id_url'] + '#',
+                LF
+            ],
+            cwd=self.env['root_dir']
+        ).splitlines():
             url_index = grep_line.index(self.env['github_repo_id_url'])
             hash_start_index = url_index + len(self.env['github_repo_id_url'])
             if len(grep_line) > hash_start_index:

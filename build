@@ -525,9 +525,21 @@ Which components to build. Default: qemu-buildroot
                     self.sh.add_newlines(sorted(python3_pkgs))
                 )
             if ruby_pkgs:
-                # TODO fails without sudo and with --local on Ubuntu 18.04.
+                # The right thing to do would be to use RVM and avoid sudo,
+                # but we felt it was too much boilerplate for now.
+                #
+                # --user-install does work here, but we still need to add
+                # the binary to PATH which is a pain:
+                # https://stackoverflow.com/questions/31596273/install-gem-in-local-folder
                 self.sh.run_cmd(['sudo', 'gem', 'install', 'bundler', LF])
-                self.sh.run_cmd(['bundle', 'install', LF])
+                # No ones knows how to do this without sudo:
+                # https://stackoverflow.com/questions/16376995/bundler-cannot-install-any-gems-without-sudo/27677094
+                self.sh.run_cmd([
+                    'sudo', LF,
+                    'bundle', LF,
+                    'install', LF,
+                    '--gemfile', os.path.join(self.env['root_dir'], 'Gemfile'), LF,
+                ])
             git_cmd_common = [
                 'git', LF,
                 'submodule', LF,
