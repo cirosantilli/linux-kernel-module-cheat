@@ -11939,6 +11939,23 @@ Then it is just a huge copy paste of infinite boring details:
 * <<x86-simd>>
 * <<arm-simd>>
 
+To debug these instructoins, you can see the register values in GDB with:
+
+....
+info registers float
+....
+
+or alternatively with register names (here the ARMv8 V0 register):
+
+....
+print $v0
+....
+
+as mentioned at:
+
+* https://stackoverflow.com/questions/5429137/how-to-print-register-values-in-gdb/38036152#38036152
+* https://reverseengineering.stackexchange.com/questions/8992/floating-point-registers-on-arm/20623#20623
+
 Bibliography: https://stackoverflow.com/questions/1389712/getting-started-with-intel-x86-sse-simd-instructions/56409539#56409539
 
 === User vs system assembly
@@ -11995,6 +12012,7 @@ Examples under `arch/<arch>/c/` directories show to how use inline assembly from
 * x86_64
 ** link:userland/arch/x86_64/inline_asm/inc.c[]
 ** link:userland/arch/x86_64/inline_asm/add.c[]
+** link:userland/arch/x86_64/inline_asm/sqrt_x87.c[] Shows how to use the <<x86-x87-fpu-instructions>> from inline assembly. Bibliography: https://stackoverflow.com/questions/6514537/how-do-i-specify-immediate-floating-point-numbers-with-inline-assembly/52906126#52906126
 * arm
 ** link:userland/arch/arm/inline_asm/inc.c[]
 ** link:userland/arch/arm/inline_asm/inc_memory.c[]
@@ -12395,6 +12413,7 @@ Common combo with idiv 32-bit, which takes the input from `edx:eax`: so you need
 
 Has some Intel vs AT&T name overload hell:
 
+* https://stackoverflow.com/questions/6555094/what-does-cltq-do-in-assembly/45386217#45386217
 * https://stackoverflow.com/questions/17170388/trying-to-understand-the-assembly-instruction-cltd-on-x86/50315201#50315201
 * https://sourceware.org/binutils/docs/as/i386_002dMnemonics.html
 
@@ -12702,6 +12721,39 @@ There is also the `cpuinfo` command line tool that parses the CPUID instruction 
 <<intel-manual-1>> 5.2 "X87 FPU INSTRUCTIONS"
 
 Old floating point unit that you should likely not use anymore, prefer instead the newer <<x86-simd>> instructions.
+
+* FPU basic examples, start here
+** link:userland/arch/x86_64/fadd.S[] FADD. The x76 FPU works on a stack of floating point numbers.
+** link:userland/arch/x86_64/faddp.S[] FADDP. Instructions with the P suffix also Pop the stack. This is often what you want for most computations, where the intermediate results don't matter.
+** link:userland/arch/x86_64/fldl_literal.S[] FLDL literal. It does not seem possible to either https://stackoverflow.com/questions/6514537/how-do-i-specify-immediate-floating-point-numbers-with-inline-assembly
+*** load floating point immediates into x86 x87 FPU registers
+*** encode floating point literals in x86 instructions, including MOV
+* Bulk instructions
+** link:userland/arch/x86_64/fabs.S[] FABS: absolute value: `ST0 = |ST0|`
+** link:userland/arch/x86_64/fchs.S[] FCHS: change sign: `ST0 = -ST0`
+** link:userland/arch/x86_64/fild.S[] FILD: Integer Load. Convert integer to float.
+** link:userland/arch/x86_64/fld1.S[] FLD1: Push 1.0 to ST0. CISC!
+** link:userland/arch/x86_64/fldz.S[] FLDZ: Push 0.0 to ST0.
+** link:userland/arch/x86_64/fscale.S[] FSCALE: `ST0 = ST0 * 2 ^ RoundTowardZero(ST1)`
+** link:userland/arch/x86_64/fsqrt.S[] FSQRT: square root
+** link:userland/arch/x86_64/fxch.S[] FXCH: swap ST0 and another register
+
+==== x86 x87 FPU vs SIMD
+
+http://stackoverflow.com/questions/1844669/benefits-of-x87-over-sse
+
+Modern x86 has two main ways of doing floating point operations:
+
+* <<x86-x87-fpu-instructions>>
+* <<x86-simd>>
+
+Advantages of FPU:
+
+* present in old CPUs, while SSE2 is only required in x86-64
+* contains some instructions no present in SSE, e.g. trigonometric
+* higher precision: FPU holds 80 bit Intel extension, while SSE2 only does up to 64 bit operations despite having the 128-bit register
+
+In GCC, you can choose between them with `-mfpmath=`.
 
 === x86 SIMD
 
