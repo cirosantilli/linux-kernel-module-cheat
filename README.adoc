@@ -11847,6 +11847,7 @@ Other infrastructure sanity checks that you might want to look into include:
 
 After seeing an <<userland-assembly,ADD hello world>>, you need to learn the general registers:
 
+* x86: <<x86-registers>>
 * arm
 ** link:userland/arch/arm/registers.S[]
 * aarch64
@@ -12354,6 +12355,45 @@ Applications: http://stackoverflow.com/questions/234906/whats-the-purpose-of-the
 
 Arch agnostic infrastructure getting started at: <<userland-assembly>>.
 
+=== x86 registers
+
+link:userland/arch/x86_64/registers.S
+
+....
+|-----------------------------------------------|
+|  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+|-----------------------------------------------|
+|                       |           | AH  | AL  |
+|-----------------------------------------------|
+|                       |           |    AX     |
+|-----------------------------------------------|
+|                       |          EAX          |
+|-----------------------------------------------|
+|                      RAX                      |
+|-----------------------------------------------|
+....
+
+For the newer x86_64 registers, the naming convention is somewhat saner:
+
+....
+|-----------------------------------------------|
+|  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+|-----------------------------------------------|
+|                       |           |R12H |R12L |
+|-----------------------------------------------|
+|                       |           |    R12W   |
+|-----------------------------------------------|
+|                       |          R12D         |
+|-----------------------------------------------|
+|                      R12                      |
+|-----------------------------------------------|
+....
+
+Most of the 8 older x86 general purpose registers are not "really" general purpose in the sense that a few instructions magically use them without an explicit encoding. This is reflected in their names:
+
+* RAX: Accumulator. The general place where you add, subtract and otherwise manipulate results in-place. Magic for example for <<MUL,x86 binary arithmetic instructions>>
+* RCX, RSI, RDI: Counter, Source and Destination. Used in <<x86-string-instructions>>
+
 === x86 addressing modes
 
 Example: link:userland/arch/x86_64/address_modes.S[]
@@ -12631,7 +12671,7 @@ These instructions do some operation on an array item, and automatically update 
 ** link:userland/arch/x86_64/movs.S[]: MOVS: MOV String: move from one memory to another with addresses given by RSI and RDI. Could be used to implement `memmov`.
 ** link:userland/arch/x86_64/scas.S[]: SCAS: SCan String: compare memory to the value in a register. Could be used to implement `strchr`.
 
-The RSI and RDI registers are actually named after these intructions! S is the source of string instructions, D is the destination of string instructions.
+The RSI and RDI registers are actually named after these intructions! S is the source of string instructions, D is the destination of string instructions: https://stackoverflow.com/questions/1856320/purpose-of-esi-edi-registers
 
 The direction of the index increment depends on the direction flag of the FLAGS register: 0 means forward and 1 means backward: https://stackoverflow.com/questions/9636691/what-are-cld-and-std-for-in-x86-assembly-language-what-does-df-do
 
@@ -15402,10 +15442,16 @@ which also downloads build dependencies.
 Then the following times just to the faster:
 
 ....
-./build-docs
+./build-doc
 ....
 
 Source: link:build-doc[]
+
+Then just open the HTML output at:
+
+....
+xdg-open out/README.html
+....
 
 [[documentation-verification]]
 ==== Documentation verification
