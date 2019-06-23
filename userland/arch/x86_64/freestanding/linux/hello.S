@@ -19,4 +19,4 @@ asm_main_after_prologue:
     syscall
 msg:
     .ascii "hello\n"
-len = . - msg
+    len = . - msg

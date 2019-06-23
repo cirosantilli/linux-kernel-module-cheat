@@ -12136,6 +12136,7 @@ The following <<userland-setup>> programs illustrate how to make system calls:
 
 * x86_64
 ** link:userland/arch/x86_64/freestanding/linux/hello.S[]
+** link:userland/arch/x86_64/freestanding/linux/int_system_call.S[]
 ** link:userland/arch/x86_64/inline_asm/freestanding/linux/hello.c[]
 ** link:userland/arch/x86_64/inline_asm/freestanding/linux/hello_regvar.c[]
 * arm
@@ -12391,8 +12392,14 @@ For the newer x86_64 registers, the naming convention is somewhat saner:
 
 Most of the 8 older x86 general purpose registers are not "really" general purpose in the sense that a few instructions magically use them without an explicit encoding. This is reflected in their names:
 
-* RAX: Accumulator. The general place where you add, subtract and otherwise manipulate results in-place. Magic for example for <<MUL,x86 binary arithmetic instructions>>
+* RAX: Accumulator. The general place where you add, subtract and otherwise manipulate results in-place. Magic for example for <<x86-binary-arithmetic-instructions,MUL>>.
 * RCX, RSI, RDI: Counter, Source and Destination. Used in <<x86-string-instructions>>
+
+==== x86 FLAGS registers
+
+https://en.wikipedia.org/wiki/FLAGS_register
+
+TODO: add some more info here. Just need a link placeholder for now.
 
 === x86 addressing modes
 
@@ -12438,6 +12445,27 @@ Bibliography:
 ** link:userland/arch/x86_64/movzx.S[]: MOVZX
 ** link:userland/arch/x86_64/movsx.S[]: MOVSX
 * link:userland/arch/x86_64/bswap.S[]: BSWAP: convert between little endian and big endian
+* link:userland/arch/x86_64/pushf.S[] PUSHF: <<x86-push-and-pop-instructions,push and pop>> the <<x86-flags-registers>> to / from the stack
+
+==== x86 PUSH and POP instructions
+
+link:userland/arch/x86_64/push.S[]
+
+`push %rax` is basically equivalent to:
+
+....
+sub $8, %rsp
+mov %rax, (%rsp)
+....
+
+and `pop %rax`:
+
+....
+mov (%rsp), %rax
+add $8, %rsp
+....
+
+Why do those instructions exist at all vs MOV / ADD / SUB: http://stackoverflow.com/questions/4584089/what-is-the-function-of-push-pop-registers-in-x86-assembly/33583134#33583134
 
 ==== x86 CQTO and CLTQ instructions
 
@@ -12450,7 +12478,7 @@ Instructions without E suffix: sign extend RAX into RDX:RAX.
 
 Instructions E suffix: sign extend withing RAX itself.
 
-Common combo with idiv 32-bit, which takes the input from `edx:eax`: so you need to set up `edx` before calling it.
+Common combo with IDIV 32-bit, which takes the input from EDX:EAX: so you need to set up EDX before calling it.
 
 Has some Intel vs AT&T name overload hell:
 
@@ -12696,6 +12724,38 @@ REP and REPZ also additionally stop if the comparison operation they repeat fail
 
 * REP: INS, OUTS, MOVS, LODS, and STOS
 * REPZ: CMPS and SCAS
+
+==== x86 ENTER and LEAVE instructions
+
+link:userland/arch/x86_64/enter.S[]
+
+These instructions were designed to allocate and deallocate function stack frames in the prologue and epilogue: http://stackoverflow.com/questions/5959890/enter-vs-push-ebp-mov-ebp-esp-sub-esp-imm-and-leave-vs-mov-esp-ebp
+
+ENTER appears obsolete and is kept mostly for backwards compatibility. LEAVE is still emitted by some compilers.
+
+ENTER A, B is basically equivalent to:
+
+....
+push %rbp
+mov %rsp, %rbp
+sub %rsp, A
+....
+
+which implies an allocation of:
+
+* one dword to remember EBP
+* A bytes for local function variables
+
+I didn't have the patience to study the B parameter, and it does not seem to be used often: http://stackoverflow.com/questions/26323215/do-any-languages-compilers-utilize-the-x86-enter-instruction-with-a-nonzero-ne
+
+LEAVE is equivalent to:
+
+....
+mov %rbp, %rsp
+pop %rbp
+....
+
+which restores RSP and RBP to the values they had before the prologue.
 
 === x86 miscellaneous instructions
 
