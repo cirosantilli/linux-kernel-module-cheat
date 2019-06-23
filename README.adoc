@@ -11927,7 +11927,7 @@ Let's start as usual with floating point addition + register file:
 Much like ADD for non-SIMD, start learning SIMD instructions by looking at the integer and floating point SIMD ADD instructions of each ISA:
 
 * x86
-** <<x86-addpd-instruction>>
+** <<x86-sse-data-transfer-instructions,ADDPD>>
 ** <<x86-paddq-instruction>>
 * arm
 ** <<arm-vadd-instruction>>
@@ -11958,6 +11958,28 @@ as mentioned at:
 * https://reverseengineering.stackexchange.com/questions/8992/floating-point-registers-on-arm/20623#20623
 
 Bibliography: https://stackoverflow.com/questions/1389712/getting-started-with-intel-x86-sse-simd-instructions/56409539#56409539
+
+==== FMA instruction
+
+Fused multiply add:
+
+* x86: <<x86-fma>>
+
+Bibliography:
+
+* https://en.wikipedia.org/wiki/Multiply–accumulate_operation
+* https://en.wikipedia.org/wiki/FMA_instruction_set
+
+Particularly important numerical analysis instruction, that is used in particular for;
+
+* Dot product
+* Matrix multiplication
+
+FMA is so important that IEEE 754 specifies it with single precision drop compared to a separate add and multiply!
+
+Micro-op fun: http://stackoverflow.com/questions/28630864/how-is-fma-implemented
+
+Historically, FMA instructions have been added relatively late to instruction sets.
 
 === User vs system assembly
 
@@ -12858,6 +12880,8 @@ In GCC, you can choose between them with `-mfpmath=`.
 
 === x86 SIMD
 
+Parent section: <<simd-assembly>>
+
 History:
 
 * link:https://en.wikipedia.org/wiki/MMX_(instruction_set)[MMX]: MultiMedia eXtension (unofficial name). 1997. MM0-MM7 64-bit registers.
@@ -12869,21 +12893,50 @@ History:
 * AVX2:2013
 * AVX-512: 2016. 512-bit ZMM registers. Extension of YMM.
 
+==== x86 SSE instructions
+
+<<intel-manual-1>> 5.5 "SSE INSTRUCTIONS"
+
+===== x86 SSE data transfer instructions
+
+<<intel-manual-1>> 5.5.1.1 "SSE Data Transfer Instructions"
+
+* link:userland/arch/x86_64/movaps.S[]: MOVAPS: move 4 x 32-bits between two XMM registeres or XMM registers and 16-byte aligned memory
+* link:userland/arch/x86_64/movaps.S[]: MOVUPS: like MOVAPS but also works for unaligned memory
+* link:userland/arch/x86_64/movss.S[]: MOVSS: move 32-bits between two XMM registeres or XMM registers and memory
+
+===== x86 SSE packed arithmetic instructions
+
+<<intel-manual-1>> 5.5.1.2 "SSE Packed Arithmetic Instructions"
+
+* link:userland/arch/x86_64/addpd.S[]: ADDPS, ADDPD: good first instruction to learn SIMD: <<simd-assembly>>
+
+===== x86 SSE conversion instructions
+
+<<intel-manual-1>> 5.5.1.6 "SSE Conversion Instructions"
+
 ==== x86 SSE2 instructions
 
 <<intel-manual-1>> 5.6 "SSE2 INSTRUCTIONS"
 
-===== x86 ADDPD instruction
-
-link:userland/arch/x86_64/addpd.S[]: ADDPS, ADDPD
-
-Good first instruction to learn SIMD: <<simd-assembly>>
+* link:userland/arch/x86_64/cvttss2si.S[]: CVTTSS2SI: convert 32-bit floating point to 32-bit integer, store the result in a general purpose register. Round towards 0.
 
 ===== x86 PADDQ instruction
 
 link:userland/arch/x86_64/paddq.S[]: PADDQ, PADDL, PADDW, PADDB
 
 Good first instruction to learn SIMD: <<simd-assembly>>
+
+[[x86-fma]]
+==== x86 fused multiply add (FMA)
+
+<<intel-manual-1>> 5.15 "FUSED-MULTIPLY-ADD (FMA)"
+
+* link:userland/arch/x86_64/vfmadd132pd.S[]: VFMADD132PD: "Multiply packed double-precision floating-point values from xmm1 and xmm3/mem, add to xmm2 and put result in xmm1." TODO: but I don't understand the manual, experimentally on <<p51>> Ubuntu 19.04 host the result is stored in XMM2!
+
+These instructions were not part of any SSEn set: they actually have a dedicated CPUID flag for it! It appears under `/proc/cpuinfo` as `fma`. They were introduced into AVX512F however.
+
+They are also unusual for x86 instructions in that they take 3 operands, as you would intuitively expect from the definition of FMA.
 
 === x86 system instructions
 
@@ -13629,6 +13682,8 @@ Guaranteed undefined! Therefore raise illegal instruction signal. Used by GCC `_
 Why GNU GAS 2.29 does not have a mnemonic for it in A64 because it is very recent: shows in <<armarm8-db>> but not `ca`.
 
 === ARM SIMD
+
+Parent section: <<simd-assembly>>
 
 ==== ARM VFP
 

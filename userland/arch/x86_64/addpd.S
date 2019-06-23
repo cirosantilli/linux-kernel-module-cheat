@@ -1,6 +1,6 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-addpd-instruction
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-sse-packed-arithmetic-instructions
  *
- * Add a few floating point numbers in one go (P == packaged)
+ * Add a few floating point numbers in one go (P == packaged).
  */
 
 #include <lkmc.h>
