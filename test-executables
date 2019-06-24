@@ -6,6 +6,7 @@ import sys
 import common
 import lkmc.import_path
 import path_properties
+import signal
 import thread_pool
 
 class Main(common.TestCliFunction):
@@ -76,13 +77,18 @@ If given, run only the given tests. Otherwise, run all tests.
                                     'run_obj': lkmc.import_path.import_path_main('run'),
                                     'test_id': '{} {}'.format(self.env['mode'], path_relative_root),
                                 }
-                                signal = my_path_properties['signal_received']
-                                if signal is not None:
+                                if (my_path_properties['qemu_unimplemented_instruction'] and
+                                    self.env['emulator'] == 'qemu' and
+                                    self.env['mode'] == 'userland'
+                                ):
+                                    run_test_args['expected_exit_status'] = -signal.Signals.SIGILL.value
+                                my_signal = my_path_properties['signal_received']
+                                if my_signal is not None:
                                     if self.env['mode'] == 'baremetal':
-                                        run_test_args['expected_exit_status'] = 128 + signal.value
+                                        run_test_args['expected_exit_status'] = 128 + my_signal.value
                                     elif self.env['mode'] == 'userland':
                                         # Python subprocess reports signals differently from Bash's 128 + signal rule.
-                                        run_test_args['expected_exit_status'] = -signal.value
+                                        run_test_args['expected_exit_status'] = -my_signal.value
                                 my_thread_pool.submit(run_test_args)
         return self._handle_thread_pool_errors(my_thread_pool)
 

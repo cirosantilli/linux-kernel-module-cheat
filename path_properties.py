@@ -48,6 +48,9 @@ class PathProperties:
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
         'gem5_unimplemented_instruction': False,
+        'qemu_unimplemented_instruction': False,
+        # For some reason QEMU fails with SIGSEGV on int syscalls in x86_64.
+        'qemu_x86_64_int_syscall': False,
         'interactive': False,
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
@@ -168,6 +171,7 @@ class PathProperties:
             not self['requires_kernel_modules'] and
             not self['requires_sudo'] and
             not self['skip_run_unclassified'] and
+            not self['qemu_x86_64_int_syscall'] and
             not (
                 env['emulator'] == 'gem5' and
                 (
@@ -182,7 +186,10 @@ class PathProperties:
             not (
                 env['emulator'] == 'qemu' and
                 (
-                    self['requires_m5ops']
+                    self['requires_m5ops'] or
+                    env['mode'] == 'baremetal' and (
+                        self['qemu_unimplemented_instruction']
+                    )
                 )
             )
         )
@@ -394,29 +401,55 @@ path_properties_tuples = (
                                 },
                             }
                         ),
-                        'lkmc_assert_fail.S': {
-                            'signal_received': signal.Signals.SIGABRT,
-                        },
                         'x86_64': (
                             {'allowed_archs': {'x86_64'}},
                             {
-                                'inline_asm': (
+                                'freestanding': (
+                                    freestanding_properties,
                                     {
-                                    },
+                                        'linux': (
+                                            {},
+                                            {
+                                                'int_system_call.S': {'qemu_x86_64_int_syscall': True},
+                                            }
+                                        ),
+                                    }
+                                ),
+                                'inline_asm': (
+                                    {},
                                     {
                                         'freestanding': freestanding_properties,
                                     }
                                 ),
+                                'intrinsics': (
+                                    {},
+                                    {
+                                        'rdtscp.c': {
+                                            'gem5_unimplemented_instruction': True,
+                                            'qemu_unimplemented_instruction': True,
+                                        },
+                                    }
+                                ),
                                 'div_overflow.S': {'signal_received': signal.Signals.SIGFPE},
                                 'div_zero.S': {'signal_received': signal.Signals.SIGFPE},
-                                'freestanding': freestanding_properties,
                                 'lkmc_assert_eq_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'lkmc_assert_memcmp_fail.S': {'signal_received': signal.Signals.SIGABRT},
-                                'ring0.c': {
-                                    'signal_received': signal.Signals.SIGSEGV,
-                                }
+                                'popcnt.S': {'qemu_unimplemented_instruction': True},
+                                'rdrand.S': {
+                                    'gem5_unimplemented_instruction': True,
+                                    'qemu_unimplemented_instruction': True,
+                                },
+                                'rdtscp.S': {'qemu_unimplemented_instruction': True},
+                                'ring0.c': {'signal_received': signal.Signals.SIGSEGV},
+                                'vfmadd132pd.S': {
+                                    'gem5_unimplemented_instruction': True,
+                                    'qemu_unimplemented_instruction': True,
+                                },
                             }
                         ),
+                        'lkmc_assert_fail.S': {
+                            'signal_received': signal.Signals.SIGABRT,
+                        },
                     }
                 ),
                 'c': (
