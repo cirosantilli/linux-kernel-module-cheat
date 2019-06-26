@@ -474,6 +474,12 @@ path_properties_tuples = (
                         'return2.c': {'exit_status': 2},
                     }
                 ),
+                'cpp': (
+                    {},
+                    {
+                        'bst_vs_heap_vs_hashmap.cpp': {'more_than_1s': True},
+                    },
+                ),
                 'gcc': (
                     gnu_extension_properties,
                     {

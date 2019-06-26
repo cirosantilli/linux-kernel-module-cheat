@@ -975,7 +975,7 @@ This setup:
 +
 --
 ** can run most examples, including those for other CPU architectures, with the notable exception of examples that rely on kernel modules
-** can run reproducible approximate performance experiments with gem5, see e.g. <<bst-vs-heap>>
+** can run reproducible approximate performance experiments with gem5, see e.g. <<bst-vs-heap-vs-hashmap>>
 --
 * from full system simulation as shown at: <<qemu-buildroot-setup-getting-started>>.
 +
@@ -9961,7 +9961,7 @@ Now you can play a fun little game with your friends:
 * make a program that solves the computation problem, and outputs output to stdout
 * write the code that runs the correct computation in the smallest number of cycles possible
 
-To find out why your program is slow, a good first step is to have a look at <<stats-txt>> file.
+To find out why your program is slow, a good first step is to have a look at <<gem5-stats-txt>> file.
 
 ==== Skip extra benchmark instructions
 
@@ -10210,36 +10210,79 @@ Buildroot built-in libraries, mostly under Libraries > Other:
 
 There are not yet enabled, but it should be easy to so, see: <<add-new-buildroot-packages>>
 
-===== BST vs heap
+===== BST vs heap vs hashmap
 
-https://stackoverflow.com/questions/6147242/heap-vs-binary-search-tree-bst/29548834#29548834
+The following benchmark setup works both:
 
-First we build it with <<m5ops-instructions>> enabled, and then we extract the stats:
+* on host through timers + link:https://stackoverflow.com/questions/51952471/why-do-i-get-a-constant-instead-of-logarithmic-curve-for-an-insert-time-benchmar/51953081#51953081[granule]
+* gem5 with <<m5ops-instructions,dumpstats>>, which can get more precise results with `granule == 1`
+
+It has been used to answer:
+
+* BST vs heap: https://stackoverflow.com/questions/6147243/heap-vs-binary-search-tree-bst/29548834#29548834
+* `std::set`: https://stackoverflow.com/questions/2558153/what-is-the-underlying-data-structure-of-a-stl-set-in-c/51944661#51944661
+* `std::map`: https://stackoverflow.com/questions/18414579/what-data-structure-is-inside-stdmap-in-c/51945119#51945119
+
+To benchmark on the host, we do:
+
+....
+./build-userland-in-tree --force-rebuild --optimization-level 3 ./userland/cpp/bst_vs_heap_vs_hashmap.cpp
+./userland/cpp/bst_vs_heap_vs_hashmap.out | tee bst_vs_heap_vs_hashmap.dat
+gnuplot \
+  -e 'input_noext="bst_vs_heap_vs_hashmap"' \
+  -e 'heap_zoom_max=50' \
+  -e 'hashmap_zoom_max=400' \
+  ./bst-vs-heap-vs-hashmap.gnuplot \
+;
+xdg-open bst_vs_heap_vs_hashmap.tmp.png
+....
+
+The parameters `heap_zoom_max` and `hashmap_zoom_max` are chosen manually interactively to best showcase the regions of interest in  those plots.
+
+First we build the benchmark with <<m5ops-instructions>> enabled, and then we run it and extract the stats:
 
 ....
 ./build-userland \
-  --arch aarch64 \
+  --arch x86_64 \
   --ccflags='-DLKMC_M5OPS_ENABLE=1' \
-  --force-rebuild cpp/bst_vs_heap \
+  --force-rebuild userland/cpp/bst_vs_heap_vs_hashmap.cpp \
   --static \
+  --optimization-level 3 \
 ;
 ./run \
-  --arch aarch64 \
+  --arch x86_64 \
   --emulator gem5 \
   --static \
-  --userland userland/cpp/bst_vs_heap.cpp \
-  --userland-args='1000' \
+  --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+  --userland-args='100000' \
+  -- \
+  --cpu-type=DerivO3CPU \
+  --caches \
+  --l2cache \
+  --l1d_size=32kB \
+  --l1i_size=32kB \
+  --l2_size=256kB \
+  --l3_size=20MB \
 ;
-./bst-vs-heap --arch aarch64 > bst_vs_heap.dat
-./bst-vs-heap.gnuplot
-xdg-open bst-vs-heap.tmp.png
+./bst-vs-heap-vs-hashmap-gem5-stats --arch x86_64 | tee bst_vs_heap_vs_hashmap_gem5.dat
+gnuplot \
+  -e 'input_noext="bst_vs_heap_vs_hashmap_gem5"' \
+  -e 'heap_zoom_max=500' \
+  -e 'hashmap_zoom_max=400' \
+  ./bst-vs-heap-vs-hashmap.gnuplot \
+;
+xdg-open bst_vs_heap_vs_hashmap_gem5.tmp.png
 ....
+
+The cache sizes were chosen to match the host <<p51>> to improve the comparison. Ideally we sould also use the same standard library.
+
+Note that this will take a long time, and will produce a humongous ~40Gb stats file due to: <<gem5-only-dump-selected-stats>>
 
 Sources:
 
-* link:userland/cpp/bst_vs_heap.cpp[]
-* link:bst-vs-heap[]
-* link:bst-vs-heap.gnuplot[]
+* link:userland/cpp/bst_vs_heap_vs_hashmap.cpp[]
+* link:bst-vs-heap-vs-hashmap-gem5-stats[]
+* link:bst-vs-heap-vs-hashmap.gnuplot[]
 
 ===== BLAS
 
@@ -11110,7 +11153,7 @@ Contains UART output, both from the Linux kernel or from the baremetal system.
 
 Can also be seen live on <<m5term>>.
 
-==== stats.txt
+==== gem5 stats.txt
 
 This file contains important statistics about the run:
 
@@ -11135,6 +11178,14 @@ system.cpu.dtb.inst_hits
 ....
 
 For x86, it is interesting to try and correlate `numCycles` with:
+
+===== gem5 only dump selected stats
+
+TODO
+
+https://stackoverflow.com/questions/52014953/how-to-dump-only-a-single-or-certain-selected-stats-in-gem5
+
+To prevent the stats file from becoming humongous.
 
 ==== config.ini
 
@@ -12974,7 +13025,7 @@ RDTSC stores its output to EDX:EAX, even in 64-bit mode, top bits are zeroed out
 
 TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
 
-Let's have some fun and try to correlate the gem5 <<stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
+Let's have some fun and try to correlate the gem5 <<gem5-stats-txt>> `system.cpu.numCycles` cycle count with the link:https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
 
 ....
 ./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.S
