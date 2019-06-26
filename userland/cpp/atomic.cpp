@@ -1,19 +1,27 @@
-// https://github.com/cirosantilli/linux-kernel-module-cheat#atomic
+// https://github.com/cirosantilli/linux-kernel-module-cheat#cpp
+// https://github.com/cirosantilli/linux-kernel-module-cheat#x86-lock-prefix
 //
-// More restricted than mutex as it can only protect a few operations on integers.
+// The non-atomic counters have undefined values which get printed:
+// they are extremely likely to be less than the correct value due to
+// race conditions on the data read and update of the ++.
 //
-// But if that is the use case, may be more efficient.
+// The atomic counters have defined values, and are asserted
 //
-// On GCC 4.8 x86-64, using atomic is a huge peformance improvement
-// over the same program with mutexes (5x).
+// Atomic operations are more restricted than mutex as they can
+// only protect a few operations on integers.
+//
+// But when they can be used, they can be much more efficient than mutees.
+//
+// On GCC 4.8 x86-64, using atomic offered a 5x peformance improvement
+// over the same program with mutexes.
 
+
+#if __cplusplus >= 201103L
 #include <atomic>
 #include <cassert>
 #include <iostream>
 #include <thread>
 #include <vector>
-
-#if __cplusplus >= 201103L
 std::atomic_ulong my_atomic_ulong(0);
 unsigned long my_non_atomic_ulong = 0;
 #if defined(__x86_64__)

@@ -11793,8 +11793,19 @@ Programs under link:userland/cpp/[] are examples of link:https://en.wikipedia.or
 
 * link:userland/cpp/empty.cpp[]
 * link:userland/cpp/hello.cpp[]
-* `<atomic>` 32 "Atomic operations library"
+* `<atomic>`: <<cpp17>> 32 "Atomic operations library"
 ** link:userland/cpp/atomic.cpp[]
+
+==== C++ standards
+
+Like for C, you have to pay for the standards... insane. So we just use the closest free drafts instead.
+
+https://stackoverflow.com/questions/81656/where-do-i-find-the-current-c-or-c-standard-documents
+
+[[cpp17]]
+===== C++17 N4659 standards draft
+
+http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/n4659.pdf
 
 === POSIX
 
@@ -12538,6 +12549,33 @@ Bibliography:
 * link:userland/arch/x86_64/bswap.S[]: BSWAP: convert between little endian and big endian
 * link:userland/arch/x86_64/pushf.S[] PUSHF: <<x86-push-and-pop-instructions,push and pop>> the <<x86-flags-registers>> to / from the stack
 
+==== x86 exchange instructions
+
+<<intel-manual-1>> 7.3.1.2 "Exchange Instructions":
+
+* link:userland/arch/x86_64/xadd.S[] XADD: exchange and add. This is how C++ `<atomic>`'s' `++` is implemented in GCC 5.1. TODO: why is the exchange part needed?
+* link:userland/arch/x86_64/xchg.S[] XCHG: exchange two values
+
+TODO: concrete multi-thread <<gcc-inline-assembly>> examples of how all those instructions are normally used as synchronization primitives.
+
+===== x86 CMPXCHG instruction
+
+link:userland/arch/x86_64/cmpxchg.S[]
+
+CMPXCHG: compare and exchange. `cmpxchg a, b` does:
+
+....
+if (RAX == b) {
+    ZF = 1
+    b = a
+} else {
+    ZF = 0
+    RAX = b
+}
+....
+
+TODO application: https://stackoverflow.com/questions/6935442/x86-spinlock-using-cmpxchg
+
 ==== x86 PUSH and POP instructions
 
 link:userland/arch/x86_64/push.S[]
@@ -13085,6 +13123,14 @@ TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>
 * https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
 * https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
 * https://blog.regehr.org/archives/794
+
+=== x86 LOCK prefix
+
+Ensures that memory modifications are visible across all CPUs, which is fundamental for thread synchronization.
+
+Inline assembly example at: link:userland/cpp/atomic.cpp[]
+
+Apparently already automatically implied by some of the <<x86-exchange-instructions>>
 
 === x86 assembly bibliography
 
