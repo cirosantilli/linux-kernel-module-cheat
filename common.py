@@ -1541,6 +1541,8 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                     not my_path_properties['extra_objs_disable_baremetal_bootloader']
                 ):
                     extra_objs.extend(extra_objs_baremetal_bootloader)
+                if self.env['mode'] == 'userland':
+                    cc_flags_after.extend(['-pthread', LF])
             if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
                 cc_flags.extend(my_path_properties['cc_flags'])
                 cc_flags_after.extend(my_path_properties['cc_flags_after'])

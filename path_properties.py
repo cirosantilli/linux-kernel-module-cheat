@@ -507,7 +507,6 @@ path_properties_tuples = (
                         'proc_events.c': {'requires_sudo': True},
                         'sched_getaffinity.c': {'requires_syscall_getcpu': True},
                         'sched_getaffinity_threads.c': {
-                            'cc_flags_after': ['-pthread', LF],
                             'more_than_1s': True,
                             'requires_syscall_getcpu': True,
                         },
