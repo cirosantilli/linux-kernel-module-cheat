@@ -1,5 +1,4 @@
 // https://github.com/cirosantilli/linux-kernel-module-cheat#cpp
-// https://github.com/cirosantilli/linux-kernel-module-cheat#x86-lock-prefix
 //
 // The non-atomic counters have undefined values which get printed:
 // they are extremely likely to be less than the correct value due to
@@ -15,7 +14,6 @@
 // On GCC 4.8 x86-64, using atomic offered a 5x peformance improvement
 // over the same program with mutexes.
 
-
 #if __cplusplus >= 201103L
 #include <atomic>
 #include <cassert>
@@ -24,7 +22,7 @@
 #include <vector>
 std::atomic_ulong my_atomic_ulong(0);
 unsigned long my_non_atomic_ulong = 0;
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
 unsigned long my_arch_atomic_ulong = 0;
 unsigned long my_arch_non_atomic_ulong = 0;
 #endif
@@ -41,11 +39,27 @@ void threadMain() {
             :
             :
         );
+        // https://github.com/cirosantilli/linux-kernel-module-cheat#x86-lock-prefix
         __asm__ __volatile__ (
             "lock;"
             "incq %0;"
             : "+m" (my_arch_atomic_ulong)
             :
+            :
+        );
+#elif defined(__aarch64__)
+        __asm__ __volatile__ (
+            "add %0, %0, 1;"
+            : "+r" (my_arch_non_atomic_ulong)
+            :
+            :
+        );
+        // https://github.com/cirosantilli/linux-kernel-module-cheat#arm-lse
+        __asm__ __volatile__ (
+            "ldadd %[inc], xzr, [%[addr]];"
+            : "=m" (my_arch_atomic_ulong)
+            : [inc] "r" (1),
+              [addr] "r" (&my_arch_atomic_ulong)
             :
         );
 #endif
@@ -75,7 +89,7 @@ int main(int argc, char **argv) {
     // We can also use the atomics direclty through `operator T` conversion.
     assert(my_atomic_ulong == my_atomic_ulong.load());
     std::cout << "my_non_atomic_ulong " << my_non_atomic_ulong << std::endl;
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
     assert(my_arch_atomic_ulong == nthreads * niters);
     std::cout << "my_arch_non_atomic_ulong " << my_arch_non_atomic_ulong << std::endl;
 #endif

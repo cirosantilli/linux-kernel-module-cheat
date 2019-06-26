@@ -576,6 +576,7 @@ Extra options to append at the end of the emulator command line.
                     qemu_user_and_system_options +
                     debug_args
                 )
+                cpu = 'max'
             else:
                 extra_emulator_args.extend(extra_qemu_args)
                 self.make_run_dirs()
@@ -594,9 +595,11 @@ Extra options to append at the end of the emulator command line.
                         serial_monitor = ['-serial', serial, LF]
                 if self.env['kvm']:
                     extra_emulator_args.extend([
-                        '-cpu', 'host', LF,
                         '-enable-kvm', LF,
                     ])
+                    cpu = 'host'
+                else:
+                    cpu = 'max'
                 extra_emulator_args.extend([
                     '-serial',
                     'tcp::{},server,nowait'.format(self.env['extra_serial_port']), LF
@@ -706,19 +709,15 @@ Extra options to append at the end of the emulator command line.
                     ])
                 elif self.env['is_arm']:
                     extra_emulator_args.extend(['-semihosting', LF])
-                    if self.env['arch'] == 'arm':
-                        cpu = 'cortex-a15'
-                    else:
-                        cpu = 'cortex-a57'
                     append = ['-append', '{} {}'.format(root, kernel_cli), LF]
                     cmd.extend(
-                        [
-                            '-cpu', cpu, LF,
-                        ] +
                         virtio_gpu_pci
                     )
                 if self.env['baremetal'] is None:
                     cmd.extend(append)
+            extra_emulator_args.extend([
+                '-cpu', cpu, LF,
+            ])
         if self.env['tmux']:
             tmux_args = '--run-id {}'.format(self.env['run_id'])
             if self.env['tmux_program'] == 'shell':

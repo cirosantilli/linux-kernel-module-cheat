@@ -658,20 +658,40 @@ Incompatible archs are skipped.
             else:
                 env['gem5_build_id'] = consts['default_build_id']
         env['is_arm'] = False
+        # Our approach is as follows:
+        #
+        # * compilers: control maximum arch version emitted explicitly -mcpu
+        # +
+        # This helps to prevent blowing up simulation unnecessarily.
+        # +
+        # It does not matter if we miss any perf features for QEMU which is functional,
+        # but it could matter for gem5 perf simulations.
+        # * assemblers: enable as many features as possible.
+        # +
+        # Well, if I'm explicitly writing down the instructions, I want
+        # my emulator to blow up in peace!
+        # * emulators: enable as many features as possible
+        # +
+        # This is the gem5 default behavior, for QEMU TODO not sure if default,
+        # but we select it explicitly with -cpu max.
+        # https://habkost.net/posts/2017/03/qemu-cpu-model-probing-story.html
+        # +
+        # We doe this because QEMU does not add all possible Cortex Axx, there are
+        # just too many, and gem5 does not allow selecting lower feature in general.
         if env['arch'] == 'arm':
             env['armv'] = 7
-            env['mcpu'] = 'cortex-a15'
             env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-gnueabihf'
             env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
             env['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
             env['is_arm'] = True
+            env['march'] = 'armv8-a'
         elif env['arch'] == 'aarch64':
             env['armv'] = 8
-            env['mcpu'] = 'cortex-a57'
             env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-gnu'
             env['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
             env['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
             env['is_arm'] = True
+            env['march'] = 'armv8-a+lse'
         elif env['arch'] == 'x86_64':
             env['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
             env['gem5_arch'] = 'X86'
@@ -1545,6 +1565,10 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                     cc_flags_after.extend(['-pthread', LF])
             if self.need_rebuild([in_path] + extra_objs + extra_deps, out_path):
                 cc_flags.extend(my_path_properties['cc_flags'])
+                if self.env['verbose']:
+                    cc_flags.extend([
+                        '-v', LF,
+                    ])
                 cc_flags_after.extend(my_path_properties['cc_flags_after'])
                 if my_path_properties['cc_pedantic']:
                     cc_flags.extend(['-pedantic', LF])
@@ -1557,6 +1581,15 @@ https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
                 elif in_ext == self.env['cxx_ext']:
                     cc = self.env['gxx_path']
                     std = my_path_properties['cxx_std']
+                if self.env['is_arm']:
+                    if in_ext == self.env['asm_ext']:
+                        cc_flags.extend([
+                            '-Xassembler', '-march=all', LF,
+                        ])
+                    else:
+                        cc_flags.extend([
+                            '-march={}'.format(self.env['march']), LF,
+                        ])
                 if dirpath_relative_root_components_len > 0:
                     if dirpath_relative_root_components[0] == 'userland':
                         if dirpath_relative_root_components_len > 1:

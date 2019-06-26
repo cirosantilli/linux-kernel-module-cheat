@@ -344,7 +344,6 @@ path_properties_tuples = (
                             {
                                 'allowed_archs': {'arm'},
                                 'cc_flags': [
-                                    '-Xassembler', '-mcpu=cortex-a72', LF,
                                     # To prevent:
                                     # > vfp.S: Error: selected processor does not support <FPU instruction> in ARM mode
                                     # https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/52875732#52875732
@@ -383,7 +382,9 @@ path_properties_tuples = (
                             }
                         ),
                         'aarch64': (
-                            {'allowed_archs': {'aarch64'}},
+                            {
+                                'allowed_archs': {'aarch64'},
+                            },
                             {
                                 'inline_asm': (
                                     {
@@ -399,6 +400,7 @@ path_properties_tuples = (
                                     'signal_generated_by_os': True,
                                     'signal_received': signal.Signals.SIGILL,
                                 },
+                                'sve.S': {'gem5_unimplemented_instruction': True}
                             }
                         ),
                         'x86_64': (

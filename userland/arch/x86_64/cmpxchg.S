@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#cmpxchg-instruction */
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-cmpxchg-instruction */
 
 #include <lkmc.h>
 
@@ -24,5 +24,4 @@ LKMC_PROLOGUE
     LKMC_ASSERT_EQ(%rax, $0)
     LKMC_ASSERT_EQ(%r13, $2)
     LKMC_ASSERT_EQ(%r14, $2)
-
 LKMC_EPILOGUE
