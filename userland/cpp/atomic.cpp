@@ -20,6 +20,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+
 std::atomic_ulong my_atomic_ulong(0);
 unsigned long my_non_atomic_ulong = 0;
 #if defined(__x86_64__) || defined(__aarch64__)
