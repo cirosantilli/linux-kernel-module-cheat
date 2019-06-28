@@ -478,9 +478,7 @@ path_properties_tuples = (
                 ),
                 'cpp': (
                     {},
-                    {
-                        'bst_vs_heap_vs_hashmap.cpp': {'more_than_1s': True},
-                    },
+                    {},
                 ),
                 'gcc': (
                     gnu_extension_properties,
