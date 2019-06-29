@@ -1,7 +1,5 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-string-instructions */
 
-    # Compare two arrays
-
 #include <lkmc.h>
 
 .section .rodata

@@ -1,6 +1,4 @@
-# # bswap
-
-    # Little endian <=> big endian.
+/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-data-transfer-instructions */
 
 #include <lkmc.h>
 

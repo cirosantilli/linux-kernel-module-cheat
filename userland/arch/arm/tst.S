@@ -16,7 +16,7 @@ LKMC_PROLOGUE
     mov r0, 0xFF
     tst r0, 0x0F
     LKMC_ASSERT(bne)
-    # r0 was not modified.
+    /* r0 was not modified. */
     LKMC_ASSERT_EQ(r0, =0xFF)
 
 LKMC_EPILOGUE

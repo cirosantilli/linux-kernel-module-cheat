@@ -1,9 +1,4 @@
 /* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-string-instructions */
-# # movs
-
-    # Copy one string into another.
-
-    # Input pointed by esi, output by edi.
 
 #include <lkmc.h>
 
