@@ -17,14 +17,26 @@ class Main(common.LkmcCliFunction):
 https://github.com/cirosantilli/linux-kernel-module-cheat#build-the-documentation
 ''',
         )
+        self.add_argument(
+            '--github-pages',
+            default=False,
+            help='''
+Build for GitHub pages instead of a local build. This redirects all links
+from the README to example sources to GitHub rather than locally.
+'''
+        )
 
     def timed_main(self):
         asciidoctor_dir = os.path.join(self.env['root_dir'], 'asciidoctor')
+        if self.env['github_pages']:
+            link_target_script = 'link-target-github.rb'
+        else:
+            link_target_script = 'link-target-up.rb'
         exit_status = self.sh.run_cmd(
             [
                 'asciidoctor', LF,
                 '--failure-level', 'info', LF,
-                '--require', os.path.join(asciidoctor_dir, 'link-target-up.rb'), LF,
+                '--require', os.path.join(asciidoctor_dir, link_target_script), LF,
                 '--out-file', self.env['readme_out'], LF,
                 '--trace', LF,
                 '--verbose', LF,
