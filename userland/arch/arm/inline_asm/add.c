@@ -1,6 +1,6 @@
 /* 1 + 2 == 3
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly
+ * https://cirosantilli.com/linux-kernel-module-cheat#gcc-inline-assembly
  */
 
 #include <assert.h>

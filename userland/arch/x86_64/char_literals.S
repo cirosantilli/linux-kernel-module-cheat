@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-char-literals */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gnu-gas-assembler-char-literals */
 
 #include <lkmc.h>
 

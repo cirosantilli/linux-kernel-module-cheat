@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#irq-ko */
+/* https://cirosantilli.com/linux-kernel-module-cheat#irq-ko */
 
 #include <linux/fs.h>
 #include <linux/interrupt.h>

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-intrinsics */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gcc-intrinsics */
 
 #include <assert.h>
 #include <inttypes.h>

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-paddq-instruction
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-paddq-instruction
  *
  * Add several integers in one go.
  *

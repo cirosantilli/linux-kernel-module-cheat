@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#uio */
+/* https://cirosantilli.com/linux-kernel-module-cheat#uio */
 
 #if 1
 

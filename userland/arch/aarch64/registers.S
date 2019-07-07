@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#assembly-registers */
+/* https://cirosantilli.com/linux-kernel-module-cheat#assembly-registers */
 
 #include <lkmc.h>
 

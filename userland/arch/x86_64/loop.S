@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-loop-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-loop-instruction */
 
 #include <lkmc.h>
 

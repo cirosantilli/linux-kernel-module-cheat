@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler data sizes */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gnu-gas-assembler data sizes */
 
 #include <lkmc.h>
 

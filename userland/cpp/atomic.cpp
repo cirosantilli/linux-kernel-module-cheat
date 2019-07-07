@@ -1,4 +1,4 @@
-// https://github.com/cirosantilli/linux-kernel-module-cheat#cpp
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp
 //
 // The non-atomic counters have undefined values which get printed:
 // they are extremely likely to be less than the correct value due to
@@ -40,7 +40,7 @@ void threadMain() {
             :
             :
         );
-        // https://github.com/cirosantilli/linux-kernel-module-cheat#x86-lock-prefix
+        // https://cirosantilli.com/linux-kernel-module-cheat#x86-lock-prefix
         __asm__ __volatile__ (
             "lock;"
             "incq %0;"
@@ -55,7 +55,7 @@ void threadMain() {
             :
             :
         );
-        // https://github.com/cirosantilli/linux-kernel-module-cheat#arm-lse
+        // https://cirosantilli.com/linux-kernel-module-cheat#arm-lse
         __asm__ __volatile__ (
             "ldadd %[inc], xzr, [%[addr]];"
             : "=m" (my_arch_atomic_ulong)

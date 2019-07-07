@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#time_boot-out */
+/* https://cirosantilli.com/linux-kernel-module-cheat#time_boot-out */
 
 #define _XOPEN_SOURCE 700
 #include <stdio.h>

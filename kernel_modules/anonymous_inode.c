@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#anonymous-inode */
+/* https://cirosantilli.com/linux-kernel-module-cheat#anonymous-inode */
 
 #include <linux/anon_inodes.h>
 #include <linux/debugfs.h>

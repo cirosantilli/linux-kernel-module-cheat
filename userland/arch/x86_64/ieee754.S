@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ieee-754 */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ieee-754 */
 
 #include <lkmc.h>
 #include <lkmc/float.h>
@@ -26,7 +26,7 @@ LKMC_PROLOGUE
     /* TODO: GAS nan is a different NaN: 0x7FFFFFFF */
     /*LKMC_ASSERT_EQ(double_nan, double_ref_nan)*/
 
-    /* x87 80-bit FPU: https://github.com/cirosantilli/linux-kernel-module-cheat#x86-x87-fpu-instructions */
+    /* x87 80-bit FPU: https://cirosantilli.com/linux-kernel-module-cheat#x86-x87-fpu-instructions */
 
         /* 1.5 + 2.5 == 4.0. */
         fldl double_1_5

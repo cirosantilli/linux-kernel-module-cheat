@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ubfm-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-ubfm-instruction */
 
 #include <lkmc.h>
 

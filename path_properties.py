@@ -269,7 +269,7 @@ freestanding_properties = {
     ],
     'extra_objs_lkmc_common': False,
 }
-# See: https://github.com/cirosantilli/linux-kernel-module-cheat#path-properties
+# See: https://cirosantilli.com/linux-kernel-module-cheat#path-properties
 path_properties_tuples = (
     PathProperties.default_properties,
     {

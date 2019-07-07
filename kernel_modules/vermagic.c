@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#vermagic */
+/* https://cirosantilli.com/linux-kernel-module-cheat#vermagic */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

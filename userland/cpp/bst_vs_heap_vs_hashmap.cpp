@@ -1,4 +1,4 @@
-// https://github.com/cirosantilli/linux-kernel-module-cheat#bst-vs-heap-vs-hashmap
+// https://cirosantilli.com/linux-kernel-module-cheat#bst-vs-heap-vs-hashmap
 
 #include <algorithm>
 #include <cassert>

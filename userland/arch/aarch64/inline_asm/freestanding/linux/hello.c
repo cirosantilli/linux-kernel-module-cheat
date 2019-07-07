@@ -1,5 +1,5 @@
 /* aarch64 freestanding C inline assemby Linux hello world
- * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ * https://cirosantilli.com/linux-kernel-module-cheat#linux-system-calls
  */
 
 #include <inttypes.h>

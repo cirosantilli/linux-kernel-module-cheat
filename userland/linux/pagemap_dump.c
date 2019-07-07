@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#pagemap_dump-out */
+/* https://cirosantilli.com/linux-kernel-module-cheat#pagemap_dump-out */
 
 #define _XOPEN_SOURCE 700
 #include <errno.h>

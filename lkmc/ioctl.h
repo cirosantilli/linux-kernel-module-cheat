@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ioctl */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ioctl */
 
 #ifndef LKMC_IOCTL_H
 #define LKMC_IOCTL_H

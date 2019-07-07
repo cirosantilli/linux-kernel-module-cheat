@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#c */
+/* https://cirosantilli.com/linux-kernel-module-cheat#c */
 
 #include <lkmc.h>
 

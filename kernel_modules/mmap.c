@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#mmap */
+/* https://cirosantilli.com/linux-kernel-module-cheat#mmap */
 
 #include <linux/fs.h>
 #include <linux/init.h>

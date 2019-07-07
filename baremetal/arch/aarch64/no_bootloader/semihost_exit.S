@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#semihosting */
+/* https://cirosantilli.com/linux-kernel-module-cheat#semihosting */
 
 .global lkmc_start
 lkmc_start:

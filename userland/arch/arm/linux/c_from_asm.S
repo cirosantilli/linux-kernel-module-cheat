@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-calling-convention */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-calling-convention */
 
 #include <lkmc.h>
 

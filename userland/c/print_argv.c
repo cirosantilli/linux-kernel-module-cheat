@@ -1,7 +1,7 @@
 /* Print each command line argument received, one per line.
  *
  * Good sanity check for user mode:
- * https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-user-mode-getting-started
+ * https://cirosantilli.com/linux-kernel-module-cheat#qemu-user-mode-getting-started
  */
 
 #include <stdio.h>

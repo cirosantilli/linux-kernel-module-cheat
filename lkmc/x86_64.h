@@ -43,7 +43,7 @@
 
 /* Function epilogue.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#x86_64-calling-convention
+ * https://cirosantilli.com/linux-kernel-module-cheat#x86_64-calling-convention
  */
 #define LKMC_EPILOGUE \
     add $8, %rsp; \
@@ -59,7 +59,7 @@
 
 /* Function prologue.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#x86_64-calling-convention
+ * https://cirosantilli.com/linux-kernel-module-cheat#x86_64-calling-convention
  */
 #define LKMC_PROLOGUE \
 .text; \

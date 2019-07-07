@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#config_fortify_source */
+/* https://cirosantilli.com/linux-kernel-module-cheat#config_fortify_source */
 
 #include <linux/kernel.h>
 #include <linux/module.h>

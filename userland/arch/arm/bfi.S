@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bfi-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-bfi-instruction */
 
 #include <lkmc.h>
 

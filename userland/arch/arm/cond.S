@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-conditional-execution */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-conditional-execution */
 
 #include <lkmc.h>
 

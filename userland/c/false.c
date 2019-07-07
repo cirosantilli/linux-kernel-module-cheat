@@ -2,7 +2,7 @@
  * http://pubs.opengroup.org/onlinepubs/9699919799/utilities/false.html
  *
  * Can be uesd to test that emulators forward the exit status properly.
- * https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-syscall-emulation-exit-status
+ * https://cirosantilli.com/linux-kernel-module-cheat#gem5-syscall-emulation-exit-status
  */
 
 #include <stdlib.h>

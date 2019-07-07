@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-buildroot-setup-getting-started */
+/* https://cirosantilli.com/linux-kernel-module-cheat#qemu-buildroot-setup-getting-started */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

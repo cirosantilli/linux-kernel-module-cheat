@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-data-transfer-instructions
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-data-transfer-instructions
  *
  * LIke MOVZX but sign extend.
  */

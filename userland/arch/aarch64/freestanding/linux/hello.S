@@ -1,5 +1,5 @@
 /* aarch64 freestanding Linux hello world
- * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ * https://cirosantilli.com/linux-kernel-module-cheat#linux-system-calls
  */
 
 .text

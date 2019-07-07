@@ -1,5 +1,5 @@
 /* See what happens on test failure with LKMC_ASSERT_FAIL.
- * https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly
+ * https://cirosantilli.com/linux-kernel-module-cheat#userland-assembly
  */
 
 #include <lkmc.h>

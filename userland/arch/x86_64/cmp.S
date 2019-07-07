@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#userland-assembly
+/* https://cirosantilli.com/linux-kernel-module-cheat#userland-assembly
  *
  * Compare two numbers and set the flags register.
  *

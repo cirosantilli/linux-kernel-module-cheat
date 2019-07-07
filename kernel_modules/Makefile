@@ -14,7 +14,7 @@ ccflags-y := \
   $(CCFLAGS)
 
 ifeq ($(ARCH),x86)
-	# https://github.com/cirosantilli/linux-kernel-module-cheat#floating-point-in-kernel-modules
+	# https://cirosantilli.com/linux-kernel-module-cheat#floating-point-in-kernel-modules
 	CFLAGS_REMOVE_float.o += -mno-sse -mno-sse2
 endif
 

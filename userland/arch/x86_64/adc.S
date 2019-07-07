@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
  *
  * Add with Carry. Like add, but if the carry flag is set, add 1 to the addition.
  *

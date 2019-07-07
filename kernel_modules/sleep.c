@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#sleep */
+/* https://cirosantilli.com/linux-kernel-module-cheat#sleep */
 
 #include <linux/delay.h> /* usleep_range */
 #include <linux/kernel.h>

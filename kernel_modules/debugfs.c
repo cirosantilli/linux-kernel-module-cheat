@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#debugfs */
+/* https://cirosantilli.com/linux-kernel-module-cheat#debugfs */
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>

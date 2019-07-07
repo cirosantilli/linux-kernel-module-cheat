@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#procfs */
+/* https://cirosantilli.com/linux-kernel-module-cheat#procfs */
 
 #include <linux/debugfs.h>
 #include <linux/module.h>

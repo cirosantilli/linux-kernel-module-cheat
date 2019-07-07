@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-cmovcc-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-cmovcc-instructions */
 
 #include <lkmc.h>
 

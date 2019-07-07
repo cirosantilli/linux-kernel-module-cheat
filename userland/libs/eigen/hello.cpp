@@ -1,4 +1,4 @@
-// https://github.com/cirosantilli/linux-kernel-module-cheat#eigen
+// https://cirosantilli.com/linux-kernel-module-cheat#eigen
 // Adapted from: https://eigen.tuxfamily.org/dox/GettingStarted.html
 
 #include <iostream>

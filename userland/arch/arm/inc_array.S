@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-loop-over-array */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-loop-over-array */
 
 #include <lkmc.h>
 

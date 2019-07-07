@@ -1,6 +1,6 @@
 #!/usr/bin/env gnuplot
 
-# https://github.com/cirosantilli/linux-kernel-module-cheat#bst-vs-heap-vs-hashmap
+# https://cirosantilli.com/linux-kernel-module-cheat#bst-vs-heap-vs-hashmap
 #
 # A stacked plot with a single xlabel as shown at:
 #

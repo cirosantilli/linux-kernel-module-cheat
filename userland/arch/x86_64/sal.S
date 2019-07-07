@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-shift-and-rotate-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-shift-and-rotate-instructions */
 
 #include <lkmc.h>
 

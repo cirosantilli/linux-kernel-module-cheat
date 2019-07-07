@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#character-devices */
+/* https://cirosantilli.com/linux-kernel-module-cheat#character-devices */
 
 #include <linux/fs.h> /* register_chrdev, unregister_chrdev */
 #include <linux/module.h>

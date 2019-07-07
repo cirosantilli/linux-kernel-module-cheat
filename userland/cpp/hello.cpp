@@ -1,4 +1,4 @@
-// https://github.com/cirosantilli/linux-kernel-module-cheat#cpp
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp
 
 #include <iostream>
 

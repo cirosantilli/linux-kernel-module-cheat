@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-exchange-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-exchange-instructions */
 
 #include <lkmc.h>
 

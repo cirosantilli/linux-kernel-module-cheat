@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets */
+/* https://cirosantilli.com/linux-kernel-module-cheat#netlink-sockets */
 
 #ifndef LKMC_NETLINK_H
 #define LKMC_NETLINK_H

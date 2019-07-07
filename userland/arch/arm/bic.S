@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-bic-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-bic-instruction */
 
 #include <lkmc.h>
 

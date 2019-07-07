@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-rep-prefix */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-rep-prefix */
 
 #include <lkmc.h>
 

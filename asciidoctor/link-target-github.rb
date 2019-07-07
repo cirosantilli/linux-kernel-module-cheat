@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 #
-# https://github.com/cirosantilli/linux-kernel-module-cheat#asciidoctor-link-target-up-rb
+# https://cirosantilli.com/linux-kernel-module-cheat#asciidoctor-link-target-up-rb
 
 require 'asciidoctor'
 require 'asciidoctor/extensions'

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gdb-step-debug-multicore-userland */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gdb-step-debug-multicore-userland */
 
 #define _GNU_SOURCE
 #include <assert.h>

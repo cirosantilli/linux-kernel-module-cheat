@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly-floating-point-arm */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gcc-inline-assembly-floating-point-arm */
 
 #include <assert.h>
 

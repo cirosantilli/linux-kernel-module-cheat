@@ -2,7 +2,7 @@
  * The code is more complicated, and I was not able to get as efficient,
  * so better just stick to named register variables.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ * https://cirosantilli.com/linux-kernel-module-cheat#linux-system-calls
  */
 
 #include <inttypes.h>

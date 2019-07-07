@@ -1,5 +1,5 @@
 /* Same as hello.c, but with explicit register variables, see:
- * https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ * https://cirosantilli.com/linux-kernel-module-cheat#linux-system-calls
  */
 
 #define _XOPEN_SOURCE 700

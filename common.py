@@ -102,14 +102,14 @@ consts['sha'] = common.git_sha(consts['root_dir'])
 consts['release_dir'] = os.path.join(consts['out_dir'], 'release')
 consts['release_zip_file'] = os.path.join(consts['release_dir'], 'lkmc-{}.zip'.format(consts['sha']))
 consts['github_repo_id'] = 'cirosantilli/linux-kernel-module-cheat'
-consts['github_repo_id_url'] = 'https://github.com/' + consts['github_repo_id']
+consts['homepage_url'] = 'https://cirosantilli.com/linux-kernel-module-cheat'
 consts['asm_ext'] = '.S'
 consts['c_ext'] = '.c'
 consts['cxx_ext'] = '.cpp'
 consts['header_ext'] = '.h'
 consts['kernel_module_ext'] = '.ko'
 consts['obj_ext'] = '.o'
-# https://github.com/cirosantilli/linux-kernel-module-cheat#baremetal-cpp
+# https://cirosantilli.com/linux-kernel-module-cheat#baremetal-cpp
 consts['baremetal_build_in_exts'] = [
     consts['asm_ext'],
     consts['c_ext'],
@@ -338,7 +338,7 @@ Use the given directory as the gem5 source tree. Ignore `--gem5-worktree`.
             '--gem5-worktree',
             help='''\
 Create and use a git worktree of the gem5 submodule.
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-worktree
+See: https://cirosantilli.com/linux-kernel-module-cheat#gem5-worktree
 '''
         )
 
@@ -367,7 +367,7 @@ Use the given directory as the Linux source tree.
             '--initramfs',
             default=False,
             help='''\
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#initramfs
+See: https://cirosantilli.com/linux-kernel-module-cheat#initramfs
 '''
         )
         self.add_argument(
@@ -376,7 +376,7 @@ See: https://github.com/cirosantilli/linux-kernel-module-cheat#initramfs
             help='''\
 For Buildroot: create a CPIO root filessytem.
 For QEMU use that CPUI root filesystem initrd instead of the default ext2.
-See: https://github.com/cirosantilli/linux-kernel-module-cheat#initrd
+See: https://cirosantilli.com/linux-kernel-module-cheat#initrd
 '''
         )
 
@@ -595,7 +595,7 @@ Valid emulators: {}
 
 "native" means running natively on host. It is only supported for userland,
 and you must have built the program for native running, see:
-https://github.com/cirosantilli/linux-kernel-module-cheat#userland-setup-getting-started-natively
+https://cirosantilli.com/linux-kernel-module-cheat#userland-setup-getting-started-natively
 Incompatible archs are skipped.
 '''.format(emulators_string)
         )
@@ -1497,9 +1497,9 @@ Force rebuild even if sources didn't change.
                 'help': '''
 Use the given GCC -O optimization level.
 For some scripts, there are hard technical challenges why it cannot
-be implemented, e.g.: https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-o0
+be implemented, e.g.: https://cirosantilli.com/linux-kernel-module-cheat#kernel-o0
 and for others such as gem5 have their custom mechanism:
-https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-debug-build
+https://cirosantilli.com/linux-kernel-module-cheat#gem5-debug-build
 ''',
             }
         }

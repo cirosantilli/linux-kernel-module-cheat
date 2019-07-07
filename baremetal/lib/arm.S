@@ -18,7 +18,7 @@ lkmc_start:
     mov r0, 1 << 30           /* Create value with FPEXC (bit 30) set in r0 */
     vmsr fpexc, r0            /* Enable VFP and SIMD extensions */
 
-    /* https://github.com/cirosantilli/linux-kernel-module-cheat#magic-failure-string */
+    /* https://cirosantilli.com/linux-kernel-module-cheat#magic-failure-string */
     ldr r0, =lkmc_baremetal_on_exit_callback
     bl on_exit
 

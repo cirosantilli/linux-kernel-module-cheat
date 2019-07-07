@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-thumb-encoding */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-thumb-encoding */
 
 .thumb_func
 .syntax unified

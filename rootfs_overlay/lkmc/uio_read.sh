@@ -1,5 +1,5 @@
 #!/bin/sh
-# https://github.com/cirosantilli/linux-kernel-module-cheat#uio
+# https://cirosantilli.com/linux-kernel-module-cheat#uio
 set -e
 modprobe uio_pci_generic
 # pci_min device

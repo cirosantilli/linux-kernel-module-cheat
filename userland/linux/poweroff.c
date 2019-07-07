@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#poweroff-out */
+/* https://cirosantilli.com/linux-kernel-module-cheat#poweroff-out */
 
 #define _XOPEN_SOURCE 700
 #include <sys/reboot.h>

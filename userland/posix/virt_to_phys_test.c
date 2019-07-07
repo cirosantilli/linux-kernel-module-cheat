@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#userland-physical-address-experiments */
+/* https://cirosantilli.com/linux-kernel-module-cheat#userland-physical-address-experiments */
 
 #define _XOPEN_SOURCE 700
 #include <stdint.h>

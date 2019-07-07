@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-sve */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-sve */
 
 #include <lkmc.h>
 

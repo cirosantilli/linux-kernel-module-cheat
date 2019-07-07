@@ -1,5 +1,5 @@
 #!/bin/sh
-# https://github.com/cirosantilli/linux-kernel-module-cheat#ioctl
+# https://cirosantilli.com/linux-kernel-module-cheat#ioctl
 set -e
 f=/sys/kernel/debug/lkmc_ioctl
 insmod ioctl.ko

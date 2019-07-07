@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-data-processing-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-data-processing-instructions */
 
 #include <lkmc.h>
 
@@ -28,7 +28,7 @@ LKMC_PROLOGUE
 
 #if 0
     /* But we cannot omit the register if there is a shift when using .syntx unified:
-     * https://github.com/cirosantilli/linux-kernel-module-cheat#arm-shift-suffixes
+     * https://cirosantilli.com/linux-kernel-module-cheat#arm-shift-suffixes
      */
     .syntax unified
     /* Error: garbage following instruction */

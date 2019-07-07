@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-module-dependencies */
+/* https://cirosantilli.com/linux-kernel-module-cheat#kernel-module-dependencies */
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>

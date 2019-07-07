@@ -7,7 +7,7 @@ int main(void) {
     uint32_t spsr;
     __asm__ ("mrs %0, spsr" : "=r" (spsr) : :);
     printf("SPSR 0x%" PRIX32 "\n", spsr);
-    /* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-exception-levels */
+    /* https://cirosantilli.com/linux-kernel-module-cheat#arm-exception-levels */
     printf("SPSR.M 0x%" PRIX32 "\n", spsr & 0xF);
 
 #if 0

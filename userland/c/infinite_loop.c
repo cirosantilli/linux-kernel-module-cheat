@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#c
+/* https://cirosantilli.com/linux-kernel-module-cheat#c
  *
  * Loop infinitely. Print an integer whenever a period is reached:
  *

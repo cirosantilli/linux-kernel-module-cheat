@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-multicore */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-multicore */
 
 #include <lkmc.h>
 

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#m5ops-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#m5ops-instructions */
 
 #ifndef LKMC_M5OPS_H
 #define LKMC_M5OPS_H

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gnu-gas-assembler-comments */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gnu-gas-assembler-comments */
 
 #include <lkmc.h>
 LKMC_PROLOGUE

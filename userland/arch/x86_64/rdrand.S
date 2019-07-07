@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-random-number-generator-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-random-number-generator-instructions */
 
 #include <lkmc.h>
 

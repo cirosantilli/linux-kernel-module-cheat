@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-addressing-modes */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-addressing-modes */
 
 #include <lkmc.h>
 

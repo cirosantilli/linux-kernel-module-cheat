@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-pmccntr-register */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-pmccntr-register */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly-register-variables */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gcc-inline-assembly-register-variables */
 
 #include <assert.h>
 #include <inttypes.h>

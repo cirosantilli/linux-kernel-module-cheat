@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-data-processing-instructions
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-data-processing-instructions
  *
  * Subtraction.
  */

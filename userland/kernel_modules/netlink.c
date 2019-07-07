@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets */
+/* https://cirosantilli.com/linux-kernel-module-cheat#netlink-sockets */
 
 #include <linux/netlink.h>
 #include <stdio.h>

@@ -1,7 +1,7 @@
 #ifndef LKMC_FLOAT_H
 #define LKMC_FLOAT_H
 
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ieee-754 */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ieee-754 */
 
 #define LKMC_FLOAT_64_SIGN_BITS 1
 #define LKMC_FLOAT_64_EXP_BITS 11

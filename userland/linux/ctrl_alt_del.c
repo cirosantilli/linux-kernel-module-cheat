@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ctrl-alt-del */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ctrl-alt-del */
 
 #define _XOPEN_SOURCE 700
 #include <signal.h>

@@ -1,5 +1,5 @@
 #!/bin/sh
-# https://github.com/cirosantilli/linux-kernel-module-cheat#netlink-sockets
+# https://cirosantilli.com/linux-kernel-module-cheat#netlink-sockets
 set -e
 insmod netlink.ko
 [ "$(./linux/netlink.out)" = 0 ]

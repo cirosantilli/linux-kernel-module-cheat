@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#floating-point-in-kernel-modules */
+/* https://cirosantilli.com/linux-kernel-module-cheat#floating-point-in-kernel-modules */
 
 #include <linux/kernel.h>
 #include <linux/module.h>

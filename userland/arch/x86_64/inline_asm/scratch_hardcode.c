@@ -1,5 +1,5 @@
 /* This is a worse version of scratch.c with hardcoded scratch.
- * https://github.com/cirosantilli/linux-kernel-module-cheat#gcc-inline-assembly-scratch-registers
+ * https://cirosantilli.com/linux-kernel-module-cheat#gcc-inline-assembly-scratch-registers
  */
 
 #include <assert.h>

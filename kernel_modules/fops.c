@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#file-operations */
+/* https://cirosantilli.com/linux-kernel-module-cheat#file-operations */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */

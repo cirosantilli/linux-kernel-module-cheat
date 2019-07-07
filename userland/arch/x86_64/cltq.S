@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-cqto-and-cltq-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-cqto-and-cltq-instructions */
 
 #include <lkmc.h>
 

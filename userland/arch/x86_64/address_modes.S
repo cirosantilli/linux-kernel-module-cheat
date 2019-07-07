@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-addressing-modes */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-addressing-modes */
 
 #include <lkmc.h>
 

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#blas
+/* https://cirosantilli.com/linux-kernel-module-cheat#blas
  * Adapted from: https://github.com/xianyi/OpenBLAS/wiki/User-Manual/59b62f98e7400270fb03ad1d85fba5b64ebbff2b#call-cblas-interface
  */
 

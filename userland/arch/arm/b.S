@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-b-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-b-instruction */
 
 #include <lkmc.h>
 LKMC_PROLOGUE

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#openmp */
+/* https://cirosantilli.com/linux-kernel-module-cheat#openmp */
 
 #include <stdio.h>
 #include <stdlib.h>

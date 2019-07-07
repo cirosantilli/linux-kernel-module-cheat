@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#timers */
+/* https://cirosantilli.com/linux-kernel-module-cheat#timers */
 
 #include <linux/jiffies.h>
 #include <linux/kernel.h>

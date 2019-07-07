@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#init_module */
+/* https://cirosantilli.com/linux-kernel-module-cheat#init_module */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

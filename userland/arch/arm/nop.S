@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-nop-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-nop-instruction */
 
 #include <lkmc.h>
 

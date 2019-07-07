@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-x31-register */
+/* https://cirosantilli.com/linux-kernel-module-cheat#armv8-aarch64-x31-register */
 
 #include <lkmc.h>
 

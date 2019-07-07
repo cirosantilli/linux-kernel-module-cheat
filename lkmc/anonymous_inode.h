@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#anonymous-inode */
+/* https://cirosantilli.com/linux-kernel-module-cheat#anonymous-inode */
 
 #ifndef LKMC_ANONYMOUS_INODE_H
 #define LKMC_ANONYMOUS_INODE_H

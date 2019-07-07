@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ring0 */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ring0 */
 
 #ifndef LKMC_RING0_H
 #define LKMC_RING0_H

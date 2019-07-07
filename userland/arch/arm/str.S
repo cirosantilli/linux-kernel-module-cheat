@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-str-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-str-instruction */
 
 #include <lkmc.h>
 
@@ -44,7 +44,7 @@ LKMC_PROLOGUE
      * but it will always segfault under Linux because the text segment is read-only.
      * This is however useful in baremetal programming.
      * This construct is not possible in ARMv8 for str:
-     * https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-str-instruction
+     * https://cirosantilli.com/linux-kernel-module-cheat#armv8-aarch64-str-instruction
      */
     str r1, .Lvar_in_same_section
 .Lvar_in_same_section:

@@ -6,7 +6,7 @@ lkmc_start:
     ldr x0, =lkmc_vector_table
     msr vbar_el1, x0
 
-    /* https://github.com/cirosantilli/linux-kernel-module-cheat#aarch64-baremetal-neon-setup */
+    /* https://cirosantilli.com/linux-kernel-module-cheat#aarch64-baremetal-neon-setup */
     mov x1, 0x3 << 20
     msr cpacr_el1, x1
     isb
@@ -15,7 +15,7 @@ lkmc_start:
     ldr x0, =stack_top
     mov sp, x0
 
-    /* https://github.com/cirosantilli/linux-kernel-module-cheat#magic-failure-string */
+    /* https://cirosantilli.com/linux-kernel-module-cheat#magic-failure-string */
     adr x0, lkmc_baremetal_on_exit_callback
     bl on_exit
 

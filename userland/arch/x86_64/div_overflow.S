@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
  *
  * If the result of div does not fit into the output register rax, then we get SIGFPE.
  */

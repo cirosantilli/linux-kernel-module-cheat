@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#qemu-edu */
+/* https://cirosantilli.com/linux-kernel-module-cheat#qemu-edu */
 
 #include <linux/cdev.h> /* cdev_ */
 #include <linux/fs.h>

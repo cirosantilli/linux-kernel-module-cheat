@@ -37,7 +37,7 @@
     bl lkmc_assert_memcmp; \
 ;
 
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-calling-convention */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-calling-convention */
 #define LKMC_EPILOGUE \
     ldp x19, x20, [sp, 0x50]; \
     ldp x21, x22, [sp, 0x40]; \
@@ -50,7 +50,7 @@
     ret; \
 ;
 
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-calling-convention */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-calling-convention */
 #define LKMC_PROLOGUE \
 .text; \
 .global main; \

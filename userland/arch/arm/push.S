@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-ldmia-instruction */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-ldmia-instruction */
 
 #include <lkmc.h>
 

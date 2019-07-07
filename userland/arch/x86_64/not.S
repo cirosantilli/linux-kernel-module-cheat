@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-logical-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-logical-instructions */
 
 #include <lkmc.h>
 

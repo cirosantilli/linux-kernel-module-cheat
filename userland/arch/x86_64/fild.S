@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-x87-fpu-instructions */
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-x87-fpu-instructions */
 
 #include <lkmc.h>
 

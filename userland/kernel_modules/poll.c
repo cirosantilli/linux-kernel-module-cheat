@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#poll */
+/* https://cirosantilli.com/linux-kernel-module-cheat#poll */
 
 #define _XOPEN_SOURCE 700
 #include <assert.h>

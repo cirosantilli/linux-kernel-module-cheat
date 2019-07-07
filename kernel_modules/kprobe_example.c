@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#kprobes
+/* https://cirosantilli.com/linux-kernel-module-cheat#kprobes
  *
  * Adapted from: https://github.com/torvalds/linux/blob/v4.17/samples/kprobes/kprobe_example.c
  */

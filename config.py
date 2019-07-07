@@ -1,5 +1,5 @@
 '''
-https://github.com/cirosantilli/linux-kernel-module-cheat#default-command-line-arguments
+https://cirosantilli.com/linux-kernel-module-cheat#default-command-line-arguments
 '''
 
 def set_args(args, script_name):

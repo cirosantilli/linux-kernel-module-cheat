@@ -1,4 +1,4 @@
- /* https://github.com/cirosantilli/linux-kernel-module-cheat#linux-system-calls
+ /* https://cirosantilli.com/linux-kernel-module-cheat#linux-system-calls
   *
   * int $0x80 sycalls are still supported by x86_64 for some kind of backwards compatibility,
   * (TODO so when x86_64 started it didn't have SYSCALL?) althoug you should prefre

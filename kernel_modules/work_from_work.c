@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#workqueue-from-workqueue */
+/* https://cirosantilli.com/linux-kernel-module-cheat#workqueue-from-workqueue */
 
 #include <linux/kernel.h>
 #include <linux/module.h>

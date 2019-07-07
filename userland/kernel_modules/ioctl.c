@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ioctl */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ioctl */
 
 #define _GNU_SOURCE
 #include <errno.h>

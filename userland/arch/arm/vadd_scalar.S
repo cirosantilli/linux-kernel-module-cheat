@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#arm-vadd-instruction
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-vadd-instruction
  * Adapted from: https://mindplusplus.wordpress.com/2013/06/27/arm-vfp-vector-programming-part-2-examples/ */
 
 #include <lkmc.h>

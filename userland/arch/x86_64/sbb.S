@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
+/* https://cirosantilli.com/linux-kernel-module-cheat#x86-binary-arithmetic-instructions
  *
  * Subtract with Borrow. Like ADC is for ADD, but for subtraction.
  */

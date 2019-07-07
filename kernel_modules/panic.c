@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#kernel-panic-and-oops */
+/* https://cirosantilli.com/linux-kernel-module-cheat#kernel-panic-and-oops */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

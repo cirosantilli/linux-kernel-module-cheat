@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#schedule */
+/* https://cirosantilli.com/linux-kernel-module-cheat#schedule */
 
 #include <linux/kernel.h>
 #include <linux/kthread.h>

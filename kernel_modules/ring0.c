@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#ring0 */
+/* https://cirosantilli.com/linux-kernel-module-cheat#ring0 */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

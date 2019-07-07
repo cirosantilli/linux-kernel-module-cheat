@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-aarch64-add-vector-instruction
+/* https://cirosantilli.com/linux-kernel-module-cheat#armv8-aarch64-add-vector-instruction
  *
  * Add a bunch of integers in one go.
  */
