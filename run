@@ -464,11 +464,12 @@ Extra options to append at the end of the emulator command line.
                     cmd.extend(['--options', self.env['userland_args'], LF])
             else:
                 if self.env['gem5_script'] == 'fs':
-                    # TODO port
                     if self.env['gem5_restore'] is not None:
+                        # https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-checkpoint-internals
                         cpt_dirs = self.gem5_list_checkpoint_dirs()
                         cpt_dir = cpt_dirs[-self.env['gem5_restore']]
-                        extra_emulator_args.extend(['-r', str(sorted(cpt_dirs).index(cpt_dir) + 1)])
+                        cpt_dirs_sorted_by_tick = sorted(cpt_dirs, key=lambda x: int(x.split('.')[1]))
+                        extra_emulator_args.extend(['-r', str(cpt_dirs_sorted_by_tick.index(cpt_dir) + 1)])
                     cmd.extend([
                         self.env['gem5_fs_file'], LF,
                         '--disk-image', self.env['disk_image'], LF,

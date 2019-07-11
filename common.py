@@ -918,7 +918,7 @@ Incompatible archs are skipped.
         # Overlay.
         env['out_rootfs_overlay_dir'] = join(env['out_dir'], 'rootfs_overlay', env['arch'])
         env['out_rootfs_overlay_lkmc_dir'] = join(env['out_rootfs_overlay_dir'], env['repo_short_id'])
-        env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_lkmc_dir'], 'bin')
+        env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_dir'], 'bin')
 
         # Baremetal.
         env['baremetal_source_dir'] = join(env['root_dir'], 'baremetal')
