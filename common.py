@@ -811,7 +811,7 @@ Incompatible archs are skipped.
         env['stats_file'] = join(env['m5out_dir'], 'stats.txt')
         env['gem5_trace_txt_file'] = join(env['m5out_dir'], 'trace.txt')
         env['gem5_guest_terminal_file'] = join(env['m5out_dir'], 'system.terminal')
-        env['gem5_readfile'] = join(env['gem5_run_dir'], 'readfile')
+        env['gem5_readfile_file'] = join(env['gem5_run_dir'], 'readfile')
         env['gem5_termout_file'] = join(env['gem5_run_dir'], 'termout.txt')
         env['qemu_run_dir'] = join(env['run_dir_base'], 'qemu', env['arch'], str(env['run_id']))
         env['qemu_termout_file'] = join(env['qemu_run_dir'], 'termout.txt')

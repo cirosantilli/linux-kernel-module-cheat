@@ -4541,7 +4541,8 @@ Outcome: <<image-x11>>
 
 [[image-x11]]
 .X11 Buildroot graphical user interface screenshot
-image::x11.png[image]
+[link=x11.png]
+image::x11.png[]
 
 We don't build X11 by default because it takes a considerable amount of time (about 20%), and is not expected to be used by most users: you need to pass the `-x` flag to enable it.
 
@@ -9941,13 +9942,65 @@ OK, this is why we used gem5 in the first place, performance measurements!
 
 Let's see how many cycles https://en.wikipedia.org/wiki/Dhrystone[Dhrystone], which Buildroot provides, takes for a few different input parameters.
 
-First build Dhrystone into the root filesystem:
+We will do that for various input parameters on full system by taking a checkpoint after the boot finishes a fast atomic CPU boot, and then we will restore in a more detailed mode and run the benchmark:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'
+# Boot fast, take checkpoint, and exit.
+./run --arch aarch64 --emulator gem5 --eval-after './gem5.sh'
+
+# Restore the checkpoint after boot, and benchmark with input 1000.
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --eval-after './gem5.sh' \
+  --gem5-readfile 'm5 resetstats;dhrystone 1000;m5 dumpstats' \
+  --gem5-restore 1 \
+  -- \
+  --cpu-type=HPI \
+  --restore-with-cpu=HPI \
+  --caches \
+  --l2cache \
+  --l1d_size=64kB \
+  --l1i_size=64kB \
+  --l2_size=256kB \
+;
+# Get the value for number of cycles.
+# head because there are two lines: our dumpstats and the
+# automatic dumpstats at the end which we don't care about.
+./gem5-stat --arch aarch64 | head -n 1
+
+# Now for input 10000.
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --eval-after './gem5.sh' \
+  --gem5-readfile 'm5 resetstats;dhrystone 10000;m5 dumpstats' \
+  --gem5-restore 1 \
+  -- \
+  --cpu-type=HPI \
+  --restore-with-cpu=HPI \
+  --caches \
+  --l2cache \
+  --l1d_size=64kB \
+  --l1i_size=64kB \
+  --l2_size=256kB \
+;
+./gem5-stat --arch aarch64 | head -n 1
 ....
 
-Then, a flexible setup is demonstrated at:
+If you ever need a shell to quickly inspect the system state after boot, you can just use:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --eval-after './gem5.sh' \
+  --gem5-readfile 'sh' \
+  --gem5-restore 1 \
+....
+
+This procedure is further automated and DRYed up at:
 
 ....
 ./gem5-bench-dhrystone
@@ -9956,20 +10009,18 @@ cat out/gem5-bench-dhrystone.txt
 
 Source: link:gem5-bench-dhrystone[]
 
-Sample output:
+Output at 2438410c25e200d9766c8c65773ee7469b599e4a + 1:
 
 ....
 n cycles
-1000 12898577
-10000 23441629
-100000 128428617
+1000 13665219
+10000 20559002
+100000 85977065
 ....
 
 so as expected, the Dhrystone run with a larger input parameter `100000` took more cycles than the ones with smaller input parameters.
 
 The `gem5-stats` commands output the approximate number of CPU cycles it took Dhrystone to run.
-
-Another interesting example can be found at: link:gem5-bench-cache[].
 
 A more naive and simpler to understand approach would be a direct:
 
@@ -9977,7 +10028,7 @@ A more naive and simpler to understand approach would be a direct:
 ./run --arch aarch64 --emulator gem5 --eval 'm5 checkpoint;m5 resetstats;dhrystone 10000;m5 exit'
 ....
 
-but the problem is that this method does not allow to easily run a different script without running the boot again, see: <<gem5-restore-new-script>>.
+but the problem is that this method does not allow to easily run a different script without running the boot again. The `./gem5.sh` script works around that by using <<m5-readfile>> as explained further at: <<gem5-restore-new-script>>.
 
 Now you can play a fun little game with your friends:
 
@@ -10713,26 +10764,28 @@ So we can do it like:
 
 ....
 # Boot, checkpoint and exit.
-printf 'echo "setup run";m5 exit' > "$(./getvar gem5_readfile)"
+printf 'echo "setup run";m5 exit' > "$(./getvar gem5_readfile_file)"
 ./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
 
 # Restore and run the first benchmark.
-printf 'echo "first benchmark";m5 exit' > "$(./getvar gem5_readfile)"
+printf 'echo "first benchmark";m5 exit' > "$(./getvar gem5_readfile_file)"
 ./run --emulator gem5 --gem5-restore 1
 
 # Restore and run the second benchmark.
-printf 'echo "second benchmark";m5 exit' > "$(./getvar gem5_readfile)"
+printf 'echo "second benchmark";m5 exit' > "$(./getvar gem5_readfile_file)"
 ./run --emulator gem5 --gem5-restore 1
 
 # If something weird happened, create an interactive shell to examine the system.
-printf 'sh' > "$(./getvar gem5_readfile)"
+printf 'sh' > "$(./getvar gem5_readfile_file)"
 ./run --emulator gem5 --gem5-restore 1
 ....
 
-Since this is such a common setup, we provide some helpers for it as described at <<gem5-run-benchmark>>:
+Since this is such a common setup, we provide the following helpers for this operation:
 
 * link:rootfs_overlay/lkmc/gem5.sh[]. This script is analogous to gem5's in-tree link:https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
 * `./run --gem5-readfile` is a convenient way to set the `m5 readfile`
+
+Their usage us exemplified at <<gem5-run-benchmark>>.
 
 Other loophole possibilities include:
 
@@ -10913,7 +10966,7 @@ https://stackoverflow.com/questions/49516399/how-to-use-m5-readfile-and-m5-execf
 Host:
 
 ....
-date > "$(./getvar gem5_readfile)"
+date > "$(./getvar gem5_readfile_file)"
 ....
 
 Guest:
@@ -10952,7 +11005,7 @@ Host:
 ....
 printf '#!/bin/sh
 echo asdf
-' > "$(./getvar gem5_readfile)"
+' > "$(./getvar gem5_readfile_file)"
 ....
 
 Guest:

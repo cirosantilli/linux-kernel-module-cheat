@@ -6,7 +6,7 @@ set -eu
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 outfile="${root_dir}/out/gem5-bench-dhrystone.txt"
 arch=aarch64
-cmd="./run --arch '$arch' --emulator gem5 --eval-busybox '/gem5.sh'"
+cmd="./run --arch '$arch' --emulator gem5 --eval-after './gem5.sh'"
 
 # These cache sizes roughly match the ARM Cortex A75
 # https://en.wikipedia.org/wiki/ARM_Cortex-A75
@@ -20,7 +20,7 @@ printf 'n cycles\n' > "$outfile"
 for n in 1000 10000 100000; do
   # Restore the most recent checkpoint taken with the more detailed and slower HPI CPU,
   # and run the benchmark with different parameters. We skip the boot completely, saving time!
-  eval "${cmd} --gem5-readfile 'dhrystone ${n}' ${restore}" &>/dev/null
+  eval "${cmd} --gem5-readfile 'm5 resetstats;dhrystone ${n};m5 dumpstats' ${restore}" &>/dev/null
   printf "${n} " >> "$outfile"
-  ./gem5-stat -a "$arch" >> "$outfile"
+  ./gem5-stat --arch "$arch" | head -n 1 >> "$outfile"
 done
