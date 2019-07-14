@@ -1090,7 +1090,7 @@ lunch aosp_{}-eng
             self.get_toolchain_tool('readelf'),
             '-h',
             elf_file_path
-        ])
+        ]).decode()
         for line in readelf_header.decode().split('\n'):
             split = line.split()
             if line.startswith('  Entry point address:'):

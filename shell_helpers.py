@@ -78,13 +78,20 @@ class ShellHelpers:
         return base64.b64decode(string.encode()).decode()
 
     def check_output(self, *args, **kwargs):
+        '''
+        Analogous to subprocess.check_output: get the stdout / stderr
+        of a program back as a byte array.
+        '''
         out_str = []
+        actual_kwargs = {
+            'show_stdout': False,
+            'show_cmd': False
+        }
+        actual_kwargs.update(kwargs)
         self.run_cmd(
             *args,
             out_str=out_str,
-            show_stdout=False,
-            show_cmd=False,
-            **kwargs
+            **actual_kwargs
         )
         return out_str[0]
 
@@ -380,7 +387,7 @@ class ShellHelpers:
                     if out_file is not None:
                         logfile.close()
                     if out_str is not None:
-                        out_str.append((b''.join(logfile_str)).decode())
+                        out_str.append((b''.join(logfile_str)))
             if threading.current_thread() == threading.main_thread():
                 signal.signal(signal.SIGINT, sigint_old)
                 #signal.signal(signal.SIGPIPE, sigpipe_old)
@@ -392,7 +399,7 @@ class ShellHelpers:
             return returncode
         else:
             if not out_str is None:
-                out_str.append('')
+                out_str.append(b'')
             return 0
 
     def shlex_split(self, string):
