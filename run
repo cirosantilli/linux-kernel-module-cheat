@@ -404,13 +404,23 @@ Extra options to append at the end of the emulator command line.
             if not self.env['dry_run']:
                 raise Exception('Root filesystem not found. Did you build it? ' \
                                 'Tried to use: ' + self.env['disk_image'])
-        def raise_image_not_found(image):
+        def raise_image_not_found():
             if not self.env['dry_run']:
                 raise Exception('Executable image not found. Did you build it? ' \
-                                'Tried to use: ' + image)
-        if not os.path.exists(self.env['image']):
-            raise_image_not_found(self.env['image'])
+                                'Tried to use: ' + self.env['image'])
         cmd = debug_vm.copy()
+        if not os.path.exists(self.env['image']):
+            if self.env['emulator'] == 'gem5':
+                if (
+                    self.env['baremetal'] is None and
+                    self.env['userland'] is None
+                ):
+                    # This is to run gem5 from a prebuilt download.
+                    self.sh.run_cmd([self.env['extract_vmlinux'], self.env['linux_image']])
+                else:
+                    raise_image_not_found()
+            else:
+                raise_image_not_found()
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
@@ -423,15 +433,6 @@ Extra options to append at the end of the emulator command line.
                     if not os.path.exists(self.env['qcow2_file']):
                         raise_rootfs_not_found()
                     self.raw_to_qcow2(qemu_which=self.env['qemu_which'], reverse=True)
-            if not os.path.exists(self.env['image']):
-                # This is to run gem5 from a prebuilt download.
-                if (
-                    self.env['baremetal'] is None and
-                    self.env['userland'] is None
-                ):
-                    if not os.path.exists(self.env['linux_image']):
-                        raise_image_not_found(self.env['image'])
-                    self.sh.run_cmd([os.path.join(self.env['extract_vmlinux'], self.env['linux_image'])])
             os.makedirs(os.path.dirname(self.env['gem5_readfile_file']), exist_ok=True)
             self.sh.write_string_to_file(self.env['gem5_readfile_file'], self.env['gem5_readfile'])
             memory = '{}B'.format(self.env['memory'])
