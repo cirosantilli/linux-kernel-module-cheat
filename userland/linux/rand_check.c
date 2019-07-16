@@ -36,6 +36,6 @@ int main(__attribute__((unused)) int argc, char **argv) {
     /* /dev/urandom */
     fp = fopen("/dev/urandom", "rb");
     fread(&uint64, sizeof(uint64), 1, fp);
-    printf("/dev/urandom = %" PRIx64 "\n", uint64);
+    printf("/dev/urandom = %" PRIX64 "\n", uint64);
     fclose(fp);
 }

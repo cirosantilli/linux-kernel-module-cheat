@@ -28,7 +28,10 @@ lkmc_start:
 
 LKMC_VECTOR_TABLE
 
-/* Default trap handler. */
+/* Default handler for exceptions. This is called after some basic
+ * setup done on the initial handler. Since this is a weak symbol,
+ * you can redefine it in your own example, and your definition
+ * will take precedence. */
 LKMC_WEAK(lkmc_vector_trap_handler)
     ldr x0, =lkmc_vector_trap_handler_error_message
     bl puts

@@ -10148,7 +10148,7 @@ Behaviour breakdown:
 So we take a performance measurement approach instead:
 
 ....
-./gem5-bench-cache --arch aarch64
+./gem5-bench-cache -- --arch aarch64
 cat "$(./getvar --arch aarch64 run_dir)/bench-cache.txt"
 ....
 
@@ -14672,26 +14672,29 @@ Sources:
 Sample output for the C one:
 
 ....
-daif 0x3c0
-spsel 0x1
-vbar_el1 0x40000800
+DAIF 0x3C0
+SPSEL 0x1
+VBAR_EL1 0x40000800
+after_svc 0x4000209c
 lkmc_vector_trap_handler
 exc_type 0x11
 exc_type is LKMC_VECTOR_SYNC_SPX
-ESR 0x56000042
-SP 0x4200bba8
-ELR 0x40002470
-SPSR 0x600003c5
+ESR 0x5600ABCD
+ESR.EC 0x15
+ESR.EC.ISS.imm16 0xABCD
+SP 0x4200C510
+ELR 0x4000209C
+SPSR 0x600003C5
 x0 0x0
 x1 0x1
-x2 0x14
-x3 0x14
-x4 0x40008390
-x5 0xfffffff8
-x6 0x4200ba28
-x7 0x0
-x8 0x0
-x9 0x13
+x2 0x15
+x3 0x15
+x4 0x4000A178
+x5 0xFFFFFFF6
+x6 0x4200C390
+x7 0x78
+x8 0x1
+x9 0x14
 x10 0x0
 x11 0x0
 x12 0x0
@@ -14711,11 +14714,36 @@ x25 0x0
 x26 0x0
 x27 0x0
 x28 0x0
-x29 0x4200bba8
-x30 0x4000246c
+x29 0x4200C510
+x30 0x40002064
 ....
 
-Both QEMU and gem5 are able to trace interrupts in addition to instructions, and it is instructive to enable both and have a look at the traces:
+The C code does an:
+
+....
+svc 0xABCD
+....
+
+and the value 0xABCD appears at the bottom of <<arm-esr-register>>:
+
+....
+ESR 0x5600ABCD
+ESR.EC 0x15
+ESR.EC.ISS.imm16 0xABCD
+....
+
+The other important register is the <<arm-elr-register>>, which contains the return address after the exception.
+
+From the output, we can see that it matches the value as obtained by taking the address of a label placed just after the SVC:
+
+....
+after_svc 0x4000209c
+ELR 0x4000209C
+....
+
+Both QEMU and gem5 are able to trace interrupts in addition to instructions, and it is instructive to enable both and have a look at the traces.
+
+With <<qemu-d-tracing>>:
 
 ....
 ./run \
@@ -14725,7 +14753,7 @@ Both QEMU and gem5 are able to trace interrupts in addition to instructions, and
 ;
 ....
 
-contains:
+the output contains:
 
 ....
 ----------------
@@ -14742,7 +14770,7 @@ IN:
 0x40000a00:  14000225  b        #0x40001294
 ....
 
-and:
+And with <<gem5-tracing>>:
 
 ....
 ./run \
@@ -14753,7 +14781,7 @@ and:
 ;
 ....
 
-contains:
+the output contains:
 
 ....
    4000: system.cpu A0 T0 : @main+8    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
@@ -14817,6 +14845,20 @@ Bibliography:
 * https://stackoverflow.com/questions/51094092/how-to-make-timer-irq-work-on-qemu-machine-virt-cpu-cortex-a57
 * https://stackoverflow.com/questions/44991264/armv8-exception-vectors-and-handling
 * https://stackoverflow.com/questions/44198483/arm-timers-and-interrupts
+
+===== ARM ESR register
+
+Exception Syndrome Register.
+
+See example at: <<arm-svc-instruction>>
+
+Documentation: <<armarm8-db>> D12.2.36 "ESR_EL1, Exception Syndrome Register (EL1)".
+
+===== ARM ELR register
+
+Exception Link Register.
+
+See example at: <<arm-svc-instruction>>
 
 ==== ARM multicore
 

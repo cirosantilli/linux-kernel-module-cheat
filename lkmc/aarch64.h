@@ -92,14 +92,18 @@ main_after_prologue: \
 
 #define LKMC_VECTOR_EXC_FRAME_SIZE      (288) /* sizeof(lkmc_vector_exception_frame)             */
 #define LKMC_VECTOR_EXC_EXC_TYPE_OFFSET (0)   /* offsetof(lkmc_vector_exception_frame, exc_type) */
-#define LKMC_VECTOR_EXC_EXC_ESR_OFFSE   (8)   /* offsetof(lkmc_vector_exception_frame, exc_esr)  */
+#define LKMC_VECTOR_EXC_EXC_ESR_OFFSET  (8)   /* offsetof(lkmc_vector_exception_frame, exc_esr)  */
 #define LKMC_VECTOR_EXC_EXC_SP_OFFSET   (16)  /* offsetof(lkmc_vector_exception_frame, exc_sp)   */
 #define LKMC_VECTOR_EXC_EXC_ELR_OFFSET  (24)  /* offsetof(lkmc_vector_exception_frame, exc_elr)  */
 #define LKMC_VECTOR_EXC_EXC_SPSR_OFFSET (32)  /* offsetof(lkmc_vector_exception_frame, exc_spsr) */
 
+#define LKMC_ESR_EC_SVC_AARCH32 (0x11)
+#define LKMC_ESR_EC_SVC_AARCH64 (0x15)
+
 #define LKMC_VECTOR_FUNC_ALIGN .align 2
 #define LKMC_VECTOR_SYMBOL_PREFIX lkmc_vector_
 
+/* Push several registers on the stack to match LkmcVectorExceptionFrame. */
 #define LKMC_VECTOR_BUILD_TRAPFRAME(exc_type) \
     stp x29, x30, [sp, -16]!; \
     stp x27, x28, [sp, -16]!; \

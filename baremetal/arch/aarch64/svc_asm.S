@@ -5,7 +5,7 @@
 .global main
 main:
     /* Do the svc. */
-    svc 0
+    svc 0xABCD
 
     /* Confirm that svc was called and modified myvar. */
     ldr x0, myvar

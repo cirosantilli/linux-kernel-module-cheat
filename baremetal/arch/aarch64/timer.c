@@ -5,7 +5,7 @@
 #include <lkmc/gicv3.h>
 
 void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception __attribute__((unused))) {
-    printf("CNTVCT_EL0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
+    printf("CNTVCT_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntvct_el0_read());
 }
 
 #define CNTV_CTL_ENABLE  (1 << 0) /* Enables the timer */ 
@@ -30,14 +30,14 @@ void enable_irq(void) {
 
 int main(void) {
     /* Initial state. */
-    printf("CNTV_CTL_EL0 0x%" PRIx32 "\n", lkmc_sysreg_cntv_ctl_el0_read());
-    printf("CNTFRQ_EL0 0x%" PRIx64 "\n", lkmc_sysreg_cntfrq_el0_read());
-    printf("CNTV_CVAL_EL0 0x%" PRIx64 "\n", lkmc_sysreg_cntv_cval_el0_read());
+    printf("CNTV_CTL_EL0 0x%" PRIX32 "\n", lkmc_sysreg_cntv_ctl_el0_read());
+    printf("CNTFRQ_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntfrq_el0_read());
+    printf("CNTV_CVAL_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntv_cval_el0_read());
 
     /* Get the counter value many times to watch the time pass. */
-    printf("CNTVCT_EL0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
-    printf("CNTVCT_EL0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
-    printf("CNTVCT_EL0 0x%" PRIx64 "\n", lkmc_sysreg_cntvct_el0_read());
+    printf("CNTVCT_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntvct_el0_read());
+    printf("CNTVCT_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntvct_el0_read());
+    printf("CNTVCT_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntvct_el0_read());
 
     /**/
     gic_v3_initialize();
@@ -66,7 +66,7 @@ int main(void) {
     /* TODO crashes gem5. */
     puts("cntfrq_el0 = 1");
     lkmc_sysreg_cntfrq_el0_write(1);
-    printf("cntfrq_el0 0x%" PRIx64 "\n", lkmc_sysreg_cntfrq_el0_read());
+    printf("cntfrq_el0 0x%" PRIX64 "\n", lkmc_sysreg_cntfrq_el0_read());
 #endif
 
     return 0;

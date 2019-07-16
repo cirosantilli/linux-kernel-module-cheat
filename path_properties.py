@@ -310,6 +310,7 @@ path_properties_tuples = (
                                 ),
                                 'return1.S': {'exit_status': 1},
                                 'semihost_exit.S': {'requires_semihosting': True},
+                                'svc.c': {'cc_pedantic': False},
                                 'timer.c': {'skip_run_unclassified': True},
                             },
                         )
