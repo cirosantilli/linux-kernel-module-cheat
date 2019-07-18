@@ -469,7 +469,12 @@ Extra options to append at the end of the emulator command line.
                 cmd.extend([
                     self.env['gem5_se_file'], LF,
                     '--cmd', self.env['image'], LF,
-                    '--param', 'system.cpu[:].workload[:].release = "{}"'.format(self.env['kernel_version']), LF,
+                    # We have to use cpu[0] here because on multi-cpu workloads,
+                    # cpu[1] and higher use workload as a proxy to cpu[0].workload.
+                    # as can be seen from the config.ini.
+                    # If system.cpu[:].workload[:] were used instead, we would get the error:
+                    # "KeyError: 'workload'"
+                    '--param', 'system.cpu[0].workload[:].release = "{}"'.format(self.env['kernel_version']), LF,
                 ])
                 if self.env['userland_args'] is not None:
                     cmd.extend(['--options', self.env['userland_args'], LF])
@@ -486,7 +491,6 @@ Extra options to append at the end of the emulator command line.
                         '--disk-image', self.env['disk_image'], LF,
                         '--kernel', self.env['image'], LF,
                         '--mem-size', memory, LF,
-                        '--num-cpus', str(self.env['cpus']), LF,
                         '--script', self.env['gem5_readfile_file'], LF,
                     ])
                     if self.env['arch'] == 'x86_64':
@@ -569,6 +573,7 @@ Extra options to append at the end of the emulator command line.
             if self.env['gdb_wait']:
                 # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
                 cmd.extend(['--param', 'system.cpu[0].wait_for_remote_gdb = True', LF])
+            cmd.extend(['--num-cpus', str(self.env['cpus']), LF])
         elif self.env['emulator'] == 'qemu':
             qemu_user_and_system_options = [
                 '-trace', 'enable={},file={}'.format(trace_type, self.env['qemu_trace_file']), LF,
