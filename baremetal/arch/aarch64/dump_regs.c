@@ -22,10 +22,15 @@ int main(void) {
         uint64_t tcr_el1;
         __asm__ ("mrs %0, tcr_el1;" : "=r" (tcr_el1) : :);
         printf("TCR_EL1 0x%" PRIX64 "\n", tcr_el1);
+        printf("TCR_EL1.A1 0x%" PRIX64 "\n", (tcr_el1 >> 22) & 1);
 
         uint64_t ttbr0_el1;
         __asm__ ("mrs %0, ttbr0_el1;" : "=r" (ttbr0_el1) : :);
         printf("TTBR0_EL1 0x%" PRIX64 "\n", ttbr0_el1);
+
+        uint64_t ttbr1_el1;
+        __asm__ ("mrs %0, ttbr1_el1;" : "=r" (ttbr1_el1) : :);
+        printf("TTBR1_EL1 0x%" PRIX64 "\n", ttbr1_el1);
     }
 
     return 0;
