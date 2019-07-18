@@ -13433,6 +13433,73 @@ The Linux kernel must use that to decide put the CPU in thumb mode: that could b
 +
 TODO details. Does the linker then resolve thumbness with address relocation? Doesn't this imply that the compiler cannot generate BL (never changes) or BLX (always changes) across object files, only BX (target state controlled by lower bit)?
 
+===== ARM big endian mode
+
+ARM can switch between big and little endian mode on the fly!
+
+However, everyone only uses little endian, so the big endian ecosystem is not as supported.
+
+TODO is there any advantage of using big endian?
+
+Here Peter mentions that QEMU does "support" big endian in theory, but that there are no machines for it not sure what that implies: https://stackoverflow.com/questions/41571643/emulatin-big-endian-arm-system-with-qemu
+
+We can try it out quickly in user mode with:
+
+....
+touch userland/arch/aarch64/freestanding/linux/hello.S
+./build-userland --arch aarch64 --ccflags=-mbig-endian userland/arch/aarch64/freestanding/linux/hello.S
+./run --arch aarch64 --userland userland/arch/aarch64/freestanding/linux/hello.S
+....
+
+and it fails with:
+
+....
+Invalid ELF image for this architecture
+....
+
+From this we can guess that the big endian metadata is actually stored in the <<elf>> file, and confirm that with:
+
+....
+./run-toolchain \
+  --arch aarch64 \
+  readelf \
+  -- \
+  --file-header "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out" \
+;
+....
+
+which contains:
+
+....
+Data:                              2's complement, big endian
+....
+
+instead of the default:
+
+....
+Data:                              2's complement, little endian
+....
+
+TODO does the Linux kernel support running big endian executables? I tried after building the big endian executable:
+
+....
+./build-buildroot --arch aarch64
+./run --arch aarch64 --eval-after ./arch/aarch64/freestanding/linux/hello.out
+....
+
+but that failed with:
+
+....
+/lkmc/arch/aarch64/freestanding/linux/hello.out: line 1: ELF@x@0@8@: not found
+/lkmc/arch/aarch64/freestanding/linux/hello.out: line 2: @@: not found
+/lkmc/arch/aarch64/freestanding/linux/hello.out: line 3: syntax error: unexpected ")"
+....
+
+TODO:
+
+* can you compile the Linux kernel itself as big endian? Looks like yes since there is a https://github.com/torvalds/linux/blob/v5.1/arch/arm64/Kconfig#L791[`config CPU_BIG_ENDIAN`] See also: https://unix.stackexchange.com/questions/378829/getting-big-endian-linux-build-to-boot-on-arm-with-u-boot
+* how can be is the endianess be checked and modified in the CPU?
+
 === ARM branch instructions
 
 ==== ARM B instruction
@@ -14239,6 +14306,14 @@ This adds extra details to the more portable <<armarm8>> ISA documentation.
 http://infocenter.arm.com/help/topic/com.arm.doc.ddi0438i/DDI0438I_cortex_a15_r4p0_trm.pdf
 
 2013.
+
+== ELF
+
+https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
+
+This is the main format for executables, object files (`.o`) and shared libraries (`.so`) in Linux.
+
+An introduction to the format can be found at: https://cirosantilli.com/elf-hello-world
 
 == IEEE 754
 
