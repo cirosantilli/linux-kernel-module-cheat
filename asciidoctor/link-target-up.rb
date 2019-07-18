@@ -11,7 +11,15 @@ class LinkTargetUp < Asciidoctor::Extensions::InlineMacroProcessor
   ExternalLinkRegex = /^https?:\/\//
 
   def target_base
-    '..'
+    # Return an absolute path here because you will
+    # often want your out/ to be a symlink to your hard
+    # disk, and doing just '..' in that case breaks.
+    #
+    # The downside is that you can't move the repo around
+    # and still have the HTML work, but other Buildroot things
+    # will likely break anyways in that case, so this is
+    # the least of worries.
+    File.expand_path('..', __dir__)
   end
 
   def process parent, target, attrs
