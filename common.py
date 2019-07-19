@@ -38,7 +38,7 @@ common = sys.modules[__name__]
 # Fixed parameters that don't depend on CLI arguments.
 consts = {}
 consts['repo_short_id'] = 'lkmc'
-consts['linux_kernel_version'] = '5.1'
+consts['linux_kernel_version'] = '5.2.1'
 # https://stackoverflow.com/questions/20010199/how-to-determine-if-a-process-runs-inside-lxc-docker
 consts['in_docker'] = os.path.exists('/.dockerenv')
 consts['root_dir'] = os.path.dirname(os.path.abspath(__file__))
