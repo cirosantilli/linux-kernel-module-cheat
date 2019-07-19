@@ -3954,10 +3954,10 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 At 8d8307ac0710164701f6e14c99a69ee172ccbb70 + 1, I noticed that if you run link:userland/posix/count.c[]:
 
 ....
-./run --userland userland/posix/count.c --userland-args 3
+./run --userland userland/posix/count_to.c --userland-args 3
 ....
 
-it first waits for 3 seconds, and then dumps all the output at once, instead of counting once every second as expected.
+it first waits for 3 seconds, then the program exits, and then it dumps all the stdout at once, instead of counting once every second as expected.
 
 The same can be reproduced by copying the raw QEMU command and piping it through `tee`, so I don't think it is a bug in our setup:
 
@@ -10078,7 +10078,75 @@ cat /proc/cpuinfo
 getconf _NPROCESSORS_CONF
 ....
 
-====== gem5 arm more than 8 cores
+====== Number of cores in QEMU user mode
+
+TODO why in <<user-mode-simulation>> QEMU always shows the number of cores of the host. E.g., both of the following output the same as `nproc` on the host:
+
+....
+nproc
+./run --userland userland/cpp/thread_hardware_concurrency.cpp
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp
+....
+
+This random page suggests that QEMU splits one host thread thread per guest thread, and thus presumably delegates context switching to the host kernel: https://qemu.weilnetz.de/w64/2012/2012-12-04/qemu-tech.html#User-emulation-specific-details
+
+We can confirm that with:
+
+....
+./run --userland userland/posix/pthread_count.c --userland-args 4
+ps Haux | grep qemu | wc
+....
+
+Remember <<qemu-user-mode-does-not-show-stdout-immediately>> though.
+
+At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host threads plus one for every new guest thread created.  Remember that link:userland/posix/pthread_count.c[] spawns N + 1 total threads if you count the `main` thread.
+
+====== Number of cores in gem5 user mode
+
+gem5 user mode multi core has been particularly flaky compared <<number-of-cores-in-qemu-user-mode,to QEMU's>>.
+
+You have the limitation that you must have at least one core per guest thread, otherwise `pthread_create` fails. For example:
+
+....
+./run --cpus 1 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1
+....
+
+fails because that process has a total of 2 threads: one for `main` and one extra thread spawned: link:userland/posix/pthread_self.c[] The error message is:
+
+....
+pthread_create: Resource temporarily unavailable
+....
+
+It works however if we add on extra CPU:
+
+....
+./run --cpus 2 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1
+....
+
+This has to do with the fact that gem5 has a more simplistic thread implementation that does not spawn one host thread per guest thread CPU. Maybe this is required to achieve reproducible runs? What is the task switch algorithm then?
+
+gem5 threading does however show the expected number of cores, e.g.:
+
+....
+./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static
+....
+
+outputs `1` and `2` respectively.
+
+TODO: aarch64 seems to failing to spawn more than 2 threads at 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1:
+
+....
+./run --arch aarch64 --cpus 3 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 2
+....
+
+fails with:
+
+....
+Exiting @ tick 18446744073709551615 because simulate() limit reached
+....
+
+====== gem5 ARM full system with more than 8 cores
 
 https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8
 
@@ -11203,7 +11271,7 @@ because glibc was built to expect a newer Linux kernel: <<fatal-kernel-too-old>>
 It is obviously not possible to understand what they actually do from their commit message, so let's explain them one by one here as we understand them:
 
 * `drm: Add component-aware simple encoder` allows you to see images through VNC: <<gem5-graphic-mode>>
-* `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: <<gem5-arm-more-than-8-cores>>
+* `gem5: Add support for gem5's extended GIC mode` adds support for more than 8 cores: <<gem5-arm-full-system-with-more-than-8-cores>>
 
 Tested on 649d06d6758cefd080d04dc47fd6a5a26a620874 + 1.
 
@@ -11881,9 +11949,13 @@ Programs under link:userland/cpp/[] are examples of https://en.wikipedia.org/wik
 [[cpp-multithreading]]
 ==== C++ multithreading
 
-* `<atomic>`: <<cpp17>> 32 "Atomic operations library"
+* https://en.cppreference.com/w/cpp/header/thread[`<thread>`]
+** link:userland/cpp/count.cpp[] Exemplifies: `std::this_thread::sleep_for`
+** link:userland/cpp/thread_hardware_concurrency.cpp[] `std::thread::hardware_concurrency`
+* https://en.cppreference.com/w/cpp/header/atomic[`<atomic>`]: <<cpp17>> 32 "Atomic operations library"
 ** link:userland/cpp/atomic.cpp[]
 
+[[cpp-standards]]
 ==== C++ standards
 
 Like for C, you have to pay for the standards... insane. So we just use the closest free drafts instead.
@@ -11899,10 +11971,22 @@ http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/n4659.pdf
 
 Programs under link:userland/posix/[] are examples of POSIX C programming.
 
-What is POSIX:
+These links provide a clear overview of what POSIX is:
 
 * https://stackoverflow.com/questions/1780599/what-is-the-meaning-of-posix/31865755#31865755
 * https://unix.stackexchange.com/questions/11983/what-exactly-is-posix/220877#220877
+
+==== unistd.h
+
+* link:userland/posix/count.c[] illustrates `sleep()`
+* link:userland/posix/count_to.c[] minor variation of link:userland/posix/count.c[]
+
+==== pthreads
+
+POSIX' multithreading API. This was for a looong time the only "portable" multithreading alternative, until <<cpp-multithreading,C++11 finally added threads>>, thus also extending the portability to Windows.
+
+* link:userland/posix/pthread_count.c[]
+* link:userland/posix/pthread_self.c[]
 
 ==== sysconf
 
@@ -11927,9 +12011,15 @@ getconf -a
 
 The following sections are related to multithreading in userland:
 
-* <cpp-multithreading>
-* <<x86-thread-synchronization-primitives>>
-* <<arm-lse>>
+* language topics:
+** <<cpp-multithreading>>
+** <<pthreads>>
+* ISA topics:
+** <<x86-thread-synchronization-primitives>>
+** <<arm-lse>>
+* emulator topics:
+** <<number-of-cores-in-qemu-user-mode>>
+** <<number-of-cores-in-gem5-user-mode>>
 
 == Userland assembly
 

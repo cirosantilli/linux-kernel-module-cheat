@@ -481,9 +481,12 @@ path_properties_tuples = (
                     {},
                     {
                         'atomic.cpp': {
-                            'test_run_args': {'cpus': 2},
+                            'test_run_args': {'cpus': 3},
                             # LDADD from LSE
                             'gem5_unimplemented_instruction': True,
+                        },
+                        'sleep_for.cpp': {
+                            'more_than_1s': True,
                         },
                     },
                 ),
@@ -528,6 +531,13 @@ path_properties_tuples = (
                         'kill.c': {
                             'baremetal': True,
                             'signal_received': signal.Signals.SIGHUP,
+                        },
+                        'pthread_count.c': {
+                            'more_than_1s': True,
+                            'test_run_args': {'cpus': 2},
+                        },
+                        'pthread_self.c': {
+                            'test_run_args': {'cpus': 2},
                         },
                         'sleep_forever.c': {'more_than_1s': True},
                         'virt_to_phys_test.c': {'more_than_1s': True},
