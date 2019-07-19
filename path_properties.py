@@ -479,7 +479,13 @@ path_properties_tuples = (
                 ),
                 'cpp': (
                     {},
-                    {},
+                    {
+                        'atomic.cpp': {
+                            'test_run_args': {'cpus': 2},
+                            # LDADD from LSE
+                            'gem5_unimplemented_instruction': True,
+                        },
+                    },
                 ),
                 'gcc': (
                     gnu_extension_properties,
