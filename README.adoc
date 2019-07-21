@@ -11514,7 +11514,33 @@ Running the larger regression tests is exposed with:
 
 but TODO: those require magic blobs on `M5_PATH` that we don't currently automate.
 
-=== gem5 clang build
+=== gem5 build options
+
+In order to use different build options, you might also want to use <<gem5-build-variants>> to keep the build outputs separate from one another.
+
+==== gem5 debug build
+
+The `gem5.debug` executable has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
+
+....
+./build-gem5 --arch aarch64 --gem5-build-type debug
+./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug
+....
+
+The build outputs are automatically stored in a different directory from other build types such as `.opt` build, which prevents `.debug` files from overwriting `.opt` ones.
+
+Therefore, `--gem5-build-id` is not required.
+
+The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
+
+....
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug
+....
+
+so you will likely only use this when it is unavoidable. This is also benchmarked at: <<benchmark-linux-kernel-boot>>
+
+==== gem5 clang build
 
 TODO test properly, benchmark vs GCC.
 
@@ -11523,6 +11549,60 @@ sudo apt-get install clang
 ./build-gem5 --clang
 ./run --clang --emulator gem5
 ....
+
+==== gem5 sanitation build
+
+If there gem5 appears to have a C++ undefined behaviour bug, which is often very difficult to track down, you can try to build it with the following extra SCons options:
+
+....
+./build-gem5 --gem5-build-id san --verbose -- --with-ubsan --without-tcmalloc
+....
+
+This will make GCC do a lot of extra sanitation checks at compile and run time.
+
+As a result, the build and runtime will be way slower than normal, but that still might be the fastest way to solve undefined behaviour problems.
+
+Ideally, we should also be able to run it with asan with `--with-asan`, but if we try then the build fails at gem5 16eeee5356585441a49d05c78abc328ef09f7ace (with two ubsan trivial fixes I'll push soon):
+
+....
+=================================================================
+==9621==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 371712 byte(s) in 107 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff03950d065 in dictresize ../Objects/dictobject.c:643
+
+Direct leak of 23728 byte(s) in 26 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1499
+    #2 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1493
+
+Direct leak of 2928 byte(s) in 43 object(s) allocated from:
+    #0 0x7ff03980487e in __interceptor_realloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c87e)
+    #1 0x7ff03951d763 in list_resize ../Objects/listobject.c:62
+    #2 0x7ff03951d763 in app1 ../Objects/listobject.c:277
+    #3 0x7ff03951d763 in PyList_Append ../Objects/listobject.c:289
+
+Direct leak of 2002 byte(s) in 3 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:88
+    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:57                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Direct leak of 40 byte(s) in 2 object(s) allocated from:                                                                                                                                                                                                                            #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff03951ea4b in PyList_New ../Objects/listobject.c:152
+
+Indirect leak of 10384 byte(s) in 11 object(s) allocated from:                                                                                                                                                                                                                      #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)                                                                                                                                                                                                   #1 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1499                                                                                                                                                                                                             #2 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1493
+
+Indirect leak of 4089 byte(s) in 6 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff0394fd648 in PyString_FromString ../Objects/stringobject.c:143
+
+Indirect leak of 2090 byte(s) in 3 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)                                                                                                                                                                                                   #1 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2421                                                                                                                                                                                                                      #2 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2094
+Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:88                                                                                                                                                                                                    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:57                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SUMMARY: AddressSanitizer: 418319 byte(s) leaked in 203 allocation(s).
+....
+
+From the message, this appears however to be a Python / pyenv11 bug however and not in gem5 specifically. I think it worked when I tried it in the past in an older gem5 / Ubuntu.
 
 == Buildroot
 
@@ -16585,28 +16665,6 @@ cd linux-kernel-module-cheat
 ....
 
 With this setup, both your private gem5 source and build are safely kept outside of this public repository.
-
-===== gem5 debug build
-
-The `gem5.debug` executable has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
-
-....
-./build-gem5 --arch aarch64 --gem5-build-type debug
-./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug
-....
-
-The build outputs are automatically stored in a different directory from other build types such as `.opt` build, which prevents `.debug` files from overwriting `.opt` ones.
-
-Therefore, `--gem5-build-id` is not required.
-
-The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
-
-....
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug
-....
-
-so you will likely only use this when it is unavoidable.
 
 ==== Buildroot build variants
 
