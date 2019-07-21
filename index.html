@@ -445,10 +445,13 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
+<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+</div>
+<div class="paragraph">
 <p>The perfect emulation setup to study and develop the <a href="#linux-kernel">Linux kernel</a> v5.2.1, kernel modules, <a href="#qemu-buildroot-setup">QEMU</a>, <a href="#gem5-buildroot-setup">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="#userland-assembly">userland</a> and <a href="#baremetal-setup">baremetal</a> assembly, <a href="#c">ANSI C</a>, <a href="#cpp">C++</a> and <a href="#posix">POSIX</a>. <a href="#gdb">GDB step debug</a> and <a href="#kgdb">KGDB</a> just work. Powered by <a href="#about-the-qemu-buildroot-setup">Buildroot</a> and <a href="#about-the-baremetal-setup">crosstool-NG</a>.  Highly automated. Thoroughly documented. Automated <a href="#test-this-repo">tests</a>. "Tested" in an Ubuntu 18.04 host.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="#qemu-buildroot-setup-getting-started">QEMU Buildroot setup getting started</a></p>
+<p>TL;DR: <a href="#qemu-buildroot-setup-getting-started">Section 1.1.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com. Either use: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/README.adoc">README.adoc</a>, <a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a> or <a href="#build-the-documentation">build the docs yourself</a>.</p>
@@ -510,6 +513,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#baremetal-setup-getting-started">1.7.2. Baremetal setup getting started</a></li>
 </ul>
 </li>
+<li><a href="#build-the-documentation">1.8. Build the documentation</a></li>
 </ul>
 </li>
 <li><a href="#gdb">2. GDB step debug</a>
@@ -1068,7 +1072,9 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel4">
 <li><a href="#number-of-cores">18.2.2.1. Number of cores</a>
 <ul class="sectlevel5">
-<li><a href="#gem5-arm-more-than-8-cores">18.2.2.1.1. gem5 arm more than 8 cores</a></li>
+<li><a href="#number-of-cores-in-qemu-user-mode">18.2.2.1.1. Number of cores in QEMU user mode</a></li>
+<li><a href="#number-of-cores-in-gem5-user-mode">18.2.2.1.2. Number of cores in gem5 user mode</a></li>
+<li><a href="#gem5-arm-full-system-with-more-than-8-cores">18.2.2.1.3. gem5 ARM full system with more than 8 cores</a></li>
 </ul>
 </li>
 <li><a href="#gem5-cache-size">18.2.2.2. gem5 cache size</a></li>
@@ -1152,7 +1158,13 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-python-scripts-without-rebuild">18.12. gem5 Python scripts without rebuild</a></li>
 <li><a href="#gem5-fs_biglittle">18.13. gem5 fs_bigLITTLE</a></li>
 <li><a href="#gem5-unit-tests">18.14. gem5 unit tests</a></li>
-<li><a href="#gem5-clang-build">18.15. gem5 clang build</a></li>
+<li><a href="#gem5-build-options">18.15. gem5 build options</a>
+<ul class="sectlevel3">
+<li><a href="#gem5-debug-build">18.15.1. gem5 debug build</a></li>
+<li><a href="#gem5-clang-build">18.15.2. gem5 clang build</a></li>
+<li><a href="#gem5-sanitation-build">18.15.3. gem5 sanitation build</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#buildroot">19. Buildroot</a>
@@ -1196,7 +1208,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#cpp">20.2. C++</a>
 <ul class="sectlevel3">
 <li><a href="#cpp-multithreading">20.2.1. C++ multithreading</a></li>
-<li><a href="#c-standards">20.2.2. C++ standards</a>
+<li><a href="#cpp-standards">20.2.2. C++ standards</a>
 <ul class="sectlevel4">
 <li><a href="#cpp17">20.2.2.1. C++17 N4659 standards draft</a></li>
 </ul>
@@ -1205,7 +1217,9 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#posix">20.3. POSIX</a>
 <ul class="sectlevel3">
-<li><a href="#sysconf">20.3.1. sysconf</a></li>
+<li><a href="#unistd-h">20.3.1. unistd.h</a></li>
+<li><a href="#pthreads">20.3.2. pthreads</a></li>
+<li><a href="#sysconf">20.3.3. sysconf</a></li>
 </ul>
 </li>
 <li><a href="#userland-multithreading">20.4. Userland multithreading</a></li>
@@ -1666,7 +1680,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#run-command-after-boot">29.3. Run command after boot</a></li>
 <li><a href="#default-command-line-arguments">29.4. Default command line arguments</a></li>
-<li><a href="#build-the-documentation">29.5. Build the documentation</a>
+<li><a href="#documentation">29.5. Documentation</a>
 <ul class="sectlevel3">
 <li><a href="#documentation-verification">29.5.1. Documentation verification</a>
 <ul class="sectlevel4">
@@ -1693,7 +1707,6 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel4">
 <li><a href="#gem5-worktree">29.11.3.1. gem5 worktree</a></li>
 <li><a href="#gem5-private-source-trees">29.11.3.2. gem5 private source trees</a></li>
-<li><a href="#gem5-debug-build">29.11.3.3. gem5 debug build</a></li>
 </ul>
 </li>
 <li><a href="#buildroot-build-variants">29.11.4. Buildroot build variants</a></li>
@@ -1784,14 +1797,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <p>If you don&#8217;t know which one to go for, start with <a href="#qemu-buildroot-setup-getting-started">QEMU Buildroot setup getting started</a>.</p>
 </div>
 <div class="paragraph">
-<p>Design goals of this project are documented at: <a href="#design-goals">Design goals</a>.</p>
+<p>Design goals of this project are documented at: <a href="#design-goals">Section 29.18.1, &#8220;Design goals&#8221;</a>.</p>
 </div>
 <div class="sect2">
 <h3 id="qemu-buildroot-setup"><a class="anchor" href="#qemu-buildroot-setup"></a><a class="link" href="#qemu-buildroot-setup">1.1. QEMU Buildroot setup</a></h3>
 <div class="sect3">
 <h4 id="qemu-buildroot-setup-getting-started"><a class="anchor" href="#qemu-buildroot-setup-getting-started"></a><a class="link" href="#qemu-buildroot-setup-getting-started">1.1.1. QEMU Buildroot setup getting started</a></h4>
 <div class="paragraph">
-<p>This setup has been mostly tested on Ubuntu. For other host operating systems see: <a href="#supported-hosts">Supported hosts</a>. For greater stability, consider using the <a href="#release-procedure">latest release</a> instead of master: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/releases" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/releases</a></p>
+<p>This setup has been mostly tested on Ubuntu. For other host operating systems see: <a href="#supported-hosts">Section 29.1, &#8220;Supported hosts&#8221;</a>. For greater stability, consider using the <a href="#release-procedure">latest release</a> instead of master: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/releases" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/releases</a></p>
 </div>
 <div class="paragraph">
 <p>Reserve 12Gb of disk and run:</p>
@@ -1808,7 +1821,7 @@ cd linux-kernel-module-cheat
 <p>You don&#8217;t need to clone recursively even though we have <code>.git</code> submodules: <code>download-dependencies</code> fetches just the submodules that you need for this build to save time.</p>
 </div>
 <div class="paragraph">
-<p>If something goes wrong, see: <a href="#common-build-issues">Common build issues</a> and use our issue tracker: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues</a></p>
+<p>If something goes wrong, see: <a href="#common-build-issues">Section 29.2, &#8220;Common build issues&#8221;</a> and use our issue tracker: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues</a></p>
 </div>
 <div class="paragraph">
 <p>The initial build will take a while (30 minutes to 2 hours) to clone and build, see <a href="#benchmark-builds">Benchmark builds</a> for more details.</p>
@@ -1876,7 +1889,7 @@ hello2 cleanup</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>See also: <a href="#quit-qemu-from-text-mode">Quit QEMU from text mode</a>.</p>
+<p>See also: <a href="#quit-qemu-from-text-mode">Section 13.1.1, &#8220;Quit QEMU from text mode&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>All available modules can be found in the <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/kernel_modules">kernel_modules</a> directory.</p>
@@ -1891,7 +1904,7 @@ hello2 cleanup</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>To avoid typing <code>--arch aarch64</code> many times, you can set the default arch as explained at: <a href="#default-command-line-arguments">Default command line arguments</a></p>
+<p>To avoid typing <code>--arch aarch64</code> many times, you can set the default arch as explained at: <a href="#default-command-line-arguments">Section 29.4, &#8220;Default command line arguments&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>I now urge you to read the following sections which contain widely applicable information:</p>
@@ -2040,7 +2053,7 @@ hello /root/.profile                                                            
 </div>
 </div>
 <div class="paragraph">
-<p>When you reach difficulties, QEMU makes it possible to easily GDB step debug the Linux kernel source code, see: <a href="#gdb">GDB step debug</a>.</p>
+<p>When you reach difficulties, QEMU makes it possible to easily GDB step debug the Linux kernel source code, see: <a href="#gdb">Section 2, &#8220;GDB step debug&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -2125,7 +2138,7 @@ hello /root/.profile                                                            
 <p>All of this put together makes the safe procedure acceptably fast for regular development as well.</p>
 </div>
 <div class="paragraph">
-<p>It is also easy to GDB step debug kernel modules with our setup, see: <a href="#gdb-step-debug-kernel-module">GDB step debug kernel module</a>.</p>
+<p>It is also easy to GDB step debug kernel modules with our setup, see: <a href="#gdb-step-debug-kernel-module">Section 2.4, &#8220;GDB step debug kernel module&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -2195,10 +2208,10 @@ hello /root/.profile                                                            
 <p>If you really want to develop semiconductors, your only choice is to join an university or a semiconductor company that has the EDA licenses.</p>
 </div>
 <div class="paragraph">
-<p>See also: <a href="#should-you-waste-your-life-with-systems-programming">Should you waste your life with systems programming?</a>.</p>
+<p>See also: <a href="#should-you-waste-your-life-with-systems-programming">Section 29.19.2, &#8220;Should you waste your life with systems programming?&#8221;</a>.</p>
 </div>
 <div class="paragraph">
-<p>While hacking QEMU, you will likely want to GDB step its source. That is trivial since QEMU is just another userland program like any other, but our setup has a shortcut to make it even more convenient, see: <a href="#debug-the-emulator">Debug the emulator</a>.</p>
+<p>While hacking QEMU, you will likely want to GDB step its source. That is trivial since QEMU is just another userland program like any other, but our setup has a shortcut to make it even more convenient, see: <a href="#debug-the-emulator">Section 17.7, &#8220;Debug the emulator&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -2531,7 +2544,7 @@ j = 0</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>and can therefore be used to estimate system performance, see: <a href="#gem5-run-benchmark">gem5 run benchmark</a> for an example.</p>
+<p>and can therefore be used to estimate system performance, see: <a href="#gem5-run-benchmark">Section 18.2, &#8220;gem5 run benchmark&#8221;</a> for an example.</p>
 </div>
 <div class="paragraph">
 <p>The downside of gem5 much slower than QEMU because of the greater simulation detail.</p>
@@ -2585,7 +2598,7 @@ j = 0</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>See also: <a href="#tmux-gem5">tmux gem5</a>.</p>
+<p>See also: <a href="#tmux-gem5">Section 2.3.1, &#8220;tmux gem5&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>At the end of boot, it might not be very clear that you have the shell since some <a href="#printk">printk</a> messages may appear in front of the prompt like this:</p>
@@ -2608,7 +2621,7 @@ j = 0</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>More gem5 information is present at: <a href="#gem5">gem5</a></p>
+<p>More gem5 information is present at: <a href="#gem5">Section 18, &#8220;gem5&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>Good next steps are:</p>
@@ -2634,7 +2647,7 @@ j = 0</pre>
 <p>This repository has been tested inside clean <a href="https://en.wikipedia.org/wiki/Docker_(software)">Docker</a> containers.</p>
 </div>
 <div class="paragraph">
-<p>This is a good option if you are on a Linux host, but the native setup failed due to your weird host distribution, and you have better things to do with your life than to debug it. See also: <a href="#supported-hosts">Supported hosts</a>.</p>
+<p>This is a good option if you are on a Linux host, but the native setup failed due to your weird host distribution, and you have better things to do with your life than to debug it. See also: <a href="#supported-hosts">Section 29.1, &#8220;Supported hosts&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>For example, to do a <a href="#qemu-buildroot-setup">QEMU Buildroot setup</a> inside Docker, run:</p>
@@ -2822,7 +2835,7 @@ j = 0</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>can&#8217;t <a href="#gdb">GDB step debug the kernel</a>, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <a href="#prebuilt-toolchain">Buildroot use prebuilt host toolchain</a>.</p>
+<p>can&#8217;t <a href="#gdb">GDB step debug the kernel</a>, since the source and cross toolchain with GDB are not available. Buildroot cannot easily use a host toolchain: <a href="#prebuilt-toolchain">Section 28.2.2.1.1, &#8220;Buildroot use prebuilt host toolchain&#8221;</a>.</p>
 <div class="paragraph">
 <p>Maybe we could work around this by just downloading the kernel source somehow, and using a host prebuilt GDB, but we felt that it would be too messy and unreliable.</p>
 </div>
@@ -3119,7 +3132,7 @@ dmesg</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>natively on the host as shown at: <a href="#userland-setup-getting-started-natively">Userland setup getting started natively</a></p>
+<p>natively on the host as shown at: <a href="#userland-setup-getting-started-natively">Section 1.6.2.1, &#8220;Userland setup getting started natively&#8221;</a></p>
 <div class="paragraph">
 <p>Can only run examples compatible with your host CPU architecture and OS, but has the fastest setup and runtimes.</p>
 </div>
@@ -3131,10 +3144,10 @@ dmesg</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>the host prebuilt toolchain: <a href="#userland-setup-getting-started-with-prebuilt-toolchain-and-qemu-user-mode">Userland setup getting started with prebuilt toolchain and QEMU user mode</a></p>
+<p>the host prebuilt toolchain: <a href="#userland-setup-getting-started-with-prebuilt-toolchain-and-qemu-user-mode">Section 1.6.2.2, &#8220;Userland setup getting started with prebuilt toolchain and QEMU user mode&#8221;</a></p>
 </li>
 <li>
-<p>the Buildroot toolchain you built yourself: <a href="#qemu-user-mode-getting-started">QEMU user mode getting started</a></p>
+<p>the Buildroot toolchain you built yourself: <a href="#qemu-user-mode-getting-started">Section 10.1, &#8220;QEMU user mode getting started&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -3159,7 +3172,7 @@ dmesg</pre>
 </div>
 </li>
 <li>
-<p>from full system simulation as shown at: <a href="#qemu-buildroot-setup-getting-started">QEMU Buildroot setup getting started</a>.</p>
+<p>from full system simulation as shown at: <a href="#qemu-buildroot-setup-getting-started">Section 1.1.1, &#8220;QEMU Buildroot setup getting started&#8221;</a>.</p>
 <div class="paragraph">
 <p>This is the most reproducible and controlled environment, and all examples work there. But also the slower one to setup.</p>
 </div>
@@ -3274,7 +3287,7 @@ cd userland
 <p>So you can use any option supported by <code>build-userland</code> script freely with <code>build-userland-in-tree</code> and <code>build</code>.</p>
 </div>
 <div class="paragraph">
-<p>The situation is analogous for <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/test">userland/test</a>, <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/test-executables-in-tree">test-executables-in-tree</a> and <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/test-executables">test-executables</a>, which are further documented at: <a href="#user-mode-tests">User mode tests</a>.</p>
+<p>The situation is analogous for <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/test">userland/test</a>, <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/test-executables-in-tree">test-executables-in-tree</a> and <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/test-executables">test-executables</a>, which are further documented at: <a href="#user-mode-tests">Section 10.2, &#8220;User mode tests&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Do a more clean out-of-tree build instead and run the program:</p>
@@ -3307,7 +3320,7 @@ cd userland
 </div>
 </div>
 <div class="paragraph">
-<p>as shown at: <a href="#debug-the-emulator">Debug the emulator</a>, although direct GDB host usage works as well of course.</p>
+<p>as shown at: <a href="#debug-the-emulator">Section 17.7, &#8220;Debug the emulator&#8221;</a>, although direct GDB host usage works as well of course.</p>
 </div>
 </div>
 <div class="sect4">
@@ -3340,7 +3353,7 @@ cd userland
 <li>
 <p><code>--gcc-which host</code>: use the host toolchain.</p>
 <div class="paragraph">
-<p>We must pass this to <code>./run</code> as well because QEMU must know which dynamic libraries to use. See also: <a href="#user-mode-static-executables">User mode static executables</a>.</p>
+<p>We must pass this to <code>./run</code> as well because QEMU must know which dynamic libraries to use. See also: <a href="#user-mode-static-executables">Section 10.5, &#8220;User mode static executables&#8221;</a>.</p>
 </div>
 </li>
 <li>
@@ -3349,7 +3362,7 @@ cd userland
 </ul>
 </div>
 <div class="paragraph">
-<p>This present the usual trade-offs of using prebuilts as mentioned at: <a href="#prebuilt">Prebuilt setup</a>.</p>
+<p>This present the usual trade-offs of using prebuilts as mentioned at: <a href="#prebuilt">Section 1.4, &#8220;Prebuilt setup&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Other functionality are analogous, e.g. testing:</p>
@@ -3390,7 +3403,7 @@ cd userland
 <p>After doing that setup, you can already execute your userland programs from inside QEMU: the only missing step is how to rebuild executables and run them.</p>
 </div>
 <div class="paragraph">
-<p>And the answer is exactly analogous to what is shown at: <a href="#your-first-kernel-module-hack">Your first kernel module hack</a></p>
+<p>And the answer is exactly analogous to what is shown at: <a href="#your-first-kernel-module-hack">Section 1.1.2.2, &#8220;Your first kernel module hack&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>For example, if we modify <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/hello.c">userland/c/hello.c</a> to print out something different, we can just rebuild it with:</p>
@@ -3596,7 +3609,7 @@ error: simulation error detected by parsing logs</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>TODO: the carriage returns are a bit different than in QEMU, see: <a href="#gem5-baremetal-carriage-return">gem5 baremetal carriage return</a>.</p>
+<p>TODO: the carriage returns are a bit different than in QEMU, see: <a href="#gem5-baremetal-carriage-return">Section 26.4, &#8220;gem5 baremetal carriage return&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Note that <code>./build-baremetal</code> requires the <code>--emulator gem5</code> option, and generates separate executable images for both, as can be seen from:</p>
@@ -3641,10 +3654,10 @@ echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 -
 <p>But just stick to newer and better <code>VExpress_GEM5_V1</code> unless you have a good reason to use <code>RealViewPBX</code>.</p>
 </div>
 <div class="paragraph">
-<p>When doing baremetal programming, it is likely that you will want to learn userland assembly first, see: <a href="#userland-assembly">Userland assembly</a>.</p>
+<p>When doing baremetal programming, it is likely that you will want to learn userland assembly first, see: <a href="#userland-assembly">Section 21, &#8220;Userland assembly&#8221;</a>.</p>
 </div>
 <div class="paragraph">
-<p>For more information on baremetal, see the section: <a href="#baremetal">Baremetal</a>.</p>
+<p>For more information on baremetal, see the section: <a href="#baremetal">Section 26, &#8220;Baremetal&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>The following subjects are particularly important:</p>
@@ -3659,6 +3672,57 @@ echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 -
 </li>
 </ul>
 </div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="build-the-documentation"><a class="anchor" href="#build-the-documentation"></a><a class="link" href="#build-the-documentation">1.8. Build the documentation</a></h3>
+<div class="paragraph">
+<p>You don&#8217;t need to depend on GitHub.</p>
+</div>
+<div class="paragraph">
+<p>For a quick and dirty build, install <a href="https://asciidoctor.org/">Asciidoctor</a> however you like and build:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>asciidotor README.adoc
+xdg-open README.html</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For development, you will want to do a more controlled build with extra error checking as follows.</p>
+</div>
+<div class="paragraph">
+<p>For the initial build do:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build --download-dependencies docs</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which also downloads build dependencies.</p>
+</div>
+<div class="paragraph">
+<p>Then the following times just to the faster:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-doc</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/build-doc">build-doc</a></p>
+</div>
+<div class="paragraph">
+<p>The HTML output is located at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>xdg-open out/README.html</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>More information about our documentation internals can be found at: <a href="#documentation">Section 29.5, &#8220;Documentation&#8221;</a></p>
 </div>
 </div>
 </div>
@@ -4444,7 +4508,7 @@ echo 'file kernel/module.c +p' &gt; /sys/kernel/debug/dynamic_debug/control
 <p><a href="#gem5-tracing">gem5 tracing</a> with <code>--debug-flags=Exec</code> does show the right symbols however! So in the worst case, we can just read their source. Amazing.</p>
 </div>
 <div class="paragraph">
-<p>v4.19 also added a <code>CONFIG_HAVE_KERNEL_UNCOMPRESSED=y</code> option for having the kernel uncompressed which could make following the startup easier, but it is only available on s390. <code>aarch64</code> however is already uncompressed by default, so might be the easiest one. See also: <a href="#vmlinux-vs-bzimage-vs-zimage-vs-image">vmlinux vs bzImage vs zImage vs Image</a>.</p>
+<p>v4.19 also added a <code>CONFIG_HAVE_KERNEL_UNCOMPRESSED=y</code> option for having the kernel uncompressed which could make following the startup easier, but it is only available on s390. <code>aarch64</code> however is already uncompressed by default, so might be the easiest one. See also: <a href="#vmlinux-vs-bzimage-vs-zimage-vs-image">Section 15.21.1, &#8220;vmlinux vs bzImage vs zImage vs Image&#8221;</a>.</p>
 </div>
 <div class="sect3">
 <h4 id="gdb-step-debug-early-boot-by-address"><a class="anchor" href="#gdb-step-debug-early-boot-by-address"></a><a class="link" href="#gdb-step-debug-early-boot-by-address">2.5.1. GDB step debug early boot by address</a></h4>
@@ -4518,7 +4582,7 @@ echo 'file kernel/module.c +p' &gt; /sys/kernel/debug/dynamic_debug/control
 <div class="ulist">
 <ul>
 <li>
-<p>the emulator does not support host to guest networking. This seems to be the case for gem5: <a href="#gem5-host-to-guest-networking">gem5 host to guest networking</a></p>
+<p>the emulator does not support host to guest networking. This seems to be the case for gem5 as explained at: <a href="#gem5-host-to-guest-networking">Section 14.3.1.3, &#8220;gem5 host to guest networking&#8221;</a></p>
 </li>
 <li>
 <p>cannot see the start of the <code>init</code> process easily</p>
@@ -4536,7 +4600,7 @@ echo 'file kernel/module.c +p' &gt; /sys/kernel/debug/dynamic_debug/control
 <li>
 <p>the kernel might switch context to another process or to the kernel itself e.g. on a system call, and then TODO confirm the PIC would go to weird places and source code would be missing.</p>
 <div class="paragraph">
-<p>Solutions to this are being researched at: <a href="#lx-ps">lx-ps</a>.</p>
+<p>Solutions to this are being researched at: <a href="#lx-ps">Section 2.10.1, &#8220;lx-ps&#8221;</a>.</p>
 </div>
 </li>
 <li>
@@ -4850,7 +4914,7 @@ Breakpoint 3 at 0xffffffff811615e3: fdget_pos. (9 locations)
 <div class="sect2">
 <h3 id="gdb-step-debug-multicore-userland"><a class="anchor" href="#gdb-step-debug-multicore-userland"></a><a class="link" href="#gdb-step-debug-multicore-userland">2.9. GDB step debug multicore userland</a></h3>
 <div class="paragraph">
-<p>For a more minimal baremetal multicore setup, see: <a href="#arm-multicore">ARM multicore</a>.</p>
+<p>For a more minimal baremetal multicore setup, see: <a href="#arm-multicore">Section 26.8.3, &#8220;ARM multicore&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>We can set and get which cores the Linux kernel allows a program to run on with <code>sched_getaffinity</code> and <code>sched_setaffinity</code>:</p>
@@ -4898,7 +4962,7 @@ sched_getcpu = 0</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>The number of cores is modified as explained at: <a href="#number-of-cores">Number of cores</a></p>
+<p>The number of cores is modified as explained at: <a href="#number-of-cores">Section 18.2.2.1, &#8220;Number of cores&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p><code>taskset</code> from the util-linux package sets the initial core affinity of a program:</p>
@@ -5244,7 +5308,7 @@ Entering kdb (current=0x(____ptrval____), pid 1) on processor 0 due to Keyboard 
 <p>KGDB expects the connection at <code>ttyS1</code>, our second serial port after <code>ttyS0</code> which contains the terminal.</p>
 </div>
 <div class="paragraph">
-<p>The last line is the KDB prompt, and is covered at: <a href="#kdb">KDB</a>. Typing now shows nothing because that prompt is expecting input from <code>ttyS1</code>.</p>
+<p>The last line is the KDB prompt, and is covered at: <a href="#kdb">Section 3.3, &#8220;KDB&#8221;</a>. Typing now shows nothing because that prompt is expecting input from <code>ttyS1</code>.</p>
 </div>
 <div class="paragraph">
 <p>Instead, we connect to the serial port <code>ttyS1</code> with GDB:</p>
@@ -5793,7 +5857,7 @@ cr3 = 0xFFFFF0DCDC000</pre>
 <p>The <code>init</code> program can be either an executable shell text file, or a compiled ELF file. It becomes easy to accept this once you see that the <code>exec</code> system call handles both cases equally: <a href="https://unix.stackexchange.com/questions/174062/can-the-init-process-be-a-shell-script-in-linux/395375#395375" class="bare">https://unix.stackexchange.com/questions/174062/can-the-init-process-be-a-shell-script-in-linux/395375#395375</a></p>
 </div>
 <div class="paragraph">
-<p>The <code>init</code> executable is searched for in a list of paths in the root filesystem, including <code>/init</code>, <code>/sbin/init</code> and a few others. For more details see: <a href="#path-to-init">Path to init</a></p>
+<p>The <code>init</code> executable is searched for in a list of paths in the root filesystem, including <code>/init</code>, <code>/sbin/init</code> and a few others. For more details see: <a href="#path-to-init">Section 6.3, &#8220;Path to init&#8221;</a></p>
 </div>
 <div class="sect2">
 <h3 id="replace-init"><a class="anchor" href="#replace-init"></a><a class="link" href="#replace-init">6.1. Replace init</a></h3>
@@ -5812,7 +5876,7 @@ cr3 = 0xFFFFF0DCDC000</pre>
 <p>This just counts every second forever and does not give you a shell.</p>
 </div>
 <div class="paragraph">
-<p>This method is not very flexible however, as it is hard to reliably pass multiple commands and command line arguments to the init with it, as explained at: <a href="#init-environment">Init environment</a>.</p>
+<p>This method is not very flexible however, as it is hard to reliably pass multiple commands and command line arguments to the init with it, as explained at: <a href="#init-environment">Section 6.4, &#8220;Init environment&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>For this reason, we have created a more robust helper method with the <code>--eval</code> option:</p>
@@ -5834,10 +5898,10 @@ cr3 = 0xFFFFF0DCDC000</pre>
 <p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/lkmc/eval_base64.sh">rootfs_overlay/lkmc/eval_base64.sh</a>.</p>
 </div>
 <div class="paragraph">
-<p>This allows quoting and newlines by base64 encoding on host, and decoding on guest, see: <a href="#kernel-command-line-parameters-escaping">Kernel command line parameters escaping</a>.</p>
+<p>This allows quoting and newlines by base64 encoding on host, and decoding on guest, see: <a href="#kernel-command-line-parameters-escaping">Section 15.3.1, &#8220;Kernel command line parameters escaping&#8221;</a>.</p>
 </div>
 <div class="paragraph">
-<p>It also automatically chooses between <code>init=</code> and <code>rcinit=</code> for you, see: <a href="#path-to-init">Path to init</a></p>
+<p>It also automatically chooses between <code>init=</code> and <code>rcinit=</code> for you, see: <a href="#path-to-init">Section 6.3, &#8220;Path to init&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p><code>--eval</code> replaces BusyBox' init completely, which makes things more minimal, but also has has the following consequences:</p>
@@ -5863,7 +5927,7 @@ cr3 = 0xFFFFF0DCDC000</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>The best way to overcome those limitations is to use: <a href="#init-busybox">Run command at the end of BusyBox init</a></p>
+<p>The best way to overcome those limitations is to use: <a href="#init-busybox">Section 6.2, &#8220;Run command at the end of BusyBox init&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>If the script is large, you can add it to a gitignored file and pass that to <code>--eval</code> as in:</p>
@@ -6282,7 +6346,7 @@ cat f
 <p>which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.</p>
 </div>
 <div class="paragraph">
-<p>Not however that we already disable disk persistency by default on ext2 filesystems even without <code>--initrd</code>: <a href="#disk-persistency">Disk persistency</a>.</p>
+<p>Not however that we already disable disk persistency by default on ext2 filesystems even without <code>--initrd</code>: <a href="#disk-persistency">Section 17.2, &#8220;Disk persistency&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:</p>
@@ -6445,7 +6509,7 @@ cat f
 <div class="sect3">
 <h4 id="devroot"><a class="anchor" href="#devroot"></a><a class="link" href="#devroot">7.3.1. /dev/root</a></h4>
 <div class="paragraph">
-<p>See: <a href="#rootfs">rootfs</a></p>
+<p>See: <a href="#rootfs">Section 7.3, &#8220;rootfs&#8221;</a></p>
 </div>
 </div>
 </div>
@@ -6480,7 +6544,7 @@ cat f
 </div>
 </div>
 <div class="paragraph">
-<p>We think that this might be because gem5 boots directly <code>vmlinux</code>, and not from the final compressed images that contain the attached rootfs such as <code>bzImage</code>, which is what QEMU does, see also: <a href="#vmlinux-vs-bzimage-vs-zimage-vs-image">vmlinux vs bzImage vs zImage vs Image</a>.</p>
+<p>We think that this might be because gem5 boots directly <code>vmlinux</code>, and not from the final compressed images that contain the attached rootfs such as <code>bzImage</code>, which is what QEMU does, see also: <a href="#vmlinux-vs-bzimage-vs-zimage-vs-image">Section 15.21.1, &#8220;vmlinux vs bzImage vs zImage vs Image&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>To do this failed test, we automatically pass a dummy disk image as of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91 since the scripts don&#8217;t handle a missing <code>--disk-image</code> well, much like is currently done for <a href="#baremetal">Baremetal</a>.</p>
@@ -6886,7 +6950,7 @@ sudo ./setup -y</pre>
 <li>
 <p>emulator implementers have to keep up with libc changes, some of which break even a C hello world due setup code executed before main.</p>
 <div class="paragraph">
-<p>See also: <a href="#user-mode-simulation-with-glibc">User mode simulation with glibc</a></p>
+<p>See also: <a href="#user-mode-simulation-with-glibc">Section 10.4, &#8220;User mode simulation with glibc&#8221;</a></p>
 </div>
 </li>
 </ul>
@@ -6925,7 +6989,7 @@ qw er</pre>
 <p><code>./run --userland</code> path resolution is analogous to <a href="#baremetal-setup-getting-started">that of <code>./run --baremetal</code></a>.</p>
 </div>
 <div class="paragraph">
-<p><code>./build user-mode-qemu</code> first builds Buildroot, and then runs <code>./build-userland</code>, which is further documented at: <a href="#userland-setup">Userland setup</a>. It also builds QEMU. If you ahve already done a <a href="#qemu-buildroot-setup">QEMU Buildroot setup</a> previously, this will be very fast.</p>
+<p><code>./build user-mode-qemu</code> first builds Buildroot, and then runs <code>./build-userland</code>, which is further documented at: <a href="#userland-setup">Section 1.6, &#8220;Userland setup&#8221;</a>. It also builds QEMU. If you ahve already done a <a href="#qemu-buildroot-setup">QEMU Buildroot setup</a> previously, this will be very fast.</p>
 </div>
 <div class="paragraph">
 <p>If you modify the userland programs, rebuild simply with:</p>
@@ -6976,7 +7040,7 @@ qw er</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>To stop at the very first instruction of a freestanding program, just use <code>--no-continue</code>. A good example of this is shown at: <a href="#freestanding-programs">Freestanding programs</a>.</p>
+<p>To stop at the very first instruction of a freestanding program, just use <code>--no-continue</code>. A good example of this is shown at: <a href="#freestanding-programs">Section 21.5.1, &#8220;Freestanding programs&#8221;</a>.</p>
 </div>
 </div>
 </div>
@@ -7026,10 +7090,10 @@ qw er</pre>
 <p>Tests under <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/">userland/libs/</a> depend on certain libraries being available on the target, e.g. <a href="#blas">BLAS</a> for <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/openblas">userland/libs/openblas</a>. They are not run by default, but can be enabled with <code>--package</code> and <code>--package-all</code>.</p>
 </div>
 <div class="paragraph">
-<p>The gem5 tests require building statically with build id <code>static</code>, see also: <a href="#gem5-syscall-emulation-mode">gem5 syscall emulation mode</a>. TODO automate this better.</p>
+<p>The gem5 tests require building statically with build id <code>static</code>, see also: <a href="#gem5-syscall-emulation-mode">Section 10.6, &#8220;gem5 syscall emulation mode&#8221;</a>. TODO automate this better.</p>
 </div>
 <div class="paragraph">
-<p>See: <a href="#test-this-repo">Test this repo</a> for more useful testing tips.</p>
+<p>See: <a href="#test-this-repo">Section 29.13, &#8220;Test this repo&#8221;</a> for more useful testing tips.</p>
 </div>
 </div>
 <div class="sect2">
@@ -7070,7 +7134,7 @@ qw er</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Here is an interesting examples of this: <a href="#linux-test-project">Linux Test Project</a></p>
+<p>Here is an interesting examples of this: <a href="#linux-test-project">Section 15.20.1, &#8220;Linux Test Project&#8221;</a></p>
 </div>
 </div>
 <div class="sect2">
@@ -7208,7 +7272,7 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>gem5 user mode currently only supports static executables: <a href="#gem5-syscall-emulation-mode">gem5 syscall emulation mode</a></p>
+<p>gem5 user mode currently only supports static executables as mentioned at: <a href="#gem5-syscall-emulation-mode">Section 10.6, &#8220;gem5 syscall emulation mode&#8221;</a></p>
 </li>
 <li>
 <p>QEMU x86_64 guest on x86_64 host was failing with <a href="#stack-smashing-detected">stack smashing detected</a>, but we found a workaround</p>
@@ -7390,7 +7454,7 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 <p>Let&#8217;s see if user mode runs considerably faster than full system or not.</p>
 </div>
 <div class="paragraph">
-<p>First we build Dhrystone manually statically since dynamic linking is broken in gem5: <a href="#gem5-syscall-emulation-mode">gem5 syscall emulation mode</a>.</p>
+<p>First we build Dhrystone manually statically since dynamic linking is broken in gem5 as explained at: <a href="#gem5-syscall-emulation-mode">Section 10.6, &#8220;gem5 syscall emulation mode&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>gem5 user mode:</p>
@@ -7477,11 +7541,11 @@ time \
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --userland userland/posix/count.c --userland-args 3</pre>
+<pre>./run --userland userland/posix/count_to.c --userland-args 3</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>it first waits for 3 seconds, and then dumps all the output at once, instead of counting once every second as expected.</p>
+<p>it first waits for 3 seconds, then the program exits, and then it dumps all the stdout at once, instead of counting once every second as expected.</p>
 </div>
 <div class="paragraph">
 <p>The same can be reproduced by copying the raw QEMU command and piping it through <code>tee</code>, so I don&#8217;t think it is a bug in our setup:</p>
@@ -7626,10 +7690,10 @@ time \
 <div class="ulist">
 <ul>
 <li>
-<p>modules built with Buildroot, see: <a href="#kernel_modules-buildroot-package">kernel_modules buildroot package</a></p>
+<p>modules built with Buildroot, see: <a href="#kernel_modules-buildroot-package">Section 29.12.2.1, &#8220;kernel_modules buildroot package&#8221;</a></p>
 </li>
 <li>
-<p>modules built from the kernel tree itself, see: <a href="#dummy-irq">dummy-irq</a></p>
+<p>modules built from the kernel tree itself, see: <a href="#dummy-irq">Section 15.12.2, &#8220;dummy-irq&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -7645,7 +7709,7 @@ time \
 </div>
 </li>
 <li>
-<p>we would have to think how to not have to include the kernel modules twice in the root filesystem, but still have <a href="#9p">9P</a> working for fast development as described at: <a href="#your-first-kernel-module-hack">Your first kernel module hack</a></p>
+<p>we would have to think how to not have to include the kernel modules twice in the root filesystem, but still have <a href="#9p">9P</a> working for fast development as described at: <a href="#your-first-kernel-module-hack">Section 1.1.2.2, &#8220;Your first kernel module hack&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -7750,7 +7814,7 @@ time \
 <p>no need to regenerate the root filesystem at all and reboot</p>
 </li>
 <li>
-<p>overcomes the <code>check_bin_arch</code> problem: <a href="#rpath">Buildroot rebuild is slow when the root filesystem is large</a></p>
+<p>overcomes the <code>check_bin_arch</code> problem as shown at: <a href="#rpath">Section 19.8, &#8220;Buildroot rebuild is slow when the root filesystem is large&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -7879,7 +7943,7 @@ a crash or deadlock.</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>scrolling up: <a href="#scroll-up-in-graphic-mode">Scroll up in graphic mode</a></p>
+<p>scrolling up: <a href="#scroll-up-in-graphic-mode">Section 13.2.1, &#8220;Scroll up in graphic mode&#8221;</a></p>
 </li>
 <li>
 <p>copy paste to and from the terminal</p>
@@ -7972,7 +8036,7 @@ a crash or deadlock.</pre>
 <p>Outcome: you see a penguin due to <a href="#config_logo">CONFIG_LOGO</a>.</p>
 </div>
 <div class="paragraph">
-<p>For a more exciting GUI experience, see: <a href="#x11">X11 Buildroot</a></p>
+<p>For a more exciting GUI experience, see: <a href="#x11">Section 13.4, &#8220;X11 Buildroot&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>Text mode is the default due to the following considerable advantages:</p>
@@ -8533,7 +8597,7 @@ xeyes</pre>
 <div class="sect2">
 <h3 id="enable-networking"><a class="anchor" href="#enable-networking"></a><a class="link" href="#enable-networking">14.1. Enable networking</a></h3>
 <div class="paragraph">
-<p>We disable networking by default because it starts an userland process, and we want to keep the number of userland processes to a minimum to make the system more understandable: <a href="#resource-tradeoff-guidelines">Resource tradeoff guidelines</a></p>
+<p>We disable networking by default because it starts an userland process, and we want to keep the number of userland processes to a minimum to make the system more understandable as explained at: <a href="#resource-tradeoff-guidelines">Section 29.18.3, &#8220;Resource tradeoff guidelines&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>To enable networking on Buildroot, simply run:</p>
@@ -8595,7 +8659,7 @@ cat index.html</pre>
 <p>In this section we discuss how to interact between the guest and the host through networking.</p>
 </div>
 <div class="paragraph">
-<p>First ensure that you can access the external network since that is easier to get working: <a href="#networking">Networking</a>.</p>
+<p>First ensure that you can access the external network since that is easier to get working, see: <a href="#networking">Section 14, &#8220;Networking&#8221;</a>.</p>
 </div>
 <div class="sect3">
 <h4 id="host-to-guest-networking"><a class="anchor" href="#host-to-guest-networking"></a><a class="link" href="#host-to-guest-networking">14.3.1. Host to guest networking</a></h4>
@@ -8879,7 +8943,7 @@ mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/my9p</pre>
 <p><a href="#9p">9P</a> is better with emulation, but let&#8217;s just get this working for fun.</p>
 </div>
 <div class="paragraph">
-<p>First make sure that this works: <a href="#guest-to-host-networking">Guest to host networking</a>.</p>
+<p>First make sure that this works: <a href="#guest-to-host-networking">Section 14.3.2, &#8220;Guest to host networking&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Then, build the kernel with NFS support:</p>
@@ -9042,7 +9106,7 @@ cp "$(./getvar linux_build_dir)/defconfig" data/myconfig
 </div>
 </div>
 <div class="paragraph">
-<p>You can also use other config generating targets such as <code>defconfig</code> with the same method as shown at: <a href="#linux-kernel-defconfig">Linux kernel defconfig</a>.</p>
+<p>You can also use other config generating targets such as <code>defconfig</code> with the same method as shown at: <a href="#linux-kernel-defconfig">Section 15.1.3.1.1, &#8220;Linux kernel defconfig&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect3">
@@ -9111,7 +9175,7 @@ CONFIG_IKCONFIG_PROC=y</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>a base config extracted from Buildroot&#8217;s minimal per machine <code>.config</code>, which has the minimal options needed to boot: <a href="#buildroot-kernel-config">About Buildroot&#8217;s kernel configs</a>.</p>
+<p>a base config extracted from Buildroot&#8217;s minimal per machine <code>.config</code>, which has the minimal options needed to boot as explained at: <a href="#buildroot-kernel-config">Section 15.1.3.1, &#8220;About Buildroot&#8217;s kernel configs&#8221;</a>.</p>
 </li>
 <li>
 <p>small overlays put top of that</p>
@@ -9152,12 +9216,12 @@ CONFIG_IKCONFIG_PROC=y</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/linux_config/min">linux_config/min</a>: see: <a href="#linux-kernel-min-config">Linux kernel min config</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/linux_config/min">linux_config/min</a>: see: <a href="#linux-kernel-min-config">Section 15.1.3.1.2, &#8220;Linux kernel min config&#8221;</a></p>
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/linux_config/default">linux_config/default</a>: other optional configs that we enable by default because they increase visibility, or expose some cool feature, and don&#8217;t significantly increase build time nor add significant runtime overhead</p>
 <div class="paragraph">
-<p>We have since observed that the kernel size itself is very bloated compared to <code>defconfig</code>: <a href="#linux-kernel-defconfig">Linux kernel defconfig</a>.</p>
+<p>We have since observed that the kernel size itself is very bloated compared to <code>defconfig</code> as shown at: <a href="#linux-kernel-defconfig">Section 15.1.3.1.1, &#8220;Linux kernel defconfig&#8221;</a>.</p>
 </div>
 </li>
 </ul>
@@ -9270,7 +9334,7 @@ CONFIG_IKCONFIG_PROC=y</pre>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/linux_config/min">linux_config/min</a> contains minimal tweaks required to boot gem5 or for using our slightly different QEMU command line options than Buildroot on all archs.</p>
 </div>
 <div class="paragraph">
-<p>It is one of the default config fragments we use, as explained at: <a href="#kernel-configs-about">About our Linux kernel configs</a>&gt;.</p>
+<p>It is one of the default config fragments we use, as explained at: <a href="#kernel-configs-about">Section 15.1.3, &#8220;About our Linux kernel configs&#8221;</a>&gt;.</p>
 </div>
 <div class="paragraph">
 <p>Having the same config working for both QEMU and gem5 (oh, the hours of bisection) means that you can deal with functional matters in QEMU, which runs much faster, and switch to gem5 only for performance issues.</p>
@@ -9304,7 +9368,7 @@ CONFIG_IKCONFIG_PROC=y</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><code>arm</code> and <code>aarch64</code> configs present in the official ARM gem5 Linux kernel fork: <a href="#gem5-arm-linux-kernel-patches">gem5 arm Linux kernel patches</a>. Some of the configs present there are added by the patches.</p>
+<p><code>arm</code> and <code>aarch64</code> configs present in the official ARM gem5 Linux kernel fork as described at: <a href="#gem5-arm-linux-kernel-patches">Section 18.9, &#8220;gem5 arm Linux kernel patches&#8221;</a>. Some of the configs present there are added by the patches.</p>
 </li>
 <li>
 <p>Jason&#8217;s magic <code>x86_64</code> config: <a href="http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config" class="bare">http://web.archive.org/web/20171229121642/http://www.lowepower.com/jason/files/config</a> which is referenced at: <a href="http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html" class="bare">http://web.archive.org/web/20171229121525/http://www.lowepower.com/jason/setting-up-gem5-full-system.html</a>. QEMU boots with that by removing <code># CONFIG_VIRTIO_PCI is not set</code>.</p>
@@ -9357,15 +9421,15 @@ git log | grep -E '    Linux [0-9]+\.' | head</pre>
 <p>This also makes this repo the perfect setup to develop the Linux kernel.</p>
 </div>
 <div class="paragraph">
-<p>In case something breaks while updating the Linux kernel, you can try to bisect it to understand the root cause: <a href="#bisection">Bisection</a>.</p>
+<p>In case something breaks while updating the Linux kernel, you can try to bisect it to understand the root cause, see: <a href="#bisection">Section 29.14, &#8220;Bisection&#8221;</a>.</p>
 </div>
 <div class="sect4">
 <h5 id="update-the-linux-kernel-lkmc-procedure"><a class="anchor" href="#update-the-linux-kernel-lkmc-procedure"></a><a class="link" href="#update-the-linux-kernel-lkmc-procedure">15.2.2.1. Update the Linux kernel LKMC procedure</a></h5>
 <div class="paragraph">
-<p>First, use use the branching procedure described at: <a href="#update-a-forked-submodule">Update a forked submodule</a></p>
+<p>First, use use the branching procedure described at: <a href="#update-a-forked-submodule">Section 29.16, &#8220;Update a forked submodule&#8221;</a></p>
 </div>
 <div class="paragraph">
-<p>Because the kernel is so central to this repository, almost all tests must be re-run, so basically just follow the full testing procedure described at: <a href="#test-this-repo">Test this repo</a>. The only tests that can be skipped are essentially the <a href="#baremetal">Baremetal</a> tests.</p>
+<p>Because the kernel is so central to this repository, almost all tests must be re-run, so basically just follow the full testing procedure described at: <a href="#test-this-repo">Section 29.13, &#8220;Test this repo&#8221;</a>. The only tests that can be skipped are essentially the <a href="#baremetal">Baremetal</a> tests.</p>
 </div>
 <div class="paragraph">
 <p>Before comitting, don&#8217;t forget to update:</p>
@@ -9376,7 +9440,17 @@ git log | grep -E '    Linux [0-9]+\.' | head</pre>
 <p>the <code>linux_kernel_version</code> constant in <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/common.py">common.py</a></p>
 </li>
 <li>
-<p>the tagline of this README</p>
+<p>the tagline of this repository on:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>this README</p>
+</li>
+<li>
+<p>the GitHub project description</p>
+</li>
+</ul>
+</div>
 </li>
 </ul>
 </div>
@@ -9748,7 +9822,7 @@ mount</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>The debug highest level is a bit more magic, see: <a href="#pr_debug">pr_debug</a> for more info.</p>
+<p>The debug highest level is a bit more magic, see: <a href="#pr_debug">Section 15.4.2, &#8220;pr_debug&#8221;</a> for more info.</p>
 </div>
 <div class="sect3">
 <h4 id="ignore_loglevel"><a class="anchor" href="#ignore_loglevel"></a><a class="link" href="#ignore_loglevel">15.4.1. ignore_loglevel</a></h4>
@@ -10719,7 +10793,7 @@ Kernel Offset: disabled
 <div class="ulist">
 <ul>
 <li>
-<p><code>panic=-1</code> command line option which reboots the kernel immediately on panic, see: <a href="#reboot-on-panic">Reboot on panic</a></p>
+<p><code>panic=-1</code> command line option which reboots the kernel immediately on panic, see: <a href="#reboot-on-panic">Section 15.7.1.4, &#8220;Reboot on panic&#8221;</a></p>
 </li>
 <li>
 <p>QEMU <code>-no-reboot</code>, which makes QEMU exit when the guest tries to reboot</p>
@@ -11922,7 +11996,7 @@ for i in `seq 16`; do ./netlink.out &amp; done</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The sleep is done with <code>usleep_range</code>, see: <a href="#sleep">sleep</a>.</p>
+<p>The sleep is done with <code>usleep_range</code>, see: <a href="#sleep">Section 15.10.2, &#8220;sleep&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Bibliography:</p>
@@ -13276,7 +13350,7 @@ sleep 4 &amp; sleep 4 &amp;</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>Results (boot not excluded): <a href="#table-boot-instruction-counts">Boot instruction counts for various setups</a></p>
+<p>Results (boot not excluded) are shown at: <a href="#table-boot-instruction-counts">Table 1, &#8220;Boot instruction counts for various setups&#8221;</a></p>
 </div>
 <table id="table-boot-instruction-counts" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 1. Boot instruction counts for various setups</caption>
@@ -13590,7 +13664,7 @@ detected buffer overflow in strlen
 </div>
 </div>
 <div class="paragraph">
-<p>SELinux requires glibc: <a href="#libc-choice">libc choice</a>.</p>
+<p>SELinux requires glibc as mentioned at: <a href="#libc-choice">Section 19.10, &#8220;libc choice&#8221;</a>.</p>
 </div>
 </div>
 </div>
@@ -13817,7 +13891,7 @@ sendkey shift-pgdown</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Linux tries to reboot, and QEMU shutdowns due to the <code>-no-reboot</code> option which we set by default for: <a href="#exit-emulator-on-panic">Exit emulator on panic</a>.</p>
+<p>Linux tries to reboot, and QEMU shutdowns due to the <code>-no-reboot</code> option which we set by default for, see: <a href="#exit-emulator-on-panic">Section 15.7.1.3, &#8220;Exit emulator on panic&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Under the hood, behaviour is controlled by the <code>reboot</code> syscall:</p>
@@ -14536,7 +14610,7 @@ failed to initialize legacy DRM</pre>
 <p>Implements a console for <a href="#drm">DRM</a>.</p>
 </div>
 <div class="paragraph">
-<p>The Linux kernel has a built-in fbdev console: <a href="#fbcon">fbcon</a> but not for <a href="#drm">DRM</a> it seems.</p>
+<p>The Linux kernel has a built-in fbdev console called <a href="#fbcon">Linux kernel console fun</a> but not for <a href="#drm">DRM</a> it seems.</p>
 </div>
 <div class="paragraph">
 <p>The upstream project seems dead with last commit in 2014: <a href="https://www.freedesktop.org/wiki/Software/kmscon/" class="bare">https://www.freedesktop.org/wiki/Software/kmscon/</a></p>
@@ -14640,7 +14714,7 @@ wget \
 </div>
 </div>
 <div class="paragraph">
-<p><code>STRESS_NG</code> is likely the best, but it requires glibc: <a href="#libc-choice">libc choice</a>.</p>
+<p><code>STRESS_NG</code> is likely the best, but it requires glibc, see: <a href="#libc-choice">Section 19.10, &#8220;libc choice&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Websites:</p>
@@ -14755,7 +14829,7 @@ ps</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>so as long as we craft the correct DTB and feed it into Xen so that it can see the kernel, it should work. TODO does QEMU support patching the auto-generated DTB with pre-generated options? In the worst case we can just dump it hand hack it up though with <code>-machine dumpdtb</code>: <a href="#device-tree-emulator-generation">Device tree emulator generation</a>.</p>
+<p>so as long as we craft the correct DTB and feed it into Xen so that it can see the kernel, it should work. TODO does QEMU support patching the auto-generated DTB with pre-generated options? In the worst case we can just dump it hand hack it up though with <code>-machine dumpdtb</code>, see: <a href="#device-tree-emulator-generation">Section 8.4, &#8220;Device tree emulator generation&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Bibliography:</p>
@@ -16162,7 +16236,7 @@ IN:
 <p>PANDA can list memory addresses, so I bet it can also decode the instructions: <a href="https://github.com/panda-re/panda/blob/883c85fa35f35e84a323ed3d464ff40030f06bd6/panda/docs/LINE_Censorship.md" class="bare">https://github.com/panda-re/panda/blob/883c85fa35f35e84a323ed3d464ff40030f06bd6/panda/docs/LINE_Censorship.md</a> I wonder why they don&#8217;t just upstream those things to QEMU&#8217;s tracing: <a href="https://github.com/panda-re/panda/issues/290" class="bare">https://github.com/panda-re/panda/issues/290</a></p>
 </div>
 <div class="paragraph">
-<p>gem5 can do it: <a href="#gem5-tracing">gem5 tracing</a>.</p>
+<p>gem5 can do it as shown at: <a href="#gem5-tracing">Section 17.8.6, &#8220;gem5 tracing&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect3">
@@ -16567,7 +16641,7 @@ root</pre>
 <h2 id="gem5"><a class="anchor" href="#gem5"></a><a class="link" href="#gem5">18. gem5</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Getting started at: <a href="#gem5-buildroot-setup">gem5 Buildroot setup</a>.</p>
+<p>Getting started at: <a href="#gem5-buildroot-setup">Section 1.2, &#8220;gem5 Buildroot setup&#8221;</a>.</p>
 </div>
 <div class="sect2">
 <h3 id="gem5-vs-qemu"><a class="anchor" href="#gem5-vs-qemu"></a><a class="link" href="#gem5-vs-qemu">18.1. gem5 vs QEMU</a></h3>
@@ -16641,13 +16715,13 @@ root</pre>
 <p>runs are deterministic by default, unlike QEMU which has a special <a href="#qemu-record-and-replay">QEMU record and replay</a> mode, that requires first playing the content once and then replaying</p>
 </li>
 <li>
-<p>gem5 ARM at least appears to implement more low level CPU functionality than QEMU, e.g. QEMU only added EL2 in 2018: <a href="https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up" class="bare">https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up</a> See also: <a href="#arm-exception-levels">ARM exception levels</a></p>
+<p>gem5 ARM at least appears to implement more low level CPU functionality than QEMU, e.g. QEMU only added EL2 in 2018: <a href="https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up" class="bare">https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up</a> See also: <a href="#arm-exception-levels">Section 26.8.1, &#8220;ARM exception levels&#8221;</a></p>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>disadvantage of gem5: slower than QEMU, see: <a href="#benchmark-linux-kernel-boot">Benchmark Linux kernel boot</a></p>
+<p>disadvantage of gem5: slower than QEMU, see: <a href="#benchmark-linux-kernel-boot">Section 28.2.1, &#8220;Benchmark Linux kernel boot&#8221;</a></p>
 <div class="paragraph">
 <p>This implies that the user base is much smaller, since no Android devs.</p>
 </div>
@@ -16792,7 +16866,7 @@ cat out/gem5-bench-dhrystone.txt</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>but the problem is that this method does not allow to easily run a different script without running the boot again. The <code>./gem5.sh</code> script works around that by using <a href="#m5-readfile">m5 readfile</a> as explained further at: <a href="#gem5-restore-new-script">gem5 checkpoint restore and run a different script</a>.</p>
+<p>but the problem is that this method does not allow to easily run a different script without running the boot again. The <code>./gem5.sh</code> script works around that by using <a href="#m5-readfile">m5 readfile</a> as explained further at: <a href="#gem5-restore-new-script">Section 18.5.2, &#8220;gem5 checkpoint restore and run a different script&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Now you can play a fun little game with your friends:</p>
@@ -16873,7 +16947,99 @@ getconf _NPROCESSORS_CONF</pre>
 </div>
 </div>
 <div class="sect5">
-<h6 id="gem5-arm-more-than-8-cores"><a class="anchor" href="#gem5-arm-more-than-8-cores"></a><a class="link" href="#gem5-arm-more-than-8-cores">18.2.2.1.1. gem5 arm more than 8 cores</a></h6>
+<h6 id="number-of-cores-in-qemu-user-mode"><a class="anchor" href="#number-of-cores-in-qemu-user-mode"></a><a class="link" href="#number-of-cores-in-qemu-user-mode">18.2.2.1.1. Number of cores in QEMU user mode</a></h6>
+<div class="paragraph">
+<p>TODO why in <a href="#user-mode-simulation">User mode simulation</a> QEMU always shows the number of cores of the host. E.g., both of the following output the same as <code>nproc</code> on the host:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>nproc
+./run --userland userland/cpp/thread_hardware_concurrency.cpp
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This random page suggests that QEMU splits one host thread thread per guest thread, and thus presumably delegates context switching to the host kernel: <a href="https://qemu.weilnetz.de/w64/2012/2012-12-04/qemu-tech.html#User-emulation-specific-details" class="bare">https://qemu.weilnetz.de/w64/2012/2012-12-04/qemu-tech.html#User-emulation-specific-details</a></p>
+</div>
+<div class="paragraph">
+<p>We can confirm that with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --userland userland/posix/pthread_count.c --userland-args 4
+ps Haux | grep qemu | wc</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Remember <a href="#qemu-user-mode-does-not-show-stdout-immediately">QEMU user mode does not show stdout immediately</a> though.</p>
+</div>
+<div class="paragraph">
+<p>At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host threads plus one for every new guest thread created.  Remember that <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_count.c">userland/posix/pthread_count.c</a> spawns N + 1 total threads if you count the <code>main</code> thread.</p>
+</div>
+</div>
+<div class="sect5">
+<h6 id="number-of-cores-in-gem5-user-mode"><a class="anchor" href="#number-of-cores-in-gem5-user-mode"></a><a class="link" href="#number-of-cores-in-gem5-user-mode">18.2.2.1.2. Number of cores in gem5 user mode</a></h6>
+<div class="paragraph">
+<p>gem5 user mode multi core has been particularly flaky compared <a href="#number-of-cores-in-qemu-user-mode">to QEMU&#8217;s</a>.</p>
+</div>
+<div class="paragraph">
+<p>You have the limitation that you must have at least one core per guest thread, otherwise <code>pthread_create</code> fails. For example:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --cpus 1 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>fails because that process has a total of 2 threads: one for <code>main</code> and one extra thread spawned: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_self.c">userland/posix/pthread_self.c</a> The error message is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>pthread_create: Resource temporarily unavailable</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It works however if we add on extra CPU:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --cpus 2 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This has to do with the fact that gem5 has a more simplistic thread implementation that does not spawn one host thread per guest thread CPU. Maybe this is required to achieve reproducible runs? What is the task switch algorithm then?</p>
+</div>
+<div class="paragraph">
+<p>gem5 threading does however show the expected number of cores, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>outputs <code>1</code> and <code>2</code> respectively.</p>
+</div>
+<div class="paragraph">
+<p>TODO: aarch64 seems to failing to spawn more than 2 threads at 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --cpus 3 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 2</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>fails with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Exiting @ tick 18446744073709551615 because simulate() limit reached</pre>
+</div>
+</div>
+</div>
+<div class="sect5">
+<h6 id="gem5-arm-full-system-with-more-than-8-cores"><a class="anchor" href="#gem5-arm-full-system-with-more-than-8-cores"></a><a class="link" href="#gem5-arm-full-system-with-more-than-8-cores">18.2.2.1.3. gem5 ARM full system with more than 8 cores</a></h6>
 <div class="paragraph">
 <p><a href="https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8" class="bare">https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8</a></p>
 </div>
@@ -16913,7 +17079,7 @@ getconf _NPROCESSORS_CONF</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>But keep in mind that it only affects benchmark performance of the most detailed CPU types: <a href="#table-gem5-cache-cpu-type">gem5 cache support in function of CPU type</a></p>
+<p>But keep in mind that it only affects benchmark performance of the most detailed CPU types as shown at: <a href="#table-gem5-cache-cpu-type">Table 2, &#8220;gem5 cache support in function of CPU type&#8221;</a>.</p>
 </div>
 <table id="table-gem5-cache-cpu-type" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 2. gem5 cache support in function of CPU type</caption>
@@ -17184,7 +17350,7 @@ m5 dumpstats</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>There are not yet enabled, but it should be easy to so, see: <a href="#add-new-buildroot-packages">Add new Buildroot packages</a></p>
+<p>There are not yet enabled, but it should be easy to so, see: <a href="#add-new-buildroot-packages">Section 19.5, &#8220;Add new Buildroot packages&#8221;</a></p>
 </div>
 <div class="sect4">
 <h5 id="bst-vs-heap-vs-hashmap"><a class="anchor" href="#bst-vs-heap-vs-hashmap"></a><a class="link" href="#bst-vs-heap-vs-hashmap">18.2.3.1. BST vs heap vs hashmap</a></h5>
@@ -17277,10 +17443,10 @@ xdg-open bst_vs_heap_vs_hashmap_gem5.tmp.png</pre>
 <p>TODO: the gem5 simulation blows up on a tcmalloc allocation somewhere near 25k elements as of 3fdd83c2c58327d9714fa2347c724b78d7c05e2b + 1, likely linked to the extreme inefficiency of the stats collection?</p>
 </div>
 <div class="paragraph">
-<p>The cache sizes were chosen to match the host <a href="#p51">P51</a> to improve the comparison. Ideally we sould also use the same standard library.</p>
+<p>The cache sizes were chosen to match the host <a href="#p51">P51</a> to improve the comparison. Ideally we should also use the same standard library.</p>
 </div>
 <div class="paragraph">
-<p>Note that this will take a long time, and will produce a humongous ~40Gb stats file due to: <a href="#gem5-only-dump-selected-stats">gem5 only dump selected stats</a></p>
+<p>Note that this will take a long time, and will produce a humongous ~40Gb stats file as explained at: <a href="#gem5-only-dump-selected-stats">Section 18.10.2.1, &#8220;gem5 only dump selected stats&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>Sources:</p>
@@ -17571,7 +17737,7 @@ parsecmgmt -a run -p splash2x.fmm -i test</pre>
 <div class="sect5">
 <h6 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">18.2.3.4.4. PARSEC uninstall</a></h6>
 <div class="paragraph">
-<p>If you want to remove PARSEC later, Buildroot doesn&#8217;t provide an automated package removal mechanism: <a href="#remove-buildroot-packages">Remove Buildroot packages</a>, but the following procedure should be satisfactory:</p>
+<p>If you want to remove PARSEC later, Buildroot doesn&#8217;t provide an automated package removal mechanism as mentioned at: <a href="#remove-buildroot-packages">Section 19.6, &#8220;Remove Buildroot packages&#8221;</a>, but the following procedure should be satisfactory:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -17706,13 +17872,13 @@ git clean -xdf .</pre>
 <p>When you want to break, just do a <code>Ctrl-C</code> on GDB shell, and then <code>continue</code>.</p>
 </div>
 <div class="paragraph">
-<p>And we now see the boot messages, and then get a shell. Now try the <code>./count.sh</code> procedure described for QEMU: <a href="#gdb-step-debug-kernel-post-boot">GDB step debug kernel post-boot</a>.</p>
+<p>And we now see the boot messages, and then get a shell. Now try the <code>./count.sh</code> procedure described for QEMU at: <a href="#gdb-step-debug-kernel-post-boot">Section 2.2, &#8220;GDB step debug kernel post-boot&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect3">
 <h4 id="gem5-gdb-step-debug-userland-process"><a class="anchor" href="#gem5-gdb-step-debug-userland-process"></a><a class="link" href="#gem5-gdb-step-debug-userland-process">18.4.2. gem5 GDB step debug userland process</a></h4>
 <div class="paragraph">
-<p>We are unable to use <code>gdbserver</code> because of networking: <a href="#gem5-host-to-guest-networking">gem5 host to guest networking</a></p>
+<p>We are unable to use <code>gdbserver</code> because of networking as mentioned at: <a href="#gem5-host-to-guest-networking">Section 14.3.1.3, &#8220;gem5 host to guest networking&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>The alternative is to do as in <a href="#gdb-step-debug-userland-processes">GDB step debug userland processes</a>.</p>
@@ -18526,7 +18692,7 @@ git -C "$(./getvar linux_source_dir)" checkout -
 </div>
 </div>
 <div class="paragraph">
-<p>because glibc was built to expect a newer Linux kernel: <a href="#fatal-kernel-too-old">FATAL: kernel too old</a>. Your choices to sole this are:</p>
+<p>because glibc was built to expect a newer Linux kernel as shown at: <a href="#fatal-kernel-too-old">Section 10.4.1, &#8220;FATAL: kernel too old&#8221;</a>. Your choices to sole this are:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -18547,10 +18713,10 @@ git -C "$(./getvar linux_source_dir)" checkout -
 <div class="ulist">
 <ul>
 <li>
-<p><code>drm: Add component-aware simple encoder</code> allows you to see images through VNC: <a href="#gem5-graphic-mode">gem5 graphic mode</a></p>
+<p><code>drm: Add component-aware simple encoder</code> allows you to see images through VNC, see: <a href="#gem5-graphic-mode">Section 13.3, &#8220;gem5 graphic mode&#8221;</a></p>
 </li>
 <li>
-<p><code>gem5: Add support for gem5&#8217;s extended GIC mode</code> adds support for more than 8 cores: <a href="#gem5-arm-more-than-8-cores">gem5 arm more than 8 cores</a></p>
+<p><code>gem5: Add support for gem5&#8217;s extended GIC mode</code> adds support for more than 8 cores, see: <a href="#gem5-arm-full-system-with-more-than-8-cores">Section 18.2.2.1.3, &#8220;gem5 ARM full system with more than 8 cores&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -18918,7 +19084,42 @@ clock=500</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="gem5-clang-build"><a class="anchor" href="#gem5-clang-build"></a><a class="link" href="#gem5-clang-build">18.15. gem5 clang build</a></h3>
+<h3 id="gem5-build-options"><a class="anchor" href="#gem5-build-options"></a><a class="link" href="#gem5-build-options">18.15. gem5 build options</a></h3>
+<div class="paragraph">
+<p>In order to use different build options, you might also want to use <a href="#gem5-build-variants">gem5 build variants</a> to keep the build outputs separate from one another.</p>
+</div>
+<div class="sect3">
+<h4 id="gem5-debug-build"><a class="anchor" href="#gem5-debug-build"></a><a class="link" href="#gem5-debug-build">18.15.1. gem5 debug build</a></h4>
+<div class="paragraph">
+<p>The <code>gem5.debug</code> executable has optimizations turned off unlike the default <code>gem5.opt</code>, and provides a much better <a href="#debug-the-emulator">debug experience</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-gem5 --arch aarch64 --gem5-build-type debug
+./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The build outputs are automatically stored in a different directory from other build types such as <code>.opt</code> build, which prevents <code>.debug</code> files from overwriting <code>.opt</code> ones.</p>
+</div>
+<div class="paragraph">
+<p>Therefore, <code>--gem5-build-id</code> is not required.</p>
+</div>
+<div class="paragraph">
+<p>The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so you will likely only use this when it is unavoidable. This is also benchmarked at: <a href="#benchmark-linux-kernel-boot">Section 28.2.1, &#8220;Benchmark Linux kernel boot&#8221;</a></p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-clang-build"><a class="anchor" href="#gem5-clang-build"></a><a class="link" href="#gem5-clang-build">18.15.2. gem5 clang build</a></h4>
 <div class="paragraph">
 <p>TODO test properly, benchmark vs GCC.</p>
 </div>
@@ -18927,6 +19128,69 @@ clock=500</pre>
 <pre>sudo apt-get install clang
 ./build-gem5 --clang
 ./run --clang --emulator gem5</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-sanitation-build"><a class="anchor" href="#gem5-sanitation-build"></a><a class="link" href="#gem5-sanitation-build">18.15.3. gem5 sanitation build</a></h4>
+<div class="paragraph">
+<p>If there gem5 appears to have a C++ undefined behaviour bug, which is often very difficult to track down, you can try to build it with the following extra SCons options:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-gem5 --gem5-build-id san --verbose -- --with-ubsan --without-tcmalloc</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This will make GCC do a lot of extra sanitation checks at compile and run time.</p>
+</div>
+<div class="paragraph">
+<p>As a result, the build and runtime will be way slower than normal, but that still might be the fastest way to solve undefined behaviour problems.</p>
+</div>
+<div class="paragraph">
+<p>Ideally, we should also be able to run it with asan with <code>--with-asan</code>, but if we try then the build fails at gem5 16eeee5356585441a49d05c78abc328ef09f7ace (with two ubsan trivial fixes I&#8217;ll push soon):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>=================================================================
+==9621==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 371712 byte(s) in 107 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff03950d065 in dictresize ../Objects/dictobject.c:643
+
+Direct leak of 23728 byte(s) in 26 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1499
+    #2 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1493
+
+Direct leak of 2928 byte(s) in 43 object(s) allocated from:
+    #0 0x7ff03980487e in __interceptor_realloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c87e)
+    #1 0x7ff03951d763 in list_resize ../Objects/listobject.c:62
+    #2 0x7ff03951d763 in app1 ../Objects/listobject.c:277
+    #3 0x7ff03951d763 in PyList_Append ../Objects/listobject.c:289
+
+Direct leak of 2002 byte(s) in 3 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:88
+    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:57                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Direct leak of 40 byte(s) in 2 object(s) allocated from:                                                                                                                                                                                                                            #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff03951ea4b in PyList_New ../Objects/listobject.c:152
+
+Indirect leak of 10384 byte(s) in 11 object(s) allocated from:                                                                                                                                                                                                                      #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)                                                                                                                                                                                                   #1 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1499                                                                                                                                                                                                             #2 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1493
+
+Indirect leak of 4089 byte(s) in 6 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff0394fd648 in PyString_FromString ../Objects/stringobject.c:143
+
+Indirect leak of 2090 byte(s) in 3 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)                                                                                                                                                                                                   #1 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2421                                                                                                                                                                                                                      #2 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2094
+Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:88                                                                                                                                                                                                    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:57                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SUMMARY: AddressSanitizer: 418319 byte(s) leaked in 203 allocation(s).</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>From the message, this appears however to be a Python / pyenv11 bug however and not in gem5 specifically. I think it worked when I tried it in the past in an older gem5 / Ubuntu.</p>
 </div>
 </div>
 </div>
@@ -18949,7 +19213,7 @@ clock=500</pre>
 <p>Linux kernel</p>
 </li>
 <li>
-<p>C standard library: Buildroot supports several implementations, see: <a href="#libc-choice">libc choice</a></p>
+<p>C standard library: Buildroot supports several implementations, see: <a href="#libc-choice">Section 19.10, &#8220;libc choice&#8221;</a></p>
 </li>
 <li>
 <p><a href="https://en.wikipedia.org/wiki/BusyBox">BusyBox</a>: provides the shell and basic command line utilities</p>
@@ -19032,7 +19296,7 @@ qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -smp 1 -kernel output/ima
 <p>The clean is necessary because the source files didn&#8217;t change, so <code>make</code> would just check the timestamps and not build anything.</p>
 </div>
 <div class="paragraph">
-<p>You will then likely want to make those more permanent with: <a href="#default-command-line-arguments">Default command line arguments</a></p>
+<p>You will then likely want to make those more permanent as explained at: <a href="#default-command-line-arguments">Section 29.4, &#8220;Default command line arguments&#8221;</a>.</p>
 </div>
 <div class="sect3">
 <h4 id="enable-buildroot-compiler-optimizations"><a class="anchor" href="#enable-buildroot-compiler-optimizations"></a><a class="link" href="#enable-buildroot-compiler-optimizations">19.2.1. Enable Buildroot compiler optimizations</a></h4>
@@ -19067,7 +19331,7 @@ qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -smp 1 -kernel output/ima
 <div class="ulist">
 <ul>
 <li>
-<p>if you already have a full <code>-O0</code> build, you can choose to rebuild just your package of interest to save some time as described at: <a href="#custom-buildroot-configs">Custom Buildroot configs</a></p>
+<p>if you already have a full <code>-O0</code> build, you can choose to rebuild just your package of interest to save some time as described at: <a href="#custom-buildroot-configs">Section 19.2, &#8220;Custom Buildroot configs&#8221;</a></p>
 <div class="literalblock">
 <div class="content">
 <pre>./build-buildroot \
@@ -19086,7 +19350,7 @@ qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -smp 1 -kernel output/ima
 <p>Maybe you can get away with rebuilding libc, but I&#8217;m not sure that it will work properly.</p>
 </div>
 <div class="paragraph">
-<p>Kernel-wise it should be fine though due to: <a href="#kernel-o0">Disable kernel compiler optimizations</a></p>
+<p>Kernel-wise it should be fine though as mentioned at: <a href="#kernel-o0">Section 2.1.2, &#8220;Disable kernel compiler optimizations&#8221;</a></p>
 </div>
 </li>
 <li>
@@ -19199,7 +19463,7 @@ make menuconfig</pre>
 <p>if you have a standalone C file with no dependencies besides the C standard library to be compiled with GCC, just add a new file under <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/buildroot_packages/sample_package">buildroot_packages/sample_package</a> and you are done</p>
 </li>
 <li>
-<p>if you have a dependency on a library, first check if Buildroot doesn&#8217;t have a package for it already with <code>ls buildroot/package</code>. If yes, just enable that package as explained at: <a href="#custom-buildroot-configs">Custom Buildroot configs</a></p>
+<p>if you have a dependency on a library, first check if Buildroot doesn&#8217;t have a package for it already with <code>ls buildroot/package</code>. If yes, just enable that package as explained at: <a href="#custom-buildroot-configs">Section 19.2, &#8220;Custom Buildroot configs&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -19207,7 +19471,7 @@ make menuconfig</pre>
 <p>If none of those methods are flexible enough for you, you can just fork or hack up <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/buildroot_packages/sample_package">buildroot_packages/sample_package</a> the sample package to do what you want.</p>
 </div>
 <div class="paragraph">
-<p>For how to use that package, see: <a href="#buildroot_packages-directory">buildroot_packages directory</a>.</p>
+<p>For how to use that package, see: <a href="#buildroot_packages-directory">Section 29.12.2, &#8220;buildroot_packages directory&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Then iterate trying to do what you want and reading the manual until it works: <a href="https://buildroot.org/downloads/manual/manual.html" class="bare">https://buildroot.org/downloads/manual/manual.html</a></p>
@@ -19225,7 +19489,7 @@ make menuconfig</pre>
 <p>Also mentioned at: <a href="https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot" class="bare">https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot</a></p>
 </div>
 <div class="paragraph">
-<p>See this for a sample manual workaround: <a href="#parsec-uninstall">PARSEC uninstall</a>.</p>
+<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 18.2.3.4.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -19273,7 +19537,7 @@ TODO benchmark: would gem5 suffer a considerable disk read performance hit due t
 <p>libguestfs: <a href="https://serverfault.com/questions/246835/convert-directory-to-qemu-kvm-virtual-disk-image/916697#916697" class="bare">https://serverfault.com/questions/246835/convert-directory-to-qemu-kvm-virtual-disk-image/916697#916697</a>, in particular <a href="http://libguestfs.org/guestfish.1.html#vfs-minimum-size"><code>vfs-minimum-size</code></a></p>
 </li>
 <li>
-<p>use methods described at: <a href="#gem5-restore-new-script">gem5 checkpoint restore and run a different script</a> instead of putting builds on the root filesystem</p>
+<p>use methods described at: <a href="#gem5-restore-new-script">Section 18.5.2, &#8220;gem5 checkpoint restore and run a different script&#8221;</a> instead of putting builds on the root filesystem</p>
 </li>
 </ul>
 </div>
@@ -19392,7 +19656,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <p>Then, you will also want to do a <a href="#bisection">Bisection</a> to pinpoint the exact commit to blame, and CC that developer.</p>
 </div>
 <div class="paragraph">
-<p>Finally, give the images you used save upstream developpers time: <a href="#release-zip">release-zip</a>.</p>
+<p>Finally, give the images you used save upstream developers' time as shown at: <a href="#release-zip">Section 29.17.2, &#8220;release-zip&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>For Buildroot problems, you should wither provide the config you have:</p>
@@ -19451,7 +19715,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </div>
 </div>
 <div class="paragraph">
-<p>One "downside" of glibc is that it exercises much more kernel functionality on its more bloated pre-main init, which breaks user mode C hello worlds more often, see: <a href="#user-mode-simulation-with-glibc">User mode simulation with glibc</a>. I quote "downside" because glibc is actually exposing emulator bugs which we should actually go and fix.</p>
+<p>One "downside" of glibc is that it exercises much more kernel functionality on its more bloated pre-main init, which breaks user mode C hello worlds more often, see: <a href="#user-mode-simulation-with-glibc">Section 10.4, &#8220;User mode simulation with glibc&#8221;</a>. I quote "downside" because glibc is actually exposing emulator bugs which we should actually go and fix.</p>
 </div>
 </div>
 </div>
@@ -19463,16 +19727,16 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <p>This section contains userland content, such as <a href="#c">C</a>, <a href="#cpp">C++</a> and <a href="#posix">POSIX</a> examples.</p>
 </div>
 <div class="paragraph">
-<p>Getting started at: <a href="#userland-setup">Userland setup</a></p>
+<p>Getting started at: <a href="#userland-setup">Section 1.6, &#8220;Userland setup&#8221;</a></p>
 </div>
 <div class="paragraph">
-<p>Userland assembly content is located at: <a href="#userland-assembly">Userland assembly</a>. It was split from this section basically becase we were hitting the HTML <code>h6</code> limit, stupid web :-)</p>
+<p>Userland assembly content is located at: <a href="#userland-assembly">Section 21, &#8220;Userland assembly&#8221;</a>. It was split from this section basically because we were hitting the HTML <code>h6</code> limit, stupid web :-)</p>
 </div>
 <div class="paragraph">
 <p>This content makes up the bulk of the <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/">userland/</a> directory.</p>
 </div>
 <div class="paragraph">
-<p>The quickest way to run the arch agnostic examples, which comprise the majority of the examples, is natively with: <a href="#userland-setup-getting-started-natively">Userland setup getting started natively</a></p>
+<p>The quickest way to run the arch agnostic examples, which comprise the majority of the examples, is natively as shown at: <a href="#userland-setup-getting-started-natively">Section 1.6.2.1, &#8220;Userland setup getting started natively&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>This section was originally moved in here from: <a href="https://github.com/cirosantilli/cpp-cheat" class="bare">https://github.com/cirosantilli/cpp-cheat</a></p>
@@ -19654,7 +19918,20 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <div class="ulist">
 <ul>
 <li>
-<p><code>&lt;atomic&gt;</code>: <a href="#cpp17">C++17 N4659 standards draft</a> 32 "Atomic operations library"</p>
+<p><a href="https://en.cppreference.com/w/cpp/header/thread"><code>&lt;thread&gt;</code></a></p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/count.cpp">userland/cpp/count.cpp</a> Exemplifies: <code>std::this_thread::sleep_for</code></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/thread_hardware_concurrency.cpp">userland/cpp/thread_hardware_concurrency.cpp</a> <code>std::thread::hardware_concurrency</code></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><a href="https://en.cppreference.com/w/cpp/header/atomic"><code>&lt;atomic&gt;</code></a>: <a href="#cpp17">C++17 N4659 standards draft</a> 32 "Atomic operations library"</p>
 <div class="ulist">
 <ul>
 <li>
@@ -19667,7 +19944,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </div>
 </div>
 <div class="sect3">
-<h4 id="c-standards"><a class="anchor" href="#c-standards"></a><a class="link" href="#c-standards">20.2.2. C++ standards</a></h4>
+<h4 id="cpp-standards"><a class="anchor" href="#cpp-standards"></a><a class="link" href="#cpp-standards">20.2.2. C++ standards</a></h4>
 <div class="paragraph">
 <p>Like for C, you have to pay for the standards&#8230;&#8203; insane. So we just use the closest free drafts instead.</p>
 </div>
@@ -19688,7 +19965,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <p>Programs under <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/">userland/posix/</a> are examples of POSIX C programming.</p>
 </div>
 <div class="paragraph">
-<p>What is POSIX:</p>
+<p>These links provide a clear overview of what POSIX is:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -19701,7 +19978,36 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </ul>
 </div>
 <div class="sect3">
-<h4 id="sysconf"><a class="anchor" href="#sysconf"></a><a class="link" href="#sysconf">20.3.1. sysconf</a></h4>
+<h4 id="unistd-h"><a class="anchor" href="#unistd-h"></a><a class="link" href="#unistd-h">20.3.1. unistd.h</a></h4>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/count.c">userland/posix/count.c</a> illustrates <code>sleep()</code></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/count_to.c">userland/posix/count_to.c</a> minor variation of <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/count.c">userland/posix/count.c</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="pthreads"><a class="anchor" href="#pthreads"></a><a class="link" href="#pthreads">20.3.2. pthreads</a></h4>
+<div class="paragraph">
+<p>POSIX' multithreading API. This was for a looong time the only "portable" multithreading alternative, until <a href="#cpp-multithreading">C++11 finally added threads</a>, thus also extending the portability to Windows.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_count.c">userland/posix/pthread_count.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_self.c">userland/posix/pthread_self.c</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="sysconf"><a class="anchor" href="#sysconf"></a><a class="link" href="#sysconf">20.3.3. sysconf</a></h4>
 <div class="paragraph">
 <p><a href="https://pubs.opengroup.org/onlinepubs/9699919799/functions/sysconf.html" class="bare">https://pubs.opengroup.org/onlinepubs/9699919799/functions/sysconf.html</a></p>
 </div>
@@ -19742,13 +20048,43 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <div class="ulist">
 <ul>
 <li>
-<p>&lt;cpp-multithreading&gt;</p>
+<p>language topics:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#cpp-multithreading">C++ multithreading</a></p>
 </li>
+<li>
+<p><a href="#pthreads">pthreads</a></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>ISA topics:</p>
+<div class="ulist">
+<ul>
 <li>
 <p><a href="#x86-thread-synchronization-primitives">x86 thread synchronization primitives</a></p>
 </li>
 <li>
 <p><a href="#arm-lse">ARM Large System Extensions (LSE)</a></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>emulator topics:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#number-of-cores-in-qemu-user-mode">Number of cores in QEMU user mode</a></p>
+</li>
+<li>
+<p><a href="#number-of-cores-in-gem5-user-mode">Number of cores in gem5 user mode</a></p>
+</li>
+</ul>
+</div>
 </li>
 </ul>
 </div>
@@ -19788,7 +20124,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </ul>
 </div>
 <div class="paragraph">
-<p>Like other userland programs, these programs can be run as explained at: <a href="#userland-setup">Userland setup</a>.</p>
+<p>Like other userland programs, these programs can be run as explained at: <a href="#userland-setup">Section 1.6, &#8220;Userland setup&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>As a quick reminder, the fastest setups to get started are:</p>
@@ -19804,7 +20140,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </ul>
 </div>
 <div class="paragraph">
-<p>However, as usual, it is saner to build your toolchain as explained at: <a href="#qemu-user-mode-getting-started">QEMU user mode getting started</a>.</p>
+<p>However, as usual, it is saner to build your toolchain as explained at: <a href="#qemu-user-mode-getting-started">Section 10.1, &#8220;QEMU user mode getting started&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>The first examples you should look into are:</p>
@@ -19857,7 +20193,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </div>
 </li>
 <li>
-<p>registers: <a href="#assembly-registers">Assembly registers</a></p>
+<p>registers, see: <a href="#assembly-registers">Section 21.1, &#8220;Assembly registers&#8221;</a></p>
 </li>
 <li>
 <p>jumping:</p>
@@ -20007,7 +20343,7 @@ error: asm_main returned 1 at line 8</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>x86: <a href="#x86-registers">x86 registers</a></p>
+<p>x86, see: <a href="#x86-registers">Section 22.1, &#8220;x86 registers&#8221;</a></p>
 </li>
 <li>
 <p>arm</p>
@@ -20262,7 +20598,7 @@ When instructions do not interpret this operand encoding as the zero register, u
 <div class="ulist">
 <ul>
 <li>
-<p>x86: <a href="#x86-fma">x86 fused multiply add (FMA)</a></p>
+<p>x86: <a href="#x86-fma">Section 22.12.3, &#8220;x86 fused multiply add (FMA)&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -20315,13 +20651,13 @@ When instructions do not interpret this operand encoding as the zero register, u
 <p>One big difference between both is that we can run userland assembly on <a href="#userland-setup">Userland setup</a>, which is easier to get running and debug.</p>
 </div>
 <div class="paragraph">
-<p>In particular, most userland assembly examples link to the C standard library: <a href="#userland-assembly-c-standard-library">Userland assembly C standard library</a>.</p>
+<p>In particular, most userland assembly examples link to the C standard library, see: <a href="#userland-assembly-c-standard-library">Section 21.5, &#8220;Userland assembly C standard library&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Userland assembly is generally simpler, and a pre-requisite for <a href="#baremetal-setup">Baremetal setup</a>.</p>
 </div>
 <div class="paragraph">
-<p>System-land assembly cheats will be put under: <a href="#baremetal-setup">Baremetal setup</a>.</p>
+<p>System-land assembly cheats will be put under: <a href="#baremetal-setup">Section 1.7, &#8220;Baremetal setup&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -20363,7 +20699,7 @@ When instructions do not interpret this operand encoding as the zero register, u
 <p>Unlike most our other assembly examples, which use the C standard library for portability, examples under <code>freestanding/</code> directories don&#8217;t link to the C standard library.</p>
 </div>
 <div class="paragraph">
-<p>As a result, those examples cannot do IO portably, and so they make raw system calls and only be run on one given OS, e.g. Linux: <a href="#linux-system-calls">Linux system calls</a>.</p>
+<p>As a result, those examples cannot do IO portably, and so they make raw system calls and only be run on one given OS, e.g. <a href="#linux-system-calls">Linux system calls</a>.</p>
 </div>
 <div class="paragraph">
 <p>Such executables are called freestanding because they don&#8217;t execute the glibc initialization code, but rather start directly on our custom hand written assembly.</p>
@@ -20467,7 +20803,7 @@ When instructions do not interpret this operand encoding as the zero register, u
 <p>In arm, it is the only way to achieve this effect: <a href="https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler" class="bare">https://stackoverflow.com/questions/10831792/how-to-use-specific-register-in-arm-inline-assembler</a></p>
 </div>
 <div class="paragraph">
-<p>This feature notably useful for making system calls from C, see: <a href="#linux-system-calls">Linux system calls</a>.</p>
+<p>This feature notably useful for making system calls from C, see: <a href="#linux-system-calls">Section 21.7, &#8220;Linux system calls&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Documentation: <a href="https://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Explicit-Reg-Vars.html" class="bare">https://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Explicit-Reg-Vars.html</a></p>
@@ -20780,7 +21116,7 @@ zmmintrin.h AVX512</pre>
 <div class="sect2">
 <h3 id="linux-calling-conventions"><a class="anchor" href="#linux-calling-conventions"></a><a class="link" href="#linux-calling-conventions">21.8. Linux calling conventions</a></h3>
 <div class="paragraph">
-<p>Summary: <a href="#table-linux-calling-conventions">Summary of Linux calling conventions for several architectures</a></p>
+<p>A summary of results is shown at: <a href="#table-linux-calling-conventions">Table 3, &#8220;Summary of Linux calling conventions for several architectures&#8221;</a>.</p>
 </div>
 <table id="table-linux-calling-conventions" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 3. Summary of Linux calling conventions for several architectures</caption>
@@ -21004,7 +21340,7 @@ zmmintrin.h AVX512</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>Conclusion: <a href="#table-gas-data-sizes">Summary of GNU GAS assembler data sizes</a></p>
+<p>The results are shown at: <a href="#table-gas-data-sizes">Table 4, &#8220;Summary of GNU GAS assembler data sizes&#8221;</a>.</p>
 </div>
 <table id="table-gas-data-sizes" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 4. Summary of GNU GAS assembler data sizes</caption>
@@ -21125,7 +21461,7 @@ zmmintrin.h AVX512</pre>
 </div>
 </li>
 <li>
-<p>cannot have implicit destination with shift, see: <a href="#arm-shift-suffixes">ARM shift suffixes</a></p>
+<p>cannot have implicit destination with shift, see: <a href="#arm-shift-suffixes">Section 23.4.4.1, &#8220;ARM shift suffixes&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -21173,7 +21509,7 @@ zmmintrin.h AVX512</pre>
 <p>x86: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/x86_64/nop.S">NOP</a></p>
 </li>
 <li>
-<p>ARM: <a href="#arm-nop-instruction">ARM NOP instruction</a></p>
+<p>ARM: <a href="#arm-nop-instruction">Section 23.5.1, &#8220;ARM NOP instruction&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -21193,7 +21529,7 @@ zmmintrin.h AVX512</pre>
 <h2 id="x86-userland-assembly"><a class="anchor" href="#x86-userland-assembly"></a><a class="link" href="#x86-userland-assembly">22. x86 userland assembly</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Arch agnostic infrastructure getting started at: <a href="#userland-assembly">Userland assembly</a>.</p>
+<p>Arch agnostic infrastructure getting started at: <a href="#userland-assembly">Section 21, &#8220;Userland assembly&#8221;</a>.</p>
 </div>
 <div class="sect2">
 <h3 id="x86-registers"><a class="anchor" href="#x86-registers"></a><a class="link" href="#x86-registers">22.1. x86 registers</a></h3>
@@ -21470,7 +21806,7 @@ add $8, %rsp</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>GNU GAS accepts both syntaxes: <a href="#table-cqto-cltq">CQTO and CLTQ family Intel vs AT&amp;T</a></p>
+<p>GNU GAS accepts both syntaxes, see: <a href="#table-cqto-cltq">Table 5, &#8220;CQTO and CLTQ family Intel vs AT&amp;T&#8221;</a>.</p>
 </div>
 <table id="table-cqto-cltq" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 5. CQTO and CLTQ family Intel vs AT&amp;T</caption>
@@ -21584,7 +21920,7 @@ add $8, %rsp</pre>
 <p>This is partly why the ternary <code>?</code> C operator exists: <a href="https://stackoverflow.com/questions/3565368/ternary-operator-vs-if-else" class="bare">https://stackoverflow.com/questions/3565368/ternary-operator-vs-if-else</a></p>
 </div>
 <div class="paragraph">
-<p>It is interesting to compare this with ARMv7 conditional executaion: which is available for all instructions: <a href="#arm-conditional-execution">ARM conditional execution</a></p>
+<p>It is interesting to compare this with ARMv7 conditional execution: which is available for all instructions, as shown at: <a href="#arm-conditional-execution">Section 23.2.5, &#8220;ARM conditional execution&#8221;</a>.</p>
 </div>
 </div>
 </div>
@@ -22040,7 +22376,7 @@ pop %rbp</pre>
 <p><a href="#intel-manual-1">Intel 64 and IA-32 Architectures Software Developer&#8217;s Manuals Volume 1</a> 5.1.13 "Miscellaneous Instructions"</p>
 </div>
 <div class="paragraph">
-<p>NOP: <a href="#nop-instructions">NOP instructions</a></p>
+<p>NOP: <a href="#nop-instructions">Section 21.10, &#8220;NOP instructions&#8221;</a></p>
 </div>
 </div>
 <div class="sect2">
@@ -22272,7 +22608,7 @@ pop %rbp</pre>
 <div class="sect2">
 <h3 id="x86-simd"><a class="anchor" href="#x86-simd"></a><a class="link" href="#x86-simd">22.12. x86 SIMD</a></h3>
 <div class="paragraph">
-<p>Parent section: <a href="#simd-assembly">SIMD assembly</a></p>
+<p>Parent section: <a href="#simd-assembly">Section 21.3, &#8220;SIMD assembly&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>History:</p>
@@ -22337,7 +22673,7 @@ pop %rbp</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/x86_64/addpd.S">userland/arch/x86_64/addpd.S</a>: ADDPS, ADDPD: good first instruction to learn SIMD: <a href="#simd-assembly">SIMD assembly</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/x86_64/addpd.S">userland/arch/x86_64/addpd.S</a>: ADDPS, ADDPD: good first instruction to learn <a href="#simd-assembly">SIMD assembly</a>.</p>
 </li>
 </ul>
 </div>
@@ -22367,7 +22703,7 @@ pop %rbp</pre>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/x86_64/paddq.S">userland/arch/x86_64/paddq.S</a>: PADDQ, PADDL, PADDW, PADDB</p>
 </div>
 <div class="paragraph">
-<p>Good first instruction to learn SIMD: <a href="#simd-assembly">SIMD assembly</a></p>
+<p>Good first instruction to learn <a href="#simd-assembly">SIMD assembly</a>.</p>
 </div>
 </div>
 </div>
@@ -22616,7 +22952,7 @@ taskset -c 1 ./userland/arch/x86_64/rdtscp.out | tail -n 1</pre>
 <h2 id="arm-userland-assembly"><a class="anchor" href="#arm-userland-assembly"></a><a class="link" href="#arm-userland-assembly">23. ARM userland assembly</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Arch general getting started at: <a href="#userland-assembly">Userland assembly</a>.</p>
+<p>Arch general getting started at: <a href="#userland-assembly">Section 21, &#8220;Userland assembly&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Instructions here loosely grouped based on that of the <a href="#armarm7">ARMv7 architecture reference manual</a> Chapter A4 "The Instruction Sets".</p>
@@ -22740,10 +23076,10 @@ taskset -c 1 ./userland/arch/x86_64/rdtscp.out | tail -n 1</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>aarch32 has two encodings: Thumb and ARM: <a href="#arm-instruction-encodings">ARM instruction encodings</a></p>
+<p>aarch32 has two encodings: Thumb and ARM: <a href="#arm-instruction-encodings">Section 23.1.3, &#8220;ARM instruction encodings&#8221;</a></p>
 </li>
 <li>
-<p>in ARMv8, the stack can be enforced to 16-byte alignment: <a href="#armv8-aarch64-stack-alignment">ARMV8 aarch64 stack alignment</a></p>
+<p>in ARMv8, the stack can be enforced to 16-byte alignment: <a href="#armv8-aarch64-stack-alignment">Section 23.3.2.2.1, &#8220;ARMV8 aarch64 stack alignment&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -23136,7 +23472,7 @@ Bibliography: <a href="https://www.quora.com/Why-is-it-that-you-need-a-license-f
 <div class="sect4">
 <h5 id="arm-bx-instruction"><a class="anchor" href="#arm-bx-instruction"></a><a class="link" href="#arm-bx-instruction">23.2.3.1. ARM BX instruction</a></h5>
 <div class="paragraph">
-<p>See: <a href="#arm-thumb-encoding">ARM Thumb encoding</a></p>
+<p>See: <a href="#arm-thumb-encoding">Section 23.1.3.1, &#8220;ARM Thumb encoding&#8221;</a></p>
 </div>
 </div>
 <div class="sect4">
@@ -23206,7 +23542,17 @@ Bibliography: <a href="https://www.quora.com/Why-is-it-that-you-need-a-license-f
 <div class="sect2">
 <h3 id="arm-load-and-store-instructions"><a class="anchor" href="#arm-load-and-store-instructions"></a><a class="link" href="#arm-load-and-store-instructions">23.3. ARM load and store instructions</a></h3>
 <div class="paragraph">
-<p>In ARM, there are only two instruction families that do memory access: <a href="#arm-ldr-instruction">ARM LDR instruction</a>  to load and <a href="#arm-str-instruction">ARM STR instruction</a> to store.</p>
+<p>In ARM, there are only two instruction families that do memory access:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#arm-ldr-instruction">ARM LDR instruction</a> to load from memory to registers</p>
+</li>
+<li>
+<p><a href="#arm-str-instruction">ARM STR instruction</a> to store from registers to memory</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>Everything else works on register and immediates.</p>
@@ -23647,7 +23993,7 @@ ldmia sp!, reglist</pre>
 <p>Move an immediate to a register, or a register to another register.</p>
 </div>
 <div class="paragraph">
-<p>Cannot load from or to memory, since only the LDR and STR instruction families can do that in ARM: <a href="#arm-load-and-store-instructions">ARM load and store instructions</a></p>
+<p>Cannot load from or to memory, since only the LDR and STR instruction families can do that in ARM as mentioned at: <a href="#arm-load-and-store-instructions">Section 23.3, &#8220;ARM load and store instructions&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/mov.S">userland/arch/arm/mov.S</a></p>
@@ -23817,7 +24163,7 @@ ldmia sp!, reglist</pre>
 <div class="sect4">
 <h5 id="arm-adrl-instruction"><a class="anchor" href="#arm-adrl-instruction"></a><a class="link" href="#arm-adrl-instruction">23.4.5.1. ARM ADRL instruction</a></h5>
 <div class="paragraph">
-<p>See: <a href="#arm-adr-instruction">ARM ADR instruction</a>.</p>
+<p>See: <a href="#arm-adr-instruction">Section 23.4.5, &#8220;ARM ADR instruction&#8221;</a>.</p>
 </div>
 </div>
 </div>
@@ -23827,7 +24173,7 @@ ldmia sp!, reglist</pre>
 <div class="sect3">
 <h4 id="arm-nop-instruction"><a class="anchor" href="#arm-nop-instruction"></a><a class="link" href="#arm-nop-instruction">23.5.1. ARM NOP instruction</a></h4>
 <div class="paragraph">
-<p>Parent section: <a href="#nop-instructions">NOP instructions</a></p>
+<p>Parent section: <a href="#nop-instructions">Section 21.10, &#8220;NOP instructions&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>There are a few different ways to encode NOP, notably MOV a register into itself, and a dedicated miscellaneous instruction.</p>
@@ -23870,7 +24216,7 @@ ldmia sp!, reglist</pre>
 <div class="sect2">
 <h3 id="arm-simd"><a class="anchor" href="#arm-simd"></a><a class="link" href="#arm-simd">23.6. ARM SIMD</a></h3>
 <div class="paragraph">
-<p>Parent section: <a href="#simd-assembly">SIMD assembly</a></p>
+<p>Parent section: <a href="#simd-assembly">Section 21.3, &#8220;SIMD assembly&#8221;</a></p>
 </div>
 <div class="sect3">
 <h4 id="arm-vfp"><a class="anchor" href="#arm-vfp"></a><a class="link" href="#arm-vfp">23.6.1. ARM VFP</a></h4>
@@ -23959,10 +24305,10 @@ ldmia sp!, reglist</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/vadd_scalar.S">userland/arch/arm/vadd_scalar.S</a>: see also: <a href="#floating-point-assembly">Floating point assembly</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/vadd_scalar.S">userland/arch/arm/vadd_scalar.S</a>: see also: <a href="#floating-point-assembly">Section 21.2, &#8220;Floating point assembly&#8221;</a></p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/vadd_vector.S">userland/arch/arm/vadd_vector.S</a>: see also: <a href="#simd-assembly">SIMD assembly</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/vadd_vector.S">userland/arch/arm/vadd_vector.S</a>: see also: <a href="#simd-assembly">Section 21.3, &#8220;SIMD assembly&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -24043,7 +24389,7 @@ ldmia sp!, reglist</pre>
 <p>The feature is often refered to simply as "SIMD&amp;FP" throughout the manual.</p>
 </div>
 <div class="paragraph">
-<p>The Linux kernel shows <code>/proc/cpuinfo</code> compatibility as <code>neon</code>, which is yet another intermediate name that came up at some point: <a href="#arm-neon">ARM NEON</a></p>
+<p>The Linux kernel shows <code>/proc/cpuinfo</code> compatibility as <code>neon</code>, which is yet another intermediate name that came up at some point, see: <a href="#arm-neon">Section 23.6.2.2, &#8220;ARM NEON&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Vs <a href="#arm-vfp">ARM VFP</a>: <a href="https://stackoverflow.com/questions/4097034/arm-cortex-a8-whats-the-difference-between-vfp-and-neon" class="bare">https://stackoverflow.com/questions/4097034/arm-cortex-a8-whats-the-difference-between-vfp-and-neon</a></p>
@@ -24155,7 +24501,7 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/add_vector.S">userland/arch/aarch64/add_vector.S</a></p>
 </div>
 <div class="paragraph">
-<p>Good first instruction to learn SIMD: <a href="#simd-assembly">SIMD assembly</a></p>
+<p>Good first instruction to learn SIMD: <a href="#simd-assembly">SIMD assembly</a>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -24163,17 +24509,17 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/fadd_vector.S">userland/arch/aarch64/fadd_vector.S</a>: see also: <a href="#simd-assembly">SIMD assembly</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/fadd_vector.S">userland/arch/aarch64/fadd_vector.S</a>: see also: <a href="#simd-assembly">Section 21.3, &#8220;SIMD assembly&#8221;</a></p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/fadd_scalar.S">userland/arch/aarch64/fadd_scalar.S</a>: see also: <a href="#floating-point-assembly">Floating point assembly</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/fadd_scalar.S">userland/arch/aarch64/fadd_scalar.S</a>: see also: <a href="#floating-point-assembly">Section 21.2, &#8220;Floating point assembly&#8221;</a></p>
 </li>
 </ul>
 </div>
 <div class="sect5">
 <h6 id="arm-fadd-vs-vadd"><a class="anchor" href="#arm-fadd-vs-vadd"></a><a class="link" href="#arm-fadd-vs-vadd">23.6.3.2.1. ARM FADD vs VADD</a></h6>
 <div class="paragraph">
-<p>It is very confusing, but FADDS and FADDD in Aarch32 are <a href="#gnu-gas-assembler-arm-unified-syntax">pre-UAL</a> for <code>vadd.f32</code> and <code>vadd.f64</code> which we use in this tutorial: <a href="#arm-vadd-instruction">ARM VADD instruction</a></p>
+<p>It is very confusing, but FADDS and FADDD in Aarch32 are <a href="#gnu-gas-assembler-arm-unified-syntax">pre-UAL</a> for <code>vadd.f32</code> and <code>vadd.f64</code> which we use in this tutorial, see: <a href="#arm-vadd-instruction">Section 23.6.1.2, &#8220;ARM VADD instruction&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>The same goes for most ARMv7 mnemonics: <code>f*</code> is old, and <code>v*</code> is the newer better syntax.</p>
@@ -24185,7 +24531,7 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <p>Also keep in mind that fused multiply add is FMADD.</p>
 </div>
 <div class="paragraph">
-<p>Examples at: <a href="#simd-assembly">SIMD assembly</a></p>
+<p>Examples at: <a href="#simd-assembly">Section 21.3, &#8220;SIMD assembly&#8221;</a></p>
 </div>
 </div>
 </div>
@@ -24541,12 +24887,12 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <h2 id="baremetal"><a class="anchor" href="#baremetal"></a><a class="link" href="#baremetal">26. Baremetal</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Getting started at: <a href="#baremetal-setup">Baremetal setup</a></p>
+<p>Getting started at: <a href="#baremetal-setup">Section 1.7, &#8220;Baremetal setup&#8221;</a></p>
 </div>
 <div class="sect2">
 <h3 id="baremetal-gdb-step-debug"><a class="anchor" href="#baremetal-gdb-step-debug"></a><a class="link" href="#baremetal-gdb-step-debug">26.1. Baremetal GDB step debug</a></h3>
 <div class="paragraph">
-<p>GDB step debug works on baremetal exactly as it does on the Linux kernel: <a href="#gdb">GDB step debug</a>.</p>
+<p>GDB step debug works on baremetal exactly as it does on the Linux kernel, which is described at: <a href="#gdb">Section 2, &#8220;GDB step debug&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Except that is is even cooler here since we can easily control and understand every single instruction that is being run!</p>
@@ -24645,7 +24991,7 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <p>the stack pointer</p>
 </li>
 <li>
-<p>NEON: <a href="#aarch64-baremetal-neon-setup">aarch64 baremetal NEON setup</a></p>
+<p>NEON: <a href="#aarch64-baremetal-neon-setup">Section 26.9.2, &#8220;aarch64 baremetal NEON setup&#8221;</a></p>
 </li>
 <li>
 <p>TODO: we don&#8217;t do this currently but maybe we should setup BSS</p>
@@ -25316,7 +25662,7 @@ IN:
 <p>A good representation of the format of the vector table can also be found at <a href="#armv8-programmers-guide">Programmer&#8217;s Guide for ARMv8-A</a> Table 10-2 "Vector table offsets from vector table base address".</p>
 </div>
 <div class="paragraph">
-<p>The first part of the table contains: <a href="#table-armv8-vector-handlers">Summary of ARMv8 vector handlers</a></p>
+<p>The first part of the table contains: <a href="#table-armv8-vector-handlers">Table 6, &#8220;Summary of ARMv8 vector handlers&#8221;</a>.</p>
 </div>
 <table id="table-armv8-vector-handlers" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 6. Summary of ARMv8 vector handlers</caption>
@@ -25414,7 +25760,7 @@ IN:
 <p>Exception Syndrome Register.</p>
 </div>
 <div class="paragraph">
-<p>See example at: <a href="#arm-svc-instruction">ARM SVC instruction</a></p>
+<p>See example at: <a href="#arm-svc-instruction">Section 26.8.2, &#8220;ARM SVC instruction&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>Documentation: <a href="#armarm8-db">ARMv8 architecture reference manual db</a> D12.2.36 "ESR_EL1, Exception Syndrome Register (EL1)".</p>
@@ -25426,7 +25772,7 @@ IN:
 <p>Exception Link Register.</p>
 </div>
 <div class="paragraph">
-<p>See example at: <a href="#arm-svc-instruction">ARM SVC instruction</a></p>
+<p>See the example at: <a href="#arm-svc-instruction">Section 26.8.2, &#8220;ARM SVC instruction&#8221;</a></p>
 </div>
 </div>
 </div>
@@ -25498,7 +25844,7 @@ IN:
 <p>since gem5 is able to detect when nothing will ever happen, and exits.</p>
 </div>
 <div class="paragraph">
-<p>When GDB step debugging, switch between cores with the usual <code>thread</code> commands, see also: <a href="#gdb-step-debug-multicore-userland">GDB step debug multicore userland</a>.</p>
+<p>When GDB step debugging, switch between cores with the usual <code>thread</code> commands, see also: <a href="#gdb-step-debug-multicore-userland">Section 2.9, &#8220;GDB step debug multicore userland&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Bibliography: <a href="https://stackoverflow.com/questions/980999/what-does-multicore-assembly-language-look-like/33651438#33651438" class="bare">https://stackoverflow.com/questions/980999/what-does-multicore-assembly-language-look-like/33651438#33651438</a></p>
@@ -25708,7 +26054,7 @@ IN:
 <div class="sect3">
 <h4 id="arm-baremetal-bibliography"><a class="anchor" href="#arm-baremetal-bibliography"></a><a class="link" href="#arm-baremetal-bibliography">26.8.6. ARM baremetal bibliography</a></h4>
 <div class="paragraph">
-<p>First, also consider the userland bibliography: <a href="#arm-assembly-bibliography">ARM assembly bibliography</a>.</p>
+<p>First, also consider the userland bibliography: <a href="#arm-assembly-bibliography">Section 23.8, &#8220;ARM assembly bibliography&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>The most useful ARM baremetal example sets we&#8217;ve seen so far are:</p>
@@ -26012,7 +26358,7 @@ ISB</pre>
 <p>In baremetal, we detect if tests failed by parsing logs for the <a href="#magic-failure-string">Magic failure string</a>.</p>
 </div>
 <div class="paragraph">
-<p>See: <a href="#test-this-repo">Test this repo</a> for more useful testing tips.</p>
+<p>See: <a href="#test-this-repo">Section 29.13, &#8220;Test this repo&#8221;</a> for more useful testing tips.</p>
 </div>
 </div>
 </div>
@@ -26336,7 +26682,7 @@ date &gt;/system/a</pre>
 <div class="sect2">
 <h3 id="android-init"><a class="anchor" href="#android-init"></a><a class="link" href="#android-init">27.3. Android init</a></h3>
 <div class="paragraph">
-<p>For Linux in general, see: <a href="#init">init</a>.</p>
+<p>For Linux in general, see: <a href="#init">Section 6, &#8220;init&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>The <code>/init</code> executable interprets the <code>/init.rc</code> files, which is in a custom Android init system language: <a href="https://android.googlesource.com/platform/system/core/+/ee0e63f71d90537bb0570e77aa8a699cc222cfaf/init/README.md" class="bare">https://android.googlesource.com/platform/system/core/+/ee0e63f71d90537bb0570e77aa8a699cc222cfaf/init/README.md</a></p>
@@ -27009,51 +27355,9 @@ tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="build-the-documentation"><a class="anchor" href="#build-the-documentation"></a><a class="link" href="#build-the-documentation">29.5. Build the documentation</a></h3>
+<h3 id="documentation"><a class="anchor" href="#documentation"></a><a class="link" href="#documentation">29.5. Documentation</a></h3>
 <div class="paragraph">
-<p>You don&#8217;t need to depend on GitHub.</p>
-</div>
-<div class="paragraph">
-<p>For a quick and dirty build, install <a href="https://asciidoctor.org/">Asciidoctor</a> however you like and build:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>asciidotor README.adoc
-xdg-open README.html</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>For development, you will want to do a more controlled build with extra error checking as follows.</p>
-</div>
-<div class="paragraph">
-<p>For the initial build do:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build --download-dependencies docs</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>which also downloads build dependencies.</p>
-</div>
-<div class="paragraph">
-<p>Then the following times just to the faster:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-doc</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/build-doc">build-doc</a></p>
-</div>
-<div class="paragraph">
-<p>The HTML output is located at:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>xdg-open out/README.html</pre>
-</div>
+<p>To learn how to build the documentation see: <a href="#build-the-documentation">Section 1.8, &#8220;Build the documentation&#8221;</a>.</p>
 </div>
 <div class="sect3">
 <h4 id="documentation-verification"><a class="anchor" href="#documentation-verification"></a><a class="link" href="#documentation-verification">29.5.1. Documentation verification</a></h4>
@@ -27460,7 +27764,7 @@ less "$(./getvar --arch aarch64 --emulator gem5 --run-id 1 termout_file)"</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>To run multiple gem5 checkouts, see: <a href="#gem5-worktree">gem5 worktree</a>.</p>
+<p>To run multiple gem5 checkouts, see: <a href="#gem5-worktree">Section 29.11.3.1, &#8220;gem5 worktree&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>Implementation note: we create multiple namespaces for two things:</p>
@@ -27543,7 +27847,7 @@ git -C "$(./getvar linux_source_dir)" checkout -
 </div>
 </div>
 <div class="paragraph">
-<p>To run both kernels simultaneously, one on each QEMU instance, see: <a href="#simultaneous-runs">Simultaneous runs</a>.</p>
+<p>To run both kernels simultaneously, one on each QEMU instance, see: <a href="#simultaneous-runs">Section 29.10, &#8220;Simultaneous runs&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect3">
@@ -27687,36 +27991,6 @@ gem5_internal="$(pwd)/gem5-internal"</pre>
 </div>
 <div class="paragraph">
 <p>With this setup, both your private gem5 source and build are safely kept outside of this public repository.</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="gem5-debug-build"><a class="anchor" href="#gem5-debug-build"></a><a class="link" href="#gem5-debug-build">29.11.3.3. gem5 debug build</a></h5>
-<div class="paragraph">
-<p>The <code>gem5.debug</code> executable has optimizations turned off unlike the default <code>gem5.opt</code>, and provides a much better <a href="#debug-the-emulator">debug experience</a>:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-gem5 --arch aarch64 --gem5-build-type debug
-./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The build outputs are automatically stored in a different directory from other build types such as <code>.opt</code> build, which prevents <code>.debug</code> files from overwriting <code>.opt</code> ones.</p>
-</div>
-<div class="paragraph">
-<p>Therefore, <code>--gem5-build-id</code> is not required.</p>
-</div>
-<div class="paragraph">
-<p>The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>so you will likely only use this when it is unavoidable.</p>
 </div>
 </div>
 </div>
@@ -27968,7 +28242,7 @@ git -C "$(./getvar buildroot_source_dir)" checkout -
 <p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/copy-overlay">copy-overlay</a></p>
 </div>
 <div class="paragraph">
-<p>Build Buildroot is required for the same reason as described at: <a href="#your-first-kernel-module-hack">Your first kernel module hack</a>.</p>
+<p>Build Buildroot is required for the same reason as described at: <a href="#your-first-kernel-module-hack">Section 1.1.2.2, &#8220;Your first kernel module hack&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>However, since the <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay">rootfs_overlay</a> directory does not require compilation, unlike say <a href="#your-first-kernel-module-hack">kernel modules</a>, we also make it <a href="#9p">9P</a> available to the guest directly even without <code>./copy-overlay</code> at:</p>
@@ -28204,7 +28478,7 @@ echo $?</pre>
 <p>Failure is detected by looking for the <a href="#magic-failure-string">Magic failure string</a></p>
 </div>
 <div class="paragraph">
-<p>Most userland programs that don&#8217;t rely on kernel modules can also be tested in user mode simulation as explained at: <a href="#user-mode-tests">User mode tests</a>.</p>
+<p>Most userland programs that don&#8217;t rely on kernel modules can also be tested in user mode simulation as explained at: <a href="#user-mode-tests">Section 10.2, &#8220;User mode tests&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -28297,7 +28571,7 @@ echo $?</pre>
 <p>gem5: <a href="#m5-fail">m5 fail</a> works on all archs</p>
 </li>
 <li>
-<p>user mode: QEMU forwards exit status, gem5 we do some log parsing: <a href="#gem5-syscall-emulation-exit-status">gem5 syscall emulation exit status</a></p>
+<p>user mode: QEMU forwards exit status, for gem5 we do some log parsing as described at: <a href="#gem5-syscall-emulation-exit-status">Section 10.6.1, &#8220;gem5 syscall emulation exit status&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -28458,7 +28732,7 @@ echo $?</pre>
 <p>When updating the Linux kernel, QEMU and gem5, things sometimes break.</p>
 </div>
 <div class="paragraph">
-<p>However, for many types of crashes, it is trivial to bisect down to the offending commit, in particular because we can make QEMU and gem5 exit with status 1 on kernel panic: <a href="#exit-emulator-on-panic">Exit emulator on panic</a>.</p>
+<p>However, for many types of crashes, it is trivial to bisect down to the offending commit, in particular because we can make QEMU and gem5 exit with status 1 on kernel panic as mentioned at: <a href="#exit-emulator-on-panic">Section 15.7.1.3, &#8220;Exit emulator on panic&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>For example, when updating from QEMU <code>v2.12.0</code> to <code>v3.0.0-rc3</code>, the Linux kernel boot started to panic for <code>arm</code>.</p>
@@ -28595,7 +28869,7 @@ git commit -m "linux: update to ${next_mainline_revision}"</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>./build-test</code> command builds a superset of what will be downloaded which also tests other things we would like to be working on the release. For the minimal build to generate the files to be uploaded, see: <a href="#release-zip">release-zip</a></p>
+<p>The <code>./build-test</code> command builds a superset of what will be downloaded which also tests other things we would like to be working on the release. For the minimal build to generate the files to be uploaded, see: <a href="#release-zip">Section 29.17.2, &#8220;release-zip&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>The clean build is necessary as it generates clean images since <a href="#remove-buildroot-packages">it is not possible to remove Buildroot packages</a></p>
@@ -28841,7 +29115,7 @@ git push --follow-tags
 <p>compatibility: how likely is is that all the components will work well together: emulator, compiler, kernel, standard library, &#8230;&#8203;</p>
 </li>
 <li>
-<p>guest software availability: how wide is your choice of easily installed guest software packages? See also: <a href="#linux-distro-choice">Linux distro choice</a></p>
+<p>guest software availability: how wide is your choice of easily installed guest software packages? See also: <a href="#linux-distro-choice">Section 29.18.4, &#8220;Linux distro choice&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -28888,13 +29162,13 @@ git push --follow-tags
 </ul>
 </div>
 <div class="paragraph">
-<p>In order to learn how to measure some of those aspects, see: <a href="#benchmark-this-repo">Benchmark this repo</a></p>
+<p>In order to learn how to measure some of those aspects, see: <a href="#benchmark-this-repo">Section 28, &#8220;Benchmark this repo&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect3">
 <h4 id="linux-distro-choice"><a class="anchor" href="#linux-distro-choice"></a><a class="link" href="#linux-distro-choice">29.18.4. Linux distro choice</a></h4>
 <div class="paragraph">
-<p>We haven&#8217;t found the ultimate distro yet, here is a summary table of trade-offs that we care about: <a href="#table-lkmc-linux-distro-comparison">Comparison of Linux distros for usage in this repository</a></p>
+<p>We haven&#8217;t found the ultimate distro yet, here is a summary table of trade-offs that we care about: <a href="#table-lkmc-linux-distro-comparison">Table 7, &#8220;Comparison of Linux distros for usage in this repository&#8221;</a>.</p>
 </div>
 <table id="table-lkmc-linux-distro-comparison" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 7. Comparison of Linux distros for usage in this repository</caption>
