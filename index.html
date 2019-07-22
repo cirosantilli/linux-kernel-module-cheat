@@ -7303,6 +7303,40 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 <pre>ld: cannot find -lopenblas</pre>
 </div>
 </div>
+<div class="paragraph">
+<p><code>g++</code> and pthreads also causes issues: <a href="https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why" class="bare">https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why</a></p>
+</div>
+<div class="paragraph">
+<p>As a consequence, the following fails:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --userland userland/cpp/atomic.cpp --static</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>with error:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.
+qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and if we manually build and run natively on host it segfaults.</p>
+</div>
+<div class="paragraph">
+<p>If we hack the compilation command to do instead:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>-pthread -Wl,--whole-archive -lpthread -Wl,--no-whole-archive</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>then it works. We should automate that at some point.</p>
+</div>
 </div>
 </div>
 <div class="sect2">
