@@ -3823,6 +3823,31 @@ it fails with:
 ld: cannot find -lopenblas
 ....
 
+`g++` and pthreads also causes issues: https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why
+
+As a consequence, the following fails:
+
+....
+./run --userland userland/cpp/atomic.cpp --static
+....
+
+with error:
+
+....
+qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.                                                                                                                            
+qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.
+....
+
+and if we manually build and run natively on host it segfaults.
+
+If we hack the compilation command to do instead:
+
+....
+-pthread -Wl,--whole-archive -lpthread -Wl,--no-whole-archive
+....
+
+then it works. We should automate that at some point.
+
 === gem5 syscall emulation mode
 
 Less robust than QEMU's, but still usable:
