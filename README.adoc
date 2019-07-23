@@ -9994,6 +9994,60 @@ TODO that format is either buggy or is very difficult to understand:
 
 https://stackoverflow.com/questions/54882466/how-to-use-the-tarmac-tracer-with-gem5
 
+===== gem5 tracing internals
+
+As of gem5 16eeee5356585441a49d05c78abc328ef09f7ace the default tracer is `ExeTracer`. It is set at:
+
+....
+src/cpu/BaseCPU.py:63:default_tracer = ExeTracer()
+....
+
+which then gets used at:
+
+....
+class BaseCPU(ClockedObject):
+    [...]
+    tracer = Param.InstTracer(default_tracer, "Instruction tracer")
+....
+
+All tracers derive from the common `InstTracer` base class:
+
+....
+git grep ': InstTracer'
+....
+
+gives:
+
+....
+src/arch/arm/tracers/tarmac_parser.hh:218:    TarmacParser(const Params *p) : InstTracer(p), startPc(p->start_pc),
+src/arch/arm/tracers/tarmac_tracer.cc:57:  : InstTracer(p),
+src/cpu/exetrace.hh:67:    ExeTracer(const Params *params) : InstTracer(params)
+src/cpu/inst_pb_trace.cc:72:    : InstTracer(p), buf(nullptr), bufSize(0), curMsg(nullptr)
+src/cpu/inteltrace.hh:63:    IntelTrace(const IntelTraceParams *p) : InstTracer(p)
+....
+
+As mentioned at <<gem5-tarmac-traces>>, there appears to be no way to select those currently without hacking the config scripts.
+
+TARMAC is described at: <<gem5-tarmac-traces>>.
+
+TODO: are `IntelTrace` and `TarmacParser` useful for anything or just relics?
+
+Then there is also the `NativeTrace` class:
+
+....
+src/cpu/nativetrace.hh:68:class NativeTrace : public ExeTracer
+....
+
+which gets implemented in a few different ISAs, but not all:
+
+....
+src/arch/arm/nativetrace.hh:40:class ArmNativeTrace : public NativeTrace
+src/arch/sparc/nativetrace.hh:41:class SparcNativeTrace : public NativeTrace
+src/arch/x86/nativetrace.hh:41:class X86NativeTrace : public NativeTrace
+....
+
+TODO: I can't find any usages of those classes from in-tree configs.
+
 === QEMU GUI is unresponsive
 
 Sometimes in Ubuntu 14.04, after the QEMU SDL GUI starts, it does not get updated after keyboard strokes, and there are artifacts like disappearing text.
