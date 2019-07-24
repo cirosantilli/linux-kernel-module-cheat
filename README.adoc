@@ -9849,9 +9849,11 @@ just appears to output both cores intertwined without any clear differentiation.
 gem5 provides also provides a tracing mechanism documented at: http://www.gem5.org/Trace_Based_Debugging[]:
 
 ....
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace Exec
+./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace ExecAll
 less "$(./getvar --arch aarch64 run_dir)/trace.txt"
 ....
+
+Keep in mind however that the disassembly is very broken in several places as of 2019q2, so you can't always trust it.
 
 Output the trace to stdout instead of a file:
 
@@ -9891,6 +9893,12 @@ less "$(./getvar gem5_source_dir)/src/cpu/SConscript"
 less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"
 ....
 
+The most important trace flags to know about are:
+
+* <<gem5-execall-trace-format,`ExecAll`>>
+* `Faults`: CPU exceptions / interrupts, see an example at: <<arm-svc-instruction>>
+* <<gem5-registers-trace-format,`Registers`>>
+
 The traces are generated from `DPRINTF(<trace-id>` calls scattered throughout the code.
 
 As can be seen on the `Sconstruct`, `Exec` is just an alias that enables a set of flags.
@@ -9900,6 +9908,20 @@ Be warned, the trace is humongous, at 16Gb.
 We can make the trace smaller by naming the trace file as `trace.txt.gz`, which enables GZIP compression, but that is not currently exposed on our scripts, since you usually just need something human readable to work on.
 
 Enabling tracing made the runtime about 4x slower on the <<p51>>, with or without `.gz` compression.
+
+Trace the source lines just like <<trace-source-lines,for QEMU>> with:
+
+....
+./trace-boot --arch aarch64 --emulator gem5
+./trace2line --arch aarch64 --emulator gem5
+less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"
+....
+
+TODO: 7452d399290c9c1fc6366cdad129ef442f323564 `./trace2line` this is too slow and takes hours. QEMU's processing of 170k events takes 7 seconds. gem5's processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up... The workaround is to just use gem5's `ExecSymbol` to get function granularity, and then GDB individually if line detail is needed?
+
+===== gem5 ExecAll trace format
+
+This debug flag traces all instructions.
 
 The output format is of type:
 
@@ -9919,11 +9941,11 @@ There are two types of lines:
 Breakdown:
 
 * `25007500`: time count in some unit. Note how the microops execute at further timestamps.
-* `system.cpu`: distinguishes between CPUs when there are more than one
+* `system.cpu`: distinguishes between CPUs when there are more than one. For example, running xref:arm-multicore[xrefstyle=full] with two cores produces `system.cpu0` and `system.cpu1`
 * `T0`: thread number. TODO: https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858[hyperthread]? How to play with it?
 * `@start_kernel`: we are in the `start_kernel` function. Awesome feature! Implemented with libelf https://sourceforge.net/projects/elftoolchain/ copy pasted in-tree `ext/libelf`. To get raw addresses, remove the `ExecSymbol`, which is enabled by `Exec`. This can be done with `Exec,-ExecSymbol`.
 * `.1` as in `@start_kernel.1`: index of the microop
-* `stp`: instruction disassembly. Seems to use `.isa` files dispersed per arch, which is an in house format: http://gem5.org/ISA_description_system
+* `stp`: instruction disassembly. Note however that the disassembly of many instructions are very broken as of 2019q2, and you can't just trust them blindly.
 * `strxi_uop   x29, [ureg0]`: microop disassembly.
 * `MemWrite :  D=0x0000000000000000 A=0xffffff8008913f90`: a memory write microop:
 ** `D` stands for data, and represents the value that was written to memory or to a register
@@ -9931,15 +9953,46 @@ Breakdown:
 
 The best way to verify all of this is to write some <<baremetal,baremetal code>>
 
-Trace the source lines just like <<trace-source-lines,for QEMU>> with:
+===== gem5 Registers trace format
+
+This flag shows a more detailed register usage than <<gem5-execall-trace-format>>.
+
+For example, if we run in LKMC 0323e81bff1d55b978a4b36b9701570b59b981eb:
 
 ....
-./trace-boot --arch aarch64 --emulator gem5
-./trace2line --arch aarch64 --emulator gem5
-less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"
+./run --arch aarch64 --baremetal userland/arch/aarch64/add.S --emulator gem5 --trace ExecAll,Registers --trace-stdout
 ....
 
-TODO: 7452d399290c9c1fc6366cdad129ef442f323564 `./trace2line` this is too slow and takes hours. QEMU's processing of 170k events takes 7 seconds. gem5's processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up... The workaround is to just use gem5's `ExecSymbol` to get function granularity, and then GDB individually if line detail is needed?
+then the stdout contains:
+
+....
+  31000: system.cpu A0 T0 : @main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  31500: system.cpu.[tid:0]: Setting int reg 34 (34) to 0.
+  31500: system.cpu.[tid:0]: Reading int reg 0 (0) as 0x1.
+  31500: system.cpu.[tid:0]: Setting int reg 1 (1) to 0x3.
+  31500: system.cpu A0 T0 : @main_after_prologue+4    :   add   x1, x0, #2         : IntAlu :  D=0x0000000000000003  flags=(IsInteger)
+  32000: system.cpu.[tid:0]: Setting int reg 34 (34) to 0.
+  32000: system.cpu.[tid:0]: Reading int reg 1 (1) as 0x3.
+  32000: system.cpu.[tid:0]: Reading int reg 31 (34) as 0.
+  32000: system.cpu.[tid:0]: Setting int reg 0 (0) to 0x3.
+....
+
+which corresponds to the two following instructions:
+
+....
+mov x0, 1
+add x1, x0, 2
+....
+
+TODO that format is either buggy or is very difficult to understand:
+
+* what is `34`? Presumably some flags register?
+* what do the numbers in parenthesis mean at `31 (34)`? Presumably some flags register?
+* why is the first instruction setting `reg 1` and the second one `reg 0`, given that the first sets `x0` and the second `x1`?
+
+===== gem5 TARMAC traces
+
+https://stackoverflow.com/questions/54882466/how-to-use-the-tarmac-tracer-with-gem5
 
 === QEMU GUI is unresponsive
 
@@ -10209,6 +10262,10 @@ fails with:
 ....
 Exiting @ tick 18446744073709551615 because simulate() limit reached
 ....
+
+====== gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached
+
+See bug report at: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81
 
 ====== gem5 ARM full system with more than 8 cores
 
@@ -14054,7 +14111,7 @@ ARMv8-only, likely because in ARMv8 you can't have conditional suffixes for ever
 Bitwise Bit Clear: clear some bits.
 
 ....
-dest = `left & ~right`
+dest = left & ~right
 ....
 
 Example: link:userland/arch/arm/bic.S[]
