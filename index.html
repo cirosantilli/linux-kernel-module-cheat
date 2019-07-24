@@ -1056,7 +1056,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </ul>
 </li>
 <li><a href="#qemu-trace-multicore">17.8.5. QEMU trace multicore</a></li>
-<li><a href="#gem5-tracing">17.8.6. gem5 tracing</a></li>
+<li><a href="#gem5-tracing">17.8.6. gem5 tracing</a>
+<ul class="sectlevel4">
+<li><a href="#gem5-execall-trace-format">17.8.6.1. gem5 ExecAll trace format</a></li>
+<li><a href="#gem5-registers-trace-format">17.8.6.2. gem5 Registers trace format</a></li>
+<li><a href="#gem5-tarmac-traces">17.8.6.3. gem5 TARMAC traces</a></li>
+<li><a href="#gem5-tracing-internals">17.8.6.4. gem5 tracing internals</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#qemu-gui-is-unresponsive">17.9. QEMU GUI is unresponsive</a></li>
@@ -1074,7 +1081,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel5">
 <li><a href="#number-of-cores-in-qemu-user-mode">18.2.2.1.1. Number of cores in QEMU user mode</a></li>
 <li><a href="#number-of-cores-in-gem5-user-mode">18.2.2.1.2. Number of cores in gem5 user mode</a></li>
-<li><a href="#gem5-arm-full-system-with-more-than-8-cores">18.2.2.1.3. gem5 ARM full system with more than 8 cores</a></li>
+<li><a href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached">18.2.2.1.3. gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached</a></li>
+<li><a href="#gem5-arm-full-system-with-more-than-8-cores">18.2.2.1.4. gem5 ARM full system with more than 8 cores</a></li>
 </ul>
 </li>
 <li><a href="#gem5-cache-size">18.2.2.2. gem5 cache size</a></li>
@@ -16497,9 +16505,12 @@ reverse-continue</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace Exec
+<pre>./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --trace ExecAll
 less "$(./getvar --arch aarch64 run_dir)/trace.txt"</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Keep in mind however that the disassembly is very broken in several places as of 2019q2, so you can&#8217;t always trust it.</p>
 </div>
 <div class="paragraph">
 <p>Output the trace to stdout instead of a file:</p>
@@ -16549,6 +16560,22 @@ less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"</pre>
 </div>
 </div>
 <div class="paragraph">
+<p>The most important trace flags to know about are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#gem5-execall-trace-format"><code>ExecAll</code></a></p>
+</li>
+<li>
+<p><code>Faults</code>: CPU exceptions / interrupts, see an example at: <a href="#arm-svc-instruction">ARM SVC instruction</a></p>
+</li>
+<li>
+<p><a href="#gem5-registers-trace-format"><code>Registers</code></a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
 <p>The traces are generated from <code>DPRINTF(&lt;trace-id&gt;</code> calls scattered throughout the code.</p>
 </div>
 <div class="paragraph">
@@ -16562,6 +16589,24 @@ less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"</pre>
 </div>
 <div class="paragraph">
 <p>Enabling tracing made the runtime about 4x slower on the <a href="#p51">P51</a>, with or without <code>.gz</code> compression.</p>
+</div>
+<div class="paragraph">
+<p>Trace the source lines just like <a href="#trace-source-lines">for QEMU</a> with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./trace-boot --arch aarch64 --emulator gem5
+./trace2line --arch aarch64 --emulator gem5
+less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO: 7452d399290c9c1fc6366cdad129ef442f323564 <code>./trace2line</code> this is too slow and takes hours. QEMU&#8217;s processing of 170k events takes 7 seconds. gem5&#8217;s processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up&#8230;&#8203; The workaround is to just use gem5&#8217;s <code>ExecSymbol</code> to get function granularity, and then GDB individually if line detail is needed?</p>
+</div>
+<div class="sect4">
+<h5 id="gem5-execall-trace-format"><a class="anchor" href="#gem5-execall-trace-format"></a><a class="link" href="#gem5-execall-trace-format">17.8.6.1. gem5 ExecAll trace format</a></h5>
+<div class="paragraph">
+<p>This debug flag traces all instructions.</p>
 </div>
 <div class="paragraph">
 <p>The output format is of type:</p>
@@ -16597,7 +16642,7 @@ less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"</pre>
 <p><code>25007500</code>: time count in some unit. Note how the microops execute at further timestamps.</p>
 </li>
 <li>
-<p><code>system.cpu</code>: distinguishes between CPUs when there are more than one</p>
+<p><code>system.cpu</code>: distinguishes between CPUs when there are more than one. For example, running <a href="#arm-multicore">Section 26.8.3, &#8220;ARM multicore&#8221;</a> with two cores produces <code>system.cpu0</code> and <code>system.cpu1</code></p>
 </li>
 <li>
 <p><code>T0</code>: thread number. TODO: <a href="https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858">hyperthread</a>? How to play with it?</p>
@@ -16609,7 +16654,7 @@ less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"</pre>
 <p><code>.1</code> as in <code>@start_kernel.1</code>: index of the microop</p>
 </li>
 <li>
-<p><code>stp</code>: instruction disassembly. Seems to use <code>.isa</code> files dispersed per arch, which is an in house format: <a href="http://gem5.org/ISA_description_system" class="bare">http://gem5.org/ISA_description_system</a></p>
+<p><code>stp</code>: instruction disassembly. Note however that the disassembly of many instructions are very broken as of 2019q2, and you can&#8217;t just trust them blindly.</p>
 </li>
 <li>
 <p><code>strxi_uop   x29, [ureg0]</code>: microop disassembly.</p>
@@ -16632,18 +16677,138 @@ less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"</pre>
 <div class="paragraph">
 <p>The best way to verify all of this is to write some <a href="#baremetal">baremetal code</a></p>
 </div>
+</div>
+<div class="sect4">
+<h5 id="gem5-registers-trace-format"><a class="anchor" href="#gem5-registers-trace-format"></a><a class="link" href="#gem5-registers-trace-format">17.8.6.2. gem5 Registers trace format</a></h5>
 <div class="paragraph">
-<p>Trace the source lines just like <a href="#trace-source-lines">for QEMU</a> with:</p>
+<p>This flag shows a more detailed register usage than <a href="#gem5-execall-trace-format">gem5 ExecAll trace format</a>.</p>
+</div>
+<div class="paragraph">
+<p>For example, if we run in LKMC 0323e81bff1d55b978a4b36b9701570b59b981eb:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./trace-boot --arch aarch64 --emulator gem5
-./trace2line --arch aarch64 --emulator gem5
-less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"</pre>
+<pre>./run --arch aarch64 --baremetal userland/arch/aarch64/add.S --emulator gem5 --trace ExecAll,Registers --trace-stdout</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>TODO: 7452d399290c9c1fc6366cdad129ef442f323564 <code>./trace2line</code> this is too slow and takes hours. QEMU&#8217;s processing of 170k events takes 7 seconds. gem5&#8217;s processing is analogous, but there are 140M events, so it should take 7000 seconds ~ 2 hours which seems consistent with what I observe, so maybe there is no way to speed this up&#8230;&#8203; The workaround is to just use gem5&#8217;s <code>ExecSymbol</code> to get function granularity, and then GDB individually if line detail is needed?</p>
+<p>then the stdout contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  31000: system.cpu A0 T0 : @main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  31500: system.cpu.[tid:0]: Setting int reg 34 (34) to 0.
+  31500: system.cpu.[tid:0]: Reading int reg 0 (0) as 0x1.
+  31500: system.cpu.[tid:0]: Setting int reg 1 (1) to 0x3.
+  31500: system.cpu A0 T0 : @main_after_prologue+4    :   add   x1, x0, #2         : IntAlu :  D=0x0000000000000003  flags=(IsInteger)
+  32000: system.cpu.[tid:0]: Setting int reg 34 (34) to 0.
+  32000: system.cpu.[tid:0]: Reading int reg 1 (1) as 0x3.
+  32000: system.cpu.[tid:0]: Reading int reg 31 (34) as 0.
+  32000: system.cpu.[tid:0]: Setting int reg 0 (0) to 0x3.</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which corresponds to the two following instructions:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>mov x0, 1
+add x1, x0, 2</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO that format is either buggy or is very difficult to understand:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>what is <code>34</code>? Presumably some flags register?</p>
+</li>
+<li>
+<p>what do the numbers in parenthesis mean at <code>31 (34)</code>? Presumably some flags register?</p>
+</li>
+<li>
+<p>why is the first instruction setting <code>reg 1</code> and the second one <code>reg 0</code>, given that the first sets <code>x0</code> and the second <code>x1</code>?</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="gem5-tarmac-traces"><a class="anchor" href="#gem5-tarmac-traces"></a><a class="link" href="#gem5-tarmac-traces">17.8.6.3. gem5 TARMAC traces</a></h5>
+<div class="paragraph">
+<p><a href="https://stackoverflow.com/questions/54882466/how-to-use-the-tarmac-tracer-with-gem5" class="bare">https://stackoverflow.com/questions/54882466/how-to-use-the-tarmac-tracer-with-gem5</a></p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="gem5-tracing-internals"><a class="anchor" href="#gem5-tracing-internals"></a><a class="link" href="#gem5-tracing-internals">17.8.6.4. gem5 tracing internals</a></h5>
+<div class="paragraph">
+<p>As of gem5 16eeee5356585441a49d05c78abc328ef09f7ace the default tracer is <code>ExeTracer</code>. It is set at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/cpu/BaseCPU.py:63:default_tracer = ExeTracer()</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which then gets used at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>class BaseCPU(ClockedObject):
+    [...]
+    tracer = Param.InstTracer(default_tracer, "Instruction tracer")</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All tracers derive from the common <code>InstTracer</code> base class:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>git grep ': InstTracer'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>gives:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/arch/arm/tracers/tarmac_parser.hh:218:    TarmacParser(const Params *p) : InstTracer(p), startPc(p-&gt;start_pc),
+src/arch/arm/tracers/tarmac_tracer.cc:57:  : InstTracer(p),
+src/cpu/exetrace.hh:67:    ExeTracer(const Params *params) : InstTracer(params)
+src/cpu/inst_pb_trace.cc:72:    : InstTracer(p), buf(nullptr), bufSize(0), curMsg(nullptr)
+src/cpu/inteltrace.hh:63:    IntelTrace(const IntelTraceParams *p) : InstTracer(p)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As mentioned at <a href="#gem5-tarmac-traces">gem5 TARMAC traces</a>, there appears to be no way to select those currently without hacking the config scripts.</p>
+</div>
+<div class="paragraph">
+<p>TARMAC is described at: <a href="#gem5-tarmac-traces">gem5 TARMAC traces</a>.</p>
+</div>
+<div class="paragraph">
+<p>TODO: are <code>IntelTrace</code> and <code>TarmacParser</code> useful for anything or just relics?</p>
+</div>
+<div class="paragraph">
+<p>Then there is also the <code>NativeTrace</code> class:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/cpu/nativetrace.hh:68:class NativeTrace : public ExeTracer</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which gets implemented in a few different ISAs, but not all:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/arch/arm/nativetrace.hh:40:class ArmNativeTrace : public NativeTrace
+src/arch/sparc/nativetrace.hh:41:class SparcNativeTrace : public NativeTrace
+src/arch/x86/nativetrace.hh:41:class X86NativeTrace : public NativeTrace</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO: I can&#8217;t find any usages of those classes from in-tree configs.</p>
+</div>
 </div>
 </div>
 </div>
@@ -17073,7 +17238,13 @@ ps Haux | grep qemu | wc</pre>
 </div>
 </div>
 <div class="sect5">
-<h6 id="gem5-arm-full-system-with-more-than-8-cores"><a class="anchor" href="#gem5-arm-full-system-with-more-than-8-cores"></a><a class="link" href="#gem5-arm-full-system-with-more-than-8-cores">18.2.2.1.3. gem5 ARM full system with more than 8 cores</a></h6>
+<h6 id="gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached"><a class="anchor" href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached"></a><a class="link" href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached">18.2.2.1.3. gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached</a></h6>
+<div class="paragraph">
+<p>See bug report at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81</a></p>
+</div>
+</div>
+<div class="sect5">
+<h6 id="gem5-arm-full-system-with-more-than-8-cores"><a class="anchor" href="#gem5-arm-full-system-with-more-than-8-cores"></a><a class="link" href="#gem5-arm-full-system-with-more-than-8-cores">18.2.2.1.4. gem5 ARM full system with more than 8 cores</a></h6>
 <div class="paragraph">
 <p><a href="https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8" class="bare">https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8</a></p>
 </div>
@@ -18750,7 +18921,7 @@ git -C "$(./getvar linux_source_dir)" checkout -
 <p><code>drm: Add component-aware simple encoder</code> allows you to see images through VNC, see: <a href="#gem5-graphic-mode">Section 13.3, &#8220;gem5 graphic mode&#8221;</a></p>
 </li>
 <li>
-<p><code>gem5: Add support for gem5&#8217;s extended GIC mode</code> adds support for more than 8 cores, see: <a href="#gem5-arm-full-system-with-more-than-8-cores">Section 18.2.2.1.3, &#8220;gem5 ARM full system with more than 8 cores&#8221;</a></p>
+<p><code>gem5: Add support for gem5&#8217;s extended GIC mode</code> adds support for more than 8 cores, see: <a href="#gem5-arm-full-system-with-more-than-8-cores">Section 18.2.2.1.4, &#8220;gem5 ARM full system with more than 8 cores&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -23926,7 +24097,7 @@ ldmia sp!, reglist</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>dest = `left &amp; ~right`</pre>
+<pre>dest = left &amp; ~right</pre>
 </div>
 </div>
 <div class="paragraph">
