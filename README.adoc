@@ -8161,54 +8161,33 @@ sendkey shift-pgdown
 
 ===== Ctrl Alt Del
 
-Run `/sbin/reboot` on guest:
+If you run in <<qemu-graphic-mode>>:
+
+....
+./run --graphic
+....
+
+and then from the graphic window you enter the keys:
 
 ....
 Ctrl-Alt-Del
 ....
 
-Enabled from our link:rootfs_overlay/etc/inittab[]:
+then this runs the following command on the guest:
+
+....
+/sbin/reboot
+....
+
+This is enabled from our link:rootfs_overlay/etc/inittab[]:
 
 ....
 ::ctrlaltdel:/sbin/reboot
 ....
 
-Linux tries to reboot, and QEMU shutdowns due to the `-no-reboot` option which we set by default for, see: xref:exit-emulator-on-panic[xrefstyle=full].
+This leads Linux to try to reboot, and QEMU shutdowns due to the `-no-reboot` option which we set by default for, see: xref:exit-emulator-on-panic[xrefstyle=full].
 
-Under the hood, behaviour is controlled by the `reboot` syscall:
-
-....
-man 2 reboot
-....
-
-`reboot` calls can set either of the these behaviours for `Ctrl-Alt-Del`:
-
-* do a hard shutdown syscall. Set in ublibc C code with:
-+
-....
-reboot(RB_ENABLE_CAD)
-....
-+
-or from procfs with:
-+
-....
-echo 1 > /proc/sys/kernel/ctrl-alt-del
-....
-* send a SIGINT to the init process. This is what BusyBox' init does, and it then execs the string set in `inittab`.
-+
-Set in uclibc C code with:
-+
-....
-reboot(RB_DISABLE_CAD)
-....
-+
-or from procfs with:
-+
-....
-echo 0 > /proc/sys/kernel/ctrl-alt-del
-....
-
-Minimal example:
+Here is a minimal example of Ctrl Alt Del:
 
 ....
 ./run --kernel-cli 'init=/lkmc/linux/ctrl_alt_del.out' --graphic
@@ -8248,6 +8227,93 @@ mode, the ctrl-alt-del is intercepted by the program before it
 ever reaches the kernel tty layer, and it's up to the program
 to decide what to do with it.
 ....
+
+Under the hood, behaviour is controlled by the `reboot` syscall:
+
+....
+man 2 reboot
+....
+
+`reboot` system calls can set either of the these behaviours for `Ctrl-Alt-Del`:
+
+* do a hard shutdown syscall. Set in uClibc C code with:
++
+....
+reboot(RB_ENABLE_CAD)
+....
++
+or from procfs with:
++
+....
+echo 1 > /proc/sys/kernel/ctrl-alt-del
+....
++
+Done by BusyBox' `reboot -f`.
+* send a SIGINT to the init process. This is what BusyBox' init does, and it then execs the string set in `inittab`.
++
+Set in uclibc C code with:
++
+....
+reboot(RB_DISABLE_CAD)
+....
++
+or from procfs with:
++
+....
+echo 0 > /proc/sys/kernel/ctrl-alt-del
+....
++
+Done by BusyBox' `reboot`.
+
+When a BusyBox init is with the signal, it prints the following lines:
+
+....
+The system is going down NOW!
+Sent SIGTERM to all processes
+Sent SIGKILL to all processes
+Requesting system reboot
+....
+
+On busybox-1.29.2's init at init/init.c we see how the kill signals are sent:
+
+....
+static void run_shutdown_and_kill_processes(void)
+{
+	/* Run everything to be run at "shutdown".  This is done _prior_
+	 * to killing everything, in case people wish to use scripts to
+	 * shut things down gracefully... */
+	run_actions(SHUTDOWN);
+
+	message(L_CONSOLE | L_LOG, "The system is going down NOW!");
+
+	/* Send signals to every process _except_ pid 1 */
+	kill(-1, SIGTERM);
+	message(L_CONSOLE, "Sent SIG%s to all processes", "TERM");
+	sync();
+	sleep(1);
+
+	kill(-1, SIGKILL);
+	message(L_CONSOLE, "Sent SIG%s to all processes", "KILL");
+	sync();
+	/*sleep(1); - callers take care about making a pause */
+}
+....
+
+and `run_shutdown_and_kill_processes` is called from:
+
+....
+/* The SIGPWR/SIGUSR[12]/SIGTERM handler */
+static void halt_reboot_pwoff(int sig) NORETURN;
+static void halt_reboot_pwoff(int sig)
+....
+
+which also prints the final line:
+
+....
+	message(L_CONSOLE, "Requesting system %s", m);
+....
+
+which is set as the signal handler via TODO.
 
 Bibliography:
 
