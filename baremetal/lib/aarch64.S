@@ -7,7 +7,10 @@ lkmc_start:
     msr vbar_el1, x0
 
     /* https://cirosantilli.com/linux-kernel-module-cheat#aarch64-baremetal-neon-setup */
+    /* CPACR_EL1.FPEN */
     mov x1, 0x3 << 20
+    /* CPACR_EL1.ZEN */
+    orr x1, x1, 0x3 << 16
     msr cpacr_el1, x1
     isb
 

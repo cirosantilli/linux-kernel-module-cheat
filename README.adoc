@@ -14317,9 +14317,9 @@ ARMv8-only, likely because in ARMv8 you can't have conditional suffixes for ever
 
 ==== ARM bitwise instructions
 
-* link:userland/arch/arm/and.S[]
+* link:userland/arch/arm/and.S[] AND
 * EOR: exclusive OR
-* ORR: OR
+* link:userland/arch/arm/orr.S[]: OR
 * link:userland/arch/arm/clz.S[]: count leading zeroes
 
 ===== ARM BIC instruction
@@ -14740,6 +14740,8 @@ The Linux kernel shows `/proc/cpuinfo` compatibility as `sve`.
 Official spec: https://developer.arm.com/docs/100891/latest/sve-overview/introducing-sve
 
 SVE support is indicated by `ID_AA64PFR0_EL1.SVE` which is dumped from link:baremetal/arch/aarch64/dump_regs.c[].
+
+Using SVE normally requires setting the CPACR_EL1.FPEN and ZEN bits, which as as of lkmc 29fd625f3fda79f5e0ee6cac43517ba74340d513 + 1 we also enable in our <<baremetal-bootloaders>>, see also: <<aarch64-baremetal-neon-setup>>.
 
 ===== SVE bibliography
 
@@ -15803,15 +15805,17 @@ msr cpacr_el1, x1
 isb
 ....
 
-`cpacr_el1` is documented at <<armarm8>> D10.2.29 "CPACR_EL1, Architectural Feature Access Control Register".
+CPACR_EL1 is documented at <<armarm8>> D10.2.29 "CPACR_EL1, Architectural Feature Access Control Register".
 
-Here we touch the FPEN bits to 3, which enable floating point operations:
+Here we touch the CPACR_EL1.FPEN bits to 3, which enable floating point operations:
 
 ____
 11 This control does not cause any instructions to be trapped.
 ____
 
-Without that, the `printf`:
+We later also added an enable for the CPACR_EL1.ZEN bits, which are needed for <<arm-sve>>.
+
+Without CPACR_EL1.FPEN, the `printf`:
 
 ....
 printf("got: %c\n", c);
