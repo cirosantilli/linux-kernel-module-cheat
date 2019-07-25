@@ -1166,11 +1166,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-python-scripts-without-rebuild">18.12. gem5 Python scripts without rebuild</a></li>
 <li><a href="#gem5-fs_biglittle">18.13. gem5 fs_bigLITTLE</a></li>
 <li><a href="#gem5-unit-tests">18.14. gem5 unit tests</a></li>
-<li><a href="#gem5-build-options">18.15. gem5 build options</a>
+<li><a href="#gem5-simulate-limit-reached">18.15. gem5 simulate() limit reached</a></li>
+<li><a href="#gem5-build-options">18.16. gem5 build options</a>
 <ul class="sectlevel3">
-<li><a href="#gem5-debug-build">18.15.1. gem5 debug build</a></li>
-<li><a href="#gem5-clang-build">18.15.2. gem5 clang build</a></li>
-<li><a href="#gem5-sanitation-build">18.15.3. gem5 sanitation build</a></li>
+<li><a href="#gem5-debug-build">18.16.1. gem5 debug build</a></li>
+<li><a href="#gem5-clang-build">18.16.2. gem5 clang build</a></li>
+<li><a href="#gem5-sanitation-build">18.16.3. gem5 sanitation build</a></li>
 </ul>
 </li>
 </ul>
@@ -13917,7 +13918,15 @@ sendkey shift-pgdown</pre>
 <div class="sect4">
 <h5 id="ctrl-alt-del"><a class="anchor" href="#ctrl-alt-del"></a><a class="link" href="#ctrl-alt-del">15.18.2.1. Ctrl Alt Del</a></h5>
 <div class="paragraph">
-<p>Run <code>/sbin/reboot</code> on guest:</p>
+<p>If you run in <a href="#qemu-graphic-mode">QEMU graphic mode</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --graphic</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then from the graphic window you enter the keys:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -13925,7 +13934,15 @@ sendkey shift-pgdown</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Enabled from our <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/etc/inittab">rootfs_overlay/etc/inittab</a>:</p>
+<p>then this runs the following command on the guest:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/sbin/reboot</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This is enabled from our <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/etc/inittab">rootfs_overlay/etc/inittab</a>:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -13933,60 +13950,10 @@ sendkey shift-pgdown</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Linux tries to reboot, and QEMU shutdowns due to the <code>-no-reboot</code> option which we set by default for, see: <a href="#exit-emulator-on-panic">Section 15.7.1.3, &#8220;Exit emulator on panic&#8221;</a>.</p>
+<p>This leads Linux to try to reboot, and QEMU shutdowns due to the <code>-no-reboot</code> option which we set by default for, see: <a href="#exit-emulator-on-panic">Section 15.7.1.3, &#8220;Exit emulator on panic&#8221;</a>.</p>
 </div>
 <div class="paragraph">
-<p>Under the hood, behaviour is controlled by the <code>reboot</code> syscall:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>man 2 reboot</pre>
-</div>
-</div>
-<div class="paragraph">
-<p><code>reboot</code> calls can set either of the these behaviours for <code>Ctrl-Alt-Del</code>:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>do a hard shutdown syscall. Set in ublibc C code with:</p>
-<div class="literalblock">
-<div class="content">
-<pre>reboot(RB_ENABLE_CAD)</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>or from procfs with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>echo 1 &gt; /proc/sys/kernel/ctrl-alt-del</pre>
-</div>
-</div>
-</li>
-<li>
-<p>send a SIGINT to the init process. This is what BusyBox' init does, and it then execs the string set in <code>inittab</code>.</p>
-<div class="paragraph">
-<p>Set in uclibc C code with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>reboot(RB_DISABLE_CAD)</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>or from procfs with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>echo 0 &gt; /proc/sys/kernel/ctrl-alt-del</pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Minimal example:</p>
+<p>Here is a minimal example of Ctrl Alt Del:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -14036,6 +14003,121 @@ mode, the ctrl-alt-del is intercepted by the program before it
 ever reaches the kernel tty layer, and it's up to the program
 to decide what to do with it.</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Under the hood, behaviour is controlled by the <code>reboot</code> syscall:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>man 2 reboot</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>reboot</code> system calls can set either of the these behaviours for <code>Ctrl-Alt-Del</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>do a hard shutdown syscall. Set in uClibc C code with:</p>
+<div class="literalblock">
+<div class="content">
+<pre>reboot(RB_ENABLE_CAD)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or from procfs with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>echo 1 &gt; /proc/sys/kernel/ctrl-alt-del</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Done by BusyBox' <code>reboot -f</code>.</p>
+</div>
+</li>
+<li>
+<p>send a SIGINT to the init process. This is what BusyBox' init does, and it then execs the string set in <code>inittab</code>.</p>
+<div class="paragraph">
+<p>Set in uclibc C code with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>reboot(RB_DISABLE_CAD)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or from procfs with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>echo 0 &gt; /proc/sys/kernel/ctrl-alt-del</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Done by BusyBox' <code>reboot</code>.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When a BusyBox init is with the signal, it prints the following lines:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>The system is going down NOW!
+Sent SIGTERM to all processes
+Sent SIGKILL to all processes
+Requesting system reboot</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>On busybox-1.29.2&#8217;s init at init/init.c we see how the kill signals are sent:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>static void run_shutdown_and_kill_processes(void)
+{
+	/* Run everything to be run at "shutdown".  This is done _prior_
+	 * to killing everything, in case people wish to use scripts to
+	 * shut things down gracefully... */
+	run_actions(SHUTDOWN);
+
+	message(L_CONSOLE | L_LOG, "The system is going down NOW!");
+
+	/* Send signals to every process _except_ pid 1 */
+	kill(-1, SIGTERM);
+	message(L_CONSOLE, "Sent SIG%s to all processes", "TERM");
+	sync();
+	sleep(1);
+
+	kill(-1, SIGKILL);
+	message(L_CONSOLE, "Sent SIG%s to all processes", "KILL");
+	sync();
+	/*sleep(1); - callers take care about making a pause */
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and <code>run_shutdown_and_kill_processes</code> is called from:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/* The SIGPWR/SIGUSR[12]/SIGTERM handler */
+static void halt_reboot_pwoff(int sig) NORETURN;
+static void halt_reboot_pwoff(int sig)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which also prints the final line:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>	message(L_CONSOLE, "Requesting system %s", m);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which is set as the signal handler via TODO.</p>
 </div>
 <div class="paragraph">
 <p>Bibliography:</p>
@@ -16646,6 +16728,14 @@ less "$(./getvar --arch aarch64 run_dir)/trace-lines.txt"</pre>
 </li>
 <li>
 <p><code>T0</code>: thread number. TODO: <a href="https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858">hyperthread</a>? How to play with it?</p>
+<div class="paragraph">
+<p><code>config</code>.ini has <code>--param 'system.multi_thread = True' --param 'system.cpu[0].numThreads = 2'</code>, but in <a href="#arm-multicore">ARM multicore</a> the first one alone does not produce <code>T1</code>, and with the second one simulation blows up with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fatal: fatal condition interrupts.size() != numThreads occurred: CPU system.cpu has 1 interrupt controllers, but is expecting one per thread (2)</pre>
+</div>
+</div>
 </li>
 <li>
 <p><code>@start_kernel</code>: we are in the <code>start_kernel</code> function. Awesome feature! Implemented with libelf <a href="https://sourceforge.net/projects/elftoolchain/" class="bare">https://sourceforge.net/projects/elftoolchain/</a> copy pasted in-tree <code>ext/libelf</code>. To get raw addresses, remove the <code>ExecSymbol</code>, which is enabled by <code>Exec</code>. This can be done with <code>Exec,-ExecSymbol</code>.</p>
@@ -17241,6 +17331,9 @@ ps Haux | grep qemu | wc</pre>
 <h6 id="gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached"><a class="anchor" href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached"></a><a class="link" href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached">18.2.2.1.3. gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached</a></h6>
 <div class="paragraph">
 <p>See bug report at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81</a></p>
+</div>
+<div class="paragraph">
+<p>Related: <a href="#gem5-simulate-limit-reached">gem5 simulate() limit reached</a>.</p>
 </div>
 </div>
 <div class="sect5">
@@ -19289,12 +19382,126 @@ clock=500</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="gem5-build-options"><a class="anchor" href="#gem5-build-options"></a><a class="link" href="#gem5-build-options">18.15. gem5 build options</a></h3>
+<h3 id="gem5-simulate-limit-reached"><a class="anchor" href="#gem5-simulate-limit-reached"></a><a class="link" href="#gem5-simulate-limit-reached">18.15. gem5 simulate() limit reached</a></h3>
+<div class="paragraph">
+<p>This error happens when the following instruction limits are reached:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>system.cpu[0].max_insts_all_threads
+system.cpu[0].max_insts_any_thread</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the parameter is not set, it defaults to <code>0</code>, which is magic and means the huge maximum value of <code>uint64_t</code>: 0xFFFFFFFFFFFFFFFF, which in practice would require a very long simulation if at least one CPU were live.</p>
+</div>
+<div class="paragraph">
+<p>So this usually means all CPUs are in a sleep state, and no events are scheduled in the future, which usually indicates a bug in either gem5 or guest code, leading gem5 to blow up.</p>
+</div>
+<div class="paragraph">
+<p>Still, fs.py at gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3 does not exit with non-zero status due to this&#8230;&#8203; and so we just parse it out just as for <a href="#m5-fail">m5 fail</a>&#8230;&#8203;</p>
+</div>
+<div class="paragraph">
+<p>A trivial and very direct way to see message would be:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --emulator gem5 \
+  --static \
+  --userland \userland/arch/x86_64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -- \
+  --param 'system.cpu[0].max_insts_all_threads = 3' \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which as of lkmc 402059ed22432bb351d42eb10900e5a8e06aa623 runs only the first three instructions and quits!</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>info: Entering event queue @ 0.  Starting simulation...
+      0: system.cpu A0 T0 : @asm_main_after_prologue    : mov   rdi, 0x1
+      0: system.cpu A0 T0 : @asm_main_after_prologue.0  :   MOV_R_I : limm   rax, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7    : mov rdi, 0x1
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7.0  :   MOV_R_I : limm   rdi, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14    : lea        rsi, DS:[rip + 0x19]
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14.0  :   LEA_R_P : rdip   t7, %ctrl153,  : IntAlu :  D=0x000000000040008d  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+   2500: system.cpu A0 T0 : @asm_main_after_prologue+14.1  :   LEA_R_P : lea   rsi, DS:[t7 + 0x19] : IntAlu :  D=0x00000000004000a6  flags=(IsInteger|IsMicroop|IsLastMicroop)
+Exiting @ tick 3000 because all threads reached the max instruction count</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The message also shows on <a href="#user-mode-simulation">User mode simulation</a> deadlocks, for example in <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_deadlock.c">userland/posix/pthread_deadlock.c</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --emulator gem5 \
+  --static \
+  --userland userland/posix/pthread_deadlock.c \
+  --userland-args 1 \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>ends in:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Exiting @ tick 18446744073709551615 because simulate() limit reached</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where 18446744073709551615 is 0xFFFFFFFFFFFFFFFF in decimal.</p>
+</div>
+<div class="paragraph">
+<p>And there is a <a href="#baremetal">Baremetal</a> example at <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/no_bootloader/wfe_loop.S">baremetal/arch/aarch64/no_bootloader/wfe_loop.S</a> that dies on <a href="#arm-wfe-and-sev-instructions">WFE</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --baremetal baremetal/arch/aarch64/no_bootloader/wfe_loop.S \
+  --emulator gem5 \
+  --trace-insts-stdout \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which gives:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>info: Entering event queue @ 0.  Starting simulation...
+      0: system.cpu A0 T0 : @lkmc_start    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+   1000: system.cpu A0 T0 : @lkmc_start+4    :   b   &lt;lkmc_start&gt;         : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
+   1500: system.cpu A0 T0 : @lkmc_start    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+Exiting @ tick 18446744073709551615 because simulate() limit reached</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Other examples of the message:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#arm-multicore">ARM multicore</a> with a single CPU stays stopped at an WFE sleep instruction</p>
+</li>
+<li>
+<p>this sample bug on se.py multithreading: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gem5-build-options"><a class="anchor" href="#gem5-build-options"></a><a class="link" href="#gem5-build-options">18.16. gem5 build options</a></h3>
 <div class="paragraph">
 <p>In order to use different build options, you might also want to use <a href="#gem5-build-variants">gem5 build variants</a> to keep the build outputs separate from one another.</p>
 </div>
 <div class="sect3">
-<h4 id="gem5-debug-build"><a class="anchor" href="#gem5-debug-build"></a><a class="link" href="#gem5-debug-build">18.15.1. gem5 debug build</a></h4>
+<h4 id="gem5-debug-build"><a class="anchor" href="#gem5-debug-build"></a><a class="link" href="#gem5-debug-build">18.16.1. gem5 debug build</a></h4>
 <div class="paragraph">
 <p>The <code>gem5.debug</code> executable has optimizations turned off unlike the default <code>gem5.opt</code>, and provides a much better <a href="#debug-the-emulator">debug experience</a>:</p>
 </div>
@@ -19324,7 +19531,7 @@ clock=500</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-clang-build"><a class="anchor" href="#gem5-clang-build"></a><a class="link" href="#gem5-clang-build">18.15.2. gem5 clang build</a></h4>
+<h4 id="gem5-clang-build"><a class="anchor" href="#gem5-clang-build"></a><a class="link" href="#gem5-clang-build">18.16.2. gem5 clang build</a></h4>
 <div class="paragraph">
 <p>TODO test properly, benchmark vs GCC.</p>
 </div>
@@ -19337,7 +19544,7 @@ clock=500</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-sanitation-build"><a class="anchor" href="#gem5-sanitation-build"></a><a class="link" href="#gem5-sanitation-build">18.15.3. gem5 sanitation build</a></h4>
+<h4 id="gem5-sanitation-build"><a class="anchor" href="#gem5-sanitation-build"></a><a class="link" href="#gem5-sanitation-build">18.16.3. gem5 sanitation build</a></h4>
 <div class="paragraph">
 <p>If there gem5 appears to have a C++ undefined behaviour bug, which is often very difficult to track down, you can try to build it with the following extra SCons options:</p>
 </div>
@@ -20204,6 +20411,9 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <ul>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_count.c">userland/posix/pthread_count.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_deadlock.c">userland/posix/pthread_deadlock.c</a></p>
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_self.c">userland/posix/pthread_self.c</a></p>
@@ -24077,13 +24287,13 @@ ldmia sp!, reglist</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/and.S">userland/arch/arm/and.S</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/and.S">userland/arch/arm/and.S</a> AND</p>
 </li>
 <li>
 <p>EOR: exclusive OR</p>
 </li>
 <li>
-<p>ORR: OR</p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/orr.S">userland/arch/arm/orr.S</a>: OR</p>
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/clz.S">userland/arch/arm/clz.S</a>: count leading zeroes</p>
@@ -24808,6 +25018,12 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <div class="paragraph">
 <p>Official spec: <a href="https://developer.arm.com/docs/100891/latest/sve-overview/introducing-sve" class="bare">https://developer.arm.com/docs/100891/latest/sve-overview/introducing-sve</a></p>
 </div>
+<div class="paragraph">
+<p>SVE support is indicated by <code>ID_AA64PFR0_EL1.SVE</code> which is dumped from <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/dump_regs.c">baremetal/arch/aarch64/dump_regs.c</a>.</p>
+</div>
+<div class="paragraph">
+<p>Using SVE normally requires setting the CPACR_EL1.FPEN and ZEN bits, which as as of lkmc 29fd625f3fda79f5e0ee6cac43517ba74340d513 + 1 we also enable in our <a href="#baremetal-bootloaders">Baremetal bootloaders</a>, see also: <a href="#aarch64-baremetal-neon-setup">aarch64 baremetal NEON setup</a>.</p>
+</div>
 <div class="sect4">
 <h5 id="sve-bibliography"><a class="anchor" href="#sve-bibliography"></a><a class="link" href="#sve-bibliography">23.6.5.1. SVE bibliography</a></h5>
 <div class="ulist">
@@ -25157,6 +25373,9 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 </div>
 <div class="paragraph">
 <p>The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.</p>
+</div>
+<div class="paragraph">
+<p>Examples without bootloader are somewhat analogous to user mode <a href="#freestanding-programs">Freestanding programs</a>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -26030,15 +26249,7 @@ IN:
 </div>
 </div>
 <div class="paragraph">
-<p>then the gem5 actually exits, but with a different message:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>Exiting @ tick 18446744073709551615 because simulate() limit reached</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>as opposed to the expected:</p>
+<p>then the gem5 actually exits with <a href="#gem5-simulate-limit-reached">gem5 simulate() limit reached</a> as opposed to the expected:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -26441,10 +26652,10 @@ isb</pre>
 </div>
 </div>
 <div class="paragraph">
-<p><code>cpacr_el1</code> is documented at <a href="#armarm8">ARMv8 architecture reference manual</a> D10.2.29 "CPACR_EL1, Architectural Feature Access Control Register".</p>
+<p>CPACR_EL1 is documented at <a href="#armarm8">ARMv8 architecture reference manual</a> D10.2.29 "CPACR_EL1, Architectural Feature Access Control Register".</p>
 </div>
 <div class="paragraph">
-<p>Here we touch the FPEN bits to 3, which enable floating point operations:</p>
+<p>Here we touch the CPACR_EL1.FPEN bits to 3, which enable floating point operations:</p>
 </div>
 <div class="quoteblock">
 <blockquote>
@@ -26454,7 +26665,10 @@ isb</pre>
 </blockquote>
 </div>
 <div class="paragraph">
-<p>Without that, the <code>printf</code>:</p>
+<p>We later also added an enable for the CPACR_EL1.ZEN bits, which are needed for <a href="#arm-sve">ARM SVE</a>.</p>
+</div>
+<div class="paragraph">
+<p>Without CPACR_EL1.FPEN, the <code>printf</code>:</p>
 </div>
 <div class="literalblock">
 <div class="content">
