@@ -306,6 +306,7 @@ path_properties_tuples = (
                                     {
                                         'gem5_exit.S': {'requires_m5ops': True},
                                         'semihost_exit.S': {'requires_semihosting': True},
+                                        'wfe_loop.S': {'more_than_1s': True},
                                     }
                                 ),
                                 'return1.S': {'exit_status': 1},

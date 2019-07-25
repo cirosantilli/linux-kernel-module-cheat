@@ -10009,6 +10009,12 @@ Breakdown:
 * `25007500`: time count in some unit. Note how the microops execute at further timestamps.
 * `system.cpu`: distinguishes between CPUs when there are more than one. For example, running xref:arm-multicore[xrefstyle=full] with two cores produces `system.cpu0` and `system.cpu1`
 * `T0`: thread number. TODO: https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858[hyperthread]? How to play with it?
++
+`config`.ini has `--param 'system.multi_thread = True' --param 'system.cpu[0].numThreads = 2'`, but in <<arm-multicore>> the first one alone does not produce `T1`, and with the second one simulation blows up with:
++
+....
+fatal: fatal condition interrupts.size() != numThreads occurred: CPU system.cpu has 1 interrupt controllers, but is expecting one per thread (2)
+....
 * `@start_kernel`: we are in the `start_kernel` function. Awesome feature! Implemented with libelf https://sourceforge.net/projects/elftoolchain/ copy pasted in-tree `ext/libelf`. To get raw addresses, remove the `ExecSymbol`, which is enabled by `Exec`. This can be done with `Exec,-ExecSymbol`.
 * `.1` as in `@start_kernel.1`: index of the microop
 * `stp`: instruction disassembly. Note however that the disassembly of many instructions are very broken as of 2019q2, and you can't just trust them blindly.
@@ -10386,6 +10392,8 @@ Exiting @ tick 18446744073709551615 because simulate() limit reached
 ====== gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached
 
 See bug report at: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81
+
+Related: <<gem5-simulate-limit-reached>>.
 
 ====== gem5 ARM full system with more than 8 cores
 
@@ -11755,6 +11763,93 @@ Running the larger regression tests is exposed with:
 
 but TODO: those require magic blobs on `M5_PATH` that we don't currently automate.
 
+=== gem5 simulate() limit reached
+
+This error happens when the following instruction limits are reached:
+
+....
+system.cpu[0].max_insts_all_threads
+system.cpu[0].max_insts_any_thread
+....
+
+If the parameter is not set, it defaults to `0`, which is magic and means the huge maximum value of `uint64_t`: 0xFFFFFFFFFFFFFFFF, which in practice would require a very long simulation if at least one CPU were live.
+
+So this usually means all CPUs are in a sleep state, and no events are scheduled in the future, which usually indicates a bug in either gem5 or guest code, leading gem5 to blow up.
+
+Still, fs.py at gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3 does not exit with non-zero status due to this... and so we just parse it out just as for <<m5-fail>>...
+
+A trivial and very direct way to see message would be:
+
+....
+./run \
+  --emulator gem5 \
+  --static \
+  --userland \userland/arch/x86_64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -- \
+  --param 'system.cpu[0].max_insts_all_threads = 3' \
+;
+....
+
+which as of lkmc 402059ed22432bb351d42eb10900e5a8e06aa623 runs only the first three instructions and quits!
+
+....
+info: Entering event queue @ 0.  Starting simulation...
+      0: system.cpu A0 T0 : @asm_main_after_prologue    : mov   rdi, 0x1
+      0: system.cpu A0 T0 : @asm_main_after_prologue.0  :   MOV_R_I : limm   rax, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7    : mov rdi, 0x1
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7.0  :   MOV_R_I : limm   rdi, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14    : lea        rsi, DS:[rip + 0x19]
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14.0  :   LEA_R_P : rdip   t7, %ctrl153,  : IntAlu :  D=0x000000000040008d  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+   2500: system.cpu A0 T0 : @asm_main_after_prologue+14.1  :   LEA_R_P : lea   rsi, DS:[t7 + 0x19] : IntAlu :  D=0x00000000004000a6  flags=(IsInteger|IsMicroop|IsLastMicroop)
+Exiting @ tick 3000 because all threads reached the max instruction count
+....
+
+The message also shows on <<user-mode-simulation>> deadlocks, for example in link:userland/posix/pthread_deadlock.c[]:
+
+....
+./run \
+  --emulator gem5 \
+  --static \
+  --userland userland/posix/pthread_deadlock.c \
+  --userland-args 1 \
+;
+....
+
+ends in:
+
+....
+Exiting @ tick 18446744073709551615 because simulate() limit reached
+....
+
+where 18446744073709551615 is 0xFFFFFFFFFFFFFFFF in decimal.
+
+And there is a <<baremetal>> example at link:baremetal/arch/aarch64/no_bootloader/wfe_loop.S[] that dies on <<arm-wfe-and-sev-instructions,WFE>>:
+
+....
+./run \
+  --arch aarch64 \
+  --baremetal baremetal/arch/aarch64/no_bootloader/wfe_loop.S \
+  --emulator gem5 \
+  --trace-insts-stdout \
+;
+....
+
+which gives:
+
+....
+info: Entering event queue @ 0.  Starting simulation...
+      0: system.cpu A0 T0 : @lkmc_start    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+   1000: system.cpu A0 T0 : @lkmc_start+4    :   b   <lkmc_start>         : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
+   1500: system.cpu A0 T0 : @lkmc_start    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+Exiting @ tick 18446744073709551615 because simulate() limit reached
+....
+
+Other examples of the message:
+
+* <<arm-multicore>> with a single CPU stays stopped at an WFE sleep instruction
+* this sample bug on se.py multithreading: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81
+
 === gem5 build options
 
 In order to use different build options, you might also want to use <<gem5-build-variants>> to keep the build outputs separate from one another.
@@ -12307,6 +12402,7 @@ These links provide a clear overview of what POSIX is:
 POSIX' multithreading API. This was for a looong time the only "portable" multithreading alternative, until <<cpp-multithreading,C++11 finally added threads>>, thus also extending the portability to Windows.
 
 * link:userland/posix/pthread_count.c[]
+* link:userland/posix/pthread_deadlock.c[]
 * link:userland/posix/pthread_self.c[]
 
 ==== sysconf
@@ -14847,6 +14943,8 @@ This is specially interesting for the executables that don't use the bootloader 
 
 The cool thing about those examples is that you start at the very first instruction of your program, which gives more control.
 
+Examples without bootloader are somewhat analogous to user mode <<freestanding-programs>>.
+
 === Baremetal bootloaders
 
 As can be seen from <<baremetal-gdb-step-debug>>, all examples under link:baremetal/[], with the exception of `baremetal/arch/<arch>/no_bootloader`, start from our tiny bootloaders:
@@ -15432,13 +15530,7 @@ Note that if you try the same thing on gem5:
 ./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1 --emulator gem5
 ....
 
-then the gem5 actually exits, but with a different message:
-
-....
-Exiting @ tick 18446744073709551615 because simulate() limit reached
-....
-
-as opposed to the expected:
+then the gem5 actually exits with <<gem5-simulate-limit-reached>> as opposed to the expected:
 
 ....
 Exiting @ tick 36500 because m5_exit instruction encountered

@@ -1,7 +1,5 @@
 #ifndef LKMC_BOARD_H
 #define LKMC_BOARD_H
-#if LKMC_GEM5
-#else
 # define QEMU_VIRT_GIC_BASE          (0x08000000)
 # define QEMU_VIRT_GIC_INT_MAX       (64)
 # define QEMU_VIRT_GIC_PRIO_MAX      (16)
@@ -20,5 +18,4 @@
 # define GIC_PRI_SHIFT               (4)
 # define GIC_PRI_MASK                (0x0f)
 # define TIMER_IRQ                   (27)  /** Timer IRQ  */
-#endif
 #endif
