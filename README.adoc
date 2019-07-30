@@ -5511,6 +5511,154 @@ This format is selected by the following boot options:
 
 The debug highest level is a bit more magic, see: xref:pr_debug[xrefstyle=full] for more info.
 
+==== /proc/sys/kernel/printk
+
+The current printk level can be obtained with:
+
+....
+cat /proc/sys/kernel/printk
+....
+
+As of `87e846fc1f9c57840e143513ebd69c638bd37aa8` this prints:
+
+....
+7       4       1       7
+....
+
+which contains:
+
+* `7`: current log level, modifiable by previously mentioned methods
+* `4`: documented as: "printk's without a loglevel use this": TODO what does that mean, how to call `printk` without a log level?
+* `1`: minimum log level that still prints something (`0` prints nothing)
+* `7`: default log level
+
+We start at the boot time default after boot by default, as can be seen from:
+
+....
+insmod myprintk.ko
+....
+
+which outputs something like:
+
+....
+<1>[   12.494429] pr_alert
+<2>[   12.494666] pr_crit
+<3>[   12.494823] pr_err
+<4>[   12.494911] pr_warning
+<5>[   12.495170] pr_notice
+<6>[   12.495327] pr_info
+....
+
+Source: link:kernel_modules/myprintk.c[]
+
+This proc entry is defined at: https://github.com/torvalds/linux/blob/v5.1/kernel/sysctl.c#L839
+
+....
+#if defined CONFIG_PRINTK
+	{
+		.procname	= "printk",
+		.data		= &console_loglevel,
+		.maxlen		= 4*sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+....
+
+which teaches us that printk can be completely disabled at compile time:
+
+....
+
+config PRINTK
+	default y
+	bool "Enable support for printk" if EXPERT
+	select IRQ_WORK
+	help
+	  This option enables normal printk support. Removing it
+	  eliminates most of the message strings from the kernel image
+	  and makes the kernel more or less silent. As this makes it
+	  very difficult to diagnose system problems, saying N here is
+	  strongly discouraged.
+....
+
+`console_loglevel` is defined at:
+
+....
+#define console_loglevel (console_printk[0])
+....
+
+and `console_printk` is an array with 4 ints:
+
+....
+int console_printk[4] = {
+	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
+	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
+	CONSOLE_LOGLEVEL_MIN,		/* minimum_console_loglevel */
+	CONSOLE_LOGLEVEL_DEFAULT,	/* default_console_loglevel */
+};
+....
+
+and then we see that the default is configurable with `CONFIG_CONSOLE_LOGLEVEL_DEFAULT`:
+
+....
+/*
+ * Default used to be hard-coded at 7, quiet used to be hardcoded at 4,
+ * we're now allowing both to be set from kernel config.
+ */
+#define CONSOLE_LOGLEVEL_DEFAULT CONFIG_CONSOLE_LOGLEVEL_DEFAULT
+#define CONSOLE_LOGLEVEL_QUIET	 CONFIG_CONSOLE_LOGLEVEL_QUIET
+....
+
+The message loglevel default is explained at:
+
+....
+/* printk's without a loglevel use this.. */
+#define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
+....
+
+The min is just hardcoded to one as you would expect, with some amazing kernel comedy around it:
+
+....
+/* We show everything that is MORE important than this.. */
+#define CONSOLE_LOGLEVEL_SILENT  0 /* Mum's the word */
+#define CONSOLE_LOGLEVEL_MIN	 1 /* Minimum loglevel we let people use */
+#define CONSOLE_LOGLEVEL_DEBUG	10 /* issue debug messages */
+#define CONSOLE_LOGLEVEL_MOTORMOUTH 15	/* You can't shut this one up */
+....
+
+We then also learn about the useless `quiet` and `debug` kernel parameters at:
+
+....
+config CONSOLE_LOGLEVEL_QUIET
+	int "quiet console loglevel (1-15)"
+	range 1 15
+	default "4"
+	help
+	  loglevel to use when "quiet" is passed on the kernel commandline.
+
+	  When "quiet" is passed on the kernel commandline this loglevel
+	  will be used as the loglevel. IOW passing "quiet" will be the
+	  equivalent of passing "loglevel=<CONSOLE_LOGLEVEL_QUIET>"
+....
+
+which explains the useless reason why that number is special. This is implemented at:
+
+....
+static int __init debug_kernel(char *str)
+{
+	console_loglevel = CONSOLE_LOGLEVEL_DEBUG;
+	return 0;
+}
+
+static int __init quiet_kernel(char *str)
+{
+	console_loglevel = CONSOLE_LOGLEVEL_QUIET;
+	return 0;
+}
+
+early_param("debug", debug_kernel);
+early_param("quiet", quiet_kernel);
+....
+
 ==== ignore_loglevel
 
 ....
