@@ -14,16 +14,21 @@
 #include <unistd.h>
 
 int main(int argc, char **argv) {
-    unsigned long i, max;
+    unsigned long i, max, sleep_time;
     if (argc > 1) {
         max = strtoll(argv[1], NULL, 0);
     } else {
         max = 1;
     }
+    if (argc > 2) {
+        sleep_time = strtoll(argv[2], NULL, 0);
+    } else {
+        sleep_time = 2;
+    }
     i = 0;
     while (i < max) {
         printf("%lu\n", i);
         i++;
-        sleep(1);
+        sleep(sleep_time);
     }
 }

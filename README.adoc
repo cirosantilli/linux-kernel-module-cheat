@@ -15539,26 +15539,61 @@ With <<qemu-d-tracing>>:
 ....
 ./run \
   --arch aarch64 \
-  --baremetal baremetal/arch/aarch64/svc_asm.S
+  --baremetal baremetal/arch/aarch64/svc.c \
   -- -d in_asm,int \
 ;
 ....
 
-the output contains:
+the output at 8f73910dd1fc1fa6dc6904ae406b7598cdcd96d7 contains:
 
 ....
+
 ----------------
-IN:
-0x40002060:  d4000001  svc      #0
+IN: main
+0x40002098:  d41579a1  svc      #0xabcd
 
 Taking exception 2 [SVC]
 ...from EL1 to EL1
-...with ESR 0x15/0x56000000
-...with ELR 0x40002064
+...with ESR 0x15/0x5600abcd
+...with ELR 0x4000209c
 ...to EL1 PC 0x40000a00 PSTATE 0x3c5
 ----------------
 IN:
 0x40000a00:  14000225  b        #0x40001294
+
+----------------
+IN:
+0x40001294:  a9bf7bfd  stp      x29, x30, [sp, #-0x10]!
+0x40001298:  a9bf73fb  stp      x27, x28, [sp, #-0x10]!
+0x4000129c:  a9bf6bf9  stp      x25, x26, [sp, #-0x10]!
+0x400012a0:  a9bf63f7  stp      x23, x24, [sp, #-0x10]!
+0x400012a4:  a9bf5bf5  stp      x21, x22, [sp, #-0x10]!
+0x400012a8:  a9bf53f3  stp      x19, x20, [sp, #-0x10]!
+0x400012ac:  a9bf4bf1  stp      x17, x18, [sp, #-0x10]!
+0x400012b0:  a9bf43ef  stp      x15, x16, [sp, #-0x10]!
+0x400012b4:  a9bf3bed  stp      x13, x14, [sp, #-0x10]!
+0x400012b8:  a9bf33eb  stp      x11, x12, [sp, #-0x10]!
+0x400012bc:  a9bf2be9  stp      x9, x10, [sp, #-0x10]!
+0x400012c0:  a9bf23e7  stp      x7, x8, [sp, #-0x10]!
+0x400012c4:  a9bf1be5  stp      x5, x6, [sp, #-0x10]!
+0x400012c8:  a9bf13e3  stp      x3, x4, [sp, #-0x10]!
+0x400012cc:  a9bf0be1  stp      x1, x2, [sp, #-0x10]!
+0x400012d0:  d5384015  mrs      x21, spsr_el1
+0x400012d4:  a9bf03f5  stp      x21, x0, [sp, #-0x10]!
+0x400012d8:  d5384035  mrs      x21, elr_el1
+0x400012dc:  a9bf57ff  stp      xzr, x21, [sp, #-0x10]!
+0x400012e0:  d2800235  movz     x21, #0x11
+0x400012e4:  d5385216  mrs      x22, esr_el1
+0x400012e8:  a9bf5bf5  stp      x21, x22, [sp, #-0x10]!
+0x400012ec:  910003f5  mov      x21, sp
+0x400012f0:  910482b5  add      x21, x21, #0x120
+0x400012f4:  f9000bf5  str      x21, [sp, #0x10]
+0x400012f8:  910003e0  mov      x0, sp
+0x400012fc:  9400023f  bl       #0x40001bf8
+
+----------------
+IN: lkmc_vector_trap_handler
+0x40001bf8:  a9bd7bfd  stp      x29, x30, [sp, #-0x30]!
 ....
 
 And with <<gem5-tracing>>:
@@ -15580,7 +15615,71 @@ the output contains:
    4500: system.cpu A0 T0 : @vector_table+512    :   b   <_curr_el_spx_sync>  : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
 ....
 
-So we see in both cases that the SVC is done, then an exception happens, and then we just continue running from the exception handler address.
+So we see in both cases that the:
+
+* SVC is done
+* an exception happens, and the PC jumps to address 0x40000a00. From our custom terminal prints further on, we see that this equals `VBAR_EL1 + 0x200`. TODO why + 0x200?
++
+We set VBAR_EL1 to that address ourselves <<baremetal-bootloaders,in the bootloader>>.
+* at 0x40000a00 a `b #0x40001294` is done and at 0x40001294 boilerplate preparation is done for lkmc_vector_trap_handler.
++
+We have coded both of those in our vector table macro madness.
++
+TODO: why doesn't QEMU show our nice symbol names? gem5 shows them fine, and `nm` says they are there!
++
+....
+0000000040000800 T lkmc_vector_table
+0000000040001294 T lkmc_vector_build_trapframe_curr_el_spx_sync
+....
+
+The exception return happens at the end of `lkmc_vector_trap_handler`:
+
+....
+----------------
+IN: lkmc_vector_trap_handler
+0x40002000:  d503201f  nop
+0x40002004:  a8c37bfd  ldp      x29, x30, [sp], #0x30
+0x40002008:  d65f03c0  ret
+
+----------------
+IN:
+0x40001300:  910043ff  add      sp, sp, #0x10
+0x40001304:  a8c15bf5  ldp      x21, x22, [sp], #0x10
+0x40001308:  d5184036  msr      elr_el1, x22
+
+----------------
+IN:
+0x4000130c:  a8c103f5  ldp      x21, x0, [sp], #0x10
+0x40001310:  d5184015  msr      spsr_el1, x21
+
+----------------
+IN:
+0x40001314:  a8c10be1  ldp      x1, x2, [sp], #0x10
+0x40001318:  a8c113e3  ldp      x3, x4, [sp], #0x10
+0x4000131c:  a8c11be5  ldp      x5, x6, [sp], #0x10
+0x40001320:  a8c123e7  ldp      x7, x8, [sp], #0x10
+0x40001324:  a8c12be9  ldp      x9, x10, [sp], #0x10
+0x40001328:  a8c133eb  ldp      x11, x12, [sp], #0x10
+0x4000132c:  a8c13bed  ldp      x13, x14, [sp], #0x10
+0x40001330:  a8c143ef  ldp      x15, x16, [sp], #0x10
+0x40001334:  a8c14bf1  ldp      x17, x18, [sp], #0x10
+0x40001338:  a8c153f3  ldp      x19, x20, [sp], #0x10
+0x4000133c:  a8c15bf5  ldp      x21, x22, [sp], #0x10
+0x40001340:  a8c163f7  ldp      x23, x24, [sp], #0x10
+0x40001344:  a8c16bf9  ldp      x25, x26, [sp], #0x10
+0x40001348:  a8c173fb  ldp      x27, x28, [sp], #0x10
+0x4000134c:  a8c17bfd  ldp      x29, x30, [sp], #0x10
+0x40001350:  d69f03e0  eret
+
+Exception return from AArch64 EL1 to AArch64 EL1 PC 0x4000209c
+----------------
+IN: main
+0x4000209c:  d0000040  adrp     x0, #0x4000c000
+....
+
+which does an `eret` and jumps back to 0x4000209c, which is 4 bytes and therefore one instruction after where SVC was taken at 0x40002098.
+
+In QEMU,  and then we just continue running from the exception handler address.
 
 The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
 
@@ -15792,13 +15891,38 @@ The key registers to keep in mind are:
 
 * `CNTVCT_EL0`: "Counter-timer Virtual Count register". The increasing current counter value.
 * `CNTFRQ_EL0`: "Counter-timer Frequency register". "Indicates the system counter clock frequency, in Hz."
-* `CNTV_CTL_EL0`: "Counter-timer Virtual Timer Control register"
+* `CNTV_CTL_EL0`: "Counter-timer Virtual Timer Control register". This control register is very simple and only has three fields:
+** `CNTV_CTL_EL0.ISTATUS` bit: set to 1 when the timer condition is met
+** `CNTV_CTL_EL0.IMASK` bit: if 1, the interrupt does not happen when `ISTATUS` becomes one
+** `CNTV_CTL_EL0.ENABLE` bit: if 0, the counter is turned off, interrupts don't happen
 * `CNTV_CVAL_EL0`: "Counter-timer Virtual Timer CompareValue register". The interrupt happens when `CNTVCT_EL0` reaches the value in this register.
 
 Bibliography:
 
 * https://stackoverflow.com/questions/51094092/how-to-make-timer-irq-work-on-qemu-machine-virt-cpu-cortex-a57
 * https://stackoverflow.com/questions/44198483/arm-timers-and-interrupts
+
+==== ARM GIC
+
+Generic Interrupt Controller.
+
+Examples:
+
+* xref:arm-timer[]
+
+ARM publishes both a GIC standard architecture specification, and specific implementations of these specifications.
+
+The specification can be found at: https://developer.arm.com/docs/ihi0069/latest
+
+As of 2019Q2 the latest version if v4.0, often called GICv4: https://static.docs.arm.com/ihi0069/e/Q1-IHI0069E_gic_architecture_specification_v3.1_19_01_21.pdf
+
+That document clarifies that GICv2 is a legacy specification only:
+
+....
+Version 2.0 (GICv2) is only described in terms of the GICv3 optional support for legacy operation
+....
+
+The specific models have names of type GIC-600, GIC-500, etc.
 
 ==== ARM paging
 
@@ -15857,7 +15981,7 @@ static void init_gicc(void)
 
 which tries to write to 0x8010000 according to GDB.
 
-Without `-machine`, QEMU's DTB clearly states GICv2, so I'm starting to wonder if Nienfeng just made a mistake there? The QEMU GICv3 dtb contains:
+Without `-machine`, QEMU's DTB clearly states GICv2, so I'm starting to wonder if Nienfeng just made a mistake there? The QEMU GICv3 DTB contains:
 
 ....
 reg = <0x0 0x8000000 0x0 0x10000 0x0 0x80a0000 0x0 0xf60000>;

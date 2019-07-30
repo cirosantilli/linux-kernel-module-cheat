@@ -65,6 +65,11 @@ main: \
 main_after_prologue: \
 ;
 
+/* Counter: https://github.com/cirosantilli/linux-kernel-module-cheat#arm-timer */
+#define LKMC_CNTV_CTL_ENABLE  (1 << 0)
+#define LKMC_CNTV_CTL_IMASK   (1 << 1)
+#define LKMC_CNTV_CTL_ISTATUS (1 << 2)
+
 /* LKMC_VECTOR_TABLE
  *
  * Adapted from: https://github.com/takeharukato/sample-tsk-sw/blob/ce7973aa5d46c9eedb58309de43df3b09d4f8d8d/hal/aarch64/vector.S
@@ -104,7 +109,8 @@ main_after_prologue: \
 #define LKMC_VECTOR_SYMBOL_PREFIX lkmc_vector_
 
 /* Push several registers on the stack to match LkmcVectorExceptionFrame. */
-#define LKMC_VECTOR_BUILD_TRAPFRAME(exc_type) \
+#define LKMC_VECTOR_BUILD_TRAPFRAME(exc_type, func_name) \
+LKMC_GLOBAL(LKMC_CONCAT(LKMC_CONCAT(LKMC_VECTOR_SYMBOL_PREFIX, build_trapframe_), func_name)) \
     stp x29, x30, [sp, -16]!; \
     stp x27, x28, [sp, -16]!; \
     stp x25, x26, [sp, -16]!; \
@@ -170,12 +176,12 @@ main_after_prologue: \
 
 #define LKMC_VECTOR_ENTRY(func_name) \
     .align 7; \
-    b LKMC_VECTOR_SYMBOL_PREFIX ## func_name
+    b LKMC_CONCAT(LKMC_CONCAT(LKMC_VECTOR_SYMBOL_PREFIX, entry_), func_name)
 
 #define LKMC_VECTOR_FUNC(func_name, func_id) \
     LKMC_VECTOR_FUNC_ALIGN; \
-LKMC_VECTOR_SYMBOL_PREFIX ## func_name:; \
-    LKMC_VECTOR_BUILD_TRAPFRAME(func_id); \
+LKMC_CONCAT(LKMC_CONCAT(LKMC_VECTOR_SYMBOL_PREFIX, entry_), func_name):; \
+    LKMC_VECTOR_BUILD_TRAPFRAME(func_id, func_name); \
     LKMC_VECTOR_STORE_TRAPED_SP; \
     LKMC_VECTOR_CALL_TRAP_HANDLER; \
     LKMC_VECTOR_RESTORE_TRAPED_SP; \
@@ -183,8 +189,8 @@ LKMC_VECTOR_SYMBOL_PREFIX ## func_name:; \
 
 #define LKMC_VECTOR_FUNC_NESTED(func_name, func_id) \
     LKMC_VECTOR_FUNC_ALIGN; \
-LKMC_VECTOR_SYMBOL_PREFIX ## func_name:; \
-    LKMC_VECTOR_BUILD_TRAPFRAME(func_id); \
+LKMC_CONCAT(LKMC_CONCAT(LKMC_VECTOR_SYMBOL_PREFIX, entry_), func_name):; \
+    LKMC_VECTOR_BUILD_TRAPFRAME(func_id, func_name); \
     LKMC_VECTOR_STORE_NESTED_SP; \
     LKMC_VECTOR_CALL_TRAP_HANDLER; \
     LKMC_VECTOR_RESTORE_TRAPFRAME

@@ -68,7 +68,7 @@ int main(void) {
     printf("SPSEL 0x%" PRIX32 "\n", lkmc_sysreg_spsel_read());
     printf("VBAR_EL1 0x%" PRIX64 "\n", lkmc_sysreg_vbar_el1_read());
     /* https://stackoverflow.com/questions/1777990/is-it-possible-to-store-the-address-of-a-label-in-a-variable-and-use-goto-to-jum */
-    printf("after_svc %p\n", &&after_svc);
+    printf("&after_svc %p\n", &&after_svc);
     assert(myvar == 0);
     /* Max 16-bits. */
     LKMC_SVC(0xABCD);

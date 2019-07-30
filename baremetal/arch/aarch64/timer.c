@@ -8,20 +8,16 @@ void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception __attribute__(
     printf("CNTVCT_EL0 0x%" PRIX64 "\n", lkmc_sysreg_cntvct_el0_read());
 }
 
-#define CNTV_CTL_ENABLE  (1 << 0) /* Enables the timer */ 
-#define CNTV_CTL_IMASK   (1 << 1) /* Timer interrupt mask bit */
-#define CNTV_CTL_ISTATUS (1 << 2) /* The status of the timer interrupt. This bit is read-only */
-
 /* DAIF, Interrupt Mask Bits */
-#define DAIF_DBG_BIT        (1<<3)  /* Debug mask bit */
-#define DAIF_ABT_BIT        (1<<2)  /* Asynchronous abort mask bit */
-#define DAIF_IRQ_BIT        (1<<1)  /* IRQ mask bit */
-#define DAIF_FIQ_BIT        (1<<0)  /* FIQ mask bit */
+#define DAIF_DBG_BIT (1<<3) /* Debug mask bit */
+#define DAIF_ABT_BIT (1<<2) /* Asynchronous abort mask bit */
+#define DAIF_IRQ_BIT (1<<1) /* IRQ mask bit */
+#define DAIF_FIQ_BIT (1<<0) /* FIQ mask bit */
 
 #define wfi() __asm__ __volatile__ ("wfi" : : : "memory")
 
 void enable_cntv(void) {
-    lkmc_sysreg_cntv_ctl_el0_write(lkmc_sysreg_cntv_ctl_el0_read() | CNTV_CTL_ENABLE);
+    lkmc_sysreg_cntv_ctl_el0_write(lkmc_sysreg_cntv_ctl_el0_read() | LKMC_CNTV_CTL_ENABLE);
 }
 
 void enable_irq(void) {
@@ -42,25 +38,22 @@ int main(void) {
     /**/
     gic_v3_initialize();
     {
-        uint64_t ticks, current_cnt;
-        uint32_t cntfrq;
-        cntfrq = lkmc_sysreg_cntfrq_el0_read();
-        ticks = cntfrq;
-        current_cnt = lkmc_sysreg_cntvct_el0_read();
-        lkmc_sysreg_cntv_cval_el0_write(current_cnt + ticks);
+        /*uint64_t ticks, current_cnt;*/
+        /*uint32_t cntfrq;*/
+        lkmc_sysreg_cntfrq_el0_write(1);
+        /*ticks = cntfrq;*/
+        /*current_cnt = lkmc_sysreg_cntvct_el0_read();*/
+        /*lkmc_sysreg_cntv_cval_el0_write(current_cnt + ticks);*/
         enable_cntv();
         enable_irq();
     }
-    while (1) {
+    /*while (1) {*/
         /*puts("qwer");*/
         /*current_cnt = raw_read_cntvct_el0();*/
         /*val = raw_read_cntv_ctl();*/
         /*printf("CNTVCT_EL0 = ");*/
-        /*uart_puthex(current_cnt);*/
-        /*uart_puts(", CNTV_CTL_EL0 = ");*/
-        /*uart_puthex(val);*/
         /*wfi();*/
-    }
+    /*}*/
 
 #if 0
     /* TODO crashes gem5. */
