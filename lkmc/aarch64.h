@@ -65,14 +65,22 @@ main: \
 main_after_prologue: \
 ;
 
-/* Counter: https://github.com/cirosantilli/linux-kernel-module-cheat#arm-timer */
-#define LKMC_CNTV_CTL_ENABLE  (1 << 0)
-#define LKMC_CNTV_CTL_IMASK   (1 << 1)
-#define LKMC_CNTV_CTL_ISTATUS (1 << 2)
+/** Fields of system registers. */
 
-/* LKMC_VECTOR_TABLE
+/* Counter: https://github.com/cirosantilli/linux-kernel-module-cheat#arm-timer */
+#define LKMC_SYSREG_CNTV_CTL_ENABLE  (1 << 0)
+#define LKMC_SYSREG_CNTV_CTL_IMASK   (1 << 1)
+#define LKMC_SYSREG_CNTV_CTL_ISTATUS (1 << 2)
+
+/* DAIF. */
+#define LKMC_SYSREG_BITS_DAIF_FIQ (1<<0)
+#define LKMC_SYSREG_BITS_DAIF_IRQ (1<<1)
+#define LKMC_SYSREG_BITS_DAIF_ABT (1<<2)
+#define LKMC_SYSREG_BITS_DAIF_DBG (1<<3)
+
+/* LKMC_VECTOR_*
  *
- * Adapted from: https://github.com/takeharukato/sample-tsk-sw/blob/ce7973aa5d46c9eedb58309de43df3b09d4f8d8d/hal/aarch64/vector.S
+ * https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-exception-vector-table-format
  */
 
 #define LKMC_VECTOR_SYNC_SP0     (0x1)
@@ -285,25 +293,33 @@ typedef struct {
 
 void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception);
 
+/* Mistc assembly instructions. */
 #define LKMC_SVC(immediate) __asm__ __volatile__("svc " #immediate : : : )
+#define LKMC_WFI() __asm__ __volatile__ ("wfi" : : : "memory")
 
+/* Sysreg read and write functions, e.g.:
+ *
+ * * lkmc_sysreg_read_daif(void);
+ * * lkmc_sysreg_write_daif(uint64_t);
+ * * lkmc_sysreg_print_daif(void);
+ */
 #define LKMC_SYSREG_SYMBOL_PREFIX lkmc_sysreg_
-#define LKMC_SYSREG_READ_WRITE(type, name) \
-    type LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read)(void); \
-    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write)(type name);
+#define LKMC_SYSREG_READ_WRITE(nbits, name) \
+    LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, read_), name)(void); \
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, write_), name)(LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) name); \
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, print_), name)(void);
 #define LKMC_SYSREG_OPS \
-    LKMC_SYSREG_READ_WRITE(uint32_t, cntv_ctl_el0) \
-    LKMC_SYSREG_READ_WRITE(uint32_t, daif) \
-    LKMC_SYSREG_READ_WRITE(uint32_t, spsel) \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntfrq_el0) \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntv_cval_el0) \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntv_tval_el0) \
-    LKMC_SYSREG_READ_WRITE(uint64_t, cntvct_el0) \
-    LKMC_SYSREG_READ_WRITE(uint64_t, sp_el1) \
-    LKMC_SYSREG_READ_WRITE(uint64_t, vbar_el1)
+    LKMC_SYSREG_READ_WRITE(32, cntv_ctl_el0) \
+    LKMC_SYSREG_READ_WRITE(64, daif) \
+    LKMC_SYSREG_READ_WRITE(32, spsel) \
+    LKMC_SYSREG_READ_WRITE(64, cntfrq_el0) \
+    LKMC_SYSREG_READ_WRITE(64, cntv_cval_el0) \
+    LKMC_SYSREG_READ_WRITE(64, cntv_tval_el0) \
+    LKMC_SYSREG_READ_WRITE(64, cntvct_el0) \
+    LKMC_SYSREG_READ_WRITE(64, sp_el1) \
+    LKMC_SYSREG_READ_WRITE(64, vbar_el1)
 LKMC_SYSREG_OPS
 #undef LKMC_SYSREG_READ_WRITE
 
 #endif
-
 #endif

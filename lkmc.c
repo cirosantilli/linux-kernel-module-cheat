@@ -69,14 +69,17 @@ void lkmc_print_newline() {
 }
 
 #if defined(__aarch64__)
-#define LKMC_SYSREG_READ_WRITE(type, name) \
-    type LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _read(void)) { \
-        type name; \
+#define LKMC_SYSREG_READ_WRITE(nbits, name) \
+    LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, read_), name)(void) { \
+        LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) name; \
         __asm__ __volatile__("mrs %0, " #name : "=r" (name) : : ); \
         return name; \
     } \
-    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, name), _write(type name)) { \
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, write_), name)(LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) name) { \
         __asm__ __volatile__("msr " #name ", %0" : : "r" (name) : ); \
+    } \
+    void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, print_), name)(void) { \
+        printf("name 0x%" PRIX ## nbits "\n", LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, read_), name)()); \
     }
 LKMC_SYSREG_OPS
 #undef LKMC_SYSREG_READ_WRITE

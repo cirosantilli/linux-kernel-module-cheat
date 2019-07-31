@@ -15444,6 +15444,18 @@ in link:baremetal/lib/arm.S[]. That patch however enables SIMD in baremetal, whi
 
 According to <<armarm7>>, access to that register is controlled by other registers `NSACR.{CP11, CP10}` and `HCPTR` so those must be turned off, but I'm lazy to investigate now, even just trying to dump those registers in link:userland/arch/arm/dump_regs.c[] also leads to exceptions...
 
+===== ARM change exception level
+
+TODO. Create a minimal runnable example of going into EL0 and jumping to EL1.
+
+===== ARM SP0 vs SPx
+
+See <<armarm8-db>> D1.6.2 "The stack pointer registers".
+
+TODO create a minimal runnable example.
+
+TODO: how to select to use SP0 in an exception handler?
+
 ==== ARM SVC instruction
 
 This is the most basic example of exception handling we have.
@@ -15618,12 +15630,23 @@ the output contains:
 So we see in both cases that the:
 
 * SVC is done
-* an exception happens, and the PC jumps to address 0x40000a00. From our custom terminal prints further on, we see that this equals `VBAR_EL1 + 0x200`. TODO why + 0x200?
+* an exception happens, and the PC jumps to address 0x40000a00. From our custom terminal prints further on, we see that this equals `VBAR_EL1 + 0x200`.
++
+According to the format of the <<armv8-exception-vector-table-format>>, we see that the `+ 0x200` means that we are jumping in the Current EL with SPx.
++
+This can also be deduced from the message `exc_type is LKMC_VECTOR_SYNC_SPX`: we just manually store a different integer for every exception vector type in our handler code to be able to tell what happened.
++
+This is the one used because we are jumping <<arm-exception-levels,from EL1 to EL1>>.
 +
 We set VBAR_EL1 to that address ourselves <<baremetal-bootloaders,in the bootloader>>.
-* at 0x40000a00 a `b #0x40001294` is done and at 0x40001294 boilerplate preparation is done for lkmc_vector_trap_handler.
+* at 0x40000a00 a `b #0x40001294` is done and then at 0x40001294 boilerplate preparation is done for lkmc_vector_trap_handler starting with several STP instructions.
 +
-We have coded both of those in our vector table macro madness.
+We have coded both of those in our vector table macro madness. As of LKMC 8f73910dd1fc1fa6dc6904ae406b7598cdcd96d7, both come from link:lkmc/aarch64.h[]:
++
+** `b #0x40001294` comes from: `LKMC_VECTOR_ENTRY`
+** the STP come from: `LKMC_VECTOR_BUILD_TRAPFRAME`
++
+We jump immediately from inside `LKMC_VECTOR_ENTRY` to `LKMC_VECTOR_BUILD_TRAPFRAME` because we can only use 0x80 bytes of instructions for each one before reaching the next handler, so we might as well get it over with by jumping into a memory region without those constraints.
 +
 TODO: why doesn't QEMU show our nice symbol names? gem5 shows them fine, and `nm` says they are there!
 +
@@ -15681,40 +15704,6 @@ which does an `eret` and jumps back to 0x4000209c, which is 4 bytes and therefor
 
 In QEMU,  and then we just continue running from the exception handler address.
 
-The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
-
-A good representation of the format of the vector table can also be found at <<armv8-programmers-guide>> Table 10-2 "Vector table offsets from vector table base address".
-
-The first part of the table contains: xref:table-armv8-vector-handlers[xrefstyle=full].
-
-[[table-armv8-vector-handlers]]
-.Summary of ARMv8 vector handlers
-[options="header"]
-|===
-|Address |Exception type |Description
-
-|VBAR_ELn + 0x000
-|Synchronous
-|Current EL with SP0
-
-|VBAR_ELn + 0x080
-|IRQ/vIRQ + 0x100
-|Current EL with SP0
-
-|VBAR_ELn + 0x100
-|FIQ/vFIQ
-|Current EL with SP0
-
-|VBAR_ELn + 0x180
-|SError/vSError
-|Current EL with SP0
-
-|===
-
-and the following other parts are analogous, but referring to SPx and lower ELs.
-
-We are going to do everything in <<arm-exception-levels,EL1>> for now.
-
 On the terminal output, we observe the initial values of:
 
 * DAIF: 0x3c0, i.e. 4 bits (6 to 9) set to 1, which means that exceptions are masked for each exception type: Synchronous, System error, IRQ and FIQ.
@@ -15734,6 +15723,99 @@ Bibliography:
 * https://github.com/NienfengYao/armv8-bare-metal/blob/572c6f95880e70aa92fe9fed4b8ad7697082a764/vector.S#L168
 * https://stackoverflow.com/questions/24162109/arm-assembly-code-and-svc-numbering/57064062#57064062
 * https://stackoverflow.com/questions/44991264/armv8-exception-vectors-and-handling
+
+===== ARMv8 exception vector table format
+
+The vector table format is described on <<armarm8>> Table D1-7 "Vector offsets from vector table base address".
+
+A good representation of the format of the vector table can also be found at <<armv8-programmers-guide>> Table 10-2 "Vector table offsets from vector table base address".
+
+The first part of the table contains: xref:table-armv8-vector-handlers[xrefstyle=full].
+
+[[table-armv8-vector-handlers]]
+.Summary of ARMv8 vector handlers
+[options="header"]
+|===
+|Address |Exception type |Description
+
+|VBAR_ELn + 0x000
+|Synchronous
+|Current EL with SP0
+
+|VBAR_ELn + 0x080
+|IRQ/vIRQ
+|Current EL with SP0
+
+|VBAR_ELn + 0x100
+|FIQ/vFIQ
+|Current EL with SP0
+
+|VBAR_ELn + 0x180
+|SError/vSError
+|Current EL with SP0
+
+|VBAR_ELn + 0x200
+|Synchronous
+|Current EL with SPx
+
+|VBAR_ELn + 0x280
+|IRQ/vIRQ
+|Current EL with SPx
+
+|VBAR_ELn + 0x300
+|FIQ/vFIQ
+|Current EL with SPx
+
+|VBAR_ELn + 0x380
+|SError/vSError
+|Lower EL using AArch64
+
+|VBAR_ELn + 0x400
+|Synchronous
+|Lower EL using AArch64
+
+|VBAR_ELn + 0x480
+|IRQ/vIRQ
+|Lower EL using AArch64
+
+|VBAR_ELn + 0x500
+|FIQ/vFIQ
+|Lower EL using AArch64
+
+|VBAR_ELn + 0x580
+|SError/vSError
+|Lower EL using AArch64
+
+|VBAR_ELn + 0x600
+|Synchronous
+|Lower EL using AArch32
+
+|VBAR_ELn + 0x680
+|IRQ/vIRQ
+|Lower EL using AArch32
+
+|VBAR_ELn + 0x700
+|FIQ/vFIQ
+|Lower EL using AArch32
+
+|VBAR_ELn + 0x780
+|SError/vSError
+|Lower EL using AArch32
+
+|===
+
+and the following other parts are analogous, but referring to SPx and lower ELs.
+
+Now, to fully understand this table, we need the following concepts:
+
+* Synchronous: what happens for example when we do an <<arm-svc-instruction>>.
++
+It is called synchronous because the CPU is generating it itself from an instruction, unlike an interrupt generated by a device like a keyboard, which ends up in an IRQ or FIQ
+* IRQ: an example can be found at: <<arm-timer>>
+* TODO FIQ vs IRQ
+* TODO SError
+* EL changes: <<arm-change-exception-level>>
+* SP0 vs SPx: <<arm-sp0-vs-spx>>.
 
 ===== ARM ESR register
 
@@ -16143,7 +16225,7 @@ ISB
 
 but it entered an exception loop at `MSR CPTR_EL3, XZR`.
 
-We then found out that QEMU <<arm-exception-levels,<starts in EL1>>, and so we kept just the EL1 part, and it worked. Related:
+We then found out that QEMU <<arm-exception-levels,starts in EL1>>, and so we kept just the EL1 part, and it worked. Related:
 
 * https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
 * https://stackoverflow.com/questions/37299524/neon-support-in-armv8-system-mode-qemu

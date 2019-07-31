@@ -303,8 +303,8 @@ int gic_v3_find_pending_irq(
 ) {
     int rc;
     irq_no i;
-    for( i = 0; GIC_INT_MAX > i; ++i) {
-        if ( gicd_probe_pending(i) ) {
+    for (i = 0; GIC_INT_MAX > i; ++i) {
+        if (gicd_probe_pending(i)) {
             rc = 1;
             *irqp = i;
             goto found;
