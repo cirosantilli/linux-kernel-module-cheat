@@ -817,10 +817,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#printk">15.4. printk</a>
 <ul class="sectlevel3">
-<li><a href="#ignore_loglevel">15.4.1. ignore_loglevel</a></li>
-<li><a href="#pr_debug">15.4.2. pr_debug</a>
+<li><a href="#procsyskernelprintk">15.4.1. /proc/sys/kernel/printk</a></li>
+<li><a href="#ignore_loglevel">15.4.2. ignore_loglevel</a></li>
+<li><a href="#pr_debug">15.4.3. pr_debug</a>
 <ul class="sectlevel4">
-<li><a href="#pr_debug-printkkern_debug">15.4.2.1. pr_debug != printk(KERN_DEBUG</a></li>
+<li><a href="#pr_debug-printkkern_debug">15.4.3.1. pr_debug != printk(KERN_DEBUG</a></li>
 </ul>
 </li>
 </ul>
@@ -1587,11 +1588,17 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#arm-baremetal">26.8. ARM baremetal</a>
 <ul class="sectlevel3">
-<li><a href="#arm-exception-levels">26.8.1. ARM exception levels</a></li>
+<li><a href="#arm-exception-levels">26.8.1. ARM exception levels</a>
+<ul class="sectlevel4">
+<li><a href="#arm-change-exception-level">26.8.1.1. ARM change exception level</a></li>
+<li><a href="#arm-sp0-vs-spx">26.8.1.2. ARM SP0 vs SPx</a></li>
+</ul>
+</li>
 <li><a href="#arm-svc-instruction">26.8.2. ARM SVC instruction</a>
 <ul class="sectlevel4">
-<li><a href="#arm-esr-register">26.8.2.1. ARM ESR register</a></li>
-<li><a href="#arm-elr-register">26.8.2.2. ARM ELR register</a></li>
+<li><a href="#armv8-exception-vector-table-format">26.8.2.1. ARMv8 exception vector table format</a></li>
+<li><a href="#arm-esr-register">26.8.2.2. ARM ESR register</a></li>
+<li><a href="#arm-elr-register">26.8.2.3. ARM ELR register</a></li>
 </ul>
 </li>
 <li><a href="#arm-multicore">26.8.3. ARM multicore</a>
@@ -1602,11 +1609,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </ul>
 </li>
 <li><a href="#arm-timer">26.8.4. ARM timer</a></li>
-<li><a href="#arm-paging">26.8.5. ARM paging</a></li>
-<li><a href="#arm-baremetal-bibliography">26.8.6. ARM baremetal bibliography</a>
+<li><a href="#arm-gic">26.8.5. ARM GIC</a></li>
+<li><a href="#arm-paging">26.8.6. ARM paging</a></li>
+<li><a href="#arm-baremetal-bibliography">26.8.7. ARM baremetal bibliography</a>
 <ul class="sectlevel4">
-<li><a href="#nienfengyaoarmv8-bare-metal">26.8.6.1. NienfengYao/armv8-bare-metal</a></li>
-<li><a href="#tukl-msdgem5-bare-metal">26.8.6.2. tukl-msd/gem5.bare-metal</a></li>
+<li><a href="#nienfengyaoarmv8-bare-metal">26.8.7.1. NienfengYao/armv8-bare-metal</a></li>
+<li><a href="#tukl-msdgem5-bare-metal">26.8.7.2. tukl-msd/gem5.bare-metal</a></li>
 </ul>
 </li>
 </ul>
@@ -9865,10 +9873,197 @@ mount</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>The debug highest level is a bit more magic, see: <a href="#pr_debug">Section 15.4.2, &#8220;pr_debug&#8221;</a> for more info.</p>
+<p>The debug highest level is a bit more magic, see: <a href="#pr_debug">Section 15.4.3, &#8220;pr_debug&#8221;</a> for more info.</p>
 </div>
 <div class="sect3">
-<h4 id="ignore_loglevel"><a class="anchor" href="#ignore_loglevel"></a><a class="link" href="#ignore_loglevel">15.4.1. ignore_loglevel</a></h4>
+<h4 id="procsyskernelprintk"><a class="anchor" href="#procsyskernelprintk"></a><a class="link" href="#procsyskernelprintk">15.4.1. /proc/sys/kernel/printk</a></h4>
+<div class="paragraph">
+<p>The current printk level can be obtained with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cat /proc/sys/kernel/printk</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As of <code>87e846fc1f9c57840e143513ebd69c638bd37aa8</code> this prints:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>7       4       1       7</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which contains:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>7</code>: current log level, modifiable by previously mentioned methods</p>
+</li>
+<li>
+<p><code>4</code>: documented as: "printk&#8217;s without a loglevel use this": TODO what does that mean, how to call <code>printk</code> without a log level?</p>
+</li>
+<li>
+<p><code>1</code>: minimum log level that still prints something (<code>0</code> prints nothing)</p>
+</li>
+<li>
+<p><code>7</code>: default log level</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>We start at the boot time default after boot by default, as can be seen from:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>insmod myprintk.ko</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which outputs something like:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>&lt;1&gt;[   12.494429] pr_alert
+&lt;2&gt;[   12.494666] pr_crit
+&lt;3&gt;[   12.494823] pr_err
+&lt;4&gt;[   12.494911] pr_warning
+&lt;5&gt;[   12.495170] pr_notice
+&lt;6&gt;[   12.495327] pr_info</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/kernel_modules/myprintk.c">kernel_modules/myprintk.c</a></p>
+</div>
+<div class="paragraph">
+<p>This proc entry is defined at: <a href="https://github.com/torvalds/linux/blob/v5.1/kernel/sysctl.c#L839" class="bare">https://github.com/torvalds/linux/blob/v5.1/kernel/sysctl.c#L839</a></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#if defined CONFIG_PRINTK
+	{
+		.procname	= "printk",
+		.data		= &amp;console_loglevel,
+		.maxlen		= 4*sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which teaches us that printk can be completely disabled at compile time:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>config PRINTK
+	default y
+	bool "Enable support for printk" if EXPERT
+	select IRQ_WORK
+	help
+	  This option enables normal printk support. Removing it
+	  eliminates most of the message strings from the kernel image
+	  and makes the kernel more or less silent. As this makes it
+	  very difficult to diagnose system problems, saying N here is
+	  strongly discouraged.</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>console_loglevel</code> is defined at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#define console_loglevel (console_printk[0])</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and <code>console_printk</code> is an array with 4 ints:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>int console_printk[4] = {
+	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
+	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
+	CONSOLE_LOGLEVEL_MIN,		/* minimum_console_loglevel */
+	CONSOLE_LOGLEVEL_DEFAULT,	/* default_console_loglevel */
+};</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then we see that the default is configurable with <code>CONFIG_CONSOLE_LOGLEVEL_DEFAULT</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/*
+ * Default used to be hard-coded at 7, quiet used to be hardcoded at 4,
+ * we're now allowing both to be set from kernel config.
+ */
+#define CONSOLE_LOGLEVEL_DEFAULT CONFIG_CONSOLE_LOGLEVEL_DEFAULT
+#define CONSOLE_LOGLEVEL_QUIET	 CONFIG_CONSOLE_LOGLEVEL_QUIET</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The message loglevel default is explained at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/* printk's without a loglevel use this.. */
+#define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The min is just hardcoded to one as you would expect, with some amazing kernel comedy around it:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/* We show everything that is MORE important than this.. */
+#define CONSOLE_LOGLEVEL_SILENT  0 /* Mum's the word */
+#define CONSOLE_LOGLEVEL_MIN	 1 /* Minimum loglevel we let people use */
+#define CONSOLE_LOGLEVEL_DEBUG	10 /* issue debug messages */
+#define CONSOLE_LOGLEVEL_MOTORMOUTH 15	/* You can't shut this one up */</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We then also learn about the useless <code>quiet</code> and <code>debug</code> kernel parameters at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>config CONSOLE_LOGLEVEL_QUIET
+	int "quiet console loglevel (1-15)"
+	range 1 15
+	default "4"
+	help
+	  loglevel to use when "quiet" is passed on the kernel commandline.
+
+	  When "quiet" is passed on the kernel commandline this loglevel
+	  will be used as the loglevel. IOW passing "quiet" will be the
+	  equivalent of passing "loglevel=&lt;CONSOLE_LOGLEVEL_QUIET&gt;"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which explains the useless reason why that number is special. This is implemented at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>static int __init debug_kernel(char *str)
+{
+	console_loglevel = CONSOLE_LOGLEVEL_DEBUG;
+	return 0;
+}
+
+static int __init quiet_kernel(char *str)
+{
+	console_loglevel = CONSOLE_LOGLEVEL_QUIET;
+	return 0;
+}
+
+early_param("debug", debug_kernel);
+early_param("quiet", quiet_kernel);</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="ignore_loglevel"><a class="anchor" href="#ignore_loglevel"></a><a class="link" href="#ignore_loglevel">15.4.2. ignore_loglevel</a></h4>
 <div class="literalblock">
 <div class="content">
 <pre>./run --kernel-cli 'ignore_loglevel'</pre>
@@ -9887,7 +10082,7 @@ mount</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="pr_debug"><a class="anchor" href="#pr_debug"></a><a class="link" href="#pr_debug">15.4.2. pr_debug</a></h4>
+<h4 id="pr_debug"><a class="anchor" href="#pr_debug"></a><a class="link" href="#pr_debug">15.4.3. pr_debug</a></h4>
 <div class="paragraph">
 <p><a href="https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405" class="bare">https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405</a></p>
 </div>
@@ -9985,7 +10180,7 @@ insmod myprintk.ko</pre>
 <p>Get ready for the noisiest boot ever, I think it overflows the <code>printk</code> buffer and funny things happen.</p>
 </div>
 <div class="sect4">
-<h5 id="pr_debug-printkkern_debug"><a class="anchor" href="#pr_debug-printkkern_debug"></a><a class="link" href="#pr_debug-printkkern_debug">15.4.2.1. pr_debug != printk(KERN_DEBUG</a></h5>
+<h5 id="pr_debug-printkkern_debug"><a class="anchor" href="#pr_debug-printkkern_debug"></a><a class="link" href="#pr_debug-printkkern_debug">15.4.3.1. pr_debug != printk(KERN_DEBUG</a></h5>
 <div class="paragraph">
 <p>When <code>CONFIG_DYNAMIC_DEBUG</code> is set,  <code>printk(KERN_DEBUG</code> is not the exact same as <code>pr_debug(</code> since <code>printk(KERN_DEBUG</code> messages are visible with:</p>
 </div>
@@ -25910,6 +26105,24 @@ CurrentEL.EL 0x3</pre>
 <div class="paragraph">
 <p>According to <a href="#armarm7">ARMv7 architecture reference manual</a>, access to that register is controlled by other registers <code>NSACR.{CP11, CP10}</code> and <code>HCPTR</code> so those must be turned off, but I&#8217;m lazy to investigate now, even just trying to dump those registers in <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/dump_regs.c">userland/arch/arm/dump_regs.c</a> also leads to exceptions&#8230;&#8203;</p>
 </div>
+<div class="sect4">
+<h5 id="arm-change-exception-level"><a class="anchor" href="#arm-change-exception-level"></a><a class="link" href="#arm-change-exception-level">26.8.1.1. ARM change exception level</a></h5>
+<div class="paragraph">
+<p>TODO. Create a minimal runnable example of going into EL0 and jumping to EL1.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="arm-sp0-vs-spx"><a class="anchor" href="#arm-sp0-vs-spx"></a><a class="link" href="#arm-sp0-vs-spx">26.8.1.2. ARM SP0 vs SPx</a></h5>
+<div class="paragraph">
+<p>See <a href="#armarm8-db">ARMv8 architecture reference manual db</a> D1.6.2 "The stack pointer registers".</p>
+</div>
+<div class="paragraph">
+<p>TODO create a minimal runnable example.</p>
+</div>
+<div class="paragraph">
+<p>TODO: how to select to use SP0 in an exception handler?</p>
+</div>
+</div>
 </div>
 <div class="sect3">
 <h4 id="arm-svc-instruction"><a class="anchor" href="#arm-svc-instruction"></a><a class="link" href="#arm-svc-instruction">26.8.2. ARM SVC instruction</a></h4>
@@ -26029,28 +26242,62 @@ ELR 0x4000209C</pre>
 <div class="content">
 <pre>./run \
   --arch aarch64 \
-  --baremetal baremetal/arch/aarch64/svc_asm.S
+  --baremetal baremetal/arch/aarch64/svc.c \
   -- -d in_asm,int \
 ;</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>the output contains:</p>
+<p>the output at 8f73910dd1fc1fa6dc6904ae406b7598cdcd96d7 contains:</p>
 </div>
 <div class="literalblock">
 <div class="content">
 <pre>----------------
-IN:
-0x40002060:  d4000001  svc      #0
+IN: main
+0x40002098:  d41579a1  svc      #0xabcd
 
 Taking exception 2 [SVC]
 ...from EL1 to EL1
-...with ESR 0x15/0x56000000
-...with ELR 0x40002064
+...with ESR 0x15/0x5600abcd
+...with ELR 0x4000209c
 ...to EL1 PC 0x40000a00 PSTATE 0x3c5
 ----------------
 IN:
-0x40000a00:  14000225  b        #0x40001294</pre>
+0x40000a00:  14000225  b        #0x40001294
+
+----------------
+IN:
+0x40001294:  a9bf7bfd  stp      x29, x30, [sp, #-0x10]!
+0x40001298:  a9bf73fb  stp      x27, x28, [sp, #-0x10]!
+0x4000129c:  a9bf6bf9  stp      x25, x26, [sp, #-0x10]!
+0x400012a0:  a9bf63f7  stp      x23, x24, [sp, #-0x10]!
+0x400012a4:  a9bf5bf5  stp      x21, x22, [sp, #-0x10]!
+0x400012a8:  a9bf53f3  stp      x19, x20, [sp, #-0x10]!
+0x400012ac:  a9bf4bf1  stp      x17, x18, [sp, #-0x10]!
+0x400012b0:  a9bf43ef  stp      x15, x16, [sp, #-0x10]!
+0x400012b4:  a9bf3bed  stp      x13, x14, [sp, #-0x10]!
+0x400012b8:  a9bf33eb  stp      x11, x12, [sp, #-0x10]!
+0x400012bc:  a9bf2be9  stp      x9, x10, [sp, #-0x10]!
+0x400012c0:  a9bf23e7  stp      x7, x8, [sp, #-0x10]!
+0x400012c4:  a9bf1be5  stp      x5, x6, [sp, #-0x10]!
+0x400012c8:  a9bf13e3  stp      x3, x4, [sp, #-0x10]!
+0x400012cc:  a9bf0be1  stp      x1, x2, [sp, #-0x10]!
+0x400012d0:  d5384015  mrs      x21, spsr_el1
+0x400012d4:  a9bf03f5  stp      x21, x0, [sp, #-0x10]!
+0x400012d8:  d5384035  mrs      x21, elr_el1
+0x400012dc:  a9bf57ff  stp      xzr, x21, [sp, #-0x10]!
+0x400012e0:  d2800235  movz     x21, #0x11
+0x400012e4:  d5385216  mrs      x22, esr_el1
+0x400012e8:  a9bf5bf5  stp      x21, x22, [sp, #-0x10]!
+0x400012ec:  910003f5  mov      x21, sp
+0x400012f0:  910482b5  add      x21, x21, #0x120
+0x400012f4:  f9000bf5  str      x21, [sp, #0x10]
+0x400012f8:  910003e0  mov      x0, sp
+0x400012fc:  9400023f  bl       #0x40001bf8
+
+----------------
+IN: lkmc_vector_trap_handler
+0x40001bf8:  a9bd7bfd  stp      x29, x30, [sp, #-0x30]!</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -26077,59 +26324,110 @@ IN:
 </div>
 </div>
 <div class="paragraph">
-<p>So we see in both cases that the SVC is done, then an exception happens, and then we just continue running from the exception handler address.</p>
+<p>So we see in both cases that the:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>SVC is done</p>
+</li>
+<li>
+<p>an exception happens, and the PC jumps to address 0x40000a00. From our custom terminal prints further on, we see that this equals <code>VBAR_EL1 + 0x200</code>.</p>
+<div class="paragraph">
+<p>According to the format of the <a href="#armv8-exception-vector-table-format">ARMv8 exception vector table format</a>, we see that the <code>+ 0x200</code> means that we are jumping in the Current EL with SPx.</p>
 </div>
 <div class="paragraph">
-<p>The vector table format is described on <a href="#armarm8">ARMv8 architecture reference manual</a> Table D1-7 "Vector offsets from vector table base address".</p>
+<p>This can also be deduced from the message <code>exc_type is LKMC_VECTOR_SYNC_SPX</code>: we just manually store a different integer for every exception vector type in our handler code to be able to tell what happened.</p>
 </div>
 <div class="paragraph">
-<p>A good representation of the format of the vector table can also be found at <a href="#armv8-programmers-guide">Programmer&#8217;s Guide for ARMv8-A</a> Table 10-2 "Vector table offsets from vector table base address".</p>
+<p>This is the one used because we are jumping <a href="#arm-exception-levels">from EL1 to EL1</a>.</p>
 </div>
 <div class="paragraph">
-<p>The first part of the table contains: <a href="#table-armv8-vector-handlers">Table 6, &#8220;Summary of ARMv8 vector handlers&#8221;</a>.</p>
+<p>We set VBAR_EL1 to that address ourselves <a href="#baremetal-bootloaders">in the bootloader</a>.</p>
 </div>
-<table id="table-armv8-vector-handlers" class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 6. Summary of ARMv8 vector handlers</caption>
-<colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3334%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Address</th>
-<th class="tableblock halign-left valign-top">Exception type</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x000</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronous</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x080</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">IRQ/vIRQ + 0x100</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x100</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">FIQ/vFIQ</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x180</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">SError/vSError</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
-</tr>
-</tbody>
-</table>
+</li>
+<li>
+<p>at 0x40000a00 a <code>b #0x40001294</code> is done and then at 0x40001294 boilerplate preparation is done for lkmc_vector_trap_handler starting with several STP instructions.</p>
 <div class="paragraph">
-<p>and the following other parts are analogous, but referring to SPx and lower ELs.</p>
+<p>We have coded both of those in our vector table macro madness. As of LKMC 8f73910dd1fc1fa6dc6904ae406b7598cdcd96d7, both come from <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/lkmc/aarch64.h">lkmc/aarch64.h</a>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>b #0x40001294</code> comes from: <code>LKMC_VECTOR_ENTRY</code></p>
+</li>
+<li>
+<p>the STP come from: <code>LKMC_VECTOR_BUILD_TRAPFRAME</code></p>
+<div class="paragraph">
+<p>We jump immediately from inside <code>LKMC_VECTOR_ENTRY</code> to <code>LKMC_VECTOR_BUILD_TRAPFRAME</code> because we can only use 0x80 bytes of instructions for each one before reaching the next handler, so we might as well get it over with by jumping into a memory region without those constraints.</p>
 </div>
 <div class="paragraph">
-<p>We are going to do everything in <a href="#arm-exception-levels">EL1</a> for now.</p>
+<p>TODO: why doesn&#8217;t QEMU show our nice symbol names? gem5 shows them fine, and <code>nm</code> says they are there!</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>0000000040000800 T lkmc_vector_table
+0000000040001294 T lkmc_vector_build_trapframe_curr_el_spx_sync</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The exception return happens at the end of <code>lkmc_vector_trap_handler</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>----------------
+IN: lkmc_vector_trap_handler
+0x40002000:  d503201f  nop
+0x40002004:  a8c37bfd  ldp      x29, x30, [sp], #0x30
+0x40002008:  d65f03c0  ret
+
+----------------
+IN:
+0x40001300:  910043ff  add      sp, sp, #0x10
+0x40001304:  a8c15bf5  ldp      x21, x22, [sp], #0x10
+0x40001308:  d5184036  msr      elr_el1, x22
+
+----------------
+IN:
+0x4000130c:  a8c103f5  ldp      x21, x0, [sp], #0x10
+0x40001310:  d5184015  msr      spsr_el1, x21
+
+----------------
+IN:
+0x40001314:  a8c10be1  ldp      x1, x2, [sp], #0x10
+0x40001318:  a8c113e3  ldp      x3, x4, [sp], #0x10
+0x4000131c:  a8c11be5  ldp      x5, x6, [sp], #0x10
+0x40001320:  a8c123e7  ldp      x7, x8, [sp], #0x10
+0x40001324:  a8c12be9  ldp      x9, x10, [sp], #0x10
+0x40001328:  a8c133eb  ldp      x11, x12, [sp], #0x10
+0x4000132c:  a8c13bed  ldp      x13, x14, [sp], #0x10
+0x40001330:  a8c143ef  ldp      x15, x16, [sp], #0x10
+0x40001334:  a8c14bf1  ldp      x17, x18, [sp], #0x10
+0x40001338:  a8c153f3  ldp      x19, x20, [sp], #0x10
+0x4000133c:  a8c15bf5  ldp      x21, x22, [sp], #0x10
+0x40001340:  a8c163f7  ldp      x23, x24, [sp], #0x10
+0x40001344:  a8c16bf9  ldp      x25, x26, [sp], #0x10
+0x40001348:  a8c173fb  ldp      x27, x28, [sp], #0x10
+0x4000134c:  a8c17bfd  ldp      x29, x30, [sp], #0x10
+0x40001350:  d69f03e0  eret
+
+Exception return from AArch64 EL1 to AArch64 EL1 PC 0x4000209c
+----------------
+IN: main
+0x4000209c:  d0000040  adrp     x0, #0x4000c000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which does an <code>eret</code> and jumps back to 0x4000209c, which is 4 bytes and therefore one instruction after where SVC was taken at 0x40002098.</p>
+</div>
+<div class="paragraph">
+<p>In QEMU,  and then we just continue running from the exception handler address.</p>
 </div>
 <div class="paragraph">
 <p>On the terminal output, we observe the initial values of:</p>
@@ -26179,7 +26477,147 @@ IN:
 </ul>
 </div>
 <div class="sect4">
-<h5 id="arm-esr-register"><a class="anchor" href="#arm-esr-register"></a><a class="link" href="#arm-esr-register">26.8.2.1. ARM ESR register</a></h5>
+<h5 id="armv8-exception-vector-table-format"><a class="anchor" href="#armv8-exception-vector-table-format"></a><a class="link" href="#armv8-exception-vector-table-format">26.8.2.1. ARMv8 exception vector table format</a></h5>
+<div class="paragraph">
+<p>The vector table format is described on <a href="#armarm8">ARMv8 architecture reference manual</a> Table D1-7 "Vector offsets from vector table base address".</p>
+</div>
+<div class="paragraph">
+<p>A good representation of the format of the vector table can also be found at <a href="#armv8-programmers-guide">Programmer&#8217;s Guide for ARMv8-A</a> Table 10-2 "Vector table offsets from vector table base address".</p>
+</div>
+<div class="paragraph">
+<p>The first part of the table contains: <a href="#table-armv8-vector-handlers">Table 6, &#8220;Summary of ARMv8 vector handlers&#8221;</a>.</p>
+</div>
+<table id="table-armv8-vector-handlers" class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 6. Summary of ARMv8 vector handlers</caption>
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Address</th>
+<th class="tableblock halign-left valign-top">Exception type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x000</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x080</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IRQ/vIRQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x100</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FIQ/vFIQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x180</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SError/vSError</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SP0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x200</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SPx</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x280</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IRQ/vIRQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SPx</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x300</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FIQ/vFIQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current EL with SPx</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x380</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SError/vSError</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch64</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x400</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch64</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x480</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IRQ/vIRQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch64</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x500</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FIQ/vFIQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch64</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x580</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SError/vSError</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch64</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x600</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch32</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x680</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IRQ/vIRQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch32</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x700</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FIQ/vFIQ</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch32</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VBAR_ELn + 0x780</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SError/vSError</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lower EL using AArch32</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>and the following other parts are analogous, but referring to SPx and lower ELs.</p>
+</div>
+<div class="paragraph">
+<p>Now, to fully understand this table, we need the following concepts:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Synchronous: what happens for example when we do an <a href="#arm-svc-instruction">ARM SVC instruction</a>.</p>
+<div class="paragraph">
+<p>It is called synchronous because the CPU is generating it itself from an instruction, unlike an interrupt generated by a device like a keyboard, which ends up in an IRQ or FIQ</p>
+</div>
+</li>
+<li>
+<p>IRQ: an example can be found at: <a href="#arm-timer">ARM timer</a></p>
+</li>
+<li>
+<p>TODO FIQ vs IRQ</p>
+</li>
+<li>
+<p>TODO SError</p>
+</li>
+<li>
+<p>EL changes: <a href="#arm-change-exception-level">ARM change exception level</a></p>
+</li>
+<li>
+<p>SP0 vs SPx: <a href="#arm-sp0-vs-spx">ARM SP0 vs SPx</a>.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="arm-esr-register"><a class="anchor" href="#arm-esr-register"></a><a class="link" href="#arm-esr-register">26.8.2.2. ARM ESR register</a></h5>
 <div class="paragraph">
 <p>Exception Syndrome Register.</p>
 </div>
@@ -26191,7 +26629,7 @@ IN:
 </div>
 </div>
 <div class="sect4">
-<h5 id="arm-elr-register"><a class="anchor" href="#arm-elr-register"></a><a class="link" href="#arm-elr-register">26.8.2.2. ARM ELR register</a></h5>
+<h5 id="arm-elr-register"><a class="anchor" href="#arm-elr-register"></a><a class="link" href="#arm-elr-register">26.8.2.3. ARM ELR register</a></h5>
 <div class="paragraph">
 <p>Exception Link Register.</p>
 </div>
@@ -26416,7 +26854,20 @@ IN:
 <p><code>CNTFRQ_EL0</code>: "Counter-timer Frequency register". "Indicates the system counter clock frequency, in Hz."</p>
 </li>
 <li>
-<p><code>CNTV_CTL_EL0</code>: "Counter-timer Virtual Timer Control register"</p>
+<p><code>CNTV_CTL_EL0</code>: "Counter-timer Virtual Timer Control register". This control register is very simple and only has three fields:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>CNTV_CTL_EL0.ISTATUS</code> bit: set to 1 when the timer condition is met</p>
+</li>
+<li>
+<p><code>CNTV_CTL_EL0.IMASK</code> bit: if 1, the interrupt does not happen when <code>ISTATUS</code> becomes one</p>
+</li>
+<li>
+<p><code>CNTV_CTL_EL0.ENABLE</code> bit: if 0, the counter is turned off, interrupts don&#8217;t happen</p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p><code>CNTV_CVAL_EL0</code>: "Counter-timer Virtual Timer CompareValue register". The interrupt happens when <code>CNTVCT_EL0</code> reaches the value in this register.</p>
@@ -26438,7 +26889,43 @@ IN:
 </div>
 </div>
 <div class="sect3">
-<h4 id="arm-paging"><a class="anchor" href="#arm-paging"></a><a class="link" href="#arm-paging">26.8.5. ARM paging</a></h4>
+<h4 id="arm-gic"><a class="anchor" href="#arm-gic"></a><a class="link" href="#arm-gic">26.8.5. ARM GIC</a></h4>
+<div class="paragraph">
+<p>Generic Interrupt Controller.</p>
+</div>
+<div class="paragraph">
+<p>Examples:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#arm-timer">ARM timer</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>ARM publishes both a GIC standard architecture specification, and specific implementations of these specifications.</p>
+</div>
+<div class="paragraph">
+<p>The specification can be found at: <a href="https://developer.arm.com/docs/ihi0069/latest" class="bare">https://developer.arm.com/docs/ihi0069/latest</a></p>
+</div>
+<div class="paragraph">
+<p>As of 2019Q2 the latest version if v4.0, often called GICv4: <a href="https://static.docs.arm.com/ihi0069/e/Q1-IHI0069E_gic_architecture_specification_v3.1_19_01_21.pdf" class="bare">https://static.docs.arm.com/ihi0069/e/Q1-IHI0069E_gic_architecture_specification_v3.1_19_01_21.pdf</a></p>
+</div>
+<div class="paragraph">
+<p>That document clarifies that GICv2 is a legacy specification only:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Version 2.0 (GICv2) is only described in terms of the GICv3 optional support for legacy operation</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The specific models have names of type GIC-600, GIC-500, etc.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="arm-paging"><a class="anchor" href="#arm-paging"></a><a class="link" href="#arm-paging">26.8.6. ARM paging</a></h4>
 <div class="paragraph">
 <p>TODO create a minimal working aarch64 example analogous to the x86 one at: <a href="https://github.com/cirosantilli/x86-bare-metal-examples/blob/6dc9a73830fc05358d8d66128f740ef9906f7677/paging.S" class="bare">https://github.com/cirosantilli/x86-bare-metal-examples/blob/6dc9a73830fc05358d8d66128f740ef9906f7677/paging.S</a></p>
 </div>
@@ -26468,7 +26955,7 @@ IN:
 </div>
 </div>
 <div class="sect3">
-<h4 id="arm-baremetal-bibliography"><a class="anchor" href="#arm-baremetal-bibliography"></a><a class="link" href="#arm-baremetal-bibliography">26.8.6. ARM baremetal bibliography</a></h4>
+<h4 id="arm-baremetal-bibliography"><a class="anchor" href="#arm-baremetal-bibliography"></a><a class="link" href="#arm-baremetal-bibliography">26.8.7. ARM baremetal bibliography</a></h4>
 <div class="paragraph">
 <p>First, also consider the userland bibliography: <a href="#arm-assembly-bibliography">Section 23.8, &#8220;ARM assembly bibliography&#8221;</a>.</p>
 </div>
@@ -26495,7 +26982,7 @@ IN:
 </ul>
 </div>
 <div class="sect4">
-<h5 id="nienfengyaoarmv8-bare-metal"><a class="anchor" href="#nienfengyaoarmv8-bare-metal"></a><a class="link" href="#nienfengyaoarmv8-bare-metal">26.8.6.1. NienfengYao/armv8-bare-metal</a></h5>
+<h5 id="nienfengyaoarmv8-bare-metal"><a class="anchor" href="#nienfengyaoarmv8-bare-metal"></a><a class="link" href="#nienfengyaoarmv8-bare-metal">26.8.7.1. NienfengYao/armv8-bare-metal</a></h5>
 <div class="paragraph">
 <p><a href="https://github.com/NienfengYao/armv8-bare-metal" class="bare">https://github.com/NienfengYao/armv8-bare-metal</a></p>
 </div>
@@ -26528,7 +27015,7 @@ IN:
 <p>which tries to write to 0x8010000 according to GDB.</p>
 </div>
 <div class="paragraph">
-<p>Without <code>-machine</code>, QEMU&#8217;s DTB clearly states GICv2, so I&#8217;m starting to wonder if Nienfeng just made a mistake there? The QEMU GICv3 dtb contains:</p>
+<p>Without <code>-machine</code>, QEMU&#8217;s DTB clearly states GICv2, so I&#8217;m starting to wonder if Nienfeng just made a mistake there? The QEMU GICv3 DTB contains:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -26554,7 +27041,7 @@ IN:
 </div>
 </div>
 <div class="sect4">
-<h5 id="tukl-msdgem5-bare-metal"><a class="anchor" href="#tukl-msdgem5-bare-metal"></a><a class="link" href="#tukl-msdgem5-bare-metal">26.8.6.2. tukl-msd/gem5.bare-metal</a></h5>
+<h5 id="tukl-msdgem5-bare-metal"><a class="anchor" href="#tukl-msdgem5-bare-metal"></a><a class="link" href="#tukl-msdgem5-bare-metal">26.8.7.2. tukl-msd/gem5.bare-metal</a></h5>
 <div class="paragraph">
 <p><a href="https://github.com/tukl-msd/gem5.bare-metal" class="bare">https://github.com/tukl-msd/gem5.bare-metal</a></p>
 </div>
@@ -26749,7 +27236,7 @@ ISB</pre>
 <p>but it entered an exception loop at <code>MSR CPTR_EL3, XZR</code>.</p>
 </div>
 <div class="paragraph">
-<p>We then found out that QEMU <a href="#arm-exception-levels">&lt;starts in EL1</a>, and so we kept just the EL1 part, and it worked. Related:</p>
+<p>We then found out that QEMU <a href="#arm-exception-levels">starts in EL1</a>, and so we kept just the EL1 part, and it worked. Related:</p>
 </div>
 <div class="ulist">
 <ul>
