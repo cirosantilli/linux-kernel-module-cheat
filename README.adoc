@@ -9075,7 +9075,7 @@ Disk persistency is useful to re-run shell commands from the history of a previo
 
 TODO how to make gem5 disk writes persistent?
 
-As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the <<config-ini>> under cow sections, but hacking them to true did not work:
+As of cadb92f2df916dbb47f428fd1ec4932a2e1f0f48 there are some `read_only` entries in the <<gem5-config-ini>> under cow sections, but hacking them to true did not work:
 
 ....
 diff --git a/configs/common/FSConfig.py b/configs/common/FSConfig.py
@@ -10314,23 +10314,33 @@ but the approximation is reasonable.
 It is used mostly for microarchitecture research purposes: when you are making a new chip technology, you don't really need to specialize enormously to an existing microarchitecture, but rather develop something that will work with a wide range of future architectures.
 ** runs are deterministic by default, unlike QEMU which has a special <<qemu-record-and-replay>> mode, that requires first playing the content once and then replaying
 ** gem5 ARM at least appears to implement more low level CPU functionality than QEMU, e.g. QEMU only added EL2 in 2018: https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up See also: xref:arm-exception-levels[xrefstyle=full]
-* disadvantage of gem5: slower than QEMU, see: xref:benchmark-linux-kernel-boot[xrefstyle=full]
+* disadvantages of gem5:
+** slower than QEMU, see: xref:benchmark-linux-kernel-boot[xrefstyle=full]
 +
 This implies that the user base is much smaller, since no Android devs.
 +
 Instead, we have only chip makers, who keep everything that really works closed, and researchers, who can't version track or document code properly >:-) And this implies that:
 +
 --
-** the documentation is more scarce
-** it takes longer to support new hardware features
+*** the documentation is more scarce
+*** it takes longer to support new hardware features
 --
 +
 Well, not that AOSP is that much better anyways.
-* not sure: gem5 has BSD license while QEMU has GPL
+** not sure: gem5 has BSD license while QEMU has GPL
 +
 This suits chip makers that want to distribute forks with secret IP to their customers.
 +
 On the other hand, the chip makers tend to upstream less, and the project becomes more crappy in average :-)
+** gem5 is way more complex and harder to modify and maintain
++
+The only hairy thing in QEMU is the binary code generation.
++
+gem5 however has tended towards intensive code generation in order to support all its different hardware types:
++
+*** lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds
+*** .isa code which describes most of the instructions
+*** <<gem5-ruby-build,Ruby>> for memory systems
 
 === gem5 run benchmark
 
@@ -10432,7 +10442,7 @@ Now you can play a fun little game with your friends:
 * make a program that solves the computation problem, and outputs output to stdout
 * write the code that runs the correct computation in the smallest number of cycles possible
 
-To find out why your program is slow, a good first step is to have a look at <<gem5-stats-txt>> file.
+To find out why your program is slow, a good first step is to have a look at the <<gem5-m5out-stats-txt-file>>.
 
 ==== Skip extra benchmark instructions
 
@@ -11303,7 +11313,19 @@ And then restore the checkpoint with a different CPU:
 
 === Pass extra options to gem5
 
-Pass options to the `fs.py` script:
+Remember that in the gem5 command line, we can either pass options to the script being run as in:
+
+....
+build/X86/gem5.opt configs/examples/fs.py --some-option
+....
+
+or to the gem5 executable itself:
+
+....
+build/X86/gem5.opt --some-option configs/examples/fs.py
+....
+
+Pass options to the script in our setup use:
 
 * get help:
 +
@@ -11316,31 +11338,13 @@ Pass options to the `fs.py` script:
 ./run --arch arm --emulator gem5 -- --caches --cpu-type=HPI
 ....
 
-Pass options to the `gem5` executable itself:
+To pass options to the `gem5` executable we expose the `--gem5-exe-args` option:
 
 * get help:
 +
 ....
 ./run --gem5-exe-args='-h' --emulator gem5
 ....
-
-=== gem5 exit after a number of instructions
-
-Quit the simulation after `1024` instructions:
-
-....
-./run --emulator gem5 -- -I 1024
-....
-
-Can be nicely checked with <<gem5-tracing>>.
-
-Cycles instead of instructions:
-
-....
-./run --emulator gem5 -- --memory 1024
-....
-
-Otherwise the simulation runs forever by default.
 
 === m5ops
 
@@ -11696,13 +11700,15 @@ The location of that directory can be set with `./gem5.opt -d`, and defaults to 
 
 The files in that directory contains some very important information about the run, and you should become familiar with every one of them.
 
-==== system.terminal
+[[gem5-m5out-system-terminal-file]]
+==== gem5 m5out/system.terminal file
 
 Contains UART output, both from the Linux kernel or from the baremetal system.
 
 Can also be seen live on <<m5term>>.
 
-==== gem5 stats.txt
+[[gem5-m5out-stats-txt-file]]
+==== gem5 m5out/stats.txt file
 
 This file contains important statistics about the run:
 
@@ -11736,9 +11742,9 @@ https://stackoverflow.com/questions/52014953/how-to-dump-only-a-single-or-certai
 
 To prevent the stats file from becoming humongous.
 
-==== config.ini
+==== gem5 config.ini
 
-The `config.ini` file, contains a very good high level description of the system:
+The `m5out/config.ini` file, contains a very good high level description of the system:
 
 ....
 less $(./getvar --arch arm --emulator gem5 m5out_dir)"
@@ -11851,7 +11857,7 @@ Disadvantages over `fs.py`:
 * only works for ARM, not other archs
 * not as many configuration options as `fs.py`, many things are hardcoded
 
-We setup 2 big and 2 small CPUs, but `cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html <<config-ini>> does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
+We setup 2 big and 2 small CPUs, but `cat /proc/cpuinfo` shows 4 identical CPUs instead of 2 of two different types, likely because gem5 does not expose some informational register much like the caches: https://www.mail-archive.com/gem5-users@gem5.org/msg15426.html <<gem5-config-ini>> does show that the two big ones are `DerivO3CPU` and the small ones are `MinorCPU`.
 
 TODO: why is the `--dtb` required despite `fs_bigLITTLE.py` having a DTB generation capability? Without it, nothing shows on terminal, and the simulation terminates with `simulate() limit reached  @  18446744073709551615`. The magic `vmlinux.vexpress_gem5_v1.20170616` works however without a DTB.
 
@@ -11951,6 +11957,19 @@ info: Entering event queue @ 0.  Starting simulation...
    2000: system.cpu A0 T0 : @asm_main_after_prologue+14.0  :   LEA_R_P : rdip   t7, %ctrl153,  : IntAlu :  D=0x000000000040008d  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
    2500: system.cpu A0 T0 : @asm_main_after_prologue+14.1  :   LEA_R_P : lea   rsi, DS:[t7 + 0x19] : IntAlu :  D=0x00000000004000a6  flags=(IsInteger|IsMicroop|IsLastMicroop)
 Exiting @ tick 3000 because all threads reached the max instruction count
+....
+
+The exact same can be achieved with the older hardcoded `--maxinsts` mechanism present in `se.py` and `fs.py`:
+
+....
+./run \
+  --emulator gem5 \
+  --static \
+  --userland \userland/arch/x86_64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -- \
+  --maxinsts 3
+;
 ....
 
 The message also shows on <<user-mode-simulation>> deadlocks, for example in link:userland/posix/pthread_deadlock.c[]:
@@ -12123,6 +12142,42 @@ The downsides of Buildroot are:
 In theory, any software can be packaged, and the Buildroot side is easy.
 +
 The hard part is dealing with crappy third party build systems and huge dependency chains.
+
+==== gem5 Ruby build
+
+Ruby is a system that includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby
+
+It seems to have usage outside of gem5, but the naming overload with the link:https://en.wikipedia.org/wiki/Ruby_(programming_language)[Ruby programming language], which also has link:https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby[domain specific languages] as a concept, makes it impossible to google anything about it!
+
+Ruby is activated at compile time with the `PROTOCOL` flag, which specifies the desired memory system time.
+
+For example, to use a two level https://en.wikipedia.org/wiki/MESI_protocol[MESI] https://en.wikipedia.org/wiki/Cache_coherence[cache coherence protocol], we can do:
+
+....
+./build-gem5 --arch aarch64 --gem5-build-id ruby -- PROTOCOL=MESI_Two_Level
+....
+
+and during build we see a humongous line of type:
+
+....
+[   SLICC] src/mem/protocol/MESI_Two_Level.slicc -> ARM/mem/protocol/AccessPermission.cc, ARM/mem/protocol/AccessPermission.hh, ...
+....
+
+which shows that dozens of C++ files are being generated from Ruby SLICC.
+
+TODO observe it doing something during a run.
+
+The relevant source files live in the source tree under:
+
+....
+src/mem/protocol/MESI_Two_Level*
+....
+
+We already pass the `SLICC_HTML` flag by default to the build, which generates an HTML summary of each memory protocol under:
+
+....
+xdg-open "$(./getvar --arch aarch64 --gem5-build-id ruby gem5_build_build_dir)/ARM/mem/protocol/html/index.html"
+....
 
 === Custom Buildroot configs
 
@@ -13849,7 +13904,7 @@ RDTSC stores its output to EDX:EAX, even in 64-bit mode, top bits are zeroed out
 
 TODO: review this section, make a more controlled userland experiment with <<m5ops>> instrumentation.
 
-Let's have some fun and try to correlate the gem5 <<gem5-stats-txt>> `system.cpu.numCycles` cycle count with the https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
+Let's have some fun and try to correlate the <<gem5-m5out-stats-txt-file>> `system.cpu.numCycles` cycle count with the https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
 
 ....
 ./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.S
@@ -17179,7 +17234,7 @@ If a port is not free, it just crashes.
 We assign a contiguous port range for each run ID.
 ** gem5 automatically increments ports until it finds a free one.
 +
-gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on <<config-ini>>.
+gem5 60600f09c25255b3c8f72da7fb49100e2682093a does not seem to expose a way to set the terminal and VNC ports from `fs.py`, so we just let gem5 assign the ports itself, and use `-n` only to match what it assigned. Those ports both appear on <<gem5-config-ini>>.
 +
 The GDB port can be assigned on `gem5.opt --remote-gdb-port`, but it does not appear on `config.ini`.
 
