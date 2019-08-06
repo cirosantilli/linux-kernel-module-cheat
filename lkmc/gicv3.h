@@ -286,8 +286,8 @@ void gic_v3_initialize(void) {
     init_gicd();
     init_gicc();
     gicd_config(TIMER_IRQ, GIC_GICD_ICFGR_EDGE);
-    gicd_set_priority(TIMER_IRQ, 0 << GIC_PRI_SHIFT );  /* Set priority */
-    gicd_set_target(TIMER_IRQ, 0x1);  /* processor 0 */
+    gicd_set_priority(TIMER_IRQ, 0 << GIC_PRI_SHIFT);
+    gicd_set_target(TIMER_IRQ, 0x1); /* processor 0 */
     gicd_clear_pending(TIMER_IRQ);
     gicd_enable_int(TIMER_IRQ);
 }
@@ -296,6 +296,7 @@ void gic_v3_initialize(void) {
 /* Find pending IRQ
  * @param[in]     exc  An exception frame
  * @param[in,out] irqp An IRQ number to be processed
+ * @return        0 if found, 1 if not found
  */
 int gic_v3_find_pending_irq(
     LkmcVectorExceptionFrame *exc __attribute__((unused)),
@@ -305,12 +306,12 @@ int gic_v3_find_pending_irq(
     irq_no i;
     for (i = 0; GIC_INT_MAX > i; ++i) {
         if (gicd_probe_pending(i)) {
-            rc = 1;
+            rc = 0;
             *irqp = i;
             goto found;
         }
     }
-    rc = 0;
+    rc = 1;
 found:
     return rc;
 }

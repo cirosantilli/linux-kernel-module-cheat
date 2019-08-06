@@ -4,15 +4,25 @@
 #include <lkmc.h>
 #include <lkmc/gicv3.h>
 
-#define IRQ_FOUND          (0)
-#define IRQ_NOT_FOUND      (1)
+#define CLOCK_FREQUENCY 10
+#define INTERRUPT_FREQUENCY 1
 
 void enable_irq(void) {
-	__asm__ __volatile__("msr DAIFClr, %0\n\t" : : "i" (LKMC_SYSREG_BITS_DAIF_IRQ)  : "memory");
+	__asm__ __volatile__(
+	    "msr DAIFClr, %0\n\t"
+	    :
+	    : "i" (LKMC_SYSREG_BITS_DAIF_IRQ)
+	    : "memory"
+	);
 }
 
 void disable_irq(void) {
-	__asm__ __volatile__("msr DAIFSet, %0\n\t" : : "i" (LKMC_SYSREG_BITS_DAIF_IRQ)  : "memory");
+	__asm__ __volatile__(
+	    "msr DAIFSet, %0\n\t"
+	    :
+	    : "i" (LKMC_SYSREG_BITS_DAIF_IRQ)
+	    : "memory"
+	);
 }
 
 /* Processor status word. */
@@ -21,6 +31,20 @@ void psw_disable_and_save_interrupt(uint64_t *pswp) {
 	psw = lkmc_sysreg_read_daif();
 	disable_irq();
 	*pswp = psw;
+}
+
+void disable_cntv(void) {
+    lkmc_sysreg_write_cntv_ctl_el0(
+        lkmc_sysreg_read_cntv_ctl_el0() &
+        LKMC_SYSREG_CNTV_CTL_ENABLE
+    );
+}
+
+void enable_cntv(void) {
+    lkmc_sysreg_write_cntv_ctl_el0(
+        lkmc_sysreg_read_cntv_ctl_el0() |
+        LKMC_SYSREG_CNTV_CTL_ENABLE
+    );
 }
 
 /* Processor status word. */
@@ -39,7 +63,7 @@ void lkmc_vector_trap_handler(
     if ((exception->exc_type & 0xff) == LKMC_VECTOR_IRQ_SPX) {
         psw_disable_and_save_interrupt(&psw);
         rc = gic_v3_find_pending_irq(exception, &irq);
-        if (rc != IRQ_FOUND)  {
+        if (rc) {
             puts("IRQ not found!");
             goto restore_irq_out;
         } else {
@@ -47,15 +71,21 @@ void lkmc_vector_trap_handler(
         }
         gicd_disable_int(irq);
         gic_v3_eoi(irq);
-        printf("CNTVCT_EL0 0x%" PRIX64 "\n", lkmc_sysreg_read_cntvct_el0());
+        // Timer specific stuff.
+        {
+            disable_cntv();
+            gicd_clear_pending(TIMER_IRQ);
+            lkmc_sysreg_print_cntvct_el0();
+            raw_write_cntv_cval_el0(
+                lkmc_sysreg_read_cntvct_el0() +
+                CLOCK_FREQUENCY / INTERRUPT_FREQUENCY
+            );
+            enable_cntv();
+        }
         gicd_enable_int(irq);
 restore_irq_out:
         psw_restore_interrupt(&psw);
     }
-}
-
-void enable_cntv(void) {
-    lkmc_sysreg_write_cntv_ctl_el0(lkmc_sysreg_read_cntv_ctl_el0() | LKMC_CNTV_CTL_ENABLE);
 }
 
 int main(void) {
@@ -73,7 +103,7 @@ int main(void) {
     {
         /*uint64_t ticks, current_cnt;*/
         /*uint32_t cntfrq;*/
-        lkmc_sysreg_write_cntfrq_el0(1);
+        lkmc_sysreg_write_cntfrq_el0(CLOCK_FREQUENCY);
         /*ticks = cntfrq;*/
         /*current_cnt = lkmc_sysreg_read_cntvct_el0();*/
         /*lkmc_sysreg_write_cntv_cval_el0(current_cnt + ticks);*/
@@ -81,7 +111,7 @@ int main(void) {
         enable_irq();
     }
     while (1) {
-        LKMC_WFI;
+        lkmc_wfi();
     }
     return 0;
 }

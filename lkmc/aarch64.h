@@ -293,9 +293,9 @@ typedef struct {
 
 void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception);
 
-/* Mistc assembly instructions. */
-#define LKMC_SVC(immediate) __asm__ __volatile__("svc " #immediate : : : )
-#define LKMC_WFI() __asm__ __volatile__ ("wfi" : : : "memory")
+/* Misc assembly instructions. */
+#define lkmc_svc(immediate) __asm__ __volatile__("svc " #immediate : : : )
+#define lkmc_wfi() __asm__ __volatile__ ("wfi" : : : "memory")
 
 /* Sysreg read and write functions, e.g.:
  *
