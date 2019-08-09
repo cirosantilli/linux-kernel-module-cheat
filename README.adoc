@@ -16022,11 +16022,42 @@ TODO: create and study a minimal examples in gem5 where the DMB instruction lead
 
 ==== ARM timer
 
-TODO get working. Attempt at: link:baremetal/arch/aarch64/timer.c[]
+The ARM timer is the simplest way to generate hardware interrupts periodically, and therefore serves as the simples example of <<arm-gic>>  usage.
 
-The timer is documented at: <<armarm8-db>> Chapter D10 "The Generic Timer in AArch64 state"
+Working on QEMU: link:baremetal/arch/aarch64/timer.c[]
 
-The key registers to keep in mind are:
+....
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/timer.c
+....
+
+Output at lkmc d8dae268c0a3e4e361002aca3b382fedd77f2567 + 1:
+
+....
+cntv_ctl_el0 0x0
+cntfrq_el0 0x3B9ACA0
+cntv_cval_el0 0x0
+cntvct_el0 0x105113
+cntvct_el0 0x1080BC
+cntvct_el0 0x10A118
+
+IRQ number 0x1B
+cntvct_el0 0x14D25B
+cntv_cval_el0 0x3CE9CD6
+
+IRQ number 0x1B
+cntvct_el0 0x3CF516F
+cntv_cval_el0 0x7893217
+
+IRQ number 0x1B
+cntvct_el0 0x789B733
+cntv_cval_el0 0xB439642
+....
+
+and new `IRQ number` section appears every second, when a clock interrupt is raised!
+
+Once an interrupt is raised, the interrupt itself sets up a new interrupt to happen in one second in the future after `cntv_cval_el0` is reached by the counter.
+
+The timer is part of the aarch64 specification itself and is documented at: <<armarm8-db>> Chapter D10 "The Generic Timer in AArch64 state". The key registers to keep in mind are:
 
 * `CNTVCT_EL0`: "Counter-timer Virtual Count register". The increasing current counter value.
 * `CNTFRQ_EL0`: "Counter-timer Frequency register". "Indicates the system counter clock frequency, in Hz."
@@ -16035,6 +16066,55 @@ The key registers to keep in mind are:
 ** `CNTV_CTL_EL0.IMASK` bit: if 1, the interrupt does not happen when `ISTATUS` becomes one
 ** `CNTV_CTL_EL0.ENABLE` bit: if 0, the counter is turned off, interrupts don't happen
 * `CNTV_CVAL_EL0`: "Counter-timer Virtual Timer CompareValue register". The interrupt happens when `CNTVCT_EL0` reaches the value in this register.
+
+Due to <<gem5-vs-qemu,QEMU's non-determinism>>, each consecutive run has slightly different output values.
+
+From the terminal output, we can see that the initial clock frequency is 0x3B9ACA0 == 62500000 Hz == 62.5MHz. Grepping QEMU source for that string leads us to:
+
+....
+/* Scale factor for generic timers, ie number of ns per tick.
+ * This gives a 62.5MHz timer.
+ */
+#define GTIMER_SCALE 16
+....
+
+which in turn is used to set the initial reset value of the clock:
+
+....
+    { .name = "CNTFRQ_EL0", .state = ARM_CP_STATE_AA64,
+      .opc0 = 3, .opc1 = 3, .crn = 14, .crm = 0, .opc2 = 0,
+      .access = PL1_RW | PL0_R, .accessfn = gt_cntfrq_access,
+      .fieldoffset = offsetof(CPUARMState, cp15.c14_cntfrq),
+      .resetvalue = (1000 * 1000 * 1000) / GTIMER_SCALE,
+....
+
+where `(1000 * 1000 * 1000) / 16 == 62500000`.
+
+Trying to set the frequency on QEMU by writing to the CNTFRQ register does change the value of future reads, but has no effect on the actual clock frequency as commented on the QEMU source code https://github.com/qemu/qemu/blob/v4.0.0/target/arm/helper.c#L2647
+
+....
+static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
+    /* Note that CNTFRQ is purely reads-as-written for the benefit
+     * of software; writing it doesn't actually change the timer frequency.
+     * Our reset value matches the fixed frequency we implement the timer at.
+     */
+    { .name = "CNTFRQ", .cp = 15, .crn = 14, .crm = 0, .opc1 = 0, .opc2 = 0,
+      .type = ARM_CP_ALIAS,
+      .access = PL1_RW | PL0_R, .accessfn = gt_cntfrq_access,
+      .fieldoffset = offsetoflow32(CPUARMState, cp15.c14_cntfrq),
+    },
+....
+
+At each interrupt, we increase the compare value `CVAL` by about 1x the clock frequency 0x3B9ACA0 so that it will fire again in one second, e.g. `0x3CE9CD6 - 0x14D25B == 3B9CA7B`. The increment is not perfect because the counter keeps ticking even while our register read and print instructions are running inside the interrupt handler!
+
+We then observe that the next interrupt happens soon after CNTV_CVAL_EL0 is reached by CNTVCT_EL0:
+
+....
+cntv_cval_el0 0x3CE9CD6
+
+IRQ number 0x1B
+cntvct_el0 0x3CF516F
+....
 
 Bibliography:
 

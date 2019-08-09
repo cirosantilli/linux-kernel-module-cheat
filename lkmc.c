@@ -79,7 +79,7 @@ void lkmc_print_newline() {
         __asm__ __volatile__("msr " #name ", %0" : : "r" (name) : ); \
     } \
     void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, print_), name)(void) { \
-        printf("name 0x%" PRIX ## nbits "\n", LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, read_), name)()); \
+        printf(#name " 0x%" PRIX ## nbits "\n", LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, read_), name)()); \
     }
 LKMC_SYSREG_OPS
 #undef LKMC_SYSREG_READ_WRITE

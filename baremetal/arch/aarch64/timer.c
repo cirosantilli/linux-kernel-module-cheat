@@ -4,7 +4,6 @@
 #include <lkmc.h>
 #include <lkmc/gicv3.h>
 
-#define CLOCK_FREQUENCY 10
 #define INTERRUPT_FREQUENCY 1
 
 void enable_irq(void) {
@@ -36,7 +35,7 @@ void psw_disable_and_save_interrupt(uint64_t *pswp) {
 void disable_cntv(void) {
     lkmc_sysreg_write_cntv_ctl_el0(
         lkmc_sysreg_read_cntv_ctl_el0() &
-        LKMC_SYSREG_CNTV_CTL_ENABLE
+        ~LKMC_SYSREG_CNTV_CTL_ENABLE
     );
 }
 
@@ -67,7 +66,7 @@ void lkmc_vector_trap_handler(
             puts("IRQ not found!");
             goto restore_irq_out;
         } else {
-            printf("IRQ found: 0x%" PRIX32 "\n", irq);
+            printf("IRQ number 0x%" PRIX32 "\n", irq);
         }
         gicd_disable_int(irq);
         gic_v3_eoi(irq);
@@ -76,10 +75,13 @@ void lkmc_vector_trap_handler(
             disable_cntv();
             gicd_clear_pending(TIMER_IRQ);
             lkmc_sysreg_print_cntvct_el0();
-            raw_write_cntv_cval_el0(
+            uint64_t cntv_cval_el0 =
                 lkmc_sysreg_read_cntvct_el0() +
-                CLOCK_FREQUENCY / INTERRUPT_FREQUENCY
-            );
+                lkmc_sysreg_read_cntfrq_el0() / INTERRUPT_FREQUENCY
+            ;
+            lkmc_sysreg_write_cntv_cval_el0(cntv_cval_el0);
+            lkmc_sysreg_print_cntv_cval_el0();
+            puts("");
             enable_cntv();
         }
         gicd_enable_int(irq);
@@ -98,12 +100,12 @@ int main(void) {
     lkmc_sysreg_print_cntvct_el0();
     lkmc_sysreg_print_cntvct_el0();
     lkmc_sysreg_print_cntvct_el0();
+    puts("");
 
     gic_v3_initialize();
     {
         /*uint64_t ticks, current_cnt;*/
         /*uint32_t cntfrq;*/
-        lkmc_sysreg_write_cntfrq_el0(CLOCK_FREQUENCY);
         /*ticks = cntfrq;*/
         /*current_cnt = lkmc_sysreg_read_cntvct_el0();*/
         /*lkmc_sysreg_write_cntv_cval_el0(current_cnt + ticks);*/
