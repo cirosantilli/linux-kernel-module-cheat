@@ -1,6 +1,6 @@
 /* Count up to a given number 1 second sleep between each increment.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#unistd-h
+ * https://cirosantilli.com/linux-kernel-module-cheat#unistd-h
  *
  * We need a separate program for this from count.c because count.c
  * is also usable as an init process, where we can't control the CLI

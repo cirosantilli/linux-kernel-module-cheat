@@ -3,14 +3,14 @@
 #include <lkmc.h>
 
 LKMC_PROLOGUE
-    mov $0, %rax
-    mov $1, %rbx
+    mov $0, %r12
+    mov $1, %r13
 
-    xchg %rbx, %rax
-    LKMC_ASSERT_EQ(%rax, $1)
-    LKMC_ASSERT_EQ(%rbx, $0)
+    xchg %r13, %r12
+    LKMC_ASSERT_EQ(%r12, $1)
+    LKMC_ASSERT_EQ(%r13, $0)
 
-    xchg %rbx, %rax
-    LKMC_ASSERT_EQ(%rax, $0)
-    LKMC_ASSERT_EQ(%rbx, $1)
+    xchg %r13, %r12
+    LKMC_ASSERT_EQ(%r12, $0)
+    LKMC_ASSERT_EQ(%r13, $1)
 LKMC_EPILOGUE

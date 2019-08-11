@@ -28,6 +28,7 @@ void lkmc_assert_memcmp(const void *s1, const void *s2, size_t n, uint32_t line)
     fprintf(stderr, "error: %s errno = %d, path = %s\n", function, errno, path); \
     exit(EXIT_FAILURE);
 #define LKMC_TMP_EXT ".tmp"
+/* Temporary per C source file name that our examples can safely create. */
 #define LKMC_TMP_FILE __FILE__ LKMC_TMP_EXT
 #define LKMC_TMP_FILE_NAMED(name) __FILE__ "__" name LKMC_TMP_EXT
 #endif

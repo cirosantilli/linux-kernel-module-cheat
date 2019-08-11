@@ -67,7 +67,7 @@ main_after_prologue: \
 
 /** Fields of system registers. */
 
-/* Counter: https://github.com/cirosantilli/linux-kernel-module-cheat#arm-timer */
+/* Counter: https://cirosantilli.com/linux-kernel-module-cheat#arm-timer */
 #define LKMC_SYSREG_CNTV_CTL_ENABLE  (1 << 0)
 #define LKMC_SYSREG_CNTV_CTL_IMASK   (1 << 1)
 #define LKMC_SYSREG_CNTV_CTL_ISTATUS (1 << 2)
@@ -80,7 +80,7 @@ main_after_prologue: \
 
 /* LKMC_VECTOR_*
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#armv8-exception-vector-table-format
+ * https://cirosantilli.com/linux-kernel-module-cheat#armv8-exception-vector-table-format
  */
 
 #define LKMC_VECTOR_SYNC_SP0     (0x1)

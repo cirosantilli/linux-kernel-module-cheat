@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#sysconf */
+/* https://cirosantilli.com/linux-kernel-module-cheat#sysconf */
 
 #define _XOPEN_SOURCE 700
 #include <stdio.h>

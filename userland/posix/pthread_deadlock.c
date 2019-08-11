@@ -1,6 +1,6 @@
 /* Let's see a trivial deadlock in action to feel the joys of multithreading.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#pthreads
+ * https://cirosantilli.com/linux-kernel-module-cheat#pthreads
  *
  * Exit successfully immediately without any arguments:
  *

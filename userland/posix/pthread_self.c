@@ -1,7 +1,7 @@
 /* Spawn N threads that print their TID with pthread_self and other
  * ID-like information for multiple threads.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#pthreads
+ * https://cirosantilli.com/linux-kernel-module-cheat#pthreads
  *
  * Sample usage:
  *

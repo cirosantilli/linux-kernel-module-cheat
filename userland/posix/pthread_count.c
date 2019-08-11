@@ -1,6 +1,6 @@
 /* count to infinity in n threads.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#pthreads
+ * https://cirosantilli.com/linux-kernel-module-cheat#pthreads
  *
  * Useful if you need to keep several threads around
  * to test something.

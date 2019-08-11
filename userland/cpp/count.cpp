@@ -1,6 +1,6 @@
 // Count to infinity sleeping one second per number.
 //
-// https://github.com/cirosantilli/linux-kernel-module-cheat#cpp-multithreading
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp-multithreading
 
 #include <chrono>
 #include <thread>

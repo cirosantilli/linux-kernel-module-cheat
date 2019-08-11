@@ -1,6 +1,6 @@
 /* Count to infinity with 1 second sleep between each increment.
  *
- * https://github.com/cirosantilli/linux-kernel-module-cheat#unistd-h
+ * https://cirosantilli.com/linux-kernel-module-cheat#unistd-h
  *
  * Sample application: https://cirosantilli.com/linux-kernel-module-cheat#gdb-step-debug-userland-custom-init
  */

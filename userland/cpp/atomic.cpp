@@ -1,4 +1,4 @@
-// https://github.com/cirosantilli/linux-kernel-module-cheat#cpp-multithreading
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp-multithreading
 //
 // The non-atomic counters have undefined values which get printed:
 // they are extremely likely to be less than the correct value due to

@@ -1,4 +1,4 @@
-/* https://github.com/cirosantilli/linux-kernel-module-cheat#gem5-simulate-time-reached */
+/* https://cirosantilli.com/linux-kernel-module-cheat#gem5-simulate-limit-reached */
 
 #include <lkmc/m5ops.h>
 

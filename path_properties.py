@@ -486,6 +486,7 @@ path_properties_tuples = (
                             # LDADD from LSE
                             'gem5_unimplemented_instruction': True,
                         },
+                        'count.cpp': {'more_than_1s': True},
                         'sleep_for.cpp': {
                             'more_than_1s': True,
                         },

@@ -1,4 +1,4 @@
-/* Let's see how much memory Linux lets us allocate. */
+/* https://cirosantilli.com/linux-kernel-module-cheat#malloc */
 
 #include <stdio.h>
 #include <stdlib.h>
