@@ -530,6 +530,7 @@ path_properties_tuples = (
                     {},
                     {
                         'count.c': {'more_than_1s': True},
+                        'count_to.c': {'more_than_1s': True},
                         'kill.c': {
                             'baremetal': True,
                             'signal_received': signal.Signals.SIGHUP,
