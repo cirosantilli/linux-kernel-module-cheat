@@ -473,7 +473,7 @@ path_properties_tuples = (
                         'file_write_read.c': {'baremetal': False},
                         'getchar.c': {'interactive': True},
                         'infinite_loop.c': {'more_than_1s': True},
-                        'out_of_memory.c': {'disrupts_system': True},
+                        'malloc_max.c': {'disrupts_system': True},
                         'return1.c': {'exit_status': 1},
                         'return2.c': {'exit_status': 2},
                     }

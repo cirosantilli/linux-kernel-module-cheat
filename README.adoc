@@ -12539,19 +12539,35 @@ link:userland/c/malloc.c[]: `malloc` hello world: allocate two ints and use them
 
 LInux 5.1 / glibc 2.29 implements it with the <<mmap,`mmap` system call>>.
 
-===== malloc out o fmemory
+===== malloc maximum size
 
-Test how much memory Linux lets us allocate:
+Test how much memory Linux lets us allocate by doubling a buffer with `realloc` until it fails:
 
 ....
-./run --userland userland/c/out_of_memory.c
+./run --userland userland/c/malloc_max.c
 ....
 
-Source: link:userland/c/out_of_memory.c[]
+Source: link:userland/c/malloc_max.c[]
 
-Outcome at c03d5d18ea971ae85d008101528d84c2ff25eb27 on Ubuntu 19.04 <<p51>> host: prints up to `0x1000000000` (64GiB).
+Outcome at c03d5d18ea971ae85d008101528d84c2ff25eb27 on Ubuntu 19.04 <<p51>> host (16GiB RAM): prints up to `0x1000000000` (64GiB).
 
 TODO dive into source code.
+
+TODO: if we do direct <<malloc>> allocations with link:userland/c/malloc.c[] or <<mmap>> with link:userland/linux/mmap_anonymous.c[], then the limit was smaller than 64GiB!
+
+These work:
+
+....
+./userland/c/malloc.out 0x100000000
+./userland/linux/mmap_anonymous.out 0x100000000
+....
+
+which is `4Gib * sizeof(int) == 16GiB`, but these fail at 32GiB:
+
+....
+./userland/c/malloc.out 0x200000000
+./userland/linux/mmap_anonymous.out 0x200000000
+....
 
 Bibliography: https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate
 

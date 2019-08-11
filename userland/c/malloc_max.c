@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#malloc */
+/* https://cirosantilli.com/linux-kernel-module-cheat#malloc-maximum-size */
 
 #include <stdio.h>
 #include <stdlib.h>

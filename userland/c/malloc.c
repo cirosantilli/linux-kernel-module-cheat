@@ -4,11 +4,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main(void) {
+int main(int argc, char **argv) {
     int *is;
-    size_t nbytes = 2 * sizeof(*is);
+    size_t nbytes, nints;
 
-    /* Allocate 2 ints. Note that unlike traditional stack arrays (non-VLA)
+    /* Decide how many ints to allocate. */
+    if (argc < 2) {
+        nints = 2;
+    } else {
+        nints = strtoull(argv[1], NULL, 0);
+    }
+    nbytes = nints * sizeof(*is);
+
+    /* Allocate the ints.
+     * Note that unlike traditional stack arrays (non-VLA)
      * this value does not have to be determined at compile time! */
     is = malloc(nbytes);
 

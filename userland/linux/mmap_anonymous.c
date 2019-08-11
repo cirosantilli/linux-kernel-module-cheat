@@ -5,11 +5,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <string.h>
 #include <unistd.h>
 
-int main(void) {
+int main(int argc, char **argv) {
     int *is;
-    size_t nbytes = 2 * sizeof(*is);
+    size_t nbytes, nints;
+
+    /* Decide how many ints to allocate. */
+    if (argc < 2) {
+        nints = 2;
+    } else {
+        nints = strtoull(argv[1], NULL, 0);
+    }
+    nbytes = nints * sizeof(*is);
 
     /* Allocate 2 ints. */
     is = mmap(
