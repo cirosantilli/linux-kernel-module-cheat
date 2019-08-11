@@ -1210,7 +1210,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel2">
 <li><a href="#c">20.1. C</a>
 <ul class="sectlevel3">
-<li><a href="#malloc">20.1.1. malloc</a></li>
+<li><a href="#malloc">20.1.1. malloc</a>
+<ul class="sectlevel4">
+<li><a href="#malloc-maximum-size">20.1.1.1. malloc maximum size</a></li>
+</ul>
+</li>
 <li><a href="#gcc-c-extensions">20.1.2. GCC C extensions</a>
 <ul class="sectlevel4">
 <li><a href="#c-empty-struct">20.1.2.1. C empty struct</a></li>
@@ -1236,7 +1240,9 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#sysconf">20.3.3. sysconf</a></li>
 <li><a href="#mmap-2">20.3.4. mmap</a>
 <ul class="sectlevel4">
-<li><a href="#brk">20.3.4.1. brk</a></li>
+<li><a href="#mmap-map-anonymous">20.3.4.1. mmap MAP_ANONYMOUS</a></li>
+<li><a href="#mmap-file">20.3.4.2. mmap file</a></li>
+<li><a href="#brk">20.3.4.3. brk</a></li>
 </ul>
 </li>
 </ul>
@@ -20557,18 +20563,55 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <div class="paragraph">
 <p>Allocate memory! Vs using the stack: <a href="https://stackoverflow.com/questions/4584089/what-is-the-function-of-the-push-pop-instructions-used-on-registers-in-x86-ass/33583134#33583134" class="bare">https://stackoverflow.com/questions/4584089/what-is-the-function-of-the-push-pop-instructions-used-on-registers-in-x86-ass/33583134#33583134</a></p>
 </div>
-<div class="ulist">
-<ul>
-<li>
+<div class="paragraph">
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a>: <code>malloc</code> hello world: allocate two ints and use them.</p>
-</li>
-<li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/out_of_memory.c">userland/c/out_of_memory.c</a>: test how much memory Linux lets us allocate</p>
-</li>
-</ul>
 </div>
 <div class="paragraph">
 <p>LInux 5.1 / glibc 2.29 implements it with the <a href="#mmap"><code>mmap</code> system call</a>.</p>
+</div>
+<div class="sect4">
+<h5 id="malloc-maximum-size"><a class="anchor" href="#malloc-maximum-size"></a><a class="link" href="#malloc-maximum-size">20.1.1.1. malloc maximum size</a></h5>
+<div class="paragraph">
+<p>Test how much memory Linux lets us allocate by doubling a buffer with <code>realloc</code> until it fails:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --userland userland/c/malloc_max.c</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc_max.c">userland/c/malloc_max.c</a></p>
+</div>
+<div class="paragraph">
+<p>Outcome at c03d5d18ea971ae85d008101528d84c2ff25eb27 on Ubuntu 19.04 <a href="#p51">P51</a> host (16GiB RAM): prints up to <code>0x1000000000</code> (64GiB).</p>
+</div>
+<div class="paragraph">
+<p>TODO dive into source code.</p>
+</div>
+<div class="paragraph">
+<p>TODO: if we do direct <a href="#malloc">malloc</a> allocations with <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a> or <a href="#mmap">mmap</a> with <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/mmap_anonymous.c">userland/linux/mmap_anonymous.c</a>, then the limit was smaller than 64GiB!</p>
+</div>
+<div class="paragraph">
+<p>These work:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./userland/c/malloc.out 0x100000000
+./userland/linux/mmap_anonymous.out 0x100000000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which is <code>4Gib * sizeof(int) == 16GiB</code>, but these fail at 32GiB:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./userland/c/malloc.out 0x200000000
+./userland/linux/mmap_anonymous.out 0x200000000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Bibliography: <a href="https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate" class="bare">https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate</a></p>
+</div>
 </div>
 </div>
 <div class="sect3">
@@ -20758,14 +20801,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <div class="sect3">
 <h4 id="mmap-2"><a class="anchor" href="#mmap-2"></a><a class="link" href="#mmap-2">20.3.4. mmap</a></h4>
 <div class="paragraph">
-<p>The mmap system call allows advanced memory operations:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/mmap_file.c">userland/posix/mmap_file.c</a>: memory mapped file example</p>
-</li>
-</ul>
+<p>The mmap system call allows advanced memory operations.</p>
 </div>
 <div class="paragraph">
 <p>mmap is notably used to implement the <a href="#malloc">malloc ANSI C</a> function, replacing the previously used break system call.</p>
@@ -20774,12 +20810,39 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <p>Linux adds has several POSIX extension flags to it.</p>
 </div>
 <div class="sect4">
-<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">20.3.4.1. brk</a></h5>
+<h5 id="mmap-map-anonymous"><a class="anchor" href="#mmap-map-anonymous"></a><a class="link" href="#mmap-map-anonymous">20.3.4.1. mmap MAP_ANONYMOUS</a></h5>
+<div class="paragraph">
+<p>Basic <code>mmap</code> example, do the same as <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a>, but with <code>mmap</code>.</p>
+</div>
+<div class="paragraph">
+<p>Example: userland/linux/mmap_anonymous.c[]</p>
+</div>
+<div class="paragraph">
+<p>In POSIX 7 mmap always maps to a file.</p>
+</div>
+<div class="paragraph">
+<p>If we add the MAP_ANONYMOUS Linux extension however, this is not required, and mmap can be used to allocate memory like malloc.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="mmap-file"><a class="anchor" href="#mmap-file"></a><a class="link" href="#mmap-file">20.3.4.2. mmap file</a></h5>
+<div class="paragraph">
+<p>Memory mapped file example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/mmap_file.c">userland/posix/mmap_file.c</a></p>
+</div>
+<div class="paragraph">
+<p>The example creates a file, mmaps to it, writes to maped memory, and then closes the file.</p>
+</div>
+<div class="paragraph">
+<p>We then read the file and confirm it was written to.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">20.3.4.3. brk</a></h5>
 <div class="paragraph">
 <p>Previously <a href="#posix">POSIX</a>, but was deprecated in favor of <a href="#malloc">malloc</a></p>
 </div>
 <div class="paragraph">
-<p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/glibc/brk.c">userland/glibc/brk.c</a></p>
+<p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/brk.c">userland/linux/brk.c</a></p>
 </div>
 <div class="paragraph">
 <p>The example allocates two ints and uses them, and then deallocates back.</p>
