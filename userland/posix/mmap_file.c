@@ -1,13 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#mmap
- *
- * Example of mmap on files.
- *
- * Create a file, mmap to it, write to maped memory, close.
- *
- * Then read the file and confirm it was written to.
- *
- * Implemented in Linux by the mmap syscall.
- */
+/* https://cirosantilli.com/linux-kernel-module-cheat#mmap-file */
 
 #define _XOPEN_SOURCE 700
 #include <assert.h>

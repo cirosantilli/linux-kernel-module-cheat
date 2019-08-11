@@ -12535,10 +12535,25 @@ Programs under link:userland/c/[] are examples of https://en.wikipedia.org/wiki/
 
 Allocate memory! Vs using the stack: https://stackoverflow.com/questions/4584089/what-is-the-function-of-the-push-pop-instructions-used-on-registers-in-x86-ass/33583134#33583134
 
-* link:userland/c/malloc.c[]: `malloc` hello world: allocate two ints and use them.
-* link:userland/c/out_of_memory.c[]: test how much memory Linux lets us allocate
+link:userland/c/malloc.c[]: `malloc` hello world: allocate two ints and use them.
 
 LInux 5.1 / glibc 2.29 implements it with the <<mmap,`mmap` system call>>.
+
+===== malloc out o fmemory
+
+Test how much memory Linux lets us allocate:
+
+....
+./run --userland userland/c/out_of_memory.c
+....
+
+Source: link:userland/c/out_of_memory.c[]
+
+Outcome at c03d5d18ea971ae85d008101528d84c2ff25eb27 on Ubuntu 19.04 <<p51>> host: prints up to `0x1000000000` (64GiB).
+
+TODO dive into source code.
+
+Bibliography: https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate
 
 ==== GCC C extensions
 
@@ -12638,19 +12653,36 @@ getconf -a
 
 ==== mmap
 
-The mmap system call allows advanced memory operations:
-
-* link:userland/posix/mmap_file.c[]: memory mapped file example
+The mmap system call allows advanced memory operations.
 
 mmap is notably used to implement the <<malloc,malloc ANSI C>> function, replacing the previously used break system call.
 
 Linux adds has several POSIX extension flags to it.
 
+[[mmap-map-anonymous]]
+===== mmap MAP_ANONYMOUS
+
+Basic `mmap` example, do the same as link:userland/c/malloc.c[], but with `mmap`.
+
+Example: userland/linux/mmap_anonymous.c[]
+
+In POSIX 7 mmap always maps to a file.
+
+If we add the MAP_ANONYMOUS Linux extension however, this is not required, and mmap can be used to allocate memory like malloc.
+
+===== mmap file
+
+Memory mapped file example: link:userland/posix/mmap_file.c[]
+
+The example creates a file, mmaps to it, writes to maped memory, and then closes the file.
+
+We then read the file and confirm it was written to.
+
 ===== brk
 
 Previously <<posix>>, but was deprecated in favor of <<malloc>>
 
-Example: link:userland/glibc/brk.c[]
+Example: link:userland/linux/brk.c[]
 
 The example allocates two ints and uses them, and then deallocates back.
 

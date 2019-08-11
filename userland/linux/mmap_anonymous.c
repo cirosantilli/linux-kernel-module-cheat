@@ -1,20 +1,29 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#malloc */
+/* https://cirosantilli.com/linux-kernel-module-cheat#mmap-map-anonymous */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 int main(void) {
     int *is;
     size_t nbytes = 2 * sizeof(*is);
 
-    /* Allocate 2 ints. Note that unlike traditional stack arrays (non-VLA)
-     * this value does not have to be determined at compile time! */
-    is = malloc(nbytes);
+    /* Allocate 2 ints. */
+    is = mmap(
+        NULL,
+        nbytes,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED | MAP_ANONYMOUS,
+        -1,
+        0
+    );
 
     /* This can happen for example if we ask for too much memory. */
     if (is == NULL) {
-        perror("malloc");
+        perror("mmap");
         exit(EXIT_FAILURE);
     }
 
@@ -25,7 +34,7 @@ int main(void) {
     assert(is[1] == 2);
 
     /* Free the allocated memory. */
-    free(is);
+    munmap(is, nbytes);
 
     return EXIT_SUCCESS;
 }
