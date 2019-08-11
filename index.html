@@ -1210,10 +1210,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel2">
 <li><a href="#c">20.1. C</a>
 <ul class="sectlevel3">
-<li><a href="#gcc-c-extensions">20.1.1. GCC C extensions</a>
+<li><a href="#malloc">20.1.1. malloc</a></li>
+<li><a href="#gcc-c-extensions">20.1.2. GCC C extensions</a>
 <ul class="sectlevel4">
-<li><a href="#c-empty-struct">20.1.1.1. C empty struct</a></li>
-<li><a href="#openmp">20.1.1.2. OpenMP</a></li>
+<li><a href="#c-empty-struct">20.1.2.1. C empty struct</a></li>
+<li><a href="#openmp">20.1.2.2. OpenMP</a></li>
 </ul>
 </li>
 </ul>
@@ -1233,6 +1234,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#unistd-h">20.3.1. unistd.h</a></li>
 <li><a href="#pthreads">20.3.2. pthreads</a></li>
 <li><a href="#sysconf">20.3.3. sysconf</a></li>
+<li><a href="#mmap-2">20.3.4. mmap</a>
+<ul class="sectlevel4">
+<li><a href="#brk">20.3.4.1. brk</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#userland-multithreading">20.4. Userland multithreading</a></li>
@@ -19953,6 +19959,9 @@ qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -smp 1 -kernel output/ima
 <pre>xdg-open "$(./getvar --arch aarch64 --gem5-build-id ruby gem5_build_build_dir)/ARM/mem/protocol/html/index.html"</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>A minimized ruby config which was not merged upstream can be found for study at: <a href="https://gem5-review.googlesource.com/c/public/gem5/+/13599/1" class="bare">https://gem5-review.googlesource.com/c/public/gem5/+/13599/1</a></p>
+</div>
 </div>
 </div>
 <div class="sect2">
@@ -20502,16 +20511,6 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </ul>
 </div>
 </li>
-<li>
-<p>malloc</p>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/out_of_memory.c">userland/c/out_of_memory.c</a></p>
-</li>
-</ul>
-</div>
-</li>
 </ul>
 </div>
 </li>
@@ -20554,9 +20553,28 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </ul>
 </div>
 <div class="sect3">
-<h4 id="gcc-c-extensions"><a class="anchor" href="#gcc-c-extensions"></a><a class="link" href="#gcc-c-extensions">20.1.1. GCC C extensions</a></h4>
+<h4 id="malloc"><a class="anchor" href="#malloc"></a><a class="link" href="#malloc">20.1.1. malloc</a></h4>
+<div class="paragraph">
+<p>Allocate memory! Vs using the stack: <a href="https://stackoverflow.com/questions/4584089/what-is-the-function-of-the-push-pop-instructions-used-on-registers-in-x86-ass/33583134#33583134" class="bare">https://stackoverflow.com/questions/4584089/what-is-the-function-of-the-push-pop-instructions-used-on-registers-in-x86-ass/33583134#33583134</a></p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a>: <code>malloc</code> hello world: allocate two ints and use them.</p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/out_of_memory.c">userland/c/out_of_memory.c</a>: test how much memory Linux lets us allocate</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>LInux 5.1 / glibc 2.29 implements it with the <a href="#mmap"><code>mmap</code> system call</a>.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gcc-c-extensions"><a class="anchor" href="#gcc-c-extensions"></a><a class="link" href="#gcc-c-extensions">20.1.2. GCC C extensions</a></h4>
 <div class="sect4">
-<h5 id="c-empty-struct"><a class="anchor" href="#c-empty-struct"></a><a class="link" href="#c-empty-struct">20.1.1.1. C empty struct</a></h5>
+<h5 id="c-empty-struct"><a class="anchor" href="#c-empty-struct"></a><a class="link" href="#c-empty-struct">20.1.2.1. C empty struct</a></h5>
 <div class="paragraph">
 <p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/empty_struct.c">userland/gcc/empty_struct.c</a></p>
 </div>
@@ -20568,7 +20586,7 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </div>
 </div>
 <div class="sect4">
-<h5 id="openmp"><a class="anchor" href="#openmp"></a><a class="link" href="#openmp">20.1.1.2. OpenMP</a></h5>
+<h5 id="openmp"><a class="anchor" href="#openmp"></a><a class="link" href="#openmp">20.1.2.2. OpenMP</a></h5>
 <div class="paragraph">
 <p>GCC implements the <a href="#openmp">OpenMP</a> threading implementation: <a href="https://stackoverflow.com/questions/3949901/pthreads-vs-openmp" class="bare">https://stackoverflow.com/questions/3949901/pthreads-vs-openmp</a></p>
 </div>
@@ -20735,6 +20753,40 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </div>
 <div class="paragraph">
 <p><code>getconf</code> is also specified by POSIX at: <a href="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/getconf.html" class="bare">https://pubs.opengroup.org/onlinepubs/9699919799/utilities/getconf.html</a> but not the <code>-a</code> option which shows all configurations.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="mmap-2"><a class="anchor" href="#mmap-2"></a><a class="link" href="#mmap-2">20.3.4. mmap</a></h4>
+<div class="paragraph">
+<p>The mmap system call allows advanced memory operations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/mmap_file.c">userland/posix/mmap_file.c</a>: memory mapped file example</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>mmap is notably used to implement the <a href="#malloc">malloc ANSI C</a> function, replacing the previously used break system call.</p>
+</div>
+<div class="paragraph">
+<p>Linux adds has several POSIX extension flags to it.</p>
+</div>
+<div class="sect4">
+<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">20.3.4.1. brk</a></h5>
+<div class="paragraph">
+<p>Previously <a href="#posix">POSIX</a>, but was deprecated in favor of <a href="#malloc">malloc</a></p>
+</div>
+<div class="paragraph">
+<p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/glibc/brk.c">userland/glibc/brk.c</a></p>
+</div>
+<div class="paragraph">
+<p>The example allocates two ints and uses them, and then deallocates back.</p>
+</div>
+<div class="paragraph">
+<p>Bibliography: <a href="https://stackoverflow.com/questions/6988487/what-does-the-brk-system-call-do/31082353#31082353" class="bare">https://stackoverflow.com/questions/6988487/what-does-the-brk-system-call-do/31082353#31082353</a></p>
+</div>
 </div>
 </div>
 </div>
@@ -26925,13 +26977,49 @@ IN: main
 <div class="sect3">
 <h4 id="arm-timer"><a class="anchor" href="#arm-timer"></a><a class="link" href="#arm-timer">26.8.4. ARM timer</a></h4>
 <div class="paragraph">
-<p>TODO get working. Attempt at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/timer.c">baremetal/arch/aarch64/timer.c</a></p>
+<p>The ARM timer is the simplest way to generate hardware interrupts periodically, and therefore serves as the simples example of <a href="#arm-gic">ARM GIC</a>  usage.</p>
 </div>
 <div class="paragraph">
-<p>The timer is documented at: <a href="#armarm8-db">ARMv8 architecture reference manual db</a> Chapter D10 "The Generic Timer in AArch64 state"</p>
+<p>Working on QEMU: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/timer.c">baremetal/arch/aarch64/timer.c</a></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/timer.c</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>The key registers to keep in mind are:</p>
+<p>Output at lkmc d8dae268c0a3e4e361002aca3b382fedd77f2567 + 1:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cntv_ctl_el0 0x0
+cntfrq_el0 0x3B9ACA0
+cntv_cval_el0 0x0
+cntvct_el0 0x105113
+cntvct_el0 0x1080BC
+cntvct_el0 0x10A118
+
+IRQ number 0x1B
+cntvct_el0 0x14D25B
+cntv_cval_el0 0x3CE9CD6
+
+IRQ number 0x1B
+cntvct_el0 0x3CF516F
+cntv_cval_el0 0x7893217
+
+IRQ number 0x1B
+cntvct_el0 0x789B733
+cntv_cval_el0 0xB439642</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and new <code>IRQ number</code> section appears every second, when a clock interrupt is raised!</p>
+</div>
+<div class="paragraph">
+<p>Once an interrupt is raised, the interrupt itself sets up a new interrupt to happen in one second in the future after <code>cntv_cval_el0</code> is reached by the counter.</p>
+</div>
+<div class="paragraph">
+<p>The timer is part of the aarch64 specification itself and is documented at: <a href="#armarm8-db">ARMv8 architecture reference manual db</a> Chapter D10 "The Generic Timer in AArch64 state". The key registers to keep in mind are:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -26961,6 +27049,66 @@ IN: main
 <p><code>CNTV_CVAL_EL0</code>: "Counter-timer Virtual Timer CompareValue register". The interrupt happens when <code>CNTVCT_EL0</code> reaches the value in this register.</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>Due to <a href="#gem5-vs-qemu">QEMU&#8217;s non-determinism</a>, each consecutive run has slightly different output values.</p>
+</div>
+<div class="paragraph">
+<p>From the terminal output, we can see that the initial clock frequency is 0x3B9ACA0 == 62500000 Hz == 62.5MHz. Grepping QEMU source for that string leads us to:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/* Scale factor for generic timers, ie number of ns per tick.
+ * This gives a 62.5MHz timer.
+ */
+#define GTIMER_SCALE 16</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which in turn is used to set the initial reset value of the clock:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    { .name = "CNTFRQ_EL0", .state = ARM_CP_STATE_AA64,
+      .opc0 = 3, .opc1 = 3, .crn = 14, .crm = 0, .opc2 = 0,
+      .access = PL1_RW | PL0_R, .accessfn = gt_cntfrq_access,
+      .fieldoffset = offsetof(CPUARMState, cp15.c14_cntfrq),
+      .resetvalue = (1000 * 1000 * 1000) / GTIMER_SCALE,</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>(1000 * 1000 * 1000) / 16 == 62500000</code>.</p>
+</div>
+<div class="paragraph">
+<p>Trying to set the frequency on QEMU by writing to the CNTFRQ register does change the value of future reads, but has no effect on the actual clock frequency as commented on the QEMU source code <a href="https://github.com/qemu/qemu/blob/v4.0.0/target/arm/helper.c#L2647" class="bare">https://github.com/qemu/qemu/blob/v4.0.0/target/arm/helper.c#L2647</a></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
+    /* Note that CNTFRQ is purely reads-as-written for the benefit
+     * of software; writing it doesn't actually change the timer frequency.
+     * Our reset value matches the fixed frequency we implement the timer at.
+     */
+    { .name = "CNTFRQ", .cp = 15, .crn = 14, .crm = 0, .opc1 = 0, .opc2 = 0,
+      .type = ARM_CP_ALIAS,
+      .access = PL1_RW | PL0_R, .accessfn = gt_cntfrq_access,
+      .fieldoffset = offsetoflow32(CPUARMState, cp15.c14_cntfrq),
+    },</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>At each interrupt, we increase the compare value <code>CVAL</code> by about 1x the clock frequency 0x3B9ACA0 so that it will fire again in one second, e.g. <code>0x3CE9CD6 - 0x14D25B == 3B9CA7B</code>. The increment is not perfect because the counter keeps ticking even while our register read and print instructions are running inside the interrupt handler!</p>
+</div>
+<div class="paragraph">
+<p>We then observe that the next interrupt happens soon after CNTV_CVAL_EL0 is reached by CNTVCT_EL0:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cntv_cval_el0 0x3CE9CD6
+
+IRQ number 0x1B
+cntvct_el0 0x3CF516F</pre>
+</div>
 </div>
 <div class="paragraph">
 <p>Bibliography:</p>
