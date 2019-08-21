@@ -3,14 +3,6 @@
 #include <sys/stat.h>
 
 #include <lkmc.h>
-#include <lkmc/m5ops.h>
-
-void lkmc_baremetal_on_exit_callback(int status, void *arg) {
-    (void)arg;
-    if (status != 0) {
-        printf("lkmc_exit_status_%d\n", status);
-    }
-}
 
 enum {
     UART_FR_RXFE = 0x10,
@@ -19,42 +11,16 @@ enum {
 #define UART_DR(baseaddr) (*(unsigned int *)(baseaddr))
 #define UART_FR(baseaddr) (*(((unsigned int *)(baseaddr))+6))
 
+void lkmc_baremetal_on_exit_callback(int status, void *arg) {
+    (void)arg;
+    if (status != 0) {
+        printf("lkmc_exit_status_%d\n", status);
+    }
+}
+
 int _close(int file) {
     LKMC_UNUSED(file);
     return -1;
-}
-
-void _exit(int status) {
-    LKMC_UNUSED(status);
-#if LKMC_GEM5
-    LKMC_M5OPS_EXIT;
-#else
-#if defined(__arm__)
-    __asm__ __volatile__ (
-        "mov r0, #0x18\n"
-        "ldr r1, =#0x20026\n"
-        "svc 0x00123456\n"
-        :
-        :
-        : "r0", "r1"
-    );
-#elif defined(__aarch64__)
-    /* TODO actually use the exit value here, just for fun. */
-    __asm__ __volatile__ (
-        "mov x1, #0x26\n" \
-        "movk x1, #2, lsl #16\n" \
-        "str x1, [sp,#0]\n" \
-        "mov x0, #0\n" \
-        "str x0, [sp,#8]\n" \
-        "mov x1, sp\n" \
-        "mov w0, #0x18\n" \
-        "hlt 0xf000\n"
-        :
-        :
-        : "x0", "x1"
-    );
-#endif
-#endif
 }
 
 int _fstat(int file, struct stat *st) {

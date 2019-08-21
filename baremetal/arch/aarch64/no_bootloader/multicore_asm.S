@@ -1,11 +1,15 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#arm-multicore */
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-multicore
+ *
+ * This has to be in no_bootloader
+ */
 
 #include <lkmc.h>
 
-LKMC_PROLOGUE
+.global lkmc_start
+lkmc_start:
     /* Reset spinlock. */
     mov x0, 0
-    ldr x1, =spinlock
+    ldr x1, =.Lspinlock
     str x0, [x1]
 
     /* Read cpu id into x1.
@@ -14,11 +18,11 @@ LKMC_PROLOGUE
      */
     mrs x1, mpidr_el1
     ands x1, x1, 3
-    beq cpu0_only
+    beq .Lcpu0_only
 .Lcpu1_only:
     /* Only CPU 1 reaches this point and sets the spinlock. */
     mov x0, 1
-    ldr x1, =spinlock
+    ldr x1, =.Lspinlock
     str x0, [x1]
     /* Ensure that CPU 0 sees the write right now.
      * Optional, but could save some useless CPU 1 loops.
@@ -34,7 +38,7 @@ LKMC_PROLOGUE
      */
     wfe
     b .Lcpu1_sleep_forever
-cpu0_only:
+.Lcpu0_only:
     /* Only CPU 0 reaches this point. */
 
 #if !LKMC_GEM5
@@ -61,11 +65,14 @@ cpu0_only:
     hvc 0
 #endif
 
-spinlock_start:
-    ldr x0, spinlock
+.Lspinlock_start:
+    ldr x0, .Lspinlock
     /* Hint CPU 0 to enter low power mode. */
     wfe
-    cbz x0, spinlock_start
-LKMC_EPILOGUE
-spinlock:
+    cbz x0, .Lspinlock_start
+
+    mov x0, 0
+    bl _exit
+
+.Lspinlock:
     .skip 8

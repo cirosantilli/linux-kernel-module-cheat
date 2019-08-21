@@ -1,8 +1,20 @@
 #ifndef LKMC_ARM_H
 #define LKMC_ARM_H
 
+#include <lkmc/arm_aarch64.h>
+
 #if defined(__ASSEMBLER__)
+
 .syntax unified
+
+#else
+
+void lkmc_arm_psci_cpu_on(
+    uint32_t target_cpu,
+    uint32_t entry_point_address,
+    uint32_t context_id
+);
+
 #endif
 
 #define LKMC_ASSERT_EQ(reg, const) \

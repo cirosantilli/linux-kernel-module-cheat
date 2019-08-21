@@ -2,6 +2,11 @@
 
 .global lkmc_start
 lkmc_start:
+    /* Make all CPUs except CPU0 sleep by default. */
+    mrc p15, 0, r0, c0, c0, 5
+    ands r0, r0, 3
+    bne lkmc_cpu_not_0
+
     /* Prepare the stack for main, mandatory for C code. */
     ldr sp, =stack_top
 
@@ -28,3 +33,8 @@ lkmc_start:
 
     /* If main returns, exit. */
     bl exit
+
+/* Default action for CPUs besides the first one: sleep forever. */
+LKMC_WEAK(lkmc_cpu_not_0)
+    wfe
+    b lkmc_cpu_not_0

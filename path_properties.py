@@ -284,11 +284,17 @@ path_properties_tuples = (
                         'arm': (
                             {'allowed_archs': {'arm'}},
                             {
-                                'multicore.S': {'test_run_args': {'cpus': 2}},
+                                'multicore.c': {
+                                    # It is hard to get visibility into what is going on
+                                    # in that one due to the multicore business.
+                                    'skip_run_unclassified': True,
+                                    'test_run_args': {'cpus': 2}
+                                },
                                 'no_bootloader': (
                                     {'extra_objs_disable_baremetal_bootloader': True},
                                     {
                                         'gem5_exit.S': {'requires_m5ops': True},
+                                        'multicore_asm.S': {'test_run_args': {'cpus': 2}},
                                         'semihost_exit.S': {'requires_semihosting': True},
                                     }
                                 ),
@@ -300,11 +306,12 @@ path_properties_tuples = (
                         'aarch64': (
                             {'allowed_archs': {'aarch64'}},
                             {
-                                'multicore.S': {'test_run_args': {'cpus': 2}},
+                                'multicore.c': {'test_run_args': {'cpus': 2}},
                                 'no_bootloader': (
                                     {'extra_objs_disable_baremetal_bootloader': True},
                                     {
                                         'gem5_exit.S': {'requires_m5ops': True},
+                                        'multicore_asm.S': {'test_run_args': {'cpus': 2}},
                                         'semihost_exit.S': {'requires_semihosting': True},
                                         'wfe_loop.S': {'more_than_1s': True},
                                     }

@@ -1,3 +1,5 @@
+/* https://cirosantilli.com/linux-kernel-module-cheat#semihosting */
+
 .global main
 main:
     /* 0x20026 == ADP_Stopped_ApplicationExit */

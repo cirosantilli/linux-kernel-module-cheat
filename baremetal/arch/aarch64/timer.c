@@ -113,7 +113,7 @@ int main(void) {
         enable_irq();
     }
     while (1) {
-        lkmc_wfi();
+        lkmc_arm_aarch64_wfi();
     }
     return 0;
 }

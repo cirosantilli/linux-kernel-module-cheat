@@ -15470,15 +15470,23 @@ Semihosting is implemented both on some real devices and on simulators such as Q
 
 It is documented at: https://developer.arm.com/docs/100863/latest/introduction
 
-For example, the following code makes QEMU exit:
+For example, all the following code make QEMU exit:
 
 ....
 ./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.S
+./run --arch arm --baremetal baremetal/arch/arm/no_bootloader/semihost_exit.S
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/semihost_exit.S
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/semihost_exit.S
 ....
 
-Source: link:baremetal/arch/arm/no_bootloader/semihost_exit.S[]
+Sources:
 
-That program program contains the code:
+* link:baremetal/arch/arm/semihost_exit.S[]
+* link:baremetal/arch/arm/no_bootloader/semihost_exit.S[]
+* link:baremetal/arch/aarch64/semihost_exit.S[]
+* link:baremetal/arch/aarch64/no_bootloader/semihost_exit.S[]
+
+That `arm` program program contains the code:
 
 ....
 mov r0, #0x18
@@ -16171,17 +16179,26 @@ See the example at: xref:arm-svc-instruction[xrefstyle=full]
 
 ==== ARM multicore
 
+Examples:
+
 ....
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 2
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 2 --emulator gem5
-./run --arch arm --baremetal baremetal/arch/aarch64/multicore.S --cpus 2
-./run --arch arm --baremetal baremetal/arch/aarch64/multicore.S --cpus 2 --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/multicore_asm.S --cpus 2
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/multicore_asm.S --cpus 2 --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 2
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 2 --emulator gem5
+./run --arch arm --baremetal baremetal/arch/arm/no_bootloader/multicore_asm.S --cpus 2
+./run --arch arm --baremetal baremetal/arch/arm/no_bootloader/multicore_asm.S --cpus 2 --emulator gem5
+# TODO not working, hangs.
+# ./run --arch arm --baremetal baremetal/arch/arm/multicore.c --cpus 2
+./run --arch arm --baremetal baremetal/arch/arm/multicore.c --cpus 2 --emulator gem5
 ....
 
 Sources:
 
-* link:baremetal/arch/aarch64/multicore.S[]
-* link:baremetal/arch/arm/multicore.S[]
+* link:baremetal/arch/aarch64/no_bootloader/multicore_asm.S[]
+* link:baremetal/arch/aarch64/multicore.c[]
+* link:baremetal/arch/arm/no_bootloader/multicore_asm.S[]
+* link:baremetal/arch/arm/multicore.c[]
 
 CPU 0 of this program enters a spinlock loop: it repeatedly checks if a given memory address is 1.
 
@@ -16190,7 +16207,7 @@ So, we need CPU 1 to come to the rescue and set that memory address to 1, otherw
 Don't believe me? Then try:
 
 ....
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 1
 ....
 
 and watch it hang forever.
@@ -16198,7 +16215,7 @@ and watch it hang forever.
 Note that if you try the same thing on gem5:
 
 ....
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1 --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 1 --emulator gem5
 ....
 
 then the gem5 actually exits with <<gem5-simulate-limit-reached>> as opposed to the expected:

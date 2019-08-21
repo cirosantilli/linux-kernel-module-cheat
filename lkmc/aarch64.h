@@ -1,6 +1,8 @@
 #ifndef LKMC_AARCH64_H
 #define LKMC_AARCH64_H
 
+#include <lkmc/arm_aarch64.h>
+
 #define LKMC_ASSERT_EQ(reg, const) \
     mov x0, reg; \
     ldr x1, const; \
@@ -292,10 +294,7 @@ typedef struct {
 } LkmcVectorExceptionFrame;
 
 void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception);
-
-/* Misc assembly instructions. */
-#define lkmc_svc(immediate) __asm__ __volatile__("svc " #immediate : : : )
-#define lkmc_wfi() __asm__ __volatile__ ("wfi" : : : "memory")
+void lkmc_cpu_not_0(uint64_t cpuid);
 
 /* Sysreg read and write functions, e.g.:
  *
@@ -310,16 +309,26 @@ void lkmc_vector_trap_handler(LkmcVectorExceptionFrame *exception);
     void LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, print_), name)(void);
 #define LKMC_SYSREG_OPS \
     LKMC_SYSREG_READ_WRITE(32, cntv_ctl_el0) \
-    LKMC_SYSREG_READ_WRITE(64, daif) \
-    LKMC_SYSREG_READ_WRITE(32, spsel) \
     LKMC_SYSREG_READ_WRITE(64, cntfrq_el0) \
     LKMC_SYSREG_READ_WRITE(64, cntv_cval_el0) \
     LKMC_SYSREG_READ_WRITE(64, cntv_tval_el0) \
     LKMC_SYSREG_READ_WRITE(64, cntvct_el0) \
+    LKMC_SYSREG_READ_WRITE(64, daif) \
+    LKMC_SYSREG_READ_WRITE(64, mpidr_el1) \
     LKMC_SYSREG_READ_WRITE(64, sp_el1) \
+    LKMC_SYSREG_READ_WRITE(32, spsel) \
     LKMC_SYSREG_READ_WRITE(64, vbar_el1)
 LKMC_SYSREG_OPS
 #undef LKMC_SYSREG_READ_WRITE
+
+/* Determine what is the ID of the currently running CPU. */
+uint64_t lkmc_aarch64_cpu_id();
+
+void lkmc_aarch64_psci_cpu_on(
+    uint64_t target_cpu,
+    uint64_t entry_point_address,
+    uint64_t context_id
+);
 
 #endif
 #endif

@@ -68,7 +68,30 @@ void lkmc_print_newline() {
     printf("\n");
 }
 
-#if defined(__aarch64__)
+#if defined(__arm__)
+
+void lkmc_arm_psci_cpu_on(
+    uint32_t target_cpu,
+    uint32_t entry_point_address,
+    uint32_t context_id
+) {
+    register int r0 __asm__ ("r0") = 0x84000003;
+    register int r1 __asm__ ("r1") = target_cpu;
+    register int r2 __asm__ ("r2") = entry_point_address;
+    register int r3 __asm__ ("r3") = context_id;
+    __asm__ __volatile__(
+        "hvc 0\n"
+        :
+        : "r" (r0),
+          "r" (r1),
+          "r" (r2),
+          "r" (r3)
+        :
+    );
+}
+
+#elif defined(__aarch64__)
+
 #define LKMC_SYSREG_READ_WRITE(nbits, name) \
     LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) LKMC_CONCAT(LKMC_CONCAT(LKMC_SYSREG_SYMBOL_PREFIX, read_), name)(void) { \
         LKMC_CONCAT(LKMC_CONCAT(uint, nbits), _t) name; \
@@ -83,4 +106,31 @@ void lkmc_print_newline() {
     }
 LKMC_SYSREG_OPS
 #undef LKMC_SYSREG_READ_WRITE
+
+uint64_t lkmc_aarch64_cpu_id() {
+    /* TODO: cores beyond 4th?
+     * Mnemonic: Main Processor ID Register
+     */
+    return lkmc_sysreg_read_mpidr_el1() & 3;
+}
+
+void lkmc_aarch64_psci_cpu_on(
+    uint64_t target_cpu,
+    uint64_t entry_point_address,
+    uint64_t context_id
+) {
+    register int w0 __asm__ ("w0") = 0xc4000003;
+    register int x1 __asm__ ("x1") = target_cpu;
+    register int x2 __asm__ ("x2") = entry_point_address;
+    register int x3 __asm__ ("x3") = context_id;
+    __asm__ __volatile__(
+        "hvc 0\n"
+        :
+        : "r" (w0),
+          "r" (x1),
+          "r" (x2),
+          "r" (x3)
+        :
+    );
+}
 #endif

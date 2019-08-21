@@ -1,4 +1,7 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#lkmc-c */
+/* https://cirosantilli.com/linux-kernel-module-cheat#lkmc-c
+ *
+ * This toplevel header includes all the lkmc/ *.h headers.
+ */
 
 #ifndef LKMC_H
 #define LKMC_H
@@ -68,5 +71,7 @@ void lkmc_assert_memcmp(const void *s1, const void *s2, size_t n, uint32_t line)
 #else
 #error
 #endif
+
+#include <lkmc/m5ops.h>
 
 #endif

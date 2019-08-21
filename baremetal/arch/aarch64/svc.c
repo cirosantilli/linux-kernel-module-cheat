@@ -71,7 +71,7 @@ int main(void) {
     printf("&after_svc %p\n", &&after_svc);
     assert(myvar == 0);
     /* Max 16-bits. */
-    lkmc_svc(0xABCD);
+    lkmc_arm_aarch64_svc(0xABCD);
 after_svc:
     assert(myvar == 1);
     return 0;

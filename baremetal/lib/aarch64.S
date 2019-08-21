@@ -2,6 +2,11 @@
 
 .global lkmc_start
 lkmc_start:
+    /* Make all CPUs except CPU0 sleep by default. */
+    mrs x0, mpidr_el1
+    ands x0, x0, 3
+    bne lkmc_cpu_not_0
+
     /* Load the vector table. */
     ldr x0, =lkmc_vector_table
     msr vbar_el1, x0
@@ -41,3 +46,8 @@ LKMC_WEAK(lkmc_vector_trap_handler)
     bl abort
 lkmc_vector_trap_handler_error_message:
     .asciz "error: unexpected interrupt"
+
+/* Default action for CPUs besides the first one: sleep forever. */
+LKMC_WEAK(lkmc_cpu_not_0)
+    wfe
+    b lkmc_cpu_not_0
