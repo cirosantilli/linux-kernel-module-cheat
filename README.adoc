@@ -4011,6 +4011,47 @@ Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
 * QEMU user: 45 seconds
 * QEMU full system: 223 seconds
 
+==== gem5 syscall emulation mode syscall tracing
+
+Since gem5 has to implement syscalls itself in syscall emulation mode, it can of course clearly see which syscalls are bing made, and we can log them for debug purposes with <<gem5-tracing>>, e.g.:
+
+....
+./run \
+  --emulator gem5 \
+  --static userland/arch/x86_64/freestanding/linux/hello.S \
+  --userland  \
+  --trace-stdout \
+  --trace ExecAll,SyscallBase,SyscallVerbose \
+;
+....
+
+the trace as of f2eeceb1cde13a5ff740727526bf916b356cee38 + 1 contains:
+
+....
+      0: system.cpu A0 T0 : @asm_main_after_prologue    : mov   rdi, 0x1
+      0: system.cpu A0 T0 : @asm_main_after_prologue.0  :   MOV_R_I : limm   rax, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7    : mov rdi, 0x1
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7.0  :   MOV_R_I : limm   rdi, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14    : lea        rsi, DS:[rip + 0x19]
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14.0  :   LEA_R_P : rdip   t7, %ctrl153,  : IntAlu :  D=0x000000000040008d  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+   2500: system.cpu A0 T0 : @asm_main_after_prologue+14.1  :   LEA_R_P : lea   rsi, DS:[t7 + 0x19] : IntAlu :  D=0x00000000004000a6  flags=(IsInteger|IsMicroop|IsLastMicroop)
+   3500: system.cpu A0 T0 : @asm_main_after_prologue+21    : mov        rdi, 0x6
+   3500: system.cpu A0 T0 : @asm_main_after_prologue+21.0  :   MOV_R_I : limm   rdx, 0x6 : IntAlu :  D=0x0000000000000006  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   4000: system.cpu: T0 : syscall write called w/arguments 1, 4194470, 6, 0, 0, 0
+hello
+   4000: system.cpu: T0 : syscall write returns 6
+   4000: system.cpu A0 T0 : @asm_main_after_prologue+28    :   syscall    eax           : IntAlu :   flags=(IsInteger|IsSerializeAfter|IsNonSpeculative|IsSyscall)
+   5000: system.cpu A0 T0 : @asm_main_after_prologue+30    : mov        rdi, 0x3c
+   5000: system.cpu A0 T0 : @asm_main_after_prologue+30.0  :   MOV_R_I : limm   rax, 0x3c : IntAlu :  D=0x000000000000003c  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   6000: system.cpu A0 T0 : @asm_main_after_prologue+37    : mov        rdi, 0
+   6000: system.cpu A0 T0 : @asm_main_after_prologue+37.0  :   MOV_R_I : limm   rdi, 0  : IntAlu :  D=0x0000000000000000  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   6500: system.cpu: T0 : syscall exit called w/arguments 0, 4194470, 6, 0, 0, 0
+   6500: system.cpu: T0 : syscall exit returns 0
+   6500: system.cpu A0 T0 : @asm_main_after_prologue+44    :   syscall    eax           : IntAlu :   flags=(IsInteger|IsSerializeAfter|IsNonSpeculative|IsSyscall)
+....
+
+so we see that two syscall lines were added for each syscall, showing the syscall inputs and exit status, just like a mini `strace`!
+
 === QEMU user mode quirks
 
 ==== QEMU user mode does not show stdout immediately
@@ -10112,6 +10153,7 @@ The most important trace flags to know about are:
 * <<gem5-execall-trace-format,`ExecAll`>>
 * `Faults`: CPU exceptions / interrupts, see an example at: <<arm-svc-instruction>>
 * <<gem5-registers-trace-format,`Registers`>>
+* <<gem5-syscall-emulation-mode-syscall-tracing,`SyscallBase`, `SyscallVerbose`>>
 
 The traces are generated from `DPRINTF(<trace-id>` calls scattered throughout the code.
 
