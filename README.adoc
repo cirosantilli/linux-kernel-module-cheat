@@ -10380,7 +10380,7 @@ The only hairy thing in QEMU is the binary code generation.
 +
 gem5 however has tended towards intensive code generation in order to support all its different hardware types:
 +
-*** lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds
+*** lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <<gem5-python-c-interaction>>
 *** .isa code which describes most of the instructions
 *** <<gem5-ruby-build,Ruby>> for memory systems
 
@@ -12186,6 +12186,132 @@ xdg-open "$(./getvar --arch aarch64 --gem5-build-id ruby gem5_build_build_dir)/A
 ....
 
 A minimized ruby config which was not merged upstream can be found for study at: https://gem5-review.googlesource.com/c/public/gem5/+/13599/1
+
+=== gem5 internals
+
+==== gem5 Python C++ interaction
+
+The interaction uses the Python C extension interface https://docs.python.org/2/extending/extending.html interface through the pybind11 helper library: https://github.com/pybind/pybind11
+
+The C++ executable both:
+
+* starts running the Python executable
+* provides Python classes written in C++ for that Python code to use
+
+An example of this can be found at:
+
+* https://docs.python.org/2/extending/embedding.html#extending-embedded-python
+* https://github.com/pybind/pybind11/tree/v2.2.3/tests/test_embed
+
+then gem5 magic `simobject` class adds some crazy stuff on top of it further... is is a mess. in particular, it auto generates `params/` headers. TODO: why is this mess needed at all? pybind11 seems to handle constructor arguments just fine:
+
+* https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.py#L77
+* https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.cpp#L41
+
+Let's study `BadDevice` for example:
+
+`src/dev/BadDevice.py` defines `devicename`:
+
+....
+class BadDevice(BasicPioDevice):
+    type = 'BadDevice'
+    cxx_header = "dev/baddev.hh"
+    devicename = Param.String("Name of device to error on")
+....
+
+The object is created in Python for example from `src/dev/alpha/Tsunami.py` as:
+
+....
+    fb = BadDevice(pio_addr=0x801fc0003d0, devicename='FrameBuffer')
+....
+
+Since `BadDevice` has no `+__init__+` method, and neither `BasicPioDevice`, it all just falls through until the SimObject.__init__ constructor.
+
+This constructor will loop through the inheritance chain and give the Python parameters to the C++ BadDeviceParams class as follows.
+
+The auto-generated `build/ARM/params/BadDevice.hh` file defines BadDeviceParams in C++:
+
+....
+#ifndef __PARAMS__BadDevice__
+#define __PARAMS__BadDevice__
+
+class BadDevice;
+
+#include <cstddef>
+#include <string>
+
+#include "params/BasicPioDevice.hh"
+
+struct BadDeviceParams
+    : public BasicPioDeviceParams
+{
+    BadDevice * create();
+    std::string devicename;
+};
+
+#endif // __PARAMS__BadDevice__
+....
+
+and `./python/_m5/param_BadDevice.cc` defines the param Python from C++ with pybind11:
+
+....
+namespace py = pybind11;
+
+static void
+module_init(py::module &m_internal)
+{
+    py::module m = m_internal.def_submodule("param_BadDevice");
+    py::class_<BadDeviceParams, BasicPioDeviceParams, std::unique_ptr<BadDeviceParams, py::nodelete>>(m, "BadDeviceParams")
+        .def(py::init<>())
+        .def("create", &BadDeviceParams::create)
+        .def_readwrite("devicename", &BadDeviceParams::devicename)
+        ;
+
+    py::class_<BadDevice, BasicPioDevice, std::unique_ptr<BadDevice, py::nodelete>>(m, "BadDevice")
+        ;
+
+}
+
+static EmbeddedPyBind embed_obj("BadDevice", module_init, "BasicPioDevice");
+....
+
+`src/dev/baddev.hh` then uses the parameters on the constructor:
+
+....
+class BadDevice : public BasicPioDevice
+{
+  private:
+    std::string devname;
+
+  public:
+    typedef BadDeviceParams Params;
+
+  protected:
+    const Params *
+    params() const
+    {
+        return dynamic_cast<const Params *>(_params);
+    }
+
+  public:
+     /**
+      * Constructor for the Baddev Class.
+      * @param p object parameters
+      * @param a base address of the write
+      */
+    BadDevice(Params *p);
+....
+
+`src/dev/baddev.cc` then uses the parameter:
+
+....
+BadDevice::BadDevice(Params *p)
+    : BasicPioDevice(p, 0x10), devname(p->devicename)
+{
+}
+....
+
+Tested on gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3.
 
 == Buildroot
 
