@@ -685,6 +685,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-syscall-emulation-exit-status">10.6.1. gem5 syscall emulation exit status</a></li>
 <li><a href="#gem5-syscall-emulation-mode-program-stdin">10.6.2. gem5 syscall emulation mode program stdin</a></li>
 <li><a href="#user-mode-vs-full-system-benchmark">10.6.3. User mode vs full system benchmark</a></li>
+<li><a href="#gem5-syscall-emulation-mode-syscall-tracing">10.6.4. gem5 syscall emulation mode syscall tracing</a></li>
 </ul>
 </li>
 <li><a href="#qemu-user-mode-quirks">10.7. QEMU user mode quirks</a>
@@ -1172,17 +1173,20 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-debug-build">18.15.1. gem5 debug build</a></li>
 <li><a href="#gem5-clang-build">18.15.2. gem5 clang build</a></li>
 <li><a href="#gem5-sanitation-build">18.15.3. gem5 sanitation build</a></li>
+<li><a href="#gem5-ruby-build">18.15.4. gem5 Ruby build</a></li>
+</ul>
+</li>
+<li><a href="#gem5-arm-platforms">18.16. gem5 ARM platforms</a></li>
+<li><a href="#gem5-internals">18.17. gem5 internals</a>
+<ul class="sectlevel3">
+<li><a href="#gem5-python-c-interaction">18.17.1. gem5 Python C++ interaction</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li><a href="#buildroot">19. Buildroot</a>
 <ul class="sectlevel2">
-<li><a href="#introduction-to-buildroot">19.1. Introduction to Buildroot</a>
-<ul class="sectlevel3">
-<li><a href="#gem5-ruby-build">19.1.1. gem5 Ruby build</a></li>
-</ul>
-</li>
+<li><a href="#introduction-to-buildroot">19.1. Introduction to Buildroot</a></li>
 <li><a href="#custom-buildroot-configs">19.2. Custom Buildroot configs</a>
 <ul class="sectlevel3">
 <li><a href="#enable-buildroot-compiler-optimizations">19.2.1. Enable Buildroot compiler optimizations</a></li>
@@ -1248,6 +1252,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </ul>
 </li>
 <li><a href="#userland-multithreading">20.4. Userland multithreading</a></li>
+<li><a href="#userland-content-bibliography">20.5. Userland content bibliography</a></li>
 </ul>
 </li>
 <li><a href="#userland-assembly">21. Userland assembly</a>
@@ -3674,6 +3679,9 @@ echo "$(./getvar --arch aarch64 --emulator gem5 image)"</pre>
 </div>
 </div>
 <div class="paragraph">
+<p>see also: <a href="#gem5-arm-platforms">Section 18.16, &#8220;gem5 ARM platforms&#8221;</a>.</p>
+</div>
+<div class="paragraph">
 <p>This generates yet new separate images with new magic constants:</p>
 </div>
 <div class="literalblock">
@@ -3716,7 +3724,7 @@ echo "$(./getvar --arch aarch64 --baremetal userland/c/hello.c --emulator gem5 -
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>asciidotor README.adoc
+<pre>asciidoctor README.adoc
 xdg-open README.html</pre>
 </div>
 </div>
@@ -7595,6 +7603,53 @@ time \
 <p>QEMU full system: 223 seconds</p>
 </li>
 </ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-syscall-emulation-mode-syscall-tracing"><a class="anchor" href="#gem5-syscall-emulation-mode-syscall-tracing"></a><a class="link" href="#gem5-syscall-emulation-mode-syscall-tracing">10.6.4. gem5 syscall emulation mode syscall tracing</a></h4>
+<div class="paragraph">
+<p>Since gem5 has to implement syscalls itself in syscall emulation mode, it can of course clearly see which syscalls are bing made, and we can log them for debug purposes with <a href="#gem5-tracing">gem5 tracing</a>, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --emulator gem5 \
+  --static userland/arch/x86_64/freestanding/linux/hello.S \
+  --userland  \
+  --trace-stdout \
+  --trace ExecAll,SyscallBase,SyscallVerbose \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>the trace as of f2eeceb1cde13a5ff740727526bf916b356cee38 + 1 contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: system.cpu A0 T0 : @asm_main_after_prologue    : mov   rdi, 0x1
+      0: system.cpu A0 T0 : @asm_main_after_prologue.0  :   MOV_R_I : limm   rax, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7    : mov rdi, 0x1
+   1000: system.cpu A0 T0 : @asm_main_after_prologue+7.0  :   MOV_R_I : limm   rdi, 0x1 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14    : lea        rsi, DS:[rip + 0x19]
+   2000: system.cpu A0 T0 : @asm_main_after_prologue+14.0  :   LEA_R_P : rdip   t7, %ctrl153,  : IntAlu :  D=0x000000000040008d  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+   2500: system.cpu A0 T0 : @asm_main_after_prologue+14.1  :   LEA_R_P : lea   rsi, DS:[t7 + 0x19] : IntAlu :  D=0x00000000004000a6  flags=(IsInteger|IsMicroop|IsLastMicroop)
+   3500: system.cpu A0 T0 : @asm_main_after_prologue+21    : mov        rdi, 0x6
+   3500: system.cpu A0 T0 : @asm_main_after_prologue+21.0  :   MOV_R_I : limm   rdx, 0x6 : IntAlu :  D=0x0000000000000006  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   4000: system.cpu: T0 : syscall write called w/arguments 1, 4194470, 6, 0, 0, 0
+hello
+   4000: system.cpu: T0 : syscall write returns 6
+   4000: system.cpu A0 T0 : @asm_main_after_prologue+28    :   syscall    eax           : IntAlu :   flags=(IsInteger|IsSerializeAfter|IsNonSpeculative|IsSyscall)
+   5000: system.cpu A0 T0 : @asm_main_after_prologue+30    : mov        rdi, 0x3c
+   5000: system.cpu A0 T0 : @asm_main_after_prologue+30.0  :   MOV_R_I : limm   rax, 0x3c : IntAlu :  D=0x000000000000003c  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   6000: system.cpu A0 T0 : @asm_main_after_prologue+37    : mov        rdi, 0
+   6000: system.cpu A0 T0 : @asm_main_after_prologue+37.0  :   MOV_R_I : limm   rdi, 0  : IntAlu :  D=0x0000000000000000  flags=(IsInteger|IsMicroop|IsLastMicroop|IsFirstMicroop)
+   6500: system.cpu: T0 : syscall exit called w/arguments 0, 4194470, 6, 0, 0, 0
+   6500: system.cpu: T0 : syscall exit returns 0
+   6500: system.cpu A0 T0 : @asm_main_after_prologue+44    :   syscall    eax           : IntAlu :   flags=(IsInteger|IsSerializeAfter|IsNonSpeculative|IsSyscall)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we see that two syscall lines were added for each syscall, showing the syscall inputs and exit status, just like a mini <code>strace</code>!</p>
 </div>
 </div>
 </div>
@@ -16865,6 +16920,9 @@ less "$(./getvar gem5_source_dir)/src/cpu/exetrace.cc"</pre>
 <li>
 <p><a href="#gem5-registers-trace-format"><code>Registers</code></a></p>
 </li>
+<li>
+<p><a href="#gem5-syscall-emulation-mode-syscall-tracing"><code>SyscallBase</code>, <code>SyscallVerbose</code></a></p>
+</li>
 </ul>
 </div>
 <div class="paragraph">
@@ -17269,7 +17327,7 @@ root</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds</p>
+<p>lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <a href="#gem5-python-c-interaction">gem5 Python C++ interaction</a></p>
 </li>
 <li>
 <p>.isa code which describes most of the instructions</p>
@@ -19850,6 +19908,256 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 <p>From the message, this appears however to be a Python / pyenv11 bug however and not in gem5 specifically. I think it worked when I tried it in the past in an older gem5 / Ubuntu.</p>
 </div>
 </div>
+<div class="sect3">
+<h4 id="gem5-ruby-build"><a class="anchor" href="#gem5-ruby-build"></a><a class="link" href="#gem5-ruby-build">18.15.4. gem5 Ruby build</a></h4>
+<div class="paragraph">
+<p>Ruby is a system that includes the SLICC domain specific language to describe memory systems: <a href="http://gem5.org/Ruby" class="bare">http://gem5.org/Ruby</a></p>
+</div>
+<div class="paragraph">
+<p>It seems to have usage outside of gem5, but the naming overload with the <a href="https://en.wikipedia.org/wiki/Ruby_(programming_language)">Ruby programming language</a>, which also has <a href="https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby">domain specific languages</a> as a concept, makes it impossible to google anything about it!</p>
+</div>
+<div class="paragraph">
+<p>Ruby is activated at compile time with the <code>PROTOCOL</code> flag, which specifies the desired memory system time.</p>
+</div>
+<div class="paragraph">
+<p>For example, to use a two level <a href="https://en.wikipedia.org/wiki/MESI_protocol">MESI</a> <a href="https://en.wikipedia.org/wiki/Cache_coherence">cache coherence protocol</a>, we can do:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-gem5 --arch aarch64 --gem5-build-id ruby -- PROTOCOL=MESI_Two_Level</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and during build we see a humongous line of type:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[   SLICC] src/mem/protocol/MESI_Two_Level.slicc -&gt; ARM/mem/protocol/AccessPermission.cc, ARM/mem/protocol/AccessPermission.hh, ...</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which shows that dozens of C++ files are being generated from Ruby SLICC.</p>
+</div>
+<div class="paragraph">
+<p>TODO observe it doing something during a run.</p>
+</div>
+<div class="paragraph">
+<p>The relevant source files live in the source tree under:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/mem/protocol/MESI_Two_Level*</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We already pass the <code>SLICC_HTML</code> flag by default to the build, which generates an HTML summary of each memory protocol under:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>xdg-open "$(./getvar --arch aarch64 --gem5-build-id ruby gem5_build_build_dir)/ARM/mem/protocol/html/index.html"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A minimized ruby config which was not merged upstream can be found for study at: <a href="https://gem5-review.googlesource.com/c/public/gem5/+/13599/1" class="bare">https://gem5-review.googlesource.com/c/public/gem5/+/13599/1</a></p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gem5-arm-platforms"><a class="anchor" href="#gem5-arm-platforms"></a><a class="link" href="#gem5-arm-platforms">18.16. gem5 ARM platforms</a></h3>
+<div class="paragraph">
+<p>The gem5 platform is selectable with the <code>--machine</code> option, which is named after the analogous QEMU <code>-machine</code> option, and which sets the <code>--machine-type</code>.</p>
+</div>
+<div class="paragraph">
+<p>Each platform represents a different system with different devices, memory and interrupt setup.</p>
+</div>
+<div class="paragraph">
+<p>TODO: describe the main characteristics of each platform, as of gem5 5e83d703522a71ec4f3eb61a01acd8c53f6f3860:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>VExpress_GEM5_V1</code>: good sane base platform</p>
+</li>
+<li>
+<p><code>VExpress_GEM5_V1_DPU</code>: <code>VExpress_GEM5_V1</code> with DP650 instead of HDLCD, selected automatically by <code>./run --dp650</code>, see also: <a href="#gem5-graphic-mode-dp650">gem5 graphic mode DP650</a></p>
+</li>
+<li>
+<p><code>VExpress_GEM5_V2</code>: VExpress_GEM5_V1 with GICv3, uses a different bootloader <code>arm/aarch64_bootloader/boot_emm_v2.arm64</code> TODO is it because of GICv3?</p>
+</li>
+<li>
+<p>anything that does not start with: <code>VExpress_GEM5_</code>: old and bad, don&#8217;t use them</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gem5-internals"><a class="anchor" href="#gem5-internals"></a><a class="link" href="#gem5-internals">18.17. gem5 internals</a></h3>
+<div class="sect3">
+<h4 id="gem5-python-c-interaction"><a class="anchor" href="#gem5-python-c-interaction"></a><a class="link" href="#gem5-python-c-interaction">18.17.1. gem5 Python C++ interaction</a></h4>
+<div class="paragraph">
+<p>The interaction uses the Python C extension interface <a href="https://docs.python.org/2/extending/extending.html" class="bare">https://docs.python.org/2/extending/extending.html</a> interface through the pybind11 helper library: <a href="https://github.com/pybind/pybind11" class="bare">https://github.com/pybind/pybind11</a></p>
+</div>
+<div class="paragraph">
+<p>The C++ executable both:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>starts running the Python executable</p>
+</li>
+<li>
+<p>provides Python classes written in C++ for that Python code to use</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>An example of this can be found at:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://docs.python.org/2/extending/embedding.html#extending-embedded-python" class="bare">https://docs.python.org/2/extending/embedding.html#extending-embedded-python</a></p>
+</li>
+<li>
+<p><a href="https://github.com/pybind/pybind11/tree/v2.2.3/tests/test_embed" class="bare">https://github.com/pybind/pybind11/tree/v2.2.3/tests/test_embed</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>then gem5 magic <code>simobject</code> class adds some crazy stuff on top of it further&#8230;&#8203; is is a mess. in particular, it auto generates <code>params/</code> headers. TODO: why is this mess needed at all? pybind11 seems to handle constructor arguments just fine:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.py#L77" class="bare">https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.py#L77</a></p>
+</li>
+<li>
+<p><a href="https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.cpp#L41" class="bare">https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.cpp#L41</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s study <code>BadDevice</code> for example:</p>
+</div>
+<div class="paragraph">
+<p><code>src/dev/BadDevice.py</code> defines <code>devicename</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>class BadDevice(BasicPioDevice):
+    type = 'BadDevice'
+    cxx_header = "dev/baddev.hh"
+    devicename = Param.String("Name of device to error on")</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The object is created in Python for example from <code>src/dev/alpha/Tsunami.py</code> as:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    fb = BadDevice(pio_addr=0x801fc0003d0, devicename='FrameBuffer')</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Since <code>BadDevice</code> has no <code>__init__</code> method, and neither <code>BasicPioDevice</code>, it all just falls through until the SimObject.<em>init</em> constructor.</p>
+</div>
+<div class="paragraph">
+<p>This constructor will loop through the inheritance chain and give the Python parameters to the C++ BadDeviceParams class as follows.</p>
+</div>
+<div class="paragraph">
+<p>The auto-generated <code>build/ARM/params/BadDevice.hh</code> file defines BadDeviceParams in C++:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#ifndef __PARAMS__BadDevice__
+#define __PARAMS__BadDevice__
+
+class BadDevice;
+
+#include &lt;cstddef&gt;
+#include &lt;string&gt;
+
+#include "params/BasicPioDevice.hh"
+
+struct BadDeviceParams
+    : public BasicPioDeviceParams
+{
+    BadDevice * create();
+    std::string devicename;
+};
+
+#endif // __PARAMS__BadDevice__</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and <code>./python/_m5/param_BadDevice.cc</code> defines the param Python from C++ with pybind11:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>namespace py = pybind11;
+
+static void
+module_init(py::module &amp;m_internal)
+{
+    py::module m = m_internal.def_submodule("param_BadDevice");
+    py::class_&lt;BadDeviceParams, BasicPioDeviceParams, std::unique_ptr&lt;BadDeviceParams, py::nodelete&gt;&gt;(m, "BadDeviceParams")
+        .def(py::init&lt;&gt;())
+        .def("create", &amp;BadDeviceParams::create)
+        .def_readwrite("devicename", &amp;BadDeviceParams::devicename)
+        ;
+
+    py::class_&lt;BadDevice, BasicPioDevice, std::unique_ptr&lt;BadDevice, py::nodelete&gt;&gt;(m, "BadDevice")
+        ;
+
+}
+
+static EmbeddedPyBind embed_obj("BadDevice", module_init, "BasicPioDevice");</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>src/dev/baddev.hh</code> then uses the parameters on the constructor:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>class BadDevice : public BasicPioDevice
+{
+  private:
+    std::string devname;
+
+  public:
+    typedef BadDeviceParams Params;
+
+  protected:
+    const Params *
+    params() const
+    {
+        return dynamic_cast&lt;const Params *&gt;(_params);
+    }
+
+  public:
+     /**
+      * Constructor for the Baddev Class.
+      * @param p object parameters
+      * @param a base address of the write
+      */
+    BadDevice(Params *p);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>src/dev/baddev.cc</code> then uses the parameter:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>BadDevice::BadDevice(Params *p)
+    : BasicPioDevice(p, 0x10), devname(p-&gt;devicename)
+{
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Tested on gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3.</p>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -19915,59 +20223,6 @@ qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -smp 1 -kernel output/ima
 </div>
 </li>
 </ul>
-</div>
-<div class="sect3">
-<h4 id="gem5-ruby-build"><a class="anchor" href="#gem5-ruby-build"></a><a class="link" href="#gem5-ruby-build">19.1.1. gem5 Ruby build</a></h4>
-<div class="paragraph">
-<p>Ruby is a system that includes the SLICC domain specific language to describe memory systems: <a href="http://gem5.org/Ruby" class="bare">http://gem5.org/Ruby</a></p>
-</div>
-<div class="paragraph">
-<p>It seems to have usage outside of gem5, but the naming overload with the <a href="https://en.wikipedia.org/wiki/Ruby_(programming_language)">Ruby programming language</a>, which also has <a href="https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby">domain specific languages</a> as a concept, makes it impossible to google anything about it!</p>
-</div>
-<div class="paragraph">
-<p>Ruby is activated at compile time with the <code>PROTOCOL</code> flag, which specifies the desired memory system time.</p>
-</div>
-<div class="paragraph">
-<p>For example, to use a two level <a href="https://en.wikipedia.org/wiki/MESI_protocol">MESI</a> <a href="https://en.wikipedia.org/wiki/Cache_coherence">cache coherence protocol</a>, we can do:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-gem5 --arch aarch64 --gem5-build-id ruby -- PROTOCOL=MESI_Two_Level</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>and during build we see a humongous line of type:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>[   SLICC] src/mem/protocol/MESI_Two_Level.slicc -&gt; ARM/mem/protocol/AccessPermission.cc, ARM/mem/protocol/AccessPermission.hh, ...</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>which shows that dozens of C++ files are being generated from Ruby SLICC.</p>
-</div>
-<div class="paragraph">
-<p>TODO observe it doing something during a run.</p>
-</div>
-<div class="paragraph">
-<p>The relevant source files live in the source tree under:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>src/mem/protocol/MESI_Two_Level*</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>We already pass the <code>SLICC_HTML</code> flag by default to the build, which generates an HTML summary of each memory protocol under:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>xdg-open "$(./getvar --arch aarch64 --gem5-build-id ruby gem5_build_build_dir)/ARM/mem/protocol/html/index.html"</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>A minimized ruby config which was not merged upstream can be found for study at: <a href="https://gem5-review.googlesource.com/c/public/gem5/+/13599/1" class="bare">https://gem5-review.googlesource.com/c/public/gem5/+/13599/1</a></p>
-</div>
 </div>
 </div>
 <div class="sect2">
@@ -20610,6 +20865,9 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </div>
 </div>
 <div class="paragraph">
+<p><code>malloc</code> returns NULL, and <code>mmap</code> goes a bit further and segfauls on the first assignment <code>array[0] = 1</code>.</p>
+</div>
+<div class="paragraph">
 <p>Bibliography: <a href="https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate" class="bare">https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate</a></p>
 </div>
 </div>
@@ -20898,6 +21156,16 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 </li>
 </ul>
 </div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="userland-content-bibliography"><a class="anchor" href="#userland-content-bibliography"></a><a class="link" href="#userland-content-bibliography">20.5. Userland content bibliography</a></h3>
+<div class="ulist">
+<ul>
+<li>
+<p>The Linux Programming Interface by Michael Kerrisk <a href="https://www.amazon.co.uk/Linux-Programming-Interface-System-Handbook/dp/1593272200" class="bare">https://www.amazon.co.uk/Linux-Programming-Interface-System-Handbook/dp/1593272200</a> Lots of open source POSIX examples: <a href="https://github.com/cirosantilli/linux-programming-interface-kerrisk" class="bare">https://github.com/cirosantilli/linux-programming-interface-kerrisk</a></p>
 </li>
 </ul>
 </div>
@@ -25306,7 +25574,25 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 </blockquote>
 </div>
 <div class="paragraph">
-<p>Notice how Sn is very different between v7 and v8! In v7 it goes across Dn, and in v8 inside each Dn.</p>
+<p>Notice how Sn is very different between v7 <a href="#arm-vfp-registers">ARM VFP registers</a> and v8! In v7 it goes across Dn, and in v8 inside each Dn:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>128                         64                  32      16  8   0
++---------------------------+-------------------+-------+---+---+
+|                           Vn                                  |
++---------------------------------------------------------------+
+|                           Qn                                  |
++---------------------------+-----------------------------------+
+                            |                   Dn              |
+                            +-----------------------------------+
+                                                |       Sn      |
+                                                +---------------+
+                                                        |   Hn  |
+                                                        +-------+
+                                                            |Bn |
+                                                            +---+</pre>
+</div>
 </div>
 <div class="sect4">
 <h5 id="armv8-aarch64-add-vector-instruction"><a class="anchor" href="#armv8-aarch64-add-vector-instruction"></a><a class="link" href="#armv8-aarch64-add-vector-instruction">23.6.3.1. ARMv8 aarch64 add vector instruction</a></h5>
@@ -25852,18 +26138,37 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <p>It is documented at: <a href="https://developer.arm.com/docs/100863/latest/introduction" class="bare">https://developer.arm.com/docs/100863/latest/introduction</a></p>
 </div>
 <div class="paragraph">
-<p>For example, the following code makes QEMU exit:</p>
+<p>For example, all the following code make QEMU exit:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.S</pre>
+<pre>./run --arch arm --baremetal baremetal/arch/arm/semihost_exit.S
+./run --arch arm --baremetal baremetal/arch/arm/no_bootloader/semihost_exit.S
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/semihost_exit.S
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/semihost_exit.S</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/no_bootloader/semihost_exit.S">baremetal/arch/arm/no_bootloader/semihost_exit.S</a></p>
+<p>Sources:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/semihost_exit.S">baremetal/arch/arm/semihost_exit.S</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/no_bootloader/semihost_exit.S">baremetal/arch/arm/no_bootloader/semihost_exit.S</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/semihost_exit.S">baremetal/arch/aarch64/semihost_exit.S</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/no_bootloader/semihost_exit.S">baremetal/arch/aarch64/no_bootloader/semihost_exit.S</a></p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
-<p>That program program contains the code:</p>
+<p>That <code>arm</code> program program contains the code:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -26843,12 +27148,20 @@ IN: main
 </div>
 <div class="sect3">
 <h4 id="arm-multicore"><a class="anchor" href="#arm-multicore"></a><a class="link" href="#arm-multicore">26.8.3. ARM multicore</a></h4>
+<div class="paragraph">
+<p>Examples:</p>
+</div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 2
-./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 2 --emulator gem5
-./run --arch arm --baremetal baremetal/arch/aarch64/multicore.S --cpus 2
-./run --arch arm --baremetal baremetal/arch/aarch64/multicore.S --cpus 2 --emulator gem5</pre>
+<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/multicore_asm.S --cpus 2
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/multicore_asm.S --cpus 2 --emulator gem5
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 2
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 2 --emulator gem5
+./run --arch arm --baremetal baremetal/arch/arm/no_bootloader/multicore_asm.S --cpus 2
+./run --arch arm --baremetal baremetal/arch/arm/no_bootloader/multicore_asm.S --cpus 2 --emulator gem5
+# TODO not working, hangs.
+# ./run --arch arm --baremetal baremetal/arch/arm/multicore.c --cpus 2
+./run --arch arm --baremetal baremetal/arch/arm/multicore.c --cpus 2 --emulator gem5</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -26857,10 +27170,16 @@ IN: main
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/multicore.S">baremetal/arch/aarch64/multicore.S</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/no_bootloader/multicore_asm.S">baremetal/arch/aarch64/no_bootloader/multicore_asm.S</a></p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/multicore.S">baremetal/arch/arm/multicore.S</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/multicore.c">baremetal/arch/aarch64/multicore.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/no_bootloader/multicore_asm.S">baremetal/arch/arm/no_bootloader/multicore_asm.S</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/multicore.c">baremetal/arch/arm/multicore.c</a></p>
 </li>
 </ul>
 </div>
@@ -26875,7 +27194,7 @@ IN: main
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1</pre>
+<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 1</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -26886,7 +27205,7 @@ IN: main
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.S --cpus 1 --emulator gem5</pre>
+<pre>./run --arch aarch64 --baremetal baremetal/arch/aarch64/multicore.c --cpus 1 --emulator gem5</pre>
 </div>
 </div>
 <div class="paragraph">
