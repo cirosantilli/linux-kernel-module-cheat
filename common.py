@@ -459,8 +459,12 @@ Which qemu binaries to use: qemu-system-, qemu-, qemu-img, etc.:
             '--machine',
             help='''\
 Machine type:
-* QEMU default: virt
-* gem5 default: VExpress_GEM5_V1
+
+* QEMU default: -machine virt
+* gem5 default: --machine-type VExpress_GEM5_V1
+
+More infor on platforms at:
+https://cirosantilli.com/linux-kernel-module-cheat#gem5-arm-platforms
 '''
         )
 

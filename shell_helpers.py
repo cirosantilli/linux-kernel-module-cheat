@@ -215,6 +215,11 @@ class ShellHelpers:
             else:
                 shutil.copy2(src, dest)
 
+    def mv(self, src, dest, **kwargs):
+        self.print_cmd(['mv', src, dest])
+        if not self.dry_run:
+            shutil.move(src, dest)
+
     def print_cmd(
         self,
         cmd,
