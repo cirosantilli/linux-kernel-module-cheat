@@ -260,6 +260,7 @@ gnu_extension_properties = {
     'cc_pedantic': False,
     'cxx_std': 'gnu++17'
 }
+# https://github.com/cirosantilli/linux-kernel-module-cheat#freestanding-programs
 freestanding_properties = {
     'baremetal': False,
     'cc_flags': [
@@ -268,6 +269,13 @@ freestanding_properties = {
         '-static', LF,
     ],
     'extra_objs_lkmc_common': False,
+}
+# https://github.com/cirosantilli/linux-kernel-module-cheat#nostartfiles-programs
+nostartfiles_properties = {
+    'baremetal': False,
+    'cc_flags': [
+        '-nostartfiles', LF,
+    ],
 }
 # See: https://cirosantilli.com/linux-kernel-module-cheat#path-properties
 path_properties_tuples = (
@@ -405,6 +413,7 @@ path_properties_tuples = (
                                 'freestanding': freestanding_properties,
                                 'lkmc_assert_eq_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'lkmc_assert_memcmp_fail.S': {'signal_received': signal.Signals.SIGABRT},
+                                'nostartfiles': nostartfiles_properties,
                                 'udf.S': {
                                     'signal_generated_by_os': True,
                                     'signal_received': signal.Signals.SIGILL,
