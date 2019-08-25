@@ -260,7 +260,7 @@ gnu_extension_properties = {
     'cc_pedantic': False,
     'cxx_std': 'gnu++17'
 }
-# https://github.com/cirosantilli/linux-kernel-module-cheat#freestanding-programs
+# https://cirosantilli.com/linux-kernel-module-cheat#freestanding-programs
 freestanding_properties = {
     'baremetal': False,
     'cc_flags': [
@@ -270,7 +270,7 @@ freestanding_properties = {
     ],
     'extra_objs_lkmc_common': False,
 }
-# https://github.com/cirosantilli/linux-kernel-module-cheat#nostartfiles-programs
+# https://cirosantilli.com/linux-kernel-module-cheat#nostartfiles-programs
 nostartfiles_properties = {
     'baremetal': False,
     'cc_flags': [

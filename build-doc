@@ -56,6 +56,24 @@ from the README to example sources to GitHub rather than locally.
                     self.log_error('broken link to local file: ' + link)
                     exit_status = 1
 
+        # Check that there are not links to the GitHub README.
+        # https://github.com/isaacs/github/issues/1610
+        for grep_line in self.sh.check_output(
+            [
+                'git',
+                'grep',
+                '--fixed-strings',
+                self.env['github_repo_url'] + '#',
+                LF
+            ],
+            cwd=self.env['root_dir'],
+            raise_on_failure=False
+        ).decode().splitlines():
+            self.log_error('link to GitHub readme: {}'.format(
+                grep_line
+            ))
+            exit_status = 1
+
         # Check that non-README links to README IDs exit.
         header_ids = set()
         grep_line_location_re = re.compile('^(.*?:\d+):')

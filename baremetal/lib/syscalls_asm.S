@@ -15,7 +15,7 @@ _exit:
     LKMC_M5OPS_EXIT_ASM
 #else
 /* Use semihosting:
- * https://github.com/cirosantilli/linux-kernel-module-cheat#semihosting */
+ * https://cirosantilli.com/linux-kernel-module-cheat#semihosting */
 #if defined(__arm__)
     mov r0, #0x18
     ldr r1, =#0x20026

@@ -102,6 +102,7 @@ consts['sha'] = common.git_sha(consts['root_dir'])
 consts['release_dir'] = os.path.join(consts['out_dir'], 'release')
 consts['release_zip_file'] = os.path.join(consts['release_dir'], 'lkmc-{}.zip'.format(consts['sha']))
 consts['github_repo_id'] = 'cirosantilli/linux-kernel-module-cheat'
+consts['github_repo_url'] = 'https://github.com/' + consts['github_repo_id']
 consts['homepage_url'] = 'https://cirosantilli.com/linux-kernel-module-cheat'
 consts['asm_ext'] = '.S'
 consts['c_ext'] = '.c'
