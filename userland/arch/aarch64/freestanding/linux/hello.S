@@ -19,4 +19,4 @@ asm_main_after_prologue:
     svc 0
 msg:
     .ascii "hello\n"
-len = . - msg
+    len = . - msg

@@ -19,4 +19,4 @@ _start:
     svc 0
 msg:
     .ascii "hello\n"
-len = . - msg
+    len = . - msg
