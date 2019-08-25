@@ -187,9 +187,7 @@ class PathProperties:
                 env['emulator'] == 'qemu' and
                 (
                     self['requires_m5ops'] or
-                    env['mode'] == 'baremetal' and (
-                        self['qemu_unimplemented_instruction']
-                    )
+                    self['qemu_unimplemented_instruction']
                 )
             )
         )
