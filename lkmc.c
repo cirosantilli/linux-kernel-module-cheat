@@ -23,6 +23,7 @@ LKMC_ASSERT_EQ_DEFINE(64)
 
 void lkmc_assert_fail(uint32_t line) {
     printf("error: assertion failed at line: %" PRIu32 "\n", line);
+    fflush(stdout);
     abort();
 }
 
