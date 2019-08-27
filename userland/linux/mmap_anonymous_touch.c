@@ -29,7 +29,7 @@ void ProcStat_init(ProcStatm *result) {
     }
     if(7 != fscanf(
         f,
-        "%ld %ld %ld %ld %ld %ld %ld",
+        "%lu %lu %lu %lu %lu %lu %lu",
         &(result->size),
         &(result->resident),
         &(result->share),

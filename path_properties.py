@@ -255,7 +255,6 @@ def get(path):
 
 gnu_extension_properties = {
     'c_std': 'gnu11',
-    'cc_pedantic': False,
     'cxx_std': 'gnu++17'
 }
 # https://cirosantilli.com/linux-kernel-module-cheat#freestanding-programs
