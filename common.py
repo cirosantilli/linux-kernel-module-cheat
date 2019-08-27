@@ -719,16 +719,6 @@ Incompatible archs are skipped.
             else:
                 if not env['_args_given']['machine']:
                     env['machine'] = 'virt'
-                    if env['arch'] == 'arm':
-                        # highmem=off needed since v3.0.0 due to:
-                        # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
-                        env['machine2'] = 'highmem=off'
-                    elif env['arch'] == 'aarch64':
-                        # TODO allow the Gic version to be controlled from the CLI.
-                        # env['machine2'] = 'gic_version=3'
-                        env['machine2'] = None
-        else:
-            env['machine2'] = None
 
         # Buildroot
         env['buildroot_build_dir'] = join(env['buildroot_out_dir'], 'build', env['buildroot_build_id'], env['arch'])

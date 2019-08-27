@@ -636,19 +636,19 @@ Extra options to append at the end of the emulator command line.
                                 .format(virtfs_dir=virtfs_dir, virtfs_tag=virtfs_tag),
                             LF,
                         ])
-                if self.env['machine2'] is not None:
-                    # Multiple -machine options can also be given comma separated in one -machine.
-                    # We use multiple because the machine is used as an identifier on baremetal tests
-                    # build paths, so better keep them clean.
-                    machine2 = ['-machine', self.env['machine2'], LF]
-                else:
-                    machine2 = []
+                machines = [self.env['machine']]
+                if self.env['arch'] == 'arm':
+                    # Needed since v3.0.0 due to:
+                    # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
+                    machines.append('highmem=off')
+                machines_cli = []
+                for machine in machines:
+                    machines_cli.extend(['-machine', machine, LF])
                 cmd.extend(
                     [
                         self.env['qemu_executable'], LF,
-                        '-machine', self.env['machine'], LF,
                     ] +
-                    machine2 +
+                    machines_cli +
                     [
                         '-device', 'rtl8139,netdev=net0', LF,
                         '-gdb', 'tcp::{}'.format(self.env['gdb_port']), LF,
