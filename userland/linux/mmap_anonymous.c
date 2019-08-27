@@ -1,7 +1,9 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#mmap-map-anonymous */
+/* https://cirosantilli.com/linux-kernel-module-cheat#mmap-map-anonymous
+ *
+ * Malloc n bytes as given from the command line.
+ */
 
 #define _GNU_SOURCE
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -9,19 +11,18 @@
 #include <unistd.h>
 
 int main(int argc, char **argv) {
-    int *is;
-    size_t nbytes, nints;
+    char *chars;
+    size_t nbytes;
 
     /* Decide how many ints to allocate. */
     if (argc < 2) {
-        nints = 2;
+        nbytes = 2;
     } else {
-        nints = strtoull(argv[1], NULL, 0);
+        nbytes = strtoull(argv[1], NULL, 0);
     }
-    nbytes = nints * sizeof(*is);
 
-    /* Allocate 2 ints. */
-    is = mmap(
+    /* Allocate the bytes. */
+    chars = mmap(
         NULL,
         nbytes,
         PROT_READ | PROT_WRITE,
@@ -31,19 +32,13 @@ int main(int argc, char **argv) {
     );
 
     /* This can happen for example if we ask for too much memory. */
-    if (is == NULL) {
+    if (chars == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
 
-    /* Write to and read from the allocated memory. */
-    is[0] = 1;
-    is[1] = 2;
-    assert(is[0] == 1);
-    assert(is[1] == 2);
-
     /* Free the allocated memory. */
-    munmap(is, nbytes);
+    munmap(chars, nbytes);
 
     return EXIT_SUCCESS;
 }

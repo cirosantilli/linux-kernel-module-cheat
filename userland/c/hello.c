@@ -1,4 +1,6 @@
-/* Print hello to stdout ;-) */
+/* https://cirosantilli.com/linux-kernel-module-cheat#c
+ *
+ * Print hello to stdout ;-) */
 
 #include <stdio.h>
 #include <stdlib.h>

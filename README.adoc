@@ -3198,7 +3198,7 @@ One downside of this method is that it has to put the entire filesystem into mem
 end Kernel panic - not syncing: Out of memory and no killable processes...
 ....
 
-This can be solved by increasing the memory with:
+This can be solved by increasing the memory as explained at <<memory-size>>:
 
 ....
 ./run --initrd --memory 256M
@@ -10746,14 +10746,78 @@ TODO: now to verify this with the Linux kernel? Besides raw performance benchmar
 ===== Memory size
 
 ....
-./run --arch arm --memory 512M
+./run --memory 512M
 ....
 
-and verify inside the guest with:
+We can verify this on the guest directly from the kernel with:
 
 ....
-free -m
+cat /proc/meminfo
 ....
+
+as of LKMC 1e969e832f66cb5a72d12d57c53fb09e9721d589 this output contains:
+
+....
+MemTotal:         498472 kB
+....
+
+which we expand with:
+
+....
+printf '0x%X\n' $((498472 * 1024))
+....
+
+to:
+
+....
+0x1E6CA000
+....
+
+TODO: why is this value a bit smaller than 512M?
+
+`free` also gives the same result:
+
+....
+free -b
+....
+
+contains:
+
+....
+             total       used       free     shared    buffers     cached
+Mem:     510435328   20385792  490049536          0     503808    2760704
+-/+ buffers/cache:   17121280  493314048
+Swap:            0          0          0
+....
+
+which we expand with:
+
+....
+printf '0x%X\n' 510435328$((498472 * 1024)
+....
+
+`man free` from Ubuntu's procps 3.3.15 tells us that `free` obtains this information from `/proc/meminfo` as well.
+
+From C, we can get this information with `sysconf(_SC_PHYS_PAGES)` or `get_phys_pages()`:
+
+....
+./linux/total_memory.out
+....
+
+Source: link:userland/linux/total_memory.c[]
+
+Output:
+
+....
+sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) = 0x1E6CA000
+sysconf(_SC_AVPHYS_PAGES) * sysconf(_SC_PAGESIZE) = 0x1D178000
+get_phys_pages() * sysconf(_SC_PAGESIZE) = 0x1E6CA000
+get_avphys_pages() * sysconf(_SC_PAGESIZE) = 0x1D178000
+....
+
+This is mentioned at: https://stackoverflow.com/questions/22670257/getting-ram-size-in-c-linux-non-precise-result/22670407#22670407
+
+AV means available and gives the free memory: https://stackoverflow.com/questions/14386856/c-check-available-ram/57659190#57659190
 
 ===== gem5 disk and network latency
 
@@ -12707,8 +12771,9 @@ Programs under link:userland/c/[] are examples of https://en.wikipedia.org/wiki/
 *** exit
 **** link:userland/c/abort.c[]
 ** `stdio.h`
-*** link:userland/c/stderr.c[]
 *** link:userland/c/getchar.c[]
+*** link:userland/c/snprintf.c[]
+*** link:userland/c/stderr.c[]
 *** File IO
 **** link:userland/c/file_write_read.c[]
 * Fun
@@ -12722,39 +12787,99 @@ link:userland/c/malloc.c[]: `malloc` hello world: allocate two ints and use them
 
 LInux 5.1 / glibc 2.29 implements it with the <<mmap,`mmap` system call>>.
 
+===== malloc implementation
+
+TODO: the exact answer is going to be hard.
+
+But at least let's verify that large `malloc` calls use the `mmap` syscall with:
+
+....
+strace -x ./c/malloc_size.out 0x100000 2>&1 | grep mmap | tail -n 1
+strace -x ./c/malloc_size.out 0x200000 2>&1 | grep mmap | tail -n 1
+strace -x ./c/malloc_size.out 0x400000 2>&1 | grep mmap | tail -n 1
+....
+
+Source: link:userland/c/malloc_size.c[].
+
+From this we sese that the last `mmap` calls are:
+
+....
+mmap(NULL, 1052672, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ef2000
+mmap(NULL, 2101248, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7271000
+mmap(NULL, 4198400, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7071000
+....
+
+which in hex are:
+
+....
+printf '%x\n' 1052672
+# 101000
+printf '%x\n' 2101248
+# 201000
+printf '%x\n' 4198400
+# 401000
+....
+
+so we figured out the pattern: those 1, 2, and 4 MiB mallocs are mmaping N + 0x1000 bytes.
+
 ===== malloc maximum size
 
-Test how much memory Linux lets us allocate by doubling a buffer with `realloc` until it fails:
+General overview at: https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate
+
+See also:
+
+* https://stackoverflow.com/questions/13127855/what-is-the-size-limit-for-mmap
+* https://stackoverflow.com/questions/7504139/malloc-allocates-memory-more-than-ram
+
+From <<memory-size>> and `./run --help`, we see that at we set the emulator memory by default to 256MB. Let's see how much Linux allows us to malloc.
+
+Then from <<malloc-implementation>> we see that `malloc` is implemented with `mmap`. Therefore, let's simplify the problam and try to understand what is the larges mmap we can do first. This way we can ignore how glibc implements malloc for now.
+
+In Linux, the maximum `mmap` value in controlled by:
 
 ....
-./run --userland userland/c/malloc_max.c
+cat /proc/sys/vm/overcommit_memory
 ....
 
-Source: link:userland/c/malloc_max.c[]
+which is documented in `man proc`.
 
-Outcome at c03d5d18ea971ae85d008101528d84c2ff25eb27 on Ubuntu 19.04 <<p51>> host (16GiB RAM): prints up to `0x1000000000` (64GiB).
-
-TODO dive into source code.
-
-TODO: if we do direct <<malloc>> allocations with link:userland/c/malloc.c[] or <<mmap>> with link:userland/linux/mmap_anonymous.c[], then the limit was smaller than 64GiB!
-
-These work:
+The default value is `0`, which I can't find a precise documentation for. `2` is precisly documented but I'm lazy to do all calculations. So let's just verify `0` vs `1` by trying to `mmap` 1GiB of memory:
 
 ....
-./userland/c/malloc.out 0x100000000
-./userland/linux/mmap_anonymous.out 0x100000000
+echo 0 > /proc/sys/vm/overcommit_memory
+./linux/mmap_anonymous.out 0x40000000
+echo 1 > /proc/sys/vm/overcommit_memory
+./linux/mmap_anonymous.out 0x40000000
 ....
 
-which is `4Gib * sizeof(int) == 16GiB`, but these fail at 32GiB:
+Source: link:userland/linux/mmap_anonymous.c[]
+
+With `0`, we get a failure:
 
 ....
-./userland/c/malloc.out 0x200000000
-./userland/linux/mmap_anonymous.out 0x200000000
+mmap: Cannot allocate memory
 ....
 
-`malloc` returns NULL, and `mmap` goes a bit further and segfauls on the first assignment `array[0] = 1`.
+but with `1` the allocation works.
 
-Bibliography: https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate
+We are allowed to allocate more than the actual memory + swap because the memory is only virtual, as explained at: https://stackoverflow.com/questions/7880784/what-is-rss-and-vsz-in-linux-memory-management/57453334#57453334
+
+If we start using the pages, the OOM killer would sooner or later step in and kill our process: <<linux-out-of-memory-killer>>.
+
+====== Linux out-of-memory killer
+
+We can observe the OOM in LKMC 1e969e832f66cb5a72d12d57c53fb09e9721d589 which defaults to 256MiB of memory with:
+
+....
+echo 1 > /proc/sys/vm/overcommit_memory
+./linux/mmap_anonymous_touch.out 0x40000000 0x8000000
+....
+
+This first allows memory overcommit so to that the program can mmap 1GiB, 4x more than total RAM without failing as mentioned at <<malloc-maximum-size>>.
+
+It then walks over every page and writes a value in it to ensure that it is used.
+
+Algorithm used by the OOM: https://unix.stackexchange.com/questions/153585/how-does-the-oom-killer-decide-which-process-to-kill-first
 
 ==== GCC C extensions
 
@@ -17122,7 +17247,7 @@ Or to conveniently do a clean build without affecting your current one:
 cat ../linux-kernel-module-cheat-regression/*/build-time.log
 ....
 
-===== Find which packages are making the build slow and big
+===== Find which Buildroot packages are making the build slow and big
 
 ....
 ./build-buildroot -- graph-build graph-size graph-depends
