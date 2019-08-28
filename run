@@ -46,6 +46,14 @@ For --emulator native, this debugs the target program.
             help='Pass arguments to GDB. Implies --debug-vm.'
         )
         self.add_argument(
+            '--debug-vm-rr',
+            default=False,
+            help='''
+Run the emulator through Mozilla RR, and then start replay with reverse debugging enabled:
+https://cirosantilli.com/linux-kernel-module-cheat#reverse-debug-the-emulator
+'''
+        )
+        self.add_argument(
             '--dtb',
             help='''\
 Use the specified DTB file. If not given, let the emulator generate a DTB for us,
@@ -340,7 +348,9 @@ Extra options to append at the end of the emulator command line.
                 self.env['tmux_program'] = 'gdb'
         if self.env['tmux_args'] is not None or self.env['_args_given']['tmux_program']:
             self.env['tmux'] = True
-        if self.env['debug_vm'] or self.env['debug_vm_args']:
+        if self.env['debug_vm_rr']:
+            debug_vm = ['rr', 'record']
+        elif self.env['debug_vm'] or self.env['debug_vm_args']:
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
         else:
             debug_vm = []
@@ -597,7 +607,7 @@ Extra options to append at the end of the emulator command line.
             else:
                 extra_emulator_args.extend(extra_qemu_args)
                 self.make_run_dirs()
-                if self.env['debug_vm']:
+                if debug_vm:
                     serial_monitor = []
                 else:
                     if self.env['background']:
@@ -789,6 +799,12 @@ Extra options to append at the end of the emulator command line.
             raise_on_failure=False,
             show_stdout=show_stdout,
         )
+        if self.env['debug_vm_rr']:
+            exit_status = self.sh.run_cmd(
+                ['rr', 'replay', '-o', '-q'],
+                raise_on_failure=False,
+                show_stdout=show_stdout,
+            )
         if exit_status == 0:
             error_string_found = False
             exit_status = 0
