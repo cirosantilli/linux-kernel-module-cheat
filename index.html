@@ -1044,7 +1044,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#debug-the-emulator">17.7. Debug the emulator</a>
 <ul class="sectlevel3">
-<li><a href="#debug-gem5-python-scripts">17.7.1. Debug gem5 Python scripts</a></li>
+<li><a href="#reverse-debug-the-emulator">17.7.1. Reverse debug the emulator</a></li>
+<li><a href="#debug-gem5-python-scripts">17.7.2. Debug gem5 Python scripts</a></li>
 </ul>
 </li>
 <li><a href="#tracing">17.8. Tracing</a>
@@ -1216,7 +1217,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel3">
 <li><a href="#malloc">20.1.1. malloc</a>
 <ul class="sectlevel4">
-<li><a href="#malloc-maximum-size">20.1.1.1. malloc maximum size</a></li>
+<li><a href="#malloc-implementation">20.1.1.1. malloc implementation</a></li>
+<li><a href="#malloc-maximum-size">20.1.1.2. malloc maximum size</a>
+<ul class="sectlevel5">
+<li><a href="#linux-out-of-memory-killer">20.1.1.2.1. Linux out-of-memory killer</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#gcc-c-extensions">20.1.2. GCC C extensions</a>
@@ -1271,7 +1277,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#user-vs-system-assembly">21.4. User vs system assembly</a></li>
 <li><a href="#userland-assembly-c-standard-library">21.5. Userland assembly C standard library</a>
 <ul class="sectlevel3">
-<li><a href="#freestanding-programs">21.5.1. Freestanding programs</a></li>
+<li><a href="#freestanding-programs">21.5.1. Freestanding programs</a>
+<ul class="sectlevel4">
+<li><a href="#nostartfiles-programs">21.5.1.1. nostartfiles programs</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#gcc-inline-assembly">21.6. GCC inline assembly</a>
@@ -1678,7 +1688,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#benchmark-builds">28.2.2. Benchmark builds</a>
 <ul class="sectlevel4">
-<li><a href="#find-which-packages-are-making-the-build-slow-and-big">28.2.2.1. Find which packages are making the build slow and big</a>
+<li><a href="#find-which-buildroot-packages-are-making-the-build-slow-and-big">28.2.2.1. Find which Buildroot packages are making the build slow and big</a>
 <ul class="sectlevel5">
 <li><a href="#prebuilt-toolchain">28.2.2.1.1. Buildroot use prebuilt host toolchain</a></li>
 </ul>
@@ -6397,7 +6407,7 @@ cat f
 </div>
 </div>
 <div class="paragraph">
-<p>This can be solved by increasing the memory with:</p>
+<p>This can be solved by increasing the memory as explained at <a href="#memory-size">Memory size</a>:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -16390,29 +16400,32 @@ monitor info qtree</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Then you could:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>break edu_mmio_read
-run</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>And in QEMU:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./qemu_edu.sh</pre>
-</div>
-</div>
-<div class="paragraph">
 <p>Or for a faster development loop:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --debug-vm-args '-ex "break edu_mmio_read" -ex "run"'</pre>
+<pre>./run --debug-vm-args '-ex "break qemu_add_opts" -ex "run"'</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Our default emulator builds are optimized with <code>gcc -O2 -g</code>. To use <code>-O0</code> instead, build and run with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-qemu --qemu-build-type debug --verbose
+./run --debug-vm
+./build-gem5 --gem5-build-type debug --verbose
+./run --debug-vm --emulator-gem5</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>--verbose</code> is optional, but shows clearly each GCC build command so that you can confirm what <code>--*-build-type</code> is doing.</p>
+</div>
+<div class="paragraph">
+<p>The build outputs are automatically stored in a different directories for optimized and debug builds, which prevents <code>debug</code> files from overwriting <code>opt</code> ones. Therefore, <code>--gem5-build-id</code> is not required:</p>
+</div>
+<div class="paragraph">
+<p>The price to pay for debuggability is high however: a Linux kernel boot was about 3x slower in QEMU and 14 times slower in gem5 debug compared to opt, see benchmarks at: <a href="#benchmark-linux-kernel-boot">Section 28.2.1, &#8220;Benchmark Linux kernel boot&#8221;</a></p>
 </div>
 <div class="paragraph">
 <p>When in <a href="#qemu-text-mode">QEMU text mode</a>, using <code>--debug-vm</code> makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won&#8217;t be able to easily quit from a guest program like:</p>
@@ -16429,7 +16442,56 @@ run</pre>
 <p>You can still send key presses to QEMU however even without the mouse capture, just either click on the title bar, or alt tab to give it focus.</p>
 </div>
 <div class="sect3">
-<h4 id="debug-gem5-python-scripts"><a class="anchor" href="#debug-gem5-python-scripts"></a><a class="link" href="#debug-gem5-python-scripts">17.7.1. Debug gem5 Python scripts</a></h4>
+<h4 id="reverse-debug-the-emulator"><a class="anchor" href="#reverse-debug-the-emulator"></a><a class="link" href="#reverse-debug-the-emulator">17.7.1. Reverse debug the emulator</a></h4>
+<div class="paragraph">
+<p>While step debugging any complext program, you always end up feeling the need to step in reverse to reach the last call to some function before the failure point.</p>
+</div>
+<div class="paragraph">
+<p>While GDB "has" this feature, it is just too broken to be usable, and so we expose the amazing Mozilla RR tool conveniently in this repo: <a href="https://stackoverflow.com/questions/1470434/how-does-reverse-debugging-work/53063242#53063242" class="bare">https://stackoverflow.com/questions/1470434/how-does-reverse-debugging-work/53063242#53063242</a></p>
+</div>
+<div class="paragraph">
+<p>Before the first usage:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>echo 'kernel.perf_event_paranoid=1' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then use it with your content of interest, for example:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --debug-vm-rr --userland userland/c/hello.c</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This will first run the program once until completion, and then restart the program at the very first instruction at <code>_start</code> and leave you in a GDB shell.</p>
+</div>
+<div class="paragraph">
+<p>From there, run the program until your point of interest, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>break qemu_add_opts
+continue</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and you can now reiably use reverse debugging commands such as <code>reverse-continue</code>, <code>reverse-finish</code> and <code>reverse-next</code>!</p>
+</div>
+<div class="paragraph">
+<p>To restart debugging again after quitting <code>rr</code>, simlpy run on your host terminal:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>rr replay</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="debug-gem5-python-scripts"><a class="anchor" href="#debug-gem5-python-scripts"></a><a class="link" href="#debug-gem5-python-scripts">17.7.2. Debug gem5 Python scripts</a></h4>
 <div class="paragraph">
 <p>Start pdb at the first instruction:</p>
 </div>
@@ -17846,16 +17908,101 @@ instructions 91738770</pre>
 <h5 id="memory-size"><a class="anchor" href="#memory-size"></a><a class="link" href="#memory-size">18.2.2.4. Memory size</a></h5>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch arm --memory 512M</pre>
+<pre>./run --memory 512M</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>and verify inside the guest with:</p>
+<p>We can verify this on the guest directly from the kernel with:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>free -m</pre>
+<pre>cat /proc/meminfo</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>as of LKMC 1e969e832f66cb5a72d12d57c53fb09e9721d589 this output contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MemTotal:         498472 kB</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which we expand with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>printf '0x%X\n' $((498472 * 1024))</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>to:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>0x1E6CA000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO: why is this value a bit smaller than 512M?</p>
+</div>
+<div class="paragraph">
+<p><code>free</code> also gives the same result:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>free -b</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>             total       used       free     shared    buffers     cached
+Mem:     510435328   20385792  490049536          0     503808    2760704
+-/+ buffers/cache:   17121280  493314048
+Swap:            0          0          0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which we expand with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>printf '0x%X\n' 510435328$((498472 * 1024)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>man free</code> from Ubuntu&#8217;s procps 3.3.15 tells us that <code>free</code> obtains this information from <code>/proc/meminfo</code> as well.</p>
+</div>
+<div class="paragraph">
+<p>From C, we can get this information with <code>sysconf(_SC_PHYS_PAGES)</code> or <code>get_phys_pages()</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./linux/total_memory.out</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/total_memory.c">userland/linux/total_memory.c</a></p>
+</div>
+<div class="paragraph">
+<p>Output:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) = 0x1E6CA000
+sysconf(_SC_AVPHYS_PAGES) * sysconf(_SC_PAGESIZE) = 0x1D178000
+get_phys_pages() * sysconf(_SC_PAGESIZE) = 0x1E6CA000
+get_avphys_pages() * sysconf(_SC_PAGESIZE) = 0x1D178000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This is mentioned at: <a href="https://stackoverflow.com/questions/22670257/getting-ram-size-in-c-linux-non-precise-result/22670407#22670407" class="bare">https://stackoverflow.com/questions/22670257/getting-ram-size-in-c-linux-non-precise-result/22670407#22670407</a></p>
+</div>
+<div class="paragraph">
+<p>AV means available and gives the free memory: <a href="https://stackoverflow.com/questions/14386856/c-check-available-ram/57659190#57659190" class="bare">https://stackoverflow.com/questions/14386856/c-check-available-ram/57659190#57659190</a></p>
 </div>
 </div>
 <div class="sect4">
@@ -19806,31 +19953,7 @@ Exiting @ tick 18446744073709551615 because simulate() limit reached</pre>
 <div class="sect3">
 <h4 id="gem5-debug-build"><a class="anchor" href="#gem5-debug-build"></a><a class="link" href="#gem5-debug-build">18.15.1. gem5 debug build</a></h4>
 <div class="paragraph">
-<p>The <code>gem5.debug</code> executable has optimizations turned off unlike the default <code>gem5.opt</code>, and provides a much better <a href="#debug-the-emulator">debug experience</a>:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-gem5 --arch aarch64 --gem5-build-type debug
-./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The build outputs are automatically stored in a different directory from other build types such as <code>.opt</code> build, which prevents <code>.debug</code> files from overwriting <code>.opt</code> ones.</p>
-</div>
-<div class="paragraph">
-<p>Therefore, <code>--gem5-build-id</code> is not required.</p>
-</div>
-<div class="paragraph">
-<p>The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>so you will likely only use this when it is unavoidable. This is also benchmarked at: <a href="#benchmark-linux-kernel-boot">Section 28.2.1, &#8220;Benchmark Linux kernel boot&#8221;</a></p>
+<p>Explained at: <a href="#debug-the-emulator">Section 17.7, &#8220;Debug the emulator&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect3">
@@ -20780,10 +20903,13 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/stderr.c">userland/c/stderr.c</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/getchar.c">userland/c/getchar.c</a></p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/getchar.c">userland/c/getchar.c</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/snprintf.c">userland/c/snprintf.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/stderr.c">userland/c/stderr.c</a></p>
 </li>
 <li>
 <p>File IO</p>
@@ -20825,50 +20951,136 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <p>LInux 5.1 / glibc 2.29 implements it with the <a href="#mmap"><code>mmap</code> system call</a>.</p>
 </div>
 <div class="sect4">
-<h5 id="malloc-maximum-size"><a class="anchor" href="#malloc-maximum-size"></a><a class="link" href="#malloc-maximum-size">20.1.1.1. malloc maximum size</a></h5>
+<h5 id="malloc-implementation"><a class="anchor" href="#malloc-implementation"></a><a class="link" href="#malloc-implementation">20.1.1.1. malloc implementation</a></h5>
 <div class="paragraph">
-<p>Test how much memory Linux lets us allocate by doubling a buffer with <code>realloc</code> until it fails:</p>
+<p>TODO: the exact answer is going to be hard.</p>
+</div>
+<div class="paragraph">
+<p>But at least let&#8217;s verify that large <code>malloc</code> calls use the <code>mmap</code> syscall with:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --userland userland/c/malloc_max.c</pre>
+<pre>strace -x ./c/malloc_size.out 0x100000 2&gt;&amp;1 | grep mmap | tail -n 1
+strace -x ./c/malloc_size.out 0x200000 2&gt;&amp;1 | grep mmap | tail -n 1
+strace -x ./c/malloc_size.out 0x400000 2&gt;&amp;1 | grep mmap | tail -n 1</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc_max.c">userland/c/malloc_max.c</a></p>
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc_size.c">userland/c/malloc_size.c</a>.</p>
 </div>
 <div class="paragraph">
-<p>Outcome at c03d5d18ea971ae85d008101528d84c2ff25eb27 on Ubuntu 19.04 <a href="#p51">P51</a> host (16GiB RAM): prints up to <code>0x1000000000</code> (64GiB).</p>
-</div>
-<div class="paragraph">
-<p>TODO dive into source code.</p>
-</div>
-<div class="paragraph">
-<p>TODO: if we do direct <a href="#malloc">malloc</a> allocations with <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a> or <a href="#mmap">mmap</a> with <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/mmap_anonymous.c">userland/linux/mmap_anonymous.c</a>, then the limit was smaller than 64GiB!</p>
-</div>
-<div class="paragraph">
-<p>These work:</p>
+<p>From this we sese that the last <code>mmap</code> calls are:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./userland/c/malloc.out 0x100000000
-./userland/linux/mmap_anonymous.out 0x100000000</pre>
+<pre>mmap(NULL, 1052672, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ef2000
+mmap(NULL, 2101248, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7271000
+mmap(NULL, 4198400, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7071000</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>which is <code>4Gib * sizeof(int) == 16GiB</code>, but these fail at 32GiB:</p>
+<p>which in hex are:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./userland/c/malloc.out 0x200000000
-./userland/linux/mmap_anonymous.out 0x200000000</pre>
+<pre>printf '%x\n' 1052672
+# 101000
+printf '%x\n' 2101248
+# 201000
+printf '%x\n' 4198400
+# 401000</pre>
 </div>
 </div>
 <div class="paragraph">
-<p><code>malloc</code> returns NULL, and <code>mmap</code> goes a bit further and segfauls on the first assignment <code>array[0] = 1</code>.</p>
+<p>so we figured out the pattern: those 1, 2, and 4 MiB mallocs are mmaping N + 0x1000 bytes.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="malloc-maximum-size"><a class="anchor" href="#malloc-maximum-size"></a><a class="link" href="#malloc-maximum-size">20.1.1.2. malloc maximum size</a></h5>
+<div class="paragraph">
+<p>General overview at: <a href="https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate" class="bare">https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate</a></p>
 </div>
 <div class="paragraph">
-<p>Bibliography: <a href="https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate" class="bare">https://stackoverflow.com/questions/2798330/maximum-memory-which-malloc-can-allocate</a></p>
+<p>See also:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://stackoverflow.com/questions/13127855/what-is-the-size-limit-for-mmap" class="bare">https://stackoverflow.com/questions/13127855/what-is-the-size-limit-for-mmap</a></p>
+</li>
+<li>
+<p><a href="https://stackoverflow.com/questions/7504139/malloc-allocates-memory-more-than-ram" class="bare">https://stackoverflow.com/questions/7504139/malloc-allocates-memory-more-than-ram</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>From <a href="#memory-size">Memory size</a> and <code>./run --help</code>, we see that at we set the emulator memory by default to 256MB. Let&#8217;s see how much Linux allows us to malloc.</p>
+</div>
+<div class="paragraph">
+<p>Then from <a href="#malloc-implementation">malloc implementation</a> we see that <code>malloc</code> is implemented with <code>mmap</code>. Therefore, let&#8217;s simplify the problam and try to understand what is the larges mmap we can do first. This way we can ignore how glibc implements malloc for now.</p>
+</div>
+<div class="paragraph">
+<p>In Linux, the maximum <code>mmap</code> value in controlled by:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cat /proc/sys/vm/overcommit_memory</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which is documented in <code>man proc</code>.</p>
+</div>
+<div class="paragraph">
+<p>The default value is <code>0</code>, which I can&#8217;t find a precise documentation for. <code>2</code> is precisly documented but I&#8217;m lazy to do all calculations. So let&#8217;s just verify <code>0</code> vs <code>1</code> by trying to <code>mmap</code> 1GiB of memory:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>echo 0 &gt; /proc/sys/vm/overcommit_memory
+./linux/mmap_anonymous.out 0x40000000
+echo 1 &gt; /proc/sys/vm/overcommit_memory
+./linux/mmap_anonymous.out 0x40000000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/mmap_anonymous.c">userland/linux/mmap_anonymous.c</a></p>
+</div>
+<div class="paragraph">
+<p>With <code>0</code>, we get a failure:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>mmap: Cannot allocate memory</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>but with <code>1</code> the allocation works.</p>
+</div>
+<div class="paragraph">
+<p>We are allowed to allocate more than the actual memory + swap because the memory is only virtual, as explained at: <a href="https://stackoverflow.com/questions/7880784/what-is-rss-and-vsz-in-linux-memory-management/57453334#57453334" class="bare">https://stackoverflow.com/questions/7880784/what-is-rss-and-vsz-in-linux-memory-management/57453334#57453334</a></p>
+</div>
+<div class="paragraph">
+<p>If we start using the pages, the OOM killer would sooner or later step in and kill our process: <a href="#linux-out-of-memory-killer">Linux out-of-memory killer</a>.</p>
+</div>
+<div class="sect5">
+<h6 id="linux-out-of-memory-killer"><a class="anchor" href="#linux-out-of-memory-killer"></a><a class="link" href="#linux-out-of-memory-killer">20.1.1.2.1. Linux out-of-memory killer</a></h6>
+<div class="paragraph">
+<p>We can observe the OOM in LKMC 1e969e832f66cb5a72d12d57c53fb09e9721d589 which defaults to 256MiB of memory with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>echo 1 &gt; /proc/sys/vm/overcommit_memory
+./linux/mmap_anonymous_touch.out 0x40000000 0x8000000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This first allows memory overcommit so to that the program can mmap 1GiB, 4x more than total RAM without failing as mentioned at <a href="#malloc-maximum-size">malloc maximum size</a>.</p>
+</div>
+<div class="paragraph">
+<p>It then walks over every page and writes a value in it to ensure that it is used.</p>
+</div>
+<div class="paragraph">
+<p>Algorithm used by the OOM: <a href="https://unix.stackexchange.com/questions/153585/how-does-the-oom-killer-decide-which-process-to-kill-first" class="bare">https://unix.stackexchange.com/questions/153585/how-does-the-oom-killer-decide-which-process-to-kill-first</a></p>
+</div>
 </div>
 </div>
 </div>
@@ -21777,7 +21989,20 @@ When instructions do not interpret this operand encoding as the zero register, u
 <div class="sect3">
 <h4 id="freestanding-programs"><a class="anchor" href="#freestanding-programs"></a><a class="link" href="#freestanding-programs">21.5.1. Freestanding programs</a></h4>
 <div class="paragraph">
-<p>Unlike most our other assembly examples, which use the C standard library for portability, examples under <code>freestanding/</code> directories don&#8217;t link to the C standard library.</p>
+<p>Unlike most our other assembly examples, which use the C standard library for portability, examples under <code>freestanding/</code> directories don&#8217;t link to the C standard library:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/x86_64/freestanding/">userland/arch/x86_64/freestanding/</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/arm/freestanding/">userland/arch/arm/freestanding/</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/">userland/arch/aarch64/freestanding/</a></p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>As a result, those examples cannot do IO portably, and so they make raw system calls and only be run on one given OS, e.g. <a href="#linux-system-calls">Linux system calls</a>.</p>
@@ -21796,6 +22021,22 @@ When instructions do not interpret this operand encoding as the zero register, u
 </div>
 <div class="paragraph">
 <p>You are now left on the very first instruction of our tiny executable!</p>
+</div>
+<div class="sect4">
+<h5 id="nostartfiles-programs"><a class="anchor" href="#nostartfiles-programs"></a><a class="link" href="#nostartfiles-programs">21.5.1.1. nostartfiles programs</a></h5>
+<div class="paragraph">
+<p>Assembly examples under <code>nostartfiles</code> directories can use the standard library, but they don&#8217;t use the pre-<code>main</code> boilerplate and start directly at our explicitly given <code>_start</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/">userland/arch/aarch64/freestanding/</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>I&#8217;m not sure how much stdlib functionality is supposed to work without the pre-main stuff, but I guess we&#8217;ll just have to find out!</p>
+</div>
 </div>
 </div>
 </div>
@@ -24776,6 +25017,16 @@ Bibliography: <a href="https://www.quora.com/Why-is-it-that-you-need-a-license-f
 </li>
 </ul>
 </div>
+<div class="paragraph">
+<p>These also have signed and unsigned versions to either zero or one extend the result:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/ldrsw.S">userland/arch/aarch64/ldrsw.S</a>: load byte and sign extend</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect3">
@@ -27541,6 +27792,12 @@ cntvct_el0 0x3CF516F</pre>
 <div class="paragraph">
 <p>The specific models have names of type GIC-600, GIC-500, etc.</p>
 </div>
+<div class="paragraph">
+<p>In QEMU v4.0.0, the GICv3 can be selected with an extra <code>-machine gic_version=3</code> option.</p>
+</div>
+<div class="paragraph">
+<p>In gem5 3126e84db773f64e46b1d02a9a27892bf6612d30, the GIC is determined by selecting the platform as explained at: <a href="#gem5-arm-platforms">gem5 ARM platforms</a>.</p>
+</div>
 </div>
 <div class="sect3">
 <h4 id="arm-paging"><a class="anchor" href="#arm-paging"></a><a class="link" href="#arm-paging">26.8.6. ARM paging</a></h4>
@@ -28475,7 +28732,7 @@ cat ../linux-kernel-module-cheat-regression/*/build-time.log</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="find-which-packages-are-making-the-build-slow-and-big"><a class="anchor" href="#find-which-packages-are-making-the-build-slow-and-big"></a><a class="link" href="#find-which-packages-are-making-the-build-slow-and-big">28.2.2.1. Find which packages are making the build slow and big</a></h5>
+<h5 id="find-which-buildroot-packages-are-making-the-build-slow-and-big"><a class="anchor" href="#find-which-buildroot-packages-are-making-the-build-slow-and-big"></a><a class="link" href="#find-which-buildroot-packages-are-making-the-build-slow-and-big">28.2.2.1. Find which Buildroot packages are making the build slow and big</a></h5>
 <div class="literalblock">
 <div class="content">
 <pre>./build-buildroot -- graph-build graph-size graph-depends
