@@ -9786,24 +9786,26 @@ This is of course trivial since they are just regular userland programs on the h
 ./run --debug-vm
 ....
 
-Then you could:
-
-....
-break edu_mmio_read
-run
-....
-
-And in QEMU:
-
-....
-./qemu_edu.sh
-....
-
 Or for a faster development loop:
 
 ....
-./run --debug-vm-args '-ex "break edu_mmio_read" -ex "run"'
+./run --debug-vm-args '-ex "break qemu_add_opts" -ex "run"'
 ....
+
+Our default emulator builds are optimized with `gcc -O2 -g`. To use `-O0` instead, build and run with:
+
+....
+./build-qemu --qemu-build-type debug --verbose
+./run --debug-vm
+./build-gem5 --gem5-build-type debug --verbose
+./run --debug-vm --emulator-gem5
+....
+
+The `--verbose` is optional, but shows clearly each GCC build command so that you can confirm what `--*-build-type` is doing.
+
+The build outputs are automatically stored in a different directories for optimized and debug builds, which prevents `debug` files from overwriting `opt` ones. Therefore, `--gem5-build-id` is not required: 
+
+The price to pay for debuggability is high however: a Linux kernel boot was about 3x slower in QEMU and 14 times slower in gem5 debug compared to opt, see benchmarks at: xref:benchmark-linux-kernel-boot[xrefstyle=full]
 
 When in <<qemu-text-mode>>, using `--debug-vm` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest program like:
 
@@ -9828,19 +9830,28 @@ echo 'kernel.perf_event_paranoid=1' | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
 ....
 
-Then use it as:
+Then use it with your content of interest, for example:
 
 ....
-./run --debug-vm-rr
+./run --debug-vm-rr --userland userland/c/hello.c
 ....
 
-Once you are left in the RR GDB shell, just continue:
+This will first run the program once until completion, and then restart the program at the very first instruction at `_start` and leave you in a GDB shell.
+
+From there, run the program until your point of interest, e.g.:
 
 ....
+break qemu_add_opts
 continue
 ....
 
-you can now reiably use reverse debugging commands such as `reverse-continue` and `reverse-next`!
+and you can now reiably use reverse debugging commands such as `reverse-continue`, `reverse-finish` and `reverse-next`!
+
+To restart debugging again after quitting `rr`, simlpy run on your host terminal:
+
+....
+rr replay
+....
 
 ==== Debug gem5 Python scripts
 
@@ -12158,25 +12169,7 @@ In order to use different build options, you might also want to use <<gem5-build
 
 ==== gem5 debug build
 
-The `gem5.debug` executable has optimizations turned off unlike the default `gem5.opt`, and provides a much better <<debug-the-emulator,debug experience>>:
-
-....
-./build-gem5 --arch aarch64 --gem5-build-type debug
-./run --arch aarch64 --debug-vm --emulator gem5 --gem5-build-type debug
-....
-
-The build outputs are automatically stored in a different directory from other build types such as `.opt` build, which prevents `.debug` files from overwriting `.opt` ones.
-
-Therefore, `--gem5-build-id` is not required.
-
-The price to pay for debuggability is high however: a Linux kernel boot was about 14 times slower than opt at 71e927e63bda6507d5a528f22c78d65099bdf36f between the commands:
-
-....
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16
-./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --linux-build-id v4.16 --gem5-build-type debug
-....
-
-so you will likely only use this when it is unavoidable. This is also benchmarked at: xref:benchmark-linux-kernel-boot[xrefstyle=full]
+Explained at: xref:debug-the-emulator[xrefstyle=full].
 
 ==== gem5 clang build
 

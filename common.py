@@ -144,6 +144,13 @@ for key in consts['emulator_short_to_long_dict']:
     consts['emulator_choices'].add(consts['emulator_short_to_long_dict'][key])
 consts['host_arch'] = platform.processor()
 consts['guest_lkmc_home'] = os.sep + consts['repo_short_id']
+consts['build_type_choices'] = [
+    # -O2 -g
+    'opt',
+    # -O0 -g
+    'debug'
+]
+consts['build_type_default'] = 'opt'
 
 class ExitLoop(Exception):
     pass
@@ -325,7 +332,8 @@ Default: {}
         )
         self.add_argument(
             '--gem5-build-type',
-            default='opt',
+            choices=consts['build_type_choices'],
+            default=consts['build_type_default'],
             help='gem5 build type, most often used for "debug" builds.'
         )
         self.add_argument(
@@ -441,10 +449,15 @@ Use the docker download Ubuntu root filesystem instead of the default Buildroot 
 
         # QEMU.
         self.add_argument(
-            '-Q',
             '--qemu-build-id',
             default=consts['default_build_id'],
             help='QEMU build ID. Allows you to keep multiple separate QEMU builds.'
+        )
+        self.add_argument(
+            '--qemu-build-type',
+            choices=consts['build_type_choices'],
+            default=consts['build_type_default'],
+            help='QEMU build type, most often used for "debug" vs optimized builds.'
         )
         self.add_argument(
             '--qemu-which',
@@ -743,7 +756,12 @@ Incompatible archs are skipped.
         env['linux_buildroot_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
 
         # QEMU
-        env['qemu_build_dir'] = join(env['out_dir'], 'qemu', env['qemu_build_id'])
+        env['qemu_build_dir'] = join(
+            env['out_dir'],
+            'qemu',
+            env['qemu_build_id'],
+            env['qemu_build_type']
+        )
         env['qemu_img_basename'] = 'qemu-img'
         env['qemu_img_executable'] = join(env['qemu_build_dir'], env['qemu_img_basename'])
         if env['userland'] is None:

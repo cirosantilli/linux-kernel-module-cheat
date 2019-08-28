@@ -26,14 +26,19 @@ class Main(common.BuildCliFunction):
             target_list = '{}-linux-user'.format(self.env['arch'])
         else:
             target_list = '{}-softmmu'.format(self.env['arch'])
+        if self.env['qemu_build_type'] == 'debug':
+            # https://stackoverflow.com/questions/4689136/debug-qemu-with-gdb
+            build_type_cmd = ['--enable-debug', LF]
+        else:
+            build_type_cmd = []
         self.sh.run_cmd(
             [
                 os.path.join(self.env['qemu_source_dir'], 'configure'), LF,
-                '--enable-debug', LF,
                 '--enable-trace-backends=simple', LF,
                 '--target-list={}'.format(target_list), LF,
                 '--enable-sdl', LF,
             ] +
+            build_type_cmd +
             self.sh.add_newlines(self.env['extra_config_args']),
             extra_paths=[self.env['ccache_dir']],
             cwd=build_dir
