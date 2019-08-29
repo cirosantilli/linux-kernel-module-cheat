@@ -506,7 +506,7 @@ path_properties_tuples = (
                     },
                 ),
                 'gcc': (
-                    gnu_extension_properties,
+                    {**gnu_extension_properties, **{'cc_pedantic': False}},
                     {
                         'openmp.c': {'cc_flags': ['-fopenmp', LF]},
                     }
