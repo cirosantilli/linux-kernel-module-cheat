@@ -1,12 +1,32 @@
 #!/usr/bin/env bash
+
 # https://cirosantilli.com/linux-kernel-module-cheat#github-pages
-set -eu
+
+set -eux
+
+gh_pages_dir=out/gh-pages
+sha="$(git log -n1 --pretty='%H' master)"
+
+# Make sure that we can push and build before anything else.
 git push
 ./build-doc --github-pages
-git checkout gh-pages
-git checkout master -- '*.png' _config.yml
-cp out/README.html index.html
+
+# Create or update the gh-pages repository.
+mkdir -p "$gh_pages_dir"
+if [ -d "${gh_pages_dir}/.git" ]; then
+  git -C "${gh_pages_dir}" pull
+else
+  git clone --branch gh-pages . "${gh_pages_dir}"
+fi
+
+# Update files in the repository, commit and push.
+cp out/README.html "${gh_pages_dir}/index.html"
+git checkout master -- \
+  .gitignore \
+  '*.png' \
+  _config.yml \
+;
+cd "$gh_pages_dir"
 git add index.html
-git commit --message "$(git log -n1 --pretty='%H' master)"
-git push --force
-git checkout -
+git commit --message "$sha"
+#git push
