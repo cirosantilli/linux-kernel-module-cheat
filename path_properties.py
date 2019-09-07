@@ -480,6 +480,9 @@ path_properties_tuples = (
                         'assert_fail.c': {
                             'signal_received': signal.Signals.SIGABRT,
                         },
+                        'smash_stack.c': {
+                            'skip_run_unclassified': True,
+                        },
                         'exit1.c': {'exit_status': 1},
                         'exit2.c': {'exit_status': 2},
                         'false.c': {'exit_status': 1},
