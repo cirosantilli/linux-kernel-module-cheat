@@ -1,3 +1,5 @@
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp-multithreading
+//
 // http://stackoverflow.com/questions/7686939/c-simple-return-value-from-stdthread
 // http://stackoverflow.com/questions/28950835/c-error-no-type-named-type-in-class-stdresult-ofvoid-stdunordered
 // http://stackoverflow.com/questions/21048906/stdthread-pass-by-reference-calls-copy-constructor
