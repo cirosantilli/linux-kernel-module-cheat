@@ -474,21 +474,16 @@ path_properties_tuples = (
                         'baremetal': True,
                     },
                     {
-                        'abort.c': {
-                            'signal_received': signal.Signals.SIGABRT,
-                        },
-                        'assert_fail.c': {
-                            'signal_received': signal.Signals.SIGABRT,
-                        },
-                        'smash_stack.c': {
-                            'skip_run_unclassified': True,
-                        },
+                        'abort.c': {'signal_received': signal.Signals.SIGABRT},
+                        'assert_fail.c': {'signal_received': signal.Signals.SIGABRT},
+                        # This has complex failure modes, too hard to assert.
+                        'smash_stack.c': {'skip_run_unclassified': True},
                         'exit1.c': {'exit_status': 1},
                         'exit2.c': {'exit_status': 2},
                         'false.c': {'exit_status': 1},
                         'file_write_read.c': {'baremetal': False},
                         'getchar.c': {'interactive': True},
-                        'infinite_loop.c': {'more_than_1s': True},
+                        'infinite_loop.c': {'test_run_args': {'userland_args': '1 10'}},
                         'malloc_max.c': {'disrupts_system': True},
                         'return1.c': {'exit_status': 1},
                         'return2.c': {'exit_status': 2},
@@ -500,6 +495,9 @@ path_properties_tuples = (
                         'atomic.cpp': {
                             'test_run_args': {'cpus': 3},
                             # LDADD from LSE
+                            # https://cirosantilli.com/linux-kernel-module-cheat#arm-lse
+                            # Implemented on master:
+                            # https://gem5-review.googlesource.com/c/public/gem5/+/19812
                             'gem5_unimplemented_instruction': True,
                         },
                         'count.cpp': {'more_than_1s': True},

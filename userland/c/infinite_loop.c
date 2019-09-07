@@ -1,10 +1,15 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#c
  *
- * Loop infinitely. Print an integer whenever a period is reached:
+ * Loop and print an integer whenever a period is reached:
  *
  * ....
- * ./infinite_loop [period]
+ * ./infinite_loop [period=100000000 [max=0]]
  * ....
+ *
+ * * period: period for printing integers to stdout
+ *           0 means disable printing.
+ * * max:    Stop counting when max is reached.
+ *           0 means count to infinity.
  */
 
 #include <inttypes.h>
@@ -30,7 +35,7 @@ int main(int argc, char **argv) {
     j = 0;
     while (1) {
         i++;
-        if (i % period == 0) {
+        if (period != 0 && i % period == 0) {
             printf("%ju\n", j);
             j++;
         }
