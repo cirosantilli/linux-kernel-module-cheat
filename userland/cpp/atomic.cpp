@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
     if (argc > 2) {
         niters = std::stoull(argv[2], NULL, 0);
     } else {
-        niters = 10000;
+        niters = 10;
     }
     std::vector<std::thread> threads(nthreads);
     for (size_t i = 0; i < nthreads; ++i)

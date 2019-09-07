@@ -475,6 +475,7 @@ path_properties_tuples = (
                     },
                     {
                         'abort.c': {'signal_received': signal.Signals.SIGABRT},
+                        'atomic.c': {'baremetal': False},
                         'assert_fail.c': {'signal_received': signal.Signals.SIGABRT},
                         # This has complex failure modes, too hard to assert.
                         'smash_stack.c': {'skip_run_unclassified': True},
@@ -483,7 +484,6 @@ path_properties_tuples = (
                         'false.c': {'exit_status': 1},
                         'file_write_read.c': {'baremetal': False},
                         'getchar.c': {'interactive': True},
-                        'infinite_loop.c': {'test_run_args': {'userland_args': '1 10'}},
                         'malloc_max.c': {'disrupts_system': True},
                         'return1.c': {'exit_status': 1},
                         'return2.c': {'exit_status': 2},
