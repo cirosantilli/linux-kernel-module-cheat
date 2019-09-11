@@ -3,10 +3,16 @@
  *
  * https://cirosantilli.com/linux-kernel-module-cheat#pthreads
  *
+ * Usage:
+ *
+ * ....
+ * ./pthread_self.out [nthreads]
+ * ....
+ *
  * Sample usage:
  *
  * ....
- * ./pthread_tid.out 4
+ * ./pthread_self.out [nthreads]
  * ....
  *
  * Sample output:
