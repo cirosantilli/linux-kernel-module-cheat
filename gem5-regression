@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+from shell_helpers import LF
+
+import os
+import pathlib
+import subprocess
+
+import common
+from shell_helpers import LF
+
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            description='''\
+Run gem5 regression tests.
+https://cirosantilli.com/linux-kernel-module-cheat#gem5-regression-tests
+'''
+        )
+        self.add_argument(
+            'extra_args',
+            metavar='extra-args',
+            nargs='*',
+        )
+
+    def timed_main(self):
+        return self.sh.run_cmd([
+                os.path.join(self.env['gem5_source_dir'], 'tests', 'main.py'), LF,
+                'run', LF,
+                '--base-dir', self.env['gem5_source_dir'], LF,
+                '--build-dir', self.env['gem5_build_build_dir'], LF,
+                '--isa', self.env['gem5_arch'], LF,
+                '--variant', self.env['gem5_build_type'], LF,
+                '-j', str(self.env['nproc']), LF,
+                '-t', str(self.env['nproc']), LF,
+            ],
+            cwd=os.path.join(self.env['gem5_source_dir'], 'tests'),
+        )
+
+if __name__ == '__main__':
+    Main().cli()
