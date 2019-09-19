@@ -102,22 +102,9 @@ int main(void) {
     lkmc_sysreg_print_cntvct_el0();
     puts("");
 
-<<<<<<< Updated upstream
-    gic_v3_initialize();
-    {
-        /*uint64_t ticks, current_cnt;*/
-        /*uint32_t cntfrq;*/
-        /*ticks = cntfrq;*/
-        /*current_cnt = lkmc_sysreg_read_cntvct_el0();*/
-        /*lkmc_sysreg_write_cntv_cval_el0(current_cnt + ticks);*/
-        enable_cntv();
-        enable_irq();
-    }
-=======
     gic_initialize();
     enable_cntv();
     enable_irq();
->>>>>>> Stashed changes
     while (1) {
         lkmc_arm_aarch64_wfi();
     }

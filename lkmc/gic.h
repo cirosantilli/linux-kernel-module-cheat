@@ -4,14 +4,36 @@
 #include <lkmc/aarch64.h>
 
 #if LKMC_QEMU
+
 /* info qtree contains:
+ *
  *   dev: arm_gic, id ""
- *     mmio 0000000008000000/0000000000001000 */
-#define GIC_BASE       0x08000000
+ *    mmio 0000000008000000/0000000000001000
+ *    mmio 0000000008010000/0000000000002000 */
+#define GIC_GICD_BASE 0x08000000
+#define GIC_GICC_BASE 0x08010000
+#define TIMER_IRQ     27
+
 #elif LKMC_GEM5
-/* https://github.com/gem5/gem5/blob/f525028c126af33da532f6703a152d81d900dcf7/src/dev/arm/RealView.py#L952 */
-#define GIC_BASE       0x2c001000
+
+/* On source at: https://github.com/gem5/gem5/blob/f525028c126af33da532f6703a152d81d900dcf7/src/dev/arm/RealView.py#L952
+ *
+ * On m5out/config.ini at:
+ *
+ * * system.realview.gic.dist_addr=738201600
+ * * system.realview.gic.cpu_addr=738205696
+ *
+ * On auto-generated DTB in m5out/system.dtb after converstion to dts:
+ *
+ * interrupt-controller {
+ *       compatible = "gem5,gic", "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+ *       reg = <0x0 0x2c001000 0x0 0x1000 0x0 0x2c002000 0x0 0x1000 0x0 0x2c004000 0x0 0x2000 0x0 0x2c006000 0x0 0x2000>; * */
+#define GIC_GICD_BASE 0x2c001000
+#define GIC_GICC_BASE 0x2c002000
+#define TIMER_IRQ     30
+
 #endif
+
 #define GIC_INT_MAX    64
 #define GIC_PRIO_MAX   16
 #define GIC_INTNO_SGI0 0
@@ -19,12 +41,8 @@
 #define GIC_INTNO_SPI0 32
 #define GIC_PRI_SHIFT  4
 #define GIC_PRI_MASK   0x0f
-#define TIMER_IRQ      27
 
 typedef int32_t irq_no;
-
-#define GIC_GICD_BASE (GIC_BASE)
-#define GIC_GICC_BASE (GIC_BASE + 0x10000)
 
 #define GIC_GICD_INT_PER_REG            (32)
 #define GIC_GICD_IPRIORITY_PER_REG      (4)
