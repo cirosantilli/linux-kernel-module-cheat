@@ -1,8 +1,25 @@
-#ifndef LKMC_GICV3_H
-#define LKMC_GICV3_H
+#ifndef LKMC_GIC_H
+#define LKMC_GIC_H
 
 #include <lkmc/aarch64.h>
-#include <lkmc/board.h>
+
+#if LKMC_QEMU
+/* info qtree contains:
+ *   dev: arm_gic, id ""
+ *     mmio 0000000008000000/0000000000001000 */
+#define GIC_BASE       0x08000000
+#elif LKMC_GEM5
+/* https://github.com/gem5/gem5/blob/f525028c126af33da532f6703a152d81d900dcf7/src/dev/arm/RealView.py#L952 */
+#define GIC_BASE       0x2c001000
+#endif
+#define GIC_INT_MAX    64
+#define GIC_PRIO_MAX   16
+#define GIC_INTNO_SGI0 0
+#define GIC_INTNO_PPI0 16
+#define GIC_INTNO_SPI0 32
+#define GIC_PRI_SHIFT  4
+#define GIC_PRI_MASK   0x0f
+#define TIMER_IRQ      27
 
 typedef int32_t irq_no;
 
@@ -107,9 +124,9 @@ this register determines only Group 0 interrupt preemption. */
 #define REG_GIC_GICD_CPENDSGIR(n)     ((volatile uint32_t *)(uintptr_t)GIC_GICD_CPENDSGIR(n))
 #define REG_GIC_GICD_SPENDSGIR(n)     ((volatile uint32_t *)(uintptr_t)GIC_GICD_SPENDSGIR(n))
 
-void gic_v3_initialize(void);
-void gic_v3_eoi(irq_no irq);
-int gic_v3_find_pending_irq(
+void gic_initialize(void);
+void gic_eoi(irq_no irq);
+int gic_find_pending_irq(
     LkmcVectorExceptionFrame *exc __attribute__((unused)),
     irq_no *irqp
 );
@@ -273,7 +290,7 @@ static void gicd_config(irq_no irq, unsigned int config) {
  * @param[in] ctrlr   IRQ controller information
  * @param[in] irq     IRQ number
  */
-void gic_v3_eoi(irq_no irq) {
+void gic_eoi(irq_no irq) {
     gicd_clear_pending(irq);
 }
 
@@ -282,7 +299,7 @@ void gic_v3_eoi(irq_no irq) {
  * I supppose the current access is security, because GICD_CTLR.DS is 0b0 and
  * we can access.
  */
-void gic_v3_initialize(void) {
+void gic_initialize(void) {
     init_gicd();
     init_gicc();
     gicd_config(TIMER_IRQ, GIC_GICD_ICFGR_EDGE);
@@ -298,7 +315,7 @@ void gic_v3_initialize(void) {
  * @param[in,out] irqp An IRQ number to be processed
  * @return        0 if found, 1 if not found
  */
-int gic_v3_find_pending_irq(
+int gic_find_pending_irq(
     LkmcVectorExceptionFrame *exc __attribute__((unused)),
     irq_no *irqp
 ) {

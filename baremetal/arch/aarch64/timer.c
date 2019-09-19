@@ -2,7 +2,7 @@
 #include <inttypes.h>
 
 #include <lkmc.h>
-#include <lkmc/gicv3.h>
+#include <lkmc/gic.h>
 
 #define INTERRUPT_FREQUENCY 1
 
@@ -61,7 +61,7 @@ void lkmc_vector_trap_handler(
     int rc;
     if ((exception->exc_type & 0xff) == LKMC_VECTOR_IRQ_SPX) {
         psw_disable_and_save_interrupt(&psw);
-        rc = gic_v3_find_pending_irq(exception, &irq);
+        rc = gic_find_pending_irq(exception, &irq);
         if (rc) {
             puts("IRQ not found!");
             goto restore_irq_out;
@@ -69,7 +69,7 @@ void lkmc_vector_trap_handler(
             printf("IRQ number 0x%" PRIX32 "\n", irq);
         }
         gicd_disable_int(irq);
-        gic_v3_eoi(irq);
+        gic_eoi(irq);
         // Timer specific stuff.
         {
             disable_cntv();
@@ -102,6 +102,7 @@ int main(void) {
     lkmc_sysreg_print_cntvct_el0();
     puts("");
 
+<<<<<<< Updated upstream
     gic_v3_initialize();
     {
         /*uint64_t ticks, current_cnt;*/
@@ -112,6 +113,11 @@ int main(void) {
         enable_cntv();
         enable_irq();
     }
+=======
+    gic_initialize();
+    enable_cntv();
+    enable_irq();
+>>>>>>> Stashed changes
     while (1) {
         lkmc_arm_aarch64_wfi();
     }
