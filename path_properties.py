@@ -37,6 +37,7 @@ class PathProperties:
         'cc_flags_after': ['-lm', LF],
         'cc_pedantic': True,
         'cxx_std': default_cxx_std,
+        # Shuts system down, consumes a lot of memory, etc.
         'disrupts_system': False,
         # Expected program exit status. When signals are raised, this refers
         # to the native exit status. as reported by Bash #?.
@@ -60,15 +61,20 @@ class PathProperties:
         # it only generates intermediate object files. Therefore it
         # should not be run while testing.
         'no_executable': False,
-        # The script requires a non-trivial argument to be passed to run properly.
+        # The script requires a non-trivial to determine argument to be passed to run properly.
         'requires_argument': False,
+        # Let's not test stuff that relies on the internet by default, user might be offline,
+        # or Internet might be slow and make tests slow.
+        'requires_internet': False,
+        # Requires certain of our custom kernel modules to be inserted to run.
+        'requires_kernel_modules': False,
+        # gem5 syscall emulation cannot handle dynamically linked exectuables properly.
+        # https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
         'requires_dynamic_library': False,
         'requires_m5ops': False,
         # gem5 fatal: syscall getcpu (#168) unimplemented.
         'requires_syscall_getcpu': False,
         'requires_semihosting': False,
-        # Requires certain of our custom kernel modules to be inserted to run.
-        'requires_kernel_modules': False,
         # The example requires sudo, which usually implies that it can do something
         # deeply to the system it runs on, which would preventing further interactive
         # or test usage of the system, for example poweroff or messing up the GUI.
@@ -168,6 +174,7 @@ class PathProperties:
             not self['more_than_1s'] and
             not self['no_executable'] and
             not self['requires_argument'] and
+            not self['requires_internet'] and
             not self['requires_kernel_modules'] and
             not self['requires_sudo'] and
             not self['skip_run_unclassified'] and
@@ -556,6 +563,7 @@ path_properties_tuples = (
                         'pthread_self.c': {
                             'test_run_args': {'cpus': 2},
                         },
+                        'wget.c': {'requires_internet': True},
                         'sleep_forever.c': {'more_than_1s': True},
                         'virt_to_phys_test.c': {'more_than_1s': True},
                     }
