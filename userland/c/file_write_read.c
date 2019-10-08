@@ -108,10 +108,10 @@ int file_write(char *path, char *write_string) {
 
 int main(void) {
     char *path = LKMC_TMP_FILE;
-    char *input = "asdf\nqwer\n";
+    char *data = "asdf\nqwer\n";
 
     /* Write entire string to file at once. */
-    if (file_write(path, input) == -1) {
+    if (file_write(path, data) == -1) {
         LKMC_IO_ERROR("file_write", path);
     }
 
@@ -121,7 +121,7 @@ int main(void) {
         if (output == NULL) {
             LKMC_IO_ERROR("file_read", path);
         }
-        assert(strcmp(input, output) == 0);
+        assert(strcmp(data, output) == 0);
         free(output);
     }
 
@@ -131,7 +131,7 @@ int main(void) {
         if (size == -1) {
             LKMC_IO_ERROR("file_size", path);
         }
-        assert((size_t)size == strlen(input));
+        assert((size_t)size == strlen(data));
     }
 
     return EXIT_SUCCESS;
