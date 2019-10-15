@@ -12520,6 +12520,64 @@ BadDevice::BadDevice(Params *p)
 
 Tested on gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3.
 
+=== gem5 polymorphic ISA includes
+
+E.g. `src/cpu/decode_cache.hh` includes:
+
+....
+#include "arch/isa_traits.hh"
+....
+
+which in turn is meant to refer to files of form:
+
+....
+src/arch/<isa>/isa_traits.hh
+....
+
+What happens is that the build system creates a file:
+
+....
+build/ARM/arch/isa_traits.hh
+....
+
+which contains just:
+
+....
+#include "arch/arm/isa_traits.hh"
+....
+
+and puts that in the `-I` include path during build.
+
+It appears to be possible to deal with it using preprocessor macros, but it is ugly: https://stackoverflow.com/questions/3178946/using-define-to-include-another-file-in-c-c/3179218#3179218
+
+In addition to the header polymorphism, gem5 also namespaces classes with `TheISA::`, e.g. in `src/cpu/decode_cache.hh`:
+
+....
+Value items[TheISA::PageBytes];
+....
+
+which is defined at:
+
+...
+build/ARM/config/the_isa.hh
+...
+
+as:
+
+....
+#define TheISA ArmISA
+....
+
+and forces already `arm/` specific headers to define their symbols under:
+
+....
+namespace ArmISA
+....
+
+so I don't see the point of this pattern, why not just us `PageBytes` directly? Looks like a documentation mechanism to indicate that a certain symbol is ISA specific.
+
+Tested in gem5 2a242c5f59a54bc6b8953f82486f7e6fe0aa9b3d.
+
 == Buildroot
 
 === Introduction to Buildroot
