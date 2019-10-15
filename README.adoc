@@ -12548,7 +12548,129 @@ BadDevice::BadDevice(Params *p)
 
 Tested on gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3.
 
-=== gem5 polymorphic ISA includes
+==== gem5 entry point
+
+The main is at: `src/sim/main.cc`. It calls:
+
+....
+ret = initM5Python();
+....
+
+src/sim/init.cc:
+
+....
+230 int
+231 initM5Python()
+232 {
+233     EmbeddedPyBind::initAll();
+234     return EmbeddedPython::initAll();
+235 }
+....
+
+`initAll` basically just initializes the `_m5` Python object, which is used across multiple `.py`.
+
+Back on `main`:
+
+....
+ret = m5Main(argc, argv);
+....
+
+which goes to:
+
+....
+result = PyRun_String(*command, Py_file_input, dict, dict);
+....
+
+with commands looping over:
+
+....
+import m5
+m5.main()
+....
+
+which leads into:
+
+....
+src/python/m5/main.py#main
+....
+
+which finally calls your config file like `fs.py` with:
+
+....
+filename = sys.argv[0]
+filedata = file(filename, 'r').read()
+filecode = compile(filedata, filename, 'exec')
+[...]
+exec filecode in scope
+....
+
+TODO: the file path name appears to be passed as a command line argument to the Python script, but I didn't have the patience to fully understand the details.
+
+Tested at gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
+
+==== gem5 stats internals
+
+This describes the internals of the <<gem5-m5out-stats-txt-file>>.
+
+GDB call stack to `dumpstats`:
+
+....
+Stats::pythonDump () at build/ARM/python/pybind11/stats.cc:58
+Stats::StatEvent::process() ()
+GlobalEvent::BarrierEvent::process (this=0x555559fa6a80) at build/ARM/sim/global_event.cc:131
+EventQueue::serviceOne (this=this@entry=0x555558c36080) at build/ARM/sim/eventq.cc:228
+doSimLoop (eventq=0x555558c36080) at build/ARM/sim/simulate.cc:219
+simulate (num_cycles=<optimized out>) at build/ARM/sim/simulate.cc:132
+....
+
+`Stats::pythonDump` does:
+
+....
+void
+pythonDump()
+{
+    py::module m = py::module::import("m5.stats");
+    m.attr("dump")();
+}
+....
+
+This calls `src/python/m5/stats/__init__.py` in `def dump` does the main dumping
+
+That function does notably:
+
+....
+    for output in outputList:
+        if output.valid():
+            output.begin()
+            for stat in stats_list:
+                stat.visit(output)
+            output.end()
+....
+
+`begin` and `end` are defined in C++ and output the header and tail respectively
+
+....
+void
+Text::begin()
+{
+    ccprintf(*stream, "\n---------- Begin Simulation Statistics ----------\n");
+}
+
+void
+Text::end()
+{
+    ccprintf(*stream, "\n---------- End Simulation Statistics   ----------\n");
+    stream->flush();
+}
+....
+
+`stats_list` contains the stats, and `stat.visit` prints them, `outputList` contains by default just the text output. I don't see any other types of output in gem5, but likely JSON / binary formats could be envisioned.
+
+Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
+
+==== gem5 build system
+
+===== gem5 polymorphic ISA includes
 
 E.g. `src/cpu/decode_cache.hh` includes:
 
@@ -12605,6 +12727,16 @@ namespace ArmISA
 so I don't see the point of this pattern, why not just us `PageBytes` directly? Looks like a documentation mechanism to indicate that a certain symbol is ISA specific.
 
 Tested in gem5 2a242c5f59a54bc6b8953f82486f7e6fe0aa9b3d.
+
+===== Why are all C++ symlinked into the gem5 build dir?
+
+Some scons madness.
+
+https://scons.org/doc/2.4.1/HTML/scons-user.html#idp1378838508 generates hard links by default.
+
+Then the a5bc2291391b0497fdc60fdc960e07bcecebfb8f SConstruct use symlinks in a futile attempt to make things better for editors or build systems from the past century.
+
+It was not possible to disable the symlinks automatically for the entire project when I last asked: https://stackoverflow.com/questions/53656787/how-to-set-disable-duplicate-0-for-all-scons-build-variants-without-repeating-th
 
 == Buildroot
 
