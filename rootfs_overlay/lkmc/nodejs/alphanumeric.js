@@ -30,14 +30,14 @@ const is_almost_alphanumeric = function (str) {
   for (let c of str) {
     if (
       !char_is_alphanumeric(c) &&
-      !is_almost_alphanumeric.almost_chars.has(c)
+      !is_almost_alphanumeric.chars.has(c)
     ) {
       return false;
     }
   }
   return true;
 };
-is_almost_alphanumeric.almost_chars = new Set(['-', '_']);
+is_almost_alphanumeric.chars = new Set(['-', '_']);
 
 assert( is_alphanumeric('aB0'));
 assert(!is_alphanumeric('aB0_-'));
