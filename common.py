@@ -1094,8 +1094,8 @@ lunch aosp_{}-eng
                 is_subpath = True
         if not is_subpath:
             raise Exception(
-                'Can only accept targets inside {}, given: {}'.format(
-                    parent,
+                    'Can only accept targets inside:\n{}\nGiven: {}'.format(
+                    '\n'.join(parents),
                     subpath
                 )
             )
