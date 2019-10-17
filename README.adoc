@@ -9061,6 +9061,36 @@ U-Boot is a popular bootloader.
 
 It can read disk filesystems, and Buildroot supports it, so we could in theory put it into memory, and let it find a kernel image from the root filesystem and boot that, but I didn't manage to get it working yet: https://stackoverflow.com/questions/58028789/how-to-boot-linux-aarch64-with-u-boot-with-buildroot-on-qemu
 
+== Xephyr
+
+TODO get a hello world working, and then consider further integration in this repo, e.g. being able to run all C userland content on it.
+
+Xephyr RTOS that has <<posix>> support. I think it works much like our <<baremetal-setup>> which uses Newlib and generates individual ELF files that contain both our C program's code, and the Xephyr libraries.
+
+However, unlike Newlib, Xephyr must be setting up a simple pre-main runtime to be able to handle threads.
+
+Failed attempt:
+
+....
+# https://askubuntu.com/questions/952429/is-there-a-good-ppa-for-cmake-backports
+wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add -
+sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic-rc main'
+sudo apt-get update
+sudo apt-get install cmake
+git clone https://github.com/zephyrproject-rtos/zephyr
+pip3 install --user -U west packaging
+cd zephyr
+git checkout v1.14.1
+west init zephyrproject
+west update
+export ZEPHYR_TOOLCHAIN_VARIANT=xtools
+export XTOOLS_TOOLCHAIN_PATH="$(pwd)/out/crosstool-ng/build/default/install/aarch64/bin/"
+source zephyr-env.sh
+west build -b qemu_aarch64 samples/hello_world
+....
+
+The build system of that project is a bit excessive / wonky. You need an edge CMake not present in Ubuntu 18.04, which I don't want to install right now, and it uses the weird custom `west` build tool frontend.
+
 == QEMU
 
 === Introduction to QEMU
