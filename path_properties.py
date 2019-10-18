@@ -508,6 +508,9 @@ path_properties_tuples = (
                             'gem5_unimplemented_instruction': True,
                         },
                         'count.cpp': {'more_than_1s': True},
+                        # Need to pass -lstdc++fs but we don't have a mechanism
+                        # to test the GCC version and only pass if >= 7.
+                        'temporary_directory.cpp': {'no_build': True},
                         'sleep_for.cpp': {
                             'more_than_1s': True,
                         },
