@@ -950,11 +950,11 @@ Incompatible archs are skipped.
 
         # Userland / baremetal common source.
         env['common_basename_noext'] = env['repo_short_id']
-        env['common_c'] = common_c = os.path.join(
+        env['common_c'] = os.path.join(
             env['root_dir'],
             env['common_basename_noext'] + env['c_ext']
         )
-        env['common_h'] = common_c = os.path.join(
+        env['common_h'] = os.path.join(
             env['root_dir'],
             env['common_basename_noext'] + env['header_ext']
         )
