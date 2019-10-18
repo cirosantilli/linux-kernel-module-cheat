@@ -1098,16 +1098,17 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#interesting-benchmarks">19.2.3. Interesting benchmarks</a>
 <ul class="sectlevel4">
-<li><a href="#bst-vs-heap-vs-hashmap">19.2.3.1. BST vs heap vs hashmap</a></li>
-<li><a href="#blas">19.2.3.2. BLAS</a></li>
-<li><a href="#eigen">19.2.3.3. Eigen</a></li>
-<li><a href="#parsec-benchmark">19.2.3.4. PARSEC benchmark</a>
+<li><a href="#dhrystone">19.2.3.1. Dhrystone</a></li>
+<li><a href="#bst-vs-heap-vs-hashmap">19.2.3.2. BST vs heap vs hashmap</a></li>
+<li><a href="#blas">19.2.3.3. BLAS</a></li>
+<li><a href="#eigen">19.2.3.4. Eigen</a></li>
+<li><a href="#parsec-benchmark">19.2.3.5. PARSEC benchmark</a>
 <ul class="sectlevel5">
-<li><a href="#parsec-benchmark-without-parsecmgmt">19.2.3.4.1. PARSEC benchmark without parsecmgmt</a></li>
-<li><a href="#parsec-change-the-input-size">19.2.3.4.2. PARSEC change the input size</a></li>
-<li><a href="#parsec-benchmark-with-parsecmgmt">19.2.3.4.3. PARSEC benchmark with parsecmgmt</a></li>
-<li><a href="#parsec-uninstall">19.2.3.4.4. PARSEC uninstall</a></li>
-<li><a href="#parsec-benchmark-hacking">19.2.3.4.5. PARSEC benchmark hacking</a></li>
+<li><a href="#parsec-benchmark-without-parsecmgmt">19.2.3.5.1. PARSEC benchmark without parsecmgmt</a></li>
+<li><a href="#parsec-change-the-input-size">19.2.3.5.2. PARSEC change the input size</a></li>
+<li><a href="#parsec-benchmark-with-parsecmgmt">19.2.3.5.3. PARSEC benchmark with parsecmgmt</a></li>
+<li><a href="#parsec-uninstall">19.2.3.5.4. PARSEC uninstall</a></li>
+<li><a href="#parsec-benchmark-hacking">19.2.3.5.5. PARSEC benchmark hacking</a></li>
 </ul>
 </li>
 </ul>
@@ -7557,7 +7558,10 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
 <p>Let&#8217;s see if user mode runs considerably faster than full system or not.</p>
 </div>
 <div class="paragraph">
-<p>First we build Dhrystone manually statically since dynamic linking is broken in gem5 as explained at: <a href="#gem5-syscall-emulation-mode">Section 10.6, &#8220;gem5 syscall emulation mode&#8221;</a>.</p>
+<p>First we build <a href="#dhrystone">Dhrystone</a> manually statically since dynamic linking is broken in gem5 as explained at: <a href="#gem5-syscall-emulation-mode">Section 10.6, &#8220;gem5 syscall emulation mode&#8221;</a>.</p>
+</div>
+<div class="paragraph">
+<p>TODO: move this section to our new custom dhrystone setup: <a href="#dhrystone">Section 19.2.3.1, &#8220;Dhrystone&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>gem5 user mode:</p>
@@ -17467,7 +17471,7 @@ root</pre>
 <p>OK, this is why we used gem5 in the first place, performance measurements!</p>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s see how many cycles <a href="https://en.wikipedia.org/wiki/Dhrystone">Dhrystone</a>, which Buildroot provides, takes for a few different input parameters.</p>
+<p>Let&#8217;s see how many cycles <a href="#dhrystone">Dhrystone</a>, which Buildroot provides, takes for a few different input parameters.</p>
 </div>
 <div class="paragraph">
 <p>We will do that for various input parameters on full system by taking a checkpoint after the boot finishes a fast atomic CPU boot, and then we will restore in a more detailed mode and run the benchmark:</p>
@@ -18150,7 +18154,69 @@ m5 dumpstats</pre>
 <p>There are not yet enabled, but it should be easy to so, see: <a href="#add-new-buildroot-packages">Section 20.5, &#8220;Add new Buildroot packages&#8221;</a></p>
 </div>
 <div class="sect4">
-<h5 id="bst-vs-heap-vs-hashmap"><a class="anchor" href="#bst-vs-heap-vs-hashmap"></a><a class="link" href="#bst-vs-heap-vs-hashmap">19.2.3.1. BST vs heap vs hashmap</a></h5>
+<h5 id="dhrystone"><a class="anchor" href="#dhrystone"></a><a class="link" href="#dhrystone">19.2.3.1. Dhrystone</a></h5>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Dhrystone" class="bare">https://en.wikipedia.org/wiki/Dhrystone</a></p>
+</div>
+<div class="paragraph">
+<p>Created in the 80&#8217;s, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by <a href="https://en.wikipedia.org/wiki/SPECint">SPEC</a>, which is&#8230;&#8203; closed source! Unbelievable.</p>
+</div>
+<div class="paragraph">
+<p><a href="#buildroot">Buildroot</a> has a <code>dhrystone</code> package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.</p>
+</div>
+<div class="paragraph">
+<p>Build and run on QEMU <a href="#user-mode-simulation">User mode simulation</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>git submodule update --init submodules/dhrystone
+./build-dhrystone --mode userland
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Build and run on gem5 use mode:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-dhrystone --mode userland --static --force-rebuild
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO automate run more nicely.</p>
+</div>
+<div class="paragraph">
+<p>Build for <a href="#baremetal">Baremetal</a> execution and run it in baremetal QEMU:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-dhrystone --arch aarch64 --mode baremetal
+./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO: fix the build, just need to factor out all run arguments from <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/build-baremetal">build-baremetal</a> into <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/common.py">common.py</a> and it should just work, no missing syscalls.</p>
+</div>
+<div class="paragraph">
+<p>If you really want the Buildroot package for some reason, build it with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and run inside the guest from <code>PATH</code> with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>dhrystone</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="bst-vs-heap-vs-hashmap"><a class="anchor" href="#bst-vs-heap-vs-hashmap"></a><a class="link" href="#bst-vs-heap-vs-hashmap">19.2.3.2. BST vs heap vs hashmap</a></h5>
 <div class="paragraph">
 <p>The following benchmark setup works both:</p>
 </div>
@@ -18263,7 +18329,7 @@ xdg-open bst_vs_heap_vs_hashmap_gem5.tmp.png</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="blas"><a class="anchor" href="#blas"></a><a class="link" href="#blas">19.2.3.2. BLAS</a></h5>
+<h5 id="blas"><a class="anchor" href="#blas"></a><a class="link" href="#blas">19.2.3.3. BLAS</a></h5>
 <div class="paragraph">
 <p>Buildroot supports it, which makes everything just trivial:</p>
 </div>
@@ -18315,7 +18381,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect4">
-<h5 id="eigen"><a class="anchor" href="#eigen"></a><a class="link" href="#eigen">19.2.3.3. Eigen</a></h5>
+<h5 id="eigen"><a class="anchor" href="#eigen"></a><a class="link" href="#eigen">19.2.3.4. Eigen</a></h5>
 <div class="paragraph">
 <p>Header only linear algebra library with a mainline Buildroot package:</p>
 </div>
@@ -18353,7 +18419,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect4">
-<h5 id="parsec-benchmark"><a class="anchor" href="#parsec-benchmark"></a><a class="link" href="#parsec-benchmark">19.2.3.4. PARSEC benchmark</a></h5>
+<h5 id="parsec-benchmark"><a class="anchor" href="#parsec-benchmark"></a><a class="link" href="#parsec-benchmark">19.2.3.5. PARSEC benchmark</a></h5>
 <div class="paragraph">
 <p>We have ported parts of the <a href="http://parsec.cs.princeton.edu">PARSEC benchmark</a> for cross compilation at: <a href="https://github.com/cirosantilli/parsec-benchmark" class="bare">https://github.com/cirosantilli/parsec-benchmark</a> See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.</p>
 </div>
@@ -18371,7 +18437,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </ul>
 </div>
 <div class="sect5">
-<h6 id="parsec-benchmark-without-parsecmgmt"><a class="anchor" href="#parsec-benchmark-without-parsecmgmt"></a><a class="link" href="#parsec-benchmark-without-parsecmgmt">19.2.3.4.1. PARSEC benchmark without parsecmgmt</a></h6>
+<h6 id="parsec-benchmark-without-parsecmgmt"><a class="anchor" href="#parsec-benchmark-without-parsecmgmt"></a><a class="link" href="#parsec-benchmark-without-parsecmgmt">19.2.3.5.1. PARSEC benchmark without parsecmgmt</a></h6>
 <div class="literalblock">
 <div class="content">
 <pre>./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
@@ -18405,7 +18471,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect5">
-<h6 id="parsec-change-the-input-size"><a class="anchor" href="#parsec-change-the-input-size"></a><a class="link" href="#parsec-change-the-input-size">19.2.3.4.2. PARSEC change the input size</a></h6>
+<h6 id="parsec-change-the-input-size"><a class="anchor" href="#parsec-change-the-input-size"></a><a class="link" href="#parsec-change-the-input-size">19.2.3.5.2. PARSEC change the input size</a></h6>
 <div class="paragraph">
 <p>Running a benchmark of a size different than <code>test</code>, e.g. <code>simsmall</code>, requires a rebuild with:</p>
 </div>
@@ -18469,7 +18535,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect5">
-<h6 id="parsec-benchmark-with-parsecmgmt"><a class="anchor" href="#parsec-benchmark-with-parsecmgmt"></a><a class="link" href="#parsec-benchmark-with-parsecmgmt">19.2.3.4.3. PARSEC benchmark with parsecmgmt</a></h6>
+<h6 id="parsec-benchmark-with-parsecmgmt"><a class="anchor" href="#parsec-benchmark-with-parsecmgmt"></a><a class="link" href="#parsec-benchmark-with-parsecmgmt">19.2.3.5.3. PARSEC benchmark with parsecmgmt</a></h6>
 <div class="paragraph">
 <p>Most users won&#8217;t want to use this method because:</p>
 </div>
@@ -18532,7 +18598,7 @@ parsecmgmt -a run -p splash2x.fmm -i test</pre>
 </div>
 </div>
 <div class="sect5">
-<h6 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">19.2.3.4.4. PARSEC uninstall</a></h6>
+<h6 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">19.2.3.5.4. PARSEC uninstall</a></h6>
 <div class="paragraph">
 <p>If you want to remove PARSEC later, Buildroot doesn&#8217;t provide an automated package removal mechanism as mentioned at: <a href="#remove-buildroot-packages">Section 20.6, &#8220;Remove Buildroot packages&#8221;</a>, but the following procedure should be satisfactory:</p>
 </div>
@@ -18550,7 +18616,7 @@ parsecmgmt -a run -p splash2x.fmm -i test</pre>
 </div>
 </div>
 <div class="sect5">
-<h6 id="parsec-benchmark-hacking"><a class="anchor" href="#parsec-benchmark-hacking"></a><a class="link" href="#parsec-benchmark-hacking">19.2.3.4.5. PARSEC benchmark hacking</a></h6>
+<h6 id="parsec-benchmark-hacking"><a class="anchor" href="#parsec-benchmark-hacking"></a><a class="link" href="#parsec-benchmark-hacking">19.2.3.5.5. PARSEC benchmark hacking</a></h6>
 <div class="paragraph">
 <p>If you end up going inside <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/submodules/parsec-benchmark">submodules/parsec-benchmark</a> to hack up the benchmark (you will!), these tips will be helpful.</p>
 </div>
@@ -20701,7 +20767,7 @@ make menuconfig</pre>
 <p>Also mentioned at: <a href="https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot" class="bare">https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot</a></p>
 </div>
 <div class="paragraph">
-<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 19.2.3.4.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
+<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 19.2.3.5.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect2">
