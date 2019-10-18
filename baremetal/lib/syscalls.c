@@ -1,15 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/times.h>
 
 #include <lkmc.h>
+
+#define UART_DR(baseaddr) (*(unsigned int *)(baseaddr))
+#define UART_FR(baseaddr) (*(((unsigned int *)(baseaddr))+6))
 
 enum {
     UART_FR_RXFE = 0x10,
 };
 
-#define UART_DR(baseaddr) (*(unsigned int *)(baseaddr))
-#define UART_FR(baseaddr) (*(((unsigned int *)(baseaddr))+6))
+extern char heap_low;
+extern char heap_top;
+
+char *heap_end = 0;
 
 void lkmc_baremetal_on_exit_callback(int status, void *arg) {
     (void)arg;
@@ -73,10 +79,15 @@ int _read(int file, char *ptr, int len) {
     return todo;
 }
 
-char *heap_end = 0;
+/* Dummy implementation that just increments an integer. */
+_CLOCK_T_ _times_r (struct _reent *r, struct tms *ptms) {
+    static long long unsigned t = 0;
+    (void)r;
+    (void)ptms;
+    return t++;
+}
+
 caddr_t _sbrk(int incr) {
-    extern char heap_low;
-    extern char heap_top;
     char *prev_heap_end;
     if (heap_end == 0) {
         heap_end = &heap_low;

@@ -3957,7 +3957,9 @@ Source: link:userland/c/getchar.c[]
 
 Let's see if user mode runs considerably faster than full system or not.
 
-First we build Dhrystone manually statically since dynamic linking is broken in gem5 as explained at: xref:gem5-syscall-emulation-mode[xrefstyle=full].
+First we build <<dhrystone>> manually statically since dynamic linking is broken in gem5 as explained at: xref:gem5-syscall-emulation-mode[xrefstyle=full].
+
+TODO: move this section to our new custom dhrystone setup: xref:dhrystone[xrefstyle=full].
 
 gem5 user mode:
 
@@ -10454,7 +10456,7 @@ gem5 however has tended towards intensive code generation in order to support al
 
 OK, this is why we used gem5 in the first place, performance measurements!
 
-Let's see how many cycles https://en.wikipedia.org/wiki/Dhrystone[Dhrystone], which Buildroot provides, takes for a few different input parameters.
+Let's see how many cycles <<dhrystone>>, which Buildroot provides, takes for a few different input parameters.
 
 We will do that for various input parameters on full system by taking a checkpoint after the boot finishes a fast atomic CPU boot, and then we will restore in a more detailed mode and run the benchmark:
 
@@ -10936,6 +10938,52 @@ Buildroot built-in libraries, mostly under Libraries > Other:
 * qhull
 
 There are not yet enabled, but it should be easy to so, see: xref:add-new-buildroot-packages[xrefstyle=full]
+
+===== Dhrystone
+
+https://en.wikipedia.org/wiki/Dhrystone
+
+Created in the 80's, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by https://en.wikipedia.org/wiki/SPECint[SPEC], which is... closed source! Unbelievable.
+
+<<buildroot>> has a `dhrystone` package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.
+
+Build and run on QEMU <<user-mode-simulation>>:
+
+....
+git submodule update --init submodules/dhrystone
+./build-dhrystone --mode userland
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+Build and run on gem5 use mode:
+
+....
+./build-dhrystone --mode userland --static --force-rebuild
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+TODO automate run more nicely.
+
+Build for <<baremetal>> execution and run it in baremetal QEMU:
+
+....
+./build-dhrystone --arch aarch64 --mode baremetal
+./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+TODO: fix the build, just need to factor out all run arguments from link:build-baremetal[] into link:common.py[] and it should just work, no missing syscalls.
+
+If you really want the Buildroot package for some reason, build it with:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'
+....
+
+and run inside the guest from `PATH` with:
+
+....
+dhrystone
+....
 
 ===== BST vs heap vs hashmap
 

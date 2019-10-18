@@ -947,6 +947,23 @@ Incompatible archs are skipped.
             env['simulator_name'] = 'qemu'
         env['baremetal_build_dir'] = join(env['out_dir'], 'baremetal', env['arch'], env['simulator_name'], env['machine'])
         env['baremetal_build_lib_dir'] = join(env['baremetal_build_dir'], env['baremetal_lib_basename'])
+        env['baremetal_syscalls_basename_noext'] = 'syscalls'
+        env['baremetal_syscalls_src'] = os.path.join(
+            env['baremetal_source_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + self.env['c_ext']
+        )
+        env['baremetal_syscalls_obj'] = os.path.join(
+            self.env['baremetal_build_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + self.env['obj_ext']
+        )
+        env['baremetal_syscalls_asm_src'] = os.path.join(
+            self.env['baremetal_source_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + '_asm' + self.env['asm_ext']
+        )
+        env['baremetal_syscalls_asm_obj'] = os.path.join(
+            self.env['baremetal_build_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + '_asm' + self.env['obj_ext']
+        )
 
         # Userland / baremetal common source.
         env['common_basename_noext'] = env['repo_short_id']
@@ -958,6 +975,10 @@ Incompatible archs are skipped.
             env['root_dir'],
             env['common_basename_noext'] + env['header_ext']
         )
+        if env['mode'] == 'baremetal':
+            env['build_dir'] = env['baremetal_build_dir']
+        elif env['mode'] == 'userland':
+            env['build_dir'] = env['userland_build_dir']
 
         # Docker
         env['docker_build_dir'] = join(env['out_dir'], 'docker', env['arch'])
@@ -1022,8 +1043,10 @@ lunch aosp_{}-eng
 '''.format(self.env['android_arch'])
 
         # Toolchain.
+        if env['baremetal'] and not env['_args_given']['mode']:
+            env['mode'] = 'baremetal'
         if not env['_args_given']['gcc_which']:
-            if env['baremetal']:
+            if env['mode'] == 'baremetal':
                 env['gcc_which'] = 'crosstool-ng'
         if env['gcc_which'] == 'buildroot':
             env['toolchain_prefix'] = os.path.join(

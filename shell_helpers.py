@@ -162,6 +162,15 @@ class ShellHelpers:
             ending = last_newline + ';'
         return newline_separator.join(out) + ending
 
+    def copy_file_if_update(self, src, dest):
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, os.path.basename(src))
+        if (
+            not os.path.exists(dest) or \
+            os.path.getmtime(src) > os.path.getmtime(dest)
+        ):
+            self.cp(src, dest)
+
     def copy_dir_if_update_non_recursive(
         self,
         srcdir,
@@ -178,12 +187,9 @@ class ShellHelpers:
             src = os.path.join(srcdir, basename)
             if os.path.isfile(src) or os.path.islink(src):
                 noext, ext = os.path.splitext(basename)
-                dest = os.path.join(destdir, basename)
-                if (
-                    (filter_ext is None or ext == filter_ext) and
-                    (not os.path.exists(dest) or os.path.getmtime(src) > os.path.getmtime(dest))
-                ):
-                    self.cp(src, dest)
+                if (filter_ext is None or ext == filter_ext):
+                    dest = os.path.join(destdir, basename)
+                    self.copy_file_if_update(src, dest)
 
     def copy_dir_if_update(
         self,

@@ -36,23 +36,6 @@ Build the baremetal examples with crosstool-NG.
             self.env['baremetal_build_lib_dir'],
             self.env['common_basename_noext'] + self.env['obj_ext']
         )
-        syscalls_basename_noext = 'syscalls'
-        syscalls_src = os.path.join(
-            self.env['baremetal_source_lib_dir'],
-            syscalls_basename_noext + self.env['c_ext']
-        )
-        syscalls_obj = os.path.join(
-            self.env['baremetal_build_lib_dir'],
-            syscalls_basename_noext + self.env['obj_ext']
-        )
-        syscalls_asm_src = os.path.join(
-            self.env['baremetal_source_lib_dir'],
-            syscalls_basename_noext + '_asm' + self.env['asm_ext']
-        )
-        syscalls_asm_obj = os.path.join(
-            self.env['baremetal_build_lib_dir'],
-            syscalls_basename_noext + '_asm' + self.env['obj_ext']
-        )
         cc_flags = [
             '-I', self.env['root_dir'], LF,
             '-O{}'.format(self.env['optimization_level']), LF,
@@ -101,8 +84,14 @@ Build the baremetal examples with crosstool-NG.
         for in_path, out_path in [
             (bootloader_src, extra_obj_baremetal_bootloader),
             (self.env['common_c'], extra_obj_lkmc_common),
-            (syscalls_src, syscalls_obj),
-            (syscalls_asm_src, syscalls_asm_obj),
+            (
+                self.env['baremetal_syscalls_src'],
+                self.env['baremetal_syscalls_obj']
+            ),
+            (
+                self.env['baremetal_syscalls_asm_src'],
+                self.env['baremetal_syscalls_asm_obj']
+            ),
         ]:
             self._build_one(
                 in_path=in_path,
@@ -133,7 +122,10 @@ Build the baremetal examples with crosstool-NG.
                                 self.env['baremetal_link_script'],
                                 self.env['common_h']
                             ],
-                            'extra_objs': [syscalls_obj, syscalls_asm_obj],
+                            'extra_objs': [
+                                self.env['baremetal_syscalls_obj'],
+                                self.env['baremetal_syscalls_asm_obj']
+                            ],
                             'extra_objs_baremetal_bootloader': [extra_obj_baremetal_bootloader],
                             'extra_objs_lkmc_common': [extra_obj_lkmc_common],
                             'in_path': in_path,
