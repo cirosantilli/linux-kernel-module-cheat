@@ -4939,6 +4939,8 @@ Alternatively, you could also mount your own with:
 mkdir /mnt/my9p
 mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/my9p
 ....
++
+where mount tag `host0` is set by the emulator (`mount_tag` flag on QEMU CLI), and can be found in the guest with: `cat /sys/bus/virtio/drivers/9pnet_virtio/virtio0/mount_tag` as documented at: https://www.kernel.org/doc/Documentation/filesystems/9p.txt[].
 * Launch QEMU with `-virtfs` as in your link:run[] script
 +
 When we tried:
@@ -4960,6 +4962,13 @@ TODO seems possible! Lets do it:
 
 * http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
 * http://gem5.org/WA-gem5
+
+From the source, there is just one exported tag named `gem5`, so we could try on the guest:
+
+....
+mkdir -p /mnt/9p/gem5
+mount -t 9p -o trans=virtio,version=9p2000.L gem5 /mnt/9p/data
+....
 
 ==== NFS
 
@@ -9060,36 +9069,6 @@ https://en.wikipedia.org/wiki/Das_U-Boot
 U-Boot is a popular bootloader.
 
 It can read disk filesystems, and Buildroot supports it, so we could in theory put it into memory, and let it find a kernel image from the root filesystem and boot that, but I didn't manage to get it working yet: https://stackoverflow.com/questions/58028789/how-to-boot-linux-aarch64-with-u-boot-with-buildroot-on-qemu
-
-== Xephyr
-
-TODO get a hello world working, and then consider further integration in this repo, e.g. being able to run all C userland content on it.
-
-Xephyr RTOS that has <<posix>> support. I think it works much like our <<baremetal-setup>> which uses Newlib and generates individual ELF files that contain both our C program's code, and the Xephyr libraries.
-
-However, unlike Newlib, Xephyr must be setting up a simple pre-main runtime to be able to handle threads.
-
-Failed attempt:
-
-....
-# https://askubuntu.com/questions/952429/is-there-a-good-ppa-for-cmake-backports
-wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add -
-sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic-rc main'
-sudo apt-get update
-sudo apt-get install cmake
-git clone https://github.com/zephyrproject-rtos/zephyr
-pip3 install --user -U west packaging
-cd zephyr
-git checkout v1.14.1
-west init zephyrproject
-west update
-export ZEPHYR_TOOLCHAIN_VARIANT=xtools
-export XTOOLS_TOOLCHAIN_PATH="$(pwd)/out/crosstool-ng/build/default/install/aarch64/bin/"
-source zephyr-env.sh
-west build -b qemu_aarch64 samples/hello_world
-....
-
-The build system of that project is a bit excessive / wonky. You need an edge CMake not present in Ubuntu 18.04, which I don't want to install right now, and it uses the weird custom `west` build tool frontend.
 
 == QEMU
 
@@ -18110,6 +18089,38 @@ gem5:
 * what are the minimum system requirements:
 ** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
 ** https://github.com/gem5/gem5/issues/25
+
+== Xephyr
+
+Xephyr is an RTOS that has <<posix>> support. I think it works much like our <<baremetal-setup>> which uses Newlib and generates individual ELF files that contain both our C program's code, and the Xephyr libraries.
+
+TODO get a hello world working, and then consider further integration in this repo, e.g. being able to run all C userland content on it.
+
+TODO: Cortex-A CPUs are not currently supported, there are some `qemu_cortex_m0` boards, but can't find a QEMU Cortex-A. There is an x86_64 qemu board, but we don't currently have an <<about-the-baremetal-setup,x86 baremetal toolchain>>. For this reason, we won't touch this further for now.
+
+However, unlike Newlib, Xephyr must be setting up a simple pre-main runtime to be able to handle threads.
+
+Failed attempt:
+
+....
+# https://askubuntu.com/questions/952429/is-there-a-good-ppa-for-cmake-backports
+wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add -
+sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic-rc main'
+sudo apt-get update
+sudo apt-get install cmake
+git clone https://github.com/zephyrproject-rtos/zephyr
+pip3 install --user -U west packaging
+cd zephyr
+git checkout v1.14.1
+west init zephyrproject
+west update
+export ZEPHYR_TOOLCHAIN_VARIANT=xtools
+export XTOOLS_TOOLCHAIN_PATH="$(pwd)/out/crosstool-ng/build/default/install/aarch64/bin/"
+source zephyr-env.sh
+west build -b qemu_aarch64 samples/hello_world
+....
+
+The build system of that project is a bit excessive / wonky. You need an edge CMake not present in Ubuntu 18.04, which I don't want to install right now, and it uses the weird custom `west` build tool frontend.
 
 == About this repo
 
