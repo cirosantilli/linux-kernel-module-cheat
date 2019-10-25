@@ -12423,14 +12423,74 @@ Python 3 is then automatically used when running if you use that build.
 
 === gem5 CPU types
 
-gem5 has a few in tree CPU models for different purposes. In fs.py and se.py, those are selectable with the `--cpu-type` option. Here is an overview of the most interesting ones:
+gem5 has a few in tree CPU models for different purposes.
 
-* `BaseSimpleCPU` descendants. Have no CPU pipeline.
-** `AtomicSimpleCPU`: the default one. Memory accesses happen instantaneously. The fastest simulation except for KVM, but not realistic at all. Useful to <<gem5-restore-checkpoint-with-a-different-cpu>>.
-** `TimingSimpleCPU: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than `AtomicSimpleCPU`. TODO: application?
-* `MinorCPU`: in-order core. The weird name "Minor" stands for "M (TODO what is M) IN ONder". Its 4 stage pipeline is described at the "MinorCPU" section of <<gem5-arm-rsk>>. As of 2019, in-order cores are mostly present in low power / cost contexts, for example little cores of https://en.wikipedia.org/wiki/ARM_big.LITTLE[ARM bigLITTLE].
-** `HPI`: derived from `MinorCPU` simply by parametrization. According to <<gem5-arm-rsk>>: "The HPI CPU timing model is tuned to be representative of a modern in-order Armv8-A implementation."
-* `DerivO3CPU`: out-of-order core. "O3" Stands for "Out Of Order"!
+In fs.py and se.py, those are selectable with the `--cpu-type` option.
+
+TODO are there any public performance correlations between those models and real cores? The information to make accurate models isn't generally public for non-free CPUs, so either you must either rely vendor provided models or on experiments/reverse engineering.
+
+==== gem5 BaseSimpleCPU
+
+Simple abstract CPU without a pipeline.
+
+They are therefore completely unrealistic. But they also run much faster.
+
+Implementations:
+
+* `AtomicSimpleCPU`: the default one. Memory accesses happen instantaneously. The fastest simulation except for KVM, but not realistic at all.
++
+Useful to <<gem5-restore-checkpoint-with-a-different-cpu,boot Linux fast and then checkpoint and switch to a more detailed CPU>>.
+* `TimingSimpleCPU`: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than `AtomicSimpleCPU`. TODO: application?
+
+==== gem5 MinorCPU
+
+Generic in-order core that does not model any specific CPU.
+
+Its C++ implementation that can be parametrized to more closely match real cores.
+
+Note that since gem5 is highly parametrizable, the parametrization could even change which instructions a CPU can execute by altering its available https://en.wikipedia.org/wiki/Execution_unit[functional units], which are used to model performance.
+
+For example, `MinorCPU` allows all implemented instructions, including <<arm-sve>> instructions, but a derived class modelling, say, an https://en.wikipedia.org/wiki/ARM_Cortex-A7[ARM Cortex A7 core], might not, since SVE is a newer feature and the A7 core does not have SVE.
+
+The weird name "Minor" stands for "M (TODO what is M) IN ONder".
+
+Its 4 stage pipeline is described at the "MinorCPU" section of <<gem5-arm-rsk>>.
+
+As of 2019, in-order cores are mostly present in low power / cost contexts, for example little cores of https://en.wikipedia.org/wiki/ARM_big.LITTLE[ARM bigLITTLE].
+
+The following models extend the `MinorCPU` class by parametrization to make it match existing CPUs more closely:
+
+* `HPI`: derived from `MinorCPU`.
++
+Created by Ashkan Tousi in 2017 while working at ARM.
++
+According to <<gem5-arm-rsk>>:
++
+____
+The HPI CPU timing model is tuned to be representative of a modern in-order Armv8-A implementation.
+____
++
+* `ex5_LITTLE`: derived from `MinorCPU`. Description reads:
++
+____
+ex5 LITTLE core (based on the ARM Cortex-A7)
+____
++
+Implemented by Pierre-Yves Péneau from LIRMM, which is a research lab in Montpellier, France, in 2017.
+
+==== gem5 DeriveO3CPU
+
+Generic out-of-order core. "O3" Stands for "Out Of Order"!
+
+Analogous to <<gem5-minorcpu,MinorCPU>>, but modelling an out of order core instead of in order.
+
+Existing parametrizations:
+
+* `ex5_big`: big corresponding to `ex5_LITTLE`, by same author at same time. It description reads:
++
+____
+ex5 big core (based on the ARM Cortex-A15)
+____
 
 ==== gem5 ARM RSK
 
