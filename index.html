@@ -658,6 +658,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#kvm">9. KVM</a>
 <ul class="sectlevel2">
 <li><a href="#kvm-arm">9.1. KVM arm</a></li>
+<li><a href="#gem5-kvm">9.2. gem5 KVM</a></li>
 </ul>
 </li>
 <li><a href="#user-mode-simulation">10. User mode simulation</a>
@@ -1204,10 +1205,15 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </ul>
 </li>
 <li><a href="#gem5-stats-internals">19.19.5. gem5 stats internals</a></li>
-<li><a href="#gem5-build-system">19.19.6. gem5 build system</a>
+<li><a href="#gem5-code-generation">19.19.6. gem5 code generation</a>
 <ul class="sectlevel4">
-<li><a href="#gem5-polymorphic-isa-includes">19.19.6.1. gem5 polymorphic ISA includes</a></li>
-<li><a href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.19.6.2. Why are all C++ symlinked into the gem5 build dir?</a></li>
+<li><a href="#gem5-the_isa">19.19.6.1. gem5 THE_ISA</a></li>
+</ul>
+</li>
+<li><a href="#gem5-build-system">19.19.7. gem5 build system</a>
+<ul class="sectlevel4">
+<li><a href="#gem5-polymorphic-isa-includes">19.19.7.1. gem5 polymorphic ISA includes</a></li>
+<li><a href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.19.7.2. Why are all C++ symlinked into the gem5 build dir?</a></li>
 </ul>
 </li>
 </ul>
@@ -6899,19 +6905,11 @@ cat f
 <p><a href="https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine">KVM</a> is Linux kernel interface that <a href="#benchmark-linux-kernel-boot">greatly speeds up</a> execution of virtual machines.</p>
 </div>
 <div class="paragraph">
-<p>You can make QEMU or gem5  by passing enabling KVM with:</p>
+<p>You can make QEMU or <a href="#gem5-kvm">gem5</a> by passing enabling KVM with:</p>
 </div>
 <div class="literalblock">
 <div class="content">
 <pre>./run --kvm</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>but it was broken in gem5 with pending patches: <a href="https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html" class="bare">https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html</a> It fails immediately on:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>panic: KVM: Failed to enter virtualized mode (hw reason: 0x80000021)</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -6982,6 +6980,30 @@ sudo ./setup -y</pre>
 </div>
 <div class="paragraph">
 <p>TODO: do the right thing and cross compile QEMU and gem5. gem5&#8217;s Python parts might be a pain. QEMU should be easy: <a href="https://stackoverflow.com/questions/26514252/cross-compile-qemu-for-arm" class="bare">https://stackoverflow.com/questions/26514252/cross-compile-qemu-for-arm</a></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gem5-kvm"><a class="anchor" href="#gem5-kvm"></a><a class="link" href="#gem5-kvm">9.2. gem5 KVM</a></h3>
+<div class="paragraph">
+<p>While gem5 does have KVM, as of 2019 its support has not been very good, because debugging it is harder and people haven&#8217;t focused intensively on it.</p>
+</div>
+<div class="paragraph">
+<p>X86 was broken with pending patches: <a href="https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html" class="bare">https://www.mail-archive.com/gem5-users@gem5.org/msg15046.html</a> It failed immediately on:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>panic: KVM: Failed to enter virtualized mode (hw reason: 0x80000021)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Bibliography:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>ARM thread: <a href="https://stackoverflow.com/questions/53523087/how-to-run-gem5-on-kvm-on-arm-with-multiple-cores" class="bare">https://stackoverflow.com/questions/53523087/how-to-run-gem5-on-kvm-on-arm-with-multiple-cores</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -17551,20 +17573,7 @@ root</pre>
 <p>The only hairy thing in QEMU is the binary code generation.</p>
 </div>
 <div class="paragraph">
-<p>gem5 however has tended towards intensive code generation in order to support all its different hardware types:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <a href="#gem5-python-c-interaction">gem5 Python C++ interaction</a></p>
-</li>
-<li>
-<p>.isa code which describes most of the instructions</p>
-</li>
-<li>
-<p><a href="#gem5-ruby-build">Ruby</a> for memory systems</p>
-</li>
-</ul>
+<p>gem5 however has tended towards horrendous intensive <a href="#gem5-code-generation">code generation</a> in order to support all its different hardware types</p>
 </div>
 </li>
 </ul>
@@ -20373,6 +20382,9 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 </li>
 </ul>
 </div>
+<div class="paragraph">
+<p><a href="#gem5-kvm">KVM CPUs</a> are an alternative way of fast forwarding boot when they work.</p>
+</div>
 </div>
 <div class="sect3">
 <h4 id="gem5-minorcpu"><a class="anchor" href="#gem5-minorcpu"></a><a class="link" href="#gem5-minorcpu">19.17.2. gem5 MinorCPU</a></h4>
@@ -21150,9 +21162,81 @@ Text::end()
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-build-system"><a class="anchor" href="#gem5-build-system"></a><a class="link" href="#gem5-build-system">19.19.6. gem5 build system</a></h4>
+<h4 id="gem5-code-generation"><a class="anchor" href="#gem5-code-generation"></a><a class="link" href="#gem5-code-generation">19.19.6. gem5 code generation</a></h4>
+<div class="paragraph">
+<p>gem5 uses a ton of code generation, which makes the project horrendous:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <a href="#gem5-python-c-interaction">gem5 Python C++ interaction</a></p>
+</li>
+<li>
+<p>.isa code which describes most of the instructions</p>
+</li>
+<li>
+<p><a href="#gem5-ruby-build">Ruby</a> for memory systems</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To find the definition of generated code, do a:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>grep -I -r build/ 'code of interest'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-I</code>: ignore binray file matches on built objects</p>
+</li>
+<li>
+<p><code>-r</code>: ignore symlinks due to <a href="#why-are-all-c-symlinked-into-the-gem5-build-dir">Why are all C++ symlinked into the gem5 build dir?</a> as explained at <a href="https://stackoverflow.com/questions/21738574/how-do-you-exclude-symlinks-in-a-grep" class="bare">https://stackoverflow.com/questions/21738574/how-do-you-exclude-symlinks-in-a-grep</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The code generation exists partly to support insanely generic cross ISA instructions mapping to one compute model, where it might be reasonable.</p>
+</div>
+<div class="paragraph">
+<p>But it has been widely overused to insanity. It likely also exists partly because when the project started in 2003 C++ compilers weren&#8217;t that good, so you couldn&#8217;t rely on features like templates that much.</p>
+</div>
 <div class="sect4">
-<h5 id="gem5-polymorphic-isa-includes"><a class="anchor" href="#gem5-polymorphic-isa-includes"></a><a class="link" href="#gem5-polymorphic-isa-includes">19.19.6.1. gem5 polymorphic ISA includes</a></h5>
+<h5 id="gem5-the_isa"><a class="anchor" href="#gem5-the_isa"></a><a class="link" href="#gem5-the_isa">19.19.6.1. gem5 THE_ISA</a></h5>
+<div class="paragraph">
+<p>Generated code at: <code>build/&lt;ISA&gt;/config/the_isa.hh</code> which contains amongst other lines:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#define X86_ISA 8
+
+enum class Arch {
+  X86ISA = X86_ISA
+};
+
+#define THE_ISA X86_ISA</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Generation code: <code>src/SConscript</code> at <code>def makeTheISA</code>.</p>
+</div>
+<div class="paragraph">
+<p>Tested on gem5 211869ea950f3cc3116655f06b1d46d3fa39fb3a.</p>
+</div>
+<div class="paragraph">
+<p>Bibliography: <a href="https://www.mail-archive.com/gem5-users@gem5.org/msg16989.html" class="bare">https://www.mail-archive.com/gem5-users@gem5.org/msg16989.html</a></p>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-build-system"><a class="anchor" href="#gem5-build-system"></a><a class="link" href="#gem5-build-system">19.19.7. gem5 build system</a></h4>
+<div class="sect4">
+<h5 id="gem5-polymorphic-isa-includes"><a class="anchor" href="#gem5-polymorphic-isa-includes"></a><a class="link" href="#gem5-polymorphic-isa-includes">19.19.7.1. gem5 polymorphic ISA includes</a></h5>
 <div class="paragraph">
 <p>E.g. <code>src/cpu/decode_cache.hh</code> includes:</p>
 </div>
@@ -21231,7 +21315,7 @@ build/ARM/config/the_isa.hh
 </div>
 </div>
 <div class="sect4">
-<h5 id="why-are-all-c-symlinked-into-the-gem5-build-dir"><a class="anchor" href="#why-are-all-c-symlinked-into-the-gem5-build-dir"></a><a class="link" href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.19.6.2. Why are all C++ symlinked into the gem5 build dir?</a></h5>
+<h5 id="why-are-all-c-symlinked-into-the-gem5-build-dir"><a class="anchor" href="#why-are-all-c-symlinked-into-the-gem5-build-dir"></a><a class="link" href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.19.7.2. Why are all C++ symlinked into the gem5 build dir?</a></h5>
 <div class="paragraph">
 <p>Some scons madness.</p>
 </div>
@@ -21243,6 +21327,19 @@ build/ARM/config/the_isa.hh
 </div>
 <div class="paragraph">
 <p>It was not possible to disable the symlinks automatically for the entire project when I last asked: <a href="https://stackoverflow.com/questions/53656787/how-to-set-disable-duplicate-0-for-all-scons-build-variants-without-repeating-th" class="bare">https://stackoverflow.com/questions/53656787/how-to-set-disable-duplicate-0-for-all-scons-build-variants-without-repeating-th</a></p>
+</div>
+<div class="paragraph">
+<p>The horrendous downsides of this are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>when <a href="#debug-the-emulator">debugging the emulator</a>, it shows you directories inside the build directory rather than in the source tree</p>
+</li>
+<li>
+<p>it is harder to separate which files are <a href="#gem5-code-generation">generated</a> and which are in-tree when grepping for code generated definitions</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
