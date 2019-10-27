@@ -10511,11 +10511,7 @@ On the other hand, the chip makers tend to upstream less, and the project become
 +
 The only hairy thing in QEMU is the binary code generation.
 +
-gem5 however has tended towards intensive code generation in order to support all its different hardware types:
-+
-*** lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <<gem5-python-c-interaction>>
-*** .isa code which describes most of the instructions
-*** <<gem5-ruby-build,Ruby>> for memory systems
+gem5 however has tended towards horrendous intensive <<gem5-code-generation,code generation>> in order to support all its different hardware types
 
 === gem5 run benchmark
 
@@ -12994,6 +12990,50 @@ Text::end()
 
 Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
+==== gem5 code generation
+
+gem5 uses a ton of code generation, which makes the project horrendous:
+
+* lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <<gem5-python-c-interaction>>
+* .isa code which describes most of the instructions
+* <<gem5-ruby-build,Ruby>> for memory systems
+
+To find the definition of generated code, do a:
+
+....
+grep -I -r build/ 'code of interest'
+....
+
+where:
+
+
+* `-I`: ignore binray file matches on built objects
+* `-r`: ignore symlinks due to <<why-are-all-c-symlinked-into-the-gem5-build-dir>> as explained at https://stackoverflow.com/questions/21738574/how-do-you-exclude-symlinks-in-a-grep
+
+The code generation exists partly to support insanely generic cross ISA instructions mapping to one compute model, where it might be reasonable.
+
+But it has been widely overused to insanity. It likely also exists partly because when the project started in 2003 C++ compilers weren't that good, so you couldn't rely on features like templates that much.
+
+===== gem5 THE_ISA
+
+Generated code at: `build/<ISA>/config/the_isa.hh` which contains amongst other lines:
+
+....
+#define X86_ISA 8
+
+enum class Arch {
+  X86ISA = X86_ISA
+};
+
+#define THE_ISA X86_ISA
+....
+
+Generation code: `src/SConscript` at `def makeTheISA`.
+
+Tested on gem5 211869ea950f3cc3116655f06b1d46d3fa39fb3a.
+
+Bibliography: https://www.mail-archive.com/gem5-users@gem5.org/msg16989.html
+
 ==== gem5 build system
 
 ===== gem5 polymorphic ISA includes
@@ -13063,6 +13103,11 @@ https://scons.org/doc/2.4.1/HTML/scons-user.html#idp1378838508 generates hard li
 Then the a5bc2291391b0497fdc60fdc960e07bcecebfb8f SConstruct use symlinks in a futile attempt to make things better for editors or build systems from the past century.
 
 It was not possible to disable the symlinks automatically for the entire project when I last asked: https://stackoverflow.com/questions/53656787/how-to-set-disable-duplicate-0-for-all-scons-build-variants-without-repeating-th
+
+The horrendous downsides of this are:
+
+* when <<debug-the-emulator,debugging the emulator>>, it shows you directories inside the build directory rather than in the source tree
+* it is harder to separate which files are <<gem5-code-generation,generated>> and which are in-tree when grepping for code generated definitions
 
 == Buildroot
 
