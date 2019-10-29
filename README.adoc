@@ -11526,7 +11526,7 @@ So we can do it like:
 ....
 # Boot, checkpoint and exit.
 printf 'echo "setup run";m5 exit' > "$(./getvar gem5_readfile_file)"
-./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile > a.sh;sh a.sh'
+./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile | sh'
 
 # Restore and run the first benchmark.
 printf 'echo "first benchmark";m5 exit' > "$(./getvar gem5_readfile_file)"
@@ -11543,12 +11543,57 @@ printf 'sh' > "$(./getvar gem5_readfile_file)"
 
 Since this is such a common setup, we provide the following helpers for this operation:
 
+* `./run --gem5-readfile` is a convenient way to set the `m5 readfile` file contents from a string in the command line, e.g.:
++
+....
+# Boot, checkpoint and exit.
+./run --emulator gem5 --eval './gem5.sh' --gem5-readfile 'echo "setup run"'
+
+# Restore and run the first benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "first benchmark"'
+
+# Restore and run the second benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "second benchmark"'
+....
 * link:rootfs_overlay/lkmc/gem5.sh[]. This script is analogous to gem5's in-tree https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS[hack_back_ckpt.rcS], but with less noise.
-* `./run --gem5-readfile` is a convenient way to set the `m5 readfile`
++
+Usage:
++
+....
+# Boot, checkpoint and exit.
+./run --emulator gem5 --eval './gem5.sh' --gem5-readfile 'echo "setup run"'
 
-Their usage us exemplified at <<gem5-run-benchmark>>.
+# Restore and run the first benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "first benchmark"'
 
-Other loophole possibilities include:
+# Restore and run the second benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "second benchmark"'
+....
+
+Their usage is also exemplified at <<gem5-run-benchmark>>.
+
+If you forgot to use an appropriate `--eval` for your boot and the simulation is already running, link:rootfs_overlay/lkmc/gem5.sh[] can be used directly from an interactive guest shell.
+
+First we reset the readfile to something that runs quickly:
+
+....
+printf 'echo "first benchmark"' > "$(./getvar gem5_readfile_file)"
+....
+
+and then in the guest, take a checkpoint and exit:
+
+....
+./gem5.sh
+....
+
+Now the guest is in a state where readfile will be executed automatically without interactive intervention:
+
+....
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "first benchmark"'
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "second benchmark"'
+....
+
+Other loophole possibilities to execute different benchmarks non-interactively include:
 
 * <<9p>>
 * <<secondary-disk>>
