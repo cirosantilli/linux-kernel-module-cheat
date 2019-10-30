@@ -223,9 +223,10 @@ class ShellHelpers:
                 shutil.copy2(src, dest)
 
     def mkdir_p(self, d):
-        self.print_cmd(['mkdir', d, LF])
-        if not self.dry_run:
-            os.makedirs(d, exist_ok=True)
+        if not os.path.exists(d):
+            self.print_cmd(['mkdir', d, LF])
+            if not self.dry_run:
+                os.makedirs(d)
 
     def mv(self, src, dest, **kwargs):
         self.print_cmd(['mv', src, dest])
