@@ -18308,7 +18308,9 @@ m5 dumpstats</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-dhrystone --arch aarch64 --mode baremetal
+<pre># Build our Newlib stubs.
+./build-baremetal --arch aarch64
+./build-dhrystone --arch aarch64 --mode baremetal
 ./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"</pre>
 </div>
 </div>
@@ -19030,7 +19032,7 @@ m5 checkpoint</pre>
 <div class="content">
 <pre># Boot, checkpoint and exit.
 printf 'echo "setup run";m5 exit' &gt; "$(./getvar gem5_readfile_file)"
-./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile &gt; a.sh;sh a.sh'
+./run --emulator gem5 --eval 'm5 checkpoint;m5 readfile &gt; /tmp/gem5.sh &amp;&amp; sh /tmp/gem5.sh'
 
 # Restore and run the first benchmark.
 printf 'echo "first benchmark";m5 exit' &gt; "$(./getvar gem5_readfile_file)"
@@ -19051,18 +19053,73 @@ printf 'sh' &gt; "$(./getvar gem5_readfile_file)"
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/lkmc/gem5.sh">rootfs_overlay/lkmc/gem5.sh</a>. This script is analogous to gem5&#8217;s in-tree <a href="https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS">hack_back_ckpt.rcS</a>, but with less noise.</p>
+<p><code>./run --gem5-readfile</code> is a convenient way to set the <code>m5 readfile</code> file contents from a string in the command line, e.g.:</p>
+<div class="literalblock">
+<div class="content">
+<pre># Boot, checkpoint and exit.
+./run --emulator gem5 --eval './gem5.sh' --gem5-readfile 'echo "setup run"'
+
+# Restore and run the first benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "first benchmark"'
+
+# Restore and run the second benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "second benchmark"'</pre>
+</div>
+</div>
 </li>
 <li>
-<p><code>./run --gem5-readfile</code> is a convenient way to set the <code>m5 readfile</code></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/lkmc/gem5.sh">rootfs_overlay/lkmc/gem5.sh</a>. This script is analogous to gem5&#8217;s in-tree <a href="https://github.com/gem5/gem5/blob/2b4b94d0556c2d03172ebff63f7fc502c3c26ff8/configs/boot/hack_back_ckpt.rcS">hack_back_ckpt.rcS</a>, but with less noise.</p>
+<div class="paragraph">
+<p>Usage:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># Boot, checkpoint and exit.
+./run --emulator gem5 --eval './gem5.sh' --gem5-readfile 'echo "setup run"'
+
+# Restore and run the first benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "first benchmark"'
+
+# Restore and run the second benchmark.
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "second benchmark"'</pre>
+</div>
+</div>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>Their usage us exemplified at <a href="#gem5-run-benchmark">gem5 run benchmark</a>.</p>
+<p>Their usage is also exemplified at <a href="#gem5-run-benchmark">gem5 run benchmark</a>.</p>
 </div>
 <div class="paragraph">
-<p>Other loophole possibilities include:</p>
+<p>If you forgot to use an appropriate <code>--eval</code> for your boot and the simulation is already running, <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/lkmc/gem5.sh">rootfs_overlay/lkmc/gem5.sh</a> can be used directly from an interactive guest shell.</p>
+</div>
+<div class="paragraph">
+<p>First we reset the readfile to something that runs quickly:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>printf 'echo "first benchmark"' &gt; "$(./getvar gem5_readfile_file)"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then in the guest, take a checkpoint and exit:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./gem5.sh</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now the guest is in a state where readfile will be executed automatically without interactive intervention:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "first benchmark"'
+./run --emulator gem5 --gem5-restore 1 --gem5-readfile 'echo "second benchmark"'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Other loophole possibilities to execute different benchmarks non-interactively include:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -19931,18 +19988,7 @@ clock=500</pre>
 <p>By default, we use <code>configs/example/fs.py</code> script.</p>
 </div>
 <div class="paragraph">
-<p>The <code>--gem5-script biglittle</code> option enables the alternative <code>configs/example/arm/fs_bigLITTLE.py</code> script instead.</p>
-</div>
-<div class="paragraph">
-<p>First apply:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>patch -d "$(./getvar gem5_source_dir)" -p 1 &lt; patches/manual/gem5-biglittle.patch</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>then:</p>
+<p>The <code>--gem5-script biglittle</code> option enables the alternative <code>configs/example/arm/fs_bigLITTLE.py</code> script instead:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -20805,6 +20851,17 @@ exec filecode in scope</pre>
 </div>
 <div class="paragraph">
 <p>TODO: the file path name appears to be passed as a command line argument to the Python script, but I didn&#8217;t have the patience to fully understand the details.</p>
+</div>
+<div class="paragraph">
+<p>The Python config files then set the entire system up in Python, and finally call <code>m5.simulate()</code> to run the actual simulation. This function has a C++ native implementation at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/sim/simulate.cc</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and that is where doSimLoop the main event loop, <code>doSimLoop</code> gets called and starts kicking off the <a href="#gem5-event-queue">gem5 event queue</a>.</p>
 </div>
 <div class="paragraph">
 <p>Tested at gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.</p>
