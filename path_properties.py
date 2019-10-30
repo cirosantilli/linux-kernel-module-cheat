@@ -15,6 +15,7 @@ class PathProperties:
         # Therefore, it cannot be run in baremetal ARMv7 CPUs.
         # User mode simulation however seems to enable aarch32 so these run fine.
         'arm_aarch32': False,
+        'arm_sve': False,
         # Examples that can be built in baremetal.
         'baremetal': False,
         'c_std': default_c_std,
@@ -155,6 +156,10 @@ class PathProperties:
             not (
                 link and
                 self['no_executable']
+            ) and not (
+                # Our C compiler does not suppport SVE yet.
+                # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/87
+                os.path.splitext(self.path_components[-1])[1] == '.c' and self['arm_sve']
             )
         )
 
@@ -412,6 +417,7 @@ path_properties_tuples = (
                                     },
                                     {
                                         'freestanding': freestanding_properties,
+                                        'sve_addvl.c': {'arm_sve': True},
                                     },
                                 ),
                                 'freestanding': freestanding_properties,
@@ -422,7 +428,8 @@ path_properties_tuples = (
                                     'signal_generated_by_os': True,
                                     'signal_received': signal.Signals.SIGILL,
                                 },
-                                'sve.S': {'gem5_unimplemented_instruction': True}
+                                'sve.S': {'arm_sve': True},
+                                'sve_addvl.S': {'arm_sve': True},
                             }
                         ),
                         'x86_64': (

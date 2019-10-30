@@ -16219,7 +16219,9 @@ There are analogous LD3 and LD4 instruction.
 
 Scalable Vector Extension.
 
-Example: link:userland/arch/aarch64/sve.S[]
+Examples:
+
+* link:userland/arch/aarch64/sve.S[]
 
 To understand it, the first thing you have to look at is the execution example at Fig 1 of: https://alastairreid.github.io/papers/sve-ieee-micro-2017.pdf
 
@@ -16243,6 +16245,41 @@ Official spec: https://developer.arm.com/docs/100891/latest/sve-overview/introdu
 SVE support is indicated by `ID_AA64PFR0_EL1.SVE` which is dumped from link:baremetal/arch/aarch64/dump_regs.c[].
 
 Using SVE normally requires setting the CPACR_EL1.FPEN and ZEN bits, which as as of lkmc 29fd625f3fda79f5e0ee6cac43517ba74340d513 + 1 we also enable in our <<baremetal-bootloaders>>, see also: <<aarch64-baremetal-neon-setup>>.
+
+===== ARM SVE VADDL instruction
+
+Get the SVE vector length. The following programs do that and print it to stdout:
+
+* link:userland/arch/aarch64/inline_asm/sve_addvl.c[]
+* link:userland/arch/aarch64/sve_addvl.S[]
+
+===== Change ARM SVE vector length in emulators
+
+gem5 covered at: https://stackoverflow.com/questions/57692765/how-to-change-the-gem5-arm-sve-vector-length
+
+It is fun to observe this directly with the <<arm-sve-vaddl-instruction>> in SE:
+
+....
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 1'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 2'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 4'
+....
+
+which consecutively:
+
+....
+0x0000000000000080
+0x0000000000000100
+0x0000000000000200
+....
+
+which are multiples of 128.
+
+TODO how to set it on QEMU at runtime? As of LKMC 37b93ecfbb5a1fcbd0c631dd0b42c5b9f2f8a89a + 1 QEMU outputs:
+
+....
+0x0000000000000800
+....
 
 ===== SVE bibliography
 
