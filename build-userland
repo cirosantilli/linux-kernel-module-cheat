@@ -24,6 +24,17 @@ Build our compiled userland examples.
         self._add_argument('--force-rebuild')
         self._add_argument('--optimization-level')
         self.add_argument(
+            '--out-rootfs-overlay-dir-prefix',
+            default='',
+            help='''\
+Place the output files inside the image within this additional prefix.
+This is mostly useful to place different versions of binaries with different
+build parameters inside image to compare them. See:
+* https://cirosantilli.com/linux-kernel-module-cheat#update-the-toolchain
+* https://cirosantilli.com/linux-kernel-module-cheat#out_rootfs_overlay_dir
+'''
+        )
+        self.add_argument(
             'targets',
             default=[],
             help='''\
@@ -88,7 +99,10 @@ Default: build all examples that have their package dependencies met, e.g.:
         if not self.env['in_tree']:
             self.sh.copy_dir_if_update(
                 srcdir=build_dir,
-                destdir=self.env['out_rootfs_overlay_lkmc_dir'],
+                destdir=os.path.join(
+                    self.env['out_rootfs_overlay_lkmc_dir'],
+                    self.env['out_rootfs_overlay_dir_prefix']
+                ),
                 filter_ext=self.env['userland_executable_ext'],
             )
         return exit_status

@@ -702,14 +702,16 @@ Incompatible archs are skipped.
             env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
             env['ubuntu_toolchain_prefix'] = 'arm-linux-gnueabihf'
             env['is_arm'] = True
-            env['march'] = 'armv8-a'
+            if not env['_args_given']['march']:
+                env['march'] = 'armv8-a'
         elif env['arch'] == 'aarch64':
             env['armv'] = 8
             env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-gnu'
             env['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
             env['ubuntu_toolchain_prefix'] = 'aarch64-linux-gnu'
             env['is_arm'] = True
-            env['march'] = 'armv8-a+lse'
+            if not env['_args_given']['march']:
+                env['march'] = 'armv8-a+lse'
         elif env['arch'] == 'x86_64':
             env['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
             env['gem5_arch'] = 'X86'
@@ -931,6 +933,7 @@ Incompatible archs are skipped.
         env['kernel_modules_build_host_subdir'] = join(env['kernel_modules_build_host_dir'], env['kernel_modules_subdir'])
 
         # Overlay.
+        # https://cirosantilli.com/linux-kernel-module-cheat#buildroot_packages-directory
         env['out_rootfs_overlay_dir'] = join(env['out_dir'], 'rootfs_overlay', env['arch'])
         env['out_rootfs_overlay_lkmc_dir'] = join(env['out_rootfs_overlay_dir'], env['repo_short_id'])
         env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_dir'], 'bin')
