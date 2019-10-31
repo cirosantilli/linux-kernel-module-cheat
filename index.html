@@ -1245,6 +1245,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#report-upstream-bugs">20.9. Report upstream bugs</a></li>
 <li><a href="#libc-choice">20.10. libc choice</a></li>
 <li><a href="#buildroot-hello-world">20.11. Buildroot hello world</a></li>
+<li><a href="#update-the-toolchain">20.12. Update the toolchain</a>
+<ul class="sectlevel3">
+<li><a href="#update-gcc-gcc-supported-by-buildroot">20.12.1. Update GCC: GCC supported by Buildroot</a></li>
+<li><a href="#update-gcc-gcc-not-supported-by-buildroot">20.12.2. Update GCC: GCC not supported by Buildroot</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#userland-content">21. Userland content</a>
@@ -1604,9 +1610,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#arm-simd-bibliography">24.6.4. ARM SIMD bibliography</a></li>
 <li><a href="#arm-sve">24.6.5. ARM SVE</a>
 <ul class="sectlevel4">
-<li><a href="#sve-bibliography">24.6.5.1. SVE bibliography</a>
+<li><a href="#arm-sve-vaddl-instruction">24.6.5.1. ARM SVE VADDL instruction</a></li>
+<li><a href="#change-arm-sve-vector-length-in-emulators">24.6.5.2. Change ARM SVE vector length in emulators</a></li>
+<li><a href="#sve-bibliography">24.6.5.3. SVE bibliography</a>
 <ul class="sectlevel5">
-<li><a href="#sve-spec">24.6.5.1.1. SVE spec</a></li>
+<li><a href="#sve-spec">24.6.5.3.1. SVE spec</a></li>
 </ul>
 </li>
 </ul>
@@ -1824,7 +1832,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#patches-manual-directory">31.12.3.2. patches/manual directory</a></li>
 </ul>
 </li>
-<li><a href="#rootfs_overlay">31.12.4. rootfs_overlay</a></li>
+<li><a href="#rootfs_overlay">31.12.4. rootfs_overlay</a>
+<ul class="sectlevel4">
+<li><a href="#out_rootfs_overlay_dir">31.12.4.1. out_rootfs_overlay_dir</a></li>
+</ul>
+</li>
 <li><a href="#lkmc-c">31.12.5. lkmc.c</a></li>
 <li><a href="#rand_check-out">31.12.6. rand_check.out</a></li>
 <li><a href="#lkmc_home">31.12.7. lkmc_home</a></li>
@@ -19672,6 +19684,9 @@ m5_fail(ints[1], ints[0]);</pre>
 <p><a href="https://gem5.googlesource.com/arm/linux/" class="bare">https://gem5.googlesource.com/arm/linux/</a> contains an ARM Linux kernel forks with a few gem5 specific Linux kernel patches on top of mainline created by ARM Holdings on top of a few upstream kernel releases.</p>
 </div>
 <div class="paragraph">
+<p>Our <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/build">build</a> script automatically adds that remote for us as <code>gem5-arm</code>.</p>
+</div>
+<div class="paragraph">
 <p>The patches are optional: the vanilla kernel does boot. But they add some interesting gem5-specific optimizations, instrumentations and device support.</p>
 </div>
 <div class="paragraph">
@@ -19685,7 +19700,7 @@ m5_fail(ints[1], ints[0]);</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>git -C "$(./getvar linux_source_dir)" fetch https://gem5.googlesource.com/arm/linux gem5/v4.15:gem5/v4.15
+<pre>git -C "$(./getvar linux_source_dir)" fetch gem5-arm:gem5/v4.15
 git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
 ./build-linux \
   --arch aarch64 \
@@ -21959,13 +21974,205 @@ git -C "$(./getvar qemu_source_dir)" checkout -
 <p>These can come in handy if you want to debug something in Buildroot itself and possibly report an upstream bug.</p>
 </div>
 </div>
+<div class="sect2">
+<h3 id="update-the-toolchain"><a class="anchor" href="#update-the-toolchain"></a><a class="link" href="#update-the-toolchain">20.12. Update the toolchain</a></h3>
+<div class="paragraph">
+<p>Users of this repo will often want to update the compilation toolchain to the latest version to get fresh new features like new ISA instructions.</p>
+</div>
+<div class="paragraph">
+<p>Because the toolchain is so complex and tightly knitted with the rest of the system, this is more of an art than a science.</p>
+</div>
+<div class="paragraph">
+<p>However, it is not something to be feared, and you will get there without help in most cases.</p>
+</div>
+<div class="paragraph">
+<p>In this section we cover the most common cases.</p>
+</div>
+<div class="sect3">
+<h4 id="update-gcc-gcc-supported-by-buildroot"><a class="anchor" href="#update-gcc-gcc-supported-by-buildroot"></a><a class="link" href="#update-gcc-gcc-supported-by-buildroot">20.12.1. Update GCC: GCC supported by Buildroot</a></h4>
+<div class="paragraph">
+<p>This is of course the simplest case.</p>
+</div>
+<div class="paragraph">
+<p>You can quickly determine all the GCC versions supported by Buildroot by looking at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>submodules/buildroot/package/gcc/Config.in.host</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For example, in Buildroot 2018.08, which was used at LKMC 5d10529c10ad8a4777b0bac1543320df0c89a1ce, the default toolchain was 7.3.0, and the latest supported one was 8.2.0.</p>
+</div>
+<div class="paragraph">
+<p>To just upgrade the toolchain to 8.2.0, and rebuild some userland executables to later run them, we could do:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cd submodules/gcc
+git fetch up
+git checkout -b lkmc-gcc-8_2_0-release gcc-8_2_0-release
+git am ../buildroot/package/gcc/8.2.0/*
+cd ../..
+./build-buildroot \
+  --arch aarch64 \
+  --buildroot-build-id gcc-8-2 \
+  --config 'BR2_GCC_VERSION_8_X=y' \
+  --config 'BR2_GCC_VERSION="8.2.0"' \
+  --no-all \
+  -- \
+  toolchain \
+;
+./build-userland \
+  --arch aarch64 \
+  --buildroot-build-id gcc-8-2 \
+  --out-rootfs-overlay-dir-prefix gcc-8-2 \
+  --userland-build-id gcc-8-2 \
+;
+./build-buildroot --arch aarch64</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where the <code>toolchain</code> Buildroot target builds only Buildroot: <a href="https://stackoverflow.com/questions/44521150/buildroot-install-and-build-the-toolchain-only" class="bare">https://stackoverflow.com/questions/44521150/buildroot-install-and-build-the-toolchain-only</a></p>
+</div>
+<div class="paragraph">
+<p>Note that this setup did not overwrite any of our default Buildroot due to careful namespacing with our <code>gcc-8-2</code> prefix!</p>
+</div>
+<div class="paragraph">
+<p>Now you can either run the executables on <a href="#user-mode-simulation">User mode simulation</a> with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --userland userland/c/hello.c --userland-build-id gcc-8-2</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or in full system with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --eval-after './gcc-8-2/c/hello.out'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where the <code>gcc-8-2</code> prefix was added by <code>--out-rootfs-overlay-dir-prefix</code>.</p>
+</div>
+<div class="paragraph">
+<p><a href="#arm-sve">ARM SVE</a> support was only added to GCC 8 and can be enabled with the flag: <code>-march=armv8.2-a+sve</code>.</p>
+</div>
+<div class="paragraph">
+<p>We already even had a C SVE test in-tree, but it was disabled because the old toolchain does not support it.</p>
+</div>
+<div class="paragraph">
+<p>So once the new GCC 8 toolchain was built, we can first enable that test by editing the <a href="#path-properties">path_properties</a> file to not skip C SVE tests anymore:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>                #os.path.splitext(self.path_components[-1])[1] == '.c' and self['arm_sve']</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then rebuild run one of the experiments from <a href="#change-arm-sve-vector-length-in-emulators">Change ARM SVE vector length in emulators</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-userland \
+  --arch aarch64 \
+  --buildroot-build-id gcc-8-2 \
+  --force-rebuild \
+  --march=armv8.2-a+sve \
+  --out-rootfs-overlay-dir-prefix gcc-8-2 \
+  --static \
+  --userland-build-id gcc-8-2 \
+;
+./run \
+  --arch aarch64 \
+  --userland userland/arch/aarch64/inline_asm/sve_addvl.c \
+  --userland-build-id gcc-8-2 \
+  --static \
+  --gem5-worktree master \
+  -- \
+  --param 'system.cpu[:].isa[:].sve_vl_se = 4' \</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Bibliography:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/87" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/87</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="update-gcc-gcc-not-supported-by-buildroot"><a class="anchor" href="#update-gcc-gcc-not-supported-by-buildroot"></a><a class="link" href="#update-gcc-gcc-not-supported-by-buildroot">20.12.2. Update GCC: GCC not supported by Buildroot</a></h4>
+<div class="paragraph">
+<p>Now it gets fun, but well, guess what, we will try to do the same as <a href="#update-gcc-gcc-supported-by-buildroot">Section 20.12.1, &#8220;Update GCC: GCC supported by Buildroot&#8221;</a> but:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>pick the Buildroot version that comes closest to the GCC you want</p>
+</li>
+<li>
+<p>if any <code>git am</code> patches don&#8217;t apply, skip them</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Now, if things fail, you can try:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>if the GCC version is supported by a newer Buildroot version:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>quick and dirty: see what they are doing differently there, and patch it in here</p>
+</li>
+<li>
+<p>golden star: upgrade our default Buildroot, <a href="#test-this-repo">test it well</a>, and send a pull request!</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>otherwise: OK, go and patch Buildroot, time to become a Buildroot dev</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Known setups:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Buildroot 2018.08:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>GCC 8.3.0: OK</p>
+</li>
+<li>
+<p>GCC 9.2.0: KO <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/97" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/97</a></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="userland-content"><a class="anchor" href="#userland-content"></a><a class="link" href="#userland-content">21. Userland content</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>This section contains userland content, such as <a href="#c">C</a>, <a href="#cpp">C++</a> and <a href="#posix">POSIX</a> examples.</p>
+<p>This section documents our test and educational userland content, such as <a href="#c">C</a>, <a href="#cpp">C++</a> and <a href="#posix">POSIX</a> examples, present mostly under <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/">userland/</a>.</p>
 </div>
 <div class="paragraph">
 <p>Getting started at: <a href="#userland-setup">Section 1.6, &#8220;Userland setup&#8221;</a></p>
@@ -27302,7 +27509,14 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <p>Scalable Vector Extension.</p>
 </div>
 <div class="paragraph">
-<p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/sve.S">userland/arch/aarch64/sve.S</a></p>
+<p>Examples:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/sve.S">userland/arch/aarch64/sve.S</a></p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>To understand it, the first thing you have to look at is the execution example at Fig 1 of: <a href="https://alastairreid.github.io/papers/sve-ieee-micro-2017.pdf" class="bare">https://alastairreid.github.io/papers/sve-ieee-micro-2017.pdf</a></p>
@@ -27345,7 +27559,60 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <p>Using SVE normally requires setting the CPACR_EL1.FPEN and ZEN bits, which as as of lkmc 29fd625f3fda79f5e0ee6cac43517ba74340d513 + 1 we also enable in our <a href="#baremetal-bootloaders">Baremetal bootloaders</a>, see also: <a href="#aarch64-baremetal-neon-setup">aarch64 baremetal NEON setup</a>.</p>
 </div>
 <div class="sect4">
-<h5 id="sve-bibliography"><a class="anchor" href="#sve-bibliography"></a><a class="link" href="#sve-bibliography">24.6.5.1. SVE bibliography</a></h5>
+<h5 id="arm-sve-vaddl-instruction"><a class="anchor" href="#arm-sve-vaddl-instruction"></a><a class="link" href="#arm-sve-vaddl-instruction">24.6.5.1. ARM SVE VADDL instruction</a></h5>
+<div class="paragraph">
+<p>Get the SVE vector length. The following programs do that and print it to stdout:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/inline_asm/sve_addvl.c">userland/arch/aarch64/inline_asm/sve_addvl.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/sve_addvl.S">userland/arch/aarch64/sve_addvl.S</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="change-arm-sve-vector-length-in-emulators"><a class="anchor" href="#change-arm-sve-vector-length-in-emulators"></a><a class="link" href="#change-arm-sve-vector-length-in-emulators">24.6.5.2. Change ARM SVE vector length in emulators</a></h5>
+<div class="paragraph">
+<p>gem5 covered at: <a href="https://stackoverflow.com/questions/57692765/how-to-change-the-gem5-arm-sve-vector-length" class="bare">https://stackoverflow.com/questions/57692765/how-to-change-the-gem5-arm-sve-vector-length</a></p>
+</div>
+<div class="paragraph">
+<p>It is fun to observe this directly with the <a href="#arm-sve-vaddl-instruction">ARM SVE VADDL instruction</a> in SE:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 1'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 2'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 4'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which consecutively:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>0x0000000000000080
+0x0000000000000100
+0x0000000000000200</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which are multiples of 128.</p>
+</div>
+<div class="paragraph">
+<p>TODO how to set it on QEMU at runtime? As of LKMC 37b93ecfbb5a1fcbd0c631dd0b42c5b9f2f8a89a + 1 QEMU outputs:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>0x0000000000000800</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="sve-bibliography"><a class="anchor" href="#sve-bibliography"></a><a class="link" href="#sve-bibliography">24.6.5.3. SVE bibliography</a></h5>
 <div class="ulist">
 <ul>
 <li>
@@ -27360,7 +27627,7 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 </ul>
 </div>
 <div class="sect5">
-<h6 id="sve-spec"><a class="anchor" href="#sve-spec"></a><a class="link" href="#sve-spec">24.6.5.1.1. SVE spec</a></h6>
+<h6 id="sve-spec"><a class="anchor" href="#sve-spec"></a><a class="link" href="#sve-spec">24.6.5.3.1. SVE spec</a></h6>
 <div class="paragraph">
 <p><a href="#armarm8">ARMv8 architecture reference manual</a> A1.7 "ARMv8 architecture extensions" says:</p>
 </div>
@@ -31303,7 +31570,7 @@ git -C "$(./getvar buildroot_source_dir)" checkout -
 <div class="sect3">
 <h4 id="buildroot_packages-directory"><a class="anchor" href="#buildroot_packages-directory"></a><a class="link" href="#buildroot_packages-directory">31.12.2. buildroot_packages directory</a></h4>
 <div class="paragraph">
-<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/buildroot_packages/">buildroot_packages/</a></p>
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/buildroot_packages/">buildroot_packages/</a>.</p>
 </div>
 <div class="paragraph">
 <p>Every directory inside it is a Buildroot package.</p>
@@ -31428,6 +31695,9 @@ git -C "$(./getvar buildroot_source_dir)" checkout -
 <div class="sect3">
 <h4 id="rootfs_overlay"><a class="anchor" href="#rootfs_overlay"></a><a class="link" href="#rootfs_overlay">31.12.4. rootfs_overlay</a></h4>
 <div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay">rootfs_overlay</a>.</p>
+</div>
+<div class="paragraph">
 <p>We use this directory for:</p>
 </div>
 <div class="ulist">
@@ -31468,6 +31738,39 @@ git -C "$(./getvar buildroot_source_dir)" checkout -
 </div>
 <div class="paragraph">
 <p>This way you can just hack away the scripts and try them out immediately without any further operations.</p>
+</div>
+<div class="sect4">
+<h5 id="out_rootfs_overlay_dir"><a class="anchor" href="#out_rootfs_overlay_dir"></a><a class="link" href="#out_rootfs_overlay_dir">31.12.4.1. out_rootfs_overlay_dir</a></h5>
+<div class="paragraph">
+<p>This path can be found with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./getvar out_rootfs_overlay_dir</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This output directory contains all the files that LKMC will put inside the final image, including for example:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#userland-content">Userland content</a> that needs to be compiled</p>
+</li>
+<li>
+<p><a href="#rootfs_overlay">rootfs_overlay</a> content that gets put inside the image as is</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>LKMC first collects all the files that it will dump into the guest there, and then in the very last step dumps everything into the final image.</p>
+</div>
+<div class="paragraph">
+<p>In Buildroot, this is done by pointing <code>BR2_ROOTFS_OVERLAY</code> to that directory.</p>
+</div>
+<div class="paragraph">
+<p>This does not include native image modification mechanisms such as <a href="#buildroot_packages-directory">Buildroot packages</a>, which we let Buildroot itself manage.</p>
+</div>
 </div>
 </div>
 <div class="sect3">
@@ -32060,7 +32363,6 @@ git remote set-url origin git@github.com:cirosantilli/linux.git
 git push
 git checkout master
 
-git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 git fetch up
 git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
 
