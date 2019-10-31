@@ -158,7 +158,7 @@ class PathProperties:
                 self['no_executable']
             ) and not (
                 # Our C compiler does not suppport SVE yet.
-                # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/87
+                # https://cirosantilli.com/linux-kernel-module-cheat#update-gcc-gcc-supported-by-buildroot
                 os.path.splitext(self.path_components[-1])[1] == '.c' and self['arm_sve']
             )
         )

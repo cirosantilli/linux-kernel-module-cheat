@@ -7,6 +7,7 @@ import cli_function
 import collections
 import common
 import copy
+import itertools
 import math
 import subprocess
 import shell_helpers
@@ -55,7 +56,40 @@ class _Component:
         ):
             self.build_callback()
 
+submodule_extra_remotes = {
+    'binutils-gdb': {
+        'up': 'git://sourceware.org/git/binutils-gdb.git',
+    },
+    'buildroot': {
+        'up': 'https://gem5.googlesource.com/public/gem5',
+    },
+    'crosstool-ng': {
+        'up': 'https://github.com/crosstool-ng/crosstool-ng',
+    },
+    'gcc': {
+        'up': 'git://gcc.gnu.org/git/gcc.git',
+    },
+    'gem5': {
+        'up': 'https://gem5.googlesource.com/public/gem5',
+    },
+    'glibc': {
+        'up': 'git://sourceware.org/git/glibc.git',
+    },
+    'linux': {
+        # https://cirosantilli.com/linux-kernel-module-cheat#gem5-arm-linux-kernel-patches
+        'gem5-arm': 'https://gem5.googlesource.com/arm/linux',
+        'up': 'git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git',
+    },
+    'qemu': {
+        'up': 'https://git.qemu.org/git/qemu.git',
+    },
+    'xen': {
+        'up': 'git://xenbits.xen.org/xen.git',
+    },
+}
+
 class Main(common.LkmcCliFunction):
+
     def __init__(self):
         super().__init__(
             description='''\
@@ -170,7 +204,6 @@ so looping over all of them would waste time.
             },
             'submodules_shallow': {'gem5'},
         }
-
         self.name_to_component_map = {
             'all': _Component(dependencies=[
                 'qemu-gem5-buildroot',
@@ -596,6 +629,21 @@ Which components to build. Default: qemu-buildroot
                     self.log_warn('update to git 2.17 or newer and you will save clone time')
                     self.log_warn('see: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/44')
                 self.sh.run_cmd(cmd + ['--', LF] + submodule_ids_to_cmd(submodules_shallow))
+            for submodule_name in submodule_extra_remotes:
+                submodule = submodule_extra_remotes[submodule_name]
+                for remote_name in submodule:
+                    self.sh.run_cmd(
+                        [
+                            'git', LF,
+                            '-C', os.path.join(common.consts['submodules_dir'], submodule_name), LF,
+                            'remote', LF,
+                            'add', LF,
+                            remote_name, LF,
+                            submodule[remote_name], LF,
+                        ],
+                        # In case the remote already exists.
+                        raise_on_failure=False
+                    )
 
         # Do the build.
         for component in selected_components:

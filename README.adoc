@@ -11952,6 +11952,8 @@ What they mean: https://stackoverflow.com/questions/50583962/what-are-the-gem5-a
 
 https://gem5.googlesource.com/arm/linux/ contains an ARM Linux kernel forks with a few gem5 specific Linux kernel patches on top of mainline created by ARM Holdings on top of a few upstream kernel releases.
 
+Our link:build[] script automatically adds that remote for us as `gem5-arm`.
+
 The patches are optional: the vanilla kernel does boot. But they add some interesting gem5-specific optimizations, instrumentations and device support.
 
 The patches also <<notable-alternate-gem5-kernel-configs,add defconfigs>> that are known to work well with gem5.
@@ -11961,7 +11963,7 @@ E.g. for arm v4.9 there is: https://gem5.googlesource.com/arm/linux/+/917e007a41
 In order to use those patches and their associated configs, and, we recommend using <<linux-kernel-build-variants>> as:
 
 ....
-git -C "$(./getvar linux_source_dir)" fetch https://gem5.googlesource.com/arm/linux gem5/v4.15:gem5/v4.15
+git -C "$(./getvar linux_source_dir)" fetch gem5-arm:gem5/v4.15
 git -C "$(./getvar linux_source_dir)" checkout gem5/v4.15
 ./build-linux \
   --arch aarch64 \
@@ -13508,9 +13510,131 @@ Here are some good working commands for several ISAs:
 
 These can come in handy if you want to debug something in Buildroot itself and possibly report an upstream bug.
 
+=== Update the toolchain
+
+Users of this repo will often want to update the compilation toolchain to the latest version to get fresh new features like new ISA instructions.
+
+Because the toolchain is so complex and tightly knitted with the rest of the system, this is more of an art than a science.
+
+However, it is not something to be feared, and you will get there without help in most cases.
+
+In this section we cover the most common cases.
+
+==== Update GCC: GCC supported by Buildroot
+
+This is of course the simplest case.
+
+You can quickly determine all the GCC versions supported by Buildroot by looking at:
+
+....
+submodules/buildroot/package/gcc/Config.in.host
+....
+
+For example, in Buildroot 2018.08, which was used at LKMC 5d10529c10ad8a4777b0bac1543320df0c89a1ce, the default toolchain was 7.3.0, and the latest supported one was 8.2.0.
+
+To just upgrade the toolchain to 8.2.0, and rebuild some userland executables to later run them, we could do:
+
+....
+cd submodules/gcc
+git fetch up
+git checkout -b lkmc-gcc-8_2_0-release gcc-8_2_0-release
+git am ../buildroot/package/gcc/8.2.0/*
+cd ../..
+./build-buildroot \
+  --arch aarch64 \
+  --buildroot-build-id gcc-8-2 \
+  --config 'BR2_GCC_VERSION_8_X=y' \
+  --config 'BR2_GCC_VERSION="8.2.0"' \
+  --no-all \
+  -- \
+  toolchain \
+;
+./build-userland \
+  --arch aarch64 \
+  --buildroot-build-id gcc-8-2 \
+  --out-rootfs-overlay-dir-prefix gcc-8-2 \
+  --userland-build-id gcc-8-2 \
+;
+./build-buildroot --arch aarch64
+....
+
+where the `toolchain` Buildroot target builds only Buildroot: https://stackoverflow.com/questions/44521150/buildroot-install-and-build-the-toolchain-only
+
+Note that this setup did not overwrite any of our default Buildroot due to careful namespacing with our `gcc-8-2` prefix!
+
+Now you can either run the executables on <<user-mode-simulation>> with:
+
+....
+./run --arch aarch64 --userland userland/c/hello.c --userland-build-id gcc-8-2
+....
+
+or in full system with:
+
+....
+./run --arch aarch64 --eval-after './gcc-8-2/c/hello.out'
+....
+
+where the `gcc-8-2` prefix was added by `--out-rootfs-overlay-dir-prefix`.
+
+<<arm-sve>> support was only added to GCC 8 and can be enabled with the flag: `-march=armv8.2-a+sve`.
+
+We already even had a C SVE test in-tree, but it was disabled because the old toolchain does not support it.
+
+So once the new GCC 8 toolchain was built, we can first enable that test by editing the <<path-properties>> file to not skip C SVE tests anymore:
+
+....
+                #os.path.splitext(self.path_components[-1])[1] == '.c' and self['arm_sve']
+....
+
+and then rebuild run one of the experiments from <<change-arm-sve-vector-length-in-emulators>>:
+
+....
+./build-userland \
+  --arch aarch64 \
+  --buildroot-build-id gcc-8-2 \
+  --force-rebuild \
+  --march=armv8.2-a+sve \
+  --out-rootfs-overlay-dir-prefix gcc-8-2 \
+  --static \
+  --userland-build-id gcc-8-2 \
+;
+./run \
+  --arch aarch64 \
+  --userland userland/arch/aarch64/inline_asm/sve_addvl.c \
+  --userland-build-id gcc-8-2 \
+  --static \
+  --gem5-worktree master \
+  -- \
+  --param 'system.cpu[:].isa[:].sve_vl_se = 4' \
+....
+
+Bibliography:
+
+* https://github.com/cirosantilli/linux-kernel-module-cheat/issues/87
+
+==== Update GCC: GCC not supported by Buildroot
+
+Now it gets fun, but well, guess what, we will try to do the same as xref:update-gcc-gcc-supported-by-buildroot[xrefstyle=full] but:
+
+* pick the Buildroot version that comes closest to the GCC you want
+* if any `git am` patches don't apply, skip them
+
+Now, if things fail, you can try:
+
+* if the GCC version is supported by a newer Buildroot version:
+** quick and dirty: see what they are doing differently there, and patch it in here
+** golden star: upgrade our default Buildroot, <<test-this-repo,test it well>>, and send a pull request!
+* otherwise: OK, go and patch Buildroot, time to become a Buildroot dev
+
+Known setups:
+
+* Buildroot 2018.08:
+** GCC 8.3.0: OK
+** GCC 9.2.0: KO https://github.com/cirosantilli/linux-kernel-module-cheat/issues/97
+
 == Userland content
 
-This section contains userland content, such as <<c>>, <<cpp>> and <<posix>> examples.
+This section documents our test and educational userland content, such as <<c>>, <<cpp>> and <<posix>> examples, present mostly under link:userland/[].
 
 Getting started at: xref:userland-setup[xrefstyle=full]
 
@@ -18911,7 +19035,7 @@ Also we don't have a choice in the case of C++ template, which must stay in head
 
 ==== buildroot_packages directory
 
-Source: link:buildroot_packages/[]
+Source: link:buildroot_packages/[].
 
 Every directory inside it is a Buildroot package.
 
@@ -19003,6 +19127,8 @@ These are typically patches that don't contain fundamental functionality, so we 
 
 ==== rootfs_overlay
 
+Source: link:rootfs_overlay[].
+
 We use this directory for:
 
 * customized configuration files
@@ -19028,6 +19154,25 @@ ls /mnt/9p/rootfs_overlay
 ....
 
 This way you can just hack away the scripts and try them out immediately without any further operations.
+
+===== out_rootfs_overlay_dir
+
+This path can be found with:
+
+....
+./getvar out_rootfs_overlay_dir
+....
+
+This output directory contains all the files that LKMC will put inside the final image, including for example:
+
+* <<userland-content>> that needs to be compiled
+* <<rootfs_overlay>> content that gets put inside the image as is
+
+LKMC first collects all the files that it will dump into the guest there, and then in the very last step dumps everything into the final image.
+
+In Buildroot, this is done by pointing `BR2_ROOTFS_OVERLAY` to that directory.
+
+This does not include native image modification mechanisms such as <<buildroot_packages-directory,Buildroot packages>>, which we let Buildroot itself manage.
 
 ==== lkmc.c
 
@@ -19404,7 +19549,6 @@ git remote set-url origin git@github.com:cirosantilli/linux.git
 git push
 git checkout master
 
-git remote add up git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 git fetch up
 git rebase --onto "$next_mainline_revision" "$last_mainline_revision"
 
