@@ -515,12 +515,14 @@ path_properties_tuples = (
                             'gem5_unimplemented_instruction': True,
                         },
                         'count.cpp': {'more_than_1s': True},
-                        # Need to pass -lstdc++fs but we don't have a mechanism
-                        # to test the GCC version and only pass if >= 7.
-                        'temporary_directory.cpp': {'no_build': True},
                         'sleep_for.cpp': {
                             'more_than_1s': True,
                         },
+                        # Need to pass -lstdc++fs but we don't have a mechanism
+                        # to test the GCC version and only pass if >= 7.
+                        'temporary_directory.cpp': {'no_build': True},
+                        'thread_get_id.cpp': {'test_run_args': {'cpus': 2}},
+                        'thread_return_value.cpp': {'test_run_args': {'cpus': 2}},
                     },
                 ),
                 'gcc': (

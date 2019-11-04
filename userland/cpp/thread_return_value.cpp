@@ -20,10 +20,23 @@ void myfunc_reference(int& i) {
     i = myfunc(i);
 }
 
-int main() {
-    unsigned int nthreads = 4;
-    std::vector<int> inputs{1, 2, 3, 4};
-    std::vector<int> outputs_expect{2, 3, 4, 5};
+int main(int argc, char **argv) {
+    unsigned int nthreads;
+
+    // CLI arguments.
+    if (argc > 1) {
+        nthreads = std::strtoll(argv[1], NULL, 0);
+    } else {
+        nthreads = 1;
+    }
+
+    // Setup inputs and expected outputs.
+    std::vector<int> inputs;
+    std::vector<int> outputs_expect;
+    for (unsigned int i = 0; i < nthreads; ++i) {
+        inputs.push_back(i);
+        outputs_expect.push_back(myfunc(i));
+    }
 
     // future and sync. Nirvana. When you are not fighting to death with types:
     // https://stackoverflow.com/questions/10620300/can-stdasync-be-use-with-template-functions
