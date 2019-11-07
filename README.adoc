@@ -18477,6 +18477,176 @@ Argh, compilers are boring, let's learn a bit about them.
 * link:userland/gcc/busy_loop.c[]: https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133
 * link:userland/gcc/prevent_reorder.cpp[]: https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717
 
+== Computer architecture
+
+=== Cache coherence
+
+https://en.wikipedia.org/wiki/Cache_coherence
+
+Algorithms to keep the caches of different cores of a system coherent.
+
+E.g.: if one processors writes to the cache, other processors have to know about it before they read from that address.
+
+==== MSI protocol
+
+https://en.wikipedia.org/wiki/MSI_protocol
+
+This is the most basic non-trivial coherency protocol, and therefore the first one you should learn.
+
+Helpful video: https://www.youtube.com/watch?v=gAUVAel-2Fg "MSI Coherence - Georgia Tech - HPCA: Part 5" by Udacity.
+
+Let's focus on a single cache line representing a given memory address.
+
+The system looks like this:
+
+....
++----+
+|DRAM|
++----+
+^
+|
+v
++--------+
+| BUS    |
++--------+
+^        ^
+|        |
+v        v
++------+ +------+
+|CACHE1| |CACHE2|
++------+ +------+
+^        ^
+|        |
+|        |
++----+   +----+
+|CPU1|   |CPU2|
++----+   +----+
+....
+
+MSI stands for which states each cache can be in for a given cache line. The states are:
+
+* Modified: a single cache has the valid data and it has been modified from DRAM.
++
+Both reads and writes are free, because we don't have to worry about other processors.
+* Shared: the data is synchronized with DRAM, and may be present in multiple caches.
++
+Reads are free, but writes need to do extra work.
++
+This is the "most interesting" state of the protocol, as it allows for those free reads, even when multiple processors are using some address.
+* Invalid: the cache does not have the data, CPU reads and writes need to do extra work
+
+The above allowed states can be summarized in the following table:
+
+....
+         CACHE1
+         MSI
+       M nny
+CACHE2 S nyy
+       I yyy
+....
+
+The whole goal of the protocol is to maintain that state at all times, so that we can get those free reads when in shared state!
+
+To do so, the caches have to pass messages between themselves! This means generating bus traffic, which has a cost and must be kept to a minimum.
+
+The system components can receive and send the following messages:
+
+* CPUn can send to CACHEn:
+** "Local read": CPU reads from cache
+** "Local write": CPU writes to cache
+* CACHEn to itself:
+** "Evict": the cache is running out of space due to another request
+* CACHEn can send the following message to the bus.
+** "Bus read": the cache needs to get the data. The reply will contain the full data line. It can come either from another cache that has the data, or from DRAM if none do.
+** "Bus write": the cache wants to modify some data, and it does not have the line.
++
+The reply must contain the full data line, because maybe the processor just wants to change one byte, but the line is much larger.
++
+That's why this request can also be called "Read Exclusive", as it is basically a "Bus Read" + "Invalidate" in one
+** "Invalidate": the cache wants to modify some data, but it knows that all other caches are up to date, because it is in shared state.
++
+Therefore, it does not need to fetch the data, which saves bus traffic compared to "Bus write" since the data itself does not need to be sent.
+** "Write back": send the data on the bus and tell someone to pick it up: either DRAM or another cache
+
+When a message is sent to the bus:
+
+* all other caches and the DRAM will see it, this is called "snooping"
+* either caches or DRAM can reply if a reply is needed, but other caches get priority to reply earlier if they can, e.g. to serve a cache request from other caches rather than going all the way to DRAM
+
+When a cache receives a message, it do one or both of:
+
+* change to another MSI state
+* send a message to the bus
+
+And finally, the transitions are:
+
+* Modified:
+** "Local read": don't need to do anything because only the current cache holds the data
+** "Local write": don't need to do anything because only the current cache holds the data
+** "Evict": have to save data to DRAM so that our local modifications won't be lost
+*** Move to: Invalid
+*** Send message: "Write back"
+** "Bus read": another cache is trying to read the address which we owned exclusively.
++
+Since we know what the latest data is, we can move to "Shared" rather than "Invalid" to possibly save time on future reads.
++
+But to do that, we need to write the data back to DRAM to maintain the shared state consistent. The <<mesi-protocol>> prevents that extra read in some cases.
++
+And it has to be either: before the other cache gets its data from DRAM, or better, the other cache can get its data from our write back itself just like the DRAM.
++
+*** Move to: Shared
+*** Send message: "Write back"
+** "Bus write": someone else will write to our address.
++
+We don't know what they will write, so the best bet is to move to invalid.
++
+Since the writer will become the new sole data owner, the writer can get the cache from us without going to DRAM at all! This is fine, because the writer will be the new sole owner of the line, so DRAM can remain dirty without problems.
++
+*** Move to: Invalid
+*** Send message: "Write back"
+* Shared: TODO
+** "Local read":
+** "Local write":
+** "Evict":
+** "Bus read":
+** "Bus write":
+* Invalid: TODO
+** "Local read":
+** "Local write":
+** "Evict":
+** "Bus read":
+** "Bus write":
+
+TODO gem5 concrete example.
+
+==== MESI protocol
+
+https://en.wikipedia.org/wiki/MESI_protocol
+
+Splits the Shared of <<msi-protocol>> into a new Exclusive state:
+
+* MESI Exclusive: clean but only present in one cache
+* MESI Shared: clean but may be present in more that one cache
+
+TODO advantage: I think the advantages over MSI are:
+
+* when we move from Exclusive to Shared, no DRAM write back is needed, because we know that the cache is clean
+* when we move from Exclusive to Modified, no invalidate message is required, reducing bus traffic
+
+Exclusive is entered from Invalid after a "Local read", but only if the reply came from DRAM! If the reply came from another cache, we go directly to shared instead.
+
+==== MOSI protocol
+
+https://en.wikipedia.org/wiki/MOSI_protocol
+
+TODO compare to MSI and understand advantages. From Wikipedia it seems that MOSI can get data from the Owned cache while MSI cannot get data from Shared caches and must go to memory, but why not? Why do we need that Owned? Is it because there are multiple Shared caches and them all replying at the same time would lead to problems? 
+
+==== MOESI protocol
+
+https://en.wikipedia.org/wiki/MOESI_protocol
+
+<<mesi-protocol>> + <<mosi-protocol>>, not much else to it!
+
 == About this repo
 
 === Supported hosts
