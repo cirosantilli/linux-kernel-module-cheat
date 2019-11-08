@@ -530,6 +530,50 @@ Read the following sections for further introductory material:
 * <<introduction-to-qemu>>
 * <<introduction-to-buildroot>>
 
+=== Dry run to get commands for your project
+
+One of the major features of this repository is that we try to support the `--dry-run` option really well for all scripts.
+
+This option, as the name suggests, outputs the external commands that would be run (or more precisely: equivalent commands), without actually running them.
+
+This allows you to just clone this repository and get full working commands to integrate into your project, without having to build or use this setup further!
+
+For example, we can obtain a QEMU run for the file link:userland/c/hello.c[] in <<user-mode-simulation>> by adding `--dry-run` to the normal command:
+
+....
+./run --dry-run --userland userland/c/hello.c
+....
+
+which as of LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1 outputs:
+
+....
++ /path/to/linux-kernel-module-cheat/out/qemu/default/opt/x86_64-linux-user/qemu-x86_64 \
+  -L /path/to/linux-kernel-module-cheat/out/buildroot/build/default/x86_64/target \
+  -r 5.2.1 \
+  -seed 0 \
+  -trace enable=load_file,file=/path/to/linux-kernel-module-cheat/out/run/qemu/x86_64/0/trace.bin \
+  -cpu max \
+  /path/to/linux-kernel-module-cheat/out/userland/default/x86_64/c/hello.out \
+;
+....
+
+So observe that the command contains:
+
+* `+`: sign to differentiate it from program stdout, much like bash `-x` output. This is not a valid part of the generated Bash command however.
+* the actual command nicely, indented and with arguments broken one per line, but with continuing backslashes so you can just copy paste into a terminal
+* `;`: both a valid part of the Bash command, and a visual mark the end of the command
+
+For the specific case of running emulators such as QEMU, the last command is also automatically placed in a file for your convenience and later inspection:
+
+....
+cat "$(./getvar run_dir)/run.sh"
+....
+
+Furthermore, `--dry-run` also automatically specifies, in valid Bash shell syntax:
+
+* environment variables used to run the command with syntax `+ ENV_VAR_1=abc ENV_VAR_2=def ./some/command`
+* change in working directory with `+ cd /some/new/path && ./some/command`
+
 === gem5 Buildroot setup
 
 ==== About the gem5 Buildroot setup
@@ -3858,7 +3902,7 @@ As a consequence, the following fails:
 with error:
 
 ....
-qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.                                                                                                                            
+qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.
 qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.
 ....
 
@@ -3974,68 +4018,6 @@ enter a character: you entered: a
 ....
 
 Source: link:userland/c/getchar.c[]
-
-==== User mode vs full system benchmark
-
-Let's see if user mode runs considerably faster than full system or not.
-
-First we build <<dhrystone>> manually statically since dynamic linking is broken in gem5 as explained at: xref:gem5-syscall-emulation-mode[xrefstyle=full].
-
-TODO: move this section to our new custom dhrystone setup: xref:dhrystone[xrefstyle=full].
-
-gem5 user mode:
-
-....
-./build-buildroot --arch arm --config 'BR2_PACKAGE_DHRYSTONE=y'
-make \
-  -B \
-  -C "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2" \
-  CC="$(./run-toolchain --arch arm --print-tool gcc)" \
-  CFLAGS=-static \
-;
-time \
-  ./run \
-  --arch arm \
-  --emulator gem5 \
-  --userland "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
-  --userland-args 'asdf qwer' \
-;
-....
-
-gem5 full system:
-
-....
-time \
-  ./run \
-  --arch arm \
-  --eval-after './gem5.sh' \
-  --emulator gem5
-  --gem5-readfile 'dhrystone 100000' \
-;
-....
-
-QEMU user mode:
-
-....
-time qemu-arm "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" 100000000
-....
-
-QEMU full system:
-
-....
-time \
-  ./run \
-  --arch arm \
-  --eval-after 'time dhrystone 100000000;./linux/poweroff.out' \
-;
-....
-
-Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
-
-* gem5 user: 33 seconds
-* gem5 full system: 51 seconds
-* QEMU user: 45 seconds
-* QEMU full system: 223 seconds
 
 ==== gem5 syscall emulation mode syscall tracing
 
@@ -9849,7 +9831,7 @@ Our default emulator builds are optimized with `gcc -O2 -g`. To use `-O0` instea
 
 The `--verbose` is optional, but shows clearly each GCC build command so that you can confirm what `--*-build-type` is doing.
 
-The build outputs are automatically stored in a different directories for optimized and debug builds, which prevents `debug` files from overwriting `opt` ones. Therefore, `--gem5-build-id` is not required: 
+The build outputs are automatically stored in a different directories for optimized and debug builds, which prevents `debug` files from overwriting `opt` ones. Therefore, `--gem5-build-id` is not required.
 
 The price to pay for debuggability is high however: a Linux kernel boot was about 3x slower in QEMU and 14 times slower in gem5 debug compared to opt, see benchmarks at: xref:benchmark-linux-kernel-boot[xrefstyle=full]
 
@@ -10215,6 +10197,10 @@ TODO: is there any way to distinguish which instruction runs on each core? Doing
 ....
 
 just appears to output both cores intertwined without any clear differentiation.
+
+==== QEMU get guest instruction count
+
+TODO: https://stackoverflow.com/questions/58766571/how-to-count-the-number-of-guest-instructions-qemu-executed-from-the-beginning-t
 
 ==== gem5 tracing
 
@@ -18215,6 +18201,7 @@ instructions 318486337
 cmd ./run --arch arm --eval './linux/poweroff.out'
 time 6.62
 exit_status 0
+
 cmd ./run --arch arm --eval './linux/poweroff.out' --trace exec_tb
 time 6.90
 exit_status 0
@@ -18287,6 +18274,199 @@ https://github.com/cirosantilli-work/gem5-issues/issues/2
 ....
 Kernel panic - not syncing: Attempted to kill the idle task!
 ....
+
+==== Benchmark emulators on userland executables
+
+Let's see how fast our simulators are running some well known or easy to understand userland benchmarks!
+
+TODO: would be amazing to have an automated guest instructions per second count, but I'm not sure how to do that nicely for QEMU: <<qemu-get-guest-instruction-count>>.
+
+TODO: automate this further, produce the results table automatically, possibly by generalizing link:test-executables[].
+
+For now we can just run on gem5 to estimate the instruction count per input size and extrapolate?
+
+For example, the simplest scalable CPU content would be a busy loop: link:userland/gcc/busy_loop.c[], so let's focus on that for now.
+
+Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: xref:table-busy-loop-dmips[xrefstyle=full]. As expected, the less native / more detailed / more complex simulations are slower!
+
+[[table-busy-loop-dmips]]
+.Busy loop DMIPS for different simulator setups
+[options="header"]
+|===
+|Simulator |Loops |Time (s) |Instruction count| Approximate MIPS
+
+|`qemu --arch aarch64`
+|10^10
+|68
+|1.1 * 10^11 (approx)
+|2000
+
+|`gem5 --arch aarch64`
+|10^7
+|100
+|1.10018162 * 10^8
+|1
+
+|`+gem5 --arch aarch64 -- --cpu-type MinorCPU --caches+`
+|10^6
+|31
+|1.1018152 * 10^7
+|0.4
+
+|`+gem5 --arch aarch64 -- --cpu-type DerivO3CPU --caches+`
+|10^6
+|52
+|1.1018128 * 10^7
+|0.2
+
+|===
+
+The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored.
+
+On our <<p51>> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number:
+
+....
+./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1000 10000' --static
+./get-stat sim_insts
+....
+
+as it gives:
+
+* time: 00:01:40
+* instructions: 110018162 ~ 110 millions
+
+so ~ 110 million instructions / 100 seconds makes ~ 1 MIPS (million instructions per second).
+
+This experiment also suggests that each loop is about 11 instructions long (110M instructions / 10M loops), so we look at the disassembly:
+
+....
+./run-toolchain --arch aarch64 gdb -- -batch -ex 'disas busy_loop' "$(./getvar --arch aarch64 userland_build_dir)/gcc/busy_loop.out"
+....
+
+which contains:
+
+....
+8       ) {
+   0x0000000000400698 <+0>:     ff 83 00 d1     sub     sp, sp, #0x20
+   0x000000000040069c <+4>:     e0 07 00 f9     str     x0, [sp, #8]
+   0x00000000004006a0 <+8>:     e1 03 00 f9     str     x1, [sp]
+
+9           for (unsigned i = 0; i < max; i++) {
+   0x00000000004006a4 <+12>:    ff 1f 00 b9     str     wzr, [sp, #28]
+   0x00000000004006a8 <+16>:    11 00 00 14     b       0x4006ec <busy_loop+84>
+
+10              for (unsigned j = 0; j < max2; j++) {
+   0x00000000004006ac <+20>:    ff 1b 00 b9     str     wzr, [sp, #24]
+   0x00000000004006b0 <+24>:    08 00 00 14     b       0x4006d0 <busy_loop+56>
+
+11                  __asm__ __volatile__ ("" : "+g" (j), "+g" (j) : :);
+   0x00000000004006b4 <+28>:    e1 1b 40 b9     ldr     w1, [sp, #24]
+   0x00000000004006b8 <+32>:    e0 1b 40 b9     ldr     w0, [sp, #24]
+   0x00000000004006bc <+36>:    e1 1b 00 b9     str     w1, [sp, #24]
+   0x00000000004006c0 <+40>:    e0 17 00 b9     str     w0, [sp, #20]
+
+10              for (unsigned j = 0; j < max2; j++) {
+   0x00000000004006c4 <+44>:    e0 17 40 b9     ldr     w0, [sp, #20]
+   0x00000000004006c8 <+48>:    00 04 00 11     add     w0, w0, #0x1
+   0x00000000004006cc <+52>:    e0 1b 00 b9     str     w0, [sp, #24]
+   0x00000000004006d0 <+56>:    e0 1b 40 b9     ldr     w0, [sp, #24]
+   0x00000000004006d4 <+60>:    e1 03 40 f9     ldr     x1, [sp]
+   0x00000000004006d8 <+64>:    3f 00 00 eb     cmp     x1, x0
+   0x00000000004006dc <+68>:    c8 fe ff 54     b.hi    0x4006b4 <busy_loop+28>  // b.pmore
+
+9           for (unsigned i = 0; i < max; i++) {
+   0x00000000004006e0 <+72>:    e0 1f 40 b9     ldr     w0, [sp, #28]
+   0x00000000004006e4 <+76>:    00 04 00 11     add     w0, w0, #0x1
+   0x00000000004006e8 <+80>:    e0 1f 00 b9     str     w0, [sp, #28]
+   0x00000000004006ec <+84>:    e0 1f 40 b9     ldr     w0, [sp, #28]
+   0x00000000004006f0 <+88>:    e1 07 40 f9     ldr     x1, [sp, #8]
+   0x00000000004006f4 <+92>:    3f 00 00 eb     cmp     x1, x0
+   0x00000000004006f8 <+96>:    a8 fd ff 54     b.hi    0x4006ac <busy_loop+20>  // b.pmore
+
+12              }
+13          }
+14      }
+   0x00000000004006fc <+100>:   1f 20 03 d5     nop
+   0x0000000000400700 <+104>:   ff 83 00 91     add     sp, sp, #0x20
+   0x0000000000400704 <+108>:   c0 03 5f d6     ret
+....
+
+We look for the internal backwards jumps, and we find two:
+
+....
+   0x00000000004006dc <+68>:    c8 fe ff 54     b.hi    0x4006b4 <busy_loop+28>  // b.pmore
+   0x00000000004006f8 <+96>:    a8 fd ff 54     b.hi    0x4006ac <busy_loop+20>  // b.pmore
+....
+
+and so clearly the one at 0x4006dc happens first and jumps to a larger address than the other one, so the internal loop must be between 4006dc and 4006b4, which contains exactly 11 instructions! Bingo!
+
+Oh my God, unoptimized code is so horrendously inefficient, even I can't stand all those useless loads and stores to memory variables!!!
+
+Then for QEMU, we experimentally turn the number of loops up to 10^10 loops (`100000 100000`), which contains an expected 11 * 10^10 instructions, and the runtime is 00:01:08, so we have 1.1 * 10^11 instruction / 68 seconds ~ 2 * 10^9 = 2000 MIPS!
+
+We can then repeat the experiment for other gem5 CPUs to see how they compare.
+
+===== User mode vs full system benchmark
+
+Let's see if user mode runs considerably faster than full system or not, ignoring the kernel boot.
+
+First we build <<dhrystone>> manually statically since dynamic linking is broken in gem5 as explained at: xref:gem5-syscall-emulation-mode[xrefstyle=full].
+
+TODO: move this section to our new custom dhrystone setup: xref:dhrystone[xrefstyle=full].
+
+gem5 user mode:
+
+....
+./build-buildroot --arch arm --config 'BR2_PACKAGE_DHRYSTONE=y'
+make \
+  -B \
+  -C "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2" \
+  CC="$(./run-toolchain --arch arm --print-tool gcc)" \
+  CFLAGS=-static \
+;
+time \
+  ./run \
+  --arch arm \
+  --emulator gem5 \
+  --userland "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
+  --userland-args 'asdf qwer' \
+;
+....
+
+gem5 full system:
+
+....
+time \
+  ./run \
+  --arch arm \
+  --eval-after './gem5.sh' \
+  --emulator gem5
+  --gem5-readfile 'dhrystone 100000' \
+;
+....
+
+QEMU user mode:
+
+....
+time qemu-arm "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" 100000000
+....
+
+QEMU full system:
+
+....
+time \
+  ./run \
+  --arch arm \
+  --eval-after 'time dhrystone 100000000;./linux/poweroff.out' \
+;
+....
+
+Result on <<p51>> at bad30f513c46c1b0995d3a10c0d9bc2a33dc4fa0:
+
+* gem5 user: 33 seconds
+* gem5 full system: 51 seconds
+* QEMU user: 45 seconds
+* QEMU full system: 223 seconds
 
 ==== Benchmark builds
 
@@ -18639,7 +18819,7 @@ Exclusive is entered from Invalid after a "Local read", but only if the reply ca
 
 https://en.wikipedia.org/wiki/MOSI_protocol
 
-TODO compare to MSI and understand advantages. From Wikipedia it seems that MOSI can get data from the Owned cache while MSI cannot get data from Shared caches and must go to memory, but why not? Why do we need that Owned? Is it because there are multiple Shared caches and them all replying at the same time would lead to problems? 
+TODO compare to MSI and understand advantages. From Wikipedia it seems that MOSI can get data from the Owned cache while MSI cannot get data from Shared caches and must go to memory, but why not? Why do we need that Owned? Is it because there are multiple Shared caches and them all replying at the same time would lead to problems?
 
 ==== MOESI protocol
 
