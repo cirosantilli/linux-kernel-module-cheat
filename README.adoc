@@ -10650,13 +10650,24 @@ cat /proc/cpuinfo
 getconf _NPROCESSORS_CONF
 ....
 
+Or from <<user-mode-simulation>>, we can use <<sysconf>> with link:userland/linux/sysconf.c[] or <<cpp-multithreading>>'s link:userland/cpp/thread_hardware_concurrency.cpp[]:
+
+....
+./run --cpus 2 --emulator gem5 --userland userland/linux/sysconf.c | grep _SC_NPROCESSORS_ONLN
+./run --cpus 2 --emulator gem5 --userland userland/cpp/thread_hardware_concurrency.cpp
+....
+
 ====== QEMU user mode multithreading
 
-TODO why in <<user-mode-simulation>> QEMU always shows the number of cores of the host. E.g., both of the following output the same as `nproc` on the host:
+<<user-mode-simulation>> QEMU v4.0.0 always shows the number of cores of the host, presumably because the thread switching uses host threads directly which would make that harder to implement.
+
+It does not seem possible to make the guest see a different number of cores than what the host has. Full system does have the `-smp` options, which controls this.
+
+E.g., all of of the following output the same as `nproc` on the host:
 
 ....
 nproc
-./run --userland userland/cpp/thread_hardware_concurrency.cpp
+./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp
 ./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp
 ....
 
