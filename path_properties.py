@@ -127,6 +127,27 @@ class PathProperties:
         },
     }
 
+    # TODO wire up.
+    unimplemented_userland_syscalls = {
+        'gem5': {
+            'all': {
+                'wait',
+            },
+            'arm': {
+            },
+            'x86_64': {
+            },
+        },
+        'qemu': {
+            'all': {
+            },
+            'arm': {
+            },
+            'x86_64': {
+            },
+        },
+    }
+
     '''
     Encodes properties of userland and baremetal paths.
     For directories, it applies to all files under the directory.
@@ -620,6 +641,14 @@ path_properties_tuples = (
                             'baremetal': True,
                             'signal_received': signal.Signals.SIGHUP,
                         },
+                        'fork.c': {
+                            # wait
+                            'gem5_unimplemented_syscall': True
+                        },
+                        'mmap_file.c': {
+                            # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/102
+                            'gem5_unimplemented_syscall': True
+                        },
                         'pthread_count.c': {
                             'more_than_1s': True,
                             'test_run_args': {'cpus': 2},
@@ -627,12 +656,8 @@ path_properties_tuples = (
                         'pthread_self.c': {
                             'test_run_args': {'cpus': 2},
                         },
-                        'mmap_file.c': {
-                            # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/102
-                            'gem5_unimplemented_syscall': True
-                        },
-                        'wget.c': {'requires_internet': True},
                         'sleep_forever.c': {'more_than_1s': True},
+                        'wget.c': {'requires_internet': True},
                         'virt_to_phys_test.c': {'more_than_1s': True},
                     }
                 ),

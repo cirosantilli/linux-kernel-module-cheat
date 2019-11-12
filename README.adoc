@@ -13783,6 +13783,8 @@ This first allows memory overcommit so to that the program can mmap 1GiB, 4x mor
 
 It then walks over every page and writes a value in it to ensure that it is used.
 
+A <<fork-bomb>> is another example that can trigger the OOM killer.
+
 Algorithm used by the OOM: https://unix.stackexchange.com/questions/153585/how-does-the-oom-killer-decide-which-process-to-kill-first
 
 ==== C multithreading
@@ -13875,9 +13877,47 @@ These links provide a clear overview of what POSIX is:
 * link:userland/posix/count.c[] illustrates `sleep()`
 * link:userland/posix/count_to.c[] minor variation of link:userland/posix/count.c[]
 
+==== fork
+
+POSIX' multiprocess API. Contrast with <<pthreads>> which are for threads.
+
+Example: link:userland/posix/fork.c[]
+
+Sample <<userland-setup-getting-started-natively,native userland output>> on Ubuntu 19.04 at 762cd8d601b7db06aa289c0fca7b40696299a868 + 1:
+
+....
+before fork before fork pid=13038 ppid=4805
+after fork after fork pid=13038 ppid=4805
+after (pid == 0) after (pid == 0) pid=13038 ppid=4805
+after fork after fork pid=13039 ppid=13038
+inside (pid == 0) inside (pid == 0) pid=13039 ppid=13038
+after wait after wait pid=13038 ppid=4805
+fork() return = 13039
+....
+
+Read the source comments and understand everything that is going on!
+
+===== Fork bomb
+
+https://en.wikipedia.org/wiki/Fork_bomb
+
+DANGER! Only run this on your host if you have saved all data you care about! Better run it inside an emulator! QEMU v4.0.0 <<user-mode-simulation,user mode>> is not safe enough either because it is very native does not limit guest memory, so it will still blow up the host!
+
+So without further ado, let's rock:
+
+....
+./run --eval-after './posix/fork_bomb.out danger'
+....
+
+Source: link:userland/posix/fork_bomb.c[]
+
+Outcome on LKMC 762cd8d601b7db06aa289c0fca7b40696299a868 + 1: after a few seconds of an unresponsive shell, we get a visit form the <<linux-out-of-memory-killer>>, and the system is restored!
+
 ==== pthreads
 
-POSIX' multithreading API. This was for a looong time the only "portable" multithreading alternative, until <<cpp-multithreading,C++11 finally added threads>>, thus also extending the portability to Windows.
+POSIX' multithreading API. Contrast with <<fork>> which is for processes.
+
+This was for a looong time the only "portable" multithreading alternative, until <<cpp-multithreading,C++11 finally added threads>>, thus also extending the portability to Windows.
 
 * link:userland/posix/pthread_count.c[]
 * link:userland/posix/pthread_deadlock.c[]
