@@ -1290,16 +1290,21 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#posix">21.3. POSIX</a>
 <ul class="sectlevel3">
 <li><a href="#unistd-h">21.3.1. unistd.h</a></li>
-<li><a href="#pthreads">21.3.2. pthreads</a></li>
-<li><a href="#sysconf">21.3.3. sysconf</a></li>
-<li><a href="#mmap-2">21.3.4. mmap</a>
+<li><a href="#fork">21.3.2. fork</a>
 <ul class="sectlevel4">
-<li><a href="#mmap-map-anonymous">21.3.4.1. mmap MAP_ANONYMOUS</a></li>
-<li><a href="#mmap-file">21.3.4.2. mmap file</a></li>
-<li><a href="#brk">21.3.4.3. brk</a></li>
+<li><a href="#fork-bomb">21.3.2.1. Fork bomb</a></li>
 </ul>
 </li>
-<li><a href="#socket">21.3.5. socket</a></li>
+<li><a href="#pthreads">21.3.3. pthreads</a></li>
+<li><a href="#sysconf">21.3.4. sysconf</a></li>
+<li><a href="#mmap-2">21.3.5. mmap</a>
+<ul class="sectlevel4">
+<li><a href="#mmap-map-anonymous">21.3.5.1. mmap MAP_ANONYMOUS</a></li>
+<li><a href="#mmap-file">21.3.5.2. mmap file</a></li>
+<li><a href="#brk">21.3.5.3. brk</a></li>
+</ul>
+</li>
+<li><a href="#socket">21.3.6. socket</a></li>
 </ul>
 </li>
 <li><a href="#userland-multithreading">21.4. Userland multithreading</a></li>
@@ -22495,6 +22500,9 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 <p>It then walks over every page and writes a value in it to ensure that it is used.</p>
 </div>
 <div class="paragraph">
+<p>A <a href="#fork-bomb">Fork bomb</a> is another example that can trigger the OOM killer.</p>
+</div>
+<div class="paragraph">
 <p>Algorithm used by the OOM: <a href="https://unix.stackexchange.com/questions/153585/how-does-the-oom-killer-decide-which-process-to-kill-first" class="bare">https://unix.stackexchange.com/questions/153585/how-does-the-oom-killer-decide-which-process-to-kill-first</a></p>
 </div>
 </div>
@@ -22701,9 +22709,61 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </div>
 </div>
 <div class="sect3">
-<h4 id="pthreads"><a class="anchor" href="#pthreads"></a><a class="link" href="#pthreads">21.3.2. pthreads</a></h4>
+<h4 id="fork"><a class="anchor" href="#fork"></a><a class="link" href="#fork">21.3.2. fork</a></h4>
 <div class="paragraph">
-<p>POSIX' multithreading API. This was for a looong time the only "portable" multithreading alternative, until <a href="#cpp-multithreading">C++11 finally added threads</a>, thus also extending the portability to Windows.</p>
+<p>POSIX' multiprocess API. Contrast with <a href="#pthreads">pthreads</a> which are for threads.</p>
+</div>
+<div class="paragraph">
+<p>Example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/fork.c">userland/posix/fork.c</a></p>
+</div>
+<div class="paragraph">
+<p>Sample <a href="#userland-setup-getting-started-natively">native userland output</a> on Ubuntu 19.04 at 762cd8d601b7db06aa289c0fca7b40696299a868 + 1:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>before fork before fork pid=13038 ppid=4805
+after fork after fork pid=13038 ppid=4805
+after (pid == 0) after (pid == 0) pid=13038 ppid=4805
+after fork after fork pid=13039 ppid=13038
+inside (pid == 0) inside (pid == 0) pid=13039 ppid=13038
+after wait after wait pid=13038 ppid=4805
+fork() return = 13039</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Read the source comments and understand everything that is going on!</p>
+</div>
+<div class="sect4">
+<h5 id="fork-bomb"><a class="anchor" href="#fork-bomb"></a><a class="link" href="#fork-bomb">21.3.2.1. Fork bomb</a></h5>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Fork_bomb" class="bare">https://en.wikipedia.org/wiki/Fork_bomb</a></p>
+</div>
+<div class="paragraph">
+<p>DANGER! Only run this on your host if you have saved all data you care about! Better run it inside an emulator! QEMU v4.0.0 <a href="#user-mode-simulation">user mode</a> is not safe enough either because it is very native does not limit guest memory, so it will still blow up the host!</p>
+</div>
+<div class="paragraph">
+<p>So without further ado, let&#8217;s rock:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --eval-after './posix/fork_bomb.out danger'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/fork_bomb.c">userland/posix/fork_bomb.c</a></p>
+</div>
+<div class="paragraph">
+<p>Outcome on LKMC 762cd8d601b7db06aa289c0fca7b40696299a868 + 1: after a few seconds of an unresponsive shell, we get a visit form the <a href="#linux-out-of-memory-killer">Linux out-of-memory killer</a>, and the system is restored!</p>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="pthreads"><a class="anchor" href="#pthreads"></a><a class="link" href="#pthreads">21.3.3. pthreads</a></h4>
+<div class="paragraph">
+<p>POSIX' multithreading API. Contrast with <a href="#fork">fork</a> which is for processes.</p>
+</div>
+<div class="paragraph">
+<p>This was for a looong time the only "portable" multithreading alternative, until <a href="#cpp-multithreading">C++11 finally added threads</a>, thus also extending the portability to Windows.</p>
 </div>
 <div class="ulist">
 <ul>
@@ -22720,7 +22780,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </div>
 </div>
 <div class="sect3">
-<h4 id="sysconf"><a class="anchor" href="#sysconf"></a><a class="link" href="#sysconf">21.3.3. sysconf</a></h4>
+<h4 id="sysconf"><a class="anchor" href="#sysconf"></a><a class="link" href="#sysconf">21.3.4. sysconf</a></h4>
 <div class="paragraph">
 <p><a href="https://pubs.opengroup.org/onlinepubs/9699919799/functions/sysconf.html" class="bare">https://pubs.opengroup.org/onlinepubs/9699919799/functions/sysconf.html</a></p>
 </div>
@@ -22753,7 +22813,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </div>
 </div>
 <div class="sect3">
-<h4 id="mmap-2"><a class="anchor" href="#mmap-2"></a><a class="link" href="#mmap-2">21.3.4. mmap</a></h4>
+<h4 id="mmap-2"><a class="anchor" href="#mmap-2"></a><a class="link" href="#mmap-2">21.3.5. mmap</a></h4>
 <div class="paragraph">
 <p>The mmap system call allows advanced memory operations.</p>
 </div>
@@ -22764,7 +22824,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 <p>Linux adds has several POSIX extension flags to it.</p>
 </div>
 <div class="sect4">
-<h5 id="mmap-map-anonymous"><a class="anchor" href="#mmap-map-anonymous"></a><a class="link" href="#mmap-map-anonymous">21.3.4.1. mmap MAP_ANONYMOUS</a></h5>
+<h5 id="mmap-map-anonymous"><a class="anchor" href="#mmap-map-anonymous"></a><a class="link" href="#mmap-map-anonymous">21.3.5.1. mmap MAP_ANONYMOUS</a></h5>
 <div class="paragraph">
 <p>Basic <code>mmap</code> example, do the same as <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a>, but with <code>mmap</code>.</p>
 </div>
@@ -22782,7 +22842,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </div>
 </div>
 <div class="sect4">
-<h5 id="mmap-file"><a class="anchor" href="#mmap-file"></a><a class="link" href="#mmap-file">21.3.4.2. mmap file</a></h5>
+<h5 id="mmap-file"><a class="anchor" href="#mmap-file"></a><a class="link" href="#mmap-file">21.3.5.2. mmap file</a></h5>
 <div class="paragraph">
 <p>Memory mapped file example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/mmap_file.c">userland/posix/mmap_file.c</a></p>
 </div>
@@ -22794,7 +22854,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </div>
 </div>
 <div class="sect4">
-<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">21.3.4.3. brk</a></h5>
+<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">21.3.5.3. brk</a></h5>
 <div class="paragraph">
 <p>Previously <a href="#posix">POSIX</a>, but was deprecated in favor of <a href="#malloc">malloc</a></p>
 </div>
@@ -22810,7 +22870,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </div>
 </div>
 <div class="sect3">
-<h4 id="socket"><a class="anchor" href="#socket"></a><a class="link" href="#socket">21.3.5. socket</a></h4>
+<h4 id="socket"><a class="anchor" href="#socket"></a><a class="link" href="#socket">21.3.6. socket</a></h4>
 <div class="paragraph">
 <p>A bit like <code>read</code> and <code>write</code>, but from / to the Internet!</p>
 </div>
