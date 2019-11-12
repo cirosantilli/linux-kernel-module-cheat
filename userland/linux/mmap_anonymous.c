@@ -25,8 +25,7 @@ int main(int argc, char **argv) {
     chars = mmap(
         NULL,
         nbytes,
-        PROT_READ | PROT_WRITE,
-        MAP_SHARED | MAP_ANONYMOUS,
+        PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS,
         -1,
         0
     );
