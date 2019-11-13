@@ -34,6 +34,10 @@ LKMC_PROLOGUE
     mov x26, 26
     mov x27, 27
     mov x28, 28
+
+    /* x29 is used as the frame register by unoptimized GCC: it contains the initial stack.
+     * TODO is there a standard recommending it? Does it have effects e.g. on GDB in
+     * determining backtraces? */
     mov x29, 29
 
     /* x30 is the link register. BL stores the return address here. */
