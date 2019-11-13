@@ -15,14 +15,13 @@ void print_affinity() {
     if (sched_getaffinity(0, sizeof(cpu_set_t), &mask) == -1) {
         perror("sched_getaffinity");
         assert(false);
-    } else {
-        nproc = sysconf(_SC_NPROCESSORS_ONLN);
-        printf("sched_getaffinity = ");
-        for (i = 0; i < nproc; i++) {
-            printf("%d ", CPU_ISSET(i, &mask));
-        }
-        printf("\n");
     }
+    nproc = sysconf(_SC_NPROCESSORS_ONLN);
+    printf("sched_getaffinity = ");
+    for (i = 0; i < nproc; i++) {
+        printf("%d ", CPU_ISSET(i, &mask));
+    }
+    printf("\n");
 }
 
 int main(void) {
