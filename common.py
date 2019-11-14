@@ -675,10 +675,10 @@ Incompatible archs are skipped.
             else:
                 env['userland_build_id'] = env['default_build_id']
         if not env['_args_given']['gem5_build_id']:
-            if env['_args_given']['gem5_worktree']:
-                env['gem5_build_id'] = env['gem5_worktree']
-            elif env['_args_given']['gem5-clang']:
+            if env['_args_given']['gem5_clang']:
                 env['gem5_build_id'] = 'clang'
+            elif env['_args_given']['gem5_worktree']:
+                env['gem5_build_id'] = env['gem5_worktree']
             else:
                 env['gem5_build_id'] = consts['default_build_id']
         env['is_arm'] = False
