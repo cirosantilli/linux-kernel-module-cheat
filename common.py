@@ -218,14 +218,6 @@ Valid archs: {}
 '''.format(arches_string)
         )
         self.add_argument(
-            '--clang',
-            default=False,
-            help='''\
-Build with clang as much as possible. Set the build-id to clang by default unless
-one is given explicitly. Currently supported components: gem5.
-'''
-        )
-        self.add_argument(
             '--dry-run',
             default=False,
             help='''\
@@ -342,6 +334,13 @@ Default: {}
             choices=consts['build_type_choices'],
             default=consts['build_type_default'],
             help='gem5 build type, most often used for "debug" builds.'
+        )
+        self.add_argument(
+            '--gem5-clang',
+            default=False,
+            help='''\
+Build gem5 with clang and set the --gem5-build-id to 'clang' by default.
+'''
         )
         self.add_argument(
             '--gem5-source-dir',
@@ -678,7 +677,7 @@ Incompatible archs are skipped.
         if not env['_args_given']['gem5_build_id']:
             if env['_args_given']['gem5_worktree']:
                 env['gem5_build_id'] = env['gem5_worktree']
-            elif env['_args_given']['clang']:
+            elif env['_args_given']['gem5-clang']:
                 env['gem5_build_id'] = 'clang'
             else:
                 env['gem5_build_id'] = consts['default_build_id']
