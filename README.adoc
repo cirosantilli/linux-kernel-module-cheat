@@ -1746,6 +1746,7 @@ so it is close to the failing `0xbf0000cc`.
 
 does not give any interesting hits at `cc`, no symbol was placed that far.
 
+[[gdb-module-init]]
 ==== GDB module_init
 
 TODO find a more convenient method. We have working methods, but they are not ideal.
@@ -1757,6 +1758,7 @@ Possibly asked at:
 * https://stackoverflow.com/questions/37059320/debug-a-kernel-module-being-loaded
 * https://stackoverflow.com/questions/11888412/debug-the-init-module-call-of-a-linux-kernel-module
 
+[[gdb-module-init-step-into-it]]
 ===== GDB module_init step into it
 
 This is the best method we've found so far.
@@ -1789,8 +1791,9 @@ For the next time, you can also put a breakpoint there directly:
 ./run-gdb init/main.c:833
 ....
 
-How we found this out: first we got <<gdb-module_init-calculate-entry-address>> working, and then we did a `bt`. AKA cheating :-)
+How we found this out: first we got <<gdb-module-init-calculate-entry-address>> working, and then we did a `bt`. AKA cheating :-)
 
+[[gdb-module-init-calculate-entry-address]]
 ===== GDB module_init calculate entry address
 
 This works, but is a bit annoying.
@@ -1847,6 +1850,7 @@ and on shell 2:
 
 GDB then breaks, and `lx-symbols` works.
 
+[[gdb-module-init-break-at-the-end-of-sys-init-module]]
 ===== GDB module_init break at the end of sys_init_module
 
 TODO not working. This could be potentially very convenient.
@@ -1885,10 +1889,11 @@ fin
 
 also fails to break!
 
-Finally, in despair we notice that <<pr_debug>> prints the kernel load address as explained at <<bypass-lx-symbols>>.
+Finally, in despair we notice that <<pr-debug>> prints the kernel load address as explained at <<bypass-lx-symbols>>.
 
 So, if we set a breakpoint just after that message is printed by searching where that happens on the Linux source code, we must be able to get the correct load address before `init_module` happens.
 
+[[gdb-module-init-add-trap-instruction]]
 ===== GDB module_init add trap instruction
 
 This is another possibility: we could modify the module source by adding a trap instruction of some kind.
@@ -1939,7 +1944,7 @@ add-symbol-file ../../../rootfs_overlay/x86_64/timer.ko 0xffffffffc0000000
 0xffffffffc0000000
 ....
 
-Alternatively, if the module panics before you can read `/proc/modules`, there is a <<pr_debug>> which shows the load address:
+Alternatively, if the module panics before you can read `/proc/modules`, there is a <<pr-debug>> which shows the load address:
 
 ....
 echo 8 > /proc/sys/kernel/printk
@@ -2794,6 +2799,7 @@ We also have one letter shorthand names for the architectures and `--arch` optio
 
 Known quirks of the supported architectures are documented in this section.
 
+[[x86-64]]
 === x86_64
 
 ==== ring0
@@ -2994,6 +3000,7 @@ Source: link:userland/linux/poweroff.c[]
 
 This also illustrates how to shutdown the computer from C: https://stackoverflow.com/questions/28812514/how-to-shutdown-linux-using-c-or-qt-without-call-to-system
 
+[[sleep-forever-out]]
 ==== sleep_forever.out
 
 I dare you to guess what this does:
@@ -3006,6 +3013,7 @@ Source: link:userland/posix/sleep_forever.c[]
 
 This executable is a convenient simple init that does not panic and sleeps instead.
 
+[[time-boot-out]]
 ==== time_boot.out
 
 Get a reasonable answer to "how long does boot take in guest time?":
@@ -3372,7 +3380,7 @@ Interestingly, using initramfs significantly slows down the gem5 boot, even thou
 
 The device tree is a Linux kernel defined data structure that serves to inform the kernel how the hardware is setup.
 
-<<platform_device>> contains a minimal runnable example of device tree manipulation.
+<<platform-device>> contains a minimal runnable example of device tree manipulation.
 
 Device trees serve to reduce the need for hardware vendors to patch the kernel: they just provide a device tree file instead, which is much simpler.
 
@@ -3536,7 +3544,7 @@ You can dump the DTB QEMU generated with:
 
 as mentioned at: https://lists.gnu.org/archive/html/qemu-discuss/2017-02/msg00051.html
 
-<<gem5-fs_biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
+<<gem5-fs-biglittle>> 2a9573f5942b5416fb0570cf5cb6cdecba733392 can also generate its own DTB.
 
 gem5 can generate DTBs on ARM with `--generate-dtb`. The generated DTB is placed in the <<m5out-directory>> named as `system.dtb`.
 
@@ -4235,7 +4243,7 @@ This would have several advantages:
 ** overcomes the `check_bin_arch` problem as shown at: xref:rpath[xrefstyle=full]
 * we could keep the base root filesystem very small, which implies:
 ** less host disk usage, no need to copy the entire `./getvar out_rootfs_overlay_dir` to the image again
-** no need to worry about <<br2_target_rootfs_ext2_size>>
+** no need to worry about <<br2-target-rootfs-ext2-size>>
 
 We can already make host files appear on the guest with <<9p>>, but they appear on a subdirectory instead of the root.
 
@@ -4324,7 +4332,7 @@ and on another terminal:
 ./vnc
 ....
 
-but there is not terminal on the VNC window, just the <<config_logo>> penguin.
+but there is not terminal on the VNC window, just the <<config-logo>> penguin.
 
 ==== Quit QEMU from text mode
 
@@ -4351,7 +4359,7 @@ Enable graphic mode with:
 ./run --graphic
 ....
 
-Outcome: you see a penguin due to <<config_logo>>.
+Outcome: you see a penguin due to <<config-logo>>.
 
 For a more exciting GUI experience, see: xref:x11[xrefstyle=full]
 
@@ -4485,7 +4493,7 @@ and then on another shell:
 vinagre localhost:5900
 ....
 
-The <<config_logo>> penguin only appears after several seconds, together with kernel messages of type:
+The <<config-logo>> penguin only appears after several seconds, together with kernel messages of type:
 
 ....
 [    0.152755] [drm] found ARM HDLCD version r0p0
@@ -4672,7 +4680,7 @@ To x11 packages have an `xserver` prefix as in:
 
 the easiest way to find them out is to just list `"$(./getvar buildroot_build_build_dir)/x*`.
 
-TODO as of: c2696c978d6ca88e8b8599c92b1beeda80eb62b2 I noticed that `startx` leads to a <<bug_on>>:
+TODO as of: c2696c978d6ca88e8b8599c92b1beeda80eb62b2 I noticed that `startx` leads to a <<bug-on>>:
 
 ....
 [    2.809104] WARNING: CPU: 0 PID: 51 at drivers/gpu/drm/ttm/ttm_bo_vm.c:304 ttm_bo_vm_open+0x37/0x40
@@ -5572,7 +5580,7 @@ This format is selected by the following boot options:
 * `console_msg_format=syslog`: add the `<LEVEL>` part. Added in v4.16.
 * `printk.time=y`: add the `[TIMESTAMP]` part
 
-The debug highest level is a bit more magic, see: xref:pr_debug[xrefstyle=full] for more info.
+The debug highest level is a bit more magic, see: xref:pr-debug[xrefstyle=full] for more info.
 
 ==== /proc/sys/kernel/printk
 
@@ -5722,6 +5730,7 @@ early_param("debug", debug_kernel);
 early_param("quiet", quiet_kernel);
 ....
 
+[[ignore-loglevel]]
 ==== ignore_loglevel
 
 ....
@@ -5736,6 +5745,7 @@ enables all log levels, and is basically the same as:
 
 except that you don't need to know what is the maximum level.
 
+[[pr-debug]]
 ==== pr_debug
 
 https://stackoverflow.com/questions/28936199/why-is-pr-debug-of-the-linux-kernel-not-giving-any-output/49835405#49835405
@@ -5810,6 +5820,7 @@ Enable `pr_debug` for boot messages as well, before we can reach userland and wr
 
 Get ready for the noisiest boot ever, I think it overflows the `printk` buffer and funny things happen.
 
+[[pr-debug-is-different-from-printk-kern-debug]]
 ===== pr_debug != printk(KERN_DEBUG
 
 When `CONFIG_DYNAMIC_DEBUG` is set,  `printk(KERN_DEBUG` is not the exact same as `pr_debug(` since `printk(KERN_DEBUG` messages are visible with:
@@ -5964,7 +5975,7 @@ ffffffffc0002300 B lkmc_dep     [dep]
 
 This requires `CONFIG_KALLSYMS_ALL=y`.
 
-Dependency information is stored by the kernel module build system in the `.ko` files' <<module_info>>, e.g.:
+Dependency information is stored by the kernel module build system in the `.ko` files' <<module-info>>, e.g.:
 
 ....
 modinfo dep2.ko
@@ -6058,6 +6069,7 @@ Bibliography:
 * https://askubuntu.com/questions/20070/whats-the-difference-between-insmod-and-modprobe
 * https://stackoverflow.com/questions/22891705/whats-the-difference-between-insmod-and-modprobe
 
+[[module-info]]
 ==== MODULE_INFO
 
 Module metadata is stored on module files at compile time. Some of the fields can be retrieved through the `THIS_MODULE` `struct module`:
@@ -6147,7 +6159,7 @@ Bibliography:
 
 ==== vermagic
 
-Vermagic is a magic string present in the kernel and on <<module_info>> of kernel modules. It is used to verify that the kernel module was compiled against a compatible kernel version and relevant configuration:
+Vermagic is a magic string present in the kernel and on <<module-info>> of kernel modules. It is used to verify that the kernel module was compiled against a compatible kernel version and relevant configuration:
 
 ....
 insmod vermagic.ko
@@ -6205,6 +6217,7 @@ TODO how to get the vermagic from running kernel from userland? https://lists.ke
 
 This option just strips `modversion` information from the module before loading, so it is not a kernel feature.
 
+[[init-module]]
 ==== init_module
 
 `init_module` and `cleanup_module` are an older alternative to the `module_init` and `module_exit` macros:
@@ -6394,6 +6407,7 @@ Related:
 * https://stackoverflow.com/questions/6151538/addr2line-on-kernel-module
 * https://stackoverflow.com/questions/13468286/how-to-read-understand-analyze-and-debug-a-linux-kernel-panic
 
+[[bug-on]]
 ===== BUG_ON
 
 Basically just calls `panic("BUG!")` for most archs.
@@ -6589,9 +6603,10 @@ Line 7 of "/root/linux-kernel-module-cheat/out/kernel_modules/x86_64/kernel_modu
 
 This-did not work on `arm` due to <<gdb-step-debug-kernel-module-arm>> so we need to either:
 
-* <<gdb-module_init>>
+* <<gdb-module-init>>
 * <<kernel-module-stack-trace-to-source-line>> post-mortem method
 
+[[dump-stack]]
 ==== dump_stack
 
 The `dump_stack` function produces a stack trace much like panic and oops, but causes no problems and we return to the normal control flow, and can cleanly remove the module afterwards:
@@ -6602,9 +6617,10 @@ insmod dump_stack.ko
 
 Source: link:kernel_modules/dump_stack.c[]
 
+[[warn-on]]
 ==== WARN_ON
 
-The `WARN_ON` macro basically just calls <<dump_stack,dump_stack>>.
+The `WARN_ON` macro basically just calls <<dump-stack>>.
 
 One extra side effect is that we can make it also panic with:
 
@@ -6743,7 +6759,7 @@ Vs procfs:
 
 You basically can only do `open`, `close`, `read`, `write`, and `lseek` on sysfs files.
 
-It is similar to a <<seq_file>> file operation, except that write is also implemented.
+It is similar to a <<seq-file>> file operation, except that write is also implemented.
 
 TODO: what are those `kobject` structs? Make a more complex example that shows what they can do.
 
@@ -6866,6 +6882,7 @@ We have put printks on each fop, so this allows you to see which system calls ar
 
 No, there no official documentation: https://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
 
+[[seq-file]]
 ==== seq_file
 
 Writing trivial read <<file-operations>> is repetitive and error prone. The `seq_file` API makes the process much easier for those trivial cases:
@@ -6903,9 +6920,10 @@ Bibliography:
 * https://github.com/torvalds/linux/blob/v4.17/Documentation/filesystems/seq_file.txt[Documentation/filesystems/seq_file.txt]
 * https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-modules
 
+[[seq-file-single-open]]
 ===== seq_file single_open
 
-If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq_file>>:
+If you have the entire read output upfront, `single_open` is an even more convenient version of <<seq-file>>:
 
 ....
 ./seq_file.sh
@@ -7450,7 +7468,7 @@ However, this module is intended to fire only once as can be seen from its sourc
 
 and furthermore interrupt `1` and `12` happen immediately TODO why, were they somehow pending?
 
-So so see something interesting, you need to monitor an interrupt that is more rare than the keyboard, e.g. <<platform_device>>.
+So so see something interesting, you need to monitor an interrupt that is more rare than the keyboard, e.g. <<platform-device>>.
 
 ==== /proc/interrupts
 
@@ -7497,6 +7515,7 @@ Sources:
 
 Bibliography: https://stackoverflow.com/questions/6139493/how-convert-char-to-int-in-linux-kernel/49811658#49811658
 
+[[virt-to-phys]]
 ==== virt_to_phys
 
 Convert a virtual address to physical:
@@ -7676,6 +7695,7 @@ which we set by default.
 
 Bibliography: https://stackoverflow.com/questions/11891979/how-to-access-mmaped-dev-mem-without-crashing-the-linux-kernel
 
+[[pagemap-dump-out]]
 ====== pagemap_dump.out
 
 Dump the physical address of all pages mapped to a given process using `/proc/<pid>/maps` and `/proc/<pid>/pagemap`.
@@ -7782,6 +7802,7 @@ Good overviews:
 
 I hope to have examples of all methods some day, since I'm obsessed with visibility.
 
+[[config-proc-events]]
 ==== CONFIG_PROC_EVENTS
 
 Logs proc events such as process creation to a link:kernel_modules/netlink.c[netlink socket].
@@ -7824,6 +7845,7 @@ TODO can you get process data such as UID and process arguments? It seems not si
 * https://unix.stackexchange.com/questions/163681/print-pids-and-names-of-processes-as-they-are-created/163689 requests process name
 * https://serverfault.com/questions/199654/does-anyone-know-a-simple-way-to-monitor-root-process-spawn requests UID
 
+[[config-proc-events-aarch64]]
 ===== CONFIG_PROC_EVENTS aarch64
 
 0111ca406bdfa6fd65a2605d353583b4c4051781 was failing with:
@@ -8153,6 +8175,7 @@ I have observed a single match for that instruction, so it must be the init, and
 
 Make it harder to get hacked and easier to notice that you were, at the cost of some (small?) runtime overhead.
 
+[[config-fortify-source]]
 ==== CONFIG_FORTIFY_SOURCE
 
 Detects buffer overflows for us:
@@ -8775,6 +8798,7 @@ Instead, the shell appears on `/dev/tty7`.
 * `-e 'console=ttyS0'` much like `tty2`, but messages show only on serial, and the terminal is broken due to having multiple shells on it
 * `-e 'console=tty1 console=ttyS0'`: boot messages show on both `tty1` and `ttyS0`, but only `S0` gets a shell because it came last
 
+[[config-logo]]
 ==== CONFIG_LOGO
 
 If you run in <<graphics>>, then you get a Penguin image for <<number-of-cores,every core>> above the console! https://askubuntu.com/questions/80938/is-it-possible-to-get-the-tux-logo-on-the-text-based-boot
@@ -9290,13 +9314,14 @@ For the more complex interfaces, we focus on simplified educational devices, eit
 * present in the QEMU upstream:
 ** <<qemu-edu>>
 * added in https://github.com/cirosantilli/qemu[our fork of QEMU]:
-** <<pci_min>>
-** <<platform_device>>
+** <<pci-min>>
+** <<platform-device>>
 
 ==== PCI
 
 Only tested in x86.
 
+[[pci-min]]
 ===== pci_min
 
 PCI driver for our minimal `pci_min.c` QEMU fork device:
@@ -9463,7 +9488,7 @@ Then you can try messing with that address with <<dev-mem>>:
 devmem 0xfeb54000 w 0x12345678
 ....
 
-which writes to the first register of our <<pci_min>> device.
+which writes to the first register of our <<pci-min>> device.
 
 The device then fires an interrupt at irq 11, which is unhandled, which leads the kernel to say you are a bad boy:
 
@@ -9482,7 +9507,7 @@ insmod irq.ko
 devmem 0xfeb54000 w 0x12345678
 ....
 
-Our kernel module handles the interrupt, but does not acknowledge it like our proper <<pci_min>> kernel module, and so it keeps firing, which leads to infinitely many messages being printed:
+Our kernel module handles the interrupt, but does not acknowledge it like our proper <<pci-min>> kernel module, and so it keeps firing, which leads to infinitely many messages being printed:
 
 ....
 handler irq = 11 dev = 251
@@ -9653,6 +9678,7 @@ Relevant kernel files:
 * `drivers/leds/led-class.c`
 * `drivers/leds/leds-sysctl.c`
 
+[[platform-device]]
 ==== platform_device
 
 Minimal platform device example coded into the `-M versatilepb` SoC of our QEMU fork.
@@ -11257,7 +11283,7 @@ Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a
 
 Large input may also require tweaking:
 
-* <<br2_target_rootfs_ext2_size>> if the unpacked inputs are large
+* <<br2-target-rootfs-ext2-size>> if the unpacked inputs are large
 * <<memory-size>>, unless you want to meet the OOM killer, which is admittedly kind of fun
 
 `test.sh` only contains the run commands for the `test` size, and cannot be used for `simsmall`.
@@ -12174,6 +12200,7 @@ Using Buildroot for gem5 is still convenient because we use it to:
 
 The out of build tree is required, because otherwise Buildroot would copy the output build of all archs to each arch directory, resulting in `arch^2` build copies, which is significant.
 
+[[gem5-fs-biglittle]]
 === gem5 fs_bigLITTLE
 
 By default, we use `configs/example/fs.py` script.
@@ -13078,6 +13105,7 @@ The code generation exists partly to support insanely generic cross ISA instruct
 
 But it has been widely overused to insanity. It likely also exists partly because when the project started in 2003 C++ compilers weren't that good, so you couldn't rely on features like templates that much.
 
+[[gem5-the-isa]]
 ===== gem5 THE_ISA
 
 Generated code at: `build/<ISA>/config/the_isa.hh` which contains amongst other lines:
@@ -13356,6 +13384,7 @@ Also mentioned at: https://stackoverflow.com/questions/47320800/how-to-clean-onl
 
 See this for a sample manual workaround: xref:parsec-uninstall[xrefstyle=full].
 
+[[br2-target-rootfs-ext2-size]]
 === BR2_TARGET_ROOTFS_EXT2_SIZE
 
 When adding new large package to the Buildroot root filesystem, it may fail with the message:

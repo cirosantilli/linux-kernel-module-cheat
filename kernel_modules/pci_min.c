@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#pci_min */
+/* https://cirosantilli.com/linux-kernel-module-cheat#pci-min */
 
 #include <linux/cdev.h>
 #include <linux/fs.h>

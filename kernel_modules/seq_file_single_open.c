@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#seq_file-single_open */
+/* https://cirosantilli.com/linux-kernel-module-cheat#seq-file-single-open */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */

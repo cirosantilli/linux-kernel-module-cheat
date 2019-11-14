@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#pr_debug */
+/* https://cirosantilli.com/linux-kernel-module-cheat#pr-debug */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

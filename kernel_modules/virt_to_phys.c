@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#virt_to_phys */
+/* https://cirosantilli.com/linux-kernel-module-cheat#virt-to-phys */
 
 #include <asm/io.h> /* virt_to_phys */
 #include <linux/debugfs.h>

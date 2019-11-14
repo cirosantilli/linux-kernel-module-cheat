@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#dump_stack */
+/* https://cirosantilli.com/linux-kernel-module-cheat#dump-stack */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
