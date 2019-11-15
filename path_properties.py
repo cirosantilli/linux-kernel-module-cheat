@@ -561,7 +561,10 @@ path_properties_tuples = (
                     },
                     {
                         'abort.c': {'signal_received': signal.Signals.SIGABRT},
-                        'atomic.c': {'baremetal': False},
+                        'atomic.c': {
+                            'baremetal': False,
+                            'test_run_args': {'cpus': 3},
+                        },
                         'assert_fail.c': {'signal_received': signal.Signals.SIGABRT},
                         # This has complex failure modes, too hard to assert.
                         'smash_stack.c': {'skip_run_unclassified': True},
