@@ -10,29 +10,29 @@
 
 size_t niters;
 
-#if defined(LKMC_USERLAND_ATOMIC_STD_ATOMIC)
+#if LKMC_USERLAND_ATOMIC_STD_ATOMIC
 std::atomic_ulong global(0);
 #else
 uint64_t global = 0;
 #endif
 
-#if defined(LKMC_USERLAND_ATOMIC_MUTEX)
+#if LKMC_USERLAND_ATOMIC_MUTEX
 std::mutex mutex;
 #endif
 
 void threadMain() {
     for (size_t i = 0; i < niters; ++i) {
-#if defined(LKMC_USERLAND_ATOMIC_MUTEX)
+#if LKMC_USERLAND_ATOMIC_MUTEX
         mutex.lock();
 #endif
-#if defined(LKMC_USERLAND_ATOMIC_X86_64_INC)
+#if LKMC_USERLAND_ATOMIC_X86_64_INC
         __asm__ __volatile__ (
             "incq %0;"
             : "+g" (global)
             :
             :
         );
-#elif defined(LKMC_USERLAND_ATOMIC_X86_64_LOCK_INC)
+#elif LKMC_USERLAND_ATOMIC_X86_64_LOCK_INC
         // https://cirosantilli.com/linux-kernel-module-cheat#x86-lock-prefix
         __asm__ __volatile__ (
             "lock;"
@@ -41,14 +41,14 @@ void threadMain() {
             :
             :
         );
-#elif defined(LKMC_USERLAND_ATOMIC_AARCH64_ADD)
+#elif LKMC_USERLAND_ATOMIC_AARCH64_ADD
         __asm__ __volatile__ (
             "add %0, %0, 1;"
             : "+r" (global)
             :
             :
         );
-#elif defined(LKMC_USERLAND_ATOMIC_AARCH64_LDADD)
+#elif LKMC_USERLAND_ATOMIC_AARCH64_LDADD
         // https://cirosantilli.com/linux-kernel-module-cheat#arm-lse
         __asm__ __volatile__ (
             "ldadd %[inc], xzr, [%[addr]];"
@@ -60,7 +60,7 @@ void threadMain() {
 #else
         global++;
 #endif
-#if defined(LKMC_USERLAND_ATOMIC_MUTEX)
+#if LKMC_USERLAND_ATOMIC_MUTEX
         mutex.unlock();
 #endif
 #if 0
@@ -88,9 +88,9 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < nthreads; ++i)
         threads[i].join();
     uint64_t expect = nthreads * niters;
-#if defined(LKMC_USERLAND_ATOMIC_FAIL) || \
-    defined(LKMC_USERLAND_ATOMIC_X86_64_INC) || \
-    defined(LKMC_USERLAND_ATOMIC_AARCH64_INC)
+#if LKMC_USERLAND_ATOMIC_FAIL || \
+    LKMC_USERLAND_ATOMIC_X86_64_INC || \
+    LKMC_USERLAND_ATOMIC_AARCH64_INC
     // These fail, so we just print the outcomes.
     std::cout << "expect " << expect << std::endl;
     std::cout << "global " << global << std::endl;
