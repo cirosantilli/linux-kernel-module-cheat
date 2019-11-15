@@ -3899,25 +3899,28 @@ it fails with:
 ld: cannot find -lopenblas
 ....
 
+[[cpp-static-and-pthreads]]
+===== C++ static and pthreads
+
 `g++` and pthreads also causes issues:
 
 * https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why
 * https://stackoverflow.com/questions/58848694/gcc-whole-archive-recipe-for-static-linking-to-pthread-stopped-working-in-rec
 
-As a consequence, the following fails:
+As a consequence, the following just hangs as of LKMC ca0403849e03844a328029d70c08556155dc1cd0 + 1 the example link:userland/cpp/atomic/std_atomic.cpp[]:
 
 ....
-./run --userland userland/cpp/atomic.cpp --static
+./run --userland userland/cpp/atomic/std_atomic.cpp --static
 ....
 
-with error:
+And before that, it used to fail with other randomly different errors, e.g.:
 
 ....
 qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.
 qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-exec.c:700: cpu_exec: Assertion `!have_mmap_lock()' failed.
 ....
 
-and if we manually build and run natively on host it segfaults.
+And a native Ubuntu 18.04 AMD64 run with static compilation segfaults.
 
 The workaround:
 
@@ -13894,7 +13897,21 @@ Programs under link:userland/cpp/[] are examples of https://en.wikipedia.org/wik
 ** link:userland/cpp/thread_get_id.cpp[] `std::thread::get_id`
 ** link:userland/cpp/thread_return_value.cpp[]: how to return a value from a thread
 * https://en.cppreference.com/w/cpp/header/atomic[`<atomic>`]: <<cpp17>> 32 "Atomic operations library"
-** link:userland/cpp/atomic.cpp[]
+
+===== atomic.cpp
+
+link:userland/cpp/atomic/[]
+
+In this set of examples, we exemplify various synchronization mechanisms, including assembly specific ones, by using the convenience of C++ multithreading:
+
+* link:userland/cpp/atomic/main.hpp[]: contains all the code which is then specialized in spearated cpp files with macros
+* link:userland/cpp/atomic/aarch64_add.cpp[]: non synchronized aarch64 inline assembly
+* link:userland/cpp/atomic/aarch64_ldadd.cpp[]: synchronized aarch64 inline assembly
+* link:userland/cpp/atomic/fail.cpp[]: non synchronized C++ operator `++`
+* link:userland/cpp/atomic/mutex.cpp[]: synchronized `std::mutex`
+* link:userland/cpp/atomic/std_atomic.cpp[]: synchronized `std::atomic_ulong`
+* link:userland/cpp/atomic/x86_64_inc.cpp[]: non synchronized x86_64 inline assembly
+* link:userland/cpp/atomic/x86_64_lock_inc.cpp[]: synchronized x86_64 inline assembly
 
 [[cpp-standards]]
 ==== C++ standards
@@ -15456,7 +15473,7 @@ TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>
 
 ==== x86 LOCK prefix
 
-Inline assembly example at: link:userland/cpp/atomic.cpp[]
+Inline assembly example at: link:userland/cpp/atomic/x86_64_lock_inc.cpp[], see also: <<atomic-cpp>>.
 
 Ensures that memory modifications are visible across all CPUs, which is fundamental for thread synchronization.
 
@@ -16529,7 +16546,7 @@ That document then describes the SVE instructions and registers.
 
 <<armarm8-db>> "ARMv8.1-LSE, ARMv8.1 Large System Extensions"
 
-* LDADD: link:userland/cpp/atomic.cpp[]
+* LDADD: link:userland/cpp/atomic/aarch64_ldadd.cpp[], see also: <<atomic-cpp>>.
 
 Bibliography:
 

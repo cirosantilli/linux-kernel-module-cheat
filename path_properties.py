@@ -213,7 +213,7 @@ class PathProperties:
                 os.path.splitext(self.path_components[-1])[1] == '.c' and self['arm_sve']
             ) and not (
                 # C++ multithreading in static does not seem to work:
-                # https://cirosantilli.com/linux-kernel-module-cheat#user-mode-static-executables-with-dynamic-libraries
+                # https://cirosantilli.com/linux-kernel-module-cheat#cpp-static-and-pthreads
                 os.path.splitext(self.path_components[-1])[1] == '.cpp' and (
                     # TODO the better check here would be for 'static'
                     # to factor out with test-executable logic, but lazy.
@@ -581,7 +581,17 @@ path_properties_tuples = (
                 'cpp': (
                     {},
                     {
-                        'atomic.cpp': {'test_run_args': {'cpus': 3}},
+                        'atomic': (
+                            {
+                                'test_run_args': {'cpus': 3},
+                            },
+                            {
+                                'aarch64_add.cpp': {'allowed_archs': {'aarch64'}},
+                                'aarch64_ldadd.cpp': {'allowed_archs': {'aarch64'}},
+                                'x86_64_add.cpp': {'allowed_archs': {'x86_64'}},
+                                'x86_64_ldadd.cpp': {'allowed_archs': {'x86_64'}},
+                            },
+                        ),
                         'count.cpp': {'more_than_1s': True},
                         'sleep_for.cpp': {
                             'more_than_1s': True,
