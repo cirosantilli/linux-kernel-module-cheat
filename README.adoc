@@ -13919,6 +13919,27 @@ In this set of examples, we exemplify various synchronization mechanisms, includ
 * link:userland/cpp/atomic/x86_64_inc.cpp[]: non synchronized x86_64 inline assembly
 * link:userland/cpp/atomic/x86_64_lock_inc.cpp[]: synchronized x86_64 inline assembly
 
+All examples do exactly the same thing: span N threads and loop M times in each thread incrementing a global integer.
+
+For inputs large enough, the non-synchronized examples are extremely likely to produce "wrong" results, for example on <<p51>> Ubuntu 18.04 native with 2 threads and 10000 loops:
+
+....
+./fail.out 2 10000
+....
+
+we could get an output such as:
+
+....
+expect 20000
+global 12676
+....
+
+The actual value is much smaller, because the threads have often overwritten one another with older values.
+
+Interestingly, with `--optimization-level 3`, the results almost always match "by chance", because GCC optimizes our for loop to a single addition! Not sure how to force things nicely here without having arch specific assembly, the following technique comes somewhat close: https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717 but I don't want to put our addition in a `noinline` function to avoid the extra function call!
+
+This setup can also be used to benchmark different synchronization mechanisms. `std::mutex` was about 2x slower with two cores than `std::atomic`, presumably because it relies on the `futex` system call as can be seen from `sudo strace -f -s999 -v` logs, while `std::atomic` uses just userland instructions: https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli
+
 [[cpp-standards]]
 ==== C++ standards
 
