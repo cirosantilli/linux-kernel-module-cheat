@@ -14,11 +14,12 @@
 int main(int argc, char **argv) {
     typedef uint64_t I;
     std::vector<I> randoms;
-    size_t i, j, n, granule, base;
+    size_t i, n, granule, base;
     std::priority_queue<I> heap;
     std::set<I> bst;
     std::unordered_set<I> hashmap;
-    unsigned int seed = std::random_device()();
+    unsigned int seed;
+    size_t j = 0;
 
     // CLI arguments.
     if (argc > 1) {
@@ -26,17 +27,16 @@ int main(int argc, char **argv) {
     } else {
         n = 10;
     }
-#ifdef LKMC_M5OPS_ENABLE
-    // Let's comment useless stuff out to speed up gem5 simulations.
-    granule = 1;
-    j = 0;
-#else
     if (argc > 2) {
         granule = std::stoi(argv[2]);
     } else {
         granule = 1;
     }
-#endif
+    if (argc > 3) {
+        seed = std::stoi(argv[3]);
+    } else {
+        seed = std::random_device()();
+    }
 
     // Action.
     for (i = 0; i < n; ++i) {
@@ -51,42 +51,48 @@ int main(int argc, char **argv) {
         base = i * granule;
 
         // Heap.
-#ifndef LKMC_M5OPS_ENABLE
+#ifdef LKMC_M5OPS_ENABLE
+        LKMC_M5OPS_RESETSTATS;
+#else
         start = clk::now();
         for (j = 0; j < granule; ++j) {
 #endif
-            LKMC_M5OPS_RESETSTATS;
-            heap.emplace(randoms[base + j]);
-            LKMC_M5OPS_DUMPSTATS;
-#ifndef LKMC_M5OPS_ENABLE
+        heap.emplace(randoms[base + j]);
+#ifdef LKMC_M5OPS_ENABLE
+        LKMC_M5OPS_DUMPSTATS;
+#else
         }
         end = clk::now();
         auto dt_heap = (end - start) / granule;
 #endif
 
         // BST.
-#ifndef LKMC_M5OPS_ENABLE
+#ifdef LKMC_M5OPS_ENABLE
+        LKMC_M5OPS_RESETSTATS;
+#else
         start = clk::now();
         for (j = 0; j < granule; ++j) {
 #endif
-            LKMC_M5OPS_RESETSTATS;
-            bst.insert(randoms[base + j]);
-            LKMC_M5OPS_DUMPSTATS;
-#ifndef LKMC_M5OPS_ENABLE
+        bst.insert(randoms[base + j]);
+#ifdef LKMC_M5OPS_ENABLE
+        LKMC_M5OPS_DUMPSTATS;
+#else
         }
         end = clk::now();
         auto dt_bst = (end - start) / granule;
 #endif
 
         // Hashmap.
-#ifndef LKMC_M5OPS_ENABLE
+#ifdef LKMC_M5OPS_ENABLE
+        LKMC_M5OPS_RESETSTATS;
+#else
         start = clk::now();
         for (j = 0; j < granule; ++j) {
 #endif
-            LKMC_M5OPS_RESETSTATS;
-            hashmap.insert(randoms[base + j]);
-            LKMC_M5OPS_DUMPSTATS;
-#ifndef LKMC_M5OPS_ENABLE
+        hashmap.insert(randoms[base + j]);
+#ifdef LKMC_M5OPS_ENABLE
+        LKMC_M5OPS_DUMPSTATS;
+#else
         }
         end = clk::now();
         auto dt_hashmap = (end - start) / granule;
