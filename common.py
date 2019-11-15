@@ -490,6 +490,28 @@ https://cirosantilli.com/linux-kernel-module-cheat#gem5-arm-platforms
 
         # Userland.
         self.add_argument(
+            '--copy-overlay',
+            default=True,
+            help='''\
+Copy userland build outputs to the overlay directory which will be put inside
+the image. If not given explicitly, this is disabled automatically when certain
+options are given, for example --static, since users don't usually want
+static executables to be placed in the final image, but rather only for
+user mode simulations in simulators that don't support dynamic linking like gem5.
+'''
+        )
+        self.add_argument(
+            '--out-rootfs-overlay-dir-prefix',
+            default='',
+            help='''\
+Place the output files of userland build outputs inside the image within this
+additional prefix. This is mostly useful to place different versions of binaries
+with different build parameters inside image to compare them. See:
+* https://cirosantilli.com/linux-kernel-module-cheat#update-the-toolchain
+* https://cirosantilli.com/linux-kernel-module-cheat#out_rootfs_overlay_dir
+'''
+        )
+        self.add_argument(
             '--package',
             action='append',
             help='''\
@@ -923,6 +945,10 @@ Incompatible archs are skipped.
         else:
             env['initarg'] = 'init'
         env['quit_init'] = '{}={}'.format(env['initarg'], env['userland_quit_cmd'])
+
+        if not env['_args_given']['copy_overlay']:
+            if self.env['in_tree'] or self.env['static']:
+                env['copy_overlay'] = False
 
         # Userland
         env['userland_source_arch_arch_dir'] = join(env['userland_source_arch_dir'], env['arch'])
