@@ -11,6 +11,7 @@ class PathProperties:
     # All new properties must be listed here or else you get an error.
     default_properties = {
         'allowed_archs': None,
+        'allowed_emulators': None,
         # The example uses aarch32 instructions which are not present in ARMv7.
         # Therefore, it cannot be run in baremetal ARMv7 CPUs.
         # User mode simulation however seems to enable aarch32 so these run fine.
@@ -271,6 +272,10 @@ class PathProperties:
                     self.unimplemented_instructions[env['emulator']][env['arch']] &
                     self['uses_instructions'][env['arch']]
                 )
+            ) and
+            (
+                self['allowed_emulators'] is None or
+                env['emulator'] in self['allowed_emulators']
             )
         )
 
@@ -430,6 +435,19 @@ path_properties_tuples = (
                 'userland': True,
             },
             {
+                'algorithm': (
+                    {},
+                    {
+                        'set': (
+                            {},
+                            {
+                                'std_priority_queue_gem5.cpp': {'allowed_emulators': {'gem5'}},
+                                'std_set_gem5.cpp': {'allowed_emulators': {'gem5'}},
+                                'std_unordered_set_gem5.cpp': {'allowed_emulators': {'gem5'}},
+                            }
+                        ),
+                    },
+                ),
                 'arch': (
                     {
                         'baremetal': True,
