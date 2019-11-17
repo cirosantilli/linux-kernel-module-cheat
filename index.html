@@ -1790,7 +1790,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </ul>
 </li>
 <li><a href="#xephyr">30. Xephyr</a></li>
-<li><a href="#compilers">31. Compilers</a></li>
+<li><a href="#compilers">31. Compilers</a>
+<ul class="sectlevel2">
+<li><a href="#prevent-statement-reordering">31.1. Prevent statement reordering</a></li>
+<li><a href="#infinite-busy-loop">31.2. Infinite busy loop</a></li>
+</ul>
+</li>
 <li><a href="#computer-architecture">32. Computer architecture</a>
 <ul class="sectlevel2">
 <li><a href="#cache-coherence">32.1. Cache coherence</a>
@@ -22717,19 +22722,19 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/main.hpp">userland/cpp/atomic/main.hpp</a>: contains all the code which is then specialized in spearated cpp files with macros</p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/main.hpp">userland/cpp/atomic/main.hpp</a>: contains all the code which is then specialized in separated <code>.cpp</code> files with macros</p>
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/aarch64_add.cpp">userland/cpp/atomic/aarch64_add.cpp</a>: non synchronized aarch64 inline assembly</p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/aarch64_ldadd.cpp">userland/cpp/atomic/aarch64_ldadd.cpp</a>: synchronized aarch64 inline assembly</p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/aarch64_ldadd.cpp">userland/cpp/atomic/aarch64_ldadd.cpp</a>: synchronized aarch64 inline assembly with the <a href="#arm-lse">ARM Large System Extensions (LSE)</a> LDADD instruction</p>
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/fail.cpp">userland/cpp/atomic/fail.cpp</a>: non synchronized C operator ``</p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/mutex.cpp">userland/cpp/atomic/mutex.cpp</a>: synchronized <code>std::mutex</code></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/mutex.cpp">userland/cpp/atomic/mutex.cpp</a>: synchronized <code>std::mutex</code>. <code>std;</code></p>
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/std_atomic.cpp">userland/cpp/atomic/std_atomic.cpp</a>: synchronized <code>std::atomic_ulong</code></p>
@@ -22738,7 +22743,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/x86_64_inc.cpp">userland/cpp/atomic/x86_64_inc.cpp</a>: non synchronized x86_64 inline assembly</p>
 </li>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/x86_64_lock_inc.cpp">userland/cpp/atomic/x86_64_lock_inc.cpp</a>: synchronized x86_64 inline assembly</p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/x86_64_lock_inc.cpp">userland/cpp/atomic/x86_64_lock_inc.cpp</a>: synchronized x86_64 inline assembly with the <a href="#x86-lock-prefix">x86 LOCK prefix</a></p>
 </li>
 </ul>
 </div>
@@ -22746,7 +22751,7 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 <p>All examples do exactly the same thing: span N threads and loop M times in each thread incrementing a global integer.</p>
 </div>
 <div class="paragraph">
-<p>For inputs large enough, the non-synchronized examples are extremely likely to produce "wrong" results, for example on <a href="#p51">P51</a> Ubuntu 18.04 native with 2 threads and 10000 loops:</p>
+<p>For inputs large enough, the non-synchronized examples are extremely likely to produce "wrong" results, for example on <a href="#p51">P51</a> Ubuntu 19.10 <a href="#userland-setup-getting-started-natively">native</a> with 2 threads and 10000 loops:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -22766,10 +22771,122 @@ global 12676</pre>
 <p>The actual value is much smaller, because the threads have often overwritten one another with older values.</p>
 </div>
 <div class="paragraph">
-<p>Interestingly, with <code>--optimization-level 3</code>, the results almost always match "by chance", because GCC optimizes our for loop to a single addition! Not sure how to force things nicely here without having arch specific assembly, the following technique comes somewhat close: <a href="https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717" class="bare">https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717</a> but I don&#8217;t want to put our addition in a <code>noinline</code> function to avoid the extra function call!</p>
+<p>With <code>--optimization-level 3</code>, the result almost always equals that of a single thread, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build --optimization-level 3 --force-rebuild fail.cpp
+./fail.out 4 1000000</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>This setup can also be used to benchmark different synchronization mechanisms. <code>std::mutex</code> was about 2x slower with two cores than <code>std::atomic</code>, presumably because it relies on the <code>futex</code> system call as can be seen from <code>sudo strace -f -s999 -v</code> logs, while <code>std::atomic</code> uses just userland instructions: <a href="https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli" class="bare">https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli</a></p>
+<p>usually gives:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>expect 40000
+global 10000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This is because now, instead of the horribly inefficient <code>-O0</code> assembly that reads <code>global</code> from memory every time, the code:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>reads <code>global</code> to a register</p>
+</li>
+<li>
+<p>increments the register</p>
+</li>
+<li>
+<p>at end the end, the resulting value of each thread gets written back, overwriting each other with the increment of each thread</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The <code>-O0</code> code therefore mixes things up much more because it reads and write back to memory many many times.</p>
+</div>
+<div class="paragraph">
+<p>This can be easily seen from the disassembly with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>gdb -batch -ex "disassemble threadMain" fail.out</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which gives for <code>-O0</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   0x0000000000402656 &lt;+0&gt;:     endbr64
+   0x000000000040265a &lt;+4&gt;:     push   %rbp
+   0x000000000040265b &lt;+5&gt;:     mov    %rsp,%rbp
+   0x000000000040265e &lt;+8&gt;:     movq   $0x0,-0x8(%rbp)
+   0x0000000000402666 &lt;+16&gt;:    mov    0x5c2b(%rip),%rax        # 0x408298 &lt;niters&gt;
+   0x000000000040266d &lt;+23&gt;:    cmp    %rax,-0x8(%rbp)
+   0x0000000000402671 &lt;+27&gt;:    jae    0x40269b &lt;threadMain()+69&gt;
+   0x0000000000402673 &lt;+29&gt;:    mov    0x5c26(%rip),%rdx        # 0x4082a0 &lt;global&gt;
+   0x000000000040267a &lt;+36&gt;:    mov    -0x8(%rbp),%rax
+   0x000000000040267e &lt;+40&gt;:    mov    %rax,-0x8(%rbp)
+   0x0000000000402682 &lt;+44&gt;:    mov    0x5c17(%rip),%rax        # 0x4082a0 &lt;global&gt;
+   0x0000000000402689 &lt;+51&gt;:    add    $0x1,%rax
+   0x000000000040268d &lt;+55&gt;:    mov    %rax,0x5c0c(%rip)        # 0x4082a0 &lt;global&gt;
+   0x0000000000402694 &lt;+62&gt;:    addq   $0x1,-0x8(%rbp)
+   0x0000000000402699 &lt;+67&gt;:    jmp    0x402666 &lt;threadMain()+16&gt;
+   0x000000000040269b &lt;+69&gt;:    nop
+   0x000000000040269c &lt;+70&gt;:    pop    %rbp
+   0x000000000040269d &lt;+71&gt;:    retq</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and for <code>-O3</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   0x00000000004017f0 &lt;+0&gt;:     endbr64
+   0x00000000004017f4 &lt;+4&gt;:     mov    0x2a25(%rip),%rcx        # 0x404220 &lt;niters&gt;
+   0x00000000004017fb &lt;+11&gt;:    test   %rcx,%rcx
+   0x00000000004017fe &lt;+14&gt;:    je     0x401824 &lt;threadMain()+52&gt;
+   0x0000000000401800 &lt;+16&gt;:    mov    0x2a11(%rip),%rdx        # 0x404218 &lt;global&gt;
+   0x0000000000401807 &lt;+23&gt;:    xor    %eax,%eax
+   0x0000000000401809 &lt;+25&gt;:    nopl   0x0(%rax)
+   0x0000000000401810 &lt;+32&gt;:    add    $0x1,%rax
+   0x0000000000401814 &lt;+36&gt;:    add    $0x1,%rdx
+   0x0000000000401818 &lt;+40&gt;:    cmp    %rcx,%rax
+   0x000000000040181b &lt;+43&gt;:    jb     0x401810 &lt;threadMain()+32&gt;
+   0x000000000040181d &lt;+45&gt;:    mov    %rdx,0x29f4(%rip)        # 0x404218 &lt;global&gt;
+   0x0000000000401824 &lt;+52&gt;:    retq</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We can now look into how <code>std::atomic</code> is implemented. In <code>-O3</code> the disassembly is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   0x0000000000401770 &lt;+0&gt;:     endbr64
+   0x0000000000401774 &lt;+4&gt;:     cmpq   $0x0,0x297c(%rip)        # 0x4040f8 &lt;niters&gt;
+   0x000000000040177c &lt;+12&gt;:    je     0x401796 &lt;threadMain()+38&gt;
+   0x000000000040177e &lt;+14&gt;:    xor    %eax,%eax
+   0x0000000000401780 &lt;+16&gt;:    lock addq $0x1,0x2967(%rip)        # 0x4040f0 &lt;global&gt;
+   0x0000000000401789 &lt;+25&gt;:    add    $0x1,%rax
+   0x000000000040178d &lt;+29&gt;:    cmp    %rax,0x2964(%rip)        # 0x4040f8 &lt;niters&gt;
+   0x0000000000401794 &lt;+36&gt;:    ja     0x401780 &lt;threadMain()+16&gt;
+   0x0000000000401796 &lt;+38&gt;:    retq</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we clearly see that basically a <code>lock addq</code> is used to do an atomic read and write to memory every single time, just like in our other example <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/atomic/x86_64_lock_inc.cpp">userland/cpp/atomic/x86_64_lock_inc.cpp</a>.</p>
+</div>
+<div class="paragraph">
+<p>This setup can also be used to benchmark different synchronization mechanisms. For example, <code>std::mutex</code> was about 1.5x slower with two cores than <code>std::atomic</code>, presumably because it relies on the <code>futex</code> system call as can be seen from <code>strace -f -s999 -v</code> logs, while <code>std::atomic</code> uses just userland instructions: <a href="https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli" class="bare">https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli</a> Tested in <code>-O3</code> with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>time ./std_atomic.out 4 100000000
+time ./mutex.out 4 100000000</pre>
+</div>
 </div>
 </div>
 </div>
@@ -31189,15 +31306,26 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 <div class="paragraph">
 <p>Argh, compilers are boring, let&#8217;s learn a bit about them.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a>: <a href="https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133" class="bare">https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133</a></p>
-</li>
-<li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/prevent_reorder.cpp">userland/gcc/prevent_reorder.cpp</a>: <a href="https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717" class="bare">https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717</a></p>
-</li>
-</ul>
+<div class="sect2">
+<h3 id="prevent-statement-reordering"><a class="anchor" href="#prevent-statement-reordering"></a><a class="link" href="#prevent-statement-reordering">31.1. Prevent statement reordering</a></h3>
+<div class="paragraph">
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/prevent_reorder.cpp">userland/gcc/prevent_reorder.cpp</a></p>
+</div>
+<div class="paragraph">
+<p><a href="https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717" class="bare">https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717</a></p>
+</div>
+<div class="paragraph">
+<p>We often need to do this to be sure that benchmark instrumentation is actually being put around the region of interest!</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="infinite-busy-loop"><a class="anchor" href="#infinite-busy-loop"></a><a class="link" href="#infinite-busy-loop">31.2. Infinite busy loop</a></h3>
+<div class="paragraph">
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a></p>
+</div>
+<div class="paragraph">
+<p>The hard part is how to prevent the compiler from optimizing it away: <a href="https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133" class="bare">https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133</a></p>
+</div>
 </div>
 </div>
 </div>
