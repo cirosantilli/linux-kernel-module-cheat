@@ -13910,18 +13910,18 @@ link:userland/cpp/atomic/[]
 
 In this set of examples, we exemplify various synchronization mechanisms, including assembly specific ones, by using the convenience of C++ multithreading:
 
-* link:userland/cpp/atomic/main.hpp[]: contains all the code which is then specialized in spearated cpp files with macros
+* link:userland/cpp/atomic/main.hpp[]: contains all the code which is then specialized in separated `.cpp` files with macros
 * link:userland/cpp/atomic/aarch64_add.cpp[]: non synchronized aarch64 inline assembly
-* link:userland/cpp/atomic/aarch64_ldadd.cpp[]: synchronized aarch64 inline assembly
+* link:userland/cpp/atomic/aarch64_ldadd.cpp[]: synchronized aarch64 inline assembly with the <<arm-lse>> LDADD instruction
 * link:userland/cpp/atomic/fail.cpp[]: non synchronized C++ operator `++`
-* link:userland/cpp/atomic/mutex.cpp[]: synchronized `std::mutex`
+* link:userland/cpp/atomic/mutex.cpp[]: synchronized `std::mutex`. `std;`
 * link:userland/cpp/atomic/std_atomic.cpp[]: synchronized `std::atomic_ulong`
 * link:userland/cpp/atomic/x86_64_inc.cpp[]: non synchronized x86_64 inline assembly
-* link:userland/cpp/atomic/x86_64_lock_inc.cpp[]: synchronized x86_64 inline assembly
+* link:userland/cpp/atomic/x86_64_lock_inc.cpp[]: synchronized x86_64 inline assembly with the <<x86-lock-prefix>>
 
 All examples do exactly the same thing: span N threads and loop M times in each thread incrementing a global integer.
 
-For inputs large enough, the non-synchronized examples are extremely likely to produce "wrong" results, for example on <<p51>> Ubuntu 18.04 native with 2 threads and 10000 loops:
+For inputs large enough, the non-synchronized examples are extremely likely to produce "wrong" results, for example on <<p51>> Ubuntu 19.10 <<userland-setup-getting-started-natively,native>> with 2 threads and 10000 loops:
 
 ....
 ./fail.out 2 10000
@@ -13936,9 +13936,97 @@ global 12676
 
 The actual value is much smaller, because the threads have often overwritten one another with older values.
 
-Interestingly, with `--optimization-level 3`, the results almost always match "by chance", because GCC optimizes our for loop to a single addition! Not sure how to force things nicely here without having arch specific assembly, the following technique comes somewhat close: https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717 but I don't want to put our addition in a `noinline` function to avoid the extra function call!
+With `--optimization-level 3`, the result almost always equals that of a single thread, e.g.:
 
-This setup can also be used to benchmark different synchronization mechanisms. `std::mutex` was about 2x slower with two cores than `std::atomic`, presumably because it relies on the `futex` system call as can be seen from `sudo strace -f -s999 -v` logs, while `std::atomic` uses just userland instructions: https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli
+....
+./build --optimization-level 3 --force-rebuild fail.cpp
+./fail.out 4 1000000
+....
+
+usually gives:
+
+....
+expect 40000
+global 10000
+....
+
+This is because now, instead of the horribly inefficient `-O0` assembly that reads `global` from memory every time, the code:
+
+* reads `global` to a register
+* increments the register
+* at end the end, the resulting value of each thread gets written back, overwriting each other with the increment of each thread
+
+The `-O0` code therefore mixes things up much more because it reads and write back to memory many many times.
+
+This can be easily seen from the disassembly with:
+
+....
+gdb -batch -ex "disassemble threadMain" fail.out
+....
+
+which gives for `-O0`:
+
+....
+   0x0000000000402656 <+0>:     endbr64
+   0x000000000040265a <+4>:     push   %rbp
+   0x000000000040265b <+5>:     mov    %rsp,%rbp
+   0x000000000040265e <+8>:     movq   $0x0,-0x8(%rbp)
+   0x0000000000402666 <+16>:    mov    0x5c2b(%rip),%rax        # 0x408298 <niters>
+   0x000000000040266d <+23>:    cmp    %rax,-0x8(%rbp)
+   0x0000000000402671 <+27>:    jae    0x40269b <threadMain()+69>
+   0x0000000000402673 <+29>:    mov    0x5c26(%rip),%rdx        # 0x4082a0 <global>
+   0x000000000040267a <+36>:    mov    -0x8(%rbp),%rax
+   0x000000000040267e <+40>:    mov    %rax,-0x8(%rbp)
+   0x0000000000402682 <+44>:    mov    0x5c17(%rip),%rax        # 0x4082a0 <global>
+   0x0000000000402689 <+51>:    add    $0x1,%rax
+   0x000000000040268d <+55>:    mov    %rax,0x5c0c(%rip)        # 0x4082a0 <global>
+   0x0000000000402694 <+62>:    addq   $0x1,-0x8(%rbp)
+   0x0000000000402699 <+67>:    jmp    0x402666 <threadMain()+16>
+   0x000000000040269b <+69>:    nop
+   0x000000000040269c <+70>:    pop    %rbp
+   0x000000000040269d <+71>:    retq
+....
+
+and for `-O3`:
+
+....
+   0x00000000004017f0 <+0>:     endbr64
+   0x00000000004017f4 <+4>:     mov    0x2a25(%rip),%rcx        # 0x404220 <niters>
+   0x00000000004017fb <+11>:    test   %rcx,%rcx
+   0x00000000004017fe <+14>:    je     0x401824 <threadMain()+52>
+   0x0000000000401800 <+16>:    mov    0x2a11(%rip),%rdx        # 0x404218 <global>
+   0x0000000000401807 <+23>:    xor    %eax,%eax
+   0x0000000000401809 <+25>:    nopl   0x0(%rax)
+   0x0000000000401810 <+32>:    add    $0x1,%rax
+   0x0000000000401814 <+36>:    add    $0x1,%rdx
+   0x0000000000401818 <+40>:    cmp    %rcx,%rax
+   0x000000000040181b <+43>:    jb     0x401810 <threadMain()+32>
+   0x000000000040181d <+45>:    mov    %rdx,0x29f4(%rip)        # 0x404218 <global>
+   0x0000000000401824 <+52>:    retq
+....
+
+We can now look into how `std::atomic` is implemented. In `-O3` the disassembly is:
+
+....
+   0x0000000000401770 <+0>:     endbr64
+   0x0000000000401774 <+4>:     cmpq   $0x0,0x297c(%rip)        # 0x4040f8 <niters>
+   0x000000000040177c <+12>:    je     0x401796 <threadMain()+38>
+   0x000000000040177e <+14>:    xor    %eax,%eax
+   0x0000000000401780 <+16>:    lock addq $0x1,0x2967(%rip)        # 0x4040f0 <global>
+   0x0000000000401789 <+25>:    add    $0x1,%rax
+   0x000000000040178d <+29>:    cmp    %rax,0x2964(%rip)        # 0x4040f8 <niters>
+   0x0000000000401794 <+36>:    ja     0x401780 <threadMain()+16>
+   0x0000000000401796 <+38>:    retq
+....
+
+so we clearly see that basically a `lock addq` is used to do an atomic read and write to memory every single time, just like in our other example link:userland/cpp/atomic/x86_64_lock_inc.cpp[].
+
+This setup can also be used to benchmark different synchronization mechanisms. For example, `std::mutex` was about 1.5x slower with two cores than `std::atomic`, presumably because it relies on the `futex` system call as can be seen from `strace -f -s999 -v` logs, while `std::atomic` uses just userland instructions: https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli Tested in `-O3` with:
+
+....
+time ./std_atomic.out 4 100000000
+time ./mutex.out 4 100000000
+....
 
 [[cpp-standards]]
 ==== C++ standards
@@ -15482,7 +15570,6 @@ produces:
 0x00000000
 0x00000001
 ....
-
 
 There is also the RDPID instruction that reads just the processor ID, but it appears to be very new for QEMU 4.0.0 or <<p51>>, as it fails with SIGILL on both.
 
@@ -18785,8 +18872,19 @@ The build system of that project is a bit excessive / wonky. You need an edge CM
 
 Argh, compilers are boring, let's learn a bit about them.
 
-* link:userland/gcc/busy_loop.c[]: https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133
-* link:userland/gcc/prevent_reorder.cpp[]: https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717
+=== Prevent statement reordering
+
+link:userland/gcc/prevent_reorder.cpp[]
+
+https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/56865717#56865717
+
+We often need to do this to be sure that benchmark instrumentation is actually being put around the region of interest!
+
+=== Infinite busy loop
+
+link:userland/gcc/busy_loop.c[]
+
+The hard part is how to prevent the compiler from optimizing it away: https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133
 
 == Computer architecture
 
