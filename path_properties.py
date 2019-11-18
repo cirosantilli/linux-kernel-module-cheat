@@ -93,6 +93,10 @@ class PathProperties:
         # We were lazy to properly classify why we are skipping these tests.
         # TODO get it done.
         'skip_run_unclassified': False,
+        # Look for the given file under test_data/ relative to the file under test,
+        # and pass the given file as the stdin of the program. The .i input extension is
+        # appended implicitly to the test path.
+        'test_stdin_data': None,
         # Aruments added automatically to run when running tests,
         # but not on manual running.
         'test_run_args': {},
@@ -311,6 +315,9 @@ class PrefixTree:
 
     @staticmethod
     def make_from_tuples(tuples):
+        '''
+        TODO check that all paths exist.
+        '''
         def tree_from_tuples(tuple_):
             if not type(tuple_) is tuple:
                 tuple_ = (tuple_, {})
@@ -328,6 +335,9 @@ class PrefixTree:
         return top_tree
 
 def get(path):
+    '''
+    Get the merged path properties of a given path.
+    '''
     cur_node = path_properties_tree
     path_components = path.split(os.sep)
     path_properties = PathProperties(cur_node.path_properties.properties.copy())
@@ -439,7 +449,9 @@ path_properties_tuples = (
                     {},
                     {
                         'set': (
-                            {},
+                            {
+                                'test_stdin_data': '8',
+                            },
                             {
                                 'std_priority_queue_gem5.cpp': {'allowed_emulators': {'gem5'}},
                                 'std_set_gem5.cpp': {'allowed_emulators': {'gem5'}},
@@ -606,8 +618,8 @@ path_properties_tuples = (
                             {
                                 'aarch64_add.cpp': {'allowed_archs': {'aarch64'}},
                                 'aarch64_ldadd.cpp': {'allowed_archs': {'aarch64'}},
-                                'x86_64_add.cpp': {'allowed_archs': {'x86_64'}},
-                                'x86_64_ldadd.cpp': {'allowed_archs': {'x86_64'}},
+                                'x86_64_inc.cpp': {'allowed_archs': {'x86_64'}},
+                                'x86_64_lock_inc.cpp': {'allowed_archs': {'x86_64'}},
                             },
                         ),
                         'count.cpp': {'more_than_1s': True},

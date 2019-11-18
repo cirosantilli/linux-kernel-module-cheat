@@ -115,6 +115,8 @@ class ShellHelpers:
         extra_env=None,
         extra_paths=None,
         force_oneline: bool =False,
+        *,
+        stdin_path: Union[str,None] =None
     ):
         '''
         Format a command given as a list of strings so that it can
@@ -156,6 +158,8 @@ class ShellHelpers:
                 if not x
             ]
         out.extend(cmd_quote)
+        if stdin_path is not None:
+            out.append('< {}'.format(shlex.quote(stdin_path)))
         if force_oneline or newline_count == 1 and cmd[-1] == LF:
             ending = ''
         else:
@@ -241,6 +245,8 @@ class ShellHelpers:
         extra_env=None,
         extra_paths=None,
         force_oneline=False,
+        *,
+        stdin_path: Union[str,None] =None
     ):
         '''
         Print cmd_to_string to stdout.
@@ -257,6 +263,7 @@ class ShellHelpers:
                 extra_env=extra_env,
                 extra_paths=extra_paths,
                 force_oneline=force_oneline,
+                stdin_path=stdin_path
             )
         if not self.quiet:
             self._print_thread_safe('+ ' + cmd_string)
@@ -288,6 +295,7 @@ class ShellHelpers:
         raise_on_failure=True,
         *,
         out_str=None,
+        stdin_path: Union[str,None] =None,
         **kwargs
     ):
         '''
@@ -350,7 +358,8 @@ class ShellHelpers:
                 cwd=cwd,
                 cmd_file=cmd_file,
                 extra_env=extra_env,
-                extra_paths=extra_paths
+                extra_paths=extra_paths,
+                stdin_path=stdin_path
             )
 
         # Otherwise, if called from a non-main thread:
@@ -372,9 +381,14 @@ class ShellHelpers:
 
         cmd = self.strip_newlines(cmd)
         if not self.dry_run:
+            if stdin_path is None:
+                stdin = None
+            else:
+                stdin = open(stdin_path, 'r')
             # https://stackoverflow.com/questions/15535240/python-popen-write-to-stdout-and-log-file-simultaneously/52090802#52090802
             with subprocess.Popen(
                 cmd,
+                stdin=stdin,
                 stdout=stdout,
                 stderr=stderr,
                 env=env,
@@ -409,6 +423,8 @@ class ShellHelpers:
             if threading.current_thread() == threading.main_thread():
                 signal.signal(signal.SIGINT, sigint_old)
                 #signal.signal(signal.SIGPIPE, sigpipe_old)
+            if stdin_path is not None:
+                stdin.close()
             returncode = proc.returncode
             if returncode != 0 and raise_on_failure:
                 e = Exception('Command exited with status: {}'.format(returncode))
@@ -514,3 +530,7 @@ if __name__ == '__main__':
         assert \
             shell_helpers.cmd_to_string(['cmd', LF, 'arg1', LF, 'arg2', LF], force_oneline=True) \
             == 'cmd arg1 arg2'
+
+        # stdin_path
+        assert shell_helpers.cmd_to_string(['cmd'], stdin_path='ab') == "cmd \\\n  < ab \\\n;"
+        assert shell_helpers.cmd_to_string(['cmd'], stdin_path='a b') == "cmd \\\n  < 'a b' \\\n;"

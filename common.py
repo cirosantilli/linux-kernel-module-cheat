@@ -1941,3 +1941,36 @@ class TestCliFunction(LkmcCliFunction):
             self.log_error('A test failed')
             return 1
         return 0
+
+# IO format.
+
+class LkmcList(list):
+    '''
+    list with a lightweight serialization format for algorithm IO.
+    '''
+    def __init__(self, *args, **kwargs):
+        if 'oneline' in kwargs:
+            self.oneline = kwargs['oneline']
+            del kwargs['oneline']
+        else:
+            self.oneline = False
+        super().__init__(*args, **kwargs)
+    def __str__(self):
+        if self.oneline:
+            sep = ' '
+        else:
+            sep = '\n'
+        return sep.join([str(item) for item in self])
+
+class LkmcOrderedDict(collections.OrderedDict):
+    '''
+    dict with a lightweight serialization format for algorithm IO.
+    '''
+    def __str__(self):
+        out = []
+        for key in self:
+            out.extend([
+                str(key),
+                str(self[key]) + '\n',
+            ])
+        return '\n'.join(out)
