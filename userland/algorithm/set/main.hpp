@@ -20,7 +20,7 @@
 int main(int argc, char **argv) {
     typedef uint64_t T;
 #if LKMC_ALGORITHM_SET_STD_PRIORITY_QUEUE
-    std::priority_queue<T> set;
+    std::priority_queue<T, std::vector<T>, std::greater<int>> set;
 #endif
 #if LKMC_ALGORITHM_SET_STD_SET
     std::set<T> set;
@@ -28,9 +28,8 @@ int main(int argc, char **argv) {
 #if LKMC_ALGORITHM_SET_STD_UNORDERED_SET
     std::unordered_set<T> set;
 #endif
-    std::vector<T> randoms;
+    std::vector<T> input;
     size_t i, j = 0, n, granule, base;
-    unsigned int seed;
 #ifndef LKMC_M5OPS_ENABLE
     std::vector<std::chrono::nanoseconds::rep> dts;
     std::vector<decltype(base)> bases;
@@ -38,26 +37,21 @@ int main(int argc, char **argv) {
 
     // CLI arguments.
     if (argc > 1) {
-        n = std::stoi(argv[1]);
-    } else {
-        n = 10;
-    }
-    if (argc > 2) {
-        granule = std::stoi(argv[2]);
+        granule = std::stoi(argv[1]);
     } else {
         granule = 1;
     }
-    if (argc > 3) {
-        seed = std::stoi(argv[3]);
-    } else {
-        seed = std::random_device()();
+
+    // Read input from stdin.
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "")
+            break;
+        input.push_back(std::stoll(str));
     }
+    n = input.size();
 
     // Action.
-    for (i = 0; i < n; ++i) {
-        randoms.push_back(i);
-    }
-    std::shuffle(randoms.begin(), randoms.end(), std::mt19937(seed));
     for (i = 0; i < n / granule; ++i) {
 #ifndef LKMC_M5OPS_ENABLE
         using clk = std::chrono::high_resolution_clock;
@@ -71,9 +65,9 @@ int main(int argc, char **argv) {
         for (j = 0; j < granule; ++j) {
 #endif
 #if LKMC_ALGORITHM_SET_STD_PRIORITY_QUEUE
-        set.emplace(randoms[base + j]);
+        set.emplace(input[base + j]);
 #else
-        set.insert(randoms[base + j]);
+        set.insert(input[base + j]);
 #endif
 #ifdef LKMC_M5OPS_ENABLE
         LKMC_M5OPS_DUMPSTATS;
@@ -87,8 +81,29 @@ int main(int argc, char **argv) {
     }
 
     // Report results.
+    std::cout << "output" << std::endl;
+#if LKMC_ALGORITHM_SET_STD_PRIORITY_QUEUE
+    while (!set.empty()) {
+        std::cout << set.top() << std::endl;
+        set.pop();
+    }
+    //T last_val = set.top();
+    //std::cout << last_val << std::endl;
+    //set.pop();
+    //while (!set.empty()) {
+    //    const auto& val = set.top();
+    //    if (val != last_val)
+    //        std::cout << val << std::endl;
+    //    last_val = val;
+    //    set.pop();
+    //}
+#else
+    for (const auto& item : set) {
+        std::cout << item << std::endl;
+    }
+#endif
+    std::cout << std::endl;
 #ifndef LKMC_M5OPS_ENABLE
-    // Output.
     std::cout << "times" << std::endl;
     auto bases_it = bases.begin();
     auto dts_it = dts.begin();
@@ -99,17 +114,5 @@ int main(int argc, char **argv) {
         bases_it++;
         dts_it++;
     }
-    std::cout << std::endl;
-    std::cout << "output" << std::endl;
-#if LKMC_ALGORITHM_SET_STD_PRIORITY_QUEUE
-    while (!set.empty()) {
-        std::cout << set.top() << std::endl;
-        set.pop();
-    }
-#else
-    for (const auto& item : set) {
-        std::cout << item << std::endl;
-    }
-#endif
 #endif
 }

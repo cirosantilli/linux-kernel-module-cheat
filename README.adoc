@@ -1007,7 +1007,7 @@ Notable userland content included / moving into this repository includes:
 * <<c>>
 * <<cpp>>
 * <<posix>>
-* https://github.com/cirosantilli/algorithm-cheat TODO will be good to move here for performance analysis <<gem5-run-benchmark,with gem5>>
+* <<algorithms>>
 
 ==== Userland setup getting started
 
@@ -10645,6 +10645,11 @@ Now you can play a fun little game with your friends:
 * make a program that solves the computation problem, and outputs output to stdout
 * write the code that runs the correct computation in the smallest number of cycles possible
 
+Interesting algorithms and benchmarks for this game are being collected at:
+
+* <<algorithms>>
+* <<benchmarks>>
+
 To find out why your program is slow, a good first step is to have a look at the <<gem5-m5out-stats-txt-file>>.
 
 ==== Skip extra benchmark instructions
@@ -11027,386 +11032,6 @@ TODO: why doesn't this exist:
 ....
 ls /sys/devices/system/cpu/cpu0/cpufreq
 ....
-
-==== Interesting benchmarks
-
-Buildroot built-in libraries, mostly under Libraries > Other:
-
-* Armadillo `C++`: linear algebra
-* fftw: Fourier transform
-* Flann
-* GSL: various
-* liblinear
-* libspacialindex
-* libtommath
-* qhull
-
-Open source but not in Buildroot:
-
-* https://github.com/kozyraki/stamp transactional memory benchmarks
-
-There are not yet enabled, but it should be easy to so, see: xref:add-new-buildroot-packages[xrefstyle=full]
-
-===== Dhrystone
-
-https://en.wikipedia.org/wiki/Dhrystone
-
-Created in the 80's, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by https://en.wikipedia.org/wiki/SPECint[SPEC], which is... closed source! Unbelievable.
-
-<<buildroot>> has a `dhrystone` package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.
-
-Build and run on QEMU <<user-mode-simulation>>:
-
-....
-git submodule update --init submodules/dhrystone
-./build-dhrystone --mode userland
-./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
-....
-
-Build and run on gem5 user mode:
-
-....
-./build-dhrystone --mode userland --static --force-rebuild
-./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
-....
-
-TODO automate run more nicely.
-
-Build for <<baremetal>> execution and run it in baremetal QEMU:
-
-....
-# Build our Newlib stubs.
-./build-baremetal --arch aarch64
-./build-dhrystone --arch aarch64 --mode baremetal
-./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"
-....
-
-TODO: fix the build, just need to factor out all run arguments from link:build-baremetal[] into link:common.py[] and it should just work, no missing syscalls.
-
-If you really want the Buildroot package for some reason, build it with:
-
-....
-./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'
-....
-
-and run inside the guest from `PATH` with:
-
-....
-dhrystone
-....
-
-===== BST vs heap vs hashmap
-
-TODO: move benchmark graph from link:userland/cpp/bst_vs_heap_vs_hashmap.cpp[] to link:userland/algorithm/set[].
-
-The following benchmark setup works both:
-
-* on host through timers + https://stackoverflow.com/questions/51952471/why-do-i-get-a-constant-instead-of-logarithmic-curve-for-an-insert-time-benchmar/51953081#51953081[granule]
-* gem5 with <<m5ops-instructions,dumpstats>>, which can get more precise results with `granule == 1`
-
-It has been used to answer:
-
-* BST vs heap: https://stackoverflow.com/questions/6147243/heap-vs-binary-search-tree-bst/29548834#29548834
-* `std::set`: https://stackoverflow.com/questions/2558153/what-is-the-underlying-data-structure-of-a-stl-set-in-c/51944661#51944661
-* `std::map`: https://stackoverflow.com/questions/18414579/what-data-structure-is-inside-stdmap-in-c/51945119#51945119
-
-To benchmark on the host, we do:
-
-....
-./build-userland-in-tree \
-  --force-rebuild \
-  --optimization-level 3 \
-  ./userland/cpp/bst_vs_heap_vs_hashmap.cpp \
-;
-./userland/cpp/bst_vs_heap_vs_hashmap.out 10000000 10000 0 | tee bst_vs_heap_vs_hashmap.dat
-gnuplot \
-  -e 'input_noext="bst_vs_heap_vs_hashmap"' \
-  -e 'heap_zoom_max=50' \
-  -e 'hashmap_zoom_max=400' \
-  ./bst-vs-heap-vs-hashmap.gnuplot \
-;
-xdg-open bst_vs_heap_vs_hashmap.tmp.png
-....
-
-The parameters `heap_zoom_max` and `hashmap_zoom_max` are chosen manually interactively to best showcase the regions of interest in those plots.
-
-To benchmark on gem5, we first build the benchmark with <<m5ops-instructions>> enabled, and then we run it and extract the stats:
-
-....
-./build-userland \
-  --arch x86_64 \
-  --ccflags='-DLKMC_M5OPS_ENABLE=1' \
-  --force-rebuild userland/cpp/bst_vs_heap_vs_hashmap.cpp \
-  --static \
-  --optimization-level 3 \
-;
-./run \
-  --arch x86_64 \
-  --emulator gem5 \
-  --static \
-  --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
-  --userland-args='100000 1 0' \
-  -- \
-  --cpu-type=DerivO3CPU \
-  --caches \
-  --l2cache \
-  --l1d_size=32kB \
-  --l1i_size=32kB \
-  --l2_size=256kB \
-  --l3_size=20MB \
-;
-./bst-vs-heap-vs-hashmap-gem5-stats --arch x86_64 | tee bst_vs_heap_vs_hashmap_gem5.dat
-gnuplot \
-  -e 'input_noext="bst_vs_heap_vs_hashmap_gem5"' \
-  -e 'heap_zoom_max=500' \
-  -e 'hashmap_zoom_max=400' \
-  ./bst-vs-heap-vs-hashmap.gnuplot \
-;
-xdg-open bst_vs_heap_vs_hashmap_gem5.tmp.png
-....
-
-TODO: the gem5 simulation blows up on a tcmalloc allocation somewhere near 25k elements as of 3fdd83c2c58327d9714fa2347c724b78d7c05e2b + 1, likely linked to the extreme inefficiency of the stats collection?
-
-The cache sizes were chosen to match the host <<p51>> to improve the comparison. Ideally we should also use the same standard library.
-
-Note that this will take a long time, and will produce a humongous ~40Gb stats file as explained at: xref:gem5-only-dump-selected-stats[xrefstyle=full]
-
-Sources:
-
-* link:userland/cpp/bst_vs_heap_vs_hashmap.cpp[]
-* link:bst-vs-heap-vs-hashmap-gem5-stats[]
-* link:bst-vs-heap-vs-hashmap.gnuplot[]
-
-===== BLAS
-
-Buildroot supports it, which makes everything just trivial:
-
-....
-./build-buildroot --config 'BR2_PACKAGE_OPENBLAS=y'
-./build-userland --package openblas -- userland/libs/openblas/hello.c
-./run --eval-after './libs/openblas/hello.out; echo $?'
-....
-
-Outcome: the test passes:
-
-....
-0
-....
-
-Source: link:userland/libs/openblas/hello.c[]
-
-The test performs a general matrix multiplication:
-
-....
-    |  1.0 -3.0 |   |  1.0  2.0  1.0 |       |  0.5  0.5  0.5 |   |  11.0 - 9.0  5.0 |
-1 * |  2.0  4.0 | * | -3.0  4.0 -1.0 | + 2 * |  0.5  0.5  0.5 | = | - 9.0  21.0 -1.0 |
-    |  1.0 -1.0 |                            |  0.5  0.5  0.5 |   |   5.0 - 1.0  3.0 |
-....
-
-This can be deduced from the Fortran interfaces at
-
-....
-less "$(./getvar buildroot_build_build_dir)"/openblas-*/reference/dgemmf.f
-....
-
-which we can map to our call as:
-
-....
-C := alpha*op( A )*op( B ) + beta*C,
-SUBROUTINE DGEMMF(               TRANA,        TRANB,     M,N,K,  ALPHA,A,LDA,B,LDB,BETA,C,LDC)
-cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,3,  2   ,C,3  );
-....
-
-===== Eigen
-
-Header only linear algebra library with a mainline Buildroot package:
-
-....
-./build-buildroot --config 'BR2_PACKAGE_EIGEN=y'
-./build-userland --package eigen -- userland/libs/eigen/hello.cpp
-....
-
-Just create an array and print it:
-
-....
-./run --eval-after './libs/eigen/hello.out'
-....
-
-Output:
-
-....
-  3  -1
-2.5 1.5
-....
-
-Source: link:userland/libs/eigen/hello.cpp[]
-
-This example just creates a matrix and prints it out.
-
-Tested on: https://github.com/cirosantilli/linux-kernel-module-cheat/commit/a4bdcf102c068762bb1ef26c591fcf71e5907525[a4bdcf102c068762bb1ef26c591fcf71e5907525]
-
-===== PARSEC benchmark
-
-We have ported parts of the http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.
-
-There are two ways to run PARSEC with this repo:
-
-* <<parsec-benchmark-without-parsecmgmt,without `pasecmgmt`>>, most likely what you want
-* <<parsec-benchmark-with-parsecmgmt,with `pasecmgmt`>>
-
-====== PARSEC benchmark without parsecmgmt
-
-....
-./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
-./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
-./run --arch arm --emulator gem5
-....
-
-Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
-
-....
-cd /parsec/ext/splash2x/apps/fmm/run
-../inst/arm-linux.gcc/bin/fmm 1 < input_1
-....
-
-To find run out how to run many of the benchmarks, have a look at the `test.sh` script of the `parse-benchmark` repo.
-
-From the guest, you can also run it as:
-
-....
-cd /parsec
-./test.sh
-....
-
-but this might be a bit time consuming in gem5.
-
-====== PARSEC change the input size
-
-Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a rebuild with:
-
-....
-./build-buildroot \
-  --arch arm \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
-  -- parsec_benchmark-reconfigure \
-;
-....
-
-Large input may also require tweaking:
-
-* <<br2-target-rootfs-ext2-size>> if the unpacked inputs are large
-* <<memory-size>>, unless you want to meet the OOM killer, which is admittedly kind of fun
-
-`test.sh` only contains the run commands for the `test` size, and cannot be used for `simsmall`.
-
-The easiest thing to do, is to https://superuser.com/questions/231002/how-can-i-search-within-the-output-buffer-of-a-tmux-shell/1253137#1253137[scroll up on the host shell] after the build, and look for a line of type:
-
-....
-Running /root/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800
-....
-
-and then tweak the command found in `test.sh` accordingly.
-
-Yes, we do run the benchmarks on host just to unpack / generate inputs. They are expected fail to run since they were build for the guest instead of host, including for x86_64 guest which has a different interpreter than the host's (see `file myexecutable`).
-
-The rebuild is required because we unpack input files on the host.
-
-Separating input sizes also allows to create smaller images when only running the smaller benchmarks.
-
-This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
-
-One option would be to do that inside the guest with QEMU.
-
-Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another...
-
-PARSEC simply wasn't designed with non native machines in mind...
-
-====== PARSEC benchmark with parsecmgmt
-
-Most users won't want to use this method because:
-
-* running the `parsecmgmt` Bash scripts takes forever before it ever starts running the actual benchmarks on gem5
-+
-Running on QEMU is feasible, but not the main use case, since QEMU cannot be used for performance measurements
-* it requires putting the full `.tar` inputs on the guest, which makes the image twice as large (1x for the `.tar`, 1x for the unpacked input files)
-
-It would be awesome if it were possible to use this method, since this is what Parsec supports officially, and so:
-
-* you don't have to dig into what raw command to run
-* there is an easy way to run all the benchmarks in one go to test them out
-* you can just run any of the benchmarks that you want
-
-but it simply is not feasible in gem5 because it takes too long.
-
-If you still want to run this, try it out with:
-
-....
-./build-buildroot \
-  --arch aarch64 \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
-  --config 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
-  -- parsec_benchmark-reconfigure \
-;
-....
-
-And then you can run it just as you would on the host:
-
-....
-cd /parsec/
-bash
-. env.sh
-parsecmgmt -a run -p splash2x.fmm -i test
-....
-
-====== PARSEC uninstall
-
-If you want to remove PARSEC later, Buildroot doesn't provide an automated package removal mechanism as mentioned at: xref:remove-buildroot-packages[xrefstyle=full], but the following procedure should be satisfactory:
-
-....
-rm -rf \
-  "$(./getvar buildroot_download_dir)"/parsec-* \
-  "$(./getvar buildroot_build_dir)"/build/parsec-* \
-  "$(./getvar buildroot_build_dir)"/build/packages-file-list.txt \
-  "$(./getvar buildroot_build_dir)"/images/rootfs.* \
-  "$(./getvar buildroot_build_dir)"/target/parsec-* \
-;
-./build-buildroot --arch arm
-....
-
-====== PARSEC benchmark hacking
-
-If you end up going inside link:submodules/parsec-benchmark[] to hack up the benchmark (you will!), these tips will be helpful.
-
-Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.
-
-A few workarounds are:
-
-* develop in host first as much as you can. Our PARSEC fork supports it.
-+
-If you do this, don't forget to do a:
-+
-....
-cd "$(./getvar parsec_source_dir)"
-git clean -xdf .
-....
-before going for the cross compile build.
-+
-* patch Buildroot to work well, and keep cross compiling all the way. This should be totally viable, and we should do it.
-+
-Don't forget to explicitly rebuild PARSEC with:
-+
-....
-./build-buildroot \
-  --arch arm \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  -- parsec_benchmark-reconfigure \
-;
-....
-+
-You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
-* sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
 
 === gem5 kernel command line parameters
 
@@ -14209,9 +13834,7 @@ Example: link:userland/c/memory_leak.c[]
 
 Maybe some day someone will use this setup to study the performance of interpreters:
 
-* <<node-js>>
-
-=== Node.js
+==== Node.js
 
 Parent section: <<interpreted-languages>>.
 
@@ -14236,6 +13859,444 @@ Examples:
 * `fs`
 ** link:rootfs_overlay/lkmc/nodejs/file_write_read.js[]
 ** link:rootfs_overlay/lkmc/nodejs/read_stdin_to_string.js[] Question: https://stackoverflow.com/questions/30441025/read-all-text-from-stdin-to-a-string
+
+=== Algorithms
+
+link:userland/algorithm[]
+
+This is still work in progress and needs better automation, but is already a good sketch. The idea was originally started at: https://github.com/cirosantilli/algorithm-cheat
+
+The key idea is that input / output pairs are present in human readable files generated either:
+
+* manually for small test inputs
+* with a Python script for larger randomized tests
+
+Test programs then:
+
+* read input from sdtin
+* produce output to stdout
+
+so that we can compare the output to the expected one.
+
+This way, tests can be reused across several implementations in different languages, emulating the many multi-language programming competition websites out there.
+
+For example, for a <<userland-setup-getting-started-natively,native run>> we can can run a set / sorting test:
+
+....
+cd userland/algorithm/set
+./build
+
+# Run with a small hand written test.
+./std_set.out < test_data/8.i > tmp.raw
+
+# Extract the output from the sorted stdout, which also
+# contained some timing information.
+./parse_output output < tmp.raw > tmp.o
+
+# Compare the output to the Expected one.
+cmp tmp.o test_data/8.e
+
+# Same but now with a large randomly generated input.
+./generate_io
+./std_set.out < tmp.i | ./parse_output output > tmp.o
+cmp tmp.o tmp.e
+....
+
+Sources:
+
+* link:userland/algorithm/set/generate_input[]
+* link:userland/algorithm/set/main.hpp[]
+* link:userland/algorithm/set/parse_output[]
+* link:userland/algorithm/set/std_set.cpp[]
+* link:userland/algorithm/set/test_data/8.e[]
+* link:userland/algorithm/set/test_data/8.i[]
+
+link:userland/algorithm/set/parse_output[] is needed because timing instrumentation measurements must be embedded in the program itself to allow:
+
+* discounting the input reading / output writing operations from the actual "read / write to / from memory algorithm" itself
+* measuring the evolution of the benchmark mid way, e.g. to see how the current container size affects insertion time: <<bst-vs-heap-vs-hashmap>>
+
+The following are also interesting Buildroot libraries that we could benchmark:
+
+* Armadillo `C++`: linear algebra
+* fftw: Fourier transform
+* Flann
+* GSL: various
+* liblinear
+* libspacialindex
+* libtommath
+* qhull
+
+These are good targets for <<gem5-run-benchmark,performance analysis with gem5>>, and there is some overlap between this section and <<benchmarks>>.
+
+==== BST vs heap vs hashmap
+
+TODO: move benchmark graph from link:userland/cpp/bst_vs_heap_vs_hashmap.cpp[] to link:userland/algorithm/set[].
+
+The following benchmark setup works both:
+
+* on host through timers + https://stackoverflow.com/questions/51952471/why-do-i-get-a-constant-instead-of-logarithmic-curve-for-an-insert-time-benchmar/51953081#51953081[granule]
+* gem5 with <<m5ops-instructions,dumpstats>>, which can get more precise results with `granule == 1`
+
+It has been used to answer:
+
+* BST vs heap: https://stackoverflow.com/questions/6147243/heap-vs-binary-search-tree-bst/29548834#29548834
+* `std::set`: https://stackoverflow.com/questions/2558153/what-is-the-underlying-data-structure-of-a-stl-set-in-c/51944661#51944661
+* `std::map`: https://stackoverflow.com/questions/18414579/what-data-structure-is-inside-stdmap-in-c/51945119#51945119
+
+To benchmark on the host, we do:
+
+....
+./build-userland-in-tree \
+  --force-rebuild \
+  --optimization-level 3 \
+  ./userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+;
+./userland/cpp/bst_vs_heap_vs_hashmap.out 10000000 10000 0 | tee bst_vs_heap_vs_hashmap.dat
+gnuplot \
+  -e 'input_noext="bst_vs_heap_vs_hashmap"' \
+  -e 'heap_zoom_max=50' \
+  -e 'hashmap_zoom_max=400' \
+  ./bst-vs-heap-vs-hashmap.gnuplot \
+;
+xdg-open bst_vs_heap_vs_hashmap.tmp.png
+....
+
+The parameters `heap_zoom_max` and `hashmap_zoom_max` are chosen manually interactively to best showcase the regions of interest in those plots.
+
+To benchmark on gem5, we first build the benchmark with <<m5ops-instructions>> enabled, and then we run it and extract the stats:
+
+....
+./build-userland \
+  --arch x86_64 \
+  --ccflags='-DLKMC_M5OPS_ENABLE=1' \
+  --force-rebuild userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+  --static \
+  --optimization-level 3 \
+;
+./run \
+  --arch x86_64 \
+  --emulator gem5 \
+  --static \
+  --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+  --userland-args='100000 1 0' \
+  -- \
+  --cpu-type=DerivO3CPU \
+  --caches \
+  --l2cache \
+  --l1d_size=32kB \
+  --l1i_size=32kB \
+  --l2_size=256kB \
+  --l3_size=20MB \
+;
+./bst-vs-heap-vs-hashmap-gem5-stats --arch x86_64 | tee bst_vs_heap_vs_hashmap_gem5.dat
+gnuplot \
+  -e 'input_noext="bst_vs_heap_vs_hashmap_gem5"' \
+  -e 'heap_zoom_max=500' \
+  -e 'hashmap_zoom_max=400' \
+  ./bst-vs-heap-vs-hashmap.gnuplot \
+;
+xdg-open bst_vs_heap_vs_hashmap_gem5.tmp.png
+....
+
+TODO: the gem5 simulation blows up on a tcmalloc allocation somewhere near 25k elements as of 3fdd83c2c58327d9714fa2347c724b78d7c05e2b + 1, likely linked to the extreme inefficiency of the stats collection?
+
+The cache sizes were chosen to match the host <<p51>> to improve the comparison. Ideally we should also use the same standard library.
+
+Note that this will take a long time, and will produce a humongous ~40Gb stats file as explained at: xref:gem5-only-dump-selected-stats[xrefstyle=full]
+
+Sources:
+
+* link:userland/cpp/bst_vs_heap_vs_hashmap.cpp[]
+* link:bst-vs-heap-vs-hashmap-gem5-stats[]
+* link:bst-vs-heap-vs-hashmap.gnuplot[]
+
+==== BLAS
+
+Buildroot supports it, which makes everything just trivial:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_OPENBLAS=y'
+./build-userland --package openblas -- userland/libs/openblas/hello.c
+./run --eval-after './libs/openblas/hello.out; echo $?'
+....
+
+Outcome: the test passes:
+
+....
+0
+....
+
+Source: link:userland/libs/openblas/hello.c[]
+
+The test performs a general matrix multiplication:
+
+....
+    |  1.0 -3.0 |   |  1.0  2.0  1.0 |       |  0.5  0.5  0.5 |   |  11.0 - 9.0  5.0 |
+1 * |  2.0  4.0 | * | -3.0  4.0 -1.0 | + 2 * |  0.5  0.5  0.5 | = | - 9.0  21.0 -1.0 |
+    |  1.0 -1.0 |                            |  0.5  0.5  0.5 |   |   5.0 - 1.0  3.0 |
+....
+
+This can be deduced from the Fortran interfaces at
+
+....
+less "$(./getvar buildroot_build_build_dir)"/openblas-*/reference/dgemmf.f
+....
+
+which we can map to our call as:
+
+....
+C := alpha*op( A )*op( B ) + beta*C,
+SUBROUTINE DGEMMF(               TRANA,        TRANB,     M,N,K,  ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,3,  2   ,C,3  );
+....
+
+==== Eigen
+
+Header only linear algebra library with a mainline Buildroot package:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_EIGEN=y'
+./build-userland --package eigen -- userland/libs/eigen/hello.cpp
+....
+
+Just create an array and print it:
+
+....
+./run --eval-after './libs/eigen/hello.out'
+....
+
+Output:
+
+....
+  3  -1
+2.5 1.5
+....
+
+Source: link:userland/libs/eigen/hello.cpp[]
+
+This example just creates a matrix and prints it out.
+
+Tested on: https://github.com/cirosantilli/linux-kernel-module-cheat/commit/a4bdcf102c068762bb1ef26c591fcf71e5907525[a4bdcf102c068762bb1ef26c591fcf71e5907525]
+
+=== Benchmarks
+
+These are good targets for <<gem5-run-benchmark,performance analysis with gem5>>.
+
+TODO also consider the following:
+
+* https://github.com/kozyraki/stamp transactional memory benchmarks
+
+==== Dhrystone
+
+https://en.wikipedia.org/wiki/Dhrystone
+
+Created in the 80's, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by https://en.wikipedia.org/wiki/SPECint[SPEC], which is... closed source! Unbelievable.
+
+<<buildroot>> has a `dhrystone` package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.
+
+Build and run on QEMU <<user-mode-simulation>>:
+
+....
+git submodule update --init submodules/dhrystone
+./build-dhrystone --mode userland
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+Build and run on gem5 user mode:
+
+....
+./build-dhrystone --mode userland --static --force-rebuild
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+TODO automate run more nicely.
+
+Build for <<baremetal>> execution and run it in baremetal QEMU:
+
+....
+# Build our Newlib stubs.
+./build-baremetal --arch aarch64
+./build-dhrystone --arch aarch64 --mode baremetal
+./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+TODO: fix the build, just need to factor out all run arguments from link:build-baremetal[] into link:common.py[] and it should just work, no missing syscalls.
+
+If you really want the Buildroot package for some reason, build it with:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'
+....
+
+and run inside the guest from `PATH` with:
+
+....
+dhrystone
+....
+
+==== PARSEC benchmark
+
+We have ported parts of the http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.
+
+There are two ways to run PARSEC with this repo:
+
+* <<parsec-benchmark-without-parsecmgmt,without `pasecmgmt`>>, most likely what you want
+* <<parsec-benchmark-with-parsecmgmt,with `pasecmgmt`>>
+
+===== PARSEC benchmark without parsecmgmt
+
+....
+./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
+./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
+./run --arch arm --emulator gem5
+....
+
+Once inside the guest, launch one of the `test` input sized benchmarks manually as in:
+
+....
+cd /parsec/ext/splash2x/apps/fmm/run
+../inst/arm-linux.gcc/bin/fmm 1 < input_1
+....
+
+To find run out how to run many of the benchmarks, have a look at the `test.sh` script of the `parse-benchmark` repo.
+
+From the guest, you can also run it as:
+
+....
+cd /parsec
+./test.sh
+....
+
+but this might be a bit time consuming in gem5.
+
+===== PARSEC change the input size
+
+Running a benchmark of a size different than `test`, e.g. `simsmall`, requires a rebuild with:
+
+....
+./build-buildroot \
+  --arch arm \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
+  -- parsec_benchmark-reconfigure \
+;
+....
+
+Large input may also require tweaking:
+
+* <<br2-target-rootfs-ext2-size>> if the unpacked inputs are large
+* <<memory-size>>, unless you want to meet the OOM killer, which is admittedly kind of fun
+
+`test.sh` only contains the run commands for the `test` size, and cannot be used for `simsmall`.
+
+The easiest thing to do, is to https://superuser.com/questions/231002/how-can-i-search-within-the-output-buffer-of-a-tmux-shell/1253137#1253137[scroll up on the host shell] after the build, and look for a line of type:
+
+....
+Running /root/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800
+....
+
+and then tweak the command found in `test.sh` accordingly.
+
+Yes, we do run the benchmarks on host just to unpack / generate inputs. They are expected fail to run since they were build for the guest instead of host, including for x86_64 guest which has a different interpreter than the host's (see `file myexecutable`).
+
+The rebuild is required because we unpack input files on the host.
+
+Separating input sizes also allows to create smaller images when only running the smaller benchmarks.
+
+This limitation exists because `parsecmgmt` generates the input files just before running via the Bash scripts, but we can't run `parsecmgmt` on gem5 as it is too slow!
+
+One option would be to do that inside the guest with QEMU.
+
+Also, we can't generate all input sizes at once, because many of them have the same name and would overwrite one another...
+
+PARSEC simply wasn't designed with non native machines in mind...
+
+===== PARSEC benchmark with parsecmgmt
+
+Most users won't want to use this method because:
+
+* running the `parsecmgmt` Bash scripts takes forever before it ever starts running the actual benchmarks on gem5
++
+Running on QEMU is feasible, but not the main use case, since QEMU cannot be used for performance measurements
+* it requires putting the full `.tar` inputs on the guest, which makes the image twice as large (1x for the `.tar`, 1x for the unpacked input files)
+
+It would be awesome if it were possible to use this method, since this is what Parsec supports officially, and so:
+
+* you don't have to dig into what raw command to run
+* there is an easy way to run all the benchmarks in one go to test them out
+* you can just run any of the benchmarks that you want
+
+but it simply is not feasible in gem5 because it takes too long.
+
+If you still want to run this, try it out with:
+
+....
+./build-buildroot \
+  --arch aarch64 \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
+  --config 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
+  -- parsec_benchmark-reconfigure \
+;
+....
+
+And then you can run it just as you would on the host:
+
+....
+cd /parsec/
+bash
+. env.sh
+parsecmgmt -a run -p splash2x.fmm -i test
+....
+
+===== PARSEC uninstall
+
+If you want to remove PARSEC later, Buildroot doesn't provide an automated package removal mechanism as mentioned at: xref:remove-buildroot-packages[xrefstyle=full], but the following procedure should be satisfactory:
+
+....
+rm -rf \
+  "$(./getvar buildroot_download_dir)"/parsec-* \
+  "$(./getvar buildroot_build_dir)"/build/parsec-* \
+  "$(./getvar buildroot_build_dir)"/build/packages-file-list.txt \
+  "$(./getvar buildroot_build_dir)"/images/rootfs.* \
+  "$(./getvar buildroot_build_dir)"/target/parsec-* \
+;
+./build-buildroot --arch arm
+....
+
+===== PARSEC benchmark hacking
+
+If you end up going inside link:submodules/parsec-benchmark[] to hack up the benchmark (you will!), these tips will be helpful.
+
+Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.
+
+A few workarounds are:
+
+* develop in host first as much as you can. Our PARSEC fork supports it.
++
+If you do this, don't forget to do a:
++
+....
+cd "$(./getvar parsec_source_dir)"
+git clean -xdf .
+....
+before going for the cross compile build.
++
+* patch Buildroot to work well, and keep cross compiling all the way. This should be totally viable, and we should do it.
++
+Don't forget to explicitly rebuild PARSEC with:
++
+....
+./build-buildroot \
+  --arch arm \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  -- parsec_benchmark-reconfigure \
+;
+....
++
+You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
+* sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
 
 === Userland content bibliography
 
