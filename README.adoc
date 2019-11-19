@@ -13445,7 +13445,7 @@ cat /proc/sys/vm/overcommit_memory
 
 which is documented in `man proc`.
 
-The default value is `0`, which I can't find a precise documentation for. `2` is precisly documented but I'm lazy to do all calculations. So let's just verify `0` vs `1` by trying to `mmap` 1GiB of memory:
+The default value is `0`, which I can't find a precise documentation for. `2` is precisely documented but I'm lazy to do all calculations. So let's just verify `0` vs `1` by trying to `mmap` 1GiB of memory:
 
 ....
 echo 0 > /proc/sys/vm/overcommit_memory
@@ -18628,10 +18628,10 @@ For example, the simplest scalable CPU content would be a busy loop: link:userla
 Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: xref:table-busy-loop-dmips[xrefstyle=full]. As expected, the less native / more detailed / more complex simulations are slower!
 
 [[table-busy-loop-dmips]]
-.Busy loop DMIPS for different simulator setups
+.Busy loop MIPS for different simulator setups
 [options="header"]
 |===
-|Simulator |Loops |Time (s) |Instruction count| Approximate MIPS
+|Simulator |Loops |Time (s) |Instruction count |Approximate MIPS
 
 |`qemu --arch aarch64`
 |10^10
@@ -18657,15 +18657,21 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |1.1018128 * 10^7
 |0.2
 
+|`+gem5 --arch aarch64 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby+`
+|1 * 1000000 = 10^6
+|63
+|1.1005150 * 10^7
+|0.2
+
 |===
 
 The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored.
 
-On our <<p51>> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number:
+On our <<p51>> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number for a gem5 atomic simulation:
 
 ....
-./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1000 10000' --static
-./get-stat sim_insts
+./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1 10000000' --static
+./gem5-stat --arch aarch64 sim_insts
 ....
 
 as it gives:
