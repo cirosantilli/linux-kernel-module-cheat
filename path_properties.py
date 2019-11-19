@@ -696,6 +696,9 @@ path_properties_tuples = (
                             'more_than_1s': True,
                             'test_run_args': {'cpus': 2},
                         },
+                        'pthread_mutex.c': {
+                            'test_run_args': {'cpus': 3},
+                        },
                         'pthread_self.c': {
                             'test_run_args': {'cpus': 2},
                         },
