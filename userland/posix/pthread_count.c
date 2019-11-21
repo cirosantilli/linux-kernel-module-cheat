@@ -1,4 +1,4 @@
-/* count to infinity in n threads.
+/* count to infinity in n threads sleeping one second between each count.
  *
  * https://cirosantilli.com/linux-kernel-module-cheat#pthreads
  *
