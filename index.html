@@ -1189,7 +1189,9 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-event-queue">19.19.4. gem5 event queue</a>
 <ul class="sectlevel4">
 <li><a href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis">19.19.4.1. gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a></li>
-<li><a href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">19.19.4.2. gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></li>
+<li><a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">19.19.4.2. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a></li>
+<li><a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">19.19.4.3. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></li>
+<li><a href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">19.19.4.4. gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></li>
 </ul>
 </li>
 <li><a href="#gem5-stats-internals">19.19.5. gem5 stats internals</a></li>
@@ -20020,7 +20022,16 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 </div>
 </li>
 <li>
-<p><code>TimingSimpleCPU</code>: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than <code>AtomicSimpleCPU</code>. TODO: application?</p>
+<p><code>TimingSimpleCPU</code>: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than <code>AtomicSimpleCPU</code>.</p>
+<div class="paragraph">
+<p>To fully understand <code>TimingSimpleCPU</code>, see: <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a>.</p>
+</div>
+<div class="paragraph">
+<p>Without caches, the CPU just stalls all the time waiting for memory requests for every advance of the PC or memory read from a instruction!</p>
+</div>
+<div class="paragraph">
+<p>Caches do make a difference here of course, and lead to much faster memory return times.</p>
+</div>
 </li>
 </ul>
 </div>
@@ -20606,7 +20617,7 @@ Exiting @ tick 3500 because exiting with last active thread context</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s study the first event. From GDB, it&#8217;s stack trace is:</p>
+<p>Let&#8217;s study the first event. From <a href="#debug-the-emulator">GDB</a>, let&#8217;s break at the point that prints messages: <code>Trace::OstreamLogger::logMessage()</code> to see where events are being scheduled from:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -20687,7 +20698,7 @@ simulate() at simulate.cc:104 0x555559476d6f</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>And at long, we can guess without reading the code that <code>Event_71</code> is comes from the SE implementation of the exit syscall, so let&#8217;s just confirm, the trace contains:</p>
+<p>And at last, we can guess without reading the code that <code>Event_71</code> is comes from the SE implementation of the exit syscall, so let&#8217;s just confirm, the trace contains:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -20715,7 +20726,450 @@ AtomicSimpleCPU::tick() at atomic.cc:757 0x55555907834c</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis"><a class="anchor" href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis"></a><a class="link" href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">19.19.4.2. gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></h5>
+<h5 id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis"><a class="anchor" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis"></a><a class="link" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">19.19.4.2. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a></h5>
+<div class="paragraph">
+<p><a href="#gem5-basesimplecpu">TimingSimpleCPU</a> should be the second simplest CPU to analyze, so let&#8217;s give it a try:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace Event,ExecAll \
+  --trace-stdout \
+  -- \
+  --cpu-type TimingSimpleCPU \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As of LKMC 9bfbff244d713de40e5686bd370eadb20cf78c7b + 1 the log is now much more complex.</p>
+</div>
+<div class="paragraph">
+<p>Here is an abridged version with:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the beginning up to the second instruction</p>
+</li>
+<li>
+<p>end ending</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>because all that happens in between is exactly the same as the first two instructions and therefore boring:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: system.cpu.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+**** REAL SIMULATION ****
+      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
+      0: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
+      0: Event_74: generic event scheduled @ 0
+info: Entering event queue @ 0.  Starting simulation...
+      0: Event_74: generic event rescheduled @ 18446744073709551615
+      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+      0: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
+      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 46250
+      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 5000
+      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+  46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250
+  74250: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
+  74250: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
+  77000: Event_40: Timing CPU icache tick event scheduled @ 77000
+  77000: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  77000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
+  77000: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 78000
+  77000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 95750
+  77000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
+  95750: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 123750
+ 123750: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 126000
+ 123750: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped event scheduled @ 126000
+ 126000: Event_40: Timing CPU icache tick event scheduled @ 126000
+      [...]
+ 469000: system.cpu A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+ 469000: Event_75: generic event scheduled @ 469000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>0: system.cpu.wrapped_function_event</code> schedule the initial tick, much like for for <code>AtomicSimpleCPU</code>. This time however, it is not a tick, but rather a fetch event that gets scheduled:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>TimingSimpleCPU::activateContext(ThreadID thread_num)
+{
+    DPRINTF(SimpleCPU, "ActivateContext %d\n", thread_num);
+
+    assert(thread_num &lt; numThreads);
+
+    threadInfo[thread_num]-&gt;notIdleFraction = 1;
+    if (_status == BaseSimpleCPU::Idle)
+        _status = BaseSimpleCPU::Running;
+
+    // kick things off by initiating the fetch of the next instruction
+    if (!fetchEvent.scheduled())
+        schedule(fetchEvent, clockEdge(Cycles(0)));</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We have a fetch instead of a tick here compared to <code>AtomicSimpleCPU</code>, because in the timing CPU we must first get the instruction opcode from DRAM, which takes some cycles to return!</p>
+</div>
+<div class="paragraph">
+<p>By looking at the source, we see that fetchEvent runs <code>TimingSimpleCPU::fetch</code>.</p>
+</div>
+<div class="paragraph">
+<p><code>0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250</code>: from GDB we see that it comes from <code>DRAMCtrl::startup</code> in <code>mem/dram_ctrl.cc</code> which contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>void
+DRAMCtrl::startup()
+{
+    // remember the memory system mode of operation
+    isTimingMode = system()-&gt;isTimingMode();
+
+    if (isTimingMode) {
+        // timestamp offset should be in clock cycles for DRAMPower
+        timeStampOffset = divCeil(curTick(), tCK);
+
+        // update the start tick for the precharge accounting to the
+        // current tick
+        for (auto r : ranks) {
+            r-&gt;startup(curTick() + tREFI - tRP);
+        }
+
+        // shift the bus busy time sufficiently far ahead that we never
+        // have to worry about negative values when computing the time for
+        // the next request, this will add an insignificant bubble at the
+        // start of simulation
+        nextBurstAt = curTick() + tRP + tRCD;
+    }
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which then calls:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>void
+DRAMCtrl::Rank::startup(Tick ref_tick)
+{
+    assert(ref_tick &gt; curTick());
+
+    pwrStateTick = curTick();
+
+    // kick off the refresh, and give ourselves enough time to
+    // precharge
+    schedule(refreshEvent, ref_tick);
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By looking up some variable definitions in the source, we now we see some memory parameters clearly:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>ranks: <code>std::vector&lt;DRAMCtrl::Rank*&gt;</code> with 2 elements. TODO why do we have 2? What does it represent? Likely linked to <a href="#gem5-config-ini"><code>config.ini</code></a> at <code>system.mem_ctrls.ranks_per_channel=2</code></p>
+</li>
+<li>
+<p><code>tCK=1250</code>, <code>tREFI=7800000</code>, <code>tRP=13750</code>, <code>tRCD=13750</code>: all defined in a single code location with a comment:</p>
+<div class="literalblock">
+<div class="content">
+<pre>     /**
+     * Basic memory timing parameters initialized based on parameter
+     * values.
+     */</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Their values can be seen under <code>config.ini</code> and they are documented in <code>src/mem/DRAMCtrl.py</code> e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    # the base clock period of the DRAM
+    tCK = Param.Latency("Clock period")
+
+    # minimum time between a precharge and subsequent activate
+    tRP = Param.Latency("Row precharge time")
+
+    # the amount of time in nanoseconds from issuing an activate command
+    # to the data being available in the row buffer for a read/write
+    tRCD = Param.Latency("RAS to CAS delay")
+
+    # refresh command interval, how often a "ref" command needs
+    # to be sent. It is 7.8 us for a 64ms refresh requirement
+    tREFI = Param.Latency("Refresh command interval")</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>So we realize that we are going into deep DRAM modelling, more detail that a mere mortal should ever need to know.</p>
+</div>
+<div class="paragraph">
+<p><code>curTick() + tREFI - tRP = 0 + 7800000 - 13750 = 7786250</code> which is when that <code>refreshEvent</code> was scheduled. Our simulation ends way before that point however, so we will never know what it did thank God.</p>
+</div>
+<div class="paragraph">
+<p><code>0: Event_74: generic event scheduled @ 0</code> and <code>0: Event_74: generic event rescheduled @ 18446744073709551615</code>: schedule the final exit event, same as for <code>AtomicSimpleCPU</code></p>
+</div>
+<div class="paragraph">
+<p>The next interesting event is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which comes from:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#0  Trace::OstreamLogger::logMessage
+#1  void Trace::Logger::dprintf
+#2  Event::trace
+#3  EventQueue::schedule
+#4  EventManager::schedule
+#5  DRAMCtrl::addToReadQueue
+#6  DRAMCtrl::recvTimingReq
+#7  DRAMCtrl::MemoryPort::recvTimingReq
+#8  TimingRequestProtocol::sendReq
+#9  MasterPort::sendTimingReq
+#10 CoherentXBar::recvTimingReq
+#11 CoherentXBar::CoherentXBarSlavePort::recvTimingReq(Packet*))
+#12 TimingRequestProtocol::sendReq
+#13 MasterPort::sendTimingReq
+#14 TimingSimpleCPU::sendFetch
+#15 TimingSimpleCPU::FetchTranslation::finish
+#16 ArmISA::TLB::translateComplete
+#17 ArmISA::TLB::translateTiming
+#18 ArmISA::TLB::translateTiming
+#19 TimingSimpleCPU::fetch
+#20 TimingSimpleCPU::&lt;lambda()&gt;::operator()(void)
+#21 std::_Function_handler&lt;void(), TimingSimpleCPU::TimingSimpleCPU(TimingSimpleCPUParams*)::&lt;lambda()&gt; &gt;
+#22 std::function&lt;void)&gt;::operator()() const
+#23 EventFunctionWrapper::process
+#24 EventQueue::serviceOne
+#25 doSimLoop
+#26 simulate</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>From the trace, we see that we are already running from the event queue. Therefore, we must have been running a previously scheduled event, and the previous event logs, the only such event is <code>0: system.cpu.wrapped_function_event: EventFunctionWrapped event scheduled @ 0</code> which scheduled a memory fetch!</p>
+</div>
+<div class="paragraph">
+<p>From the backtrace we see the tortuous path that the data request takes, going through:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ArmISA::TLB</code></p>
+</li>
+<li>
+<p><code>CoherentXBar</code></p>
+</li>
+<li>
+<p><code>DRAMCtrl</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The scheduling happens at frame <code>#5</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>     // If we are not already scheduled to get a request out of the
+     // queue, do so now
+     if (!nextReqEvent.scheduled()) {
+         DPRINTF(DRAM, "Request scheduled immediately\n");
+         schedule(nextReqEvent, curTick());
+     }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and from a quick source grep we see that <code>nextReqEvent</code> is a <code>DRAMCtrl::processNextReqEvent</code>.</p>
+</div>
+<div class="paragraph">
+<p>The next schedule:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>0: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and does a <code>BaseXBar::Layer::releaseLayer</code> event.</p>
+</div>
+<div class="paragraph">
+<p>This one is also coming from the request queue at <code>TimingSimpleCPU::fetch</code>. We deduce therefore that the single previous fetch event scheduled not one, but two events!</p>
+</div>
+<div class="paragraph">
+<p>Now:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>comes from the previously scheduled <code>DRAMCtrl::processNextReqEvent</code> and schedules <code>DRAMCtrl::Rank::processPrechargeEvent</code>.</p>
+</div>
+<div class="paragraph">
+<p>Now:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 46250</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>also runs from <code>DRAMCtrl::processNextReqEvent</code> and schedules a <code>DRAMCtrl::processRespondEvent</code>.</p>
+</div>
+<div class="paragraph">
+<p>I&#8217;m getting bored, let&#8217;s skip to the line that appears to matter for the first instruction:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>But I got even more bored, and I will now skip to the first event before the instruction:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  77000: Event_40: Timing CPU icache tick event scheduled @ 77000
+  77000: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This event comes from <code>PacketQueue::processSendEvent</code> and schedules itself:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>void
+TimingSimpleCPU::TimingCPUPort::TickEvent::schedule(PacketPtr _pkt, Tick t)
+{
+    pkt = _pkt;
+    cpu-&gt;schedule(this, t);
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which polymorphically resolves to:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>void
+TimingSimpleCPU::IcachePort::ITickEvent::process()
+{
+    cpu-&gt;completeIfetch(pkt);
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and so <code>TimingSimpleCPU::completeIfetch</code> is, at last, the interesting <code>TimingSimpleCPU</code> function!</p>
+</div>
+<div class="paragraph">
+<p>The end of this instruction must be setting things up in a way that can continue the PC walk loop, and by looking at the source and traces, it is clearly from: <code>TimingSimpleCPU::advanceInst</code> which calls <code>TimingSimpleCPU::fetch</code>, which is the very thing we did in this simulation!!! OMG, that&#8217;s the loop.</p>
+</div>
+<div class="paragraph">
+<p>One final thing to check, is how the memory reads are going to make the processor stall in the middle of an instruction.</p>
+</div>
+<div class="paragraph">
+<p>For that, we can GDB to the <code>TimingSimpleCPU::completeIfetch</code> of the first LDR done in our test program.</p>
+</div>
+<div class="paragraph">
+<p>By doing that, we see that this time at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>if (curStaticInst &amp;&amp; curStaticInst-&gt;isMemRef()) {
+    // load or store: just send to dcache
+    Fault fault = curStaticInst-&gt;initiateAcc(&amp;t_info, traceData);
+
+    if (_status == BaseSimpleCPU::Running) {
+    }
+} else if (curStaticInst) {
+    // non-memory instruction: execute completely now
+    Fault fault = curStaticInst-&gt;execute(&amp;t_info, traceData);</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>curStaticInst&#8594;isMemRef()</code> is true, and there is no instruction <code>execute</code> call in that part of the branch, only for instructions that don&#8217;t touch memory</p>
+</li>
+<li>
+<p><code>_status</code> is <code>BaseSimpleCPU::Status::DcacheWaitResponse</code> and <code>advanceInst</code> is not yet called</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>So, where is the <code>execute</code> happening? Well, I&#8217;ll satisfy myself with a quick source grep and guess:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>curStaticInst&#8594;initiateAcc</code> sets up some memory request events</p>
+</li>
+<li>
+<p>which likely lead up to: <code>TimingSimpleCPU::completeDataAccess</code>, which off the bat ends in <code>advanceInst</code>.</p>
+<div class="paragraph">
+<p>It also calls <code>curStaticInst&#8594;completeAcc</code>, which pairs up with the <code>initiateAcc</code> call.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches"><a class="anchor" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches"></a><a class="link" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">19.19.4.3. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></h5>
+<div class="paragraph">
+<p>Let&#8217;s just add --caches to see if things go any faster:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: system.cpu.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+**** REAL SIMULATION ****
+      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
+      0: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
+      0: Event_84: generic event scheduled @ 0
+info: Entering event queue @ 0.  Starting simulation...
+      0: Event_84: generic event rescheduled @ 18446744073709551615
+      0: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
+   1000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
+   1000: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 2000
+   1000: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
+   1000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 46250
+   1000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 5000
+   1000: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
+  46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250
+  74250: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
+  74250: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped event scheduled @ 80000
+  77000: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped event scheduled @ 78000
+  78000: Event_40: Timing CPU icache tick event scheduled @ 78000
+  78000: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  78000: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped event scheduled @ 83000
+  83000: Event_40: Timing CPU icache tick event scheduled @ 83000
+  83000: system.cpu A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+  [...]
+ 191000: system.cpu A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+ 191000: Event_85: generic event scheduled @ 191000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>So yes, <code>--caches</code> does work here, leading to a runtime of 191000 rather than 469000 without caches!</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis"><a class="anchor" href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis"></a><a class="link" href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">19.19.4.4. gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></h5>
 <div class="paragraph">
 <p>The events <a href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis">for the Atomic CPU</a> were pretty simple: basically just ticks.</p>
 </div>
@@ -23196,6 +23650,9 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 <div class="ulist">
 <ul>
+<li>
+<p><a href="http://www.cs.virginia.edu/stream/ref.html" class="bare">http://www.cs.virginia.edu/stream/ref.html</a> STREAM memory bandwidth benchmarks.</p>
+</li>
 <li>
 <p><a href="https://github.com/kozyraki/stamp" class="bare">https://github.com/kozyraki/stamp</a> transactional memory benchmarks</p>
 </li>
