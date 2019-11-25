@@ -946,10 +946,6 @@ Incompatible archs are skipped.
             env['initarg'] = 'init'
         env['quit_init'] = '{}={}'.format(env['initarg'], env['userland_quit_cmd'])
 
-        if not env['_args_given']['copy_overlay']:
-            if self.env['in_tree'] or self.env['static']:
-                env['copy_overlay'] = False
-
         # Userland
         env['userland_source_arch_arch_dir'] = join(env['userland_source_arch_dir'], env['arch'])
         if env['in_tree']:
@@ -957,6 +953,9 @@ Incompatible archs are skipped.
         else:
             env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
         env['package'] = set(env['package'])
+        if not env['_args_given']['copy_overlay']:
+            if self.env['in_tree'] or self.env['static']:
+                env['copy_overlay'] = False
 
         # Kernel modules.
         env['kernel_modules_build_dir'] = join(env['kernel_modules_build_base_dir'], env['arch'])
