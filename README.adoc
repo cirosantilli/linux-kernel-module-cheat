@@ -12115,6 +12115,8 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 
 From the message, this appears however to be a Python / pyenv11 bug however and not in gem5 specifically. I think it worked when I tried it in the past in an older gem5 / Ubuntu.
 
+`--without-tcmalloc` is needed / a good idea when using `--with-asan`: https://stackoverflow.com/questions/42712555/address-sanitizer-fsanitize-address-works-with-tcmalloc since both do more or less similar jobs, see also <<memory-leaks>>.
+
 ==== gem5 Ruby build
 
 Ruby is a system that includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby
@@ -12665,6 +12667,8 @@ new GlobalSimLoopExitEvent(when + simQuantum, message, exit_code, repeat);
 Tested at b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis
+
+TODO: analyze better what each of the memory event mean. For now, we have just collected a bunch of data there, but needs interpreting. The CPU specifics in this section are already insightful however.
 
 <<gem5-basesimplecpu,TimingSimpleCPU>> should be the second simplest CPU to analyze, so let's give it a try:
 
@@ -14506,20 +14510,26 @@ Build and run on QEMU <<user-mode-simulation>>:
 
 ....
 git submodule update --init submodules/dhrystone
-./build-dhrystone --mode userland
+./build-dhrystone --optimization-level 3
 ./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+Increase the number of loops to try and reach more meaningful results:
+
+....
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone" --userland-args 100000000
 ....
 
 Build and run on gem5 user mode:
 
 ....
-./build-dhrystone --mode userland --static --force-rebuild
-./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+./build-dhrystone --optimization-level 3 --static
+./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/dhrystone/dhrystone"
 ....
 
 TODO automate run more nicely.
 
-Build for <<baremetal>> execution and run it in baremetal QEMU:
+Build for <<baremetal>> execution and run it in baremetal QEMU. TODO: fix the build, just need to factor out all run arguments from link:build-baremetal[] into link:common.py[] and it should just work, no missing syscalls.
 
 ....
 # Build our Newlib stubs.
@@ -14527,8 +14537,6 @@ Build for <<baremetal>> execution and run it in baremetal QEMU:
 ./build-dhrystone --arch aarch64 --mode baremetal
 ./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"
 ....
-
-TODO: fix the build, just need to factor out all run arguments from link:build-baremetal[] into link:common.py[] and it should just work, no missing syscalls.
 
 If you really want the Buildroot package for some reason, build it with:
 
@@ -14540,6 +14548,68 @@ and run inside the guest from `PATH` with:
 
 ....
 dhrystone
+....
+
+==== STREAM benchmark
+
+http://www.cs.virginia.edu/stream/ref.html
+
+Very simple memory width benchmark with one C and one Fortran version, originally published in 1991, and the latest version at the time of writing is from 2013.
+
+Its operation is very simple: fork one thread for each CPU in the system (using OpenMP) and do the following four array operations (4 separate loops of individual operations):
+
+....
+/* Copy. */
+times[0 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    c[j] = a[j];
+times[0 * ntimes + k] = mysecond() - times[0 * ntimes + k];
+
+/* Scale. */
+times[1 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    b[j] = scalar*c[j];
+times[1 * ntimes + k] = mysecond() - times[1 * ntimes + k];
+
+/* Add. */
+times[2 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    c[j] = a[j]+b[j];
+times[2 * ntimes + k] = mysecond() - times[2 * ntimes + k];
+
+/* Triad. */
+times[3 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    a[j] = b[j]+scalar*c[j];
+times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
+}
+....
+
+See also: https://stackoverflow.com/questions/56086993/what-does-stream-memory-bandwidth-benchmark-really-measure
+
+The LKMC usage of STREAM is analogous to that of <<dhrystone>>. Build and run on QEMU <<user-mode-simulation>>:
+
+....
+git submodule update --init submodules/stream-benchmark
+./build-stream --optimization-level 3
+./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe"
+....
+
+Decrease the benchmark size and the retry count to finish simulation faster, but possibly have a less representative result:
+
+....
+./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '100 2'
+....
+
+Build and run on gem5 user mode:
+
+....
+./build-stream --optimization-level 3 --static
+./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'
 ....
 
 ==== PARSEC benchmark

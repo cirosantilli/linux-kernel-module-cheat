@@ -1011,7 +1011,7 @@ Incompatible archs are skipped.
         )
         if env['mode'] == 'baremetal':
             env['build_dir'] = env['baremetal_build_dir']
-        elif env['mode'] == 'userland':
+        else:
             env['build_dir'] = env['userland_build_dir']
 
         # Docker
@@ -1119,6 +1119,7 @@ lunch aosp_{}-eng
             env['toolchain_prefix_dash'] = ''
         else:
             env['toolchain_prefix_dash'] = '{}-'.format(env['toolchain_prefix'])
+        env['gfortran_path'] = self.get_toolchain_tool('gfortran')
         env['gcc_path'] = self.get_toolchain_tool('gcc')
         env['gxx_path'] = self.get_toolchain_tool('g++')
         env['ld_path'] = self.get_toolchain_tool('ld')

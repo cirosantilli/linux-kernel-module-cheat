@@ -11,7 +11,7 @@ class Main(common.BuildCliFunction):
     def __init__(self):
         super().__init__(
             description='''\
-https://cirosantilli.com/linux-kernel-module-cheat#dhrystone
+https://cirosantilli.com/linux-kernel-module-cheat#stream-benchmark
 '''
         )
         self._add_argument('--ccflags')
@@ -19,7 +19,7 @@ https://cirosantilli.com/linux-kernel-module-cheat#dhrystone
         self._add_argument('--optimization-level')
 
     def setup(self, env):
-        self.root_relpath = os.path.join('submodules', 'dhrystone')
+        self.root_relpath = os.path.join('submodules', 'stream-benchmark')
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -40,18 +40,19 @@ https://cirosantilli.com/linux-kernel-module-cheat#dhrystone
             [
                 'make', LF,
                 '-j', str(self.env['nproc']), LF,
-                '-C', os.path.join(self.env['submodules_dir'], 'dhrystone'), LF,
+                '-C', os.path.join(self.env['submodules_dir'], 'stream-benchmark'), LF,
                 'CC={}'.format(self.env['gcc_path']), LF,
                 'CFLAGS_EXTRA={}'.format(' '.join(cflags)), LF,
                 'EXTRA_OBJS={}'.format(' '.join(extra_objs)), LF,
+                'FC={}'.format(self.env['gfortran_path']), LF,
                 'OUT_DIR={}'.format(build_dir), LF,
             ]
             + extra_flags
         )
         if ret == 0 and self.env['copy_overlay']:
             self.sh.copy_file_if_update(
-                os.path.join(build_dir, 'dhrystone'),
-                os.path.join(self.env['out_rootfs_overlay_lkmc_dir'], self.root_relpath, 'dhrystone'),
+                os.path.join(build_dir, 'stream_c.exe'),
+                os.path.join(self.env['out_rootfs_overlay_lkmc_dir'], self.root_relpath, 'stream-benchmark'),
             )
         return ret
 
