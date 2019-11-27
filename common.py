@@ -501,6 +501,17 @@ user mode simulations in simulators that don't support dynamic linking like gem5
 '''
         )
         self.add_argument(
+            '--host',
+            default=False,
+            help='''\
+Use the host toolchain and other dependencies to build exectuables for host execution.
+Automatically place the build output on a separate directory from non --host builds,
+e.g. by defaulting --userland-build-id host if that option has effect for the package.
+Make --copy-overlay default to False as the generated executables can't in general
+be run in the guest.
+''',
+        )
+        self.add_argument(
             '--out-rootfs-overlay-dir-prefix',
             default='',
             help='''\
@@ -694,6 +705,8 @@ Incompatible archs are skipped.
         if not env['_args_given']['userland_build_id']:
             if env['static']:
                 env['userland_build_id'] = 'static'
+            elif env['host']:
+                env['userland_build_id'] = 'host'
             else:
                 env['userland_build_id'] = env['default_build_id']
         if not env['_args_given']['gem5_build_id']:
@@ -954,7 +967,7 @@ Incompatible archs are skipped.
             env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
         env['package'] = set(env['package'])
         if not env['_args_given']['copy_overlay']:
-            if self.env['in_tree'] or self.env['static']:
+            if self.env['in_tree'] or self.env['static'] or self.env['host']:
                 env['copy_overlay'] = False
 
         # Kernel modules.
@@ -1082,6 +1095,8 @@ lunch aosp_{}-eng
         if not env['_args_given']['gcc_which']:
             if env['mode'] == 'baremetal':
                 env['gcc_which'] = 'crosstool-ng'
+            elif env['host']:
+                env['gcc_which'] = 'host'
         if env['gcc_which'] == 'buildroot':
             env['toolchain_prefix'] = os.path.join(
                 env['buildroot_host_bin_dir'],
