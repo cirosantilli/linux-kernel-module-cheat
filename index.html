@@ -1326,13 +1326,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#benchmarks">21.8. Benchmarks</a>
 <ul class="sectlevel3">
 <li><a href="#dhrystone">21.8.1. Dhrystone</a></li>
-<li><a href="#parsec-benchmark">21.8.2. PARSEC benchmark</a>
+<li><a href="#stream-benchmark">21.8.2. STREAM benchmark</a></li>
+<li><a href="#parsec-benchmark">21.8.3. PARSEC benchmark</a>
 <ul class="sectlevel4">
-<li><a href="#parsec-benchmark-without-parsecmgmt">21.8.2.1. PARSEC benchmark without parsecmgmt</a></li>
-<li><a href="#parsec-change-the-input-size">21.8.2.2. PARSEC change the input size</a></li>
-<li><a href="#parsec-benchmark-with-parsecmgmt">21.8.2.3. PARSEC benchmark with parsecmgmt</a></li>
-<li><a href="#parsec-uninstall">21.8.2.4. PARSEC uninstall</a></li>
-<li><a href="#parsec-benchmark-hacking">21.8.2.5. PARSEC benchmark hacking</a></li>
+<li><a href="#parsec-benchmark-without-parsecmgmt">21.8.3.1. PARSEC benchmark without parsecmgmt</a></li>
+<li><a href="#parsec-change-the-input-size">21.8.3.2. PARSEC change the input size</a></li>
+<li><a href="#parsec-benchmark-with-parsecmgmt">21.8.3.3. PARSEC benchmark with parsecmgmt</a></li>
+<li><a href="#parsec-uninstall">21.8.3.4. PARSEC uninstall</a></li>
+<li><a href="#parsec-benchmark-hacking">21.8.3.5. PARSEC benchmark hacking</a></li>
 </ul>
 </li>
 </ul>
@@ -3223,7 +3224,7 @@ unzip lkmc-*.zip
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-modules --gcc-which host --host</pre>
+<pre>./build-modules --host</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3234,7 +3235,7 @@ unzip lkmc-*.zip
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-modules --gcc-which host --host -- hello hello2</pre>
+<pre>./build-modules --host -- hello hello2</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -19918,6 +19919,9 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 <div class="paragraph">
 <p>From the message, this appears however to be a Python / pyenv11 bug however and not in gem5 specifically. I think it worked when I tried it in the past in an older gem5 / Ubuntu.</p>
 </div>
+<div class="paragraph">
+<p><code>--without-tcmalloc</code> is needed / a good idea when using <code>--with-asan</code>: <a href="https://stackoverflow.com/questions/42712555/address-sanitizer-fsanitize-address-works-with-tcmalloc" class="bare">https://stackoverflow.com/questions/42712555/address-sanitizer-fsanitize-address-works-with-tcmalloc</a> since both do more or less similar jobs, see also <a href="#memory-leaks">Memory leaks</a>.</p>
+</div>
 </div>
 <div class="sect3">
 <h4 id="gem5-ruby-build"><a class="anchor" href="#gem5-ruby-build"></a><a class="link" href="#gem5-ruby-build">19.16.4. gem5 Ruby build</a></h4>
@@ -20727,6 +20731,9 @@ AtomicSimpleCPU::tick() at atomic.cc:757 0x55555907834c</pre>
 </div>
 <div class="sect4">
 <h5 id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis"><a class="anchor" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis"></a><a class="link" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">19.19.4.2. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a></h5>
+<div class="paragraph">
+<p>TODO: analyze better what each of the memory event mean. For now, we have just collected a bunch of data there, but needs interpreting. The CPU specifics in this section are already insightful however.</p>
+</div>
 <div class="paragraph">
 <p><a href="#gem5-basesimplecpu">TimingSimpleCPU</a> should be the second simplest CPU to analyze, so let&#8217;s give it a try:</p>
 </div>
@@ -21735,7 +21742,7 @@ make menuconfig</pre>
 <p>Also mentioned at: <a href="https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot" class="bare">https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot</a></p>
 </div>
 <div class="paragraph">
-<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 21.8.2.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
+<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 21.8.3.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -23675,8 +23682,19 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 <div class="literalblock">
 <div class="content">
 <pre>git submodule update --init submodules/dhrystone
-./build-dhrystone --mode userland
+./build-dhrystone --optimization-level 3
 ./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO automate run more nicely to dispense <code>getvar</code>.</p>
+</div>
+<div class="paragraph">
+<p>Increase the number of loops to try and reach more meaningful results:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone" --userland-args 100000000</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -23684,15 +23702,21 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-dhrystone --mode userland --static --force-rebuild
-./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+<pre>./build-dhrystone --optimization-level 3 --static
+./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>TODO automate run more nicely.</p>
+<p>Run natively on the host:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-dhrystone --host
+"$(./getvar --host userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>Build for <a href="#baremetal">Baremetal</a> execution and run it in baremetal QEMU:</p>
+<p>Build for <a href="#baremetal">Baremetal</a> execution and run it in baremetal QEMU. TODO: fix the build, just need to factor out all run arguments from <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/build-baremetal">build-baremetal</a> into <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/common.py">common.py</a> and it should just work, no missing syscalls.</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -23701,9 +23725,6 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 ./build-dhrystone --arch aarch64 --mode baremetal
 ./run --arch aarch64 --baremetal "$(./getvar baremetal_build_dir)/submodules/dhrystone/dhrystone"</pre>
 </div>
-</div>
-<div class="paragraph">
-<p>TODO: fix the build, just need to factor out all run arguments from <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/build-baremetal">build-baremetal</a> into <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/common.py">common.py</a> and it should just work, no missing syscalls.</p>
 </div>
 <div class="paragraph">
 <p>If you really want the Buildroot package for some reason, build it with:</p>
@@ -23723,7 +23744,81 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect3">
-<h4 id="parsec-benchmark"><a class="anchor" href="#parsec-benchmark"></a><a class="link" href="#parsec-benchmark">21.8.2. PARSEC benchmark</a></h4>
+<h4 id="stream-benchmark"><a class="anchor" href="#stream-benchmark"></a><a class="link" href="#stream-benchmark">21.8.2. STREAM benchmark</a></h4>
+<div class="paragraph">
+<p><a href="http://www.cs.virginia.edu/stream/ref.html" class="bare">http://www.cs.virginia.edu/stream/ref.html</a></p>
+</div>
+<div class="paragraph">
+<p>Very simple memory width benchmark with one C and one Fortran version, originally published in 1991, and the latest version at the time of writing is from 2013.</p>
+</div>
+<div class="paragraph">
+<p>Its operation is very simple: fork one thread for each CPU in the system (using OpenMP) and do the following four array operations (4 separate loops of individual operations):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/* Copy. */
+times[0 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j&lt;stream_array_size; j++)
+    c[j] = a[j];
+times[0 * ntimes + k] = mysecond() - times[0 * ntimes + k];
+
+/* Scale. */
+times[1 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j&lt;stream_array_size; j++)
+    b[j] = scalar*c[j];
+times[1 * ntimes + k] = mysecond() - times[1 * ntimes + k];
+
+/* Add. */
+times[2 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j&lt;stream_array_size; j++)
+    c[j] = a[j]+b[j];
+times[2 * ntimes + k] = mysecond() - times[2 * ntimes + k];
+
+/* Triad. */
+times[3 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j&lt;stream_array_size; j++)
+    a[j] = b[j]+scalar*c[j];
+times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>See also: <a href="https://stackoverflow.com/questions/56086993/what-does-stream-memory-bandwidth-benchmark-really-measure" class="bare">https://stackoverflow.com/questions/56086993/what-does-stream-memory-bandwidth-benchmark-really-measure</a></p>
+</div>
+<div class="paragraph">
+<p>The LKMC usage of STREAM is analogous to that of <a href="#dhrystone">Dhrystone</a>. Build and run on QEMU <a href="#user-mode-simulation">User mode simulation</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>git submodule update --init submodules/stream-benchmark
+./build-stream --optimization-level 3
+./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Decrease the benchmark size and the retry count to finish simulation faster, but possibly have a less representative result:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '100 2'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Build and run on gem5 user mode:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-stream --optimization-level 3 --static
+./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="parsec-benchmark"><a class="anchor" href="#parsec-benchmark"></a><a class="link" href="#parsec-benchmark">21.8.3. PARSEC benchmark</a></h4>
 <div class="paragraph">
 <p>We have ported parts of the <a href="http://parsec.cs.princeton.edu">PARSEC benchmark</a> for cross compilation at: <a href="https://github.com/cirosantilli/parsec-benchmark" class="bare">https://github.com/cirosantilli/parsec-benchmark</a> See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.</p>
 </div>
@@ -23741,7 +23836,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </ul>
 </div>
 <div class="sect4">
-<h5 id="parsec-benchmark-without-parsecmgmt"><a class="anchor" href="#parsec-benchmark-without-parsecmgmt"></a><a class="link" href="#parsec-benchmark-without-parsecmgmt">21.8.2.1. PARSEC benchmark without parsecmgmt</a></h5>
+<h5 id="parsec-benchmark-without-parsecmgmt"><a class="anchor" href="#parsec-benchmark-without-parsecmgmt"></a><a class="link" href="#parsec-benchmark-without-parsecmgmt">21.8.3.1. PARSEC benchmark without parsecmgmt</a></h5>
 <div class="literalblock">
 <div class="content">
 <pre>./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
@@ -23775,7 +23870,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect4">
-<h5 id="parsec-change-the-input-size"><a class="anchor" href="#parsec-change-the-input-size"></a><a class="link" href="#parsec-change-the-input-size">21.8.2.2. PARSEC change the input size</a></h5>
+<h5 id="parsec-change-the-input-size"><a class="anchor" href="#parsec-change-the-input-size"></a><a class="link" href="#parsec-change-the-input-size">21.8.3.2. PARSEC change the input size</a></h5>
 <div class="paragraph">
 <p>Running a benchmark of a size different than <code>test</code>, e.g. <code>simsmall</code>, requires a rebuild with:</p>
 </div>
@@ -23839,7 +23934,7 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 <div class="sect4">
-<h5 id="parsec-benchmark-with-parsecmgmt"><a class="anchor" href="#parsec-benchmark-with-parsecmgmt"></a><a class="link" href="#parsec-benchmark-with-parsecmgmt">21.8.2.3. PARSEC benchmark with parsecmgmt</a></h5>
+<h5 id="parsec-benchmark-with-parsecmgmt"><a class="anchor" href="#parsec-benchmark-with-parsecmgmt"></a><a class="link" href="#parsec-benchmark-with-parsecmgmt">21.8.3.3. PARSEC benchmark with parsecmgmt</a></h5>
 <div class="paragraph">
 <p>Most users won&#8217;t want to use this method because:</p>
 </div>
@@ -23902,7 +23997,7 @@ parsecmgmt -a run -p splash2x.fmm -i test</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">21.8.2.4. PARSEC uninstall</a></h5>
+<h5 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">21.8.3.4. PARSEC uninstall</a></h5>
 <div class="paragraph">
 <p>If you want to remove PARSEC later, Buildroot doesn&#8217;t provide an automated package removal mechanism as mentioned at: <a href="#remove-buildroot-packages">Section 20.6, &#8220;Remove Buildroot packages&#8221;</a>, but the following procedure should be satisfactory:</p>
 </div>
@@ -23920,7 +24015,7 @@ parsecmgmt -a run -p splash2x.fmm -i test</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="parsec-benchmark-hacking"><a class="anchor" href="#parsec-benchmark-hacking"></a><a class="link" href="#parsec-benchmark-hacking">21.8.2.5. PARSEC benchmark hacking</a></h5>
+<h5 id="parsec-benchmark-hacking"><a class="anchor" href="#parsec-benchmark-hacking"></a><a class="link" href="#parsec-benchmark-hacking">21.8.3.5. PARSEC benchmark hacking</a></h5>
 <div class="paragraph">
 <p>If you end up going inside <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/submodules/parsec-benchmark">submodules/parsec-benchmark</a> to hack up the benchmark (you will!), these tips will be helpful.</p>
 </div>
