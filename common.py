@@ -151,6 +151,8 @@ consts['build_type_choices'] = [
     'debug'
 ]
 consts['build_type_default'] = 'opt'
+# Files whose basename start with this are gitignored.
+consts['tmp_prefix'] = 'tmp.'
 
 class ExitLoop(Exception):
     pass
@@ -543,7 +545,8 @@ are available.
             default=False,
             help='''\
 Build userland executables statically. Set --userland-build-id to 'static'
-if one was not given explicitly.
+if one was not given explicitly. See also:
+https://cirosantilli.com/linux-kernel-module-cheat#user-mode-static-executables
 ''',
         )
         self.add_argument(
@@ -1103,6 +1106,7 @@ lunch aosp_{}-eng
                 env['buildroot_toolchain_prefix']
             )
             env['userland_library_dir'] = env['buildroot_target_dir']
+            env['userland_library_redirects'] = ['lib', 'lib64', os.path.join('usr', 'lib'), os.path.join('usr', 'lib64')]
             env['pkg_config'] = env['buildroot_pkg_config']
         elif env['gcc_which'] == 'crosstool-ng':
             env['toolchain_prefix'] = os.path.join(

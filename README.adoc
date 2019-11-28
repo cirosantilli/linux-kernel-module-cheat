@@ -3864,8 +3864,8 @@ We pass `-L` by default, so everything just works.
 
 However, in case something goes wrong, you can also try statically linked executables, since this mechanism tends to be a bit more stable, for example:
 
-* gem5 user mode currently only supports static executables as mentioned at: xref:gem5-syscall-emulation-mode[xrefstyle=full]
 * QEMU x86_64 guest on x86_64 host was failing with <<stack-smashing-detected>>, but we found a workaround
+* gem5 user only supported static executables in the past, as mentioned at: xref:gem5-syscall-emulation-mode[xrefstyle=full]
 
 Running statically linked executables sometimes makes things break:
 
@@ -3875,6 +3875,7 @@ Running statically linked executables sometimes makes things break:
 ....
 ./run --static --userland userland/c/file_write_read.c
 ....
++
 fails our assertion that the data was read back correctly:
 +
 ....
@@ -3965,7 +3966,7 @@ Input from a file by explicitly requesting our scripts to use it via the Python 
 
 ....
 printf a > f.tmp
-./run --emulator gem5 --userland userland/c/getchar.c --static --stdin-file f.tmp
+./run --emulator gem5 --userland userland/c/getchar.c --stdin-file f.tmp
 ....
 
 This is especially useful when running tests that require stdin input.
@@ -3978,24 +3979,12 @@ Less robust than QEMU's, but still usable:
 
 There are much more unimplemented syscalls in gem5 than in QEMU. Many of those are trivial to implement however.
 
-As of 185c2730cc78d5adda683d76c0e3b35e7cb534f0, dynamically linked executables only work on x86, and they can only use the host libraries, which is ugly:
-
-* https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5
-* https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html
-
-If you try dynamically linked executables on ARM, they fail with:
-
-....
-fatal: Unable to open dynamic executable's interpreter.
-....
+Support for dynamic linking was added in November 2019: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098
 
 So let's just play with some static ones:
 
 ....
-./build-userland \
-  --arch aarch64 \
-  --static \
-;
+./build-userland --arch aarch64
 ./run \
   --arch aarch64 \
   --emulator gem5 \
@@ -4013,14 +4002,12 @@ TODO: how to escape spaces on the command line arguments?
   --arch aarch64 \
   --emulator gem5 \
   --gdb-wait \
-  --static \
   --userland userland/c/command_line_arguments.c \
   --userland-args 'asdf "qw er"' \
 ;
 ./run-gdb \
   --arch aarch64 \
   --emulator gem5 \
-  --static \
   --userland userland/c/command_line_arguments.c \
   main \
 ;
@@ -4031,7 +4018,7 @@ TODO: how to escape spaces on the command line arguments?
 As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy `se.py` script does not forward the exit status of syscall emulation mode, you can test it with:
 
 ....
-./run --dry-run --emulator gem5 --static --userland userland/c/false.c
+./run --dry-run --emulator gem5 --userland userland/c/false.c
 ....
 
 Source: link:userland/c/false.c[].
@@ -4061,8 +4048,7 @@ Since gem5 has to implement syscalls itself in syscall emulation mode, it can of
 ....
 ./run \
   --emulator gem5 \
-  --static userland/arch/x86_64/freestanding/linux/hello.S \
-  --userland \
+  --userland userland/arch/x86_64/freestanding/linux/hello.S \
   --trace-stdout \
   --trace ExecAll,SyscallBase,SyscallVerbose \
 ;
@@ -10749,7 +10735,7 @@ gem5 user mode multithreading has been particularly flaky compared <<qemu-user-m
 You have the limitation that you must have at least one core per guest thread, otherwise `pthread_create` fails. For example:
 
 ....
-./run --cpus 1 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1
+./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1
 ....
 
 fails because that process has a total of 2 threads: one for `main` and one extra thread spawned: link:userland/posix/pthread_self.c[] The error message is:
@@ -10761,7 +10747,7 @@ pthread_create: Resource temporarily unavailable
 It works however if we add on extra CPU:
 
 ....
-./run --cpus 2 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1
+./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1
 ....
 
 This has to do with the fact that gem5 has a more simplistic thread implementation that does not spawn one host thread per guest thread CPU. Maybe this is required to achieve reproducible runs? What is the task switch algorithm then?
@@ -10769,8 +10755,8 @@ This has to do with the fact that gem5 has a more simplistic thread implementati
 gem5 threading does however show the expected number of cores, e.g.:
 
 ....
-./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static
-./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static
+./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
 ....
 
 outputs `1` and `2` respectively.
@@ -10778,7 +10764,7 @@ outputs `1` and `2` respectively.
 TODO: aarch64 seems to failing to spawn more than 2 threads at 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1:
 
 ....
-./run --arch aarch64 --cpus 3 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 2
+./run --arch aarch64 --cpus 3 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 2
 ....
 
 fails with:
@@ -11540,7 +11526,6 @@ To use that file, first rebuild `m5ops.out` with the m5ops instructions enabled 
   --arch aarch64 \
   --ccflags='-DLKMC_M5OPS_ENABLE=1' \
   --force-rebuild \
-  --static \
   userland/c/m5ops.c \
 ;
 ./build-buildroot --arch aarch64
@@ -11963,7 +11948,6 @@ A trivial and very direct way to see message would be:
 ....
 ./run \
   --emulator gem5 \
-  --static \
   --userland \userland/arch/x86_64/freestanding/linux/hello.S \
   --trace-insts-stdout \
   -- \
@@ -11990,7 +11974,6 @@ The exact same can be achieved with the older hardcoded `--maxinsts` mechanism p
 ....
 ./run \
   --emulator gem5 \
-  --static \
   --userland \userland/arch/x86_64/freestanding/linux/hello.S \
   --trace-insts-stdout \
   -- \
@@ -12003,7 +11986,6 @@ The message also shows on <<user-mode-simulation>> deadlocks, for example in lin
 ....
 ./run \
   --emulator gem5 \
-  --static \
   --userland userland/posix/pthread_deadlock.c \
   --userland-args 1 \
 ;
@@ -14381,13 +14363,11 @@ To benchmark on gem5, we first build the benchmark with <<m5ops-instructions>> e
   --arch x86_64 \
   --ccflags='-DLKMC_M5OPS_ENABLE=1' \
   --force-rebuild userland/cpp/bst_vs_heap_vs_hashmap.cpp \
-  --static \
   --optimization-level 3 \
 ;
 ./run \
   --arch x86_64 \
   --emulator gem5 \
-  --static \
   --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
   --userland-args='100000 1 0' \
   -- \
@@ -14504,6 +14484,15 @@ https://en.wikipedia.org/wiki/Dhrystone
 
 Created in the 80's, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by https://en.wikipedia.org/wiki/SPECint[SPEC], which is... closed source! Unbelievable.
 
+Dhrystone is very simple:
+
+* there is one loop in the `dhry_1.c` main function that gets executed N times
+* that loop calls 9 short functions called `Proc_0` to `Proc_9`, most of which are defined in `dhry_1.c`, and a few others in `dhry_2.c`
+
+The benchmark is single-threaded.
+
+After a quick look at it, Dhrystone in `-O3` is is very likely completely CPU bound, as there are no loops over variable sized arrays, except for some dummy ones that only run once. It just does a bunch of operations on local and global C variables, which are very likely to be inlined and treated fully in registers until the final write back. TODO confirm with some kind of measurement.
+
 <<buildroot>> has a `dhrystone` package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.
 
 Build and run on QEMU <<user-mode-simulation>>:
@@ -14525,8 +14514,8 @@ Increase the number of loops to try and reach more meaningful results:
 Build and run on gem5 user mode:
 
 ....
-./build-dhrystone --optimization-level 3 --static
-./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/dhrystone/dhrystone"
+./build-dhrystone --optimization-level 3
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
 ....
 
 Run natively on the host:
@@ -14615,8 +14604,8 @@ Decrease the benchmark size and the retry count to finish simulation faster, but
 Build and run on gem5 user mode:
 
 ....
-./build-stream --optimization-level 3 --static
-./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'
+./build-stream --optimization-level 3
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'
 ....
 
 ==== PARSEC benchmark
@@ -16077,7 +16066,7 @@ TODO: review this section, make a more controlled userland experiment with <<m5o
 Let's have some fun and try to correlate the <<gem5-m5out-stats-txt-file>> `system.cpu.numCycles` cycle count with the https://en.wikipedia.org/wiki/Time_Stamp_Counter[x86 RDTSC instruction] that is supposed to do the same thing:
 
 ....
-./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.S
+./build-userland userland/arch/x86_64/inline_asm/rdtsc.S
 ./run --eval './arch/x86_64/rdtsc.out;m5 exit;' --emulator gem5
 ./gem5-stat
 ....
@@ -17157,9 +17146,9 @@ gem5 covered at: https://stackoverflow.com/questions/57692765/how-to-change-the-
 It is fun to observe this directly with the <<arm-sve-vaddl-instruction>> in SE:
 
 ....
-./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 1'
-./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 2'
-./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 4'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 1'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 2'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 4'
 ....
 
 which consecutively:
@@ -19052,7 +19041,7 @@ TODO: automate this further, produce the results table automatically, possibly b
 
 For now we can just run on gem5 to estimate the instruction count per input size and extrapolate?
 
-For example, the simplest scalable CPU content would be a busy loop: link:userland/gcc/busy_loop.c[], so let's focus on that for now.
+For example, the simplest scalable CPU content would be a busy loop: link:userland/gcc/busy_loop.c[], so let's start by analyzing that one.
 
 Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: xref:table-busy-loop-dmips[xrefstyle=full]. As expected, the less native / more detailed / more complex simulations are slower!
 
@@ -19060,46 +19049,64 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 .Busy loop MIPS for different simulator setups
 [options="header"]
 |===
-|Simulator |Loops |Time (s) |Instruction count |Approximate MIPS
+|LKMC |Benchmark |Emulator |Loops |Time (s) |Instruction count |Approximate MIPS
 
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|userland/gcc/busy_loop.c -O0
 |`qemu --arch aarch64`
 |10^10
 |68
 |1.1 * 10^11 (approx)
 |2000
 
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|userland/gcc/busy_loop.c -O0
 |`gem5 --arch aarch64`
 |10^7
 |100
 |1.10018162 * 10^8
 |1
 
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|userland/gcc/busy_loop.c -O0
 |`+gem5 --arch aarch64 -- --cpu-type MinorCPU --caches+`
 |10^6
 |31
 |1.1018152 * 10^7
 |0.4
 
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|userland/gcc/busy_loop.c -O0
 |`+gem5 --arch aarch64 -- --cpu-type DerivO3CPU --caches+`
 |10^6
 |52
 |1.1018128 * 10^7
 |0.2
 
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|userland/gcc/busy_loop.c -O0
 |`+gem5 --arch aarch64 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby+`
 |1 * 1000000 = 10^6
 |63
 |1.1005150 * 10^7
 |0.2
 
+|a605448f07e6380634b1aa7e9732d111759f69fd + 1
+|<<dhrystone>> -O3
+|`gem5 --arch aarch64`
+|4 * 10^5
+|68
+|9.2034139 * 10^7
+|1.6
+
 |===
 
-The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored.
+The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored, so about 1 minute.
 
 On our <<p51>> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number for a gem5 atomic simulation:
 
 ....
-./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1 10000000' --static
+./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1 10000000'
 ./gem5-stat --arch aarch64 sim_insts
 ....
 
@@ -20689,6 +20696,22 @@ and as a shortcut, paths that don't have any children can be written directly as
 Properties of parent directories apply to all children.
 
 Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.
+
+To quickly determine which properties a path has, you can use link:getprops[], e.g.:
+
+....
+./getprops userland/c/hello.c
+....
+
+which outputs values such as:
+
+....
+allowed_archs=None
+allowed_emulators=None
+arm_aarch32=False
+arm_sve=False
+baremetal=True
+....
 
 === Update a forked submodule
 

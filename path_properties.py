@@ -231,10 +231,12 @@ class PathProperties:
         )
 
     def should_be_tested(self, env):
+        basename = self.path_components[-1]
         return (
             self.should_be_built(
                 env,
             ) and
+            not basename.startswith(env['tmp_prefix']) and
             not (
                 env['mode'] == 'baremetal' and (
                     self['arm_aarch32'] or
@@ -523,7 +525,13 @@ path_properties_tuples = (
                                 'freestanding': freestanding_properties,
                                 'lkmc_assert_eq_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'lkmc_assert_memcmp_fail.S': {'signal_received': signal.Signals.SIGABRT},
-                                'nostartfiles': nostartfiles_properties,
+                                'nostartfiles': (
+                                    nostartfiles_properties,
+                                    {
+                                        # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/107
+                                        'exit.s': {'skip_run_unclassified': True},
+                                    }
+                                ),
                                 'udf.S': {
                                     'signal_generated_by_os': True,
                                     'signal_received': signal.Signals.SIGILL,
