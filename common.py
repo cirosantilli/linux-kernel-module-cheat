@@ -1106,7 +1106,12 @@ lunch aosp_{}-eng
                 env['buildroot_toolchain_prefix']
             )
             env['userland_library_dir'] = env['buildroot_target_dir']
-            env['userland_library_redirects'] = ['lib', 'lib64', os.path.join('usr', 'lib'), os.path.join('usr', 'lib64')]
+            env['userland_library_redirects'] = [
+                'lib',
+                'lib64',
+                os.path.join('usr', 'lib'),
+                os.path.join('usr', 'lib64')
+            ]
             env['pkg_config'] = env['buildroot_pkg_config']
         elif env['gcc_which'] == 'crosstool-ng':
             env['toolchain_prefix'] = os.path.join(
@@ -1127,6 +1132,7 @@ lunch aosp_{}-eng
             elif env['arch'] == 'aarch64':
                 env['userland_library_dir'] = '/usr/aarch64-linux-gnu/'
             env['pkg_config'] = 'pkg-config'
+            env['userland_library_redirects'] = ['lib']
         elif env['gcc_which'] == 'host-baremetal':
             if env['arch'] == 'arm':
                 env['toolchain_prefix'] = 'arm-none-eabi'
