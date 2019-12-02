@@ -7520,10 +7520,10 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 <div class="ulist">
 <ul>
 <li>
-<p>gem5 user mode currently only supports static executables as mentioned at: <a href="#gem5-syscall-emulation-mode">Section 10.7, &#8220;gem5 syscall emulation mode&#8221;</a></p>
+<p>QEMU x86_64 guest on x86_64 host was failing with <a href="#stack-smashing-detected">stack smashing detected</a>, but we found a workaround</p>
 </li>
 <li>
-<p>QEMU x86_64 guest on x86_64 host was failing with <a href="#stack-smashing-detected">stack smashing detected</a>, but we found a workaround</p>
+<p>gem5 user only supported static executables in the past, as mentioned at: <a href="#gem5-syscall-emulation-mode">Section 10.7, &#8220;gem5 syscall emulation mode&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -7673,7 +7673,7 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
 <div class="literalblock">
 <div class="content">
 <pre>printf a &gt; f.tmp
-./run --emulator gem5 --userland userland/c/getchar.c --static --stdin-file f.tmp</pre>
+./run --emulator gem5 --userland userland/c/getchar.c --stdin-file f.tmp</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -7696,35 +7696,14 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
 <p>There are much more unimplemented syscalls in gem5 than in QEMU. Many of those are trivial to implement however.</p>
 </div>
 <div class="paragraph">
-<p>As of 185c2730cc78d5adda683d76c0e3b35e7cb534f0, dynamically linked executables only work on x86, and they can only use the host libraries, which is ugly:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5" class="bare">https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5</a></p>
-</li>
-<li>
-<p><a href="https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html" class="bare">https://www.mail-archive.com/gem5-users@gem5.org/msg15585.html</a></p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>If you try dynamically linked executables on ARM, they fail with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>fatal: Unable to open dynamic executable's interpreter.</pre>
-</div>
+<p>Support for dynamic linking was added in November 2019: <a href="https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098" class="bare">https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098</a></p>
 </div>
 <div class="paragraph">
 <p>So let&#8217;s just play with some static ones:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-userland \
-  --arch aarch64 \
-  --static \
-;
+<pre>./build-userland --arch aarch64
 ./run \
   --arch aarch64 \
   --emulator gem5 \
@@ -7745,14 +7724,12 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
   --arch aarch64 \
   --emulator gem5 \
   --gdb-wait \
-  --static \
   --userland userland/c/command_line_arguments.c \
   --userland-args 'asdf "qw er"' \
 ;
 ./run-gdb \
   --arch aarch64 \
   --emulator gem5 \
-  --static \
   --userland userland/c/command_line_arguments.c \
   main \
 ;</pre>
@@ -7765,7 +7742,7 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --dry-run --emulator gem5 --static --userland userland/c/false.c</pre>
+<pre>./run --dry-run --emulator gem5 --userland userland/c/false.c</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -7806,8 +7783,7 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
 <div class="content">
 <pre>./run \
   --emulator gem5 \
-  --static userland/arch/x86_64/freestanding/linux/hello.S \
-  --userland \
+  --userland userland/arch/x86_64/freestanding/linux/hello.S \
   --trace-stdout \
   --trace ExecAll,SyscallBase,SyscallVerbose \
 ;</pre>
@@ -17961,7 +17937,7 @@ ps Haux | grep qemu | wc</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --cpus 1 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1</pre>
+<pre>./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -17977,7 +17953,7 @@ ps Haux | grep qemu | wc</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --cpus 2 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 1</pre>
+<pre>./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -17988,8 +17964,8 @@ ps Haux | grep qemu | wc</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static
-./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5 --static</pre>
+<pre>./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -18000,7 +17976,7 @@ ps Haux | grep qemu | wc</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --cpus 3 --emulator gem5 --static --userland userland/posix/pthread_self.c --userland-args 2</pre>
+<pre>./run --arch aarch64 --cpus 3 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 2</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -19081,7 +19057,6 @@ m5 execfile</pre>
   --arch aarch64 \
   --ccflags='-DLKMC_M5OPS_ENABLE=1' \
   --force-rebuild \
-  --static \
   userland/c/m5ops.c \
 ;
 ./build-buildroot --arch aarch64</pre>
@@ -19732,7 +19707,6 @@ system.cpu[0].max_insts_any_thread</pre>
 <div class="content">
 <pre>./run \
   --emulator gem5 \
-  --static \
   --userland \userland/arch/x86_64/freestanding/linux/hello.S \
   --trace-insts-stdout \
   -- \
@@ -19763,7 +19737,6 @@ Exiting @ tick 3000 because all threads reached the max instruction count</pre>
 <div class="content">
 <pre>./run \
   --emulator gem5 \
-  --static \
   --userland \userland/arch/x86_64/freestanding/linux/hello.S \
   --trace-insts-stdout \
   -- \
@@ -19778,7 +19751,6 @@ Exiting @ tick 3000 because all threads reached the max instruction count</pre>
 <div class="content">
 <pre>./run \
   --emulator gem5 \
-  --static \
   --userland userland/posix/pthread_deadlock.c \
   --userland-args 1 \
 ;</pre>
@@ -23502,13 +23474,11 @@ xdg-open bst_vs_heap_vs_hashmap.tmp.png</pre>
   --arch x86_64 \
   --ccflags='-DLKMC_M5OPS_ENABLE=1' \
   --force-rebuild userland/cpp/bst_vs_heap_vs_hashmap.cpp \
-  --static \
   --optimization-level 3 \
 ;
 ./run \
   --arch x86_64 \
   --emulator gem5 \
-  --static \
   --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
   --userland-args='100000 1 0' \
   -- \
@@ -23674,6 +23644,25 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 <p>Created in the 80&#8217;s, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by <a href="https://en.wikipedia.org/wiki/SPECint">SPEC</a>, which is&#8230;&#8203; closed source! Unbelievable.</p>
 </div>
 <div class="paragraph">
+<p>Dhrystone is very simple:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>there is one loop in the <code>dhry_1.c</code> main function that gets executed N times</p>
+</li>
+<li>
+<p>that loop calls 9 short functions called <code>Proc_0</code> to <code>Proc_9</code>, most of which are defined in <code>dhry_1.c</code>, and a few others in <code>dhry_2.c</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The benchmark is single-threaded.</p>
+</div>
+<div class="paragraph">
+<p>After a quick look at it, Dhrystone in <code>-O3</code> is is very likely completely CPU bound, as there are no loops over variable sized arrays, except for some dummy ones that only run once. It just does a bunch of operations on local and global C variables, which are very likely to be inlined and treated fully in registers until the final write back, or to fit entirely in cache. TODO confirm with some kind of measurement. The benchmark also makes no syscalls except for measuring time and reporting results.</p>
+</div>
+<div class="paragraph">
 <p><a href="#buildroot">Buildroot</a> has a <code>dhrystone</code> package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.</p>
 </div>
 <div class="paragraph">
@@ -23702,8 +23691,8 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-dhrystone --optimization-level 3 --static
-./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+<pre>./build-dhrystone --optimization-level 3
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -23812,8 +23801,8 @@ times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-stream --optimization-level 3 --static
-./run --emulator gem5 --userland "$(./getvar --static userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'</pre>
+<pre>./build-stream --optimization-level 3
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'</pre>
 </div>
 </div>
 </div>
@@ -26800,7 +26789,7 @@ pop %rbp</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./build-userland --static userland/arch/x86_64/inline_asm/rdtsc.S
+<pre>./build-userland userland/arch/x86_64/inline_asm/rdtsc.S
 ./run --eval './arch/x86_64/rdtsc.out;m5 exit;' --emulator gem5
 ./gem5-stat</pre>
 </div>
@@ -28717,9 +28706,9 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 1'
-./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 2'
-./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --static --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 4'</pre>
+<pre>./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 1'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 2'
+./run --arch aarch64 --userland userland/arch/aarch64/sve_addvl.S --emulator gem5 -- --param 'system.cpu[:].isa[:].sve_vl_se = 4'</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -31507,7 +31496,7 @@ instructions 124346081</pre>
 <p>For now we can just run on gem5 to estimate the instruction count per input size and extrapolate?</p>
 </div>
 <div class="paragraph">
-<p>For example, the simplest scalable CPU content would be a busy loop: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a>, so let&#8217;s focus on that for now.</p>
+<p>For example, the simplest scalable CPU content would be a busy loop: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a>, so let&#8217;s start by analyzing that one.</p>
 </div>
 <div class="paragraph">
 <p>Summary of manually collected results on <a href="#p51">P51</a> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: <a href="#table-busy-loop-dmips">Table 7, &#8220;Busy loop MIPS for different simulator setups&#8221;</a>. As expected, the less native / more detailed / more complex simulations are slower!</p>
@@ -31515,15 +31504,19 @@ instructions 124346081</pre>
 <table id="table-busy-loop-dmips" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 7. Busy loop MIPS for different simulator setups</caption>
 <colgroup>
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2858%;">
 </colgroup>
 <thead>
 <tr>
-<th class="tableblock halign-left valign-top">Simulator</th>
+<th class="tableblock halign-left valign-top">LKMC</th>
+<th class="tableblock halign-left valign-top">Benchmark</th>
+<th class="tableblock halign-left valign-top">Emulator</th>
 <th class="tableblock halign-left valign-top">Loops</th>
 <th class="tableblock halign-left valign-top">Time (s)</th>
 <th class="tableblock halign-left valign-top">Instruction count</th>
@@ -31532,6 +31525,8 @@ instructions 124346081</pre>
 </thead>
 <tbody>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>qemu --arch aarch64</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^10</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
@@ -31539,6 +31534,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2000</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">100</p></td>
@@ -31546,6 +31543,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 -- --cpu-type MinorCPU --caches</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">31</p></td>
@@ -31553,6 +31552,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.4</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 -- --cpu-type DerivO3CPU --caches</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">52</p></td>
@@ -31560,23 +31561,43 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1 * 1000000 = 10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">63</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.1005150 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
 </tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">605448f07e6380634b1aa7e9732d111759f69fd</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#dhrystone">Dhrystone</a> -O3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4 * 10^5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">9.2034139 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5d233f2664a78789f9907d27e2a40e86cefad595</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#stream-benchmark">STREAM benchmark</a> -O3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --userland-args 300000 2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3 * 10^5 * 2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">64</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">9.9674773 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+</tr>
 </tbody>
 </table>
 <div class="paragraph">
-<p>The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored.</p>
+<p>The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored, so about 1 minute.</p>
 </div>
 <div class="paragraph">
 <p>On our <a href="#p51">P51</a> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number for a gem5 atomic simulation:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1 10000000' --static
+<pre>./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1 10000000'
 ./gem5-stat --arch aarch64 sim_insts</pre>
 </div>
 </div>
@@ -34131,6 +34152,26 @@ git submodule update
 </div>
 <div class="paragraph">
 <p>Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.</p>
+</div>
+<div class="paragraph">
+<p>To quickly determine which properties a path has, you can use <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/getprops">getprops</a>, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./getprops userland/c/hello.c</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which outputs values such as:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>allowed_archs=None
+allowed_emulators=None
+arm_aarch32=False
+arm_sve=False
+baremetal=True</pre>
+</div>
 </div>
 </div>
 <div class="sect2">
