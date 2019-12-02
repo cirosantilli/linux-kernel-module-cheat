@@ -56,6 +56,7 @@ class PathProperties:
         # For some reason QEMU fails with SIGSEGV on int syscalls in x86_64.
         'qemu_x86_64_int_syscall': False,
         'interactive': False,
+        'minimum_gcc_version': (0, 0, 0),
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
         # The path should not be built. E.g., it is symlinked into multiple archs.
@@ -153,6 +154,9 @@ class PathProperties:
         },
     }
 
+    # TODO maybe extract automatically from GCC executable?
+    current_gcc_version = (7, 3, 0)
+
     '''
     Encodes properties of userland and baremetal paths.
     For directories, it applies to all files under the directory.
@@ -227,6 +231,8 @@ class PathProperties:
                     'cpus' in self['test_run_args'] and
                     self['test_run_args']['cpus'] > 1
                 )
+            ) and not (
+                self['minimum_gcc_version'] > self.current_gcc_version
             )
         )
 
@@ -631,6 +637,7 @@ path_properties_tuples = (
                             },
                         ),
                         'count.cpp': {'more_than_1s': True},
+                        'parallel_sort.cpp': {'minimum_gcc_version': (9, 0, 0)},
                         'sleep_for.cpp': {
                             'more_than_1s': True,
                         },
