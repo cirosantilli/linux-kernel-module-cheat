@@ -18180,10 +18180,33 @@ The WFE and SEV instructions are just hints: a compliant implementation can trea
 
 However, likely no implementation likely does (TODO confirm), since:
 
-* WFE puts the core in a low power mode
+* WFE is intended to put the core in a low power mode
 * SEV wakes up cores from a low power mode
 
 and power consumption is key in ARM applications.
+
+SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDREX and STREX instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.
+
+WFE and SEV are usable from userland, and are part of a efficient spinlock implementation.
+
+Quotes for the above <<armarm8-db>> G1.18.1 "Wait For Event and Send Event":
+____
+The following events are WFE wake-up events:
+
+\[...]
+
+- An event caused by the clearing of the global monitor associated with the PE
+____
+
+and <<armarm8-db>> E2.9.6 "Use of WFE and SEV instructions by spin-locks":
+
+____
+ARMv8 provides Wait For Event, Send Event, and Send Event Local instructions, WFE, SEV, SEVL, that can assist with reducing power consumption and bus contention caused by PEs repeatedly attempting to obtain a spin-lock. These instructions can be used at the application level, but a complete understanding of what they do depends on a system level understanding of exceptions. They are described in Wait For Event and Send Event on page G1-5308. However, in ARMv8, when the global monitor for a PE changes from Exclusive Access state to Open Access state, an event is generated.
+
+Note This is equivalent to issuing an SEVL instruction on the PE for which the monitor state has changed. It removes the need for spinlock code to include an SEV instruction after clearing a spinlock.
+____
+
+The recommended ARMv8 spinlock implementation is shown at http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dht0008a/ch01s03s02.html where `WAIT_FOR_UPDATE` is as explained in that section a macro that expands to WFE.
 
 In QEMU 3.0.0, SEV is a NOPs, and WFE might be, but I'm not sure, see: https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423
 
@@ -18211,7 +18234,7 @@ TODO: what does the WFE code do? How can it not be a NOP if SEV is a NOP? https:
  */
 ....
 
-For gem5 however, if we comment out the SVE instruction, then it actually exits with `simulate() limit reached`, so the CPU truly never wakes up, which is a more realistic behaviour.
+For gem5 however, if we comment out the SVE instruction, then it actually exits with `simulate() limit reached`, so the CPU truly never wakes up, which is a more realistic behaviour, since gem5 is more focused on simulating a realistic microarchitecture and power consumption.
 
 The following Raspberry Pi bibliography helped us get this sample up and running:
 
