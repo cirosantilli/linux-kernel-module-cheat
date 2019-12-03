@@ -29,6 +29,10 @@
  * ....
  *
  * Note how the PID is the same for all threads.
+ *
+ * There is then a Linux specific gettid which returns a really unique thread ID:
+ * https://stackoverflow.com/questions/9305992/if-threads-share-the-same-pid-how-can-they-be-identified#comment42637433_9306150
+ * man gettid says that this value is different than pthread_self.
  */
 
 #define _XOPEN_SOURCE 700
