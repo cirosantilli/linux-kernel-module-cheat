@@ -1271,6 +1271,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#cpp-multithreading">21.2.1. C++ multithreading</a>
 <ul class="sectlevel4">
 <li><a href="#atomic-cpp">21.2.1.1. atomic.cpp</a></li>
+<li><a href="#cpp-parallel-algorithms">21.2.1.2. C++ parallel algorithms</a></li>
 </ul>
 </li>
 <li><a href="#cpp-standards">21.2.2. C++ standards</a>
@@ -22826,6 +22827,15 @@ time ./mutex.out 4 100000000</pre>
 </ul>
 </div>
 </div>
+<div class="sect4">
+<h5 id="cpp-parallel-algorithms"><a class="anchor" href="#cpp-parallel-algorithms"></a><a class="link" href="#cpp-parallel-algorithms">21.2.1.2. C++ parallel algorithms</a></h5>
+<div class="paragraph">
+<p><a href="https://stackoverflow.com/questions/51031060/are-c17-parallel-algorithms-implemented-already/55989883#55989883" class="bare">https://stackoverflow.com/questions/51031060/are-c17-parallel-algorithms-implemented-already/55989883#55989883</a></p>
+</div>
+<div class="paragraph">
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/parallel_sort.cpp">userland/cpp/parallel_sort.cpp</a></p>
+</div>
+</div>
 </div>
 <div class="sect3">
 <h4 id="cpp-standards"><a class="anchor" href="#cpp-standards"></a><a class="link" href="#cpp-standards">21.2.2. C++ standards</a></h4>
@@ -30258,7 +30268,7 @@ IN: main
 <div class="ulist">
 <ul>
 <li>
-<p>WFE puts the core in a low power mode</p>
+<p>WFE is intended to put the core in a low power mode</p>
 </li>
 <li>
 <p>SEV wakes up cores from a low power mode</p>
@@ -30267,6 +30277,48 @@ IN: main
 </div>
 <div class="paragraph">
 <p>and power consumption is key in ARM applications.</p>
+</div>
+<div class="paragraph">
+<p>SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDREX and STREX instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.</p>
+</div>
+<div class="paragraph">
+<p>WFE and SEV are usable from userland, and are part of a efficient spinlock implementation.</p>
+</div>
+<div class="paragraph">
+<p>Quotes for the above <a href="#armarm8-db">ARMv8 architecture reference manual db</a> G1.18.1 "Wait For Event and Send Event":</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>The following events are WFE wake-up events:</p>
+</div>
+<div class="paragraph">
+<p>\[&#8230;&#8203;]</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>An event caused by the clearing of the global monitor associated with the PE</p>
+</li>
+</ul>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p>and <a href="#armarm8-db">ARMv8 architecture reference manual db</a> E2.9.6 "Use of WFE and SEV instructions by spin-locks":</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>ARMv8 provides Wait For Event, Send Event, and Send Event Local instructions, WFE, SEV, SEVL, that can assist with reducing power consumption and bus contention caused by PEs repeatedly attempting to obtain a spin-lock. These instructions can be used at the application level, but a complete understanding of what they do depends on a system level understanding of exceptions. They are described in Wait For Event and Send Event on page G1-5308. However, in ARMv8, when the global monitor for a PE changes from Exclusive Access state to Open Access state, an event is generated.</p>
+</div>
+<div class="paragraph">
+<p>Note This is equivalent to issuing an SEVL instruction on the PE for which the monitor state has changed. It removes the need for spinlock code to include an SEV instruction after clearing a spinlock.</p>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p>The recommended ARMv8 spinlock implementation is shown at <a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dht0008a/ch01s03s02.html" class="bare">http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dht0008a/ch01s03s02.html</a> where <code>WAIT_FOR_UPDATE</code> is as explained in that section a macro that expands to WFE.</p>
 </div>
 <div class="paragraph">
 <p>In QEMU 3.0.0, SEV is a NOPs, and WFE might be, but I&#8217;m not sure, see: <a href="https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423" class="bare">https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423</a></p>
@@ -30299,7 +30351,7 @@ IN: main
 </div>
 </div>
 <div class="paragraph">
-<p>For gem5 however, if we comment out the SVE instruction, then it actually exits with <code>simulate() limit reached</code>, so the CPU truly never wakes up, which is a more realistic behaviour.</p>
+<p>For gem5 however, if we comment out the SVE instruction, then it actually exits with <code>simulate() limit reached</code>, so the CPU truly never wakes up, which is a more realistic behaviour, since gem5 is more focused on simulating a realistic microarchitecture and power consumption.</p>
 </div>
 <div class="paragraph">
 <p>The following Raspberry Pi bibliography helped us get this sample up and running:</p>
