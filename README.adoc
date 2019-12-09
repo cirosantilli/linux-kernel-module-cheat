@@ -11946,10 +11946,17 @@ https://stackoverflow.com/questions/52279971/how-to-run-the-gem5-unit-tests
 Running the larger 2019 regression tests is exposed for example with:
 
 ....
-./gem5-regression --arch aarch64 -- --length quick
+./build-gem5 --arch aarch64
+./gem5-regression --arch aarch64 -- --length quick --length long
 ....
 
-TODO skip the build by default with `--skip-build` since we already manage it with `./build-gem5`. But we can't do this because it is the build step that downloads the test binaries. We need to find a way to either download the binaries without building, or to pass the exact same scons build options through `test/main.py`.
+After the first run has downloaded the test binaries for you, you can speed up the process a little bit by skipping an useless scons call:
+
+....
+./gem5-regression --arch aarch64 -- --length quick --length long --skip-build
+....
+
+Note however that `--skip-build` is required at least once per branch to download the test binaries, because the test interface is bad.
 
 === gem5 simulate() limit reached
 
@@ -17226,9 +17233,11 @@ That document then describes the SVE instructions and registers.
 [[arm-lse]]
 ===== ARM Large System Extensions (LSE)
 
+Parent section: <<arm-multicore>>.
+
 <<armarm8-db>> "ARMv8.1-LSE, ARMv8.1 Large System Extensions"
 
-* LDADD: link:userland/cpp/atomic/aarch64_ldadd.cpp[], see also: <<atomic-cpp>>.
+* LDADD: link:userland/cpp/atomic/aarch64_ldadd.cpp[], see also: <<atomic-cpp>>. Kernel inspiration: https://github.com/torvalds/linux/blob/v5.4/arch/arm64/include/asm/atomic_lse.h#L56
 
 Bibliography:
 
@@ -18208,7 +18217,7 @@ However, likely no implementation likely does (TODO confirm), since:
 
 and power consumption is key in ARM applications.
 
-SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDREX and STREX instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.
+SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDAXR and STLXR instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.
 
 WFE and SEV are usable from userland, and are part of a efficient spinlock implementation.
 
@@ -18229,7 +18238,7 @@ ARMv8 provides Wait For Event, Send Event, and Send Event Local instructions, WF
 Note This is equivalent to issuing an SEVL instruction on the PE for which the monitor state has changed. It removes the need for spinlock code to include an SEV instruction after clearing a spinlock.
 ____
 
-The recommended ARMv8 spinlock implementation is shown at http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dht0008a/ch01s03s02.html where `WAIT_FOR_UPDATE` is as explained in that section a macro that expands to WFE.
+The recommended ARMv8 spinlock implementation is shown at http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dht0008a/ch01s03s02.html where `WAIT_FOR_UPDATE` is as explained in that section a macro that expands to WFE. TODO SEV is used explicitly in those examples via SIGNAL_UPDATE, where is the example that shows how SEV can be eliminated due to implicit monitor signals?
 
 In QEMU 3.0.0, SEV is a NOPs, and WFE might be, but I'm not sure, see: https://github.com/qemu/qemu/blob/v3.0.0/target/arm/translate-a64.c#L1423
 
@@ -18265,6 +18274,17 @@ The following Raspberry Pi bibliography helped us get this sample up and running
 * https://github.com/dwelch67/raspberrypi/tree/a09771a1d5a0b53d8e7a461948dc226c5467aeec/multi00
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart64.S
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart32.S
+
+The best article to understand spinlocks is: https://eli.thegreenplace.net/2018/basics-of-futexes/
+
+===== ARM LDAXR and STLXR instructions
+
+Can be used to implement atomic variables, see also:
+
+* <<atomic-cpp>>
+* https://stackoverflow.com/questions/56810/how-do-i-start-threads-in-plain-c/52453291#52453291
+
+The ARMv7 analogues are LDREX and STREX.
 
 ===== ARM PSCI
 
@@ -21113,6 +21133,7 @@ Runnable stuff:
 * https://github.com/s-matyukevich/raspberry-pi-os Does both an OS from scratch, and annotates the corresponding kernel source code. For RPI3, no QEMU support: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
 * https://github.com/pw4ever/linux-kernel-hacking-helper as of bd9952127e7eda643cbb6cb4c51ad7b5b224f438, Bash, Arch Linux rootfs
 * https://github.com/MichielDerhaeg/build-linux untested. Manually builds musl and BusyBox, no Buildroot. Seems to use host packaged toolchain and tested on x86_64 only. Might contain a minimized kernel config.
+* https://eli.thegreenplace.net and the accompanying code: https://github.com/eliben/code-for-blog
 
 Theory:
 
