@@ -6646,6 +6646,29 @@ Source: link:kernel_modules/warn_on.c[]
 
 Can also be activated with the `panic_on_warn` boot parameter.
 
+[[not-syncing]]
+==== not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+
+Let's learn how to diagnose problems with the root filesystem not being found. TODO add a sample panic error message for each error type:
+
+* https://askubuntu.com/questions/41930/kernel-panic-not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0/1048477#1048477
+
+This is the diagnosis procedure:
+
+* does the filesystem appear on the list of filesystems? If not, then likely you are missing either:
+** the driver for that hardware type, e.g. hard drive / SSD type. Here, Linux does not know how to communicate with a given hardware to get bytes from it at all. In simiulation, the most important often missing one is virtio which needs:
++
+....
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_BLK=y
+....
+** the driver for that filesystem type. Here, Linux can read bytes from the hardware, but cannot interpret them as a tree of files because it does not recognize the file system format. For example, to boot from <<squashfs>> we would need:
++
+....
+CONFIG_SQUASHFS=y
+....
+* your filesystem of interest appears in the list, then you just need to set the `root` <<kernel-command-line-parameters,command line parameter>> to point to that, e.g. `root=/dev/sda`
+
 === Pseudo filesystems
 
 Pseudo filesystems are filesystems that don't represent actual files in a hard disk, but rather allow us to do special operations on filesystem-related system calls.
