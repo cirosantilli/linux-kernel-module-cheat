@@ -14249,19 +14249,81 @@ Example: link:userland/c/memory_leak.c[]
 
 === Interpreted languages
 
-Maybe some day someone will use this setup to study the performance of interpreters:
+Maybe some day someone will use this setup to study the performance of interpreters.
+
+==== Python
+
+Build and install the interpreter on the target:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_PYTHON3=y'
+....
+
+Usage from guest in full system:
+
+....
+./run
+....
+
+and then from there get an interactive shell with:
+
+....
+python3
+....
+
+or run an example with:
+
+....
+python3 lkmc/python/hello.py
+....
+
+<<user-mode-simulation>> interactive usage:
+
+....
+./run --userland "$(./getvar buildroot_target_dir)/usr/bin/python3"
+....
+
+Non-interactive usage:
+
+....
+./run --userland "$(./getvar buildroot_target_dir)/usr/bin/python3" --userland-args rootfs_overlay/lkmc/python/hello.py
+....
+
+LKMC 50ac89b779363774325c81157ec8b9a6bdb50a2f gem5 390a74f59934b85d91489f8a563450d8321b602da arch64:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland "$(./getvar \
+  --arch aarch64 buildroot_target_dir)/usr/bin/python3" \
+  --userland-args rootfs_overlay/lkmc/python/hello.py \
+;
+....
+
+fails with:
+
+....
+fatal: syscall unused#278 (#278) unimplemented.
+....
+
+which corresponds to the glorious `getrandom` syscall: https://github.com/torvalds/linux/blob/v4.17/include/uapi/asm-generic/unistd.h#L707
+
+Examples:
+
+* link:rootfs_overlay/lkmc/python/hello.py[]: hello world
 
 ==== Node.js
 
-Parent section: <<interpreted-languages>>.
-
-Install the interpreter with:
+Build and install the interpreter with:
 
 ....
 ./build-buildroot --config 'BR2_PACKAGE_NODEJS=y'
 ....
 
-TODO: broken as of 3c3deb14dc8d6511680595dc42cb627d5781746d + 1:
+Everything is then the same as the <<python>> interpreter setup, except that the executable name is now `node`!
+
+TODO: build broken as of LKMC 3c3deb14dc8d6511680595dc42cb627d5781746d + 1:
 
 ....
 ERROR: package host-nodejs installs executables without proper RPATH
@@ -14269,6 +14331,7 @@ ERROR: package host-nodejs installs executables without proper RPATH
 
 Examples:
 
+* link:rootfs_overlay/lkmc/nodejs/hello.js[]: hello world
 * String
 ** link:rootfs_overlay/lkmc/nodejs/alphanumeric.js[]: https://stackoverflow.com/questions/4444477/how-to-tell-if-a-string-contains-a-certain-character-in-javascript/58359106#58359106
 * `process`
