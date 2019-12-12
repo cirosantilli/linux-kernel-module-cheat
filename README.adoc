@@ -14305,14 +14305,31 @@ Non-interactive usage:
 ./run --userland "$(./getvar buildroot_target_dir)/usr/bin/python3" --userland-args rootfs_overlay/lkmc/python/hello.py
 ....
 
-LKMC 50ac89b779363774325c81157ec8b9a6bdb50a2f gem5 390a74f59934b85d91489f8a563450d8321b602da arch64:
+LKMC 50ac89b779363774325c81157ec8b9a6bdb50a2f gem5 390a74f59934b85d91489f8a563450d8321b602da:
+
+....
+./run \
+  --emulator gem5 \
+  --userland "$(buildroot_target_dir)/usr/bin/python3" \
+  --userland-args rootfs_overlay/lkmc/python/hello.py \
+;
+....
+
+fails with:
+
+....
+fatal: Syscall 318 out of range
+....
+
+which corresponds to the glorious `inotify_rm_watch` syscall: https://github.com/torvalds/linux/blob/v5.4/arch/arm/tools/syscall.tbl#L335
+
+and aarch64:
 
 ....
 ./run \
   --arch aarch64 \
   --emulator gem5 \
-  --userland "$(./getvar \
-  --arch aarch64 buildroot_target_dir)/usr/bin/python3" \
+  --userland "$(./getvar --arch aarch64 buildroot_target_dir)/usr/bin/python3" \
   --userland-args rootfs_overlay/lkmc/python/hello.py \
 ;
 ....
