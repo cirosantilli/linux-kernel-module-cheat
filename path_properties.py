@@ -535,7 +535,7 @@ path_properties_tuples = (
                                     nostartfiles_properties,
                                     {
                                         # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/107
-                                        'exit.s': {'skip_run_unclassified': True},
+                                        'exit.S': {'skip_run_unclassified': True},
                                     }
                                 ),
                                 'udf.S': {
@@ -571,6 +571,13 @@ path_properties_tuples = (
                                     {},
                                     {
                                         'rdtscp.c': {'uses_instructions': {'x86_64': {'rdtscp'}}},
+                                    }
+                                ),
+                                'nostartfiles': (
+                                    nostartfiles_properties,
+                                    {
+                                        # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/107
+                                        'exit.S': {'skip_run_unclassified': True},
                                     }
                                 ),
                                 'div_overflow.S': {'signal_received': signal.Signals.SIGFPE},

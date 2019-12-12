@@ -2243,7 +2243,7 @@ The implementation is described at: https://stackoverflow.com/questions/46415059
 
 === GDB step debug multicore userland
 
-For a more minimal baremetal multicore setup, see: xref:arm-multicore[xrefstyle=full].
+For a more minimal baremetal multicore setup, see: xref:arm-baremetal-multicore[xrefstyle=full].
 
 We can set and get which cores the Linux kernel allows a program to run on with `sched_getaffinity` and `sched_setaffinity`:
 
@@ -10391,10 +10391,10 @@ There are two types of lines:
 Breakdown:
 
 * `25007500`: time count in some unit. Note how the microops execute at further timestamps.
-* `system.cpu`: distinguishes between CPUs when there are more than one. For example, running xref:arm-multicore[xrefstyle=full] with two cores produces `system.cpu0` and `system.cpu1`
+* `system.cpu`: distinguishes between CPUs when there are more than one. For example, running xref:arm-baremetal-multicore[xrefstyle=full] with two cores produces `system.cpu0` and `system.cpu1`
 * `T0`: thread number. TODO: https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858[hyperthread]? How to play with it?
 +
-`config`.ini has `--param 'system.multi_thread = True' --param 'system.cpu[0].numThreads = 2'`, but in <<arm-multicore>> the first one alone does not produce `T1`, and with the second one simulation blows up with:
+`config`.ini has `--param 'system.multi_thread = True' --param 'system.cpu[0].numThreads = 2'`, but in <<arm-baremetal-multicore>> the first one alone does not produce `T1`, and with the second one simulation blows up with:
 +
 ....
 fatal: fatal condition interrupts.size() != numThreads occurred: CPU system.cpu has 1 interrupt controllers, but is expecting one per thread (2)
@@ -12052,7 +12052,7 @@ Exiting @ tick 18446744073709551615 because simulate() limit reached
 
 Other examples of the message:
 
-* <<arm-multicore>> with a single CPU stays stopped at an WFE sleep instruction
+* <<arm-baremetal-multicore>> with a single CPU stays stopped at an WFE sleep instruction
 * this sample bug on se.py multithreading: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81
 
 === gem5 build options
@@ -15114,7 +15114,7 @@ Then it is just a huge copy paste of infinite boring details:
 * <<x86-simd>>
 * <<arm-simd>>
 
-To debug these instructoins, you can see the register values in GDB with:
+To debug these instructions, you can see the register values in GDB with:
 
 ....
 info registers float
@@ -15223,9 +15223,57 @@ This is analogous to <<baremetal-gdb-step-debug,step debugging baremetal example
 
 Assembly examples under `nostartfiles` directories can use the standard library, but they don't use the pre-`main` boilerplate and start directly at our explicitly given `_start`:
 
-* link:userland/arch/aarch64/freestanding/[]
+* link:userland/arch/x86_64/nostartfiles/[]
+* link:userland/arch/aarch64/nostartfiles/[]
 
 I'm not sure how much stdlib functionality is supposed to work without the pre-main stuff, but I guess we'll just have to find out!
+
+Was going to ask the following markdown question, but I noticed half way that:
+
+* without `-static`, I see a bunch of dynamic loader instructions, so not much is gained
+* with `-static`, the program segfaults, including on the host with stack:
++
+....
+#0  0x0000000000429625 in _IO_cleanup ()
+#1  0x0000000000400c72 in __run_exit_handlers ()
+#2  0x0000000000400caa in exit ()
+#3  0x0000000000400a01 in _start () at exit.S:4
+....
+
+so I didn't really have a good question.
+
+The Markdown question that was almost asked:
+
+....
+When working in emulators, I often want to keep my workloads as small as possible to more easily study instruction traces and reproduce bugs.
+
+One of the ways I often want to do that, especially when doing [user mode simulations](https://wiki.debian.org/QemuUserEmulation), is by not running [the code that normally runs before main](https://stackoverflow.com/questions/53570678/what-happens-before-main-in-c) so that I can start directly in the instructions of interest that I control myself, which can be achieved with the `gcc -nostartfiles` option and by starting the program directly at `_start`.
+
+Here is a tiny example that calls just `exit` from the C standard library:
+
+main.S
+
+```
+.global _start
+_start:
+    mov $0, %rdi
+    call exit
+
+```
+
+Compile and run with:
+
+```
+gcc -ggdb3 -nostartfiles -static -o exit.out exit.S
+qemu-x86_64 -d in_asm exit.out
+```
+
+However, for programming convenience, and to potentially keep my examples more OS portable, I would like to avoid making raw system calls, which would of course work, by using C standard library functions instead.
+
+But I'm afraid that some of those C standard library functions will fail in subtle ways because I have skipped required initialization steps that would normally happen before `main`.
+
+Is it any easy to determine which functions I can use or not, in case there are any that I can't use?
+....
 
 === GCC inline assembly
 
@@ -17345,7 +17393,7 @@ That document then describes the SVE instructions and registers.
 [[arm-lse]]
 ===== ARM Large System Extensions (LSE)
 
-Parent section: <<arm-multicore>>.
+Parent section: <<arm-baremetal-multicore>>.
 
 <<armarm8-db>> "ARMv8.1-LSE, ARMv8.1 Large System Extensions"
 
@@ -18265,7 +18313,7 @@ Exception Link Register.
 
 See the example at: xref:arm-svc-instruction[xrefstyle=full]
 
-==== ARM multicore
+==== ARM baremetal multicore
 
 Examples:
 
@@ -18322,6 +18370,11 @@ Bibliography: https://stackoverflow.com/questions/980999/what-does-multicore-ass
 
 The WFE and SEV instructions are just hints: a compliant implementation can treat them as NOPs.
 
+Concrete examples of the instruction can be seen at:
+
+* link:userland/arch/aarch64/nostartfiles/wfe.S[]
+* <<arm-baremetal-multicore>>
+
 However, likely no implementation likely does (TODO confirm), since:
 
 * WFE is intended to put the core in a low power mode
@@ -18331,15 +18384,37 @@ and power consumption is key in ARM applications.
 
 SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDAXR and STLXR instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.
 
-WFE and SEV are usable from userland, and are part of a efficient spinlock implementation.
+WFE and SEV are usable from userland, and are part of an efficient spinlock implementation, which maybe is not something that userland should ever tho and just stick to mutexes?
+
+There is a control bit `SCTLR_EL1.nTWE` that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1. Linux v5.2.1 does not seem to trap however, tested with `--trace ExecAll` in a full system simulation. But then, how does the kernel prevent CPUs from going to sleep randomly and instead reschedules other tasks? Does the kernel check if CPUs are in WFE when it wakes up on the timer, and only then reschedules? This would allow for userland to implement fast spinlocks if the spinlock returns faster than the timer. The kernel seems to setup NTWE at:
+
+include/asm/sysreg.h
+
+....
+#define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
+             ...
+			 SCTLR_EL1_NTWE | SCTLR_ELx_IESB | SCTLR_EL1_SPAN |\
+....
+
+and:
+
+mm/proc.S
+
+....
+	/*
+	 * Prepare SCTLR
+	 */
+	mov_q	x0, SCTLR_EL1_SET
+....
 
 Quotes for the above <<armarm8-db>> G1.18.1 "Wait For Event and Send Event":
+
 ____
 The following events are WFE wake-up events:
 
 \[...]
 
-- An event caused by the clearing of the global monitor associated with the PE
+* An event caused by the clearing of the global monitor associated with the PE
 ____
 
 and <<armarm8-db>> E2.9.6 "Use of WFE and SEV instructions by spin-locks":

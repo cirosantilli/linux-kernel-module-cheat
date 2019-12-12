@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#arm-multicore
+/* https://cirosantilli.com/linux-kernel-module-cheat#arm-baremetal-multicore
  *
  * Beware: things will blow up if the stack for CPU0 grow too much and
  * reaches that of CPU1. This is why it is so hard to do multithreading
