@@ -1,4 +1,4 @@
-/* Dump registers that cannot be read from EL0. */
+/* https://cirosantilli.com/linux-kernel-module-cheat#dump-regs */
 
 #include <stdio.h>
 #include <inttypes.h>

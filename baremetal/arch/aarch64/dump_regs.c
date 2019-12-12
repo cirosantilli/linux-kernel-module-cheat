@@ -1,42 +1,11 @@
-/* Dump registers that cannot be read from EL0. */
+/* https://cirosantilli.com/linux-kernel-module-cheat#dump-regs */
 
 #include <stdio.h>
 #include <inttypes.h>
 
+#include <lkmc/aarch64_dump_regs.h>
+
 int main(void) {
-    uint32_t sctlr_el1;
-    __asm__ ("mrs %0, sctlr_el1" : "=r" (sctlr_el1) : :);
-    printf("SCTLR_EL1 0x%" PRIX32 "\n", sctlr_el1);
-    printf("SCTLR_EL1.A 0x%" PRIX32 "\n", (sctlr_el1 >> 1) & 1);
-    /* https://cirosantilli.com/linux-kernel-module-cheat#arm-paging */
-    printf("SCTLR_EL1.M 0x%" PRIX32 "\n", (sctlr_el1 >> 0) & 1);
-
-    uint64_t id_aa64pfr0_el1;
-    __asm__ ("mrs %0, id_aa64pfr0_el1" : "=r" (id_aa64pfr0_el1) : :);
-    printf("ID_AA64PFR0_EL1 0x%" PRIX64 "\n", id_aa64pfr0_el1);
-    printf("ID_AA64PFR0_EL1.SVE 0x%" PRIX64 "\n", (id_aa64pfr0_el1 >> 32) & 0xF);
-
-    uint64_t CurrentEL;
-    __asm__ ("mrs %0, CurrentEL;" : "=r" (CurrentEL) : :);
-    printf("CurrentEL 0x%" PRIX64 "\n", CurrentEL);
-    /* https://cirosantilli.com/linux-kernel-module-cheat#arm-exception-levels */
-    printf("CurrentEL.EL 0x%" PRIX64 "\n", CurrentEL >> 2);
-
-    /* https://cirosantilli.com/linux-kernel-module-cheat#arm-paging */
-    {
-        uint64_t tcr_el1;
-        __asm__ ("mrs %0, tcr_el1;" : "=r" (tcr_el1) : :);
-        printf("TCR_EL1 0x%" PRIX64 "\n", tcr_el1);
-        printf("TCR_EL1.A1 0x%" PRIX64 "\n", (tcr_el1 >> 22) & 1);
-
-        uint64_t ttbr0_el1;
-        __asm__ ("mrs %0, ttbr0_el1;" : "=r" (ttbr0_el1) : :);
-        printf("TTBR0_EL1 0x%" PRIX64 "\n", ttbr0_el1);
-
-        uint64_t ttbr1_el1;
-        __asm__ ("mrs %0, ttbr1_el1;" : "=r" (ttbr1_el1) : :);
-        printf("TTBR1_EL1 0x%" PRIX64 "\n", ttbr1_el1);
-    }
-
+    LKMC_DUMP_SYSTEM_REGS;
     return 0;
 }

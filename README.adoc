@@ -9082,6 +9082,46 @@ QEMU does not seem able to boot ELF files like `vmlinux`: https://superuser.com/
 
 Converting `arch/*` images to `vmlinux` is possible in theory x86 with https://github.com/torvalds/linux/blob/v5.1/scripts/extract-vmlinux[`extract-vmlinux`] but we didn't get any gem5 boots working from images generated like that for some reason, see: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/79
 
+=== Kernel modules
+
+[[dump-regs]]
+==== dump_regs
+
+The following kernel modules and <<baremetal>> executables dump and disassemble various registers which cannot be observed from userland (usually "system registers", "control registers"):
+
+* link:kernel_modules/dump_regs.c[]
+* link:baremetal/arch/aarch64/dump_regs.c[]
+* link:baremetal/arch/arm/dump_regs.c[]
+
+Some of those programs are using:
+
+* link:lkmc/aarch64_dump_regs.h[]
+
+Alternatively, you can also get their value from inside <<gdb>> with:
+
+....
+info registers all
+....
+
+or the short version:
+
+....
+i r a
+....
+
+or to get just specific registers, e.g. just ARMv8's SCTLR:
+
+....
+i r SCTLR
+....
+
+but it is sometimes just more convenient to run an executable to get the registers at the point of interest.
+
+See also:
+
+* https://stackoverflow.com/questions/5429137/how-to-print-register-values-in-gdb/31340294#31340294
+* https://stackoverflow.com/questions/24169614/how-to-show-all-x86-control-registers-when-debugging-the-linux-kernel-in-gdb-thr/59311764#59311764
+
 == Xen
 
 TODO: get prototype working and then properly integrate:
@@ -18386,7 +18426,7 @@ SEV is not the only thing that can wake up a WFE, it is only an explicit softwar
 
 WFE and SEV are usable from userland, and are part of an efficient spinlock implementation, which maybe is not something that userland should ever tho and just stick to mutexes?
 
-There is a control bit `SCTLR_EL1.nTWE` that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1. Linux v5.2.1 does not seem to trap however, tested with `--trace ExecAll` in a full system simulation. But then, how does the kernel prevent CPUs from going to sleep randomly and instead reschedules other tasks? Does the kernel check if CPUs are in WFE when it wakes up on the timer, and only then reschedules? This would allow for userland to implement fast spinlocks if the spinlock returns faster than the timer. The kernel seems to setup NTWE at:
+There is a control bit `SCTLR_EL1.nTWE` that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1. Linux v5.2.1 does not seem to trap however, tested with `--trace ExecAll` and the <<dump-regs,dump_regs kernel module>> in a full system simulation. But then, how does the kernel prevent CPUs from going to sleep randomly and instead reschedules other tasks? Does the kernel check if CPUs are in WFE when it wakes up on the timer, and only then reschedules? This would allow for userland to implement fast spinlocks if the spinlock returns faster than the timer. The kernel seems to setup NTWE at:
 
 include/asm/sysreg.h
 
