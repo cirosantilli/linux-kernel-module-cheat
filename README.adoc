@@ -15472,6 +15472,43 @@ Questions about the C inline assembly examples:
 * x86_64: https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-sysenter-in-inline-assembly/54956854#54956854
 * ARM: https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly
 
+==== futex system call
+
+This is how threads either:
+
+* request the kernel to sleep until they are woken up by other threads
+* request the kernel to wake up other threads that are waiting on a given futex
+
+This syscall is rarely used on its own, and there isn't even a glibc wrapper for it: you almost always just want to use the <<pthreads>> or <<cpp-multithreading>> wrappers which use it for you to <<userland-mutex-implementation,implement higher level constructs like mutexes>>.
+
+Futexes are bit complicated, because in order to achieve their efficiency, basically nothing is guaranteed: the wait might not wait, and the wakes might not wake. So you are just basically forced to use atomic operations on the futex memory address in order to be sure of anything.
+
+Minimal examples:
+
+* link:lkmc/futex.h[]: our futex wrapper
+* link:userland/linux/futex.c[]: minimal example, the main thread:
+** spawns a child
+** the child waits on a futex
+** the main thread sleeps for one second
+** the main thread wakes up the child
+** the child returns
++
+So what you see is:
++
+....
+main start
+child start
+[wait 1s]
+main after sleep
+child end
+....
+
+===== Userland mutex implementation
+
+The best article to understand spinlocks is: https://eli.thegreenplace.net/2018/basics-of-futexes/
+
+The example in `man futex` is also a must.
+
 === Linux calling conventions
 
 A summary of results is shown at: xref:table-linux-calling-conventions[xrefstyle=full].
@@ -18502,7 +18539,7 @@ The following Raspberry Pi bibliography helped us get this sample up and running
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart64.S
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart32.S
 
-The best article to understand spinlocks is: https://eli.thegreenplace.net/2018/basics-of-futexes/
+For how userland spinlocks and mutexes are implemented see <<userland-mutex-implementation>>.
 
 ====== ARM YIELD instruction
 

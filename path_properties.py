@@ -673,6 +673,10 @@ path_properties_tuples = (
                     gnu_extension_properties,
                     {
                         'ctrl_alt_del.c': {'requires_sudo': True},
+                        'futex.c': {
+                            'more_than_1s': True,
+                            'test_run_args': {'cpus': 2},
+                        },
                         'init_env_poweroff.c': {'requires_sudo': True},
                         'mmap_anonymous_touch.c': {
                             # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/103
