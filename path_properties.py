@@ -526,9 +526,28 @@ path_properties_tuples = (
                                     {
                                         'freestanding': freestanding_properties,
                                         'sve_addvl.c': {'arm_sve': True},
+                                        'wfe_sev.c': {
+                                            # gem5 bug, WFE not waking up on syscall emulation,
+                                            # TODO link to bug report.
+                                            'more_than_1s': True,
+                                            'test_run_args': {
+                                                'cpus': 2,
+                                            },
+                                        },
                                     },
                                 ),
-                                'freestanding': freestanding_properties,
+                                'freestanding': (
+                                    freestanding_properties,
+                                    {
+                                        'linux': (
+                                            {},
+                                            {
+                                                'wfe.S': {'more_than_1s': True},
+                                                'wfe_wfe.S': {'more_than_1s': True},
+                                            }
+                                        ),
+                                    }
+                                ),
                                 'lkmc_assert_eq_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'lkmc_assert_memcmp_fail.S': {'signal_received': signal.Signals.SIGABRT},
                                 'nostartfiles': (
@@ -536,6 +555,7 @@ path_properties_tuples = (
                                     {
                                         # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/107
                                         'exit.S': {'skip_run_unclassified': True},
+                                        'wfe.S': {'more_than_1s': True},
                                     }
                                 ),
                                 'udf.S': {

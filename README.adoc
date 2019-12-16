@@ -18450,7 +18450,14 @@ The WFE and SEV instructions are just hints: a compliant implementation can trea
 Concrete examples of the instruction can be seen at:
 
 * link:userland/arch/aarch64/nostartfiles/wfe.S[]
-* <<arm-baremetal-multicore>>
+* link:userland/arch/aarch64/freestanding/linux/wfe.S[]
+* link:userland/arch/aarch64/freestanding/linux/wfe_wfe.S[]: run WFE twice, because gem5 390a74f59934b85d91489f8a563450d8321b602d does not sleep on the first, see also: <<gem5-arm-wfe>>
+* link:baremetal/arch/aarch64/no_bootloader/wfe_loop.S[], see: <<gem5-simulate-limit-reached>>
+* link:userland/arch/aarch64/inline_asm/wfe_sev.cpp[]: one Linux thread runs WFE and the other runs SEV to wake it up
+* <<arm-baremetal-multicore>> shows baremetal examples where WFE sleeps and another thread wakes it up:
+** link:baremetal/arch/arm/multicore.c[]
+** link:baremetal/arch/aarch64/multicore.c[]
+** link:baremetal/arch/arm/no_bootloader/multicore_asm.S[]
 
 However, likely no implementation likely does (TODO confirm), since:
 
@@ -18540,6 +18547,42 @@ The following Raspberry Pi bibliography helped us get this sample up and running
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart32.S
 
 For how userland spinlocks and mutexes are implemented see <<userland-mutex-implementation>>.
+
+====== gem5 ARM WFE
+
+gem5 390a74f59934b85d91489f8a563450d8321b602d does not sleep on the first WFE on either syscall emulation or full system, because the code does:
+
+....
+Fault WfeInst::execute(
+    ExecContext *xc, Trace::InstRecord *traceData) const
+{
+[...]
+    if (SevMailbox == 1) {
+        SevMailbox = 0;
+        PseudoInst::quiesceSkip(tc);
+    } else if (tc->getCpuPtr()->getInterruptController(
+                tc->threadId())->checkInterrupts(tc)) {
+        PseudoInst::quiesceSkip(tc);
+    } else {
+        fault = trapWFx(tc, cpsr, scr, true);
+        if (fault == NoFault) {
+            PseudoInst::quiesce(tc);
+        } else {
+            PseudoInst::quiesceSkip(tc);
+        }
+    }
+....
+
+where https://en.wiktionary.org/wiki/quiescent["quiesce" means "sleep"] for laymen like Ciro, and `quiesceSkip` means don't sleep.
+
+`SevMailbox` is read from `MISCREG_SEV_MAILBOX` which is initialized to `1` at:
+
+....
+ISA::clear()
+{
+[...]
+    miscRegs[MISCREG_SEV_MAILBOX] = 1;
+....
 
 ====== ARM YIELD instruction
 
