@@ -1,13 +1,10 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#futex-system-call */
 
-#define _GNU_SOURCE
 #include <assert.h>
-#include <linux/futex.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/syscall.h>
 
 #include <lkmc/futex.h>
 
