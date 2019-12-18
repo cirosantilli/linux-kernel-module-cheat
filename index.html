@@ -1006,6 +1006,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#vmlinux-vs-bzimage-vs-zimage-vs-image">15.21.1. vmlinux vs bzImage vs zImage vs Image</a></li>
 </ul>
 </li>
+<li><a href="#kernel-modules">15.22. Kernel modules</a>
+<ul class="sectlevel3">
+<li><a href="#dump-regs">15.22.1. dump_regs</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#xen">16. Xen</a></li>
@@ -1385,7 +1390,15 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 </ul>
 </li>
-<li><a href="#linux-system-calls">22.7. Linux system calls</a></li>
+<li><a href="#linux-system-calls">22.7. Linux system calls</a>
+<ul class="sectlevel3">
+<li><a href="#futex-system-call">22.7.1. futex system call</a>
+<ul class="sectlevel4">
+<li><a href="#userland-mutex-implementation">22.7.1.1. Userland mutex implementation</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a href="#linux-calling-conventions">22.8. Linux calling conventions</a>
 <ul class="sectlevel3">
 <li><a href="#x86_64-calling-convention">22.8.1. x86_64 calling convention</a></li>
@@ -1721,9 +1734,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#arm-elr-register">27.8.2.3. ARM ELR register</a></li>
 </ul>
 </li>
-<li><a href="#arm-multicore">27.8.3. ARM multicore</a>
+<li><a href="#arm-baremetal-multicore">27.8.3. ARM baremetal multicore</a>
 <ul class="sectlevel4">
-<li><a href="#arm-wfe-and-sev-instructions">27.8.3.1. ARM WFE and SEV instructions</a></li>
+<li><a href="#arm-wfe-and-sev-instructions">27.8.3.1. ARM WFE and SEV instructions</a>
+<ul class="sectlevel5">
+<li><a href="#gem5-arm-wfe">27.8.3.1.1. gem5 ARM WFE</a></li>
+<li><a href="#arm-yield-instruction">27.8.3.1.2. ARM YIELD instruction</a></li>
+</ul>
+</li>
 <li><a href="#arm-ldaxr-and-stlxr-instructions">27.8.3.2. ARM LDAXR and STLXR instructions</a></li>
 <li><a href="#arm-psci">27.8.3.3. ARM PSCI</a></li>
 <li><a href="#arm-dmb-instruction">27.8.3.4. ARM DMB instruction</a></li>
@@ -5155,7 +5173,7 @@ Breakpoint 3 at 0xffffffff811615e3: fdget_pos. (9 locations)
 <div class="sect2">
 <h3 id="gdb-step-debug-multicore-userland"><a class="anchor" href="#gdb-step-debug-multicore-userland"></a><a class="link" href="#gdb-step-debug-multicore-userland">2.9. GDB step debug multicore userland</a></h3>
 <div class="paragraph">
-<p>For a more minimal baremetal multicore setup, see: <a href="#arm-multicore">Section 27.8.3, &#8220;ARM multicore&#8221;</a>.</p>
+<p>For a more minimal baremetal multicore setup, see: <a href="#arm-baremetal-multicore">Section 27.8.3, &#8220;ARM baremetal multicore&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>We can set and get which cores the Linux kernel allows a program to run on with <code>sched_getaffinity</code> and <code>sched_setaffinity</code>:</p>
@@ -15411,6 +15429,78 @@ ps</pre>
 </div>
 </div>
 </div>
+<div class="sect2">
+<h3 id="kernel-modules"><a class="anchor" href="#kernel-modules"></a><a class="link" href="#kernel-modules">15.22. Kernel modules</a></h3>
+<div class="sect3">
+<h4 id="dump-regs"><a class="anchor" href="#dump-regs"></a><a class="link" href="#dump-regs">15.22.1. dump_regs</a></h4>
+<div class="paragraph">
+<p>The following kernel modules and <a href="#baremetal">Baremetal</a> executables dump and disassemble various registers which cannot be observed from userland (usually "system registers", "control registers"):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/kernel_modules/dump_regs.c">kernel_modules/dump_regs.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/dump_regs.c">baremetal/arch/aarch64/dump_regs.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/dump_regs.c">baremetal/arch/arm/dump_regs.c</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Some of those programs are using:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/lkmc/aarch64_dump_regs.h">lkmc/aarch64_dump_regs.h</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Alternatively, you can also get their value from inside <a href="#gdb">GDB step debug</a> with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>info registers all</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or the short version:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>i r a</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or to get just specific registers, e.g. just ARMv8&#8217;s SCTLR:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>i r SCTLR</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>but it is sometimes just more convenient to run an executable to get the registers at the point of interest.</p>
+</div>
+<div class="paragraph">
+<p>See also:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://stackoverflow.com/questions/5429137/how-to-print-register-values-in-gdb/31340294#31340294" class="bare">https://stackoverflow.com/questions/5429137/how-to-print-register-values-in-gdb/31340294#31340294</a></p>
+</li>
+<li>
+<p><a href="https://stackoverflow.com/questions/24169614/how-to-show-all-x86-control-registers-when-debugging-the-linux-kernel-in-gdb-thr/59311764#59311764" class="bare">https://stackoverflow.com/questions/24169614/how-to-show-all-x86-control-registers-when-debugging-the-linux-kernel-in-gdb-thr/59311764#59311764</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -17394,12 +17484,12 @@ extern SimpleFlag ExecEnable;
 <p><code>25007500</code>: time count in some unit. Note how the microops execute at further timestamps.</p>
 </li>
 <li>
-<p><code>system.cpu</code>: distinguishes between CPUs when there are more than one. For example, running <a href="#arm-multicore">Section 27.8.3, &#8220;ARM multicore&#8221;</a> with two cores produces <code>system.cpu0</code> and <code>system.cpu1</code></p>
+<p><code>system.cpu</code>: distinguishes between CPUs when there are more than one. For example, running <a href="#arm-baremetal-multicore">Section 27.8.3, &#8220;ARM baremetal multicore&#8221;</a> with two cores produces <code>system.cpu0</code> and <code>system.cpu1</code></p>
 </li>
 <li>
 <p><code>T0</code>: thread number. TODO: <a href="https://superuser.com/questions/133082/hyper-threading-and-dual-core-whats-the-difference/995858#995858">hyperthread</a>? How to play with it?</p>
 <div class="paragraph">
-<p><code>config</code>.ini has <code>--param 'system.multi_thread = True' --param 'system.cpu[0].numThreads = 2'</code>, but in <a href="#arm-multicore">ARM multicore</a> the first one alone does not produce <code>T1</code>, and with the second one simulation blows up with:</p>
+<p><code>config</code>.ini has <code>--param 'system.multi_thread = True' --param 'system.cpu[0].numThreads = 2'</code>, but in <a href="#arm-baremetal-multicore">ARM baremetal multicore</a> the first one alone does not produce <code>T1</code>, and with the second one simulation blows up with:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -19099,7 +19189,17 @@ m5 execfile</pre>
 <p>Those instructions are exposed through the <a href="#m5">m5</a> in tree executable.</p>
 </div>
 <div class="paragraph">
-<p>To make things simpler to understand, you can play around with our own minimized educational <code>m5</code> subset <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/m5ops.c">userland/c/m5ops.c</a>.</p>
+<p>To make things simpler to understand, you can play around with our own minimized educational <code>m5</code> subset:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/m5ops.c">userland/c/m5ops.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/m5ops.cpp">userland/cpp/m5ops.cpp</a></p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>The instructions used by <code>./c/m5ops.out</code> are present in <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/lkmc/m5ops.h">lkmc/m5ops.h</a> in a very simple to understand and reuse inline assembly form.</p>
@@ -19863,7 +19963,7 @@ Exiting @ tick 18446744073709551615 because simulate() limit reached</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="#arm-multicore">ARM multicore</a> with a single CPU stays stopped at an WFE sleep instruction</p>
+<p><a href="#arm-baremetal-multicore">ARM baremetal multicore</a> with a single CPU stays stopped at an WFE sleep instruction</p>
 </li>
 <li>
 <p>this sample bug on se.py multithreading: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81</a></p>
@@ -23321,7 +23421,15 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>python3 lkmc/python/hello.py</pre>
+<pre>python3 python/hello.py</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./python/hello.py</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -23341,15 +23449,37 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 </div>
 <div class="paragraph">
-<p>LKMC 50ac89b779363774325c81157ec8b9a6bdb50a2f gem5 390a74f59934b85d91489f8a563450d8321b602da arch64:</p>
+<p>LKMC 50ac89b779363774325c81157ec8b9a6bdb50a2f gem5 390a74f59934b85d91489f8a563450d8321b602da:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --emulator gem5 \
+  --userland "$(buildroot_target_dir)/usr/bin/python3" \
+  --userland-args rootfs_overlay/lkmc/python/hello.py \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>fails with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fatal: Syscall 318 out of range</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which corresponds to the glorious <code>inotify_rm_watch</code> syscall: <a href="https://github.com/torvalds/linux/blob/v5.4/arch/arm/tools/syscall.tbl#L335" class="bare">https://github.com/torvalds/linux/blob/v5.4/arch/arm/tools/syscall.tbl#L335</a></p>
+</div>
+<div class="paragraph">
+<p>and aarch64:</p>
 </div>
 <div class="literalblock">
 <div class="content">
 <pre>./run \
   --arch aarch64 \
   --emulator gem5 \
-  --userland "$(./getvar \
-  --arch aarch64 buildroot_target_dir)/usr/bin/python3" \
+  --userland "$(./getvar --arch aarch64 buildroot_target_dir)/usr/bin/python3" \
   --userland-args rootfs_overlay/lkmc/python/hello.py \
 ;</pre>
 </div>
@@ -24746,7 +24876,7 @@ When instructions do not interpret this operand encoding as the zero register, u
 </ul>
 </div>
 <div class="paragraph">
-<p>To debug these instructoins, you can see the register values in GDB with:</p>
+<p>To debug these instructions, you can see the register values in GDB with:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -24940,12 +25070,74 @@ When instructions do not interpret this operand encoding as the zero register, u
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/">userland/arch/aarch64/freestanding/</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/x86_64/nostartfiles/">userland/arch/x86_64/nostartfiles/</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/nostartfiles/">userland/arch/aarch64/nostartfiles/</a></p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
 <p>I&#8217;m not sure how much stdlib functionality is supposed to work without the pre-main stuff, but I guess we&#8217;ll just have to find out!</p>
+</div>
+<div class="paragraph">
+<p>Was going to ask the following markdown question, but I noticed half way that:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>without <code>-static</code>, I see a bunch of dynamic loader instructions, so not much is gained</p>
+</li>
+<li>
+<p>with <code>-static</code>, the program segfaults, including on the host with stack:</p>
+<div class="literalblock">
+<div class="content">
+<pre>#0  0x0000000000429625 in _IO_cleanup ()
+#1  0x0000000000400c72 in __run_exit_handlers ()
+#2  0x0000000000400caa in exit ()
+#3  0x0000000000400a01 in _start () at exit.S:4</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>so I didn&#8217;t really have a good question.</p>
+</div>
+<div class="paragraph">
+<p>The Markdown question that was almost asked:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>When working in emulators, I often want to keep my workloads as small as possible to more easily study instruction traces and reproduce bugs.
+
+One of the ways I often want to do that, especially when doing [user mode simulations](https://wiki.debian.org/QemuUserEmulation), is by not running [the code that normally runs before main](https://stackoverflow.com/questions/53570678/what-happens-before-main-in-c) so that I can start directly in the instructions of interest that I control myself, which can be achieved with the `gcc -nostartfiles` option and by starting the program directly at `_start`.
+
+Here is a tiny example that calls just `exit` from the C standard library:
+
+main.S
+
+```
+.global _start
+_start:
+    mov $0, %rdi
+    call exit
+
+```
+
+Compile and run with:
+
+```
+gcc -ggdb3 -nostartfiles -static -o exit.out exit.S
+qemu-x86_64 -d in_asm exit.out
+```
+
+However, for programming convenience, and to potentially keep my examples more OS portable, I would like to avoid making raw system calls, which would of course work, by using C standard library functions instead.
+
+But I'm afraid that some of those C standard library functions will fail in subtle ways because I have skipped required initialization steps that would normally happen before `main`.
+
+Is it any easy to determine which functions I can use or not, in case there are any that I can't use?</pre>
+</div>
 </div>
 </div>
 </div>
@@ -25343,6 +25535,81 @@ zmmintrin.h AVX512</pre>
 <p>ARM: <a href="https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly" class="bare">https://stackoverflow.com/questions/21729497/doing-a-syscall-without-libc-using-arm-inline-assembly</a></p>
 </li>
 </ul>
+</div>
+<div class="sect3">
+<h4 id="futex-system-call"><a class="anchor" href="#futex-system-call"></a><a class="link" href="#futex-system-call">22.7.1. futex system call</a></h4>
+<div class="paragraph">
+<p>This is how threads either:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>request the kernel to sleep until they are woken up by other threads</p>
+</li>
+<li>
+<p>request the kernel to wake up other threads that are waiting on a given futex</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>This syscall is rarely used on its own, and there isn&#8217;t even a glibc wrapper for it: you almost always just want to use the <a href="#pthreads">pthreads</a> or <a href="#cpp-multithreading">C++ multithreading</a> wrappers which use it for you to <a href="#userland-mutex-implementation">implement higher level constructs like mutexes</a>.</p>
+</div>
+<div class="paragraph">
+<p>Futexes are bit complicated, because in order to achieve their efficiency, basically nothing is guaranteed: the wait might not wait, and the wakes might not wake. So you are just basically forced to use atomic operations on the futex memory address in order to be sure of anything.</p>
+</div>
+<div class="paragraph">
+<p>Minimal examples:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/lkmc/futex.h">lkmc/futex.h</a>: our futex wrapper</p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/futex.c">userland/linux/futex.c</a>: minimal example, the main thread:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>spawns a child</p>
+</li>
+<li>
+<p>the child waits on a futex</p>
+</li>
+<li>
+<p>the main thread sleeps for one second</p>
+</li>
+<li>
+<p>the main thread wakes up the child</p>
+</li>
+<li>
+<p>the child returns</p>
+<div class="paragraph">
+<p>So what you see is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>main start
+child start
+[wait 1s]
+main after sleep
+child end</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="sect4">
+<h5 id="userland-mutex-implementation"><a class="anchor" href="#userland-mutex-implementation"></a><a class="link" href="#userland-mutex-implementation">22.7.1.1. Userland mutex implementation</a></h5>
+<div class="paragraph">
+<p>The best article to understand spinlocks is: <a href="https://eli.thegreenplace.net/2018/basics-of-futexes/" class="bare">https://eli.thegreenplace.net/2018/basics-of-futexes/</a></p>
+</div>
+<div class="paragraph">
+<p>The example in <code>man futex</code> is also a must.</p>
+</div>
+</div>
 </div>
 </div>
 <div class="sect2">
@@ -28992,7 +29259,7 @@ AArch64, see Procedure Call Standard for the ARM 64-bit Architecture.</p>
 <div class="sect4">
 <h5 id="arm-lse"><a class="anchor" href="#arm-lse"></a><a class="link" href="#arm-lse">24.7.1.1. ARM Large System Extensions (LSE)</a></h5>
 <div class="paragraph">
-<p>Parent section: <a href="#arm-multicore">ARM multicore</a>.</p>
+<p>Parent section: <a href="#arm-baremetal-multicore">ARM baremetal multicore</a>.</p>
 </div>
 <div class="paragraph">
 <p><a href="#armarm8-db">ARMv8 architecture reference manual db</a> "ARMv8.1-LSE, ARMv8.1 Large System Extensions"</p>
@@ -30381,7 +30648,7 @@ IN: main
 </div>
 </div>
 <div class="sect3">
-<h4 id="arm-multicore"><a class="anchor" href="#arm-multicore"></a><a class="link" href="#arm-multicore">27.8.3. ARM multicore</a></h4>
+<h4 id="arm-baremetal-multicore"><a class="anchor" href="#arm-baremetal-multicore"></a><a class="link" href="#arm-baremetal-multicore">27.8.3. ARM baremetal multicore</a></h4>
 <div class="paragraph">
 <p>Examples:</p>
 </div>
@@ -30465,6 +30732,44 @@ IN: main
 <p>The WFE and SEV instructions are just hints: a compliant implementation can treat them as NOPs.</p>
 </div>
 <div class="paragraph">
+<p>Concrete examples of the instruction can be seen at:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/nostartfiles/wfe.S">userland/arch/aarch64/nostartfiles/wfe.S</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/linux/wfe.S">userland/arch/aarch64/freestanding/linux/wfe.S</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/linux/wfe_wfe.S">userland/arch/aarch64/freestanding/linux/wfe_wfe.S</a>: run WFE twice, because gem5 390a74f59934b85d91489f8a563450d8321b602d does not sleep on the first, see also: <a href="#gem5-arm-wfe">gem5 ARM WFE</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/no_bootloader/wfe_loop.S">baremetal/arch/aarch64/no_bootloader/wfe_loop.S</a>, see: <a href="#gem5-simulate-limit-reached">gem5 simulate() limit reached</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/inline_asm/wfe_sev.cpp">userland/arch/aarch64/inline_asm/wfe_sev.cpp</a>: one Linux thread runs WFE and the other runs SEV to wake it up</p>
+</li>
+<li>
+<p><a href="#arm-baremetal-multicore">ARM baremetal multicore</a> shows baremetal examples where WFE sleeps and another thread wakes it up:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/multicore.c">baremetal/arch/arm/multicore.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/multicore.c">baremetal/arch/aarch64/multicore.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/arm/no_bootloader/multicore_asm.S">baremetal/arch/arm/no_bootloader/multicore_asm.S</a></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
 <p>However, likely no implementation likely does (TODO confirm), since:</p>
 </div>
 <div class="ulist">
@@ -30484,7 +30789,34 @@ IN: main
 <p>SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDAXR and STLXR instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.</p>
 </div>
 <div class="paragraph">
-<p>WFE and SEV are usable from userland, and are part of a efficient spinlock implementation.</p>
+<p>WFE and SEV are usable from userland, and are part of an efficient spinlock implementation, which maybe is not something that userland should ever tho and just stick to mutexes?</p>
+</div>
+<div class="paragraph">
+<p>There is a control bit <code>SCTLR_EL1.nTWE</code> that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1. Linux v5.2.1 does not seem to trap however, tested with <code>--trace ExecAll</code> and the <a href="#dump-regs">dump_regs kernel module</a> in a full system simulation. But then, how does the kernel prevent CPUs from going to sleep randomly and instead reschedules other tasks? Does the kernel check if CPUs are in WFE when it wakes up on the timer, and only then reschedules? This would allow for userland to implement fast spinlocks if the spinlock returns faster than the timer. The kernel seems to setup NTWE at:</p>
+</div>
+<div class="paragraph">
+<p>include/asm/sysreg.h</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
+             ...
+			 SCTLR_EL1_NTWE | SCTLR_ELx_IESB | SCTLR_EL1_SPAN |\</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and:</p>
+</div>
+<div class="paragraph">
+<p>mm/proc.S</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>	/*
+	 * Prepare SCTLR
+	 */
+	mov_q	x0, SCTLR_EL1_SET</pre>
+</div>
 </div>
 <div class="paragraph">
 <p>Quotes for the above <a href="#armarm8-db">ARMv8 architecture reference manual db</a> G1.18.1 "Wait For Event and Send Event":</p>
@@ -30575,7 +30907,55 @@ IN: main
 </ul>
 </div>
 <div class="paragraph">
-<p>The best article to understand spinlocks is: <a href="https://eli.thegreenplace.net/2018/basics-of-futexes/" class="bare">https://eli.thegreenplace.net/2018/basics-of-futexes/</a></p>
+<p>For how userland spinlocks and mutexes are implemented see <a href="#userland-mutex-implementation">Userland mutex implementation</a>.</p>
+</div>
+<div class="sect5">
+<h6 id="gem5-arm-wfe"><a class="anchor" href="#gem5-arm-wfe"></a><a class="link" href="#gem5-arm-wfe">27.8.3.1.1. gem5 ARM WFE</a></h6>
+<div class="paragraph">
+<p>gem5 390a74f59934b85d91489f8a563450d8321b602d does not sleep on the first WFE on either syscall emulation or full system, because the code does:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Fault WfeInst::execute(
+    ExecContext *xc, Trace::InstRecord *traceData) const
+{
+[...]
+    if (SevMailbox == 1) {
+        SevMailbox = 0;
+        PseudoInst::quiesceSkip(tc);
+    } else if (tc-&gt;getCpuPtr()-&gt;getInterruptController(
+                tc-&gt;threadId())-&gt;checkInterrupts(tc)) {
+        PseudoInst::quiesceSkip(tc);
+    } else {
+        fault = trapWFx(tc, cpsr, scr, true);
+        if (fault == NoFault) {
+            PseudoInst::quiesce(tc);
+        } else {
+            PseudoInst::quiesceSkip(tc);
+        }
+    }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <a href="https://en.wiktionary.org/wiki/quiescent">"quiesce" means "sleep"</a> for laymen like Ciro, and <code>quiesceSkip</code> means don&#8217;t sleep.</p>
+</div>
+<div class="paragraph">
+<p><code>SevMailbox</code> is read from <code>MISCREG_SEV_MAILBOX</code> which is initialized to <code>1</code> at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>ISA::clear()
+{
+[...]
+    miscRegs[MISCREG_SEV_MAILBOX] = 1;</pre>
+</div>
+</div>
+</div>
+<div class="sect5">
+<h6 id="arm-yield-instruction"><a class="anchor" href="#arm-yield-instruction"></a><a class="link" href="#arm-yield-instruction">27.8.3.1.2. ARM YIELD instruction</a></h6>
+<div class="paragraph">
+<p><a href="https://stackoverflow.com/questions/59311066/how-does-the-arm-yield-instruction-inform-other-threads-that-they-could-start-a" class="bare">https://stackoverflow.com/questions/59311066/how-does-the-arm-yield-instruction-inform-other-threads-that-they-could-start-a</a></p>
+</div>
 </div>
 </div>
 <div class="sect4">
@@ -31791,8 +32171,8 @@ instructions 124346081</pre>
 <thead>
 <tr>
 <th class="tableblock halign-left valign-top">LKMC</th>
-<th class="tableblock halign-left valign-top">Benchmark</th>
-<th class="tableblock halign-left valign-top">Emulator</th>
+<th class="tableblock halign-left valign-top">Benchmark build</th>
+<th class="tableblock halign-left valign-top">Emulator command</th>
 <th class="tableblock halign-left valign-top">Loops</th>
 <th class="tableblock halign-left valign-top">Time (s)</th>
 <th class="tableblock halign-left valign-top">Instruction count</th>
@@ -31802,7 +32182,7 @@ instructions 124346081</pre>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>qemu --arch aarch64</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^10</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
@@ -31811,7 +32191,7 @@ instructions 124346081</pre>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">100</p></td>
@@ -31820,7 +32200,7 @@ instructions 124346081</pre>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 -- --cpu-type MinorCPU --caches</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">31</p></td>
@@ -31829,7 +32209,7 @@ instructions 124346081</pre>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 -- --cpu-type DerivO3CPU --caches</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">52</p></td>
@@ -31838,7 +32218,7 @@ instructions 124346081</pre>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">userland/gcc/busy_loop.c -O0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1 * 1000000 = 10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">63</p></td>
@@ -31847,7 +32227,7 @@ instructions 124346081</pre>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">605448f07e6380634b1aa7e9732d111759f69fd</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#dhrystone">Dhrystone</a> -O3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#dhrystone">Dhrystone</a> <code>-O3</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">4 * 10^5</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
@@ -31856,12 +32236,30 @@ instructions 124346081</pre>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">5d233f2664a78789f9907d27e2a40e86cefad595</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#stream-benchmark">STREAM benchmark</a> -O3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#stream-benchmark">STREAM benchmark</a> <code>-O3</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --userland-args 300000 2</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">3 * 10^5 * 2</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">64</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">9.9674773 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/m5ops.c">userland/c/m5ops.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --userland-args e</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.26479 * 10^5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.05</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/m5ops.cpp">userland/cpp/m5ops.cpp</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --userland-args e</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.385012 * 10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
 </tr>
 </tbody>
 </table>
