@@ -14114,6 +14114,13 @@ Bibliography:
 
 * https://stackoverflow.com/questions/31978324/what-exactly-is-stdatomic/58904448#58904448 "What exactly is std::atomic?"
 
+[[cpp-memory-order]]
+===== C++ std::memory_order
+
+https://stackoverflow.com/questions/12346487/what-do-each-memory-order-mean
+
+TODO let's understand that fully one day.
+
 [[cpp-parallel-algorithms]]
 ===== C++ parallel algorithms
 
@@ -15492,17 +15499,17 @@ This is how threads either:
 
 This syscall is rarely used on its own, and there isn't even a glibc wrapper for it: you almost always just want to use the <<pthreads>> or <<cpp-multithreading>> wrappers which use it for you to <<userland-mutex-implementation,implement higher level constructs like mutexes>>.
 
-Futexes are bit complicated, because in order to achieve their efficiency, basically nothing is guaranteed: the wait might not wait, and the wakes might not wake. So you are just basically forced to use atomic operations on the futex memory address in order to be sure of anything.
+Futexes are bit complicated, because in order to achieve their efficiency, basically nothing is guaranteed: the wait might not wait, and the wakes might not wake.
+
+So you are just basically forced to use atomic operations on the futex memory address in order to be sure of anything (we encourage you to try without :-)).
 
 Minimal examples:
 
 * link:lkmc/futex.h[]: our futex wrapper
-* link:userland/linux/futex.c[]: minimal example, the main thread:
-** spawns a child
-** the child waits on a futex
-** the main thread sleeps for one second
-** the main thread wakes up the child
-** the child returns
+* link:userland/linux/futex.c[]: minimal example. It:
+** first spawns a child
+** then sleeps for 1 second and wakes up the futex if anyone is sleeping on it
+** the child sleeps on the futex if it reaches that futex before the end of the parent's sleep (likely). If it did reach that `FUTEX_WAIT` there, it gets awoken by the parent.
 +
 So what you see is:
 +
@@ -15510,8 +15517,8 @@ So what you see is:
 main start
 child start
 [wait 1s]
-main after sleep
-child end
+parent after sleep
+child after parent sleep
 ....
 
 ===== Userland mutex implementation
