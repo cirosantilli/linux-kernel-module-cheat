@@ -51,11 +51,28 @@ void threadMain() {
             :
             :
         );
+#elif LKMC_USERLAND_ATOMIC_LDAXR_STLXR
+        // Was used by std::atomic before LDADD was added
+        uint64_t scratch64;
+        uint64_t scratch32;
+        __asm__ __volatile__ (
+            "1:"
+            "ldaxr %[scratch64], [%[addr]];"
+            "add   %[scratch64], %[scratch64], 1;"
+            "stlxr %w[scratch32], %[scratch64], [%[addr]];"
+            "cbnz  %w[scratch32], 1b;"
+            : "=m" (global), // indicate that global is modified
+              "+g" (i), // to prevent loop unrolling
+              [scratch64] "=&r" (scratch64),
+              [scratch32] "=&r" (scratch32)
+            : [addr] "r" (&global)
+            :
+        );
 #elif LKMC_USERLAND_ATOMIC_AARCH64_LDADD
         // https://cirosantilli.com/linux-kernel-module-cheat#arm-lse
         __asm__ __volatile__ (
             "ldadd %[inc], xzr, [%[addr]];"
-            : "=m" (global),
+            : "=m" (global), // indicate that global is modified
               "+g" (i) // to prevent loop unrolling
             : [inc] "r" (1),
               [addr] "r" (&global)

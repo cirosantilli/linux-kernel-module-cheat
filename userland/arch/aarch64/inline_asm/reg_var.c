@@ -4,10 +4,10 @@
 #include <inttypes.h>
 
 int main(void) {
-    register uint32_t x0 __asm__ ("x0");
-    register uint32_t x1 __asm__ ("x1");
-    uint32_t new_x0;
-    uint32_t new_x1;
+    register uint64_t x0 __asm__ ("x0");
+    register uint64_t x1 __asm__ ("x1");
+    uint64_t new_x0;
+    uint64_t new_x1;
     {
         x0 = 1;
         x1 = 2;

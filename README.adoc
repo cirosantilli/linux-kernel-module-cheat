@@ -12056,7 +12056,7 @@ The exact same can be achieved with the older hardcoded `--maxinsts` mechanism p
 
 Other related fs.py options are:
 
-* `--abs-max-tick`: set the maximum number of ticks rather than instructions
+* `--abs-max-tick`: set the maximum guest simulation time. The same scale as the ExecAll trace is used. E.g., for the above example with 3 instructions, the same trace would be achieved with a value of 3000.
 
 The message also shows on <<user-mode-simulation>> deadlocks, for example in link:userland/posix/pthread_deadlock.c[]:
 
@@ -13988,6 +13988,7 @@ In this set of examples, we exemplify various synchronization mechanisms, includ
 
 * link:userland/cpp/atomic/main.hpp[]: contains all the code which is then specialized in separated `.cpp` files with macros
 * link:userland/cpp/atomic/aarch64_add.cpp[]: non synchronized aarch64 inline assembly
+* link:userland/cpp/atomic/aarch64_ldaxr_stlxr.cpp[]: see: <<arm-ldxr-and-stxr-instructions>>
 * link:userland/cpp/atomic/aarch64_ldadd.cpp[]: synchronized aarch64 inline assembly with the <<arm-lse>> LDADD instruction
 * link:userland/cpp/atomic/fail.cpp[]: non synchronized C++ operator `++`
 * link:userland/cpp/atomic/mutex.cpp[]: synchronized `std::mutex`. `std;`
@@ -14287,7 +14288,9 @@ The following sections are related to multithreading in userland:
 ** <<pthreads>>
 * ISA topics:
 ** <<x86-thread-synchronization-primitives>>
-** <<arm-lse>>
+** <<arm-thread-synchronization-primitives>>
+*** <<arm-ldxr-stxr>>
+*** <<arm-lse>>
 * emulator topics:
 ** <<qemu-user-mode-multithreading>>
 ** <<gem5-syscall-emulation-multithreading>>
@@ -15338,6 +15341,7 @@ Examples under `arch/<arch>/c/` directories show to how use inline assembly from
 * aarch64
 ** link:userland/arch/aarch64/inline_asm/earlyclobber.c[]
 ** link:userland/arch/aarch64/inline_asm/inc.c[]
+** link:userland/arch/aarch64/inline_asm/inc_32.c[]: how to use 32-bit `w` registers in aarch64. We have to add `w` to the `%` as in `%w[io]` instead of `%[io]`
 ** link:userland/arch/aarch64/inline_asm/multiline.cpp[]
 
 ==== GCC inline assembly register variables
@@ -17468,25 +17472,54 @@ We then download the zip from: https://developer.arm.com/docs/ddi0584/latest/arm
 
 That document then describes the SVE instructions and registers.
 
+=== ARM thread synchronization primitives
+
+Parent section: <<userland-multithreading>>.
+
+==== ARM LDXR and STXR instructions
+
+Parent section: <<atomic-cpp>>
+
+link:userland/cpp/atomic/aarch64_ldaxr_stlxr.cpp[]
+
+LDXR and STXR vs LDAXR and STLXR: https://stackoverflow.com/questions/21535058/arm64-ldxr-stxr-vs-ldaxr-stlxr TODO understand better and example.
+
+LDXR and STXR for a so-called "Load-link/store-conditional" (LLSC) pattern: https://en.wikipedia.org/wiki/Load-link/store-conditional which appears in many RISC ISAs.
+
+This pattern makes it such that basically:
+
+* LDXR marks an address for exclusive access by the current CPU
+* STXR:
+** marks the address as not being exclusive to other CPUs that may have done LDXR before
+** loads fine if the address is still marked as exclusive, and stores 0 on a third register for success
+** fails to load if the address is not, and stores 1 on the third register for failure
+
+In case of failure, we just have to loop back to just before the LDXR and try again.
+
+This is therefore basically a spinlock and should only be used to cover very short critical sections such as atomic increments.
+
+C++ `std::atomic` uses this for increments before v8.1 <<arm-lse>>: https://stackoverflow.com/questions/56810/how-do-i-start-threads-in-plain-c/52453291#52453291
+
+[[arm-lse]]
+==== ARM Large System Extensions (LSE)
+
+Set of atomic and synchronization primitives added in <<armv8-1-architecture-extension>>.
+
+Documented at <<armarm8-db>> "ARMv8.1-LSE, ARMv8.1 Large System Extensions"
+
+* LDADD: link:userland/cpp/atomic/aarch64_ldadd.cpp[], see also: <<atomic-cpp>>. Kernel inspiration: https://github.com/torvalds/linux/blob/v5.4/arch/arm64/include/asm/atomic_lse.h#L56
+
+Bibliography:
+
+* https://preshing.com/20120710/memory-barriers-are-like-source-control-operations/
+
 === ARMv8 architecture extensions
 
 ==== ARMv8.1 architecture extension
 
 <<armarm8-db>> A1.7.3 "The ARMv8.1 architecture extension"
 
-[[arm-lse]]
-===== ARM Large System Extensions (LSE)
-
-Parent section: <<arm-baremetal-multicore>>.
-
-<<armarm8-db>> "ARMv8.1-LSE, ARMv8.1 Large System Extensions"
-
-* LDADD: link:userland/cpp/atomic/aarch64_ldadd.cpp[], see also: <<atomic-cpp>>. Kernel inspiration: https://github.com/torvalds/linux/blob/v5.4/arch/arm64/include/asm/atomic_lse.h#L56
-
-Bibliography:
-
-* https://stackoverflow.com/questions/21535058/arm64-ldxr-stxr-vs-ldaxr-stlxr
-* https://preshing.com/20120710/memory-barriers-are-like-source-control-operations/
+* <<arm-lse>>
 
 === ARM assembly bibliography
 
