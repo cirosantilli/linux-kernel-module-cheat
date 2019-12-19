@@ -18515,29 +18515,6 @@ and power consumption is key in ARM applications.
 
 SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it. Notably, global monitor operations on memory accesses of regions marked by LDAXR and STLXR instructions can also wake up a WFE sleeping core. This is done to allow spinlocks opens to automatically wake up WFE sleeping cores at free time without the need for a explicit SEV.
 
-WFE and SEV are usable from userland, and are part of an efficient spinlock implementation, which maybe is not something that userland should ever tho and just stick to mutexes?
-
-There is a control bit `SCTLR_EL1.nTWE` that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1. Linux v5.2.1 does not seem to trap however, tested with `--trace ExecAll` and the <<dump-regs,dump_regs kernel module>> in a full system simulation. But then, how does the kernel prevent CPUs from going to sleep randomly and instead reschedules other tasks? Does the kernel check if CPUs are in WFE when it wakes up on the timer, and only then reschedules? This would allow for userland to implement fast spinlocks if the spinlock returns faster than the timer. The kernel seems to setup NTWE at:
-
-include/asm/sysreg.h
-
-....
-#define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
-             ...
-			 SCTLR_EL1_NTWE | SCTLR_ELx_IESB | SCTLR_EL1_SPAN |\
-....
-
-and:
-
-mm/proc.S
-
-....
-	/*
-	 * Prepare SCTLR
-	 */
-	mov_q	x0, SCTLR_EL1_SET
-....
-
 Quotes for the above <<armarm8-db>> G1.18.1 "Wait For Event and Send Event":
 
 ____
@@ -18594,6 +18571,74 @@ The following Raspberry Pi bibliography helped us get this sample up and running
 * https://github.com/LdB-ECM/Raspberry-Pi/blob/3b628a2c113b3997ffdb408db03093b2953e4961/Multicore/SmartStart32.S
 
 For how userland spinlocks and mutexes are implemented see <<userland-mutex-implementation>>.
+
+====== WFE from userland
+
+WFE and SEV are usable from userland, and are part of an efficient spinlock implementation (which userland should arguably stay away from and rather use the <<futex-system-call>> which allow for non busy sleep instead), which maybe is not something that userland should ever tho and just stick to mutexes?
+
+There is a control bit `SCTLR_EL1.nTWE` that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1.
+
+Linux v5.2.1 does not set `SCTLR_EL1.nTWE` however, tested with <<gem5-tracing>> with `--trace ExecAll,Failts` and the <<dump-regs,dump_regs kernel module>> in a full system simulation.
+
+The kernel seems to setup nTWE at:
+
+include/asm/sysreg.h
+
+....
+#define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
+             ...
+			 SCTLR_EL1_NTWE | SCTLR_ELx_IESB | SCTLR_EL1_SPAN |\
+....
+
+and:
+
+mm/proc.S
+
+....
+	/*
+	 * Prepare SCTLR
+	 */
+	mov_q	x0, SCTLR_EL1_SET
+....
+
+To reduce the number of instructions from our trace, first we boot, and then we restore a checkpoint after boot with <<gem5-restore-new-script>> with a restore command that runs link:userland/arch/aarch64/freestanding/linux/wfe_wfe.S[]:
+
+....
+./run --arch aarch64 --emulator gem5 --gem5-worktree master --gem5-restore 1 --gem5-readfile 'arch/aarch64/freestanding/linux/wfe_wfe.out' --trace ExecAll,Faults,FmtFlag,Thread
+....
+
+On the traces, we search for `wfe`, and there are just two hits, so they must be our instructions!
+
+The traces then look like this at LKMC 777b7cbbd1d553baf2be9bc2075102be740054dd:
+
+....
+112285501668497000: Thread: system.cpu: suspend contextId 0
+112285501668497000: ExecEnable: system.cpu: A0 T0 : 0x400078    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+112285501668497501: Thread: system.cpu: activate contextId 0
+112285501668498000: Thread: system.cpu: suspend contextId 0
+112285501668498000: ExecEnable: system.cpu: A0 T0 : 0x40007c    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+112285501909320284: Thread: system.cpu: activate contextId 0
+112285501909320500: Faults: IRQ: Invoking Fault (AArch64 target EL):IRQ cpsr:0x4003c5 PC:0x400080 elr:0x400080 newVec: 0xffffff8010082480 
+112285501909320500: ExecEnable: system.cpu: A0 T0 : @vectors+1152    :   nop                      : IntAlu :   flags=(IsNop)
+112285501909321000: ExecEnable: system.cpu: A0 T0 : @vectors+1156    :   nop                      : IntAlu :   flags=(IsNop)
+
+[more exception handler, no ERET here]
+
+112285501923080500: ExecEnable: system.cpu: A0 T0 : @finish_ret_to_user+188    :   ldr   x30, [sp, #240]    : MemRead :  D=0x0000000000000000 A=0xffffff8010cb3fb0  flags=(IsInteger|IsMemRef|IsLoad)
+112285501923081000: ExecEnable: system.cpu: A0 T0 : @finish_ret_to_user+192    :   add   sp, sp, #320       : IntAlu :  D=0xffffff8010cb4000  flags=(IsInteger)
+112285501923081500: ExecEnable: system.cpu: A0 T0 : 0xffffff8010084144    :   eret                     : IntAlu :  D=0x0000000000000001  flags=(IsControl|IsSerializeAfter|IsNonSpeculative|IsSquashAfter)
+112285501923082000: ExecEnable: system.cpu: A0 T0 : 0x400080    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+112285501923082500: ExecEnable: system.cpu: A0 T0 : 0x400084    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+112285501923083000: ExecEnable: system.cpu: A0 T0 : 0x400088    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+....
+
+so we conclude that:
+
+* the second WFE made the CPU stop running instructions at time 112285501668498000 and PC 0x40007c
+* the next thing that happened a long time later (112285501909320500, while a following instruction would happen at 112285501668498000 + 1000) was an interrupt, presumably the <<arm-timer>>
+* after a few interrupt handler instructions, the first <<arm-svc-instruction,ERET>> instruction exits the handler and comes back directly to the instruction after the WFE at PC 0x400080 == 0x40007c + 4
+
+Therefore, a WFE in userland is treated much like a busy loop by the Linux kernel: the kernel does not seem to try and explicitly make up room for other processes as would happen on a futex.
 
 ====== gem5 ARM WFE
 
