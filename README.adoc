@@ -13043,15 +13043,15 @@ if (curStaticInst && curStaticInst->isMemRef()) {
     Fault fault = curStaticInst->execute(&t_info, traceData);
 ....
 
-* `curStaticInst->isMemRef()` is true, and there is no instruction `execute` call in that part of the branch, only for instructions that don't touch memory
+* `+curStaticInst->isMemRef()+` is true, and there is no instruction `execute` call in that part of the branch, only for instructions that don't touch memory
 * `_status` is `BaseSimpleCPU::Status::DcacheWaitResponse` and `advanceInst` is not yet called
 
 So, where is the `execute` happening? Well, I'll satisfy myself with a quick source grep and guess:
 
-* `curStaticInst->initiateAcc` sets up some memory request events
+* `+curStaticInst->initiateAcc+` sets up some memory request events
 * which likely lead up to: `TimingSimpleCPU::completeDataAccess`, which off the bat ends in `advanceInst`.
 +
-It also calls `curStaticInst->completeAcc`, which pairs up with the `initiateAcc` call.
+It also calls `+curStaticInst->completeAcc+`, which pairs up with the `initiateAcc` call.
 
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches
 
