@@ -659,6 +659,7 @@ path_properties_tuples = (
                             {
                                 'aarch64_add.cpp': {'allowed_archs': {'aarch64'}},
                                 'aarch64_ldadd.cpp': {'allowed_archs': {'aarch64'}},
+                                'aarch64_ldaxr_stlxr.cpp': {'allowed_archs': {'aarch64'}},
                                 'x86_64_inc.cpp': {'allowed_archs': {'x86_64'}},
                                 'x86_64_lock_inc.cpp': {'allowed_archs': {'x86_64'}},
                             },
