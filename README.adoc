@@ -18749,8 +18749,24 @@ so we conclude that:
 * the second WFE made the CPU stop running instructions at time 112285501668498000 and PC 0x40007c
 * the next thing that happened a long time later (112285501909320500, while a following instruction would happen at 112285501668498000 + 1000) was an interrupt, presumably the <<arm-timer>>
 * after a few interrupt handler instructions, the first <<arm-svc-instruction,ERET>> instruction exits the handler and comes back directly to the instruction after the WFE at PC 0x400080 == 0x40007c + 4
+* the execution of the interrupt handler woke up the core that was in WFE, and it now continues normal execution past the WFE
 
 Therefore, a WFE in userland is treated much like a busy loop by the Linux kernel: the kernel does not seem to try and explicitly make up room for other processes as would happen on a futex.
+
+====== ARMv8 spinlock pattern
+
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.faqs/ka16277.html
+
+....
+       sev
+   1:  wfe
+   2:  ldaxr  w1, [w0]
+       cbnz   w1, %1b
+       stxr   w1, w2, [w0]
+       cbnz   w1, %2b
+....
+
+It is the <<arm-ldxr-and-stxr-instructions,STXR>> from the unlock on another core that automatically wakes up the spinlock afterwards: https://stackoverflow.com/questions/32276313/how-is-a-spin-lock-woken-up-in-linux-arm64
 
 ====== gem5 ARM WFE
 
