@@ -38,12 +38,20 @@ Ctrl + C kills the QEMU simulator instead of being passed to the guest.
             help='''\
 Run GDB on the emulator itself.
 For --emulator native, this debugs the target program.
+See also: https://cirosantilli.com/linux-kernel-module-cheat#debug-the-emulator
 '''
         )
         self.add_argument(
             '--debug-vm-args',
             default='',
-            help='Pass arguments to GDB. Implies --debug-vm.'
+            help='Like --debug-vm, but also pass arguments to GDB'
+        )
+        self.add_argument(
+            '--debug-vm-file',
+            help='''\
+Like --debug-vm, but also source this file. Equivalent to
+--debug-vm-args='-ex "source $file"'.
+'''
         )
         self.add_argument(
             '--debug-vm-rr',
@@ -362,8 +370,11 @@ Extra options to append at the end of the emulator command line.
             self.env['tmux'] = True
         if self.env['debug_vm_rr']:
             debug_vm = ['rr', 'record']
-        elif self.env['debug_vm'] or self.env['debug_vm_args']:
-            debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args']) + ['--args', LF]
+        elif self.env['debug_vm'] or self.env['debug_vm_args'] or self.env['debug_vm_file']:
+            debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args'])
+            if self.env['debug_vm_file'] is not None:
+                debug_vm.extend(['-ex', 'source {}'.format(self.env['debug_vm_file']), LF])
+            debug_vm.extend(['--args', LF])
         else:
             debug_vm = []
         if self.env['gdb_wait']:
