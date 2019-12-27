@@ -8,6 +8,7 @@ from shell_helpers import LF
 class Main(common.BuildCliFunction):
     def __init__(self):
         super().__init__()
+        self._add_argument('--configure')
         self.add_argument(
             'extra_config_args',
             default=[],
@@ -31,18 +32,19 @@ class Main(common.BuildCliFunction):
             build_type_cmd = ['--enable-debug', LF]
         else:
             build_type_cmd = []
-        self.sh.run_cmd(
-            [
-                os.path.join(self.env['qemu_source_dir'], 'configure'), LF,
-                '--enable-trace-backends=simple', LF,
-                '--target-list={}'.format(target_list), LF,
-                '--enable-sdl', LF,
-            ] +
-            build_type_cmd +
-            self.sh.add_newlines(self.env['extra_config_args']),
-            extra_paths=[self.env['ccache_dir']],
-            cwd=build_dir
-        )
+        if self.env['configure']:
+            self.sh.run_cmd(
+                [
+                    os.path.join(self.env['qemu_source_dir'], 'configure'), LF,
+                    '--enable-trace-backends=simple', LF,
+                    '--target-list={}'.format(target_list), LF,
+                    '--enable-sdl', LF,
+                ] +
+                build_type_cmd +
+                self.sh.add_newlines(self.env['extra_config_args']),
+                extra_paths=[self.env['ccache_dir']],
+                cwd=build_dir
+            )
         self.sh.run_cmd(
             (
                 [

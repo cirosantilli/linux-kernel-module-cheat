@@ -1590,6 +1590,12 @@ Pass the given compiler flags to all languages (C, C++, Fortran, etc.)
 Force rebuild even if sources didn't change.
 ''',
             },
+            '--configure': {
+                'default': True,
+                "help": '''\
+Also run the configuration step during build.
+''',
+            },
             '--optimization-level': {
                 'default': '0',
                 'help': '''
