@@ -375,6 +375,14 @@ Linux build ID. Allows you to keep multiple separate Linux builds.
 '''
         )
         self.add_argument(
+            '--linux-exec',
+            help='''\
+Use the given executable Linux kernel image. Ignored in userland and baremetal modes,
+Remember that different emulators may take different types of image, see:
+https://cirosantilli.com/linux-kernel-module-cheat#vmlinux-vs-bzimage-vs-zimage-vs-image
+''',
+        )
+        self.add_argument(
             '--linux-source-dir',
             help='''\
 Use the given directory as the Linux source tree.
@@ -1071,14 +1079,18 @@ Incompatible archs are skipped.
                     break
         else:
             if env['emulator'] == 'gem5':
-                env['image'] = env['vmlinux']
+                if not env['_args_given']['linux_exec']:
+                    env['image'] = env['vmlinux']
                 if env['ramfs']:
                     env['disk_image'] = env['gem5_fake_iso']
                 else:
                     env['disk_image'] = env['rootfs_raw_file']
             else:
-                env['image'] = env['linux_image']
+                if not env['_args_given']['linux_exec']:
+                    env['image'] = env['linux_image']
                 env['disk_image'] = env['qcow2_file']
+            if env['_args_given']['linux_exec']:
+                env['image'] = env['linux_exec']
 
         # Android
         if not env['_args_given']['android_base_dir']:

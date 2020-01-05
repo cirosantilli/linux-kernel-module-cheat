@@ -12356,6 +12356,35 @@ TODO: describe the main characteristics of each platform, as of gem5 5e83d703522
 * `VExpress_GEM5_V2`: VExpress_GEM5_V1 with GICv3, uses a different bootloader `arm/aarch64_bootloader/boot_emm_v2.arm64` TODO is it because of GICv3?
 * anything that does not start with: `VExpress_GEM5_`: old and bad, don't use them
 
+=== gem5 upstream images
+
+Present at:
+
+* http://www.gem5.org/dist/current/arm/
+* http://www.gem5.org/dist/current/x86/
+
+Depending on which archive you download from there, you can find some of:
+
+* Ubuntu based images
+* precompiled Linux kernels, with the <<gem5-arm-linux-kernel-patches>> for arm
+* precompiled <<gem5-bootloaders>> for ISAs that have them, e.g. ARM
+* precompiled DTBs if you don't want to use autogeneration for some crazy reason
+
+Some of those images are also used on the <<gem5-unit-tests>> continuous integration.
+
+Could be used as an alternative to this repository. But why would you do that? :-)
+
+E.g. to use a precompiled ARM kernel:
+
+....
+mkdir aarch-system-201901106
+cd aarch-system-201901106
+wget http://www.gem5.org/dist/current/arm/aarch-system-201901106.tar.bz2
+tar xvf aarch-system-201901106.tar.bz2
+cd ..
+./run --arch aarch64 --emulator gem5 --linux-exec aarch-system-201901106/binaries/vmlinux.arm64
+....
+
 === gem5 internals
 
 Internals under other sections:
@@ -13303,6 +13332,26 @@ The horrendous downsides of this are:
 
 * when <<debug-the-emulator,debugging the emulator>>, it shows you directories inside the build directory rather than in the source tree
 * it is harder to separate which files are <<gem5-code-generation,generated>> and which are in-tree when grepping for code generated definitions
+
+=== gem5 bootloaders
+
+Certain ISAs like ARM have bootloaders that are automatically run before the main image to setup basic system state.
+
+We cross compile those bootloaders from source automatically during `./build-gem5`.
+
+As of gem5 bcf041f257623e5c9e77d35b7531bae59edc0423, the source code of the bootloaderes can be found under:
+
+....
+system/arm/
+....
+
+and their selection can be seen under: `src/dev/arm/RealView.py`, e.g.:
+
+....
+    def setupBootLoader(self, cur_sys, loc):
+        if not cur_sys.boot_loader:
+            cur_sys.boot_loader = [ loc('boot_emm.arm64'), loc('boot_emm.arm') ]
+....
 
 == Buildroot
 
