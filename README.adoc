@@ -9969,7 +9969,7 @@ While step debugging any complex program, you always end up feeling the need to 
 
 While GDB "has" this feature, it is just too broken to be usable, and so we expose the amazing Mozilla RR tool conveniently in this repo: https://stackoverflow.com/questions/1470434/how-does-reverse-debugging-work/53063242#53063242
 
-Before the first usage:
+Before the first usage setup rr with:
 
 ....
 echo 'kernel.perf_event_paranoid=1' | sudo tee -a /etc/sysctl.conf
@@ -9982,7 +9982,10 @@ Then use it with your content of interest, for example:
 ./run --debug-vm-rr --userland userland/c/hello.c
 ....
 
-This will first run the program once until completion, and then restart the program at the very first instruction at `_start` and leave you in a GDB shell.
+This will:
+
+* first run the program once until completion or crash
+* then restart the program at the very first instruction at `_start` and leave you in a GDB shell
 
 From there, run the program until your point of interest, e.g.:
 
@@ -9997,6 +10000,12 @@ To restart debugging again after quitting `rr`, simply run on your host terminal
 
 ....
 rr replay
+....
+
+The use case of `rr` is often to go to the final crash and then walk back from there, so you often want to automate running until the end after record with `--debug-vm-args` as in:
+
+....
+./run --debug-vm-args='-ex continue' --debug-vm-rr --userland userland/c/hello.c
 ....
 
 Programs often tend to blow up in very low frames that use values passed in from higher frames. In those cases, remember that just like with forward debugging, you can't just go:

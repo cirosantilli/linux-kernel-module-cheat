@@ -2,6 +2,7 @@
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -44,7 +45,10 @@ See also: https://cirosantilli.com/linux-kernel-module-cheat#debug-the-emulator
         self.add_argument(
             '--debug-vm-args',
             default='',
-            help='Like --debug-vm, but also pass arguments to GDB'
+            help='''\
+Pass arguments to GDB. Implies --debug-vm. If --debug-vm-rr is used,
+pass the given arguments to GDB on the replay.
+'''
         )
         self.add_argument(
             '--debug-vm-file',
@@ -841,8 +845,11 @@ Extra options to append at the end of the emulator command line.
             stdin_path=self.env['stdin_file'],
         )
         if self.env['debug_vm_rr']:
+            rr_cmd = ['rr', 'replay', LF, '-o', '-q', LF]
+            for arg in shlex.split(self.env['debug_vm_args']):
+                rr_cmd.extend(['-o', arg, LF]);
             exit_status = self.sh.run_cmd(
-                ['rr', 'replay', '-o', '-q'],
+                rr_cmd,
                 raise_on_failure=False,
                 show_stdout=show_stdout,
             )
