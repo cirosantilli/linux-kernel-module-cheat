@@ -1716,6 +1716,11 @@ https://cirosantilli.com/linux-kernel-module-cheat#gem5-debug-build
                                     else:
                                         eigen_root = self.env['buildroot_staging_dir']
                                     packages = {
+                                        'boost': {
+                                            # Header only, no pkg-config package.
+                                            'cc_flags': [],
+                                            'cc_flags_after': [],
+                                        },
                                         'eigen': {
                                             # TODO: was failing with:
                                             # fatal error: Eigen/Dense: No such file or directory as of
