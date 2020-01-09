@@ -656,9 +656,10 @@ More gem5 information is present at: xref:gem5[xrefstyle=full]
 
 Good next steps are:
 
-* <<gem5-run-benchmark>>
-* <<m5out-directory>>
-* <<m5ops>>
+* <<gem5-run-benchmark>>: how to run a benchmark in gem5 full system, including how to boot Linux, checkpoint and restore to skip the boot on a fast CPU
+* <<m5out-directory>>: understand the output files that gem5 produces, which contain information about your run
+* <<m5ops>>: magic guest instructions used to control gem5
+* <<add-new-files-to-the-buildroot-image>>: how to add your own files to the image if you have a benchmark that we don't already support out of the box (also send a pull request!)
 
 [[docker]]
 === Docker host setup
@@ -13513,7 +13514,32 @@ with:
 
 `-f` forces login without asking for the password.
 
-=== Add new Buildroot packages
+=== Add new files to the Buildroot image
+
+There are basically two choices:
+
+* create a Buildroot package: <<add-new-buildroot-packages>>
+* drop your files directly in <<rootfs_overlay>> and follow instructions from that section
+
+If you need to cross compile input files such as C for the guest, then Buildroot packages are definitely the cleaner option as they make cross compilation easy.
+
+However, for a quick initial prototype, it should be fine to just manually compile your files and drop them in <<rootfs_overlay>>.
+
+Ideally, you should still use the Buildroot cross compiler for this which ensures compatibility.
+
+The best way to do that is to use either <<run-toolchain>> or <<getvar>>.
+
+In case you can't for some reason, e.g. if you need to use your own custom toolchain, you should:
+
+* make sure that you have built your toolchain to match the our kernel version. It often just works even if they are not perfectly matched however, partly because the Linux kernel is highly <<update-the-linux-kernel,backwards compatible>>
+* build statically with `-static` to avoid binary compatibility issues with our own glibc
+
+Related threads:
+
+* https://github.com/cirosantilli/linux-kernel-module-cheat/issues/22
+* https://github.com/cirosantilli/linux-kernel-module-cheat/issues/50
+
+==== Add new Buildroot packages
 
 First, see if you can't get away without actually adding a new package, for example:
 
@@ -20504,6 +20530,62 @@ We have https://buildroot.org/downloads/manual/manual.html#ccache[enabled ccache
 * absolute paths are used and GDB can find source files
 * but builds are not reused across separated LKMC directories
 
+=== getvar
+
+The link:getvar[] helper script can print the values of internal LKMC variables.
+
+Within our Python scripts such as link:common.py[], those variable are visible as `self.env[<var>]`.
+
+For example, to find the Buildroot output directory for an `aarch64` build, you could use:
+
+....
+./getvar --arch aarch64 buildroot_build_dir
+....
+
+which as of LKMC b15a0e455d691afa49f3b813ad9b09394dfb02b7 outputs:
+
+....
+/path/to/linux-kernel-module-cheat/out/buildroot/build/default/aarch64
+....
+
+You can also list all available variables in one go with just:
+
+....
+./getvar
+....
+
+Using link:getvar[] makes it possible to make Bash scripts more portable if for example directory structure changes across LKMC versions.
+
+For this reason, we use it in particular often in this README to reduce the need for refactoring.
+
+==== run-toolchain
+
+While you could just manually find/learn the path to toolchain tools, e.g. in LKMC b15a0e455d691afa49f3b813ad9b09394dfb02b7 they are
+
+....
+./out/buildroot/build/default/aarch64/host/bin/aarch64-buildroot-linux-gnu-gcc userland/c/hello.c
+./out/buildroot/build/default/aarch64/host/bin/aarch64-buildroot-linux-gnu-objdump -D a.out
+....
+
+you can save some typing and get portability across directory structure changes with our link:run-toolchain[] helper:
+
+....
+./run-toolchain --arch aarch64 gcc -- userland/c/hello.c
+./run-toolchain --arch aarch64 objdump -- -D a.out
+....
+
+Alternatively, if you just need a variable to feed into your own Build system, you can also use <<getvar>>:
+
+....
+./getvar --arch aarch64 toolchain_prefix
+....
+
+which outputs as of LKMC b15a0e455d691afa49f3b813ad9b09394dfb02b7:
+
+....
+/path/to/linux-kernel-module-cheat/out/buildroot/build/default/aarch64/host/usr/bin/aarch64-buildroot-linux-gnu
+....
+
 === Rebuild Buildroot while running
 
 It is not possible to rebuild the root filesystem while running QEMU because QEMU holds the file qcow2 file:
@@ -20933,7 +21015,7 @@ This output directory contains all the files that LKMC will put inside the final
 
 LKMC first collects all the files that it will dump into the guest there, and then in the very last step dumps everything into the final image.
 
-In Buildroot, this is done by pointing `BR2_ROOTFS_OVERLAY` to that directory.
+In Buildroot, this is done by pointing `BR2_ROOTFS_OVERLAY` to that directory, which is documented at: https://buildroot.org/downloads/manual/manual.html#rootfs-custom
 
 This does not include native image modification mechanisms such as <<buildroot_packages-directory,Buildroot packages>>, which we let Buildroot itself manage.
 
@@ -20954,21 +21036,6 @@ Those files also contain arch specific helpers under ifdefs like:
 
 We try to keep as much as possible in those files. It bloats builds a little, but just makes everything simpler to understand.
 
-==== rand_check.out
-
-Print out several parameters that normally change randomly from boot to boot:
-
-....
-./run --eval-after './linux/rand_check.out;./linux/poweroff.out'
-....
-
-Source: link:userland/linux/rand_check.c[]
-
-This can be used to check the determinism of:
-
-* <<norandmaps>>
-* <<qemu-record-and-replay>>
-
 ==== lkmc_home
 
 `lkmc_home` refers to the target base directory in which we put all our custom built stuff, such as <<userland-setup,userland executables>> and <<your-first-kernel-module-hack,kernel modules>>.
@@ -20987,6 +21054,71 @@ To save you from typing that path every time, we have made our most common comma
 * `--eval` and `--eval-after` through <<replace-init>> and <<init-busybox>>
 
 Whenever a relative path is used inside a guest sample command, e.g. `insmod hello.ko` or `./hello.out`, it means that the path lives in `lkmc_home` unless stated otherwise.
+
+[[path-properties]]
+==== path_properties.py
+
+In order to build and run each userland and <<baremetal-setup,baremetal>> example properly, we need per-file metadata such as compiler flags and required number of cores.
+
+This data is stored is stored in link:path_properties.py[] at `path_properties_tuples`.
+
+Maybe we should embed it magically into source files directories to make it easier to see? But one big Python dict was easier to implement so we started like this. And it allows factoring chunks out easily.
+
+The format is as follows:
+
+....
+'path_component': (
+    {'property': value},
+    {
+        'child_path_component':
+        {
+            {'child_property': },
+            {}
+        }
+    }
+)
+....
+
+and as a shortcut, paths that don't have any children can be written directly as:
+
+.....
+'path_component': {'property': value}
+.....
+
+Properties of parent directories apply to all children.
+
+Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.
+
+To quickly determine which properties a path has, you can use link:getprops[], e.g.:
+
+....
+./getprops userland/c/hello.c
+....
+
+which outputs values such as:
+
+....
+allowed_archs=None
+allowed_emulators=None
+arm_aarch32=False
+arm_sve=False
+baremetal=True
+....
+
+==== rand_check.out
+
+Print out several parameters that normally change randomly from boot to boot:
+
+....
+./run --eval-after './linux/rand_check.out;./linux/poweroff.out'
+....
+
+Source: link:userland/linux/rand_check.c[]
+
+This can be used to check the determinism of:
+
+* <<norandmaps>>
+* <<qemu-record-and-replay>>
 
 === Test this repo
 
@@ -21259,56 +21391,6 @@ Other bisection helpers include:
 
 * link:bisect-linux-boot-gem5[]
 * link:bisect-gem5-linux-boot[]
-
-[[path-properties]]
-=== path_properties
-
-In order to build and run each userland and <<baremetal-setup,baremetal>> example properly, we need per-file metadata such as compiler flags and required number of cores.
-
-This data is stored is stored in link:path_properties.py[] at `path_properties_tuples`.
-
-Maybe we should embed it magically into source files directories to make it easier to see? But one big Python dict was easier to implement so we started like this. And it allows factoring chunks out easily.
-
-The format is as follows:
-
-....
-'path_component': (
-    {'property': value},
-    {
-        'child_path_component':
-        {
-            {'child_property': },
-            {}
-        }
-    }
-)
-....
-
-and as a shortcut, paths that don't have any children can be written directly as:
-
-.....
-'path_component': {'property': value}
-.....
-
-Properties of parent directories apply to all children.
-
-Lists coming from parent directories are extended instead of overwritten by children, this is especially useful for C compiler flags.
-
-To quickly determine which properties a path has, you can use link:getprops[], e.g.:
-
-....
-./getprops userland/c/hello.c
-....
-
-which outputs values such as:
-
-....
-allowed_archs=None
-allowed_emulators=None
-arm_aarch32=False
-arm_sve=False
-baremetal=True
-....
 
 === Update a forked submodule
 
