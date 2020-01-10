@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     thread = std::thread(myfunc);
     while (!done.load()) {
         if (do_sev) {
-            __asm__ __volatile__ ("mov x0, 1;ldxr x0, [%0];stxr w1, x0, [%0]" : : "r" (&futex) : "x0", "x1");
+            __asm__ __volatile__ ("mov x0, 1;str x0, [%0]" : : "r" (&futex) : "x0", "x1");
         }
     }
     thread.join();

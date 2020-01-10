@@ -9951,7 +9951,9 @@ The `--verbose` is optional, but shows clearly each GCC build command so that yo
 
 The build outputs are automatically stored in a different directories for optimized and debug builds, which prevents `debug` files from overwriting `opt` ones. Therefore, `--gem5-build-id` is not required.
 
-The price to pay for debuggability is high however: a Linux kernel boot was about 3x slower in QEMU and 14 times slower in gem5 debug compared to opt, see benchmarks at: xref:benchmark-linux-kernel-boot[xrefstyle=full]
+The price to pay for debuggability is high however: a Linux kernel boot was about 3x slower in QEMU and 14 times slower in gem5 debug compared to opt, see benchmarks at: xref:benchmark-linux-kernel-boot[xrefstyle=full].
+
+Similar slowdowns can be observed at: xref:benchmark-emulators-on-userland-executables[xrefstyle=full].
 
 When in <<qemu-text-mode>>, using `--debug-vm` makes Ctrl-C not get passed to the QEMU guest anymore: it is instead captured by GDB itself, so allow breaking. So e.g. you won't be able to easily quit from a guest program like:
 
@@ -14069,7 +14071,9 @@ Programs under link:userland/cpp/[] are examples of https://en.wikipedia.org/wik
 * random
 ** link:userland/cpp/random.cpp[]
 * containers
-** link:userland/cpp/set.cpp[]: `std::set` contains unique keys
+** associative
+*** <<algorithms>> contains a benchmark comparison of different c++ containers
+*** link:userland/cpp/set.cpp[]: `std::set` contains unique keys
 
 [[cpp-multithreading]]
 ==== C++ multithreading
@@ -18715,7 +18719,10 @@ For how userland spinlocks and mutexes are implemented see <<userland-mutex-impl
 
 ====== ARM WFE global monitor events
 
-link:userland/arch/aarch64/inline_asm/wfe_ldxr_stxr.cpp[]
+Examples:
+
+* link:userland/arch/aarch64/inline_asm/wfe_ldxr_stxr.cpp[]
+* link:userland/arch/aarch64/inline_asm/wfe_ldxr_str.cpp[]
 
 SEV is not the only thing that can wake up a WFE, it is only an explicit software way to do it.
 
@@ -19544,9 +19551,9 @@ cd -
 ./bench-all -A
 ....
 
-=== Continuous integraion
+=== Continuous integration
 
-We have exploreed a few Continuous integration solutions.
+We have explored a few Continuous integration solutions.
 
 We haven't setup any of them yet.
 
@@ -19556,7 +19563,7 @@ We tried to automate it on Travis with link:.travis.yml[] but it hits the curren
 
 ==== CircleCI
 
-This setup sucessfully built gem5 on every commit: link:.circleci/config.yml[]
+This setup successfully built gem5 on every commit: link:.circleci/config.yml[]
 
 Enabling it is however blocked on: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/79 so we disabled the builds on the web UI.
 
@@ -19716,6 +19723,14 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
+|`gem5 --arch aarch64 --gem5-build-id debug`
+|10^5
+|32
+|2.528728 * 10^6
+|0.08
+
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|link:userland/gcc/busy_loop.c[] `-O0`
 |`+gem5 --arch aarch64 -- --cpu-type MinorCPU --caches+`
 |10^6
 |31
@@ -19755,7 +19770,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |1.6
 
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
-|link:userland/c/m5ops.c[] `-O0`
+|glibc C pre-main link:userland/c/m5ops.c[] `-O0`
 |`gem5 --arch aarch64 --userland-args e`
 |1
 |2
@@ -19763,12 +19778,44 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |0.05
 
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
-|link:userland/cpp/m5ops.cpp[] `-O0`
+|glibc C pre-main link:userland/c/m5ops.c[] `-O0`
+|`gem5 --arch aarch64 --userland-args e --gem5-build-type debug`
+|1
+|2
+|1.26479 * 10^5
+|0.05
+
+|ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
+|glibc C++ pre-main link:userland/cpp/m5ops.cpp[] `-O0`
 |`gem5 --arch aarch64 --userland-args e`
 |1
 |2
 |2.385012 * 10^6
 |1
+
+|ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
+|glibc C++ pre-main link:userland/cpp/m5ops.cpp[] `-O0`
+|`gem5 --arch aarch64 --userland-args e --gem5-build-type debug`
+|1
+|25
+|2.385012 * 10^6
+|0.1
+
+|ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
+|immediate exit link:userland/arch/aarch64/freestanding/linux/gem5_exit.S[] `-O0`
+|`gem5 --arch aarch64`
+|1
+|1
+|
+|
+
+|ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
+|immediate exit link:userland/arch/aarch64/freestanding/linux/gem5_exit.S[] `-O0`
+|`gem5 --arch aarch64 --gem5-build-type debug`
+|1
+|1
+|
+|
 
 |===
 

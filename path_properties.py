@@ -542,6 +542,7 @@ path_properties_tuples = (
                                         'linux': (
                                             {},
                                             {
+                                                'gem5_exit.S': {'allowed_emulators': {'gem5'}},
                                                 'wfe.S': {'more_than_1s': True},
                                                 'wfe_wfe.S': {'more_than_1s': True},
                                             }
