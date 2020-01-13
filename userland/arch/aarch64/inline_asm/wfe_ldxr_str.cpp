@@ -14,7 +14,7 @@ std::atomic_ulong done;
 int futex = 1;
 
 void myfunc() {
-    __asm__ __volatile__ ("ldxr x0, [%0];wfe;wfe" : : "r" (&futex) : "x0");
+    __asm__ __volatile__ ("sevl;wfe;ldxr x0, [%0];wfe" : : "r" (&futex) : "x0");
     done.store(futex);
 }
 
