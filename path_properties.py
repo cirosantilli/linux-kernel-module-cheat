@@ -525,6 +525,7 @@ path_properties_tuples = (
                                     },
                                     {
                                         'freestanding': freestanding_properties,
+                                        'futex_sev.cpp': {'more_than_1s': True},
                                         'sve_addvl.c': {'arm_sve': True},
                                         'wfe_sev.c': {
                                             # gem5 bug, WFE not waking up on syscall emulation,
