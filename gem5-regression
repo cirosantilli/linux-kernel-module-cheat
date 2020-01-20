@@ -17,22 +17,36 @@ https://cirosantilli.com/linux-kernel-module-cheat#gem5-regression-tests
 '''
         )
         self.add_argument(
+            '--cmd',
+            default='run',
+            help='''
+List tests instead of running them.
+''',
+        )
+        self.add_argument(
             'extra_args',
             metavar='extra-args',
             nargs='*',
         )
 
     def timed_main(self):
-        return self.sh.run_cmd([
-                os.path.join(self.env['gem5_source_dir'], 'tests', 'main.py'), LF,
-                'run', LF,
+        if self.env['cmd'] == 'run':
+            extra_args = [
                 '--base-dir', self.env['gem5_source_dir'], LF,
                 '--build-dir', self.env['gem5_build_build_dir'], LF,
-                '--isa', self.env['gem5_arch'], LF,
-                '--variant', self.env['gem5_build_type'], LF,
                 '-j', str(self.env['nproc']), LF,
                 '-t', str(self.env['nproc']), LF,
+            ]
+        else:
+            extra_args = []
+        return self.sh.run_cmd(
+            [
+                os.path.join(self.env['gem5_source_dir'], 'tests', 'main.py'), LF,
+                self.env['cmd'], LF,
+                '--isa', self.env['gem5_arch'], LF,
+                '--variant', self.env['gem5_build_type'], LF,
             ] +
+            extra_args +
             self.sh.add_newlines(self.env['extra_args']),
             cwd=os.path.join(self.env['gem5_source_dir'], 'tests'),
             raise_on_failure=False,
