@@ -12155,6 +12155,18 @@ In order to use different build options, you might also want to use <<gem5-build
 
 Explained at: xref:debug-the-emulator[xrefstyle=full].
 
+==== gem5 fast build
+
+....
+./build-gem5 --gem5-build-type fast
+....
+
+How it goes faster is explained at: https://stackoverflow.com/questions/59860091/how-to-increase-the-simulation-speed-of-a-gem5-run/59861375#59861375
+
+Benchmarks present at:
+
+* xref:benchmark-emulators-on-userland-executables[xrefstyle=full]
+
 ==== gem5 clang build
 
 TODO test properly, benchmark vs GCC.
@@ -19747,7 +19759,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |QEMU busy loop
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`qemu --arch aarch64 --userland userland/gcc/busy_loop.c `
+|`./run --arch aarch64 --userland userland/gcc/busy_loop.c `
 |10^10
 |68
 |1.1 * 10^11 (approx)
@@ -19756,25 +19768,43 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`gem5 --arch aarch64 --userland userland/gcc/busy_loop.c`
-|10^7
-|100
-|1.10018162 * 10^8
-|1
+|`./run --arch aarch64 --emulator gem5 --static --userland userland/gcc/busy_loop.c --userland-args 1000000`
+|10^6
+|18
+|2.4005699 * 10^7
+|1.3
 
 |gem5 busy loop for a debug build
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`gem5 --arch aarch64 --gem5-build-id debug --userland userland/gcc/busy_loop.c --userland-args 100000`
+|`./run --arch aarch64 --emulator gem5 --gem5-build-type debug --static --userland userland/gcc/busy_loop.c --userland-args 100000`
 |10^5
-|32
-|2.528728 * 10^6
-|0.08
+|33
+|2.405682 * 10^6
+|0.07
+
+|gem5 busy loop for a fast build
+|0d5a41a3f88fcd7ed40fc19474fe5aed0463663f + 1
+|link:userland/gcc/busy_loop.c[] `-O0 -static`
+|`./run --arch aarch64 --emulator gem5 --gem5-build-type fast --static --userland userland/gcc/busy_loop.c --userland-args 1000000`
+|10^6
+|15
+|2.4005699 * 10^7
+|1.6
+
+|gem5 busy loop for a <<gem5-cpu-types,TimingSimpleCPU>>
+|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|link:userland/gcc/busy_loop.c[] `-O0`
+|`+./run --arch aarch64 --emulator gem5 --arch aarch64 --static --userland userland/gcc/busy_loop.c --userland-args 1000000 -- --cpu-type TimingSimpleCPU --caches+`
+|10^6
+|26
+|2.4005699 * 10^7
+|0.9
 
 |gem5 busy loop for a <<gem5-cpu-types,MinorCPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`+gem5 --arch aarch64 --userland userland/gcc/busy_loop.c --userland-args 1000000 -- --cpu-type MinorCPU --caches+`
+|`+./run --arch aarch64 --emulator gem5 --arch aarch64 --userland userland/gcc/busy_loop.c --userland-args 1000000 -- --cpu-type MinorCPU --caches+`
 |10^6
 |31
 |1.1018152 * 10^7
@@ -19783,7 +19813,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop for a <<gem5-cpu-types,DerivO3CPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`+gem5 --arch aarch64 --userland userland/gcc/busy_loop.c --userland args 1000000 -- --cpu-type DerivO3CPU --caches+`
+|`+./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland args 1000000 -- --cpu-type DerivO3CPU --caches+`
 |10^6
 |52
 |1.1018128 * 10^7
@@ -19792,7 +19822,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`+gem5 --arch aarch64 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby+`
+|`+./run --arch aarch64 --emulator gem5 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby+`
 |1 * 1000000 = 10^6
 |63
 |1.1005150 * 10^7

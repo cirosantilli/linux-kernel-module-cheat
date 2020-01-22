@@ -150,6 +150,9 @@ consts['build_type_choices'] = [
     # -O0 -g
     'debug'
 ]
+consts['gem5_build_type_choices'] = consts['build_type_choices'] + [
+    'fast',
+]
 consts['build_type_default'] = 'opt'
 # Files whose basename start with this are gitignored.
 consts['tmp_prefix'] = 'tmp.'
@@ -333,7 +336,7 @@ Default: {}
         )
         self.add_argument(
             '--gem5-build-type',
-            choices=consts['build_type_choices'],
+            choices=consts['gem5_build_type_choices'],
             default=consts['build_type_default'],
             help='gem5 build type, most often used for "debug" builds.'
         )
