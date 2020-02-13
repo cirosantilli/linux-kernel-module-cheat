@@ -852,6 +852,15 @@ Incompatible archs are skipped.
         env['gem5_executable'] = self.get_gem5_target_path(env, 'gem5')
         env['gem5_unit_test_target'] = self.get_gem5_target_path(env, 'unittests')
         env['gem5_system_dir'] = join(env['gem5_build_dir'], 'system')
+        env['gem5_system_binaries_dir'] = join(env['gem5_system_dir'], 'binaries')
+        if self.env['is_arm']:
+            if env['arch'] == 'arm':
+                gem5_bootloader_basename = 'boot.arm'
+            elif env['arch'] == 'aarch64':
+                gem5_bootloader_basename = 'boot.arm64'
+            env['gem5_bootloader'] = join(env['gem5_system_binaries_dir'], gem5_bootloader_basename)
+        else:
+            env['gem5_bootloader'] = None
 
         # gem5 source
         if env['_args_given']['gem5_source_dir']:
