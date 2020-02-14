@@ -471,11 +471,7 @@ Extra options to append at the end of the emulator command line.
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
-            if not self.env['baremetal'] is None:
-                if not os.path.exists(self.env['gem5_fake_iso']):
-                    os.makedirs(os.path.dirname(self.env['gem5_fake_iso']), exist_ok=True)
-                    self.sh.write_string_to_file(self.env['gem5_fake_iso'], 'a' * 512)
-            elif self.env['userland'] is None:
+            if self.env['baremetal'] is None and self.env['userland'] is None:
                 if not os.path.exists(self.env['rootfs_raw_file']):
                     if not os.path.exists(self.env['qcow2_file']):
                         raise_rootfs_not_found()
@@ -536,11 +532,12 @@ Extra options to append at the end of the emulator command line.
                         extra_emulator_args.extend(['-r', str(cpt_dirs_sorted_by_tick.index(cpt_dir) + 1)])
                     cmd.extend([
                         self.env['gem5_fs_file'], LF,
-                        '--disk-image', self.env['disk_image'], LF,
                         '--kernel', self.env['image'], LF,
                         '--num-cpus', str(self.env['cpus']), LF,
                         '--script', self.env['gem5_readfile_file'], LF,
                     ])
+                    if self.env['disk_image'] is not None:
+                        cmd.extend(['--disk-image', self.env['disk_image'], LF])
                     if self.env['arch'] == 'x86_64':
                         if self.env['kvm']:
                             cmd.extend(['--cpu-type', 'X86KvmCPU', LF])
@@ -608,11 +605,12 @@ Extra options to append at the end of the emulator command line.
                         '--bootscript', self.env['gem5_readfile_file'], LF,
                         '--big-cpus', str((self.env['cpus'] + 1) // 2), LF,
                         '--cpu-type', cpu_type, LF,
-                        '--disk', self.env['disk_image'], LF,
                         '--kernel', self.env['image'], LF,
                         '--little-cpus', str(self.env['cpus'] // 2), LF,
                         '--root', '/dev/vda', LF,
                     ])
+                    if self.env['disk_image'] is not None:
+                        cmd.extend(['--disk', self.env['disk_image'], LF])
                     if self.env['dtb']:
                         cmd.extend([
                             '--dtb',
@@ -749,6 +747,12 @@ Extra options to append at the end of the emulator command line.
                             if not os.path.exists(self.env['rootfs_raw_file']):
                                 raise_rootfs_not_found()
                             self.raw_to_qcow2(qemu_which=self.env['qemu_which'])
+                        if rr:
+                            extra_emulator_args.extend([
+                            '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay', LF,
+                            '-device', 'ide-hd,drive=img-blkreplay', LF,
+                        ])
+                    if self.env['disk_image'] is not None:
                         extra_emulator_args.extend([
                             '-drive',
                             'file={},format=qcow2,if={}{}{}'.format(
@@ -758,11 +762,6 @@ Extra options to append at the end of the emulator command line.
                                 rrid
                             ),
                             LF,
-                        ])
-                        if rr:
-                            extra_emulator_args.extend([
-                            '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay', LF,
-                            '-device', 'ide-hd,drive=img-blkreplay', LF,
                         ])
                 if rr:
                     extra_emulator_args.extend([

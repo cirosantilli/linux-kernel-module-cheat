@@ -844,7 +844,6 @@ Incompatible archs are skipped.
         # gem5
         if not env['_args_given']['gem5_build_dir']:
             env['gem5_build_dir'] = join(env['gem5_out_dir'], env['gem5_build_id'])
-        env['gem5_fake_iso'] = join(env['gem5_out_dir'], 'fake.iso')
         env['gem5_m5term'] = join(env['gem5_build_dir'], 'm5term')
         env['gem5_build_build_dir'] = join(env['gem5_build_dir'], 'build')
         env['gem5_executable_dir'] = join(env['gem5_build_build_dir'], env['gem5_arch'])
@@ -1065,7 +1064,7 @@ Incompatible archs are skipped.
 
         # Image
         if env['baremetal'] is not None:
-            env['disk_image'] = env['gem5_fake_iso']
+            env['disk_image'] = None
             env['image'] = self.resolve_baremetal_executable(env['baremetal'])
             source_path_noext = os.path.splitext(join(
                 env['root_dir'],
@@ -1094,7 +1093,7 @@ Incompatible archs are skipped.
                 if not env['_args_given']['linux_exec']:
                     env['image'] = env['vmlinux']
                 if env['ramfs']:
-                    env['disk_image'] = env['gem5_fake_iso']
+                    env['disk_image'] = None
                 else:
                     env['disk_image'] = env['rootfs_raw_file']
             else:
