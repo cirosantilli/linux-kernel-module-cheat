@@ -151,7 +151,7 @@ consts['build_type_choices'] = [
     'debug'
 ]
 consts['gem5_build_type_choices'] = consts['build_type_choices'] + [
-    'fast',
+    'fast', 'prof', 'perf',
 ]
 consts['build_type_default'] = 'opt'
 # Files whose basename start with this are gitignored.
