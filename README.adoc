@@ -11304,7 +11304,7 @@ info: Entering event queue @ 1000.  Starting simulation...
 Exiting @ tick 2000 because m5_exit instruction encountered
 ....
 
-and a similar thing happens for the restore with a different CPU type:
+and a similar thing happens for the <<gem5-restore-checkpoint-with-a-different-cpu,restore with a different CPU type>>:
 
 ....
 info: Entering event queue @ 1000.  Starting simulation...
@@ -11442,23 +11442,184 @@ gem5 can switch to a different CPU model when restoring a checkpoint.
 
 A common combo is to boot Linux with a fast CPU, make a checkpoint and then replay the benchmark of interest with a slower CPU.
 
-An illustrative interactive run:
+This can be observed interactively in full system with:
 
 ....
-./run --arch arm --emulator gem5
+./run --arch aarch64 --emulator gem5
 ....
 
-In guest:
+Then in the guest terminal after boot ends:
 
 ....
-m5 checkpoint
+sh -c 'm5 checkpoint;sh'
+m5 exit
 ....
 
-And then restore the checkpoint with a different CPU:
+And then restore the checkpoint with a different slower CPU:
 
 ....
-./run --arch arm --emulator gem5 --gem5-restore 1 -- --caches --restore-with-cpu=HPI
+./run --arch arm --emulator gem5 --gem5-restore 1 -- --caches --cpu-type=DerivO3CPU
 ....
+
+And now you will notice that everything happens much slower in the guest terminal!
+
+One even more direct and minimal way to observe this is with link:userland/freestanding/gem5_checkpoint_restore.S[] which was mentioned at <<gem5-checkpoint-userland-minimal-example>> plus some logging:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --static \
+  --trace ExecAll,FmtFlag,O3CPU,SimpleCPU \
+  --userland userland/freestanding/gem5_checkpoint_restore.S \
+;
+cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --gem5-restore 1 \
+  --static \
+  --trace ExecAll,FmtFlag,O3CPU,SimpleCPU \
+  --userland userland/freestanding/gem5_checkpoint_restore.S \
+  -- \
+  --caches \
+  --cpu-type DerivO3CPU \
+  --restore-with-cpu DerivO3CPU \
+;
+cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
+....
+
+At gem5 2235168b72537535d74c645a70a85479801e0651, the first run does everything in <<gem5-basesimplecpu,AtomicSimpleCPU>>:
+
+....
+...
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1f92 WriteReq
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1e40 WriteReq
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1e30 WriteReq
+      0: SimpleCPU: system.cpu: Tick
+      0: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+    500: SimpleCPU: system.cpu: Tick
+    500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   movz   x1, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   1000: SimpleCPU: system.cpu: Tick
+   1000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   m5checkpoint             : IntAlu :   flags=(IsInteger|IsNonSpeculative|IsUnverifiable)
+   1000: SimpleCPU: system.cpu: Resume
+   1500: SimpleCPU: system.cpu: Tick
+   1500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   2000: SimpleCPU: system.cpu: Tick
+   2000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   m5exit                   : No_OpClass :   flags=(IsInteger|IsNonSpeculative)
+....
+
+and after restore we see as expected a single `ExecEnable` instruction executed amidst `O3CPU` noise:
+
+....
+FullO3CPU: Ticking main, FullO3CPU.
+  79000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  FetchSeq=1  CPSeq=1  flags=(IsInteger)
+  82500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400084=>0x400088).(0=>1) [sn:1]
+  82500: O3CPU: system.cpu: Removing instruction, [tid:0] [sn:1] PC (0x400084=>0x400088).(0=>1)
+  82500: O3CPU: system.cpu: Scheduling next tick!
+  83000: O3CPU: system.cpu:
+....
+
+which is the `movz` after the checkpoint. The final `m5exit` does not appear due to DerivO3CPU logging insanity.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
+
+===== gem5 fast forward
+
+Besides switching CPUs after a checkpoint restore, fs.py also has the `--fast-forward` option to automatically run the script from the start on a less detailed CPU, and switch to a more detailed CPU at a given tick.
+
+This is generally useless compared to checkpoint restoring because:
+
+* checkpoint restore allows to run multiple contents after the restore, and restoring to multiple different system states, which you almost always want to do
+* we generally don't know the exact tick at which the region of interest will start, especially as the binaries change. It is much easier to just instrument the content with a checkoint <<m5ops,m5op>>
+
+But let's give it a try anyways with link:userland/freestanding/gem5_checkpoint_restore.S[] which was mentioned at <<gem5-checkpoint-userland-minimal-example>>
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --static \
+  --trace ExecAll,FmtFlag,O3CPU,SimpleCPU \
+  --userland userland/freestanding/gem5_checkpoint_restore.S \
+  -- \
+  --caches
+  --cpu-type DerivO3CPU \
+  --fast-forward 1000 \
+;
+cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
+....
+
+At gem5 2235168b72537535d74c645a70a85479801e0651 we see something like:
+
+....
+      0: O3CPU: system.switch_cpus: Creating O3CPU object.
+      0: O3CPU: system.switch_cpus: Workload[0] process is 0      0: SimpleCPU: system.cpu: ActivateContext 0
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0 WriteReq
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x40 WriteReq
+...
+
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1f92 WriteReq
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1e40 WriteReq
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1e30 WriteReq
+      0: SimpleCPU: system.cpu: Tick
+      0: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+    500: SimpleCPU: system.cpu: Tick
+    500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   movz   x1, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   1000: SimpleCPU: system.cpu: Tick
+   1000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   m5checkpoint             : IntAlu :   flags=(IsInteger|IsNonSpeculative|IsUnverifiable)
+   1000: O3CPU: system.switch_cpus: [tid:0] Calling activate thread.
+   1000: O3CPU: system.switch_cpus: [tid:0] Adding to active threads list
+   1500: O3CPU: system.switch_cpus:
+
+FullO3CPU: Ticking main, FullO3CPU.
+   1500: O3CPU: system.switch_cpus: Scheduling next tick!
+   2000: O3CPU: system.switch_cpus:
+
+FullO3CPU: Ticking main, FullO3CPU.
+   2000: O3CPU: system.switch_cpus: Scheduling next tick!
+   2500: O3CPU: system.switch_cpus:
+
+...
+
+FullO3CPU: Ticking main, FullO3CPU.
+  44500: ExecEnable: system.switch_cpus: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x00000000000
+  48000: O3CPU: system.switch_cpus: Removing committed instruction [tid:0] PC (0x400084=>0x400088).(0=>1) [sn:1]
+  48000: O3CPU: system.switch_cpus: Removing instruction, [tid:0] [sn:1] PC (0x400084=>0x400088).(0=>1)
+  48000: O3CPU: system.switch_cpus: Scheduling next tick!
+  48500: O3CPU: system.switch_cpus:
+
+...
+....
+
+We can also compare that to the same log but without `--fast-forward` and other CPU switch options:
+
+....
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1e40 WriteReq
+      0: SimpleCPU: system.cpu.dcache_port: received snoop pkt for addr:0x1e30 WriteReq
+      0: SimpleCPU: system.cpu: Tick
+      0: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+    500: SimpleCPU: system.cpu: Tick
+    500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   movz   x1, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   1000: SimpleCPU: system.cpu: Tick
+   1000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   m5checkpoint             : IntAlu :   flags=(IsInteger|IsNonSpeculative|IsUnverifiable)
+   1000: SimpleCPU: system.cpu: Resume
+   1500: SimpleCPU: system.cpu: Tick
+   1500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   2000: SimpleCPU: system.cpu: Tick
+   2000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   m5exit                   : No_OpClass :   flags=(IsInteger|IsNonSpeculative)
+....
+
+Therefore, it is clear that what we wanted happen:
+
+* up until the tick 1000, `SimpleCPU` was ticking
+* after tick 1000, cpu `O3CPU` started ticking
+
+Bibliography:
+
+* https://cs.stackexchange.com/questions/69511/what-does-fast-forwarding-mean-in-the-context-of-cpu-simulation
 
 === Pass extra options to gem5
 
