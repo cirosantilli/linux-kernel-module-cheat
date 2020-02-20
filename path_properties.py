@@ -543,7 +543,6 @@ path_properties_tuples = (
                                         'linux': (
                                             {},
                                             {
-                                                'gem5_exit.S': {'allowed_emulators': {'gem5'}},
                                                 'wfe.S': {'more_than_1s': True},
                                                 'wfe_wfe.S': {'more_than_1s': True},
                                             }
@@ -677,6 +676,13 @@ path_properties_tuples = (
                         'thread_get_id.cpp': {'test_run_args': {'cpus': 2}},
                         'thread_return_value.cpp': {'test_run_args': {'cpus': 2}},
                     },
+                ),
+                'freestanding': (
+                    freestanding_properties,
+                    {
+                        'gem5_checkpoint_restore.S': {'allowed_emulators': {'gem5'}},
+                        'gem5_exit.S': {'allowed_emulators': {'gem5'}},
+                    }
                 ),
                 'gcc': (
                     {**gnu_extension_properties, **{'cc_pedantic': False}},

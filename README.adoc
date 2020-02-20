@@ -11211,8 +11211,10 @@ Analogous to QEMU's <<snapshot>>, but better since it can be started from inside
 
 Documentation: http://gem5.org/Checkpoints
 
+To see it in action try:
+
 ....
-./run --arch arm --emulator gem5
+./run --arch aarch64 --emulator gem5
 ....
 
 In the guest, wait for the boot to end and run:
@@ -11267,6 +11269,50 @@ Then there is no need to pass the kernel command line again to gem5 for replay:
 ....
 
 since boot has already happened, and the parameters are already in the RAM of the snapshot.
+
+==== gem5 checkpoint userland minimal example
+
+In order to debug checkpoint restore bugs, this minimal setup using link:userland/freestanding/gem5_checkpoint_restore.S[] can be handy:
+
+....
+./build-userland --arch aarch64 --static
+./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint_restore.S --trace-insts-stdout
+./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint_restore.S --trace-insts-stdout --gem5-restore 1
+./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint_restore.S --trace-insts-stdout --gem5-restore 1 -- --cpu-type=DerivO3CPU --restore-with-cpu=DerivO3CPU --caches
+....
+
+On the initial run, we see that all instructions are executed and the checkpoint is taken:
+
+....
+      0: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+    500: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   movz   x1, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   1000: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   m5checkpoint             : IntAlu :   flags=(IsInteger|IsNonSpeculative|IsUnverifiable)
+Writing checkpoint
+warn: Checkpoints for file descriptors currently do not work.
+info: Entering event queue @ 1000.  Starting simulation...
+   1500: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   2000: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   m5exit                   : No_OpClass :   flags=(IsInteger|IsNonSpeculative)
+Exiting @ tick 2000 because m5_exit instruction encountered
+....
+
+Then, on the first restore run, the checkpoint is restored, and only instructions after the checkpoint are executed:
+
+....
+info: Entering event queue @ 1000.  Starting simulation...
+   1500: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   2000: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   m5exit                   : No_OpClass :   flags=(IsInteger|IsNonSpeculative)
+Exiting @ tick 2000 because m5_exit instruction encountered
+....
+
+and a similar thing happens for the restore with a different CPU type:
+
+....
+info: Entering event queue @ 1000.  Starting simulation...
+  79000: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  FetchSeq=1  CPSeq=1  flags=(IsInteger)
+Exiting @ tick 84500 because m5_exit instruction encountered
+....
+
+Here we don't see the last `m5 exit` instruction on the log, but it must just be something to do with the O3 logging.
 
 ==== gem5 checkpoint internals
 
@@ -19905,7 +19951,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 
 |gem5 optimized build immediate exit on first instruction to benchmark the simulator startup time
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
-|immediate exit link:userland/arch/aarch64/freestanding/linux/gem5_exit.S[] `-O0`
+|immediate exit link:userland/freestanding/gem5_exit.S[] `-O0`
 |`gem5 --arch aarch64`
 |1
 |1
@@ -19914,7 +19960,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 
 |same as above but debug build
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
-|link:userland/arch/aarch64/freestanding/linux/gem5_exit.S[] `-O0`
+|link:userland/freestanding/gem5_exit.S[] `-O0`
 |`gem5 --arch aarch64 --gem5-build-type debug`
 |1
 |1
