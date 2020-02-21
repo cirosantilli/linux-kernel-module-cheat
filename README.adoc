@@ -10820,15 +10820,17 @@ At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host thr
 
 ====== gem5 syscall emulation multithreading
 
-gem5 user mode multithreading has been particularly flaky compared <<qemu-user-mode-multithreading,to QEMU's>>.
+gem5 user mode multithreading has been particularly flaky compared <<qemu-user-mode-multithreading,to QEMU's>>, but work is being put into improving it.
 
-You have the limitation that you must have at least one core per guest thread, otherwise `pthread_create` fails. For example:
+In gem5 syscall simulation, the `fork` syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU. Otherwise, the `fork` call, and therefore higher level interfaces to `fork` such as `pthread_create` also fail and return a failure return status in the guest.
+
+For example, if we use just one CPU for link:userland/posix/pthread_self.c[] which spawns one thread besides `main`:
 
 ....
 ./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1
 ....
 
-fails because that process has a total of 2 threads: one for `main` and one extra thread spawned: link:userland/posix/pthread_self.c[] The error message is:
+fails with this error message coming from the guest stderr:
 
 ....
 pthread_create: Resource temporarily unavailable
@@ -10840,9 +10842,15 @@ It works however if we add on extra CPU:
 ./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1
 ....
 
-This has to do with the fact that gem5 has a more simplistic thread implementation that does not spawn one host thread per guest thread CPU. Maybe this is required to achieve reproducible runs? What is the task switch algorithm then?
+Once threads exit, their CPU is freed and becomes available for new `fork` calls: For example, the following run spawns a thread, joins it, and then spawns again, and 2 CPUs are enough:
 
-gem5 threading does however show the expected number of cores, e.g.:
+....
+./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args '1 2'
+....
+
+because at each point in time, only up to two threads are running.
+
+gem5 syscall emulation does show the expected number of cores when queried, e.g.:
 
 ....
 ./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
@@ -10850,18 +10858,6 @@ gem5 threading does however show the expected number of cores, e.g.:
 ....
 
 outputs `1` and `2` respectively.
-
-TODO: aarch64 seems to failing to spawn more than 2 threads at 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1:
-
-....
-./run --arch aarch64 --cpus 3 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 2
-....
-
-fails with:
-
-....
-Exiting @ tick 18446744073709551615 because simulate() limit reached
-....
 
 ====== gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached
 
