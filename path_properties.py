@@ -696,6 +696,14 @@ path_properties_tuples = (
                     {'requires_dynamic_library': True},
                     {
                         'libdrm': {'requires_sudo': True},
+                        'hdf5': (
+                            {},
+                            {
+                                'hello_cpp.cpp': {
+                                    'cc_flags_after': ['-lhdf5_cpp', LF],
+                                },
+                            }
+                        ),
                     }
                 ),
                 'linux': (

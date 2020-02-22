@@ -1750,19 +1750,26 @@ https://cirosantilli.com/linux-kernel-module-cheat#gem5-debug-build
                                             # Header only.
                                             'cc_flags_after': [],
                                         },
+                                        'hdf5': {
+                                            'pkg_config_id': 'hdf5-serial',
+                                        },
                                     }
                                     package_key = dirpath_relative_root_components[2]
                                     if package_key in packages:
                                         package = packages[package_key]
                                     else:
                                         package = {}
+                                    if 'pkg_config_id' in package:
+                                        pkg_config_id = package['pkg_config_id']
+                                    else:
+                                        pkg_config_id = package_key
                                     if 'cc_flags' in package:
                                         cc_flags.extend(package['cc_flags'])
                                     else:
                                         pkg_config_output = self.sh.check_output([
                                             self.env['pkg_config'],
                                             '--cflags',
-                                            package_key
+                                            pkg_config_id
                                         ]).decode()
                                         cc_flags.extend(self.sh.shlex_split(pkg_config_output))
                                     if 'cc_flags_after' in package:
@@ -1771,7 +1778,7 @@ https://cirosantilli.com/linux-kernel-module-cheat#gem5-debug-build
                                         pkg_config_output = subprocess.check_output([
                                             self.env['pkg_config'],
                                             '--libs',
-                                            package_key
+                                            pkg_config_id
                                         ]).decode()
                                         cc_flags_after.extend(self.sh.shlex_split(pkg_config_output))
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
