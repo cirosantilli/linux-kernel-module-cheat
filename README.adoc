@@ -12425,20 +12425,29 @@ Direct leak of 2928 byte(s) in 43 object(s) allocated from:
 Direct leak of 2002 byte(s) in 3 object(s) allocated from:
     #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
     #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:88
-    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:57                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Direct leak of 40 byte(s) in 2 object(s) allocated from:                                                                                                                                                                                                                            #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
+    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:
+    Direct leak of 40 byte(s) in 2 object(s) allocated from
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
     #1 0x7ff03951ea4b in PyList_New ../Objects/listobject.c:152
 
-Indirect leak of 10384 byte(s) in 11 object(s) allocated from:                                                                                                                                                                                                                      #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)                                                                                                                                                                                                   #1 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1499                                                                                                                                                                                                             #2 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1493
+Indirect leak of 10384 byte(s) in 11 object(s) allocated from
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448
+    #1 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:
+    #2 0x7ff03945e40d in _PyObject_GC_Malloc ../Modules/gcmodule.c:1493
 
 Indirect leak of 4089 byte(s) in 6 object(s) allocated from:
     #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
     #1 0x7ff0394fd648 in PyString_FromString ../Objects/stringobject.c:143
 
 Indirect leak of 2090 byte(s) in 3 object(s) allocated from:
-    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)                                                                                                                                                                                                   #1 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2421                                                                                                                                                                                                                      #2 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2094
+    #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448
+    #1 0x7ff0394eb36f in type_new ../Objects/typeobject.c:
+    #2 0x7ff0394eb36f in type_new ../Objects/typeobject.c:2094
 Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
     #0 0x7ff039804448 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10c448)
-    #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:88                                                                                                                                                                                                    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:57                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SUMMARY: AddressSanitizer: 418319 byte(s) leaked in 203 allocation(s).
+    #1 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:
+    #2 0x7ff0394fd813 in PyString_FromStringAndSize ../Objects/stringobject.c:
+    SUMMARY: AddressSanitizer: 418319 byte(s) leaked in 203 allocation(s).
 ....
 
 From the message, this appears however to be a Python / pyenv11 bug however and not in gem5 specifically. I think it worked when I tried it in the past in an older gem5 / Ubuntu.
@@ -12447,11 +12456,31 @@ From the message, this appears however to be a Python / pyenv11 bug however and 
 
 ==== gem5 Ruby build
 
-Ruby is a system that includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby
+gem5 has two types of memory system:
+
+* the classic memory system, which is used by default
+* the Ruby memory system
+
+The Ruby memory system includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby
 
 It seems to have usage outside of gem5, but the naming overload with the link:https://en.wikipedia.org/wiki/Ruby_(programming_language)[Ruby programming language], which also has link:https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby[domain specific languages] as a concept, makes it impossible to google anything about it!
 
-Ruby is activated at compile time with the `PROTOCOL` flag, which specifies the desired memory system time.
+Since it is not the default, Ruby is generally less stable that the classic memory model. However, because it allows describing a wide variety of important coherency protocols, while the classic system only describes a single protocol, Ruby is very importanonly describes a single protocol, Ruby is a very important feature of gem5.
+
+Ruby support must be enabled at compile time with the `scons PROTOCOL=` flag, which compiles support for the desired memory system type.
+
+Note however that most ISAs already implicitly set `PROTOCOL` via the `build_opts/` directory, e.g. `build_opts/ARM` contains:
+
+....
+PROTOCOL = 'MOESI_CMP_directory'
+....
+
+and therefore ARM already compiles `MOESI_CMP_directory` by default.
+
+Then, with `fs.py` and `se.py`, you can choose to use either the classic or built-in ruby system at runtime with the `--ruby` option:
+
+* if `--ruby` is given, use the ruby memory system
+* otherwise, use the classic memory system
 
 For example, to use a two level https://en.wikipedia.org/wiki/MESI_protocol[MESI] https://en.wikipedia.org/wiki/Cache_coherence[cache coherence protocol], we can do:
 
@@ -12468,9 +12497,7 @@ and during build we see a humongous line of type:
 
 which shows that dozens of C++ files are being generated from Ruby SLICC.
 
-TODO observe it doing something during a run.
-
-The relevant source files live in the source tree under:
+The relevant Ruby source files live in the source tree under:
 
 ....
 src/mem/protocol/MESI_Two_Level*
@@ -12483,6 +12510,33 @@ xdg-open "$(./getvar --arch aarch64 --gem5-build-id ruby gem5_build_build_dir)/A
 ....
 
 A minimized ruby config which was not merged upstream can be found for study at: https://gem5-review.googlesource.com/c/public/gem5/+/13599/1
+
+One easy way to see that Ruby is being used without understanding it in detail is to <<gem5-tracing,enable some logging>>:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --gem5-worktree master \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --static \
+  --trace ExecAll,FmtFlag,Ruby,XBar \
+  -- \
+  --ruby \
+;
+cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
+....
+
+Then:
+
+* when the `--ruby` flag is given, we see a gazillion Ruby related messages prefixed e.g. by `RubyPort:`.
++
+We also observe from `ExecEnable` lines that instruction timing is not simple anymore, so the memory system must have latencies
+* without `--ruby`, we instead see `XBar` (Coherent Crossbar) related messages such as `CoherentXBar:`, which I believe is the more precise name for the memory model that the classic memory system uses 
+
+Certain features may not work in Ruby. For example, <<gem5-checkpoint>> creation is only possible in Ruby protocols that support flush, which is the case for `PROTOCOL=MOESI_hammer` but not `PROTOCOL=MESI_Three_Level`: https://www.mail-archive.com/gem5-users@gem5.org/msg17418.html
+
+Tested in gem5 d7d9bc240615625141cd6feddbadd392457e49eb.
 
 ==== gem5 Python 3 build
 
