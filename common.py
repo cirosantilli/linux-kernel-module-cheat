@@ -844,6 +844,7 @@ Incompatible archs are skipped.
         # gem5
         if not env['_args_given']['gem5_build_dir']:
             env['gem5_build_dir'] = join(env['gem5_out_dir'], env['gem5_build_id'])
+        env['gem5_test_binaries_dir'] = join(env['gem5_out_dir'], 'test_binaries')
         env['gem5_m5term'] = join(env['gem5_build_dir'], 'm5term')
         env['gem5_build_build_dir'] = join(env['gem5_build_dir'], 'build')
         env['gem5_executable_dir'] = join(env['gem5_build_build_dir'], env['gem5_arch'])
