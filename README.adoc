@@ -10641,6 +10641,10 @@ On the other hand, the chip makers tend to upstream less, and the project become
 The only hairy thing in QEMU is the binary code generation.
 +
 gem5 however has tended towards horrendous intensive <<gem5-code-generation,code generation>> in order to support all its different hardware types
++
+gem5 also has a complex Python interface which is also largely auto-generated, which greatly increases the maintenance complexity of the project: <<embedding-python-in-another-application>>.
++
+This is done so that reconfiguring platforms can be done quickly without recompiling, and it is amazing when it works, but the maintenance costs are also very high.
 
 === gem5 run benchmark
 
@@ -14830,6 +14834,34 @@ fatal: syscall unused#278 (#278) unimplemented.
 ....
 
 which corresponds to the glorious `getrandom` syscall: https://github.com/torvalds/linux/blob/v4.17/include/uapi/asm-generic/unistd.h#L707
+
+===== Embedding Python in another application
+
+Here we will add some better examples and explanations for: https://docs.python.org/3/extending/embedding.html#very-high-level-embedding
+
+"Embedding Python" basically means calling the Python interpreter from C, and possibly passing values between the two.
+
+These examples show to to embed the Python interpreter into a C/C++ application to interface between them
+
+* link:userland/libs/python_embed/eval.c[]: this example simply does `eval` a Python string in C, and don't communicate any values between the two.
++
+It could be used to call external commands that have external side effects, but it is not very exciting.
+* link:userland/libs/python_embed/pure.c[]: this example actually defines some Python classes and functions from C, implementing those entirely in C.
++
+The C program that defines those classes then instantiates the interpreter calls some regular Python code from it: link:userland/libs/python_embed/pure.py[]
++
+The regular Python code can then use the native C classes as if they were defined in Python.
++
+Finally, the Python returns values back to the C code that called the interpreter.
+* link:userland/libs/python_embed/pure_cpp.cpp[]: C++ version of the above, the main goal of this example is to show how to interface with C++ classes.
+
+One notable user of Python embedding is the <<gem5>> simulator, see also: <<gem5-vs-qemu>>. gem5 embeds the Python interpreter in order to interpret scripts as seen from the CLI:
+
+....
+build/ARM/gem5.opt configs/example/fs.py
+....
+
+gem5 then runs that Python script, which instantiates C++ classes defined from Python, and then finally hands back control to the C++ runtime to run the actual simulation faster.
 
 ==== Node.js
 

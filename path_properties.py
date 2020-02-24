@@ -709,6 +709,7 @@ path_properties_tuples = (
                         ),
                         # Makefile build, generates shared libraries.
                         'pybind11': {'no_build': True},
+                        'python_embed': {'no_build': True},
                     }
                 ),
                 'linux': (
