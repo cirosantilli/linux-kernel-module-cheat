@@ -59,7 +59,10 @@ class PathProperties:
         'minimum_gcc_version': (0, 0, 0),
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
-        # The path should not be built. E.g., it is symlinked into multiple archs.
+        # The path should not be built. E.g.:
+        # - it is symlinked into multiple archs
+        # - we have not integrated into the build yet, often it is being important from another repo
+        #   and has a Makefile
         'no_build': False,
         # The path does not generate an executable in itself, e.g.
         # it only generates intermediate object files. Therefore it
@@ -704,6 +707,8 @@ path_properties_tuples = (
                                 },
                             }
                         ),
+                        # Makefile build, generates shared libraries.
+                        'pybind11': {'no_build': True},
                     }
                 ),
                 'linux': (
