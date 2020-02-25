@@ -12092,7 +12092,7 @@ Each node has:
 
 * a list of child nodes, e.g. `system` is a child of `root`, and both `cpu` and `cpu_clk_domain` are children of `system`
 * a list of parameters, e.g. `system.semihosting` is `Null`, which means that <<semihosting>> was turned off
-** the `type` parameter shows is present on every node, and it maps to a `Python` object that inherits from `SimObject`.
+    ** the `type` parameter shows is present on every node, and it maps to a `Python` object that inherits from <<gem5-python-c-interaction,`SimObject`>>.
 +
 For example, `AtomicSimpleCPU` maps is defined at https://github.com/gem5/gem5/blob/05c4c2b566ce351ab217b2bd7035562aa7a76570/src/cpu/simple/AtomicSimpleCPU.py#L45[src/cpu/simple/AtomicSimpleCPU.py].
 
@@ -12725,7 +12725,7 @@ To run and GDB step debug the executable, just copy the full command line from t
 
 ==== gem5 Python C++ interaction
 
-The interaction uses the Python C extension interface https://docs.python.org/2/extending/extending.html interface through the pybind11 helper library: https://github.com/pybind/pybind11
+The interaction uses the Python C extension interface https://docs.python.org/2/extending/extending.html interface through the <<pybind11>> helper library: https://github.com/pybind/pybind11
 
 The C++ executable both:
 
@@ -12737,7 +12737,7 @@ An example of this can be found at:
 * https://docs.python.org/2/extending/embedding.html#extending-embedded-python
 * https://github.com/pybind/pybind11/tree/v2.2.3/tests/test_embed
 
-then gem5 magic `simobject` class adds some crazy stuff on top of it further... is is a mess. in particular, it auto generates `params/` headers. TODO: why is this mess needed at all? pybind11 seems to handle constructor arguments just fine:
+then gem5 magic `SimObject` class adds some crazy stuff on top of it further, is is a mess. In particular, it auto generates `params/` headers. TODO: why is this mess needed at all? pybind11 seems to handle constructor arguments just fine:
 
 * https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.py#L77
 * https://github.com/pybind/pybind11/blob/v2.2.3/tests/test_class.cpp#L41
@@ -12845,6 +12845,10 @@ BadDevice::BadDevice(Params *p)
 }
 ....
 
+It has been found that this usage of pybind11 across hundreds of `SimObject` files accounted for 50% of the gem5 build time at one point: https://gem5.atlassian.net/browse/GEM5-366
+
+To get a feeling of how `SimObject` objects are run, see: <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis>>.
+
 Tested on gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3.
 
 ==== gem5 entry point
@@ -12911,7 +12915,7 @@ The Python config files then set the entire system up in Python, and finally cal
 src/sim/simulate.cc
 ....
 
-and that is where doSimLoop the main event loop, `doSimLoop` gets called and starts kicking off the <<gem5-event-queue>>.
+and that is where the main event loop, `doSimLoop`, gets called and starts kicking off the <<gem5-event-queue>>.
 
 Tested at gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
@@ -13035,13 +13039,105 @@ schedule(tickEvent, clockEdge(Cycles(0)));
 
 which calls `EventManager::schedule`.
 
-`AtomicSimpleCPU` is an `EventManager` because `SimObject` inherits from it.
+`AtomicSimpleCPU` is an `EventManager` because <<gem5-python-c-interaction,`SimObject`>> inherits from it.
 
 `tickEvent` is an `EventFunctionWrapper` which contains a `std::function<void(void)> callback;`, and is initialized in the constructor as:
 
 ....
 tickEvent([this]{ tick(); }, "AtomicSimpleCPU tick",
         false, Event::CPU_Tick_Pri),
+....
+
+The call stack above `ArmLinuxProcess64::initState` is <<pybind11>> fuzziness, but if we grep a bit we find the Python call point:
+
+src/python/m5/simulate.py
+
+....
+def instantiate(ckpt_dir=None):
+
+    ...
+
+    # Create the C++ sim objects and connect ports
+    for obj in root.descendants(): obj.createCCObject()
+    for obj in root.descendants(): obj.connectPorts()
+
+    # Do a second pass to finish initializing the sim objects
+    for obj in root.descendants(): obj.init()
+
+    ...
+
+    # Restore checkpoint (if any)
+    if ckpt_dir:
+        ...
+    else:
+        for obj in root.descendants(): obj.initState()
+....
+
+As we can see, `initState` is just one stage of generic `SimObject` initialization. `root.descendants()` goes over the entire `SimObject` tree calling `initState()`.
+
+Finally, we see that `initState` is part of the `SimObject` C++ API:
+
+src/sim/sim_object.hh
+
+....
+class SimObject : public EventManager, public Serializable, public Drainable,
+                  public Stats::Group
+{
+
+    ...
+
+    /**
+     * initState() is called on each SimObject when *not* restoring
+     * from a checkpoint.  This provides a hook for state
+     * initializations that are only required for a "cold start".
+     */
+    virtual void initState();
+....
+
+Finally, we see that `initState` is exposed to the Python API at:
+
+build/ARM/python/_m5/param_SimObject.cc
+
+....
+module_init(py::module &m_internal)
+{
+    py::module m = m_internal.def_submodule("param_SimObject");
+    py::class_<SimObjectParams, std::unique_ptr<SimObjectParams, py::nodelete>>(m, "SimObjectParams")
+        .def_readwrite("name", &SimObjectParams::name)
+        .def_readwrite("eventq_index", &SimObjectParams::eventq_index)
+        ;
+
+    py::class_<SimObject, Drainable, Serializable, Stats::Group, std::unique_ptr<SimObject, py::nodelete>>(m, "SimObject")
+        .def("init", &SimObject::init)
+        .def("initState", &SimObject::initState)
+        .def("memInvalidate", &SimObject::memInvalidate)
+        .def("memWriteback", &SimObject::memWriteback)
+        .def("regProbePoints", &SimObject::regProbePoints)
+        .def("regProbeListeners", &SimObject::regProbeListeners)
+        .def("startup", &SimObject::startup)
+        .def("loadState", &SimObject::loadState, py::arg("cp"))
+        .def("getPort", &SimObject::getPort, pybind11::return_value_policy::reference, py::arg("if_name"), py::arg("idx"))
+        ;
+
+}
+....
+
+which is more magical than the other param classes since `py::class_<SimObject` has non-trivial methods, those are auto-generated by the `cxx_exports` code generation mechanism:
+
+....
+class SimObject(object):
+
+    ...
+
+    cxx_exports = [
+        PyBindMethod("init"),
+        PyBindMethod("initState"),
+        PyBindMethod("memInvalidate"),
+        PyBindMethod("memWriteback"),
+        PyBindMethod("regProbePoints"),
+        PyBindMethod("regProbeListeners"),
+        PyBindMethod("startup"),
+    ]
 ....
 
 So that's how the main atomic tick loop works, fully understood!
@@ -14862,6 +14958,12 @@ build/ARM/gem5.opt configs/example/fs.py
 ....
 
 gem5 then runs that Python script, which instantiates C++ classes defined from Python, and then finally hands back control to the C++ runtime to run the actual simulation faster.
+
+===== pybind11
+
+link:userland/libs/pybind11[]
+
+https://stackoverflow.com/questions/145270/calling-c-c-from-python/60374990#60374990
 
 ==== Node.js
 
