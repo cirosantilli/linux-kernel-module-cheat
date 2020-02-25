@@ -254,13 +254,16 @@ my_native_module_MyDerivedNativeClass_init(my_native_module_MyDerivedNativeClass
 {
     static char *kwlist[] = {"first", "last", "number", "first2", "last2", "number2", NULL};
     PyObject *first = NULL, *last = NULL, *first2 = NULL, *last2 = NULL, *tmp;
-    int number;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOiOOi", kwlist,
-            &first, &last, &number, &first2, &last2, &self->number2))
+    int ret;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOOOi", kwlist,
+            &first, &last, &tmp, &first2, &last2, &self->number2))
         return -1;
-    /* Call parent class constructor. TODO learn how to remove the
-     * "*2" args that are consumed by this constructor.. */
-    if (my_native_module_MyNativeClassType.tp_init((PyObject *) self, args, kwds) < 0)
+    /* args is a PyTuple, extract the first 3 arguments into a new
+     * tuple to serve as arguments of the base class. */
+    PyObject *base_args = PySequence_GetSlice(args, 0, 3);
+    ret = my_native_module_MyNativeClassType.tp_init((PyObject *) self, base_args, kwds);
+    Py_DECREF(base_args);
+    if (ret < 0)
         return -1;
     if (first2) {
         tmp = self->first2;
@@ -306,7 +309,8 @@ my_native_module_MyDerivedNativeClass_name2(my_native_module_MyDerivedNativeClas
         PyErr_SetString(PyExc_AttributeError, "last2");
         return NULL;
     }
-    return PyUnicode_FromFormat("%S %S %S %S", self->base.first, self->base.last, self->first2, self->last2);
+    return PyUnicode_FromFormat("%S %S %S %S",
+        self->base.first, self->base.last, self->first2, self->last2);
 }
 
 static PyMethodDef my_native_module_MyDerivedNativeClass_methods[] = {

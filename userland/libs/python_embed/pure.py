@@ -23,7 +23,7 @@ def test_native_class():
     my_native_object.first = 'ih'
     assert my_native_object.name() == 'ih '
 
-    # TODO see TODO in pure.c.
-    #my_derived_native_object = my_native_module.MyDerivedNativeClass('ab', 'cd', 13, 'ef', 'gh', 21)
-    #print(my_derived_native_object.name2())
+    my_derived_native_object = my_native_module.MyDerivedNativeClass('ab', 'cd', 13, 'ef', 'gh', 21)
+    assert my_derived_native_object.name() == 'ab cd'
+    assert my_derived_native_object.name2() == 'ab cd ef gh'
     return 13
