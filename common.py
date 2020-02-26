@@ -223,6 +223,13 @@ Valid archs: {}
 '''.format(arches_string)
         )
         self.add_argument(
+            '--ccache',
+            default=True,
+            help='''\
+Enable or disable ccache: https://cirosantilli.com/linux-kernel-module-cheat#ccache
+'''
+        )
+        self.add_argument(
             '--dry-run',
             default=False,
             help='''\
