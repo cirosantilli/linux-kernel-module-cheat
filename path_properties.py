@@ -698,6 +698,7 @@ path_properties_tuples = (
                 'libs': (
                     {'requires_dynamic_library': True},
                     {
+                        'cython': {'no_build': True},
                         'libdrm': {'requires_sudo': True},
                         'hdf5': (
                             {},
