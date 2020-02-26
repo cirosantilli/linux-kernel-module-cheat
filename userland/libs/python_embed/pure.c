@@ -55,7 +55,7 @@ static PyMethodDef my_native_methods[] = {
  *         self.number = number
  *
  *     def name(self):
- *         return '{} {}'.format(self.first, self.last)
+ *         return '{} {} {}'.format(self.first, self.last, self.number)
  *
  * class MyDerivedNativeClass(MyNativeClass):
  *
@@ -66,7 +66,7 @@ static PyMethodDef my_native_methods[] = {
  *         self.number2 = number2
  *
  *     def name(self):
- *         return '{} {} {} {} 2'.format(self.first, self.last, self.first2, self.last2)
+ *         return '{} {} {} {} {} {}'.format(self.first, self.last, self.number + 1, self.first2, self.last2, self.number2 + 2)
  * ....
  */
 typedef struct {
@@ -147,14 +147,68 @@ my_native_module_MyNativeClass_init(my_native_module_MyNativeClass *self, PyObje
 }
 
 static PyMemberDef my_native_module_MyNativeClass_members[] = {
-    {"first", T_OBJECT_EX, offsetof(my_native_module_MyNativeClass, first), 0,
-     "first name"},
-    {"last", T_OBJECT_EX, offsetof(my_native_module_MyNativeClass, last), 0,
-     "last name"},
     {"number", T_INT, offsetof(my_native_module_MyNativeClass, number), 0,
      "custom number"},
     {NULL}
 };
+
+static PyObject *
+my_native_module_MyNativeClass_getfirst(my_native_module_MyNativeClass *self, void *closure)
+{
+    (void)closure;
+    Py_INCREF(self->first);
+    return self->first;
+}
+
+static int
+my_native_module_MyNativeClass_setfirst(my_native_module_MyNativeClass *self, PyObject *value, void *closure)
+{
+    (void)closure;
+    PyObject *tmp;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the first attribute");
+        return -1;
+    }
+    if (!PyUnicode_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The first attribute value must be a string");
+        return -1;
+    }
+    tmp = self->first;
+    Py_INCREF(value);
+    self->first = value;
+    Py_DECREF(tmp);
+    return 0;
+}
+
+static PyObject *
+my_native_module_MyNativeClass_getlast(my_native_module_MyNativeClass *self, void *closure)
+{
+    (void)closure;
+    Py_INCREF(self->last);
+    return self->last;
+}
+
+static int
+my_native_module_MyNativeClass_setlast(my_native_module_MyNativeClass *self, PyObject *value, void *closure)
+{
+    (void)closure;
+    PyObject *tmp;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the last attribute");
+        return -1;
+    }
+    if (!PyUnicode_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The last attribute value must be a string");
+        return -1;
+    }
+    tmp = self->last;
+    Py_INCREF(value);
+    self->last = value;
+    Py_DECREF(tmp);
+    return 0;
+}
 
 static PyObject *
 my_native_module_MyNativeClass_name(my_native_module_MyNativeClass *self, PyObject *Py_UNUSED(ignored))
@@ -167,8 +221,16 @@ my_native_module_MyNativeClass_name(my_native_module_MyNativeClass *self, PyObje
         PyErr_SetString(PyExc_AttributeError, "last");
         return NULL;
     }
-    return PyUnicode_FromFormat("%S %S", self->first, self->last);
+    return PyUnicode_FromFormat("%S %S %d", self->first, self->last, self->number + 1);
 }
+
+static PyGetSetDef my_native_module_MyNativeClass_getsetters[] = {
+    {"first", (getter) my_native_module_MyNativeClass_getfirst, (setter) my_native_module_MyNativeClass_setfirst,
+     "first name", NULL},
+    {"last", (getter) my_native_module_MyNativeClass_getlast, (setter) my_native_module_MyNativeClass_setlast,
+     "last name", NULL},
+    {NULL}  /* Sentinel */
+};
 
 static PyMethodDef my_native_module_MyNativeClass_methods[] = {
     {
@@ -194,6 +256,7 @@ static PyTypeObject my_native_module_MyNativeClassType = {
     .tp_clear = (inquiry) my_native_module_MyNativeClass_clear,
     .tp_members = my_native_module_MyNativeClass_members,
     .tp_methods = my_native_module_MyNativeClass_methods,
+    .tp_getset = my_native_module_MyNativeClass_getsetters,
 };
 
 typedef struct {
@@ -232,7 +295,7 @@ my_native_module_MyDerivedNativeClass_new(PyTypeObject *type, PyObject *args, Py
     (void)args;
     (void)kwds;
     my_native_module_MyDerivedNativeClass *self;
-    self = (my_native_module_MyDerivedNativeClass *) type->tp_alloc(type, 0);
+    self = (my_native_module_MyDerivedNativeClass *) type->tp_base->tp_new(type, args, kwds);
     if (self != NULL) {
         self->first2 = PyUnicode_FromString("");
         if (self->first2 == NULL) {
@@ -281,20 +344,74 @@ my_native_module_MyDerivedNativeClass_init(my_native_module_MyDerivedNativeClass
 }
 
 static PyMemberDef my_native_module_MyDerivedNativeClass_members[] = {
-    {"first2", T_OBJECT_EX, offsetof(my_native_module_MyDerivedNativeClass, first2), 0,
-     "first2 name2"},
-    {"last2", T_OBJECT_EX, offsetof(my_native_module_MyDerivedNativeClass, last2), 0,
-     "last2 name2"},
     {"number2", T_INT, offsetof(my_native_module_MyDerivedNativeClass, number2), 0,
      "custom number2"},
     {NULL}
 };
 
 static PyObject *
+my_native_module_MyDerivedNativeClass_getfirst2(my_native_module_MyDerivedNativeClass *self, void *closure)
+{
+    (void)closure;
+    Py_INCREF(self->first2);
+    return self->first2;
+}
+
+static int
+my_native_module_MyDerivedNativeClass_setfirst2(my_native_module_MyDerivedNativeClass *self, PyObject *value, void *closure)
+{
+    (void)closure;
+    PyObject *tmp;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the first2 attribute");
+        return -1;
+    }
+    if (!PyUnicode_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The first2 attribute value must be a string");
+        return -1;
+    }
+    tmp = self->first2;
+    Py_INCREF(value);
+    self->first2 = value;
+    Py_DECREF(tmp);
+    return 0;
+}
+
+static PyObject *
+my_native_module_MyDerivedNativeClass_getlast2(my_native_module_MyDerivedNativeClass *self, void *closure)
+{
+    (void)closure;
+    Py_INCREF(self->last2);
+    return self->last2;
+}
+
+static int
+my_native_module_MyDerivedNativeClass_setlast2(my_native_module_MyDerivedNativeClass *self, PyObject *value, void *closure)
+{
+    (void)closure;
+    PyObject *tmp;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the last2 attribute");
+        return -1;
+    }
+    if (!PyUnicode_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The last2 attribute value must be a string");
+        return -1;
+    }
+    tmp = self->last2;
+    Py_INCREF(value);
+    self->last2 = value;
+    Py_DECREF(tmp);
+    return 0;
+}
+
+static PyObject *
 my_native_module_MyDerivedNativeClass_name2(my_native_module_MyDerivedNativeClass *self, PyObject *Py_UNUSED(ignored))
 {
     if (self->base.first == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first");
+        PyErr_SetString(PyExc_AttributeError, "first2");
         return NULL;
     }
     if (self->base.last == NULL) {
@@ -302,16 +419,25 @@ my_native_module_MyDerivedNativeClass_name2(my_native_module_MyDerivedNativeClas
         return NULL;
     }
     if (self->first2 == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first2");
+        PyErr_SetString(PyExc_AttributeError, "first22");
         return NULL;
     }
     if (self->last2 == NULL) {
         PyErr_SetString(PyExc_AttributeError, "last2");
         return NULL;
     }
-    return PyUnicode_FromFormat("%S %S %S %S",
-        self->base.first, self->base.last, self->first2, self->last2);
+    return PyUnicode_FromFormat("%S %S %d %S %S %d",
+        self->base.first, self->base.last, self->base.number + 1,
+        self->first2, self->last2, self->number2 + 2);
 }
+
+static PyGetSetDef my_native_module_MyDerivedNativeClass_getsetters[] = {
+    {"first2", (getter) my_native_module_MyDerivedNativeClass_getfirst2, (setter) my_native_module_MyDerivedNativeClass_setfirst2,
+     "first2 name", NULL},
+    {"last2", (getter) my_native_module_MyDerivedNativeClass_getlast2, (setter) my_native_module_MyDerivedNativeClass_setlast2,
+     "last2 name", NULL},
+    {NULL}  /* Sentinel */
+};
 
 static PyMethodDef my_native_module_MyDerivedNativeClass_methods[] = {
     {
@@ -337,6 +463,7 @@ static PyTypeObject my_native_module_MyDerivedNativeClassType = {
     .tp_clear = (inquiry) my_native_module_MyDerivedNativeClass_clear,
     .tp_members = my_native_module_MyDerivedNativeClass_members,
     .tp_methods = my_native_module_MyDerivedNativeClass_methods,
+    .tp_getset = my_native_module_MyDerivedNativeClass_getsetters,
 };
 
 static PyModuleDef my_native_module = {
