@@ -5,6 +5,7 @@
 #include "structmember.h"
 
 #include <string>
+#include <sstream>
 
 /* Define a function in C to be accessible from the Python code.
  *
@@ -36,7 +37,10 @@ static PyMethodDef my_native_methods[] = {
 
 /* Define a class in C to be accessible from the Python code.
  * and bind data and methods it to a C++ class!
- * ....
+ *
+ * Data will be stored permanently only in the C++ class.
+ * Pytyhon getters and setters copy data from that class
+ * and create new objects.
  */
 
 struct MyNativeClass {
@@ -44,6 +48,7 @@ struct MyNativeClass {
     std::string last;
     int number;
 
+    MyNativeClass() : number(0) {};
     MyNativeClass(
         const std::string& first,
         const std::string& last,
@@ -51,7 +56,9 @@ struct MyNativeClass {
     ) : first(first), last(last), number(number) {}
 
     std::string name() {
-        return first + " " + last;
+        std::stringstream ss;
+        ss << first << " " << last << " " << number + 1;
+        return ss.str();
     }
 };
 
@@ -60,6 +67,7 @@ struct MyDerivedNativeClass : public MyNativeClass {
     std::string last2;
     int number2;
 
+    MyDerivedNativeClass() {};
     MyDerivedNativeClass(
         const std::string& first,
         const std::string& last,
@@ -70,58 +78,33 @@ struct MyDerivedNativeClass : public MyNativeClass {
     ) : MyNativeClass(first, last, number),
       first2(first2), last2(last2), number2(number2) {}
 
-    std::string name() {
-        return first + " " + last + " " + first2 + " " + last2;
+    std::string name2() {
+        std::stringstream ss;
+        ss << first << " " << last << " " << number + 1 << " "
+           << first2 << " " << last2 << " " << number2 + 2;
+        return ss.str();
     }
 };
 
 typedef struct {
     PyObject_HEAD
     MyNativeClass *cpp_object;
-    PyObject *first;
-    PyObject *last;
-    int number;
 } my_native_module_MyNativeClass;
 
 static void
 my_native_module_MyNativeClass_dealloc(my_native_module_MyNativeClass *self) {
-    Py_XDECREF(self->first);
-    Py_XDECREF(self->last);
+    delete self->cpp_object;
     Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
-static int
-my_native_module_MyNativeClass_traverse(my_native_module_MyNativeClass *self, visitproc visit, void *arg)
-{
-    Py_VISIT(self->first);
-    Py_VISIT(self->last);
-    return 0;
-}
-
-static int
-my_native_module_MyNativeClass_clear(my_native_module_MyNativeClass *self)
-{
-    Py_CLEAR(self->first);
-    Py_CLEAR(self->last);
-    return 0;
-}
-
 static PyObject *
-my_native_module_MyNativeClass_new_noalloc (my_native_module_MyNativeClass *self, PyObject *args, PyObject *kwds) {
+my_native_module_MyNativeClass_new_noalloc(my_native_module_MyNativeClass *self, PyObject *args, PyObject *kwds) {
     (void)args;
     (void)kwds;
     if (self != NULL) {
-        self->first = PyUnicode_FromString("");
-        if (self->first == NULL) {
-            Py_DECREF(self);
-            return NULL;
+        if (self->cpp_object == NULL) {
+            self->cpp_object = new MyNativeClass();
         }
-        self->last = PyUnicode_FromString("");
-        if (self->last == NULL) {
-            Py_DECREF(self);
-            return NULL;
-        }
-        self->number = 0;
     }
     return (PyObject *) self;
 }
@@ -138,45 +121,38 @@ static int
 my_native_module_MyNativeClass_init(my_native_module_MyNativeClass *self, PyObject *args, PyObject *kwds)
 {
     static const char *kwlist[] = {"first", "last", "number", NULL};
-    PyObject *first = NULL, *last = NULL, *tmp;
-
+    PyObject *first = NULL, *last = NULL;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOi", (char**)kwlist,
-            &first, &last, &self->number))
+            &first, &last, &self->cpp_object->number))
         return -1;
     if (first) {
-        tmp = self->first;
-        Py_INCREF(first);
-        self->first = first;
-        Py_XDECREF(tmp);
+        if (!PyUnicode_Check(first)) {
+            PyErr_SetString(PyExc_TypeError, "The first attribute value must be a string");
+            return -1;
+        }
+        self->cpp_object->first = PyBytes_AsString(PyUnicode_AsASCIIString(first));
     }
     if (last) {
-        tmp = self->last;
-        Py_INCREF(last);
-        self->last = last;
-        Py_XDECREF(tmp);
+        if (!PyUnicode_Check(last)) {
+            PyErr_SetString(PyExc_TypeError, "The last attribute value must be a string");
+            return -1;
+        }
+        self->cpp_object->last = PyBytes_AsString(PyUnicode_AsASCIIString(last));
     }
     return 0;
 }
-
-static PyMemberDef my_native_module_MyNativeClass_members[] = {
-    {(char*)"number", T_INT, offsetof(my_native_module_MyNativeClass, number), 0,
-     (char*)"custom number"},
-    {NULL}
-};
 
 static PyObject *
 my_native_module_MyNativeClass_getfirst(my_native_module_MyNativeClass *self, void *closure)
 {
     (void)closure;
-    Py_INCREF(self->first);
-    return self->first;
+    return PyUnicode_FromString(self->cpp_object->first.c_str());
 }
 
 static int
 my_native_module_MyNativeClass_setfirst(my_native_module_MyNativeClass *self, PyObject *value, void *closure)
 {
     (void)closure;
-    PyObject *tmp;
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the first attribute");
         return -1;
@@ -186,10 +162,7 @@ my_native_module_MyNativeClass_setfirst(my_native_module_MyNativeClass *self, Py
                         "The first attribute value must be a string");
         return -1;
     }
-    tmp = self->first;
-    Py_INCREF(value);
-    self->first = value;
-    Py_DECREF(tmp);
+    self->cpp_object->first = PyBytes_AsString(PyUnicode_AsASCIIString(value));
     return 0;
 }
 
@@ -197,15 +170,13 @@ static PyObject *
 my_native_module_MyNativeClass_getlast(my_native_module_MyNativeClass *self, void *closure)
 {
     (void)closure;
-    Py_INCREF(self->last);
-    return self->last;
+    return PyUnicode_FromString(self->cpp_object->last.c_str());
 }
 
 static int
 my_native_module_MyNativeClass_setlast(my_native_module_MyNativeClass *self, PyObject *value, void *closure)
 {
     (void)closure;
-    PyObject *tmp;
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the last attribute");
         return -1;
@@ -215,25 +186,38 @@ my_native_module_MyNativeClass_setlast(my_native_module_MyNativeClass *self, PyO
                         "The last attribute value must be a string");
         return -1;
     }
-    tmp = self->last;
-    Py_INCREF(value);
-    self->last = value;
-    Py_DECREF(tmp);
+    self->cpp_object->last = PyBytes_AsString(PyUnicode_AsASCIIString(value));
+    return 0;
+}
+
+static PyObject *
+my_native_module_MyNativeClass_getnumber(my_native_module_MyNativeClass *self, void *closure)
+{
+    (void)closure;
+    return PyLong_FromLong(self->cpp_object->number);
+}
+
+static int
+my_native_module_MyNativeClass_setnumber(my_native_module_MyNativeClass *self, PyObject *value, void *closure)
+{
+    (void)closure;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the number attribute");
+        return -1;
+    }
+    if (!PyLong_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The number attribute value must be a string");
+        return -1;
+    }
+    self->cpp_object->number = PyLong_AsLong(value);
     return 0;
 }
 
 static PyObject *
 my_native_module_MyNativeClass_name(my_native_module_MyNativeClass *self, PyObject *Py_UNUSED(ignored))
 {
-    if (self->first == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first");
-        return NULL;
-    }
-    if (self->last == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "last");
-        return NULL;
-    }
-    return PyUnicode_FromFormat("%S %S %d", self->first, self->last, self->number + 1);
+    return PyUnicode_FromString(self->cpp_object->name().c_str());
 }
 
 static PyMethodDef my_native_module_MyNativeClass_methods[] = {
@@ -251,6 +235,8 @@ static PyGetSetDef my_native_module_MyNativeClass_getsetters[] = {
      (char *)"first name", NULL},
     {(char *)"last", (getter) my_native_module_MyNativeClass_getlast, (setter) my_native_module_MyNativeClass_setlast,
      (char *)"last name", NULL},
+    {(char *)"number", (getter) my_native_module_MyNativeClass_getnumber, (setter) my_native_module_MyNativeClass_setnumber,
+     (char *)"number", NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -260,32 +246,12 @@ static PyTypeObject my_native_module_MyNativeClassType = {
 
 typedef struct {
     my_native_module_MyNativeClass base;
-    PyObject *first2;
-    PyObject *last2;
-    int number2;
+    MyDerivedNativeClass *cpp_object;
 } my_native_module_MyDerivedNativeClass;
 
 static void
 my_native_module_MyDerivedNativeClass_dealloc(my_native_module_MyDerivedNativeClass *self) {
-    Py_XDECREF(self->first2);
-    Py_XDECREF(self->last2);
-    Py_TYPE(self)->tp_free((PyObject *) self);
-}
-
-static int
-my_native_module_MyDerivedNativeClass_traverse(my_native_module_MyDerivedNativeClass *self, visitproc visit, void *arg)
-{
-    Py_VISIT(self->first2);
-    Py_VISIT(self->last2);
-    return 0;
-}
-
-static int
-my_native_module_MyDerivedNativeClass_clear(my_native_module_MyDerivedNativeClass *self)
-{
-    Py_CLEAR(self->first2);
-    Py_CLEAR(self->last2);
-    return 0;
+    Py_TYPE(self)->tp_base->tp_dealloc((PyObject *) self);
 }
 
 static PyObject *
@@ -295,20 +261,9 @@ my_native_module_MyDerivedNativeClass_new(PyTypeObject *type, PyObject *args, Py
     (void)kwds;
     my_native_module_MyDerivedNativeClass *self;
     self = (my_native_module_MyDerivedNativeClass *) type->tp_alloc(type, 0);
+    self->cpp_object = new MyDerivedNativeClass();
+    self->base.cpp_object = self->cpp_object;
     my_native_module_MyNativeClass_new_noalloc((my_native_module_MyNativeClass *) self, args, kwds);
-    if (self != NULL) {
-        self->first2 = PyUnicode_FromString("");
-        if (self->first2 == NULL) {
-            Py_DECREF(self);
-            return NULL;
-        }
-        self->last2 = PyUnicode_FromString("");
-        if (self->last2 == NULL) {
-            Py_DECREF(self);
-            return NULL;
-        }
-        self->number2 = 0;
-    }
     return (PyObject *) self;
 }
 
@@ -319,7 +274,7 @@ my_native_module_MyDerivedNativeClass_init(my_native_module_MyDerivedNativeClass
     PyObject *first = NULL, *last = NULL, *first2 = NULL, *last2 = NULL, *tmp;
     int ret;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOOOi", (char**)kwlist,
-            &first, &last, &tmp, &first2, &last2, &self->number2))
+            &first, &last, &tmp, &first2, &last2, &self->cpp_object->number2))
         return -1;
     /* args is a PyTuple, extract the first 3 arguments into a new
      * tuple to serve as arguments of the base class. */
@@ -329,39 +284,33 @@ my_native_module_MyDerivedNativeClass_init(my_native_module_MyDerivedNativeClass
     if (ret < 0)
         return -1;
     if (first2) {
-        tmp = self->first2;
-        Py_INCREF(first2);
-        self->first2 = first2;
-        Py_XDECREF(tmp);
+        if (!PyUnicode_Check(first2)) {
+            PyErr_SetString(PyExc_TypeError, "The first attribute value must be a string");
+            return -1;
+        }
+        self->cpp_object->first2 = PyBytes_AsString(PyUnicode_AsASCIIString(first2));
     }
     if (last2) {
-        tmp = self->last2;
-        Py_INCREF(last2);
-        self->last2 = last2;
-        Py_XDECREF(tmp);
+        if (!PyUnicode_Check(last2)) {
+            PyErr_SetString(PyExc_TypeError, "The last2 attribute value must be a string");
+            return -1;
+        }
+        self->cpp_object->last2 = PyBytes_AsString(PyUnicode_AsASCIIString(last2));
     }
     return 0;
 }
-
-static PyMemberDef my_native_module_MyDerivedNativeClass_members[] = {
-    {(char*)"number2", T_INT, offsetof(my_native_module_MyDerivedNativeClass, number2), 0,
-     (char*)"custom number2"},
-    {NULL}
-};
 
 static PyObject *
 my_native_module_MyDerivedNativeClass_getfirst2(my_native_module_MyDerivedNativeClass *self, void *closure)
 {
     (void)closure;
-    Py_INCREF(self->first2);
-    return self->first2;
+    return PyUnicode_FromString(self->base.cpp_object->first.c_str());
 }
 
 static int
 my_native_module_MyDerivedNativeClass_setfirst2(my_native_module_MyDerivedNativeClass *self, PyObject *value, void *closure)
 {
     (void)closure;
-    PyObject *tmp;
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the first2 attribute");
         return -1;
@@ -371,10 +320,7 @@ my_native_module_MyDerivedNativeClass_setfirst2(my_native_module_MyDerivedNative
                         "The first2 attribute value must be a string");
         return -1;
     }
-    tmp = self->first2;
-    Py_INCREF(value);
-    self->first2 = value;
-    Py_DECREF(tmp);
+    self->base.cpp_object->first = PyBytes_AsString(PyUnicode_AsASCIIString(value));
     return 0;
 }
 
@@ -382,15 +328,13 @@ static PyObject *
 my_native_module_MyDerivedNativeClass_getlast2(my_native_module_MyDerivedNativeClass *self, void *closure)
 {
     (void)closure;
-    Py_INCREF(self->last2);
-    return self->last2;
+    return PyUnicode_FromString(self->base.cpp_object->last.c_str());
 }
 
 static int
 my_native_module_MyDerivedNativeClass_setlast2(my_native_module_MyDerivedNativeClass *self, PyObject *value, void *closure)
 {
     (void)closure;
-    PyObject *tmp;
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the last2 attribute");
         return -1;
@@ -400,35 +344,38 @@ my_native_module_MyDerivedNativeClass_setlast2(my_native_module_MyDerivedNativeC
                         "The last2 attribute value must be a string");
         return -1;
     }
-    tmp = self->last2;
-    Py_INCREF(value);
-    self->last2 = value;
-    Py_DECREF(tmp);
+    self->base.cpp_object->last = PyBytes_AsString(PyUnicode_AsASCIIString(value));
+    return 0;
+}
+
+static PyObject *
+my_native_module_MyDerivedNativeClass_getnumber2(my_native_module_MyDerivedNativeClass *self, void *closure)
+{
+    (void)closure;
+    return PyLong_FromLong(self->base.cpp_object->number);
+}
+
+static int
+my_native_module_MyDerivedNativeClass_setnumber2(my_native_module_MyDerivedNativeClass *self, PyObject *value, void *closure)
+{
+    (void)closure;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the number2 attribute");
+        return -1;
+    }
+    if (!PyLong_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The number2 attribute value must be a string");
+        return -1;
+    }
+    self->base.cpp_object->number = PyLong_AsLong(value);
     return 0;
 }
 
 static PyObject *
 my_native_module_MyDerivedNativeClass_name2(my_native_module_MyDerivedNativeClass *self, PyObject *Py_UNUSED(ignored))
 {
-    if (self->base.first == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first");
-        return NULL;
-    }
-    if (self->base.last == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "last");
-        return NULL;
-    }
-    if (self->first2 == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first2");
-        return NULL;
-    }
-    if (self->last2 == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "last2");
-        return NULL;
-    }
-    return PyUnicode_FromFormat("%S %S %d %S %S %d",
-        self->base.first, self->base.last, self->base.number + 1,
-        self->first2, self->last2, self->number2 + 2);
+    return PyUnicode_FromString(self->cpp_object->name2().c_str());
 }
 
 static PyGetSetDef my_native_module_MyDerivedNativeClass_getsetters[] = {
@@ -436,6 +383,8 @@ static PyGetSetDef my_native_module_MyDerivedNativeClass_getsetters[] = {
      (char *)"first2 name", NULL},
     {(char *)"last2", (getter) my_native_module_MyDerivedNativeClass_getlast2, (setter) my_native_module_MyDerivedNativeClass_setlast2,
      (char *)"last2 name", NULL},
+    {(char *)"number2", (getter) my_native_module_MyDerivedNativeClass_getnumber2, (setter) my_native_module_MyDerivedNativeClass_setnumber2,
+     (char *)"number2", NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -514,9 +463,6 @@ main(int argc, char *argv[])
     my_native_module_MyNativeClassType.tp_new = my_native_module_MyNativeClass_new;
     my_native_module_MyNativeClassType.tp_init = (initproc) my_native_module_MyNativeClass_init;
     my_native_module_MyNativeClassType.tp_dealloc = (destructor) my_native_module_MyNativeClass_dealloc;
-    my_native_module_MyNativeClassType.tp_traverse = (traverseproc) my_native_module_MyNativeClass_traverse;
-    my_native_module_MyNativeClassType.tp_clear = (inquiry) my_native_module_MyNativeClass_clear;
-    my_native_module_MyNativeClassType.tp_members = my_native_module_MyNativeClass_members;
     my_native_module_MyNativeClassType.tp_methods = my_native_module_MyNativeClass_methods;
     my_native_module_MyNativeClassType.tp_getset = my_native_module_MyNativeClass_getsetters;
 
@@ -528,9 +474,6 @@ main(int argc, char *argv[])
     my_native_module_MyDerivedNativeClassType.tp_new = my_native_module_MyDerivedNativeClass_new;
     my_native_module_MyDerivedNativeClassType.tp_init = (initproc) my_native_module_MyDerivedNativeClass_init;
     my_native_module_MyDerivedNativeClassType.tp_dealloc = (destructor) my_native_module_MyDerivedNativeClass_dealloc;
-    my_native_module_MyDerivedNativeClassType.tp_traverse = (traverseproc) my_native_module_MyDerivedNativeClass_traverse;
-    my_native_module_MyDerivedNativeClassType.tp_clear = (inquiry) my_native_module_MyDerivedNativeClass_clear;
-    my_native_module_MyDerivedNativeClassType.tp_members = my_native_module_MyDerivedNativeClass_members;
     my_native_module_MyDerivedNativeClassType.tp_methods = my_native_module_MyDerivedNativeClass_methods;
     my_native_module_MyDerivedNativeClassType.tp_getset = my_native_module_MyDerivedNativeClass_getsetters;
 

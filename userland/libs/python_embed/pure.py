@@ -12,6 +12,9 @@ def test_native_method(a, b):
 def test_native_class():
     # Positional arguments.
     my_native_object = my_native_module.MyNativeClass('ab', 'cd', 13)
+    assert my_native_object.first == 'ab'
+    assert my_native_object.last == 'cd'
+    assert my_native_object.number == 13
     assert my_native_object.name() == 'ab cd 14'
 
     # Named arguments.
@@ -26,4 +29,5 @@ def test_native_class():
     my_derived_native_object = my_native_module.MyDerivedNativeClass('ab', 'cd', 13, 'ef', 'gh', 21)
     assert my_derived_native_object.name() == 'ab cd 14'
     assert my_derived_native_object.name2() == 'ab cd 14 ef gh 23'
+
     return 13

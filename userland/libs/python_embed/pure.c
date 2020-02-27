@@ -14,6 +14,8 @@
 #include <Python.h>
 #include "structmember.h"
 
+#include <stdio.h>
+
 /* Define a function in C to be accessible from the Python code.
  *
  * ....
@@ -78,6 +80,9 @@ typedef struct {
 
 static void
 my_native_module_MyNativeClass_dealloc(my_native_module_MyNativeClass *self) {
+#ifdef DEBUG
+    puts("my_native_module_MyNativeClass_dealloc");
+#endif
     Py_XDECREF(self->first);
     Py_XDECREF(self->last);
     Py_TYPE(self)->tp_free((PyObject *) self);
@@ -268,9 +273,12 @@ typedef struct {
 
 static void
 my_native_module_MyDerivedNativeClass_dealloc(my_native_module_MyDerivedNativeClass *self) {
+#ifdef DEBUG
+    puts("my_native_module_MyDerivedNativeClass_dealloc");
+#endif
     Py_XDECREF(self->first2);
     Py_XDECREF(self->last2);
-    Py_TYPE(self)->tp_free((PyObject *) self);
+    Py_TYPE(self)->tp_base->tp_dealloc((PyObject *) self);
 }
 
 static int
