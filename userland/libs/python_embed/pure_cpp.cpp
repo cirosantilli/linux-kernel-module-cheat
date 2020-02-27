@@ -39,7 +39,7 @@ static PyMethodDef my_native_methods[] = {
  * and bind data and methods it to a C++ class!
  *
  * Data will be stored permanently only in the C++ class.
- * Pytyhon getters and setters copy data from that class
+ * Python getters and setters copy data from that class
  * and create new objects.
  */
 
