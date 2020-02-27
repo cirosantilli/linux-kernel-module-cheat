@@ -77,6 +77,7 @@ struct MyDerivedNativeClass : public MyNativeClass {
 
 typedef struct {
     PyObject_HEAD
+    MyNativeClass *cpp_object;
     PyObject *first;
     PyObject *last;
     int number;
@@ -106,12 +107,9 @@ my_native_module_MyNativeClass_clear(my_native_module_MyNativeClass *self)
 }
 
 static PyObject *
-my_native_module_MyNativeClass_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
+my_native_module_MyNativeClass_new_noalloc (my_native_module_MyNativeClass *self, PyObject *args, PyObject *kwds) {
     (void)args;
     (void)kwds;
-    my_native_module_MyNativeClass *self;
-    self = (my_native_module_MyNativeClass *) type->tp_alloc(type, 0);
     if (self != NULL) {
         self->first = PyUnicode_FromString("");
         if (self->first == NULL) {
@@ -126,6 +124,14 @@ my_native_module_MyNativeClass_new(PyTypeObject *type, PyObject *args, PyObject 
         self->number = 0;
     }
     return (PyObject *) self;
+}
+
+static PyObject *
+my_native_module_MyNativeClass_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    my_native_module_MyNativeClass *self;
+    self = (my_native_module_MyNativeClass *) type->tp_alloc(type, 0);
+    return (PyObject *) my_native_module_MyNativeClass_new_noalloc(self, args, kwds);
 }
 
 static int
@@ -289,6 +295,7 @@ my_native_module_MyDerivedNativeClass_new(PyTypeObject *type, PyObject *args, Py
     (void)kwds;
     my_native_module_MyDerivedNativeClass *self;
     self = (my_native_module_MyDerivedNativeClass *) type->tp_alloc(type, 0);
+    my_native_module_MyNativeClass_new_noalloc((my_native_module_MyNativeClass *) self, args, kwds);
     if (self != NULL) {
         self->first2 = PyUnicode_FromString("");
         if (self->first2 == NULL) {

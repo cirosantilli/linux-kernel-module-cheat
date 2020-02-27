@@ -3,7 +3,7 @@
 CC = gcc
 CXX = g++
 CFLGS = -std=c99
-CCFLGS = -ggdb3 -O0 -pedantic-errors -Wall -Wextra
+CCFLGS = -ggdb3 -O0 -pedantic-errors -Wall -Wextra -Wno-missing-field-initializers
 CXXFLGS = -std=c++11
 IN_EXT = .c
 IN_CXX_EXT = .cpp
