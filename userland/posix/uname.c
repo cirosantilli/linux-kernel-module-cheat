@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#fatal-kernel-too-old */
+/* https://cirosantilli.com/linux-kernel-module-cheat#fatal-kernel-too-old-failure-in-userland-simulation */
 
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
