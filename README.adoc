@@ -10644,7 +10644,7 @@ gem5 however has tended towards horrendous intensive <<gem5-code-generation,code
 +
 gem5 also has a complex Python interface which is also largely auto-generated, which greatly increases the maintenance complexity of the project: <<embedding-python-in-another-application>>.
 +
-This is done so that reconfiguring platforms can be done quickly without recompiling, and it is amazing when it works, but the maintenance costs are also very high.
+This is done so that reconfiguring platforms can be done quickly without recompiling, and it is amazing when it works, but the maintenance costs are also very high. For example, <<pybind11>> of several trivial `param_` files accounted for 50% of the build time at one point: <<pybind11-accounts-for-50-of-gem5-build-time>>.
 
 === gem5 run benchmark
 
@@ -12847,7 +12847,7 @@ BadDevice::BadDevice(Params *p)
 }
 ....
 
-It has been found that this usage of pybind11 across hundreds of `SimObject` files accounted for 50% of the gem5 build time at one point: https://gem5.atlassian.net/browse/GEM5-366
+It has been found that this usage of <<pybind11>> across hundreds of `SimObject` files accounted for 50% of the gem5 build time at one point: <<pybind11-accounts-for-50-of-gem5-build-time>>.
 
 To get a feeling of how `SimObject` objects are run, see: <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis>>.
 
@@ -14979,6 +14979,8 @@ gem5 then runs that Python script, which instantiates C++ classes defined from P
 link:userland/libs/pybind11[]
 
 https://stackoverflow.com/questions/145270/calling-c-c-from-python/60374990#60374990
+
+pybind11 is amazingly easy to use. But it also makes your builds really slow: <<pybind11-accounts-for-50-of-gem5-build-time>>.
 
 ==== Node.js
 
@@ -20582,8 +20584,6 @@ We will update this whenever the gem5 submodule is updated.
 
 All benchmarks done on <<p51>>.
 
-Sample results at gem5 2a9573f5942b5416fb0570cf5cb6cdecba733392: 10 to 12 minutes.
-
 Get results with:
 
 ....
@@ -20591,7 +20591,19 @@ Get results with:
 tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt
 ....
 
-Ubuntu 19.10, GCC 9.2.1, LKMC 7c6bb29bc89ec3f1056c0680c3f08bd64018a7bc, gem5 d7d9bc240615625141cd6feddbadd392457e49eb (18-02-2020), `./build --arch aarch64 --gem5-worktree master --no-cache`: 19:33 TODO must investigate why it got so much worse.
+Ubuntu 19.10, GCC 9.2.1, LKMC 7c6bb29bc89ec3f1056c0680c3f08bd64018a7bc, gem5 d7d9bc240615625141cd6feddbadd392457e49eb (2020-02-18), `./build --arch aarch64 --gem5-worktree master --no-cache`: 19m 33s TODO must investigate why it got so much worse.
+
+Same but gem5 d7d9bc240615625141cd6feddbadd392457e49eb (2018-06-17) hacked with `-Wnoerror`: 11m 37s. So there was a huge regression in the last two years! We have to find it out.
+
+A profiling of the build has been done at: https://gem5.atlassian.net/browse/GEM5-277
+
+====== pybind11 accounts for 50% of gem5 build time
+
+https://gem5.atlassian.net/browse/GEM5-366
+
+Yes, <<pybind11>> is slow to build.
+
+See also: <<gem5-python-c-interaction>>.
 
 ====== Benchmark gem5 single file change rebuild time
 
