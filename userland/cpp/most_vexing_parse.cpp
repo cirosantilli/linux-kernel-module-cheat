@@ -1,17 +1,20 @@
 // https://cirosantilli.com/linux-kernel-module-cheat#cpp
 
-#include "common.hpp"
+#include <cassert>
 
 int main() {
+
+    struct D {
+        int i;
+        D() {}
+        D(int i) : i(i) {}
+    };
 
     struct C {
         int i;
         C() : i(1) {}
         C(int i) : i(i) {}
-    };
-
-    struct D {
-        D() {}
+        C(const D& d) : i(d.i) {}
     };
 
     // Declares *FUNCTION* called `c` that returns `C` inside function main.
@@ -46,12 +49,36 @@ int main() {
     }
 
     // But sometimes even arguments are not enough: here D()
-    // could matn that the declared `c`
+    // is interpreted as "a function of type `D f()`"
     {
-        C c(D());
+        C c(D(2));
 #if 0
         // error: request for member ‘i’ in ‘c’, which is of non-class type ‘main()::C(main()::D (*)())’
         assert(c.i == 2);
 #endif
+    }
+
+    // Solving the most vexing parse.
+    // https://stackoverflow.com/questions/13249694/avoid-the-most-vexing-parse
+    {
+        // Extra parenthesis.
+        {
+            C c((D(2)));
+            assert(c.i == 2);
+        }
+
+        // Initialize through assignment. TODO likely guaranteed to be cost-free,
+        // but confirm.
+        {
+            C c = C((D(2)));
+            assert(c.i == 2);
+        }
+
+        // Initializer list. Only works if there is no initializer_list constructor.
+        // Only works in general if c does not have an ambiguous initializer_list constructor though.
+        {
+            C c{D(2)};
+            assert(c.i == 2);
+        }
     }
 }
