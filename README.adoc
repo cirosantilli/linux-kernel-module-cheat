@@ -12934,14 +12934,16 @@ Not all times need to have an associated event: if a given time has no events, g
 Important examples of events include:
 
 * CPU ticks
-* TODO peripherals and memory
+* peripherals and memory
 
-At the beginning of simulation, gem5 sets up exactly two events:
+At <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis>> we see for example that at the beginning of an <<gem5-basesimplecpu,AtomicCPU>> simulation, gem5 sets up exactly two events:
 
 * the first CPU cycle
 * one exit event at the end of time which triggers <<gem5-simulate-limit-reached>>
 
-Tick events then get triggered one by one as simulation progresses, in addition to any other system events.
+Then, at the end of the callback of one tick event, another tick is scheduled.
+
+And so the simulation progresses tick by tick, until an exit event happens.
 
 The `EventQueue` class has one awesome `dump()` function that prints a human friendly representation of the queue, and can be easily called from GDB. TODO example.
 
@@ -13073,6 +13075,12 @@ def instantiate(ckpt_dir=None):
         ...
     else:
         for obj in root.descendants(): obj.initState()
+....
+
+and this gets called from the toplevel Python scripts e.g. forsefpy `configs/common/Simulation.py` does:
+
+....
+m5.instantiate(checkpoint_dir)
 ....
 
 As we can see, `initState` is just one stage of generic `SimObject` initialization. `root.descendants()` goes over the entire `SimObject` tree calling `initState()`.
@@ -13207,15 +13215,16 @@ TODO: analyze better what each of the memory event mean. For now, we have just c
 ./run \
   --arch aarch64 \
   --emulator gem5 \
+  --gem5-build-type gem5 \
   --userland userland/arch/aarch64/freestanding/linux/hello.S \
-  --trace Event,ExecAll \
+  --trace Event,ExecAll,FmtFlag \
   --trace-stdout \
   -- \
   --cpu-type TimingSimpleCPU \
 ;
 ....
 
-As of LKMC 9bfbff244d713de40e5686bd370eadb20cf78c7b + 1 the log is now much more complex.
+As of LKMC 78ce2dabe18ef1d87dc435e5bc9369ce82e8d6d2 gem5 12c917de54145d2d50260035ba7fa614e25317a3 the log is now much more complex.
 
 Here is an abridged version with:
 
@@ -13225,38 +13234,85 @@ Here is an abridged version with:
 because all that happens in between is exactly the same as the first two instructions and therefore boring:
 
 ....
-      0: system.cpu.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
 **** REAL SIMULATION ****
-      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
-      0: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
-      0: Event_74: generic event scheduled @ 0
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
+      0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
+      0: Event: Event_74: generic 74 scheduled @ 0
 info: Entering event queue @ 0.  Starting simulation...
-      0: Event_74: generic event rescheduled @ 18446744073709551615
-      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
-      0: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
-      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
-      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 46250
-      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 5000
-      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
-  46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250
-  74250: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
-  74250: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
-  77000: Event_40: Timing CPU icache tick event scheduled @ 77000
-  77000: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
-  77000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
-  77000: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 78000
-  77000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 95750
-  77000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
-  95750: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 123750
- 123750: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 126000
- 123750: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped event scheduled @ 126000
- 126000: Event_40: Timing CPU icache tick event scheduled @ 126000
-      [...]
- 469000: system.cpu A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
- 469000: Event_75: generic event scheduled @ 469000
+      0: Event: Event_74: generic 74 rescheduled @ 18446744073709551615
+
+      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
+      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 0
+      0: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 1000
+
+      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 0
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 0
+      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
+      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
+
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 0
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 0
+
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 0
+
+   1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 executed @ 1000
+
+   5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
+
+  46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
+  46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
+
+  74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
+  74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 scheduled @ 77000
+  74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 scheduled @ 77000
+
+  77000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 executed @ 77000
+
+  77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 executed @ 77000
+  77000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 77000
+
+  77000: Event: Event_40: Timing CPU icache tick 40 executed @ 77000
+  77000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 77000
+  77000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 78000
+
+  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 77000
+  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 95750
+  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 77000
+  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 77000
+  78000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 executed @ 78000
+  95750: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 95750
+  95750: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 123750
+ 123750: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 123750
+ 123750: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 scheduled @ 126000
+ 123750: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 scheduled @ 126000
+ 126000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 executed @ 126000
+ 126000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 executed @ 126000
+ 126000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 126000
+ 126000: Event: Event_40: Timing CPU icache tick 40 executed @ 126000
+ 126000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+ 126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 126000
+ 126000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 127000
+ 126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 126000
+ 126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 144750
+ 126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 126000
+ 126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 126000
+ [...]
+ 469000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+ 469000: Event: Event_75: generic 75 scheduled @ 469000
+ 469000: Event: Event_75: generic 75 executed @ 469000
 ....
 
-`0: system.cpu.wrapped_function_event` schedule the initial tick, much like for for `AtomicSimpleCPU`. This time however, it is not a tick, but rather a fetch event that gets scheduled:
+The first event scheduled:
+
+....
+0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
+....
+
+schedules the initial tick, much like for for `AtomicSimpleCPU`.
+
+This time however, it is not a tick, but rather a fetch event that gets scheduled:
 
 ....
 TimingSimpleCPU::activateContext(ThreadID thread_num)
@@ -13274,11 +13330,36 @@ TimingSimpleCPU::activateContext(ThreadID thread_num)
         schedule(fetchEvent, clockEdge(Cycles(0)));
 ....
 
+and just like for `AtomicSimpleCPU` it comes from the `initState` call:
+
+....
+EventManager::schedule
+TimingSimpleCPU::activateContext
+SimpleThread::activate
+Process::initState
+ArmProcess64::initState
+ArmLinuxProcess64::initState
+....
+
 We have a fetch instead of a tick here compared to `AtomicSimpleCPU`, because in the timing CPU we must first get the instruction opcode from DRAM, which takes some cycles to return!
 
-By looking at the source, we see that fetchEvent runs `TimingSimpleCPU::fetch`.
+By looking at the source, we see that `fetchEvent` runs `TimingSimpleCPU::fetch`.
 
-`0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250`: from GDB we see that it comes from `DRAMCtrl::startup` in `mem/dram_ctrl.cc` which contains:
+The next event line is:
+
+....
+0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
+....
+
+From GDB we see that it comes from `DRAMCtrl::startup` in `mem/dram_ctrl.cc` with a short backtrace:
+
+....
+EventManager::schedule
+DRAMCtrl::Rank::startup
+DRAMCtrl::startup (this
+....
+
+which contains:
 
 ....
 void
@@ -13322,6 +13403,25 @@ DRAMCtrl::Rank::startup(Tick ref_tick)
 }
 ....
 
+`startup` itself a `SimObject` method exposed to Python and called from `simulate` in `src/python/m5/simulate.py`:
+
+....
+def simulate(*args, **kwargs):
+    global need_startup
+
+    if need_startup:
+        root = objects.Root.getInstance()
+        for obj in root.descendants(): obj.startup()
+....
+
+where `simulate` happens after `m5.instantiate`, and both are called directly from the toplevel scripts, e.g. for se.py in `configs/common/Simulation.py`:
+
+....
+def run(options, root, testsys, cpu_class):
+    ...
+            exit_event = m5.simulate()
+....
+
 By looking up some variable definitions in the source, we now we see some memory parameters clearly:
 
 * ranks: `std::vector<DRAMCtrl::Rank*>` with 2 elements. TODO why do we have 2? What does it represent? Likely linked to <<gem5-config-ini,`config.ini`>> at `system.mem_ctrls.ranks_per_channel=2`
@@ -13356,47 +13456,96 @@ So we realize that we are going into deep DRAM modelling, more detail that a mer
 
 `curTick() + tREFI - tRP = 0 + 7800000 - 13750 = 7786250` which is when that `refreshEvent` was scheduled. Our simulation ends way before that point however, so we will never know what it did thank God.
 
-`0: Event_74: generic event scheduled @ 0` and `0: Event_74: generic event rescheduled @ 18446744073709551615`: schedule the final exit event, same as for `AtomicSimpleCPU`
-
-The next interesting event is:
+The next event:
 
 ....
-system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
 ....
 
-which comes from:
+must be coming from the `startup` of the second memory controller object.
+
+`se.py` allocates the memory controllers via `configs/common/MemConfig.py`:
 
 ....
-#0  Trace::OstreamLogger::logMessage
-#1  void Trace::Logger::dprintf
-#2  Event::trace
-#3  EventQueue::schedule
-#4  EventManager::schedule
-#5  DRAMCtrl::addToReadQueue
-#6  DRAMCtrl::recvTimingReq
-#7  DRAMCtrl::MemoryPort::recvTimingReq
-#8  TimingRequestProtocol::sendReq
-#9  MasterPort::sendTimingReq
-#10 CoherentXBar::recvTimingReq
-#11 CoherentXBar::CoherentXBarSlavePort::recvTimingReq(Packet*))
-#12 TimingRequestProtocol::sendReq
-#13 MasterPort::sendTimingReq
-#14 TimingSimpleCPU::sendFetch
-#15 TimingSimpleCPU::FetchTranslation::finish
-#16 ArmISA::TLB::translateComplete
-#17 ArmISA::TLB::translateTiming
-#18 ArmISA::TLB::translateTiming
-#19 TimingSimpleCPU::fetch
-#20 TimingSimpleCPU::<lambda()>::operator()(void)
-#21 std::_Function_handler<void(), TimingSimpleCPU::TimingSimpleCPU(TimingSimpleCPUParams*)::<lambda()> >
-#22 std::function<void)>::operator()() const
-#23 EventFunctionWrapper::process
-#24 EventQueue::serviceOne
-#25 doSimLoop
-#26 simulate
+
+def config_mem(options, system):
+
+    ...
+
+    opt_mem_channels = options.mem_channels
+
+    ...
+
+    nbr_mem_ctrls = opt_mem_channels
+
+    ...
+
+    for r in system.mem_ranges:
+        for i in range(nbr_mem_ctrls):
+            mem_ctrl = create_mem_ctrl(cls, r, i, nbr_mem_ctrls, intlv_bits,
+                                       intlv_size)
+
+            ...
+
+            mem_ctrls.append(mem_ctrl)
 ....
 
-From the trace, we see that we are already running from the event queue. Therefore, we must have been running a previously scheduled event, and the previous event logs, the only such event is `0: system.cpu.wrapped_function_event: EventFunctionWrapped event scheduled @ 0` which scheduled a memory fetch!
+but TODO that loop happens only once, why there are two such objects then?
+
+The next events are:
+
+....
+0: Event: Event_74: generic 74 scheduled @ 0
+0: Event: Event_74: generic 74 rescheduled @ 18446744073709551615
+....
+
+From the timing we know what that one is: the end of time exit event, like for `AtomicSimpleCPU`.
+
+The next event logs are:
+
+....
+0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
+0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 0
+0: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 1000
+....
+
+The first line shows that event ID `43` is now executing: we had previously seen event `43` get scheduled and had analyzed it to be the initial fetch.
+
+The second line, is an execution. The event loop has started, an magic initialization schedulings are not happening anymore: now every event is being scheduled from another event:
+
+....
+Trace::OstreamLogger::logMessage
+void Trace::Logger::dprintf
+Event::trace
+EventQueue::schedule
+EventManager::schedule
+DRAMCtrl::addToReadQueue
+DRAMCtrl::recvTimingReq
+DRAMCtrl::MemoryPort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+CoherentXBar::recvTimingReq
+CoherentXBar::CoherentXBarSlavePort::recvTimingReq(Packet*))
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::sendFetch
+TimingSimpleCPU::FetchTranslation::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::fetch
+TimingSimpleCPU::<lambda()>::operator()(void)
+std::_Function_handler<void(), TimingSimpleCPU::TimingSimpleCPU(TimingSimpleCPUParams*)::<lambda()> >
+std::function<void)>::operator()() const
+EventFunctionWrapper::process
+EventQueue::serviceOne
+doSimLoop
+simulate
+....
+
+From the trace, we see that we are already running from the event queue under `TimingSimpleCPU::fetch` as expected.
+
+This must be the CPU fetching an instruction from the memory system to execute it!
 
 From the backtrace we see the tortuous path that the data request takes, going through:
 
@@ -13404,7 +13553,7 @@ From the backtrace we see the tortuous path that the data request takes, going t
 * `CoherentXBar`
 * `DRAMCtrl`
 
-The scheduling happens at frame `#5`:
+The scheduling happens at frame `DRAMCtrl::addToReadQueue`:
 
 ....
      // If we are not already scheduled to get a request out of the
@@ -13415,35 +13564,67 @@ The scheduling happens at frame `#5`:
      }
 ....
 
-and from a quick source grep we see that `nextReqEvent` is a `DRAMCtrl::processNextReqEvent`.
+and from a quick source grep we see that `nextReqEvent` is a `DRAMCtrl::processNextReqEvent`. From this we deduce that the DRAM has a request queue of some sort.
 
-The next schedule:
+The second schedule coming from the initial fetch is:
 
 ....
-0: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
+0: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 1000
 ....
 
-and does a `BaseXBar::Layer::releaseLayer` event.
+and schedules a `BaseXBar::Layer::releaseLayer` event through:
 
-This one is also coming from the request queue at `TimingSimpleCPU::fetch`. We deduce therefore that the single previous fetch event scheduled not one, but two events!
+....
+EventManager::schedule
+BaseXBar::Layer<SlavePort, MasterPort>::occupyLayer
+BaseXBar::Layer<SlavePort, MasterPort>::succeededTiming
+CoherentXBar::recvTimingReq
+CoherentXBar::CoherentXBarSlavePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::sendFetch
+TimingSimpleCPU::FetchTranslation
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+/build/ARM/arch/arm/tlb.cc
+ArmISA::TLB::translateTiming
+....
+
+TODO what does this represent.
 
 Now:
 
 ....
-      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
 ....
 
 comes from the previously scheduled `DRAMCtrl::processNextReqEvent` and schedules `DRAMCtrl::Rank::processPrechargeEvent`.
 
-Now:
+Then comes the execution:
 
 ....
-      0: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 46250
+0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 0
 ....
 
-also runs from `DRAMCtrl::processNextReqEvent` and schedules a `DRAMCtrl::processRespondEvent`.
+followed by three more schedules:
 
-I'm getting bored, let's skip to the line that appears to matter for the first instruction:
+....
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 0
+EventManager::schedule(Event&, unsigned long)+0x30)[0x561af7237634]
+DRAMCtrl::activateBank(DRAMCtrl::Rank&, DRAMCtrl::Bank&, unsigned long, unsigned int)+0xa7b)[0x561af7f24ced]
+DRAMCtrl::doDRAMAccess(DRAMCtrl::DRAMPacket*)+0x2a0)[0x561af7f25602]
+DRAMCtrl::processNextReqEvent()+0xdce)[0x561af7f27522]
+
+      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
+EventManager::schedule(Event&, unsigned long)+0x30)[0x561af7237634]
+DRAMCtrl::processNextReqEvent()+0xf8c)[0x561af7f276e0]
+
+      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
+EventManager::schedule(Event&, unsigned long)+0x30)[0x561af7237634]
+DRAMCtrl::processNextReqEvent()+0x1870)[0x561af7f27fc4]
+....
+
+TODO I got bored of DRAM modelling.
 
 ....
   46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250
@@ -14460,6 +14641,12 @@ Programs under link:userland/cpp/[] are examples of https://en.wikipedia.org/wik
 
 * link:userland/cpp/empty.cpp[]
 * link:userland/cpp/hello.cpp[]
+* classes
+** constructor
+*** link:userland/cpp/initializer_list_constructor.cpp[]: documents stuff like `std::vector<int> v{0, 1};` and `std::initializer_list`
+*** link:userland/cpp/most_vexing_parse.cpp[]: the most vexing parse is a famous constructor vs function declaration syntax gotcha!
+**** https://en.wikipedia.org/wiki/Most_vexing_parse
+**** http://stackoverflow.com/questions/180172/default-constructor-with-empty-brackets
 * templates
 ** link:userland/cpp/template.cpp[]: basic example
 ** link:userland/cpp/template_class_with_static_member.cpp[]: https://stackoverflow.com/questions/3229883/static-member-initialization-in-a-class-template
@@ -14475,10 +14662,6 @@ Programs under link:userland/cpp/[] are examples of https://en.wikipedia.org/wik
 ** associative
 *** <<algorithms>> contains a benchmark comparison of different c++ containers
 *** link:userland/cpp/set.cpp[]: `std::set` contains unique keys
-* Language madness
-** link:userland/cpp/most_vexing_parse.cpp[]: the most vexing parse is a famous constructor vs function declaration syntax gotcha!
-*** https://en.wikipedia.org/wiki/Most_vexing_parse
-*** http://stackoverflow.com/questions/180172/default-constructor-with-empty-brackets
 
 [[cpp-multithreading]]
 ==== C++ multithreading
