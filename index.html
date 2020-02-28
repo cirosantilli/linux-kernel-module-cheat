@@ -1857,7 +1857,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#benchmark-buildroot-build-baseline">29.2.3.2. Benchmark Buildroot build baseline</a></li>
 <li><a href="#benchmark-gem5-build">29.2.3.3. Benchmark gem5 build</a>
 <ul class="sectlevel5">
-<li><a href="#benchmark-gem5-single-file-change-rebuild-time">29.2.3.3.1. Benchmark gem5 single file change rebuild time</a></li>
+<li><a href="#pybind11-accounts-for-50-of-gem5-build-time">29.2.3.3.1. pybind11 accounts for 50% of gem5 build time</a></li>
+<li><a href="#benchmark-gem5-single-file-change-rebuild-time">29.2.3.3.2. Benchmark gem5 single file change rebuild time</a></li>
 </ul>
 </li>
 </ul>
@@ -17919,7 +17920,7 @@ root</pre>
 <p>gem5 also has a complex Python interface which is also largely auto-generated, which greatly increases the maintenance complexity of the project: <a href="#embedding-python-in-another-application">Embedding Python in another application</a>.</p>
 </div>
 <div class="paragraph">
-<p>This is done so that reconfiguring platforms can be done quickly without recompiling, and it is amazing when it works, but the maintenance costs are also very high.</p>
+<p>This is done so that reconfiguring platforms can be done quickly without recompiling, and it is amazing when it works, but the maintenance costs are also very high. For example, <a href="#pybind11">pybind11</a> of several trivial <code>param_</code> files accounted for 50% of the build time at one point: <a href="#pybind11-accounts-for-50-of-gem5-build-time">pybind11 accounts for 50% of gem5 build time</a>.</p>
 </div>
 </li>
 </ul>
@@ -21134,7 +21135,7 @@ static EmbeddedPyBind embed_obj("BadDevice", module_init, "BasicPioDevice");</pr
 </div>
 </div>
 <div class="paragraph">
-<p>It has been found that this usage of pybind11 across hundreds of <code>SimObject</code> files accounted for 50% of the gem5 build time at one point: <a href="https://gem5.atlassian.net/browse/GEM5-366" class="bare">https://gem5.atlassian.net/browse/GEM5-366</a></p>
+<p>It has been found that this usage of <a href="#pybind11">pybind11</a> across hundreds of <code>SimObject</code> files accounted for 50% of the gem5 build time at one point: <a href="#pybind11-accounts-for-50-of-gem5-build-time">pybind11 accounts for 50% of gem5 build time</a>.</p>
 </div>
 <div class="paragraph">
 <p>To get a feeling of how <code>SimObject</code> objects are run, see: <a href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a>.</p>
@@ -23585,6 +23586,26 @@ echo 1 &gt; /proc/sys/vm/overcommit_memory
 </ul>
 </div>
 </li>
+<li>
+<p>Language madness</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/most_vexing_parse.cpp">userland/cpp/most_vexing_parse.cpp</a>: the most vexing parse is a famous constructor vs function declaration syntax gotcha!</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://en.wikipedia.org/wiki/Most_vexing_parse" class="bare">https://en.wikipedia.org/wiki/Most_vexing_parse</a></p>
+</li>
+<li>
+<p><a href="http://stackoverflow.com/questions/180172/default-constructor-with-empty-brackets" class="bare">http://stackoverflow.com/questions/180172/default-constructor-with-empty-brackets</a></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
 </ul>
 </div>
 <div class="sect3">
@@ -24401,6 +24422,9 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/python_embed/pure_cpp.cpp">userland/libs/python_embed/pure_cpp.cpp</a>: C version of the above, the main goal of this example is to show how to interface with C classes.</p>
+<div class="paragraph">
+<p>See also: <a href="https://stackoverflow.com/questions/2200912/inheritance-in-python-c-extension/60436902#60436902" class="bare">https://stackoverflow.com/questions/2200912/inheritance-in-python-c-extension/60436902#60436902</a></p>
+</div>
 </li>
 </ul>
 </div>
@@ -24423,6 +24447,9 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 <div class="paragraph">
 <p><a href="https://stackoverflow.com/questions/145270/calling-c-c-from-python/60374990#60374990" class="bare">https://stackoverflow.com/questions/145270/calling-c-c-from-python/60374990#60374990</a></p>
+</div>
+<div class="paragraph">
+<p>pybind11 is amazingly easy to use. But it also makes your builds really slow: <a href="#pybind11-accounts-for-50-of-gem5-build-time">pybind11 accounts for 50% of gem5 build time</a>.</p>
 </div>
 </div>
 </div>
@@ -33892,9 +33919,6 @@ xdg-open graph-size.pdf</pre>
 <p>All benchmarks done on <a href="#p51">P51</a>.</p>
 </div>
 <div class="paragraph">
-<p>Sample results at gem5 2a9573f5942b5416fb0570cf5cb6cdecba733392: 10 to 12 minutes.</p>
-</div>
-<div class="paragraph">
 <p>Get results with:</p>
 </div>
 <div class="literalblock">
@@ -33904,10 +33928,28 @@ tail -n+1 ../linux-kernel-module-cheat-regression/*/gem5-bench-build-*.txt</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Ubuntu 19.10, GCC 9.2.1, LKMC 7c6bb29bc89ec3f1056c0680c3f08bd64018a7bc, gem5 d7d9bc240615625141cd6feddbadd392457e49eb (18-02-2020), <code>./build --arch aarch64 --gem5-worktree master --no-cache</code>: 19:33 TODO must investigate why it got so much worse.</p>
+<p>Ubuntu 19.10, GCC 9.2.1, LKMC 7c6bb29bc89ec3f1056c0680c3f08bd64018a7bc, gem5 d7d9bc240615625141cd6feddbadd392457e49eb (2020-02-18), <code>./build --arch aarch64 --gem5-worktree master --no-cache</code>: 19m 33s TODO must investigate why it got so much worse.</p>
+</div>
+<div class="paragraph">
+<p>Same but gem5 d7d9bc240615625141cd6feddbadd392457e49eb (2018-06-17) hacked with <code>-Wnoerror</code>: 11m 37s. So there was a huge regression in the last two years! We have to find it out.</p>
+</div>
+<div class="paragraph">
+<p>A profiling of the build has been done at: <a href="https://gem5.atlassian.net/browse/GEM5-277" class="bare">https://gem5.atlassian.net/browse/GEM5-277</a></p>
 </div>
 <div class="sect5">
-<h6 id="benchmark-gem5-single-file-change-rebuild-time"><a class="anchor" href="#benchmark-gem5-single-file-change-rebuild-time"></a><a class="link" href="#benchmark-gem5-single-file-change-rebuild-time">29.2.3.3.1. Benchmark gem5 single file change rebuild time</a></h6>
+<h6 id="pybind11-accounts-for-50-of-gem5-build-time"><a class="anchor" href="#pybind11-accounts-for-50-of-gem5-build-time"></a><a class="link" href="#pybind11-accounts-for-50-of-gem5-build-time">29.2.3.3.1. pybind11 accounts for 50% of gem5 build time</a></h6>
+<div class="paragraph">
+<p><a href="https://gem5.atlassian.net/browse/GEM5-366" class="bare">https://gem5.atlassian.net/browse/GEM5-366</a></p>
+</div>
+<div class="paragraph">
+<p>Yes, <a href="#pybind11">pybind11</a> is slow to build.</p>
+</div>
+<div class="paragraph">
+<p>See also: <a href="#gem5-python-c-interaction">gem5 Python C++ interaction</a>.</p>
+</div>
+</div>
+<div class="sect5">
+<h6 id="benchmark-gem5-single-file-change-rebuild-time"><a class="anchor" href="#benchmark-gem5-single-file-change-rebuild-time"></a><a class="link" href="#benchmark-gem5-single-file-change-rebuild-time">29.2.3.3.2. Benchmark gem5 single file change rebuild time</a></h6>
 <div class="paragraph">
 <p>This is the critical development parameter, and is dominated by the link time of huge binaries.</p>
 </div>
