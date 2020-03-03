@@ -1,4 +1,5 @@
 = Linux Kernel Module Cheat
+:cirosantilli-media-base: https://raw.githubusercontent.com/cirosantilli/media/master/
 :description: The perfect emulation setup to study and develop the <<linux-kernel>> v5.4.3, kernel modules, <<qemu-buildroot-setup,QEMU>>, <<gem5-buildroot-setup,gem5>> and x86_64, ARMv7 and ARMv8 <<userland-assembly,userland>> and <<baremetal-setup,baremetal>> assembly, <<c,ANSI C>>, <<cpp,C++>> and <<posix,POSIX>>. <<gdb>> and <<kgdb>> just work. Powered by <<about-the-qemu-buildroot-setup,Buildroot>> and <<about-the-baremetal-setup,crosstool-NG>>. Highly automated. Thoroughly documented. Automated <<test-this-repo,tests>>. "Tested" in an Ubuntu 19.10 host.
 :idprefix:
 :idseparator: -
@@ -611,11 +612,7 @@ If you have already built previously, don't be afraid: gem5 and QEMU use almost 
 
 Remember that the gem5 boot is <<benchmark-linux-kernel-boot,considerably slower>> than QEMU since the simulation is more detailed.
 
-gem5 moves a bit slowly, and if your host compiler is very new, the build might be broken for it, e.g. this was the case for Ubuntu 19.10 with GCC 9 and gem5 62d75e7105fe172eb906d4f80f360ff8591d4178 from Dec 2019. You can work around that by https://askubuntu.com/questions/466651/how-do-i-use-the-latest-gcc-on-ubuntu/1163021#1163021[installing an older compiler] and using it with something like:
-
-....
-./build-gem5 -- CC=gcc-8 CXX=g++-8
-....
+If you have a relatively new GCC version and the gem5 build fails on your machine, see: <<gem5-build-broken-on-recent-compiler-version>>.
 
 To get a terminal, either open a new shell and run:
 
@@ -12469,9 +12466,9 @@ gem5 has two types of memory system:
 * the classic memory system, which is used by default
 * the Ruby memory system
 
-The Ruby memory system includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby
+The Ruby memory system includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby SLICC transpiles to C++.
 
-It seems to have usage outside of gem5, but the naming overload with the link:https://en.wikipedia.org/wiki/Ruby_(programming_language)[Ruby programming language], which also has link:https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby[domain specific languages] as a concept, makes it impossible to google anything about it!
+Ruby seems to have usage outside of gem5, but the naming overload with the link:https://en.wikipedia.org/wiki/Ruby_(programming_language)[Ruby programming language], which also has link:https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby[domain specific languages] as a concept, makes it impossible to google anything about it!
 
 Since it is not the default, Ruby is generally less stable that the classic memory model. However, because it allows describing a wide variety of important coherency protocols, while the classic system only describes a single protocol, Ruby is very importanonly describes a single protocol, Ruby is a very important feature of gem5.
 
@@ -12487,7 +12484,7 @@ and therefore ARM already compiles `MOESI_CMP_directory` by default.
 
 Then, with `fs.py` and `se.py`, you can choose to use either the classic or built-in ruby system at runtime with the `--ruby` option:
 
-* if `--ruby` is given, use the ruby memory system
+* if `--ruby` is given, use the ruby memory system that was compiled into gem5
 * otherwise, use the classic memory system
 
 For example, to use a two level https://en.wikipedia.org/wiki/MESI_protocol[MESI] https://en.wikipedia.org/wiki/Cache_coherence[cache coherence protocol], we can do:
@@ -12540,11 +12537,44 @@ Then:
 * when the `--ruby` flag is given, we see a gazillion Ruby related messages prefixed e.g. by `RubyPort:`.
 +
 We also observe from `ExecEnable` lines that instruction timing is not simple anymore, so the memory system must have latencies
-* without `--ruby`, we instead see `XBar` (Coherent Crossbar) related messages such as `CoherentXBar:`, which I believe is the more precise name for the memory model that the classic memory system uses 
+* without `--ruby`, we instead see `XBar` (Coherent Crossbar) related messages such as `CoherentXBar:`, which I believe is the more precise name for the memory model that the classic memory system uses: <<gem5-crossbar-interconnect>>.
 
 Certain features may not work in Ruby. For example, <<gem5-checkpoint>> creation is only possible in Ruby protocols that support flush, which is the case for `PROTOCOL=MOESI_hammer` but not `PROTOCOL=MESI_Three_Level`: https://www.mail-archive.com/gem5-users@gem5.org/msg17418.html
 
 Tested in gem5 d7d9bc240615625141cd6feddbadd392457e49eb.
+
+===== gem5 crossbar interconnect
+
+Crossbar or `XBar` in the code, is the default <<cache-coherence,CPU interconnect>> that gets used by `fs.py` if <<gem5-ruby-build,`--ruby`>> is not given.
+
+One simple example of its operation can be seen at: xref:gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis[xrefstyle=full].
+
+See also: https://en.wikipedia.org/wiki/Crossbar_switch
+
+TODO: describe it in more detail. It appears to be a very simple mechanism.
+
+Under `src/mem/` we see that there is both a coherent and a non-coherent XBar.
+
+In `se.py` it is set at:
+
+....
+if options.ruby:
+    ...
+else:
+    MemClass = Simulation.setMemClass(options)
+    system.membus = SystemXBar()
+....
+
+and `SystemXBar` is defined at `src/mem/XBar.py` with a nice comment:
+
+....
+# One of the key coherent crossbar instances is the system
+# interconnect, tying together the CPU clusters, GPUs, and any I/O
+# coherent masters, and DRAM controllers.
+class SystemXBar(CoherentXBar):
+....
+
+Tested in gem5 12c917de54145d2d50260035ba7fa614e25317a3.
 
 ==== gem5 Python 3 build
 
@@ -12957,6 +12987,31 @@ Event *exit_event = eventq->serviceOne();
 
 This calls the `Event::process` method of the event.
 
+Another important technique is to use <<debug-the-emulator,GDB>> and break at interesting points such as:
+
+....
+b Trace::OstreamLogger::logMessage()
+b EventManager::schedule
+b EventFunctionWrapper::process
+....
+
+although stepping into `EventFunctionWrapper::process` which does `std::function` is a bit of a pain: https://stackoverflow.com/questions/59429401/how-to-step-into-stdfunction-user-code-from-c-functional-with-gdb
+
+Another potentially useful technique is to use:
+
+....
+--trace Event,ExecAll,FmtFlag,FmtStackTrace --trace-stdout
+....
+
+which automates the logging of `Trace::OstreamLogger::logMessage()` backtraces.
+
+But alas, it misses which function callback is being scheduled, which is the awesome thing we actually want:
+
+* https://stackoverflow.com/questions/37545327/get-the-name-of-a-stdfunction
+* https://stackoverflow.com/questions/40706805/how-to-convert-a-function-pointer-to-function-name/40706869
+
+Then, once we had that, the most perfect thing ever would be to make the full event graph containing which events schedule which events!
+
 ===== gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis
 
 Let's now analyze every single event on a minimal <<gem5-syscall-emulation-mode>> in the <<gem5-cpu-types,simplest CPU that we have>>:
@@ -12966,60 +13021,124 @@ Let's now analyze every single event on a minimal <<gem5-syscall-emulation-mode>
   --arch aarch64 \
   --emulator gem5 \
   --userland userland/arch/aarch64/freestanding/linux/hello.S \
-  --trace Event \
+  --trace Event,ExecAll,FmtFlag \
   --trace-stdout \
 ;
 ....
 
-At LKMC a0ea29835b9bacc6aa1cceb24c79d895315991d4 + 1 this outputs:
+which gives:
 
 ....
-      0: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+      0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 scheduled @ 0
 **** REAL SIMULATION ****
-      0: Event_70: generic event scheduled @ 0
+      0: Event: Event_70: generic 70 scheduled @ 0
 info: Entering event queue @ 0.  Starting simulation...
-      0: Event_70: generic event rescheduled @ 18446744073709551615
-      0: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 500
-    500: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 1000
-   1000: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 1500
-   1500: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 2000
+      0: Event: Event_70: generic 70 rescheduled @ 18446744073709551615
+      0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 0
+      0: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+      0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 500
+    500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 500
+    500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+    500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 1000
+   1000: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 1000
+   1000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
+   1000: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 1500
+   1500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 1500
+   1500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
+   1500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 2000
+   2000: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 2000
+   2000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
 hello
-   2000: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 2500
-   2500: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 3000
-   3000: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 3500
-   3500: Event_71: generic event scheduled @ 3500
+   2000: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 2500
+   2500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 2500
+   2500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   2500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 3000
+   3000: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 3000
+   3000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+   3000: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 3500
+   3500: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 3500
+   3500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+   3500: Event: Event_71: generic 71 scheduled @ 3500
+   3500: Event: Event_71: generic 71 executed @ 3500
 ....
 
-which we immediately guess means that there is one event per tick when comparing to the `ExecAll` trace:
+On the event trace, we can first see:
 
 ....
-      0: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
-    500: system.cpu A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
-   1000: system.cpu A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
-   1500: system.cpu A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
-   2000: system.cpu A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
-hello
-   2500: system.cpu A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
-   3000: system.cpu A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
-   3500: system.cpu A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
-Exiting @ tick 3500 because exiting with last active thread context
+0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 scheduled @ 0
 ....
 
-On the event trace, we can see:
+This schedules a tick event for time `0`, and leads to the first clock tick.
 
-* `AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event scheduled @ 0` schedules a tick event for time `0`, and this leads to the first clock tick
-* `0: Event_70: generic event scheduled @ 0`: schedules the end of time event for time `0`, which is later rescheduled to the actual end of time: `0: Event_70: generic event rescheduled @ 18446744073709551615`
-* at `0: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped event rescheduled @ 500` the first clock tick must have finished running, and so to represent the next one, it was simply rescheduled for the next time `500`! This is done at the end of `AtomicSimpleCPU::tick()`:
-+
+Then:
+
+....
+0: Event: Event_70: generic 70 scheduled @ 0
+0: Event: Event_70: generic 70 rescheduled @ 18446744073709551615
+....
+
+schedules the end of time event for time `0`, which is later rescheduled to the actual end of time.
+
+At:
+
+....
+0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 executed @ 0
+0: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 rescheduled @ 500
+....
+
+the tick event happens, the instruction runs, and then the instruction is rescheduled in `500` time units. This is done at the end of `AtomicSimpleCPU::tick()`:
+
 ....
 if (_status != Idle)
     reschedule(tickEvent, curTick() + latency, true);
 ....
-* at `3500: Event_71: generic event scheduled @ 3500` the exit system call is called and the simulation ends.
-+
-A new event is scheduled for the current time itself. TODO what is this event?
 
-Let's study the first event. From <<debug-the-emulator,GDB>>, let's break at the point that prints messages: `Trace::OstreamLogger::logMessage()` to see where events are being scheduled from:
+At:
+
+....
+3500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+3500: Event: Event_71: generic 71 scheduled @ 3500
+3500: Event: Event_71: generic 71 executed @ 3500
+....
+
+the exit system call is called, and then it schedules an exit evit, which gets executed and the simulation ends.
+
+We guess then that `Event_71` comes from the SE implementation of the exit syscall, so let's just confirm, the trace contains:
+
+....
+exitSimLoop() at sim_events.cc:97 0x5555594746e0
+exitImpl() at syscall_emul.cc:215 0x55555948c046
+exitFunc() at syscall_emul.cc:225 0x55555948c147
+SyscallDesc::doSyscall() at syscall_desc.cc:72 0x5555594949b6
+Process::syscall() at process.cc:401 0x555559484717
+SimpleThread::syscall() at 0x555559558059
+ArmISA::SupervisorCall::invoke() at faults.cc:856 0x5555572950d7
+BaseSimpleCPU::advancePC() at base.cc:681 0x555559083133
+AtomicSimpleCPU::tick() at atomic.cc:757 0x55555907834c
+....
+
+and `exitSimLoop()` does:
+
+....
+new GlobalSimLoopExitEvent(when + simQuantum, message, exit_code, repeat);
+....
+
+Tested in gem5 12c917de54145d2d50260035ba7fa614e25317a3.
+
+====== AtomicSimpleCPU initial events
+
+Let's have a closer look at the initial magically scheduled events of the simulation.
+
+Most events come from other events, but at least one initial event must be scheduled somehow from elsewhere to kick things off.
+
+The initial tick event:
+
+....
+0: Event: AtomicSimpleCPU tick.wrapped_function_event: EventFunctionWrapped 39 scheduled @ 0
+....
+
+we'll study by breaking at at the point that prints messages: `b Trace::OstreamLogger::logMessage()` to see where events are being scheduled from:
 
 ....
 Trace::OstreamLogger::logMessage() at trace.cc:149 0x5555593b3b1e
@@ -13077,7 +13196,7 @@ def instantiate(ckpt_dir=None):
         for obj in root.descendants(): obj.initState()
 ....
 
-and this gets called from the toplevel Python scripts e.g. forsefpy `configs/common/Simulation.py` does:
+and this gets called from the toplevel Python scripts e.g. se.py `configs/common/Simulation.py` does:
 
 ....
 m5.instantiate(checkpoint_dir)
@@ -13150,9 +13269,14 @@ class SimObject(object):
     ]
 ....
 
-So that's how the main atomic tick loop works, fully understood!
+And the second magically scheduled event is the exit event:
 
-The second event has backtrace:
+....
+0: Event: Event_70: generic 70 scheduled @ 0
+0: Event: Event_70: generic 70 rescheduled @ 18446744073709551615
+....
+
+which is scheduled with backtrace:
 
 ....
 Trace::OstreamLogger::logMessage() at trace.cc:149 0x5555593b3b1e
@@ -13166,7 +13290,7 @@ GlobalSimLoopExitEvent::GlobalSimLoopExitEvent() at sim_events.cc:61 0x555559474
 simulate() at simulate.cc:104 0x555559476d6f
 ....
 
-so gets scheduled automatically at object creation `simulate()` through the `GlobalEvent()` constructor:
+which comes at object creation inside `simulate()` through the `GlobalEvent()` constructor:
 
 ....
 simulate_limit_event =
@@ -13183,29 +13307,126 @@ if (event->isExitEvent()) {
     return event;
 ....
 
-And at last, we can guess without reading the code that `Event_71` is comes from the SE implementation of the exit syscall, so let's just confirm, the trace contains:
+Tested in gem5 12c917de54145d2d50260035ba7fa614e25317a3.
+
+====== AtomicSimpleCPU tick reschedule timing
+
+Inside `AtomicSimpleCPU::tick()` we saw previously that the reschedule happens at:
 
 ....
-exitSimLoop() at sim_events.cc:97 0x5555594746e0
-exitImpl() at syscall_emul.cc:215 0x55555948c046
-exitFunc() at syscall_emul.cc:225 0x55555948c147
-SyscallDesc::doSyscall() at syscall_desc.cc:72 0x5555594949b6
-Process::syscall() at process.cc:401 0x555559484717
-SimpleThread::syscall() at 0x555559558059
-ArmISA::SupervisorCall::invoke() at faults.cc:856 0x5555572950d7
-BaseSimpleCPU::advancePC() at base.cc:681 0x555559083133
-AtomicSimpleCPU::tick() at atomic.cc:757 0x55555907834c
+    if (latency < clockPeriod())
+        latency = clockPeriod();
+
+    if (_status != Idle)
+        reschedule(tickEvent, curTick() + latency, true);
 ....
 
-and `exitSimLoop()` does:
+so it is interesting to learn where that `latency` comes from.
+
+From our logs, we see that all events happened with a `500` time unit interval between them, so that must be the value for all instructions of our simple example.
+
+By GDBing it a bit, we see that none of our instructions incremented `latency`, and so it got set to `clockPeriod()`, which comes from `ClockDomain::clockPeriod()` which then likely comes from:
 
 ....
-new GlobalSimLoopExitEvent(when + simQuantum, message, exit_code, repeat);
+    parser.add_option("--cpu-clock", action="store", type="string",
+                      default='2GHz',
 ....
 
-Tested at b4879ae5b0b6644e6836b0881e4da05c64a6550d.
+because the time unit is picoseconds. This then shows on the <<gem5-config-ini,`config.ini`>> as:
+
+....
+[system.cpu_clk_domain]
+type=SrcClockDomain
+clock=500
+....
+
+====== AtomicSimpleCPU memory access
+
+It will be interesting to see how `AtomicSimpleCPU` makes memory access on GDB and to compare that with <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis,`TimingSimpleCPU`>>.
+
+We assume that the memory access still goes through the <<gem5-crossbar-interconnect,`CoherentXBar`>>, but instead of generating an event to model delayed response, it must be doing the access directly.
+
+Inside `AtomicSimpleCPU::tick`, we track `ifetch_req` and see:
+
+....
+        fault = thread->itb->translateAtomic(ifetch_req, thread->getTC(),
+                                                BaseTLB::Execute);
+....
+
+We can compare that with what happen sin `TimingSimpleCPU`:
+
+....
+        thread->itb->translateTiming(ifetch_req, thread->getTC(),
+                &fetchTranslation, BaseTLB::Execute);
+....
+
+and so there it is: the `ITB` classes are the same, but there are a separate `Atomic` and `Timing` methods!
+
+The `Timing` one calls `ArmISA::TLB::translateComplete`
+
+Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
+
+====== gem5 se.py page translation
+
+Happens on `EmulationPageTable`, and seems to happen atomically without making any extra memory requests.
+
+TODO confirm from code, notably by seeing where the translation table is set.
+
+But we can confirm with logging with:
+
+....
+--trace DRAM,ExecAll,FmtFlag
+....
+
+which gives
+
+....
+      0: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x78
+      0: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+    500: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x7c
+    500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+   1000: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x80
+   1000: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0xa0
+   1000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
+   1500: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x84
+   1500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
+   2000: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x88
+   2000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+hello
+   2500: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x8c
+   2500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   3000: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x90
+   3000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+   3500: DRAM: system.mem_ctrls: recvAtomic: ReadReq 0x94
+   3500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+Exiting @ tick 3500 because exiting with last active thread context
+   3500: DRAM: system.mem_ctrls_0: Computing stats due to a dump callback
+   3500: DRAM: system.mem_ctrls_1: Computing stats due to a dump callback
+....
+
+So we see that before every instruction execution there was a DRAM event! Also, each read happens 4 bytes after the previous one, which is consistent with instruction fetches.
+
+The DRAM addresses are very close to zero e.g. `0x78` for the first instruction, and therefore we guess that they are physical since the ELF entry point is much higher:
+
+....
+./run-toolchain --arch aarch64 readelf -- -h "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out
+....
+
+at:
+
+....
+  Entry point address:               0x400078
+....
+
+For LDR, we see that there was an extra DRAM read as well after the fetch read, as expected.
+
+Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis
+
+Now, let's move on to `TimingSimpleCPU`, which is just like `AtomicSimpleCPU` internally, but now the memory requests don't actually finish immediately: <<gem5-cpu-types>>!
+
+This means that simulation will be much more accurate, and the DRAM memory will be modelled.
 
 TODO: analyze better what each of the memory event mean. For now, we have just collected a bunch of data there, but needs interpreting. The CPU specifics in this section are already insightful however.
 
@@ -13231,7 +13452,9 @@ Here is an abridged version with:
 * the beginning up to the second instruction
 * end ending
 
-because all that happens in between is exactly the same as the first two instructions and therefore boring:
+because all that happens in between is exactly the same as the first two instructions and therefore boring.
+
+We have also manually added double newlines before each event execution to make things easier to read:
 
 ....
       0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
@@ -13280,22 +13503,31 @@ info: Entering event queue @ 0.  Starting simulation...
   77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 77000
   77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 95750
   77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 77000
+
   77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 77000
+
   78000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 executed @ 78000
+
   95750: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 95750
   95750: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 123750
+
  123750: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 123750
  123750: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 scheduled @ 126000
  123750: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 scheduled @ 126000
+
  126000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 executed @ 126000
+
  126000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 executed @ 126000
  126000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 126000
+
  126000: Event: Event_40: Timing CPU icache tick 40 executed @ 126000
  126000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
  126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 126000
  126000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 127000
+
  126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 126000
  126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 144750
+
  126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 126000
  126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 126000
  [...]
@@ -13303,6 +13535,12 @@ info: Entering event queue @ 0.  Starting simulation...
  469000: Event: Event_75: generic 75 scheduled @ 469000
  469000: Event: Event_75: generic 75 executed @ 469000
 ....
+
+Looking into the generated <<gem5-config-ini,`config.dot.svg`>> can give a better intuition on the shape of the memory system: xref:config-dot-svg-timingsimplecpu[xrefstyle=full], so it is good to keep that in mind.
+
+[[config-dot-svg-timingsimplecpu]]
+.`config.dot.svg` for a TimingSimpleCPU without caches.
+image::{cirosantilli-media-base}gem5_config_TimingSimpleCPU_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true[height=600]
 
 The first event scheduled:
 
@@ -13348,7 +13586,7 @@ By looking at the source, we see that `fetchEvent` runs `TimingSimpleCPU::fetch`
 The next event line is:
 
 ....
-0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
+0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
 ....
 
 From GDB we see that it comes from `DRAMCtrl::startup` in `mem/dram_ctrl.cc` with a short backtrace:
@@ -13403,7 +13641,7 @@ DRAMCtrl::Rank::startup(Tick ref_tick)
 }
 ....
 
-`startup` itself a `SimObject` method exposed to Python and called from `simulate` in `src/python/m5/simulate.py`:
+`startup` `DRAMCtrl::startup` is itself a `SimObject` method exposed to Python and called from `simulate` in `src/python/m5/simulate.py`:
 
 ....
 def simulate(*args, **kwargs):
@@ -13424,7 +13662,7 @@ def run(options, root, testsys, cpu_class):
 
 By looking up some variable definitions in the source, we now we see some memory parameters clearly:
 
-* ranks: `std::vector<DRAMCtrl::Rank*>` with 2 elements. TODO why do we have 2? What does it represent? Likely linked to <<gem5-config-ini,`config.ini`>> at `system.mem_ctrls.ranks_per_channel=2`
+* ranks: `std::vector<DRAMCtrl::Rank*>` with 2 elements. TODO why do we have 2? What does it represent? Likely linked to <<gem5-config-ini,`config.ini`>> at `system.mem_ctrls.ranks_per_channel=2`: https://en.wikipedia.org/wiki/Memory_rank
 * `tCK=1250`, `tREFI=7800000`, `tRP=13750`, `tRCD=13750`: all defined in a single code location with a comment:
 +
 ....
@@ -13462,9 +13700,9 @@ The next event:
 0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
 ....
 
-must be coming from the `startup` of the second memory controller object.
+is just the startup of the second rank.
 
-`se.py` allocates the memory controllers via `configs/common/MemConfig.py`:
+`se.py` allocates the memory controller at `configs/common/MemConfig.py`:
 
 ....
 
@@ -13490,8 +13728,6 @@ def config_mem(options, system):
             mem_ctrls.append(mem_ctrl)
 ....
 
-but TODO that loop happens only once, why there are two such objects then?
-
 The next events are:
 
 ....
@@ -13501,17 +13737,55 @@ The next events are:
 
 From the timing we know what that one is: the end of time exit event, like for `AtomicSimpleCPU`.
 
-The next event logs are:
+The next event is an execution:
 
 ....
 0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
-0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 0
-0: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 1000
 ....
 
-The first line shows that event ID `43` is now executing: we had previously seen event `43` get scheduled and had analyzed it to be the initial fetch.
+The log shows that event ID `43` is now executing: we had previously seen event `43` get scheduled and had analyzed it to be the initial fetch.
 
-The second line, is an execution. The event loop has started, an magic initialization schedulings are not happening anymore: now every event is being scheduled from another event:
+We can step into `TimingSimpleCPU::fetch()` to confirm that the expected <<elf>> entry point is being fetched. We can inspect the ELF with:
+
+....
+./run-toolchain --arch aarch64 readelf -- -h "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out
+....
+
+which contains:
+
+....
+  Entry point address:               0x400078
+....
+
+and by the time we go past:
+
+....
+TimingSimpleCPU::fetch()
+{
+    ...
+    if (needToFetch) {
+        ...
+        setupFetchRequest(ifetch_req);
+        DPRINTF(SimpleCPU, "Translating address %#x\n", ifetch_req->getVaddr());
+        thread->itb->translateTiming(ifetch_req, thread->getTC(),
+                &fetchTranslation, BaseTLB::Execute);
+....
+
+`BaseSimpleCPU::setupFetchRequest` sets up the fetch of the expected entry point by reading the PC:
+
+....
+p/x ifetch_req->getVaddr()
+....
+
+Still during the execution of the `fetch`, execution then moves into the address translation `ArmISA::TLB::translateTiming`.
+
+The following line comes from that <<arm-paging,address translation>>:
+
+....
+0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 0
+....
+
+The event loop has started, and magic initialization schedulings are not happening anymore: now every event is being scheduled from another event:
 
 ....
 Trace::OstreamLogger::logMessage
@@ -13525,7 +13799,7 @@ DRAMCtrl::MemoryPort::recvTimingReq
 TimingRequestProtocol::sendReq
 MasterPort::sendTimingReq
 CoherentXBar::recvTimingReq
-CoherentXBar::CoherentXBarSlavePort::recvTimingReq(Packet*))
+CoherentXBar::CoherentXBarSlavePort::recvTimingReq
 TimingRequestProtocol::sendReq
 MasterPort::sendTimingReq
 TimingSimpleCPU::sendFetch
@@ -13545,13 +13819,13 @@ simulate
 
 From the trace, we see that we are already running from the event queue under `TimingSimpleCPU::fetch` as expected.
 
-This must be the CPU fetching an instruction from the memory system to execute it!
-
 From the backtrace we see the tortuous path that the data request takes, going through:
 
 * `ArmISA::TLB`
 * `CoherentXBar`
 * `DRAMCtrl`
+
+This matches the `config.ini` system image, since we see that the request goes through the `CoherentXBar` before reaching memory, like all other CPU memory accesses, see also: <<gem5-crossbar-interconnect>>.
 
 The scheduling happens at frame `DRAMCtrl::addToReadQueue`:
 
@@ -13564,9 +13838,11 @@ The scheduling happens at frame `DRAMCtrl::addToReadQueue`:
      }
 ....
 
-and from a quick source grep we see that `nextReqEvent` is a `DRAMCtrl::processNextReqEvent`. From this we deduce that the DRAM has a request queue of some sort.
+and from a quick source grep we see that `nextReqEvent` is a `DRAMCtrl::processNextReqEvent`.
 
-The second schedule coming from the initial fetch is:
+From this we deduce that the DRAM has a request queue of some sort, and that the fetch has added a read request to that queue.
+
+The next schedule is another outcome of the previous fetch execution:
 
 ....
 0: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 1000
@@ -13583,30 +13859,20 @@ CoherentXBar::CoherentXBarSlavePort::recvTimingReq
 TimingRequestProtocol::sendReq
 MasterPort::sendTimingReq
 TimingSimpleCPU::sendFetch
-TimingSimpleCPU::FetchTranslation
+TimingSimpleCPU::FetchTranslation::finish
 ArmISA::TLB::translateComplete
 ArmISA::TLB::translateTiming
-/build/ARM/arch/arm/tlb.cc
-ArmISA::TLB::translateTiming
 ....
 
-TODO what does this represent.
+which schedules a `SimpleMemory::release`.
 
-Now:
-
-....
-0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
-....
-
-comes from the previously scheduled `DRAMCtrl::processNextReqEvent` and schedules `DRAMCtrl::Rank::processPrechargeEvent`.
-
-Then comes the execution:
+Next comes is the execution of the previously scheduled `DRAMCtrl::processNextReqEvent` and schedules `DRAMCtrl::Rank::processPrechargeEvent`.
 
 ....
 0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 0
 ....
 
-followed by three more schedules:
+which leads to further schedules:
 
 ....
       0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 0
@@ -13624,41 +13890,130 @@ EventManager::schedule(Event&, unsigned long)+0x30)[0x561af7237634]
 DRAMCtrl::processNextReqEvent()+0x1870)[0x561af7f27fc4]
 ....
 
-TODO I got bored of DRAM modelling.
+which respectively activate:
 
 ....
-  46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250
+DRAMCtrl::Rank::processActivateEvent
+DRAMCtrl::processRespondEvent
+DRAMCtrl::processNextReqEvent
 ....
 
-But I got even more bored, and I will now skip to the first event before the instruction:
+Next comes the execution of `DRAMCtrl::Rank::processActivateEvent`:
 
 ....
-  77000: Event_40: Timing CPU icache tick event scheduled @ 77000
-  77000: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 0
 ....
 
-This event comes from `PacketQueue::processSendEvent` and schedules itself:
+which schedules:
 
 ....
-void
-TimingSimpleCPU::TimingCPUPort::TickEvent::schedule(PacketPtr _pkt, Tick t)
-{
-    pkt = _pkt;
-    cpu->schedule(this, t);
-}
+0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 0
 ....
 
-which polymorphically resolves to:
+which is `DRAMCtrl::Rank::processPowerEvent`.
+
+Then that runs and does not schedule anything thank God, it must just be some power statistics stuff:
 
 ....
-void
-TimingSimpleCPU::IcachePort::ITickEvent::process()
-{
-    cpu->completeIfetch(pkt);
-}
+0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 0
 ....
 
-and so `TimingSimpleCPU::completeIfetch` is, at last, the interesting `TimingSimpleCPU` function!
+Then comes `BaseXBar::Layer<SrcType, DstType>::releaseLayer()` which also does not schedule anything:
+
+....
+1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 executed @ 1000
+....
+
+and then `DRAMCtrl::processNextReqEvent()` which also does not schedule any one:
+
+....
+5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
+....
+
+and then `DRAMCtrl::processRespondEvent()`:
+
+....
+46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
+....
+
+which schedules `PacketQueue::processSendEvent()`:
+
+....
+46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
+....
+
+That executes:
+
+....
+74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
+....
+
+and schedules more `PacketQueue::processSendEvent()`:
+
+....
+74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 scheduled @ 77000
+....
+
+and via:
+
+....
+EventManager::schedule
+BaseXBar::Layer<MasterPort, SlavePort>::occupyLayer
+BaseXBar::Layer<MasterPort, SlavePort>::succeededTiming
+CoherentXBar::recvTimingResp
+CoherentXBar::CoherentXBarMasterPort::recvTimingResp
+TimingResponseProtocol::sendResp
+SlavePort::sendTimingResp
+RespPacketQueue::sendTiming
+PacketQueue::sendDeferredPacket
+PacketQueue::processSendEvent
+....
+
+schedules `BaseXBar::Layer<SrcType, DstType>::releaseLayer()`:
+
+....
+74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 scheduled @ 77000
+....
+
+Next it runs:
+
+....
+77000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 executed @ 77000
+....
+
+and schedules nothing.
+
+`PacketQueue::processSendEvent()` executes:
+
+....
+77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 executed @ 77000
+....
+
+and at very long long last, the `icache` schedule comes via:
+
+....
+EventManager::schedule
+TimingSimpleCPU::TimingCPUPort::TickEvent::schedule
+TimingSimpleCPU::IcachePort::recvTimingResp
+TimingResponseProtocol::sendResp
+SlavePort::sendTimingResp
+RespPacketQueue::sendTiming
+PacketQueue::sendDeferredPacket
+PacketQueue::processSendEvent
+....
+
+which schedules `TimingSimpleCPU::IcachePort::ITickEvent::process()` which calls `TimingSimpleCPU::completeIfetch(PacketPtr pkt)`:
+
+....
+77000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 77000
+....
+
+That then finally executes the very first instruction:
+
+....
+77000: Event: Event_40: Timing CPU icache tick 40 executed @ 77000
+77000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+....
 
 The end of this instruction must be setting things up in a way that can continue the PC walk loop, and by looking at the source and traces, it is clearly from: `TimingSimpleCPU::advanceInst` which calls `TimingSimpleCPU::fetch`, which is the very thing we did in this simulation!!! OMG, that's the loop.
 
@@ -13690,46 +14045,81 @@ So, where is the `execute` happening? Well, I'll satisfy myself with a quick sou
 +
 It also calls `+curStaticInst->completeAcc+`, which pairs up with the `initiateAcc` call.
 
+Finally, since we were using a simple CPU without a pipeline, the memory access stall everything, there is no further progress until memory comes back.
+
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches
 
-Let's just add --caches to see if things go any faster:
+Let's just add `--caches` to see if things go any faster:
 
 ....
-      0: system.cpu.wrapped_function_event: EventFunctionWrapped event scheduled @ 0
+
+      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
 **** REAL SIMULATION ****
-      0: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
-      0: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped event scheduled @ 7786250
-      0: Event_84: generic event scheduled @ 0
+      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
+      0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
+      0: Event: Event_84: generic 84 scheduled @ 0
 info: Entering event queue @ 0.  Starting simulation...
-      0: Event_84: generic event rescheduled @ 18446744073709551615
-      0: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
-   1000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
-   1000: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped event scheduled @ 2000
-   1000: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
-   1000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 46250
-   1000: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped event scheduled @ 5000
-   1000: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped event scheduled @ 1000
-  46250: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 74250
-  74250: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped event scheduled @ 77000
-  74250: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped event scheduled @ 80000
-  77000: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped event scheduled @ 78000
-  78000: Event_40: Timing CPU icache tick event scheduled @ 78000
-  78000: system.cpu A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
-  78000: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped event scheduled @ 83000
-  83000: Event_40: Timing CPU icache tick event scheduled @ 83000
-  83000: system.cpu A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+      0: Event: Event_84: generic 84 rescheduled @ 18446744073709551615
+      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
+      0: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 1000
+   1000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 executed @ 1000
+   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 1000
+   1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 scheduled @ 2000
+   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 1000
+   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 1000
+   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
+   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
+   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 1000
+   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 1000
+   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 1000
+   2000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 executed @ 2000
+   5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
+  46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
+  46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
+  74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
+  74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 scheduled @ 77000
+  74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 scheduled @ 80000
+  77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 executed @ 77000
+  77000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 78000
+  78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 78000
+  78000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 78000
+  78000: Event: Event_40: Timing CPU icache tick 40 executed @ 78000
+  78000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 83000
+  80000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 executed @ 80000
+  83000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 83000
+  83000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 83000
+  83000: Event: Event_40: Timing CPU icache tick 40 executed @ 83000
+  83000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+  83000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 84000
   [...]
- 191000: system.cpu A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
- 191000: Event_85: generic event scheduled @ 191000
+ 191000: Event: Event_85: generic 85 scheduled @ 191000
+ 191000: Event: Event_85: generic 85 executed @ 191000
 ....
 
 So yes, `--caches` does work here, leading to a runtime of 191000 rather than 469000 without caches!
+
+Notably, we now see that very little time passed between the first and second instructions, presumably because rather than going out all the way to the DRAM system, the event chain stops right at the `icache.cpu_side` when a hit happens, which must have been the case for the second instruction, which is just adjacent to the first one.
+
+It is also interested to look into the generated <<gem5-config-ini,`config.dot.svg`>> to compare it to the one without caches: xref:config-dot-svg-timingsimplecpu[xrefstyle=full]. With caches: xref:config-dot-svg-timingsimplecpu-caches[xrefstyle=full].
+
+We can see from there, that we now have `icache` and `dcache` elements inside the CPU block, and that the CPU `icache` and `dcache` ports go through the caches to the `SystemXBar` rather than being directly connected as before.
+
+It is worth noting that the caches do not affect the `ArmITB` and `ArmDTB` <<arm-paging,TLBs>>, since those are already caches themselves.
+
+[[config-dot-svg-timingsimplecpu-caches]]
+.`config.dot.svg` for a TimingSimpleCPU with caches.
+image::{cirosantilli-media-base}gem5_config_TimingSimpleCPU_caches_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true[height=600]
 
 ===== gem5 event queue MinorCPU syscall emulation freestanding example analysis
 
 The events <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis,for the Atomic CPU>> were pretty simple: basically just ticks.
 
 But as we venture into <<gem5-cpu-types,more complex CPU models>> such as `MinorCPU`, the events get much more complex and interesting.
+
+The memory system system part must be similar to that of `TimingSimpleCPU` that we previously studied <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis>>: the main thing we want to see is how the CPU pipeline speeds up execution by preventing some memory stalls.
+
+The <<gem5-config-ini,`config.dot.svg`>> also indicates that: everything is exactly as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>, except that the CPU is a `MinorCPU` instead of `TimingSimpleCPU`, and the `--caches` are now mandatory.
 
 TODO: analyze the trace for:
 
@@ -13745,6 +14135,10 @@ TODO: analyze the trace for:
   --caches \
 ;
 ....
+
+===== gem5 event queue DerivO3CPU syscall emulation freestanding example analysis
+
+TODO: like <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>> but even more complex!
 
 ==== gem5 stats internals
 
@@ -13852,6 +14246,24 @@ Tested on gem5 211869ea950f3cc3116655f06b1d46d3fa39fb3a.
 Bibliography: https://www.mail-archive.com/gem5-users@gem5.org/msg16989.html
 
 ==== gem5 build system
+
+===== gem5 build broken on recent compiler version
+
+gem5 moves a bit slowly, and if your host compiler is very new, the gem5 build might be broken for it, e.g. this was the case for Ubuntu 19.10 with GCC 9 and gem5 62d75e7105fe172eb906d4f80f360ff8591d4178 from Dec 2019.
+
+This happens mostly because GCC keeps getting more strict with warnings and gem5 uses `-Werror`.
+
+The specific problem mentioned above was later fixed, but if it ever happens again, you can work around it by either by or by disabling `-Werror`:
+
+....
+./build-gem5 -- CCFLAGS=-Wno-error
+....
+
+or by  https://askubuntu.com/questions/466651/how-do-i-use-the-latest-gcc-on-ubuntu/1163021#1163021[installing an older compiler] and using it with something like:
+
+....
+./build-gem5 -- CC=gcc-8 CXX=g++-8
+....
 
 ===== gem5 polymorphic ISA includes
 
@@ -16126,20 +16538,20 @@ Here is a tiny example that calls just `exit` from the C standard library:
 
 main.S
 
-```
+....
 .global _start
 _start:
     mov $0, %rdi
     call exit
 
-```
+....
 
 Compile and run with:
 
-```
+....
 gcc -ggdb3 -nostartfiles -static -o exit.out exit.S
 qemu-x86_64 -d in_asm exit.out
-```
+....
 
 However, for programming convenience, and to potentially keep my examples more OS portable, I would like to avoid making raw system calls, which would of course work, by using C standard library functions instead.
 
