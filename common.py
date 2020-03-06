@@ -1615,31 +1615,44 @@ class BuildCliFunction(LkmcCliFunction):
 Pass the given compiler flags to all languages (C, C++, Fortran, etc.)
 ''',
             },
+            '--configure': {
+                'default': True,
+                'help': '''\
+Also run the configuration step during build.
+''',
+            },
             '--force-rebuild': {
                 'default': False,
                 "help": '''\
 Force rebuild even if sources didn't change.
 ''',
             },
-            '--configure': {
-                'default': True,
-                "help": '''\
-Also run the configuration step during build.
-''',
-            },
             '--optimization-level': {
                 'default': '0',
-                'help': '''
+                'help': '''\
 Use the given GCC -O optimization level.
 For some scripts, there are hard technical challenges why it cannot
 be implemented, e.g.: https://cirosantilli.com/linux-kernel-module-cheat#kernel-o0
 and for others such as gem5 have their custom mechanism:
 https://cirosantilli.com/linux-kernel-module-cheat#gem5-debug-build
 ''',
-            }
+            },
+            'extra_make_args': {
+                'default': [],
+                'help': '''\
+Extra arguments to pass to the Make command or analogous final build command,
+after configure, e.g. SCons. Usually contains specific targets or other build flags.
+''',
+                'metavar': 'extra-make-args',
+                'nargs': '*',
+            },
         }
 
     def _add_argument(self, argument_name):
+        '''
+        Enable build argument with a fixed name to provide an uniform CLI API
+        across different builds.
+        '''
         self.add_argument(
             argument_name,
             **self._build_arguments[argument_name]

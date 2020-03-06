@@ -9,12 +9,8 @@ class Main(common.BuildCliFunction):
     def __init__(self):
         super().__init__()
         self._add_argument('--configure')
-        self.add_argument(
-            'extra_config_args',
-            default=[],
-            metavar='extra-config-args',
-            nargs='*'
-        )
+        self.add_argument('--extra-config-args')
+        self._add_argument('extra_make_args')
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -41,7 +37,7 @@ class Main(common.BuildCliFunction):
                     '--enable-sdl', LF,
                 ] +
                 build_type_cmd +
-                self.sh.add_newlines(self.env['extra_config_args']),
+                self.sh.shlex_split(self.env['extra_config_args']),
                 extra_paths=[self.env['ccache_dir']],
                 cwd=build_dir
             )
@@ -52,7 +48,8 @@ class Main(common.BuildCliFunction):
                     '-j', str(self.env['nproc']), LF,
 
                 ] +
-                verbose
+                verbose +
+                self.sh.add_newlines(self.env['extra_make_args'])
             ),
             cwd=build_dir,
             extra_paths=[self.env['ccache_dir']],
