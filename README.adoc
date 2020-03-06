@@ -21546,7 +21546,102 @@ https://en.wikipedia.org/wiki/Cache_coherence
 
 Algorithms to keep the caches of different cores of a system coherent.
 
+The main goal of such systems is to reduce the number of messages that have to be sent on the coherency bus, and most importantly, to memory (which passes first through the coherency bus).
+
 E.g.: if one processors writes to the cache, other processors have to know about it before they read from that address.
+
+The main software use case example to have in mind is that of multiple threads incrementing an atomic counter as in link:userland/cpp/atomic/std_atomic.cpp[], see also: <<atomic-cpp>>.
+
+==== VI protocol
+
+Mentioned at:
+
+* http://courses.csail.mit.edu/6.888/spring13/lectures/L7-coherence.pdf
+* http://csg.csail.mit.edu/6.823S16/lectures/L15.pdf
+
+This is the most trivial, but likely it is too bad and most sources don't even mention it.
+
+In what follows I make some stuff up with design choice comparisons, needs confirmation.
+
+In this protocol, every cache only needs a single bit of state: validity.
+
+At the start, everything is invalid.
+
+Then, when you need to read and are invalid, you send a read on bus. If there is another valid cache in another CPU, it services the request. Otherwise, goes the request goes to memory. After read you become valid.
+
+Read for valid generates no bus requests, which is good.
+
+When you write, if you are invalid, you must first read to get the full cache line, like for any other protocol.
+
+Then, there are two possible design choices, either:
+
+* that read is marked as exclusive, and all caches that had it snoop and become invalid.
++
+Upside: no need to send the new data to the bus.
++
+Downside: more invalidations. But those are not too serious, because future invalid reads tend to just hit the remaining valid cache.
+* after the read and write, you send the data on the bus, and those that had it update and become valid.
++
+Downside: much more data on bus, so likely this is not going to be the best choice.
+
+So we take the first option.
+
+When you write and are valid, you don't need to read. But you still have invalidate everyone else, because multiple reads can lead to multiple valid holders, otherwise other valid holders would keep reading old values.
+
+We could either do this with an exclusive read, and ignore the return, or with a new Invalidate request that has no reply. This invalidation is called `BusUpgr` to match with Wikipedia.
+
+Write also has two other possible design choices, either:
+
+* every write writes through to memory. This is likely never the best option.
+* when the cache is full, eviction leads to a write to memory.
++
+If multiple valid holders may exist, then this may lead to multiple
+
+So we take the second option.
+
+With this we would have:
+
+* V
+** PrRd
+*** V
+***
+** PrWr
+*** V
+*** BusUpgr
+** BusRd
+*** V
+*** BusData
+** BusRdX
+*** I
+*** BusData
+** BusUpgr
+*** I
+***
+* I
+** PrRd
+*** V
+*** BusRd
+** PrWr
+*** V
+*** BusRdX
+** BusRd
+*** I
+***
+** BusRdX
+*** I
+***
+** BusUpgr
+*** I
+***
+
+Here Flush and BusData replies are omitted since those never lead to a change of state, nor to the sending of further messages.
+
+TODO at:
+
+* http://courses.csail.mit.edu/6.888/spring13/lectures/L7-coherence.pdf
+* http://csg.csail.mit.edu/6.823S16/lectures/L15.pdf
+
+why PrWr stays in invalid? Why do writes always go to memory? Why not wait until eviction?
 
 ==== MSI protocol
 
@@ -21662,6 +21757,8 @@ And it has to be either: before the other cache gets its data from DRAM, or bett
 We don't know what they will write, so the best bet is to move to invalid.
 +
 Since the writer will become the new sole data owner, the writer can get the cache from us without going to DRAM at all! This is fine, because the writer will be the new sole owner of the line, so DRAM can remain dirty without problems.
++
+TODO Wikipedia requires a Flush there, why? https://electronics.stackexchange.com/questions/484830/why-is-a-flush-needed-in-the-msi-cache-coherency-protocol-when-moving-from-modif
 +
 *** Move to: Invalid
 *** Send message: "Write back"
