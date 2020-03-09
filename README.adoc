@@ -12470,7 +12470,7 @@ The Ruby memory system includes the SLICC domain specific language to describe m
 
 Ruby seems to have usage outside of gem5, but the naming overload with the link:https://en.wikipedia.org/wiki/Ruby_(programming_language)[Ruby programming language], which also has link:https://thoughtbot.com/blog/writing-a-domain-specific-language-in-ruby[domain specific languages] as a concept, makes it impossible to google anything about it!
 
-Since it is not the default, Ruby is generally less stable that the classic memory model. However, because it allows describing a wide variety of important <<cache-coherence,cache coherency protocols>>, while the classic system only describes a single protocol, Ruby is very importanonly describes a single protocol, Ruby is a very important feature of gem5.
+Since it is not the default, Ruby is generally less stable that the classic memory model. However, because it allows describing a wide variety of important <<cache-coherence,cache coherence protocols>>, while the classic system only describes a single protocol, Ruby is very importanonly describes a single protocol, Ruby is a very important feature of gem5.
 
 Ruby support must be enabled at compile time with the `scons PROTOCOL=` flag, which compiles support for the desired memory system type.
 
@@ -21544,15 +21544,27 @@ The hard part is how to prevent the compiler from optimizing it away: https://st
 
 https://en.wikipedia.org/wiki/Cache_coherence
 
-Algorithms to keep the caches of different cores of a system coherent.
+Algorithms to keep the caches of different cores of a system coherent. Only matters for multicore systems.
 
-The main goal of such systems is to reduce the number of messages that have to be sent on the coherency bus, and most importantly, to memory (which passes first through the coherency bus).
+The main goal of such systems is to reduce the number of messages that have to be sent on the coherency bus, and even more importantly, to memory (which passes first through the coherency bus).
 
-E.g.: if one processors writes to the cache, other processors have to know about it before they read from that address.
+The main software use case example to have in mind is that of multiple threads incrementing an atomic counter as in link:userland/cpp/atomic/std_atomic.cpp[], see also: <<atomic-cpp>>. Then, if one processors writes to the cache, other processors have to know about it before they read from that address.
 
-The main software use case example to have in mind is that of multiple threads incrementing an atomic counter as in link:userland/cpp/atomic/std_atomic.cpp[], see also: <<atomic-cpp>>.
+Note that cache coherency only applies to memory read/write instructions that explicitly make coherency requirements.
 
-==== VI protocol
+In most ISAs, this tends to be the minority of instructions, and is only used when something is going to modify memory that is known to be shared across threads. For example, the a <<x86-thread-synchronization-primitives, x86 LOCK>> would be used to increment atomic counters that get incremented across several threads. Outside of those cases, cache coherency is not garanteed, and behaviour is undefined.
+
+==== Can caches snoop data from other caches?
+
+Either they can snoop only control, or both control and data can be snooped.
+
+The answer to this determines if some of the following design decisions make sense.
+
+This is the central point in question at: https://electronics.stackexchange.com/questions/484830/why-is-a-flush-needed-in-the-msi-cache-coherency-protocol-when-moving-from-modif
+
+If data snoops are not possible, then data must always to to DRAM first.
+
+==== VI cache coherence protocol
 
 Mentioned at:
 
@@ -21575,7 +21587,7 @@ When you write, if you are invalid, you must first read to get the full cache li
 
 Then, there are two possible design choices, either:
 
-* that read is marked as exclusive, and all caches that had it snoop and become invalid.
+* that read is marked as exclusive, and all caches that had it, snoop it become invalid.
 +
 Upside: no need to send the new data to the bus.
 +
@@ -21595,7 +21607,7 @@ Write also has two other possible design choices, either:
 * every write writes through to memory. This is likely never the best option.
 * when the cache is full, eviction leads to a write to memory.
 +
-If multiple valid holders may exist, then this may lead to multiple
+If multiple valid holders may exist, then this may lead to multiple write through evictions of the same thing.
 
 So we take the second option.
 
@@ -21643,11 +21655,17 @@ TODO at:
 
 why PrWr stays in invalid? Why do writes always go to memory? Why not wait until eviction?
 
-==== MSI protocol
+==== MSI cache coherence protocol
 
 https://en.wikipedia.org/wiki/MSI_protocol
 
 This is the most basic non-trivial coherency protocol, and therefore the first one you should learn.
+
+Compared to the <<vi-cache-coherence-protocol>>, MSI:
+
+* adds one bit of knowledge per cache line (shared)
+* splits Valid into Modified and Shared depending on the shared bit
+* this allows us to not send BusUpgr messages on the bus when writing to Modified, since we now we know that the data is not present in any other cache!
 
 Helpful video: https://www.youtube.com/watch?v=gAUVAel-2Fg "MSI Coherence - Georgia Tech - HPCA: Part 5" by Udacity.
 
@@ -21722,6 +21740,8 @@ That's why this request can also be called "Read Exclusive", as it is basically 
 ** "Invalidate": the cache wants to modify some data, but it knows that all other caches are up to date, because it is in shared state.
 +
 Therefore, it does not need to fetch the data, which saves bus traffic compared to "Bus write" since the data itself does not need to be sent.
++
+This is also called a Bus Upgrade message or BusUpgr, as it informs others that the value is going to be upgraded.
 ** "Write back": send the data on the bus and tell someone to pick it up: either DRAM or another cache
 
 When a message is sent to the bus:
@@ -21781,29 +21801,56 @@ TODO gem5 concrete example.
 
 https://en.wikipedia.org/wiki/MESI_protocol
 
-Splits the Shared of <<msi-protocol>> into a new Exclusive state:
+Splits the Shared of <<msi-cache-coherence-protocol>> into a new Exclusive state:
 
 * MESI Exclusive: clean but only present in one cache
-* MESI Shared: clean but may be present in more that one cache
+* MESI Shared: clean but present in more that one cache
 
-TODO advantage: I think the advantages over MSI are:
+Exclusive is entered from Invalid after a PrRd, but only if the reply came from DRAM (<<can-caches-snoop-data-from-other-caches,or if we snoped that no one sent the reply to DRAM for us to read it>>)! If the reply came from another cache, we go directly to shared instead. It is this extra information that allows for the split of S.
 
-* when we move from Exclusive to Shared, no DRAM write back is needed, because we know that the cache is clean
-* when we move from Exclusive to Modified, no invalidate message is required, reducing bus traffic
+The advantage of this over MSI is that when we move from Exclusive to Modified, no invalidate message is required, reducing bus traffic: https://en.wikipedia.org/wiki/MESI_protocol#Advantages_of_MESI_over_MSI
 
-Exclusive is entered from Invalid after a "Local read", but only if the reply came from DRAM! If the reply came from another cache, we go directly to shared instead.
+This is a common case on read write modify loops. On MSI, it would first do PrRd, send BusRd (to move any M to S), get data, and go to Shared, then PrWr must send BusUpgr to invalidate other Shared and move to M.
+
+With MESI, the PrRd could go to E instead of S depending on who services it. If it does go to E, then the PrWr only moves it to M, there is no need to send BusUpgr because we know that no one else is in S.
+
+gem5 12c917de54145d2d50260035ba7fa614e25317a3 has two <<gem5-ruby-build,Ruby>> MESI models implemented: `MESI_Two_Level` and `MESI_Three_Level`.
 
 ==== MOSI protocol
 
-https://en.wikipedia.org/wiki/MOSI_protocol
+https://en.wikipedia.org/wiki/MOSI_protocol The critical MSI vs MOSI section was a bit bogus though: https://en.wikipedia.org/w/index.php?title=MOSI_protocol&oldid=895443023 we have to edit it.
 
-TODO compare to MSI and understand advantages. From Wikipedia it seems that MOSI can get data from the Owned cache while MSI cannot get data from Shared caches and must go to memory, but why not? Why do we need that Owned? Is it because there are multiple Shared caches and them all replying at the same time would lead to problems?
+In MSI, it feels wasteful that an MS transaction needs to flush to memory: why do we need to flush right now, since even more caches now have that data? Why not wait until later ant try to gain something from this deferral?
+
+The problem with doing that in MSI, is that not flushing on an MS transaction would force us to every S eviction. So we would end up flushing even after reads!
+
+MOSI solves that by making M move to O instead of S on BusRd. Now, O is the only responsible for the flush back on eviction.
+
+So, in case we had:
+
+* processor 1: M
+* processor 2: I then read
+* processor 1: write
+
+An MSI cahe 1 would do:
+
+* write to main memory, go to S
+* BusUpgr, go back to M, 2 back to I
+
+and MOSI would do:
+
+* go to O (no bus traffic)
+* BusUpgr, go back to M
+
+This therefore saves one memory write through and its bus traffic.
 
 ==== MOESI protocol
 
 https://en.wikipedia.org/wiki/MOESI_protocol
 
 <<mesi-protocol>> + <<mosi-protocol>>, not much else to it!
+
+gem5 12c917de54145d2d50260035ba7fa614e25317a3 has several <<gem5-ruby-build,Ruby>> MOESI models implemented: `MOESI_AMD_Base`, `MOESI_CMP_directory`, `MOESI_CMP_token` and `MOESI_hammer`.
 
 == About this repo
 
