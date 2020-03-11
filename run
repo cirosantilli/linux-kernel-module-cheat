@@ -517,6 +517,17 @@ Extra options to append at the end of the emulator command line.
                 ])
                 if self.env['userland_args'] is not None:
                     cmd.extend(['--options', self.env['userland_args'], LF])
+                if not self.env['static']:
+                    for path in self.env['userland_library_redirects']:
+                        cmd.extend([
+                            '--redirects',
+                            '{}={}'.format(
+                                os.sep + path,
+                                os.path.join(self.env['userland_library_dir'], path)
+                            ),
+                            LF
+                        ])
+                    cmd.extend(['--interp-dir', self.env['userland_library_dir'], LF])
             else:
                 if self.env['gem5_script'] == 'fs':
                     cmd.extend([
@@ -610,6 +621,9 @@ Extra options to append at the end of the emulator command line.
                             ),
                             LF
                         ])
+                if self.env['gem5_script'] == 'fs' or self.env['gem5_script'] == 'biglittle':
+                    if self.env['gem5_bootloader'] is not None:
+                        cmd.extend(['--bootloader', self.env['gem5_bootloader'], LF])
             cmd.extend(['--mem-size', memory, LF])
             if self.env['gdb_wait']:
                 # https://stackoverflow.com/questions/49296092/how-to-make-gem5-wait-for-gdb-to-connect-to-reliably-break-at-start-kernel-of-th
