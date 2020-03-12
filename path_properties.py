@@ -690,6 +690,7 @@ path_properties_tuples = (
                 'gcc': (
                     {**gnu_extension_properties, **{'cc_pedantic': False}},
                     {
+                        'busy_loop.c': {'baremetal': True},
                         'openmp.c': {'cc_flags': ['-fopenmp', LF]},
                     }
                 ),
