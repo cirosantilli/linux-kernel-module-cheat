@@ -2028,6 +2028,31 @@ I also tried to hack `run-gdb` with:
 
 and no I do have the symbols from `arch/arm/boot/compressed/vmlinux'`, but the breaks still don't work.
 
+==== Linux kernel early boot messages
+
+When booting Linux on a slow emulator like <<gem5>>, what you observe is that:
+
+* first nothing shows for a while
+* then at once, a bunch of message lines show at once followed on aarch64 Linux 5.4.3 by:
++
+....
+[    0.081311] printk: console [ttyAMA0] enabled
+....
+
+This means of course that all the previous messages had been generated earlier and stored, but were only printed to the terminal once the terminal itself was enabled.
+
+Notably for example the very first message:
+
+....
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd070]
+....
+
+happens very early in the boot process.
+
+If you get a failure before that, it will be hard to see the print messages.
+
+One possible solution is to parse the dmesg buffer, gem5 actually implements that: <<gem5-m5out-system-dmesg-file>>.
+
 === GDB step debug userland processes
 
 QEMU's `-gdb` GDB breakpoints are set on virtual addresses, so you can in theory debug userland processes as well.
@@ -10588,6 +10613,11 @@ Using text mode is another workaround if you don't need GUI features.
 
 Getting started at: xref:gem5-buildroot-setup[xrefstyle=full].
 
+gem5 has a bunch of crappiness, mostly described at: <<gem5-vs-qemu>>, but it does deserve some credit on the following points:
+
+* insanely configurable system topology from Python without recompiling, made possible in part due to a well defined memory packet structure that allows adding caches and buses transparently
+* each micro architectural model (<<gem5-cpu-types>>) works with all ISAs
+
 === gem5 vs QEMU
 
 * advantages of gem5:
@@ -12019,6 +12049,17 @@ The files in that directory contains some very important information about the r
 Contains UART output, both from the Linux kernel or from the baremetal system.
 
 Can also be seen live on <<m5term>>.
+
+[[gem5-m5out-system-dmesg-file]]
+==== gem5 m5out/system.dmesg file
+
+TODO confirm and create minimal example.
+
+I think this file is capable of showing terminal messages before they reach the terminal by parsing the dmesg buffer from memory.
+
+This could be used to debug the Linux kernel boot if problems happen before the serial is enabled: <<linux-kernel-early-boot-messages>>.
+
+The file appears to get dumped only on kernel panic which gem5 can detect by the PC address: <<exit-gem5-on-panic>>.
 
 [[gem5-m5out-stats-txt-file]]
 ==== gem5 m5out/stats.txt file
@@ -20926,7 +20967,7 @@ Run all kernel boot benchmarks for one arch:
 cat "$(./getvar test_boot_benchmark_file)"
 ....
 
-Sample results at 8fb9db39316d43a6dbd571e04dd46ae73915027f:
+Sample results at LKMC 8fb9db39316d43a6dbd571e04dd46ae73915027f:
 
 ....
 cmd ./run --arch x86_64 --eval './linux/poweroff.out'
@@ -21443,7 +21484,7 @@ Ubuntu 19.10, GCC 9.2.1, LKMC 7c6bb29bc89ec3f1056c0680c3f08bd64018a7bc, gem5 d7d
 
 Same but gem5 d7d9bc240615625141cd6feddbadd392457e49eb (2018-06-17) hacked with `-Wnoerror`: 11m 37s. So there was a huge regression in the last two years! We have to find it out.
 
-A profiling of the build has been done at: https://gem5.atlassian.net/browse/GEM5-277
+A profiling of the build has been done at: https://gem5.atlassian.net/browse/GEM5-277 Analysis there showed that d7d9bc240615625141cd6feddbadd392457e49eb (2018-06-17) is also composed of 50% pybind11 and with no obvious time sinks.
 
 ====== pybind11 accounts for 50% of gem5 build time
 
