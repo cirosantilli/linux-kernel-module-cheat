@@ -12487,7 +12487,7 @@ Then, with `fs.py` and `se.py`, you can choose to use either the classic or buil
 * if `--ruby` is given, use the ruby memory system that was compiled into gem5. Caches are always present when Ruby is used, since the main goal of Ruby is to specify the cache coherence protocol, and it therefore hardcodes cache hierarchies.
 * otherwise, use the classic memory system. Caches may be optional for certain CPU types and are enabled with `--caches`.
 
-For example, to use a two level <<mesi-protocol>> we can do:
+For example, to use a two level <<mesi-cache-coherence-protocol>> we can do:
 
 ....
 ./build-gem5 --arch aarch64 --gem5-build-id ruby -- PROTOCOL=MESI_Two_Level
@@ -13552,24 +13552,24 @@ It is also helpful to see this as a tree of events where one execute event sched
     |
     +---+
     |   |
-    6   7       6 DRAMCtrl::processNextReqEvent
+    6   7       6 DRAMCtrl::processNextReqEvent (0)
     8   15      7 BaseXBar::Layer::releaseLayer
     |
 +---+---+
 |   |   |
 9   10  11      9 DRAMCtrl::Rank::processActivateEvent
-12  17  16     10 DRAMCtrl::processRespondEvent
-|   |          11 DRAMCtrl::processNextReqEvent
+12  17  16     10 DRAMCtrl::processRespondEvent (46.25)
+|   |          11 DRAMCtrl::processNextReqEvent (5)
 |   |
 13  18         13 DRAMCtrl::Rank::processPowerEvent
-14  19         18 PacketQueue::processSendEvent
+14  19         18 PacketQueue::processSendEvent (28)
     |
     +---+
     |   |
-    20  21     20 PacketQueue::processSendEvent
+    20  21     20 PacketQueue::processSendEvent  (2.75)
     23  22     21 BaseXBar::Layer<SrcType, DstType>::releaseLayer
     |
-    24         24 TimingSimpleCPU::IcachePort::ITickEvent::process
+    24         24 TimingSimpleCPU::IcachePort::ITickEvent::process (0)
     25
     |
     +---+
@@ -13603,16 +13603,16 @@ Note that every schedule is followed by an execution, so we put them together, f
 
 ....
     |   |
-    6   7    6 DRAMCtrl::processNextReqEvent
-    8   15   7 BaseXBar::Layer::releaseLayer
+    6   7    6 DRAMCtrl::processNextReqEvent (0)
+    8   15   7 BaseXBar::Layer::releaseLayer (0)
     |
 ....
 
 means:
 
-* `6`: schedule `DRAMCtrl::processNextReqEvent`
+* `6`: schedule `DRAMCtrl::processNextReqEvent` to run in `0` ns after the execution that scheduled it
 * `8`: execute `DRAMCtrl::processNextReqEvent`
-* `7`: schedule `BaseXBar::Layer::releaseLayer`
+* `7`: schedule `BaseXBar::Layer::releaseLayer` to run in `0` ns after the execution that scheduled it
 * `15`: execute `BaseXBar::Layer::releaseLayer`
 
 With this, we can focus on going up the event tree from an event of interest until we see what originally caused it!
@@ -13620,6 +13620,26 @@ With this, we can focus on going up the event tree from an event of interest unt
 Notably, the above tree contains the execution of the first two instructions.
 
 Observe how the events leading up to the second instruction are basically a copy of those of the first one, this is the basic `TimingSimpleCPU` event loop in action.
+
+One line summary of events:
+
+* #5: adds the request to the DRAM queue, and schedules a `DRAMCtrl::processNextReqEvent` which later sees that request immediately
+* #8: picks up the only request from the DRAM read queue (`readQueue`) and services that.
++
+If there were multiple requests, priority arbitration under `DRAMCtrl::chooseNext` could chose a different one than the first based on packet priorities
++
+This puts the request on the response queue `respQueue` and schedules another `DRAMCtrl::processNextReqEvent` but the request queue is empty, and that does nos schedule further events
+* #17: picks up the only request from the DRAM response queue and services that by placing it in yet another queue, and scheduling the `PacketQueue::processSendEvent` which will later pick up that packet
+* #19: picks up the request from the previous queue, and forwards it to another queue, and schedules yet another `PacketQueue::processSendEvent`
++
+The current one is the DRAM passing the message to the XBar, and the next `processSendEvent` is the XBar finally sending it back to the CPU
+* #23: the XBar port is actually sending the reply back.
++
+If knows to which CPU core to send the request to because ports keep a map of request to source:
++
+....
+const auto route_lookup = routeTo.find(pkt->req);
+....
 
 ====== TimingSimpleCPU analysis #0
 
@@ -21766,7 +21786,7 @@ And finally, the transitions are:
 +
 Since we know what the latest data is, we can move to "Shared" rather than "Invalid" to possibly save time on future reads.
 +
-But to do that, we need to write the data back to DRAM to maintain the shared state consistent. The <<mesi-protocol>> prevents that extra read in some cases.
+But to do that, we need to write the data back to DRAM to maintain the shared state consistent. The <<mesi-cache-coherence-protocol>> prevents that extra read in some cases.
 +
 And it has to be either: before the other cache gets its data from DRAM, or better, the other cache can get its data from our write back itself just like the DRAM.
 +
@@ -21797,7 +21817,15 @@ TODO Wikipedia requires a Flush there, why? https://electronics.stackexchange.co
 
 TODO gem5 concrete example.
 
-==== MESI protocol
+===== MSI cache coherence protocol with transient states
+
+TODO underestand well why those are needed.
+
+* http://learning.gem5.org/book/part3/MSI/directory.html
+* https://www.researchgate.net/figure/MSI-Protocol-with-Transient-States-Adapted-from-30_fig3_2531432
+* http://csg.csail.mit.edu/6.823S16/lectures/L15.pdf page 28
+
+==== MESI cache coherence protocol
 
 https://en.wikipedia.org/wiki/MESI_protocol
 
@@ -21816,7 +21844,7 @@ With MESI, the PrRd could go to E instead of S depending on who services it. If 
 
 gem5 12c917de54145d2d50260035ba7fa614e25317a3 has two <<gem5-ruby-build,Ruby>> MESI models implemented: `MESI_Two_Level` and `MESI_Three_Level`.
 
-==== MOSI protocol
+==== MOSI cache coherence protocol
 
 https://en.wikipedia.org/wiki/MOSI_protocol The critical MSI vs MOSI section was a bit bogus though: https://en.wikipedia.org/w/index.php?title=MOSI_protocol&oldid=895443023 we have to edit it.
 
@@ -21844,11 +21872,11 @@ and MOSI would do:
 
 This therefore saves one memory write through and its bus traffic.
 
-==== MOESI protocol
+==== MOESI cache coherence protocol
 
 https://en.wikipedia.org/wiki/MOESI_protocol
 
-<<mesi-protocol>> + <<mosi-protocol>>, not much else to it!
+<<mesi-cache-coherence-protocol>> + <<mosi-cache-coherence-protocol>>, not much else to it!
 
 gem5 12c917de54145d2d50260035ba7fa614e25317a3 has several <<gem5-ruby-build,Ruby>> MOESI models implemented: `MOESI_AMD_Base`, `MOESI_CMP_directory`, `MOESI_CMP_token` and `MOESI_hammer`.
 
