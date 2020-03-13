@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#kernel_modules-buildroot-package */
+/* https://cirosantilli.com/linux-kernel-module-cheat#kernel-modules-buildroot-package */
 
 #include <linux/module.h>
 #include <linux/kernel.h>

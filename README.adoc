@@ -4212,7 +4212,7 @@ This is the default install path for `CONFIG_SOME_MOD=m` modules built with `mak
 
 Currently, there are only two kinds of kernel modules that you can try out with `modprobe`:
 
-* modules built with Buildroot, see: xref:kernel_modules-buildroot-package[xrefstyle=full]
+* modules built with Buildroot, see: xref:kernel-modules-buildroot-package[xrefstyle=full]
 * modules built from the kernel tree itself, see: xref:dummy-irq[xrefstyle=full]
 
 We are not installing out custom `./build-modules` modules there, because:
@@ -6061,7 +6061,7 @@ TODO: what for, and at which point point does Buildroot / BusyBox generate that 
 
 Unlike `insmod`, <<modprobe>> deals with kernel module dependencies for us.
 
-First get <<kernel_modules-buildroot-package>> working.
+First get <<kernel-modules-buildroot-package>> working.
 
 Then, for example:
 
@@ -14662,8 +14662,6 @@ It therefore produces a pristine, blob-less, debuggable setup, where all moving 
 
 Perhaps the awesomeness of Buildroot only sinks in once you notice that all it takes is 4 commands as explained at xref:buildroot-hello-world[xrefstyle=full].
 
-This repo basically wraps around that, and tries to make everything even more awesome for kernel developers.
-
 The downsides of Buildroot are:
 
 * the first build takes a while, but it is well worth it
@@ -14672,6 +14670,16 @@ The downsides of Buildroot are:
 In theory, any software can be packaged, and the Buildroot side is easy.
 +
 The hard part is dealing with crappy third party build systems and huge dependency chains.
+* it is written in Make and Bash rather than Python like LKMC
+
+This repo basically wraps around that, and tries to make everything even more awesome for kernel developers by adding the capability of seamlessly running the stuff you've built on emulators usually via `./run`.
+
+As this repo develops however, we've started taking some of the build out of Buildroot, e.g. notably the <<buildroot-vanilla-kernel,Linux kernel>> to have more build flexibility and faster build startup times.
+
+Therefore, more and more, this repo wants to take over everything that Buildroot does, and one day completely replace it to achieve emulation Nirvana, see e.g.:
+
+* https://github.com/cirosantilli/linux-kernel-module-cheat/issues/116
+* https://github.com/cirosantilli/linux-kernel-module-cheat/issues/117
 
 === Custom Buildroot configs
 
@@ -15025,7 +15033,7 @@ Here are some good working commands for several ISAs:
 
 These can come in handy if you want to debug something in Buildroot itself and possibly report an upstream bug.
 
-=== Update the toolchain
+=== Update the Buildroot toolchain
 
 Users of this repo will often want to update the compilation toolchain to the latest version to get fresh new features like new ISA instructions.
 
@@ -15146,6 +15154,27 @@ Known setups:
 * Buildroot 2018.08:
 ** GCC 8.3.0: OK
 ** GCC 9.2.0: KO https://github.com/cirosantilli/linux-kernel-module-cheat/issues/97
+
+=== Buildroot vanilla kernel
+
+By default, our build system uses link:build-linux[], and the Buildroot kernel build is disabled: https://stackoverflow.com/questions/52231793/can-buildroot-build-the-root-filesystem-without-building-the-linux-kernel
+
+There are however some cases where we want that ability, e.g.: <<kernel-modules-buildroot-package>> and <<benchmark-linux-kernel-boot>>.
+
+The build of the kernel can be enabled with the `--build-kernel` option of link:build-buildroot[].
+
+For example, to build the kernel and then boot it you could do:
+
+....
+./build-buildroot --arch aarch64 --build-linux
+./run --arch aarch64 --linux-exec "$(./getvar --arch aarch64 TODO)/vmlinux"
+....
+
+TODO: fails on LKMC d53ffcff18aa26d24ea34b86fb80e4a5694378dch with "ERROR: No hash found for linux-4.19.16.tar.xz": https://github.com/cirosantilli/linux-kernel-module-cheat/issues/115
+
+Note that this kernel is not configured at all by LKMC, and there is no support to do that currently: the Buildroot default kernel configs for a target are used unchanged, e.g. `make qemu_aarch64_virt_defconfig`,see also; <<buildroot-kernel-config>>.
+
+Therefore, this kernel might be missing certain key capabilities, e.g. filesystem support required to boot.
 
 == Userland content
 
@@ -21039,6 +21068,14 @@ instructions 124346081
 
 TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction count so much much higher?
 
+<<p51>> Ubuntu 19.10 LKMC b11e3cd9fb5df0e3fe61de28e8264bbc95ea9005 gem5 e779c19dbb51ad2f7699bd58a5c7827708e12b55 aarch64: 143s. Why huge increases from 70s on above table? Kernel size is also huge BTW: 147MB.
+
+Note that https://gem5.atlassian.net/browse/GEM5-337 "ARM PAuth patch slows down Linux boot 2x from 2 minutes to 4 minutes" was already semi fixed at that point.
+
+Same but with <<buildroot-vanilla-kernel>> (kernel v4.19): 44s to blow up at "Please append a correct "root=" boot option; here are the available partitions" because missing some filesystem mount option. But likely wouldn't be much more until after boot since we are almost already done by then! Therefore this vanilla kernel is much much faster! TODO find which config or kernel commit added so much time! Also that kernel is tiny at 8.5MB.
+
+Same but with: <<gem5-arm-linux-kernel-patches>> at v4.15: 73s, kernel size: 132M.
+
 ===== gem5 arm HPI boot takes much longer than aarch64
 
 TODO 62f6870e4e0b384c4bd2d514116247e81b241251 takes 33 minutes to finish at 62f6870e4e0b384c4bd2d514116247e81b241251:
@@ -21595,7 +21632,7 @@ The build system of that project is a bit excessive / wonky. You need an edge CM
 
 https://en.wikipedia.org/wiki/Mbed
 
-TODO minimal setup to run it on QEMU
+TODO minimal setup to run it on QEMU? Possible?
 
 == Compilers
 
@@ -22629,6 +22666,7 @@ Buildroot packages are convenient, but in general, if a package if very importan
 
 A custom build script can give you more flexibility: e.g. the package can be made work with other root filesystems more easily, have better <<9p>> support, and rebuild faster as it evades some Buildroot boilerplate.
 
+[[kernel-modules-buildroot-package]]
 ===== kernel_modules buildroot package
 
 Source: link:buildroot_packages/kernel_modules/[]
@@ -22657,7 +22695,7 @@ Source: link:buildroot_packages/kernel_modules/buildroot_hello.c[]
 
 As you have just seen, this sets up everything so that <<modprobe>> can correctly find the module.
 
-`./build-buildroot --build-linux` and `./run --buildroot-linux` are needed because the Buildroot kernel modules must use the Buildroot Linux kernel at build and run time.
+`./build-buildroot --build-linux` and `./run --buildroot-linux` are needed because the Buildroot kernel modules must use the Buildroot Linux kernel at build and run time, see also: <<buildroot-vanilla-kernel>>.
 
 The `--no-overlay` is required otherwise our `modules.order` generated by `./build-linux` and installed with `BR2_ROOTFS_OVERLAY` overwrites the Buildroot generated one.
 

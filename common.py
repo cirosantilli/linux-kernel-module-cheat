@@ -538,7 +538,7 @@ be run in the guest.
 Place the output files of userland build outputs inside the image within this
 additional prefix. This is mostly useful to place different versions of binaries
 with different build parameters inside image to compare them. See:
-* https://cirosantilli.com/linux-kernel-module-cheat#update-the-toolchain
+* https://cirosantilli.com/linux-kernel-module-cheat#update-the-buildroot-toolchain
 * https://cirosantilli.com/linux-kernel-module-cheat#out_rootfs_overlay_dir
 '''
         )
