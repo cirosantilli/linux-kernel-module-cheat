@@ -8,8 +8,8 @@ void __attribute__ ((noinline)) busy_loop(
     unsigned long long max,
     unsigned long long max2
 ) {
-    for (unsigned i = 0; i < max; i++) {
-        for (unsigned j = 0; j < max2; j++) {
+    for (unsigned long long i = 0; i < max; i++) {
+        for (unsigned long long j = 0; j < max2; j++) {
             __asm__ __volatile__ ("" : "+g" (j), "+g" (j) : :);
         }
     }
