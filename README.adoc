@@ -570,6 +570,14 @@ For the specific case of running emulators such as QEMU, the last command is als
 cat "$(./getvar run_dir)/run.sh"
 ....
 
+Since we need this so often, the last run command is also stored for convenience at:
+
+....
+cat out/run.sh
+....
+
+although this won't of course work well for <<simultaneous-runs>>.
+
 Furthermore, `--dry-run` also automatically specifies, in valid Bash shell syntax:
 
 * environment variables used to run the command with syntax `+ ENV_VAR_1=abc ENV_VAR_2=def ./some/command`
@@ -3813,7 +3821,7 @@ Both gem5 and QEMU however allow setting the reported `uname` version from the c
 
 QEMU by default copies the host `uname` value, but we always override it in our scripts.
 
-Determining the right number to use for the kernel version is of course highly non-trivial and would require an extensive userland test suite, which most emulator don't have.
+Determining the right number to use for the kernel version is of course highly non-trivial and would require an extensive userland test suite, which most emulators don't have.
 
 ....
 ./run --arch aarch64 --kernel-version 4.18 --userland userland/posix/uname.c
@@ -11252,7 +11260,7 @@ In the guest, wait for the boot to end and run:
 m5 checkpoint
 ....
 
-where <<m5>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest.
+where <<gem5-m5-executable>> is a guest utility present inside the gem5 tree which we cross-compiled and installed into the guest.
 
 To restore the checkpoint, kill the VM and run:
 
@@ -11693,7 +11701,7 @@ Documentation: http://gem5.org/M5ops
 
 There are two main ways to use m5ops:
 
-* <<m5>>
+* <<gem5-m5-executable>>
 * <<m5ops-instructions>>
 
 `m5` is convenient if you only want to take snapshots before or after the benchmark, without altering its source code. It uses the <<m5ops-instructions>> as its backend.
@@ -11705,13 +11713,27 @@ There are two main ways to use m5ops:
 +
 Why not just hardcode some <<m5ops-instructions>> as in our example instead, since you are going to modify the source of the benchmark anyways?
 
-==== m5
+==== gem5 m5 executable
 
 `m5` is a guest command line utility that is installed and run on the guest, that serves as a CLI front-end for the <<m5ops>>
 
 Its source is present in the gem5 tree: https://github.com/gem5/gem5/blob/6925bf55005c118dc2580ba83e0fa10b31839ef9/util/m5/m5.c
 
 It is possible to guess what most tools do from the corresponding <<m5ops>>, but let's at least document the less obvious ones here.
+
+In LKMC we build `m5` with:
+
+....
+./build-m5 --arch aarch64
+....
+
+The `m5` executable can be run on <<user-mode-simulation>> as normal with:
+
+....
+./run --arch aarch64 --emulator gem5 --userland "$(./getvar --arch aarch64 out_rootfs_overlay_bin_dir)/m5" --userland-args dumpstats
+....
+
+This can be a good test <<m5ops>> since it executes very quickly.
 
 ===== m5 exit
 
@@ -11839,7 +11861,7 @@ adsf
 
 gem5 allocates some magic instructions on unused instruction encodings for convenient guest instrumentation.
 
-Those instructions are exposed through the <<m5>> in tree executable.
+Those instructions are exposed through the <<gem5-m5-executable>> in tree executable.
 
 To make things simpler to understand, you can play around with our own minimized educational `m5` subset:
 
@@ -11892,7 +11914,7 @@ Bibliography:
 
 ===== m5ops instructions interface
 
-Let's study how <<m5>> uses them:
+Let's study how the <<gem5-m5-executable>> uses them:
 
 * https://github.com/gem5/gem5/blob/05c4c2b566ce351ab217b2bd7035562aa7a76570/include/gem5/asm/generic/m5ops.h[`include/gem5/asm/generic/m5ops.h`]: defines the magic constants that represent the instructions
 * https://github.com/gem5/gem5/blob/05c4c2b566ce351ab217b2bd7035562aa7a76570/util/m5/m5op_arm_A64.S[`util/m5/m5op_arm_A64.S`]: use the magic constants that represent the instructions using C preprocessor magic
@@ -21073,6 +21095,8 @@ TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction 
 Note that https://gem5.atlassian.net/browse/GEM5-337 "ARM PAuth patch slows down Linux boot 2x from 2 minutes to 4 minutes" was already semi fixed at that point.
 
 Same but with <<buildroot-vanilla-kernel>> (kernel v4.19): 44s to blow up at "Please append a correct "root=" boot option; here are the available partitions" because missing some filesystem mount option. But likely wouldn't be much more until after boot since we are almost already done by then! Therefore this vanilla kernel is much much faster! TODO find which config or kernel commit added so much time! Also that kernel is tiny at 8.5MB.
+
+Same but hacking `BR2_LINUX_KERNEL_LATEST_VERSION=y` and `BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_5_3=y` which reaches kernel 5.3.14 which closer to the LKMC one 5.4.3: 40s, which is very similar for the older kernel. Therefore it does not loook like it is a problem of kernel code changes, but rather of configs.
 
 Same but with: <<gem5-arm-linux-kernel-patches>> at v4.15: 73s, kernel size: 132M.
 

@@ -216,7 +216,8 @@ class ShellHelpers:
                 )
 
     def cp(self, src, dest, **kwargs):
-        self.print_cmd(['cp', src, dest])
+        if not kwargs.get('quiet', False):
+            self.print_cmd(['cp', src, dest])
         if not self.dry_run:
             if os.path.islink(src):
                 if os.path.lexists(dest):
