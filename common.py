@@ -944,7 +944,8 @@ Incompatible archs are skipped.
             else:
                 env['guest_terminal_file'] = env['qemu_termout_file']
             env['trace_txt_file'] = env['qemu_trace_txt_file']
-        env['run_cmd_file'] = join(env['run_dir'], 'run.sh')
+        env['run_cmd_file_basename'] = 'run.sh'
+        env['run_cmd_file'] = join(env['run_dir'], env['run_cmd_file_basename'])
 
         # Linux kernel.
         if not env['_args_given']['linux_build_dir']:

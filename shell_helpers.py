@@ -243,6 +243,7 @@ class ShellHelpers:
         cmd,
         cwd=None,
         cmd_file=None,
+        cmd_files=None,
         extra_env=None,
         extra_paths=None,
         force_oneline=False,
@@ -268,7 +269,11 @@ class ShellHelpers:
             )
         if not self.quiet:
             self._print_thread_safe('+ ' + cmd_string)
+        if cmd_files is None:
+            cmd_files = []
         if cmd_file is not None:
+            cmd_files.append(cmd_file)
+        for cmd_file in cmd_files:
             os.makedirs(os.path.dirname(cmd_file), exist_ok=True)
             with open(cmd_file, 'w') as f:
                 f.write('#!/usr/bin/env bash\n')
@@ -287,6 +292,7 @@ class ShellHelpers:
         self,
         cmd,
         cmd_file=None,
+        cmd_files=None,
         out_file=None,
         show_stdout=True,
         show_cmd=True,
@@ -309,6 +315,10 @@ class ShellHelpers:
 
         :param cmd_file: if not None, write the command to be run to that file
         :type cmd_file: str
+
+        :param cmd_files: if not None, write the command to be run to all files in this list
+                          cmd_file gets appended to that list if given.
+        :type cmd_files: List[str]
 
         :param out_file: if not None, write the stdout and stderr of the command the file
         :type out_file: str
@@ -358,6 +368,7 @@ class ShellHelpers:
                 cmd,
                 cwd=cwd,
                 cmd_file=cmd_file,
+                cmd_files=cmd_files,
                 extra_env=extra_env,
                 extra_paths=extra_paths,
                 stdin_path=stdin_path
