@@ -11741,6 +11741,10 @@ End the simulation.
 
 Sane Python scripts will exit gem5 with status 0, which is what `fs.py` does.
 
+===== m5 dumpstats
+
+Makes gem5 dump one more statistics entry to the <<gem5-m5out-stats-txt-file>>.
+
 ===== m5 fail
 
 End the simulation with a failure exit event:
@@ -12092,7 +12096,7 @@ This file contains important statistics about the run:
 cat "$(./getvar --arch aarch64 m5out_dir)/stats.txt"
 ....
 
-Whenever we run `m5 dumpstats` or `m5 exit`, a section with the following format is added to that file:
+Whenever we run `m5 dumpstats` or when fs.py and se.py are exiting (TODO other scripts?), a section with the following format is added to that file:
 
 ....
 ---------- Begin Simulation Statistics ----------
@@ -12110,6 +12114,74 @@ system.cpu.dtb.inst_hits
 
 For x86, it is interesting to try and correlate `numCycles` with:
 
+In LKMC f42c525d7973d70f4c836d2169cc2bd2893b4197 gem5 5af26353b532d7b5988cf0f6f3d0fbc5087dd1df, the stat file for a <<c>> hello world:
+
+....
+./run --arch aarch64 --emulator gem5 --userland userland/c/hello.c
+....
+
+which has a single dump done at the exit, has size 59KB and stat lines of form:
+
+....
+final_tick                                   91432000                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
+....
+
+We can reduce the file size by adding the `?desc=False` magic suffix to the stat flie name:
+
+....
+--stats-file stats.txt?desc=false
+....
+
+as explained in:
+
+....
+gem5.opt --stats-help
+....
+
+and this reduces the file size to 39KB by removing those excessive comments:
+
+....
+final_tick                                   91432000
+....
+
+although trailing spaces are still prse
+
+We can further reduce this size by removing spaces from the dumps with this hack:
+
+....
+         ccprintf(stream, " |%12s %10s %10s",
+                  ValueToString(value, precision), pdfstr.str(), cdfstr.str());
+     } else {
+-        ccprintf(stream, "%-40s %12s %10s %10s", name,
+-                 ValueToString(value, precision), pdfstr.str(), cdfstr.str());
++        ccprintf(stream, "%s %s", name, ValueToString(value, precision));
++        if (pdfstr.rdbuf()->in_avail())
++            stream << " " << pdfstr.str();
++        if (cdfstr.rdbuf()->in_avail())
++            stream << " " << cdfstr.str();
+ 
+         if (descriptions) {
+             if (!desc.empty())
+....
+
+and after that the file size went down to 21KB.
+
+===== gem5 HDF5 statistics
+
+We can make gem5 dump statistics in the <<hdf5>> format by adding the magic `h5://` prefix to the file name as in:
+
+....
+gem5.opt --stats-file h5://stats.h5
+....
+
+as explained in:
+
+....
+gem5.opt --stats-help
+....
+
+TODO what is the advantage? The generated file for `--stats-file h5://stats.h5?desc=False` in LKMC f42c525d7973d70f4c836d2169cc2bd2893b4197 gem5 5af26353b532d7b5988cf0f6f3d0fbc5087dd1df was 946K, so much larger than the text version!
+
 ===== gem5 only dump selected stats
 
 TODO
@@ -12117,6 +12189,66 @@ TODO
 https://stackoverflow.com/questions/52014953/how-to-dump-only-a-single-or-certain-selected-stats-in-gem5
 
 To prevent the stats file from becoming humongous.
+
+===== gem5 stats internals
+
+This describes the internals of the <<gem5-m5out-stats-txt-file>>.
+
+GDB call stack to `dumpstats`:
+
+....
+Stats::pythonDump () at build/ARM/python/pybind11/stats.cc:58
+Stats::StatEvent::process() ()
+GlobalEvent::BarrierEvent::process (this=0x555559fa6a80) at build/ARM/sim/global_event.cc:131
+EventQueue::serviceOne (this=this@entry=0x555558c36080) at build/ARM/sim/eventq.cc:228
+doSimLoop (eventq=0x555558c36080) at build/ARM/sim/simulate.cc:219
+simulate (num_cycles=<optimized out>) at build/ARM/sim/simulate.cc:132
+....
+
+`Stats::pythonDump` does:
+
+....
+void
+pythonDump()
+{
+    py::module m = py::module::import("m5.stats");
+    m.attr("dump")();
+}
+....
+
+This calls `src/python/m5/stats/__init__.py` in `def dump` does the main dumping
+
+That function does notably:
+
+....
+    for output in outputList:
+        if output.valid():
+            output.begin()
+            for stat in stats_list:
+                stat.visit(output)
+            output.end()
+....
+
+`begin` and `end` are defined in C++ and output the header and tail respectively
+
+....
+void
+Text::begin()
+{
+    ccprintf(*stream, "\n---------- Begin Simulation Statistics ----------\n");
+}
+
+void
+Text::end()
+{
+    ccprintf(*stream, "\n---------- End Simulation Statistics   ----------\n");
+    stream->flush();
+}
+....
+
+`stats_list` contains the stats, and `stat.visit` prints them, `outputList` contains by default just the text output. I don't see any other types of output in gem5, but likely JSON / binary formats could be envisioned.
+
+Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
 ==== gem5 config.ini
 
@@ -14457,66 +14589,6 @@ TODO: analyze the trace for:
 
 TODO: like <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>> but even more complex!
 
-==== gem5 stats internals
-
-This describes the internals of the <<gem5-m5out-stats-txt-file>>.
-
-GDB call stack to `dumpstats`:
-
-....
-Stats::pythonDump () at build/ARM/python/pybind11/stats.cc:58
-Stats::StatEvent::process() ()
-GlobalEvent::BarrierEvent::process (this=0x555559fa6a80) at build/ARM/sim/global_event.cc:131
-EventQueue::serviceOne (this=this@entry=0x555558c36080) at build/ARM/sim/eventq.cc:228
-doSimLoop (eventq=0x555558c36080) at build/ARM/sim/simulate.cc:219
-simulate (num_cycles=<optimized out>) at build/ARM/sim/simulate.cc:132
-....
-
-`Stats::pythonDump` does:
-
-....
-void
-pythonDump()
-{
-    py::module m = py::module::import("m5.stats");
-    m.attr("dump")();
-}
-....
-
-This calls `src/python/m5/stats/__init__.py` in `def dump` does the main dumping
-
-That function does notably:
-
-....
-    for output in outputList:
-        if output.valid():
-            output.begin()
-            for stat in stats_list:
-                stat.visit(output)
-            output.end()
-....
-
-`begin` and `end` are defined in C++ and output the header and tail respectively
-
-....
-void
-Text::begin()
-{
-    ccprintf(*stream, "\n---------- Begin Simulation Statistics ----------\n");
-}
-
-void
-Text::end()
-{
-    ccprintf(*stream, "\n---------- End Simulation Statistics   ----------\n");
-    stream->flush();
-}
-....
-
-`stats_list` contains the stats, and `stat.visit` prints them, `outputList` contains by default just the text output. I don't see any other types of output in gem5, but likely JSON / binary formats could be envisioned.
-
-Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
-
 ==== gem5 code generation
 
 gem5 uses a ton of code generation, which makes the project horrendous:
@@ -16545,7 +16617,10 @@ https://en.wikipedia.org/wiki/Hierarchical_Data_Format
 
 Binary format to store data. TODO vs databases, notably SQLite: https://datascience.stackexchange.com/questions/262/hierarchical-data-format-what-are-the-advantages-compared-to-alternative-format
 
-Examples: link:userland/libs/hdf5[]
+Examples:
+
+* link:userland/libs/hdf5[]
+* gem5 can dump statistics as HDF5: <<gem5-hdf5-statistics>>
 
 === Userland content filename conventions
 
