@@ -239,6 +239,8 @@ We aim display every command that modifies the filesystem state, and generate
 Bash equivalents even for actions taken directly in Python without shelling out.
 
 mkdir are generally omitted since those are obvious
+
+See also: https://cirosantilli.com/linux-kernel-module-cheat#dry-run
 '''
         )
         self.add_argument(

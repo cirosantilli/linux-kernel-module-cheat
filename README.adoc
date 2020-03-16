@@ -202,6 +202,8 @@ The link:build[] script is just a lightweight wrapper that calls the smaller bui
 ./build --dry-run
 ....
 
+see also: <<dry-run>>.
+
 When you reach difficulties, QEMU makes it possible to easily GDB step debug the Linux kernel source code, see: xref:gdb[xrefstyle=full].
 
 ===== Your first kernel module hack
@@ -253,6 +255,8 @@ You can see that `./build` does that as well, by running:
 ....
 ./build --dry-run
 ....
+
+See also: <<dry-run>>.
 
 `--eval-after` is optional: you could just type `insmod hello.ko` in the terminal, but this makes it run automatically at the end of boot, and then drops you into a shell.
 
@@ -531,6 +535,7 @@ Read the following sections for further introductory material:
 * <<introduction-to-qemu>>
 * <<introduction-to-buildroot>>
 
+[[dry-run]]
 === Dry run to get commands for your project
 
 One of the major features of this repository is that we try to support the `--dry-run` option really well for all scripts.
@@ -11879,7 +11884,6 @@ To use that file, first rebuild `m5ops.out` with the m5ops instructions enabled 
 ....
 ./build-userland \
   --arch aarch64 \
-  --ccflags='-DLKMC_M5OPS_ENABLE=1' \
   --force-rebuild \
   userland/c/m5ops.c \
 ;
@@ -12180,7 +12184,19 @@ as explained in:
 gem5.opt --stats-help
 ....
 
-TODO what is the advantage? The generated file for `--stats-file h5://stats.h5?desc=False` in LKMC f42c525d7973d70f4c836d2169cc2bd2893b4197 gem5 5af26353b532d7b5988cf0f6f3d0fbc5087dd1df was 946K, so much larger than the text version!
+This is not exposed in LKMC f42c525d7973d70f4c836d2169cc2bd2893b4197 however, you just have to <<dry-run,hack the gem5 CLI for now>>.
+
+TODO what is the advantage? The generated file for `--stats-file h5://stats.h5?desc=False` in LKMC f42c525d7973d70f4c836d2169cc2bd2893b4197 gem5 5af26353b532d7b5988cf0f6f3d0fbc5087dd1df for a single dump was 946K, so much larger than the text version seen at <<gem5-m5out-stats-txt-file>> which was only 59KB max!
+
+We then try to see if it is any better when you have a bunch of dump events:
+
+....
+./run --arch aarch64 --emulator gem5 --userland userland/c/m5ops.c --userland-args 'd 1000'
+....
+
+and there yes, we see that the file size fell from 39MB on `stats.txt` to 3.2MB on `stats.m5`, so the increase observed previously was just due to some initial size overhead.
+
+We also note however that the stat dump made the such a simulation that just loops and dumps considerably slower, from 3s to 15s on <<p51>>. Fascinating, we are definitely not disk bound there.
 
 ===== gem5 only dump selected stats
 

@@ -649,6 +649,7 @@ path_properties_tuples = (
                         'file_write_read.c': {'baremetal': False},
                         'getchar.c': {'interactive': True},
                         'malloc_max.c': {'disrupts_system': True},
+                        'm5ops.c': {'allowed_emulators': {'gem5'}},
                         'return1.c': {'exit_status': 1},
                         'return2.c': {'exit_status': 2},
                     }
@@ -669,6 +670,7 @@ path_properties_tuples = (
                             },
                         ),
                         'count.cpp': {'more_than_1s': True},
+                        'm5ops.cpp': {'allowed_emulators': {'gem5'}},
                         'parallel_sort.cpp': {'minimum_gcc_version': (9, 0, 0)},
                         'sleep_for.cpp': {
                             'more_than_1s': True,
