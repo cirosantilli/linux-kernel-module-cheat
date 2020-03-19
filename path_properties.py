@@ -670,6 +670,8 @@ path_properties_tuples = (
                             },
                         ),
                         'count.cpp': {'more_than_1s': True},
+                        'initialization_types.cpp': {'cc_flags':
+                            ['-Wno-unused-variable', LF, '-Wno-unused-but-set-variable', LF]},
                         'm5ops.cpp': {'allowed_emulators': {'gem5'}},
                         'parallel_sort.cpp': {'minimum_gcc_version': (9, 0, 0)},
                         'sleep_for.cpp': {

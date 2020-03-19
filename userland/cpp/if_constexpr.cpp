@@ -1,23 +1,30 @@
 // https://cirosantilli.com/linux-kernel-module-cheat#cpp
 
+
 #if __cplusplus >= 201703L
 #include <cassert>
 #include <type_traits>
 
-template <class T>
+template<typename T>
 struct MyClass {
-    int myFunc() {
-        if constexpr(std::is_integral<T>())
-            return 1;
-        else
-            return 2;
+    MyClass() : myVar{0} {}
+    void modifyIfNotConst() {
+        if constexpr(!isconst) {
+            myVar = 1;
+        }
     }
+    T myVar;
+    static constexpr bool isconst = std::is_const<T>::value;
 };
 #endif
 
 int main() {
 #if __cplusplus >= 201703L
-    assert(MyClass<int>().myFunc() == 1);
-    assert(MyClass<float>().myFunc() == 2);
+    MyClass<double> x;
+    MyClass<const double> y;
+    x.modifyIfNotConst();
+    y.modifyIfNotConst();
+    assert(x.myVar == 1);
+    assert(y.myVar == 0);
 #endif
 }
