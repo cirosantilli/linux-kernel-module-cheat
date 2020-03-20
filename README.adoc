@@ -12081,15 +12081,67 @@ Contains UART output, both from the Linux kernel or from the baremetal system.
 Can also be seen live on <<m5term>>.
 
 [[gem5-m5out-system-dmesg-file]]
-==== gem5 m5out/system.dmesg file
+==== gem5 `m5out/system.workload.dmesg` file
 
-TODO confirm and create minimal example.
+This file used to be called just `m5out/system.dmesg`, but the name was changed after the workload refactorings of March 2020.
 
-I think this file is capable of showing terminal messages before they reach the terminal by parsing the dmesg buffer from memory.
+This file is capable of showing terminal messages that are `printk` before the serial is enabled as described at: <<linux-kernel-early-boot-messages>>.
 
-This could be used to debug the Linux kernel boot if problems happen before the serial is enabled: <<linux-kernel-early-boot-messages>>.
+The file is dumped only on kernel panics which gem5 can detect by the PC address: <<exit-gem5-on-panic>>.
 
-The file appears to get dumped only on kernel panic which gem5 can detect by the PC address: <<exit-gem5-on-panic>>.
+This mechanism can be very useful to debug the Linux kernel boot if problems happen before the serial is enabled.
+
+This magic mechanism works by activating an event when the PC reaches the `printk` address, much like gem5 <<exit-gem5-on-panic,can detect `panic` by PC>> and then parsing printk function arguments and buffers!
+
+The relevant source is at https://github.com/gem5/gem5/blob/cd69bb50414450c3bb5ef41dce676b75fd42c0ee/src/kern/linux/printk.cc[`src/kern/linux/printk.c`].
+
+We can test this mechanism in a controlled way by hacking a `panic()` into the kernel next to a `printk` that shows up before the serial is enabled, e.g. on Linux v5.4.3 we could do:
+
+....
+diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
+index f296d89be757..3e79916322c2 100644
+--- a/kernel/trace/ftrace.c
++++ b/kernel/trace/ftrace.c
+@@ -6207,6 +6207,7 @@ void __init ftrace_init(void)
+
+    pr_info("ftrace: allocating %ld entries in %ld pages\n",
+        count, count / ENTRIES_PER_PAGE + 1);
++   panic("foobar");
+
+    last_ftrace_enabled = ftrace_enabled = 1;
+....
+
+With this, after the panic, `system.workload.dmesg` contains on LKMC d09a0d97b81582cc88381c4112db631da61a048d aarch64:
+
+....
+[0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd070]
+[0.000000] Linux version 5.4.3-dirty (lkmc@f7688b48ac46e9a669e279f1bc167722d5141eda) (gcc version 8.3.0 (Buildroot 2019.11-00002-g157ac499cf)) #1 SMP Thu Jan 1 00:00:00 UTC 1970
+[0.000000] Machine model: V2P-CA15
+[0.000000] Memory limited to 256MB
+[0.000000] efi: Getting EFI parameters from FDT:
+[0.000000] efi: UEFI not found.
+[0.000000] On node 0 totalpages: 65536
+[0.000000]   DMA32 zone: 1024 pages used for memmap
+[0.000000]   DMA32 zone: 0 pages reserved
+[0.000000]   DMA32 zone: 65536 pages, LIFO batch:15
+[0.000000] percpu: Embedded 29 pages/cpu s79960 r8192 d30632 u118784
+[0.000000] pcpu-alloc: s79960 r8192 d30632 u118784 alloc=29*4096
+[0.000000] pcpu-alloc: [0] 0
+[0.000000] Detected PIPT I-cache on CPU0
+[0.000000] CPU features: detected: ARM erratum 832075
+[0.000000] CPU features: detected: EL2 vector hardening
+[0.000000] ARM_SMCCC_ARCH_WORKAROUND_1 missing from firmware
+[0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 64512
+[0.000000] Kernel command line: earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem=256MB root=/dev/sda console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y rw console=ttyAMA0 - lkmc_home=/lkmc
+[0.000000] Dentry cache hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[0.000000] Inode-cache hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[0.000000] Memory: 233432K/262144K available (6652K kernel code, 792K rwdata, 2176K rodata, 896K init, 659K bss, 28712K reserved, 0K cma-reserved)
+[0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[0.000000] ftrace: allocating 22067 entries in 87 pages
+....
+
+So we see that messages up to the `ftrace` do show up!
 
 [[gem5-m5out-stats-txt-file]]
 ==== gem5 m5out/stats.txt file
