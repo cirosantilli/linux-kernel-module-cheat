@@ -1170,7 +1170,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-stats-internals">19.9.3.3. gem5 stats internals</a></li>
 </ul>
 </li>
-<li><a href="#gem5-config-ini">19.9.4. gem5 config.ini</a></li>
+<li><a href="#gem5-config-ini">19.9.4. gem5 config.ini</a>
+<ul class="sectlevel4">
+<li><a href="#gem5-config-dot">19.9.4.1. gem5 config.dot</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#m5term">19.10. m5term</a></li>
@@ -20400,17 +20404,6 @@ clock=500</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>You can also get a simplified graphical view of the tree with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.pdf"</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Modifying the <code>config.ini</code> file manually does nothing since it gets overwritten every time.</p>
-</div>
-<div class="paragraph">
 <p>Set custom configs with the <code>--param</code> option of <code>fs.py</code>, e.g. we can make gem5 wait for GDB to connect with:</p>
 </div>
 <div class="literalblock">
@@ -20420,6 +20413,27 @@ clock=500</pre>
 </div>
 <div class="paragraph">
 <p>More complex settings involving new classes however require patching the config files, although it is easy to hack this up. See for example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/patches/manual/gem5-semihost.patch">patches/manual/gem5-semihost.patch</a>.</p>
+</div>
+<div class="paragraph">
+<p>Modifying the <code>config.ini</code> file manually does nothing since it gets overwritten every time.</p>
+</div>
+<div class="sect4">
+<h5 id="gem5-config-dot"><a class="anchor" href="#gem5-config-dot"></a><a class="link" href="#gem5-config-dot">19.9.4.1. gem5 config.dot</a></h5>
+<div class="paragraph">
+<p>The <code>m5out/config.dot</code> file contains a graphviz <code>.dot</code> file that provides a simplified graphical view of a subset of the <a href="#gem5-config-ini">gem5 config.ini</a>.</p>
+</div>
+<div class="paragraph">
+<p>This file gets automatically converted to <code>.svg</code> and <code>.pdf</code>, which you can view after running gem5 with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.pdf"
+xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.svg"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>An example of such file can be seen at: <a href="#config-dot-svg-timingsimplecpu"><code>config.dot.svg</code> for a TimingSimpleCPU without caches.</a>.</p>
+</div>
 </div>
 </div>
 </div>
@@ -32516,61 +32530,7 @@ collect2: error: ld returned 1 exit status</pre>
 <div class="sect2">
 <h3 id="baremetal-cpp"><a class="anchor" href="#baremetal-cpp"></a><a class="link" href="#baremetal-cpp">27.6. Baremetal C++</a></h3>
 <div class="paragraph">
-<p>TODO not working as of 8825222579767f2ee7e46ffd8204b9e509440759 + 1. Not yet properly researched / reported upstream yet.</p>
-</div>
-<div class="paragraph">
-<p>Should not be hard in theory since <code>libstdc++</code> is just part of GCC, as shown at: <a href="https://stackoverflow.com/questions/21872229/how-to-edit-and-re-build-the-gcc-libstdc-c-standard-library-source/51946224#51946224" class="bare">https://stackoverflow.com/questions/21872229/how-to-edit-and-re-build-the-gcc-libstdc-c-standard-library-source/51946224#51946224</a></p>
-</div>
-<div class="paragraph">
-<p>To test it out, I first hack <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/common.py">common.py</a> to enable <code>C++</code>:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>consts['baremetal_build_in_exts'] = consts['build_in_exts']</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>and then I hack <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/inline_asm/multiline.cpp">userland/arch/aarch64/inline_asm/multiline.cpp</a> to consist only of an empty main:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>int main() {}</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>then for example:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-baremetal --arch aarch64
-./run --arch aarch64 --baremetal userland/arch/aarch64/inline_asm/multiline.cpp</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>fails with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>rom: requested regions overlap (rom dtb. free=0x00000000000000a0, addr=0x0000000000000000)
-qemu-system-aarch64: rom check and register reset failed</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>and the gem5 build fails completely:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-baremetal --arch aarch64 --emulator gem5 userland/arch/aarch64/inline_asm/multiline.cpp</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>fails with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>/tmp/ccFd2YIB.o:(.eh_frame+0x1c): relocation truncated to fit: R_AARCH64_PREL32 against `.text'
-collect2: error: ld returned 1 exit status</pre>
-</div>
+<p>Didn&#8217;t get it working, traking at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/119" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/119</a></p>
 </div>
 </div>
 <div class="sect2">
