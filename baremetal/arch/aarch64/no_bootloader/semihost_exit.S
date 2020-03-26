@@ -1,11 +1,11 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#semihosting
  *
- * Since our stack pointer is not setup, we justa allocate a memory
+ * Since our stack pointer is not setup, we just a allocate a memory
  * region to contain the semihosting arguments, which must be in memory.
  */
 
-.global lkmc_start
-lkmc_start:
+.global _start
+_start:
     mov x1, 0x26
     movk x1, 2, lsl 16
     ldr x2, =.Lsemihost_args

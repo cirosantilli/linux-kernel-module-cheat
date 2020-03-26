@@ -5,8 +5,8 @@
 
 #include <lkmc.h>
 
-.global lkmc_start
-lkmc_start:
+.global _start
+_start:
     /* Reset spinlock. */
     mov x0, 0
     ldr x1, =.Lspinlock

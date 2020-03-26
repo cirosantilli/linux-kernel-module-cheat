@@ -2,8 +2,8 @@
 
 #include <lkmc.h>
 
-.global lkmc_start
-lkmc_start:
+.global _start
+_start:
     mov r0, 0
     ldr r1, =.Lspinlock
     str r0, [r1]

@@ -1,4 +1,4 @@
-ENTRY(lkmc_start)
+ENTRY(_start)
 SECTIONS
 {
   .text : {

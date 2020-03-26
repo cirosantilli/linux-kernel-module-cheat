@@ -1,7 +1,7 @@
 #include <lkmc.h>
 
-.global lkmc_start
-lkmc_start:
+.global _start
+_start:
     /* Make all CPUs except CPU0 sleep by default. */
     mrs x0, mpidr_el1
     ands x0, x0, 3

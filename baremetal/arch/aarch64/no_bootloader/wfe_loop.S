@@ -2,7 +2,7 @@
 
 #include <lkmc/m5ops.h>
 
-.global lkmc_start
-lkmc_start:
+.global _start
+_start:
     wfe
-    b lkmc_start
+    b _start
