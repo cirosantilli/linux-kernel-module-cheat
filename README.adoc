@@ -11321,13 +11321,13 @@ since boot has already happened, and the parameters are already in the RAM of th
 
 ==== gem5 checkpoint userland minimal example
 
-In order to debug checkpoint restore bugs, this minimal setup using link:userland/freestanding/gem5_checkpoint_restore.S[] can be handy:
+In order to debug checkpoint restore bugs, this minimal setup using link:userland/freestanding/gem5_checkpoint.S[] can be handy:
 
 ....
 ./build-userland --arch aarch64 --static
-./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint_restore.S --trace-insts-stdout
-./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint_restore.S --trace-insts-stdout --gem5-restore 1
-./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint_restore.S --trace-insts-stdout --gem5-restore 1 -- --cpu-type=DerivO3CPU --restore-with-cpu=DerivO3CPU --caches
+./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint.S --trace-insts-stdout
+./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint.S --trace-insts-stdout --gem5-restore 1
+./run --arch aarch64 --emulator gem5 --static --userland userland/freestanding/gem5_checkpoint.S --trace-insts-stdout --gem5-restore 1 -- --cpu-type=DerivO3CPU --restore-with-cpu=DerivO3CPU --caches
 ....
 
 On the initial run, we see that all instructions are executed and the checkpoint is taken:
@@ -11512,7 +11512,7 @@ And then restore the checkpoint with a different slower CPU:
 
 And now you will notice that everything happens much slower in the guest terminal!
 
-One even more direct and minimal way to observe this is with link:userland/freestanding/gem5_checkpoint_restore.S[] which was mentioned at <<gem5-checkpoint-userland-minimal-example>> plus some logging:
+One even more direct and minimal way to observe this is with link:userland/freestanding/gem5_checkpoint.S[] which was mentioned at <<gem5-checkpoint-userland-minimal-example>> plus some logging:
 
 ....
 ./run \
@@ -11520,7 +11520,7 @@ One even more direct and minimal way to observe this is with link:userland/frees
   --emulator gem5 \
   --static \
   --trace ExecAll,FmtFlag,O3CPU,SimpleCPU \
-  --userland userland/freestanding/gem5_checkpoint_restore.S \
+  --userland userland/freestanding/gem5_checkpoint.S \
 ;
 cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
 ./run \
@@ -11529,7 +11529,7 @@ cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
   --gem5-restore 1 \
   --static \
   --trace ExecAll,FmtFlag,O3CPU,SimpleCPU \
-  --userland userland/freestanding/gem5_checkpoint_restore.S \
+  --userland userland/freestanding/gem5_checkpoint.S \
   -- \
   --caches \
   --cpu-type DerivO3CPU \
@@ -11584,7 +11584,7 @@ This is generally useless compared to checkpoint restoring because:
 * checkpoint restore allows to run multiple contents after the restore, and restoring to multiple different system states, which you almost always want to do
 * we generally don't know the exact tick at which the region of interest will start, especially as the binaries change. It is much easier to just instrument the content with a checkoint <<m5ops,m5op>>
 
-But let's give it a try anyways with link:userland/freestanding/gem5_checkpoint_restore.S[] which was mentioned at <<gem5-checkpoint-userland-minimal-example>>
+But let's give it a try anyways with link:userland/freestanding/gem5_checkpoint.S[] which was mentioned at <<gem5-checkpoint-userland-minimal-example>>
 
 ....
 ./run \
@@ -11592,7 +11592,7 @@ But let's give it a try anyways with link:userland/freestanding/gem5_checkpoint_
   --emulator gem5 \
   --static \
   --trace ExecAll,FmtFlag,O3CPU,SimpleCPU \
-  --userland userland/freestanding/gem5_checkpoint_restore.S \
+  --userland userland/freestanding/gem5_checkpoint.S \
   -- \
   --caches
   --cpu-type DerivO3CPU \
@@ -17003,6 +17003,7 @@ The C standard library infrastructure is implemented in the common userland / ba
 
 Unlike most our other assembly examples, which use the C standard library for portability, examples under `freestanding/` directories don't link to the C standard library:
 
+* link:userland/freestanding/[]: freestanding programs that work on any ISA
 * link:userland/arch/x86_64/freestanding/[]
 * link:userland/arch/arm/freestanding/[]
 * link:userland/arch/aarch64/freestanding/[]

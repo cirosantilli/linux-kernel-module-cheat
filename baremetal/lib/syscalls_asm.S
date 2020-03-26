@@ -7,6 +7,7 @@
  * void _exit(int status)
  *
  * If only there was a GCC attribute to create such a function!
+ * https://stackoverflow.com/questions/43310704/creating-a-c-function-without-compiler-generated-prologue-epilogue-ret-instruc
  */
 .text
 .global _exit

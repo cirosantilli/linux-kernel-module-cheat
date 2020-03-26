@@ -50,6 +50,7 @@ class PathProperties:
         'extra_objs_disable_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
+        'freestanding': True,
         'gem5_unimplemented_instruction': False,
         # Fully, or partially unimplemented.
         'gem5_unimplemented_syscall': False,
@@ -374,13 +375,18 @@ freestanding_properties = {
         '-static', LF,
     ],
     'extra_objs_lkmc_common': False,
+    'freestanding': True,
 }
 # https://cirosantilli.com/linux-kernel-module-cheat#nostartfiles-programs
 nostartfiles_properties = {
+    # The baremetal bootloader sets up the stack to a valid value.
+    # Therefore, without it, C code may not be called, and so this is very restrictive in general.
+    # Programs that don't call C code nor use stack can still work.
     'baremetal': False,
     'cc_flags': [
         '-nostartfiles', LF,
     ],
+    'extra_objs_disable_baremetal_bootloader': True,
 }
 # See: https://cirosantilli.com/linux-kernel-module-cheat#path-properties
 path_properties_tuples = (
@@ -406,7 +412,6 @@ path_properties_tuples = (
                                 'no_bootloader': (
                                     {'extra_objs_disable_baremetal_bootloader': True},
                                     {
-                                        'gem5_exit.S': {'requires_m5ops': True},
                                         'multicore_asm.S': {'test_run_args': {'cpus': 2}},
                                         'semihost_exit.S': {'requires_semihosting': True},
                                     }
@@ -423,7 +428,6 @@ path_properties_tuples = (
                                 'no_bootloader': (
                                     {'extra_objs_disable_baremetal_bootloader': True},
                                     {
-                                        'gem5_exit.S': {'requires_m5ops': True},
                                         'multicore_asm.S': {'test_run_args': {'cpus': 2}},
                                         'semihost_exit.S': {'requires_semihosting': True},
                                         'wfe_loop.S': {'more_than_1s': True},
@@ -685,9 +689,9 @@ path_properties_tuples = (
                     },
                 ),
                 'freestanding': (
-                    freestanding_properties,
+                    {**freestanding_properties, **{'baremetal': True}},
                     {
-                        'gem5_checkpoint_restore.S': {'allowed_emulators': {'gem5'}},
+                        'gem5_checkpoint.S': {'allowed_emulators': {'gem5'}},
                         'gem5_exit.S': {'allowed_emulators': {'gem5'}},
                     }
                 ),

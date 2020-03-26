@@ -1716,10 +1716,16 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
             if extra_objs is None:
                 extra_objs= []
             if link:
-                if self.env['mode'] == 'baremetal' or my_path_properties['extra_objs_lkmc_common']:
+                #  Baremetal builds cannot add their usual syscall objects, as those
+                # rely on standard library symbols.
+                if my_path_properties['freestanding']:
+                    extra_objs = []
+                if (self.env['mode'] == 'baremetal' and not my_path_properties['freestanding']) \
+                        or my_path_properties['extra_objs_lkmc_common']:
                     extra_objs.extend(extra_objs_lkmc_common)
                 if (
                     self.env['mode'] == 'baremetal' and
+                    not my_path_properties['freestanding'] and
                     not my_path_properties['extra_objs_disable_baremetal_bootloader']
                 ):
                     extra_objs.extend(extra_objs_baremetal_bootloader)
