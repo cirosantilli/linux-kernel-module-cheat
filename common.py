@@ -28,7 +28,11 @@ import urllib
 import urllib.request
 
 from shell_helpers import LF
-import china_dictatorship
+try:
+    # Let's not make it mandatory for now.
+    import china_dictatorship
+except ImportError:
+    pass
 import cli_function
 import path_properties
 import shell_helpers
