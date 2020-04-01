@@ -50,7 +50,7 @@ class PathProperties:
         'extra_objs_disable_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
         'extra_objs_lkmc_common': False,
-        'freestanding': True,
+        'freestanding': False,
         'gem5_unimplemented_instruction': False,
         # Fully, or partially unimplemented.
         'gem5_unimplemented_syscall': False,
