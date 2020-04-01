@@ -8,7 +8,7 @@ _start:
     bne lkmc_cpu_not_0
 
     /* Prepare the stack for main, mandatory for C code. */
-    ldr sp, =stack_top
+    ldr sp, =lkmc_stack_top
 
     /* Enable floating point.
      * Code copied from: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0409h/CHDEGGFF.html

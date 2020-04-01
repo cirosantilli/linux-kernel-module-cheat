@@ -11,7 +11,7 @@ __asm__(
 "lkmc_cpu_not_0:\n"
 "    cmp r0, 1\n"
 "    bne .Lsleep_forever\n"
-"    ldr sp, =(stack_top - 0x1000)\n"
+"    ldr sp, =(lkmc_stack_top - 0x1000)\n"
 "    bl main_cpu1\n"
 ".Lsleep_forever:\n"
 "    wfe\n"

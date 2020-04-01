@@ -18,7 +18,7 @@ __asm__(
 "    bne .Lsleep_forever\n"
 /* Prepare the stack for CPU1. This is what we need
  * this assembly function for. */
-"    ldr x0, =(stack_top - 0x1000)\n"
+"    ldr x0, =(lkmc_stack_top - 0x1000)\n"
 "    mov sp, x0\n"
 "    bl main_cpu1\n"
 ".Lsleep_forever:\n"

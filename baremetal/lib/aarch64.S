@@ -20,7 +20,7 @@ _start:
     isb
 
     /* Prepare the stack for main, mandatory for C code. */
-    ldr x0, =stack_top
+    ldr x0, =lkmc_stack_top
     mov sp, x0
 
     /* https://cirosantilli.com/linux-kernel-module-cheat#magic-failure-string */

@@ -12,8 +12,8 @@ enum {
     UART_FR_RXFE = 0x10,
 };
 
-extern char heap_low;
-extern char heap_top;
+extern char lkmc_heap_low;
+extern char lkmc_heap_top;
 
 char *heap_end = 0;
 
@@ -90,10 +90,10 @@ _CLOCK_T_ _times_r (struct _reent *r, struct tms *ptms) {
 caddr_t _sbrk(int incr) {
     char *prev_heap_end;
     if (heap_end == 0) {
-        heap_end = &heap_low;
+        heap_end = &lkmc_heap_low;
     }
     prev_heap_end = heap_end;
-    if (heap_end + incr > &heap_top) {
+    if (heap_end + incr > &lkmc_heap_top) {
         /* Heap and stack collision */
         return (caddr_t)0;
     }
