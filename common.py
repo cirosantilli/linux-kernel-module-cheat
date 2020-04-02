@@ -1248,6 +1248,16 @@ lunch aosp_{}-eng
             )
 
     @staticmethod
+    def python_escape_double_quotes(s):
+        s2 = []
+        for c in s:
+            if c == '"':
+                s2.append('\\"')
+            else:
+                s2.append(c)
+        return ''.join(s2)
+
+    @staticmethod
     def python_struct_int_format(size):
         if size == 4:
             return 'i'

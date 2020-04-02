@@ -471,6 +471,37 @@ Extra options to append at the end of the emulator command line.
                     raise_image_not_found()
             else:
                 raise_image_not_found()
+        if self.env['baremetal'] is not None:
+            # Setup CLI arguments into a single raw binary file to be loaded into memory.
+            # The memory setup of that file is:
+            # argc
+            # argv[0] pointer
+            # argv[1] pointer
+            # ...
+            # argv[N] pointer
+            # argv[0][0] data
+            # argv[0][1] data
+            # ...
+            # argv[1][0] data
+            # argv[1][1] data
+            # ...
+            if self.env['cli_args'] is not None:
+                cli_args_split = shlex.split(self.env['cli_args'])
+            else:
+                cli_args_split = []
+            argc_addr = self.env['entry_address'] + self.env['baremetal_max_text_size'] + self.env['baremetal_memory_size']
+            argv_addr = argc_addr + self.env['int_size']
+            argv_data_addr = argv_addr + len(cli_args_split) * self.env['address_size']
+            argv_addr_data = []
+            argv_addr_cur = argv_data_addr
+            for arg in cli_args_split:
+                argv_addr_data.append(struct.pack('<{}'.format(self.python_struct_int_format(self.env['address_size'])), argv_addr_cur))
+                argv_addr_cur += len(arg) + 1
+            baremetal_cli_path = os.path.join(self.env['run_dir'], 'baremetal_cli.raw')
+            with open(baremetal_cli_path, 'wb') as f:
+                f.write(struct.pack('<{}'.format(self.python_struct_int_format(self.env['int_size'])), len(cli_args_split)))
+                f.write(b''.join(argv_addr_data))
+                f.write(b'\0'.join(arg.encode() for arg in cli_args_split) + b'\0')
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
@@ -541,6 +572,11 @@ Extra options to append at the end of the emulator command line.
                     ])
                     if self.env['disk_image'] is not None:
                         cmd.extend(['--disk-image', self.env['disk_image'], LF])
+                    if not self.env['baremetal'] is None:
+                        cmd.extend([
+                            '--param', 'system.workload.extras = "{}"'.format(self.python_escape_double_quotes(baremetal_cli_path)), LF,
+                            '--param', 'system.workload.extras_addrs = {}'.format(hex(argc_addr)), LF,
+                        ])
                     if self.env['arch'] == 'x86_64':
                         if self.env['kvm']:
                             cmd.extend(['--cpu-type', 'X86KvmCPU', LF])
@@ -563,6 +599,7 @@ Extra options to append at the end of the emulator command line.
                                 '--command-line',
                                 'earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli), LF
                             ])
+                            cmd.extend(['--param', 'system.workload.panic_on_panic = True', LF])
                         dtb = None
                         if self.env['dtb'] is not None:
                             dtb = self.env['dtb']
@@ -579,8 +616,6 @@ Extra options to append at the end of the emulator command line.
                             )
                         if dtb is not None:
                             cmd.extend(['--dtb-filename', dtb, LF])
-                        if self.env['baremetal'] is None:
-                            cmd.extend(['--param', 'system.workload.panic_on_panic = True', LF])
                         else:
                             cmd.extend([
                                 '--bare-metal', LF,
@@ -727,36 +762,6 @@ Extra options to append at the end of the emulator command line.
                 if self.env['dtb'] is not None:
                     cmd.extend(['-dtb', self.env['dtb'], LF])
                 if self.env['baremetal'] is not None:
-                    # Setup CLI arguments into a single raw binary file to be loaded into memory.
-                    # The memory setup of that file is:
-                    # argc
-                    # argv[0] pointer
-                    # argv[1] pointer
-                    # ...
-                    # argv[N] pointer
-                    # argv[0][0] data
-                    # argv[0][1] data
-                    # ...
-                    # argv[1][0] data
-                    # argv[1][1] data
-                    # ...
-                    if self.env['cli_args'] is not None:
-                        cli_args_split = shlex.split(self.env['cli_args'])
-                    else:
-                        cli_args_split = []
-                    argc_addr = self.env['entry_address'] + self.env['baremetal_max_text_size'] + self.env['baremetal_memory_size'] 
-                    argv_addr = argc_addr + self.env['int_size']
-                    argv_data_addr = argv_addr + len(cli_args_split) * self.env['address_size']
-                    argv_addr_data = []
-                    argv_addr_cur = argv_data_addr
-                    for arg in cli_args_split:
-                        argv_addr_data.append(struct.pack('<{}'.format(self.python_struct_int_format(self.env['address_size'])), argv_addr_cur))
-                        argv_addr_cur += len(arg) + 1
-                    baremetal_cli_path = os.path.join(self.env['run_dir'], 'baremetal_cli.raw')
-                    with open(baremetal_cli_path, 'wb') as f:
-                        f.write(struct.pack('<{}'.format(self.python_struct_int_format(self.env['int_size'])), len(cli_args_split)))
-                        f.write(b''.join(argv_addr_data))
-                        f.write(b'\0'.join(arg.encode() for arg in cli_args_split) + b'\0')
                     cmd.extend([
                         '-device', 'loader,addr={},file={},force-raw=on'.format(
                             hex(argc_addr),
