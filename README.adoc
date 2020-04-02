@@ -1170,7 +1170,7 @@ sudo apt-get install gcc-aarch64-linux-gnu qemu-system-aarch64
   --qemu-which host \
   --userland-build-id host \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ....
 
@@ -1204,7 +1204,7 @@ and <<user-mode-gdb>>:
   --qemu-which host \
   --userland-build-id host \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ....
 
@@ -3699,7 +3699,7 @@ Let's run link:userland/c/command_line_arguments.c[] built with the Buildroot to
 ./build user-mode-qemu
 ./run \
   --userland userland/c/command_line_arguments.c \
-  --userland-args='asdf "qw er"' \
+  --cli-args='asdf "qw er"' \
 ;
 ....
 
@@ -3730,7 +3730,7 @@ It's nice when <<gdb,the obvious>> just works, right?
   --arch aarch64 \
   --gdb-wait \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ....
 
@@ -3751,7 +3751,7 @@ Or alternatively, if you are using <<tmux>>, do everything in one go with:
   --arch aarch64 \
   --gdb \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ....
 
@@ -3795,7 +3795,7 @@ If you followed <<qemu-buildroot-setup>>, you can now run the executables create
 ....
 ./run \
   --userland "$(./getvar buildroot_target_dir)/bin/echo" \
-  --userland-args='asdf' \
+  --cli-args='asdf' \
 ;
 ....
 
@@ -3815,7 +3815,7 @@ or:
 ./run \
   --arch aarch64 \
   --userland "$(./getvar --arch aarch64 buildroot_target_dir)/bin/sh" \
-  --userland-args='-c "uname -a && pwd"' \
+  --cli-args='-c "uname -a && pwd"' \
 ;
 ....
 
@@ -3903,7 +3903,7 @@ Example:
   --arch aarch64 \
   --static \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ....
 
@@ -4038,7 +4038,7 @@ So let's just play with some static ones:
   --arch aarch64 \
   --emulator gem5 \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ....
 
@@ -4052,7 +4052,7 @@ TODO: how to escape spaces on the command line arguments?
   --emulator gem5 \
   --gdb-wait \
   --userland userland/c/command_line_arguments.c \
-  --userland-args 'asdf "qw er"' \
+  --cli-args 'asdf "qw er"' \
 ;
 ./run-gdb \
   --arch aarch64 \
@@ -4137,7 +4137,7 @@ so we see that two syscall lines were added for each syscall, showing the syscal
 At 8d8307ac0710164701f6e14c99a69ee172ccbb70 + 1, I noticed that if you run link:userland/posix/count.c[]:
 
 ....
-./run --userland userland/posix/count_to.c --userland-args 3
+./run --userland userland/posix/count_to.c --cli-args 3
 ....
 
 it first waits for 3 seconds, then the program exits, and then it dumps all the stdout at once, instead of counting once every second as expected.
@@ -10861,7 +10861,7 @@ This random page suggests that QEMU splits one host thread thread per guest thre
 We can confirm that with:
 
 ....
-./run --userland userland/posix/pthread_count.c --userland-args 4
+./run --userland userland/posix/pthread_count.c --cli-args 4
 ps Haux | grep qemu | wc
 ....
 
@@ -10878,7 +10878,7 @@ In gem5 syscall simulation, the `fork` syscall checks if there is a free CPU, an
 For example, if we use just one CPU for link:userland/posix/pthread_self.c[] which spawns one thread besides `main`:
 
 ....
-./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1
+./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1
 ....
 
 fails with this error message coming from the guest stderr:
@@ -10890,13 +10890,13 @@ pthread_create: Resource temporarily unavailable
 It works however if we add on extra CPU:
 
 ....
-./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args 1
+./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1
 ....
 
 Once threads exit, their CPU is freed and becomes available for new `fork` calls: For example, the following run spawns a thread, joins it, and then spawns again, and 2 CPUs are enough:
 
 ....
-./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --userland-args '1 2'
+./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args '1 2'
 ....
 
 because at each point in time, only up to two threads are running.
@@ -11742,7 +11742,7 @@ In LKMC we build `m5` with:
 The `m5` executable can be run on <<user-mode-simulation>> as normal with:
 
 ....
-./run --arch aarch64 --emulator gem5 --userland "$(./getvar --arch aarch64 out_rootfs_overlay_bin_dir)/m5" --userland-args dumpstats
+./run --arch aarch64 --emulator gem5 --userland "$(./getvar --arch aarch64 out_rootfs_overlay_bin_dir)/m5" --cli-args dumpstats
 ....
 
 This can be a good test <<m5ops>> since it executes very quickly.
@@ -12250,7 +12250,7 @@ TODO what is the advantage? The generated file for `--stats-file h5://stats.h5?d
 We then try to see if it is any better when you have a bunch of dump events:
 
 ....
-./run --arch aarch64 --emulator gem5 --userland userland/c/m5ops.c --userland-args 'd 1000'
+./run --arch aarch64 --emulator gem5 --userland userland/c/m5ops.c --cli-args 'd 1000'
 ....
 
 and there yes, we see that the file size fell from 39MB on `stats.txt` to 3.2MB on `stats.m5`, so the increase observed previously was just due to some initial size overhead (considering the patched gem5 with no spaces in the text file).
@@ -12594,7 +12594,7 @@ The message also shows on <<user-mode-simulation>> deadlocks, for example in lin
 ./run \
   --emulator gem5 \
   --userland userland/posix/pthread_deadlock.c \
-  --userland-args 1 \
+  --cli-args 1 \
 ;
 ....
 
@@ -16017,7 +16017,7 @@ or:
 Non-interactive usage:
 
 ....
-./run --userland "$(./getvar buildroot_target_dir)/usr/bin/python3" --userland-args rootfs_overlay/lkmc/python/hello.py
+./run --userland "$(./getvar buildroot_target_dir)/usr/bin/python3" --cli-args rootfs_overlay/lkmc/python/hello.py
 ....
 
 ===== Python gem5 user mode simulation
@@ -16028,7 +16028,7 @@ At LKMC 50ac89b779363774325c81157ec8b9a6bdb50a2f gem5 390a74f59934b85d91489f8a56
 ./run \
   --emulator gem5 \
   --userland "$(buildroot_target_dir)/usr/bin/python3" \
-  --userland-args rootfs_overlay/lkmc/python/hello.py \
+  --cli-args rootfs_overlay/lkmc/python/hello.py \
 ;
 ....
 
@@ -16047,7 +16047,7 @@ and aarch64:
   --arch aarch64 \
   --emulator gem5 \
   --userland "$(./getvar --arch aarch64 buildroot_target_dir)/usr/bin/python3" \
-  --userland-args rootfs_overlay/lkmc/python/hello.py \
+  --cli-args rootfs_overlay/lkmc/python/hello.py \
 ;
 ....
 
@@ -16285,7 +16285,7 @@ To benchmark on gem5, we first build the benchmark with <<m5ops-instructions>> e
   --arch x86_64 \
   --emulator gem5 \
   --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
-  --userland-args='100000 1 0' \
+  --cli-args='100000 1 0' \
   -- \
   --cpu-type=DerivO3CPU \
   --caches \
@@ -16432,7 +16432,7 @@ TODO automate run more nicely to dispense `getvar`.
 Increase the number of loops to try and reach more meaningful results:
 
 ....
-./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone" --userland-args 100000000
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone" --cli-args 100000000
 ....
 
 Build and run on gem5 user mode:
@@ -16522,14 +16522,14 @@ git submodule update --init submodules/stream-benchmark
 Decrease the benchmark size and the retry count to finish simulation faster, but possibly have a less representative result:
 
 ....
-./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '100 2'
+./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --cli-args '100 2'
 ....
 
 Build and run on gem5 user mode:
 
 ....
 ./build-stream --optimization-level 3
-./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --userland-args '1000 2'
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --cli-args '1000 2'
 ....
 
 ==== PARSEC benchmark
@@ -19503,11 +19503,39 @@ Those for example are required to implement `malloc` in Newlib. We can play with
 ./run --arch aarch64 --baremetal baremetal/linker_variables.c
 ....
 
+=== Baremetal command line arguments
+
+QEMU currently supports baremetal CLI arguments! TODO do it for gem5 as well.
+
+You can see them in action e.g. with:
+
+....
+./run --arch aarch64 --baremetal userland/c/command_line_arguments.c --cli-args 'aa bb cc'
+./run --arch aarch64 --userland userland/c/command_line_arguments.c --cli-args 'aa bb cc'
+....
+
+both of which output the exact same thing:
+
+....
+aa
+bb
+cc
+....
+
+This is implemented by parsing the command line arguments and placing them into memory where the code will find them.
+
+This works by:
+
+* fixing the `argc` and `argv` addresses in memory in the <<baremetal-linker-script>>
+* the <<baremetal-bootloaders>> pass those addresses correctly to the call of `main`
+* our Python scripts write the desired binary memory values to a file
+* QEMU loads those files into memory with `-device loader`: https://github.com/qemu/qemu/blob/60905286cb5150de854e08279bca7dfc4b549e91/docs/generic-loader.txt
+
+It is worth noting that e.g. ARM has a <<semihosting>> mechanism for loading CLI arguments through `SYS_GET_CMDLINE`, but our mechanism works in principle for any ISA.
+
 === Semihosting
 
-Semihosting is a publicly documented interface specified by ARM Holdings that allows us to do some magic operations very useful in development.
-
-Semihosting is implemented both on some real devices and on simulators such as QEMU and <<gem5-semihosting>>.
+Semihosting is a publicly documented interface specified by ARM Holdings that allows us to do some magic operations very useful in development, such as writting to the terminal or reading and writing host files.
 
 It is documented at: https://developer.arm.com/docs/100863/latest/introduction
 
@@ -21323,7 +21351,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`./run --arch aarch64 --emulator gem5 --static --userland userland/gcc/busy_loop.c --userland-args 1000000`
+|`./run --arch aarch64 --emulator gem5 --static --userland userland/gcc/busy_loop.c --cli-args 1000000`
 |10^6
 |18
 |2.4005699 * 10^7
@@ -21332,7 +21360,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop for a debug build
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`./run --arch aarch64 --emulator gem5 --gem5-build-type debug --static --userland userland/gcc/busy_loop.c --userland-args 100000`
+|`./run --arch aarch64 --emulator gem5 --gem5-build-type debug --static --userland userland/gcc/busy_loop.c --cli-args 100000`
 |10^5
 |33
 |2.405682 * 10^6
@@ -21341,7 +21369,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop for a fast build
 |0d5a41a3f88fcd7ed40fc19474fe5aed0463663f + 1
 |link:userland/gcc/busy_loop.c[] `-O0 -static`
-|`./run --arch aarch64 --emulator gem5 --gem5-build-type fast --static --userland userland/gcc/busy_loop.c --userland-args 1000000`
+|`./run --arch aarch64 --emulator gem5 --gem5-build-type fast --static --userland userland/gcc/busy_loop.c --cli-args 1000000`
 |10^6
 |15
 |2.4005699 * 10^7
@@ -21350,7 +21378,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop for a <<gem5-cpu-types,TimingSimpleCPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`+./run --arch aarch64 --emulator gem5 --arch aarch64 --static --userland userland/gcc/busy_loop.c --userland-args 1000000 -- --cpu-type TimingSimpleCPU --caches+`
+|`+./run --arch aarch64 --emulator gem5 --arch aarch64 --static --userland userland/gcc/busy_loop.c --cli-args 1000000 -- --cpu-type TimingSimpleCPU --caches+`
 |10^6
 |26
 |2.4005699 * 10^7
@@ -21359,7 +21387,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |gem5 busy loop for a <<gem5-cpu-types,MinorCPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`+./run --arch aarch64 --emulator gem5 --arch aarch64 --userland userland/gcc/busy_loop.c --userland-args 1000000 -- --cpu-type MinorCPU --caches+`
+|`+./run --arch aarch64 --emulator gem5 --arch aarch64 --userland userland/gcc/busy_loop.c --cli-args 1000000 -- --cpu-type MinorCPU --caches+`
 |10^6
 |31
 |1.1018152 * 10^7
@@ -21395,7 +21423,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |
 |5d233f2664a78789f9907d27e2a40e86cefad595
 |<<stream-benchmark>> `-O3`
-|`./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args 1000000 --trace ExecAll`
+|`./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args 1000000 --trace ExecAll`
 |3 * 10^5 * 2
 |64
 |9.9674773 * 10^7
@@ -21404,7 +21432,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |glibc C pre-main effects
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
 |link:userland/c/m5ops.c[] `-O0`
-|`gem5 --arch aarch64 --userland-args e`
+|`gem5 --arch aarch64 --cli-args e`
 |1
 |2
 |1.26479 * 10^5
@@ -21413,7 +21441,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
 |glibc C pre-main link:userland/c/m5ops.c[] `-O0`
-|`gem5 --arch aarch64 --userland-args e --gem5-build-type debug`
+|`gem5 --arch aarch64 --cli-args e --gem5-build-type debug`
 |1
 |2
 |1.26479 * 10^5
@@ -21422,7 +21450,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
 |glibc C++ pre-main link:userland/cpp/m5ops.cpp[] `-O0`
-|`gem5 --arch aarch64 --userland-args e`
+|`gem5 --arch aarch64 --cli-args e`
 |1
 |2
 |2.385012 * 10^6
@@ -21431,7 +21459,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
 |glibc C++ pre-main link:userland/cpp/m5ops.cpp[] `-O0`
-|`gem5 --arch aarch64 --userland-args e --gem5-build-type debug`
+|`gem5 --arch aarch64 --cli-args e --gem5-build-type debug`
 |1
 |25
 |2.385012 * 10^6
@@ -21458,7 +21486,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |Check the effect of an ExecAll log (log every instruction) on execution time, compare to analogous run without it. `trace.txt` size: 3.5GB. 5x slowdown observed with output to a hard disk.
 |d29a07ddad499f273cc90dd66e40f8474b5dfc40
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args 1000000 --gem5-worktree master --trace ExecAll`
+|`./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args 1000000 --gem5-worktree master --trace ExecAll`
 |10^6
 |2.4106774 * 10^7
 |136
@@ -21467,7 +21495,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |Same as above but with run command manually hacked to output to a ramfs. Slightly faster, but the bulk was still just in log format operations!
 |d29a07ddad499f273cc90dd66e40f8474b5dfc40
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args 1000000 --gem5-worktree master --trace ExecAll`
+|`./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args 1000000 --gem5-worktree master --trace ExecAll`
 |10^6
 |2.4106774 * 10^7
 |107
@@ -21480,7 +21508,7 @@ The first step is to determine a number of loops that will run long enough to ha
 On our <<p51>> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number for a gem5 atomic simulation:
 
 ....
-./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland-args '1 10000000'
+./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args '1 10000000'
 ./gem5-stat --arch aarch64 sim_insts
 ....
 
@@ -21583,7 +21611,7 @@ time \
   --arch arm \
   --emulator gem5 \
   --userland "$(./getvar --arch arm buildroot_build_build_dir)/dhrystone-2/dhrystone" \
-  --userland-args 'asdf qwer' \
+  --cli-args 'asdf qwer' \
 ;
 ....
 

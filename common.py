@@ -72,6 +72,8 @@ consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userlan
 consts['userland_source_arch_dir'] = os.path.join(consts['userland_source_dir'], 'arch')
 consts['userland_executable_ext'] = '.out'
 consts['baremetal_executable_ext'] = '.elf'
+consts['baremetal_max_text_size'] = 0x1000000
+consts['baremetal_memory_size'] = 0x2000000
 consts['include_subdir'] = consts['repo_short_id']
 consts['include_source_dir'] = os.path.join(consts['root_dir'], consts['include_subdir'])
 consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
@@ -587,14 +589,14 @@ https://cirosantilli.com/linux-kernel-module-cheat#user-mode-static-executables
             help='''\
 Run the given userland executable in user mode instead of booting the Linux kernel
 in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
-uses se.py.
-Path resolution is similar to --baremetal.
+uses se.py. Path resolution is similar to --baremetal.
 '''
         )
         self.add_argument(
-            '--userland-args',
+            '--cli-args',
             help='''\
-CLI arguments to pass to the userland executable.
+CLI arguments used in both --userland mode simulation, and in --baremetal. See also:
+https://cirosantilli.com/linux-kernel-module-cheat#baremetal-command-line-arguments
 '''
         )
         self.add_argument(
@@ -772,7 +774,9 @@ Incompatible archs are skipped.
         # +
         # We doe this because QEMU does not add all possible Cortex Axx, there are
         # just too many, and gem5 does not allow selecting lower feature in general.
+        env['int_size'] = 4
         if env['arch'] == 'arm':
+            env['address_size'] = 4
             env['armv'] = 7
             env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-gnueabihf'
             env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
@@ -781,6 +785,7 @@ Incompatible archs are skipped.
             if not env['_args_given']['march']:
                 env['march'] = 'armv8-a'
         elif env['arch'] == 'aarch64':
+            env['address_size'] = 8
             env['armv'] = 8
             env['buildroot_toolchain_prefix'] = 'aarch64-buildroot-linux-gnu'
             env['crosstool_ng_toolchain_prefix'] = 'aarch64-unknown-elf'
@@ -789,6 +794,7 @@ Incompatible archs are skipped.
             if not env['_args_given']['march']:
                 env['march'] = 'armv8-a+lse'
         elif env['arch'] == 'x86_64':
+            env['address_size'] = 8
             env['crosstool_ng_toolchain_prefix'] = 'x86_64-unknown-elf'
             env['gem5_arch'] = 'X86'
             env['buildroot_toolchain_prefix'] = 'x86_64-buildroot-linux-gnu'
@@ -1056,6 +1062,18 @@ Incompatible archs are skipped.
             self.env['baremetal_build_lib_dir'],
             env['baremetal_syscalls_basename_noext'] + '_asm' + self.env['obj_ext']
         )
+        if env['emulator'] == 'gem5':
+            if env['machine'] == 'VExpress_GEM5_V1':
+                env['entry_address'] = 0x80000000
+                env['uart_address'] = 0x1c090000
+            elif self.env['machine'] == 'RealViewPBX':
+                env['entry_address'] = 0x10000
+                env['uart_address'] = 0x10009000
+            else:
+                raise Exception('unknown machine: ' + self.env['machine'])
+        else:
+            env['entry_address'] = 0x40000000
+            env['uart_address']= 0x09000000
 
         # Userland / baremetal common source.
         env['common_basename_noext'] = env['repo_short_id']
@@ -1228,6 +1246,15 @@ lunch aosp_{}-eng
                     subpath
                 )
             )
+
+    @staticmethod
+    def python_struct_int_format(size):
+        if size == 4:
+            return 'i'
+        elif size ==  8:
+            return 'Q'
+        else:
+            raise 'unknown size {}'.format(size)
 
     def get_elf_entry(self, elf_file_path):
         readelf_header = self.sh.check_output([

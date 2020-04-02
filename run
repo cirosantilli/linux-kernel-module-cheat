@@ -4,6 +4,7 @@ import os
 import re
 import shlex
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -517,8 +518,8 @@ Extra options to append at the end of the emulator command line.
                     # "KeyError: 'workload'"
                     '--param', 'system.cpu[0].workload[:].release = "{}"'.format(self.env['kernel_version']), LF,
                 ])
-                if self.env['userland_args'] is not None:
-                    cmd.extend(['--options', self.env['userland_args'], LF])
+                if self.env['cli_args'] is not None:
+                    cmd.extend(['--options', self.env['cli_args'], LF])
                 if not self.env['static']:
                     for path in self.env['userland_library_redirects']:
                         cmd.extend([
@@ -725,6 +726,43 @@ Extra options to append at the end of the emulator command line.
                 )
                 if self.env['dtb'] is not None:
                     cmd.extend(['-dtb', self.env['dtb'], LF])
+                if self.env['baremetal'] is not None:
+                    # Setup CLI arguments into a single raw binary file to be loaded into memory.
+                    # The memory setup of that file is:
+                    # argc
+                    # argv[0] pointer
+                    # argv[1] pointer
+                    # ...
+                    # argv[N] pointer
+                    # argv[0][0] data
+                    # argv[0][1] data
+                    # ...
+                    # argv[1][0] data
+                    # argv[1][1] data
+                    # ...
+                    if self.env['cli_args'] is not None:
+                        cli_args_split = shlex.split(self.env['cli_args'])
+                    else:
+                        cli_args_split = []
+                    argc_addr = self.env['entry_address'] + self.env['baremetal_max_text_size'] + self.env['baremetal_memory_size'] 
+                    argv_addr = argc_addr + self.env['int_size']
+                    argv_data_addr = argv_addr + len(cli_args_split) * self.env['address_size']
+                    argv_addr_data = []
+                    argv_addr_cur = argv_data_addr
+                    for arg in cli_args_split:
+                        argv_addr_data.append(struct.pack('<{}'.format(self.python_struct_int_format(self.env['address_size'])), argv_addr_cur))
+                        argv_addr_cur += len(arg) + 1
+                    baremetal_cli_path = os.path.join(self.env['run_dir'], 'baremetal_cli.raw')
+                    with open(baremetal_cli_path, 'wb') as f:
+                        f.write(struct.pack('<{}'.format(self.python_struct_int_format(self.env['int_size'])), len(cli_args_split)))
+                        f.write(b''.join(argv_addr_data))
+                        f.write(b'\0'.join(arg.encode() for arg in cli_args_split) + b'\0')
+                    cmd.extend([
+                        '-device', 'loader,addr={},file={},force-raw=on'.format(
+                            hex(argc_addr),
+                            baremetal_cli_path,
+                        ), LF,
+                    ])
                 if not self.env['qemu_which'] == 'host':
                     cmd.extend(qemu_user_and_system_options)
                 if self.env['initrd']:
@@ -834,8 +872,8 @@ Extra options to append at the end of the emulator command line.
         if self.env['userland'] and self.env['emulator'] in ('qemu', 'native'):
             # The program and arguments must come at the every end of the CLI.
             cmd.extend([self.env['image'], LF])
-            if self.env['userland_args'] is not None:
-                cmd.extend(self.sh.shlex_split(self.env['userland_args']))
+            if self.env['cli_args'] is not None:
+                cmd.extend(self.sh.shlex_split(self.env['cli_args']))
         if debug_vm or self.env['terminal']:
             out_file = None
         else:

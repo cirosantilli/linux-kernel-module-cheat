@@ -27,8 +27,10 @@ _start:
     adr x0, lkmc_baremetal_on_exit_callback
     bl on_exit
 
-    /* Run main. */
-    mov x0, 0
+    /* Setup CLI arguments and run main. */
+    ldr x0, =lkmc_argc
+    ldr x0, [x0]
+    ldr x1, =lkmc_argv
     bl main
 
     /* If main returns, exit. */
