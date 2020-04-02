@@ -23,27 +23,18 @@ https://cirosantilli.com/linux-kernel-module-cheat#dhrystone
 
     def build(self):
         build_dir = self.get_build_dir()
-        cflags = ['-O{}'.format(self.env['optimization_level'])]
         extra_flags = []
-        if self.env['static']:
-            cflags.extend(['-static'])
         if self.env['force_rebuild']:
             extra_flags.extend(['-B', LF])
-        if self.env['mode'] == 'baremetal':
-            extra_objs = [
-                self.env['baremetal_syscalls_obj'],
-                self.env['baremetal_syscalls_asm_obj']
-            ]
-        else:
-            extra_objs = []
         ret = self.sh.run_cmd(
             [
                 'make', LF,
                 '-j', str(self.env['nproc']), LF,
                 '-C', os.path.join(self.env['submodules_dir'], 'dhrystone'), LF,
                 'CC={}'.format(self.env['gcc_path']), LF,
-                'CFLAGS_EXTRA={}'.format(' '.join(cflags)), LF,
-                'EXTRA_OBJS={}'.format(' '.join(extra_objs)), LF,
+                'CFLAGS_EXTRA={}'.format(self.sh.cmd_to_string(self.env['ccflags'], force_oneline=True)), LF,
+                'LDFLAGS_EXTRA={}'.format(self.sh.cmd_to_string(self.env['ldflags'], force_oneline=True)), LF,
+                'EXTRA_OBJS={}'.format(' '.join(self.env['extra_objs'])), LF,
                 'OUT_DIR={}'.format(build_dir), LF,
             ]
             + extra_flags

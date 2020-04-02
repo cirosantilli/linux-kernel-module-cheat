@@ -9,8 +9,13 @@ SECTIONS
     *(.data)
     *(COMMON)
   }
-  /* gem5 uses the bss as a measure of the kernel size. */
+  /* gem5 uses the bss as a measure of the kernel size.
+   * b7887ac06bd7fc8011fbf595b1d50ea67960d28c required __bss_start__
+   * when doing ./build-dhrystone --arch aarch64 --mode baremetal
+   */
+  __bss_start__ = .;
   .bss : { *(.bss) }
+  __bss_end__ = .;
   /* Fix the addresses of everything that comes after, no matter
    * the exact size of the code present in .text. This allows us to
    * place CLI arguments in memory at a known location! */

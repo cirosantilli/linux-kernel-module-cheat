@@ -3,8 +3,10 @@
 #include <stdio.h>
 
 int main(int argc, char **argv) {
-    size_t i;
-    for (i = 0; i < (size_t)argc; ++i)
-        printf("%s\n", argv[i]);
+    int i;
+    printf("argc = %d\n", argc);
+    for (i = 0; i < argc; ++i) {
+        printf("argv[%d] = %s\n", i, argv[i]);
+    }
     return 0;
 }

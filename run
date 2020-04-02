@@ -485,23 +485,22 @@ Extra options to append at the end of the emulator command line.
             # argv[1][0] data
             # argv[1][1] data
             # ...
+            cli_args = [os.path.basename(self.env['image'])]
             if self.env['cli_args'] is not None:
-                cli_args_split = shlex.split(self.env['cli_args'])
-            else:
-                cli_args_split = []
+                cli_args.extend(shlex.split(self.env['cli_args']))
             argc_addr = self.env['entry_address'] + self.env['baremetal_max_text_size'] + self.env['baremetal_memory_size']
             argv_addr = argc_addr + self.env['int_size']
-            argv_data_addr = argv_addr + len(cli_args_split) * self.env['address_size']
+            argv_data_addr = argv_addr + len(cli_args) * self.env['address_size']
             argv_addr_data = []
             argv_addr_cur = argv_data_addr
-            for arg in cli_args_split:
+            for arg in cli_args:
                 argv_addr_data.append(struct.pack('<{}'.format(self.python_struct_int_format(self.env['address_size'])), argv_addr_cur))
                 argv_addr_cur += len(arg) + 1
             baremetal_cli_path = os.path.join(self.env['run_dir'], 'baremetal_cli.raw')
             with open(baremetal_cli_path, 'wb') as f:
-                f.write(struct.pack('<{}'.format(self.python_struct_int_format(self.env['int_size'])), len(cli_args_split)))
+                f.write(struct.pack('<{}'.format(self.python_struct_int_format(self.env['int_size'])), len(cli_args)))
                 f.write(b''.join(argv_addr_data))
-                f.write(b'\0'.join(arg.encode() for arg in cli_args_split) + b'\0')
+                f.write(b'\0'.join(arg.encode() for arg in cli_args) + b'\0')
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False

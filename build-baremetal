@@ -28,33 +28,9 @@ Build the baremetal examples with crosstool-NG.
 
     def build(self):
         build_dir = self.get_build_dir()
-        extra_obj_baremetal_bootloader = os.path.join(
-            self.env['baremetal_build_lib_dir'],
-            'bootloader{}'.format(self.env['obj_ext'])
-        )
-        extra_obj_lkmc_common = os.path.join(
-            self.env['baremetal_build_lib_dir'],
-            self.env['common_basename_noext'] + self.env['obj_ext']
-        )
         cc_flags = [
             '-I', self.env['root_dir'], LF,
-            '-O{}'.format(self.env['optimization_level']), LF,
-            '-nostartfiles', LF,
         ]
-        if self.env['arch'] == 'arm':
-            cc_flags.extend([
-                '-mhard-float', LF,
-                # This uses the soft float ABI for calling functions from objets in Newlib which
-                # our crosstool-NG config compiles with soft floats, while emiting hard float
-                # from C and allowing us to use it from assembly, e.g. for the VMRS instruction:
-                # which would otherwise fail "with selected processor does not support XXX in ARM mode"
-                # Bibliography:
-                # - https://stackoverflow.com/questions/9753749/arm-compilation-error-vfp-registered-used-by-executable-not-object-file
-                # - https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/41131782#41131782
-                # - https://embeddedartistry.com/blog/2017/10/9/r1q7pksku2q3gww9rpqef0dnskphtc
-                '-mfloat-abi=softfp', LF,
-                '-mfpu=crypto-neon-fp-armv8', LF,
-            ])
         if self.env['emulator'] == 'gem5':
             cc_flags.extend([
                 '-DLKMC_GEM5=1', LF,
@@ -63,7 +39,7 @@ Build the baremetal examples with crosstool-NG.
         else:
             cc_flags.extend(['-D', 'LKMC_QEMU=1', LF])
         cc_flags.extend(['-D', 'LKMC_UART0_ADDR={:#x}'.format(self.env['uart_address']), LF])
-        cc_flags.extend(self.sh.shlex_split(self.env['ccflags']))
+        cc_flags.extend(self.env['ccflags'])
         bootloader_src = os.path.join(
             self.env['baremetal_source_lib_dir'],
             '{}{}'.format(
@@ -72,8 +48,8 @@ Build the baremetal examples with crosstool-NG.
             )
         )
         for in_path, out_path in [
-            (bootloader_src, extra_obj_baremetal_bootloader),
-            (self.env['common_c'], extra_obj_lkmc_common),
+            (bootloader_src, self.env['baremetal_extra_obj_bootloader']),
+            (self.env['common_c'], self.env['baremetal_extra_obj_lkmc_common']),
             (
                 self.env['baremetal_syscalls_src'],
                 self.env['baremetal_syscalls_obj']
@@ -90,11 +66,7 @@ Build the baremetal examples with crosstool-NG.
                 extra_deps=[self.env['common_h']],
                 link=False,
             )
-        cc_flags.extend([
-            '-Wl,--section-start=.text={:#x}'.format(self.env['entry_address']), LF,
-            # '-Wl,--section-start=.lkmc_memory={:#x}'.format(self.env['entry_address'] + 0x1000000), LF,
-            '-T', self.env['baremetal_link_script'], LF,
-        ])
+        cc_flags.extend(self.env['ldflags'])
         with thread_pool.ThreadPool(
             self._build_one,
             nthreads=self.env['nproc'],
@@ -117,8 +89,8 @@ Build the baremetal examples with crosstool-NG.
                                 self.env['baremetal_syscalls_obj'],
                                 self.env['baremetal_syscalls_asm_obj']
                             ],
-                            'extra_objs_baremetal_bootloader': [extra_obj_baremetal_bootloader],
-                            'extra_objs_lkmc_common': [extra_obj_lkmc_common],
+                            'extra_objs_baremetal_bootloader': [self.env['baremetal_extra_obj_bootloader']],
+                            'extra_objs_lkmc_common': [self.env['baremetal_extra_obj_lkmc_common']],
                             'in_path': in_path,
                             'out_path': self.resolve_baremetal_executable(in_path),
                         })
@@ -127,7 +99,7 @@ Build the baremetal examples with crosstool-NG.
     def get_build_dir(self):
         return self.env['baremetal_build_dir']
 
-    def setup_one(self):
+    def setup_one_build(self):
         self.env['targets'] = self.resolve_targets(
             [
                 self.env['baremetal_source_dir'],

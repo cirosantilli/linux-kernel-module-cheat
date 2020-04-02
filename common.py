@@ -530,7 +530,7 @@ https://cirosantilli.com/linux-kernel-module-cheat#gem5-arm-platforms
             default=True,
             help='''\
 Copy userland build outputs to the overlay directory which will be put inside
-the image. If not given explicitly, this is disabled automatically when certain
+the disk image. If not given explicitly, this is disabled automatically when certain
 options are given, for example --static, since users don't usually want
 static executables to be placed in the final image, but rather only for
 user mode simulations in simulators that don't support dynamic linking like gem5.
@@ -1013,12 +1013,17 @@ Incompatible archs are skipped.
         # Userland
         env['userland_source_arch_arch_dir'] = join(env['userland_source_arch_dir'], env['arch'])
         if env['in_tree']:
-            env['userland_build_dir'] = self.env['userland_source_dir']
+            env['userland_build_dir'] = env['userland_source_dir']
         else:
             env['userland_build_dir'] = join(env['out_dir'], 'userland', env['userland_build_id'], env['arch'])
         env['package'] = set(env['package'])
         if not env['_args_given']['copy_overlay']:
-            if self.env['in_tree'] or self.env['static'] or self.env['host']:
+            if (
+                env['in_tree'] or
+                env['static'] or
+                env['host'] or
+                env['mode'] == 'baremetal'
+            ):
                 env['copy_overlay'] = False
 
         # Kernel modules.
@@ -1048,35 +1053,43 @@ Incompatible archs are skipped.
         env['baremetal_syscalls_basename_noext'] = 'syscalls'
         env['baremetal_syscalls_src'] = os.path.join(
             env['baremetal_source_lib_dir'],
-            env['baremetal_syscalls_basename_noext'] + self.env['c_ext']
+            env['baremetal_syscalls_basename_noext'] + env['c_ext']
         )
         env['baremetal_syscalls_obj'] = os.path.join(
-            self.env['baremetal_build_lib_dir'],
-            env['baremetal_syscalls_basename_noext'] + self.env['obj_ext']
+            env['baremetal_build_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + env['obj_ext']
         )
         env['baremetal_syscalls_asm_src'] = os.path.join(
-            self.env['baremetal_source_lib_dir'],
-            env['baremetal_syscalls_basename_noext'] + '_asm' + self.env['asm_ext']
+            env['baremetal_source_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + '_asm' + env['asm_ext']
         )
         env['baremetal_syscalls_asm_obj'] = os.path.join(
-            self.env['baremetal_build_lib_dir'],
-            env['baremetal_syscalls_basename_noext'] + '_asm' + self.env['obj_ext']
+            env['baremetal_build_lib_dir'],
+            env['baremetal_syscalls_basename_noext'] + '_asm' + env['obj_ext']
         )
         if env['emulator'] == 'gem5':
             if env['machine'] == 'VExpress_GEM5_V1':
                 env['entry_address'] = 0x80000000
                 env['uart_address'] = 0x1c090000
-            elif self.env['machine'] == 'RealViewPBX':
+            elif env['machine'] == 'RealViewPBX':
                 env['entry_address'] = 0x10000
                 env['uart_address'] = 0x10009000
             else:
-                raise Exception('unknown machine: ' + self.env['machine'])
+                raise Exception('unknown machine: ' + env['machine'])
         else:
             env['entry_address'] = 0x40000000
-            env['uart_address']= 0x09000000
+            env['uart_address'] = 0x09000000
+        env['common_basename_noext'] = env['repo_short_id']
+        env['baremetal_extra_obj_bootloader'] = join(
+            env['baremetal_build_lib_dir'],
+            'bootloader{}'.format(env['obj_ext'])
+        )
+        env['baremetal_extra_obj_lkmc_common'] = join(
+            env['baremetal_build_lib_dir'],
+            env['common_basename_noext'] + env['obj_ext']
+        )
 
         # Userland / baremetal common source.
-        env['common_basename_noext'] = env['repo_short_id']
         env['common_c'] = os.path.join(
             env['root_dir'],
             env['common_basename_noext'] + env['c_ext']
@@ -1087,8 +1100,38 @@ Incompatible archs are skipped.
         )
         if env['mode'] == 'baremetal':
             env['build_dir'] = env['baremetal_build_dir']
+            env['extra_objs'] = [
+                env['baremetal_extra_obj_bootloader'],
+                env['baremetal_extra_obj_lkmc_common'],
+                env['baremetal_syscalls_asm_obj'],
+                env['baremetal_syscalls_obj'],
+            ]
+            env['ccflags_default'] = [
+                '-nostartfiles', LF,
+            ]
+            if env['arch'] == 'arm':
+                env['ccflags_default'].extend([
+                    '-mhard-float', LF,
+                    # This uses the soft float ABI for calling functions from objets in Newlib which
+                    # our crosstool-NG config compiles with soft floats, while emiting hard float
+                    # from C and allowing us to use it from assembly, e.g. for the VMRS instruction:
+                    # which would otherwise fail "with selected processor does not support XXX in ARM mode"
+                    # Bibliography:
+                    # - https://stackoverflow.com/questions/9753749/arm-compilation-error-vfp-registered-used-by-executable-not-object-file
+                    # - https://stackoverflow.com/questions/41131432/cross-compiling-error-selected-processor-does-not-support-fmrx-r3-fpexc-in/41131782#41131782
+                    # - https://embeddedartistry.com/blog/2017/10/9/r1q7pksku2q3gww9rpqef0dnskphtc
+                    '-mfloat-abi=softfp', LF,
+                    '-mfpu=crypto-neon-fp-armv8', LF,
+                ])
+            env['ldflags'] = [
+                '-Wl,--section-start=.text={:#x}'.format(env['entry_address']), LF,
+                '-T', env['baremetal_link_script'], LF,
+            ]
         else:
             env['build_dir'] = env['userland_build_dir']
+            env['ccflags_default'] = []
+            env['extra_objs'] = []
+            env['ldflags'] = []
 
         # Docker
         env['docker_build_dir'] = join(env['out_dir'], 'docker', env['arch'])
@@ -1246,25 +1289,6 @@ lunch aosp_{}-eng
                     subpath
                 )
             )
-
-    @staticmethod
-    def python_escape_double_quotes(s):
-        s2 = []
-        for c in s:
-            if c == '"':
-                s2.append('\\"')
-            else:
-                s2.append(c)
-        return ''.join(s2)
-
-    @staticmethod
-    def python_struct_int_format(size):
-        if size == 4:
-            return 'i'
-        elif size ==  8:
-            return 'Q'
-        else:
-            raise 'unknown size {}'.format(size)
 
     def get_elf_entry(self, elf_file_path):
         readelf_header = self.sh.check_output([
@@ -1449,11 +1473,11 @@ lunch aosp_{}-eng
                         env['_args_given']['emulators'] = True
                         env['all_emulators'] = False
                         self.env = env.copy()
-                        self._init_env(self.env)
                         self.sh = shell_helpers.ShellHelpers(
                             dry_run=self.env['dry_run'],
                             quiet=(not show_cmds),
                         )
+                        self._init_env(self.env)
                         self.setup_one()
                         ret = self.timed_main()
                         if not env['dry_run']:
@@ -1486,6 +1510,25 @@ lunch aosp_{}-eng
         os.makedirs(self.env['gem5_run_dir'], exist_ok=True)
         os.makedirs(self.env['p9_dir'], exist_ok=True)
         os.makedirs(self.env['qemu_run_dir'], exist_ok=True)
+
+    @staticmethod
+    def python_escape_double_quotes(s):
+        s2 = []
+        for c in s:
+            if c == '"':
+                s2.append('\\"')
+            else:
+                s2.append(c)
+        return ''.join(s2)
+
+    @staticmethod
+    def python_struct_int_format(size):
+        if size == 4:
+            return 'i'
+        elif size ==  8:
+            return 'Q'
+        else:
+            raise 'unknown size {}'.format(size)
 
     @staticmethod
     def seconds_to_hms(seconds):
@@ -1905,6 +1948,24 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
             if os.path.getmtime(src) > os.path.getmtime(dst):
                 return True
         return False
+
+    def setup_one(self):
+        ccflags = []
+        ccflags.extend(self.env['ccflags_default'])
+        if 'optimization_level' in self.env:
+            ccflags.extend(['-O{}'.format(self.env['optimization_level']), LF])
+        if self.env['static']:
+            ccflags.extend(['-static', LF])
+        if 'ccflags' in self.env:
+            ccflags.extend(self.sh.shlex_split(self.env['ccflags']))
+        self.env['ccflags'] = ccflags
+        self.setup_one_build()
+
+    def setup_one_build(self):
+        '''
+        Called once before every build type, after BuildCliFunction::setup_one
+        '''
+        pass
 
     def timed_main(self):
         '''
