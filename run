@@ -501,6 +501,9 @@ Extra options to append at the end of the emulator command line.
                 f.write(struct.pack('<{}'.format(self.python_struct_int_format(self.env['int_size'])), len(cli_args)))
                 f.write(b''.join(argv_addr_data))
                 f.write(b'\0'.join(arg.encode() for arg in cli_args) + b'\0')
+        use_disk_image = self.env['disk_image'] is not None and \
+            os.path.exists(self.env['disk_image']) or \
+            self.env['baremetal'] is None
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
@@ -569,7 +572,7 @@ Extra options to append at the end of the emulator command line.
                         '--num-cpus', str(self.env['cpus']), LF,
                         '--script', self.env['gem5_readfile_file'], LF,
                     ])
-                    if self.env['disk_image'] is not None:
+                    if use_disk_image:
                         cmd.extend(['--disk-image', self.env['disk_image'], LF])
                     if not self.env['baremetal'] is None:
                         cmd.extend([
@@ -646,7 +649,7 @@ Extra options to append at the end of the emulator command line.
                         '--little-cpus', str(self.env['cpus'] // 2), LF,
                         '--root', '/dev/vda', LF,
                     ])
-                    if self.env['disk_image'] is not None:
+                    if use_disk_image:
                         cmd.extend(['--disk', self.env['disk_image'], LF])
                     if self.env['dtb']:
                         cmd.extend([
@@ -796,7 +799,7 @@ Extra options to append at the end of the emulator command line.
                             '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay', LF,
                             '-device', 'ide-hd,drive=img-blkreplay', LF,
                         ])
-                    if self.env['disk_image'] is not None:
+                    if use_disk_image:
                         extra_emulator_args.extend([
                             '-drive',
                             'file={},format=qcow2,if={}{}{}'.format(

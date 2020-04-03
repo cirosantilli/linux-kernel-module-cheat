@@ -1148,7 +1148,6 @@ Incompatible archs are skipped.
 
         # Image
         if env['baremetal'] is not None:
-            env['disk_image'] = None
             env['image'] = self.resolve_baremetal_executable(env['baremetal'])
             source_path_noext = os.path.splitext(join(
                 env['root_dir'],
@@ -1176,16 +1175,18 @@ Incompatible archs are skipped.
             if env['emulator'] == 'gem5':
                 if not env['_args_given']['linux_exec']:
                     env['image'] = env['vmlinux']
-                if env['ramfs']:
-                    env['disk_image'] = None
-                else:
-                    env['disk_image'] = env['rootfs_raw_file']
             else:
                 if not env['_args_given']['linux_exec']:
                     env['image'] = env['linux_image']
-                env['disk_image'] = env['qcow2_file']
             if env['_args_given']['linux_exec']:
                 env['image'] = env['linux_exec']
+        if env['emulator'] == 'gem5':
+            if env['ramfs']:
+                env['disk_image'] = None
+            else:
+                env['disk_image'] = env['rootfs_raw_file']
+        else:
+            env['disk_image'] = env['qcow2_file']
 
         # Android
         if not env['_args_given']['android_base_dir']:
