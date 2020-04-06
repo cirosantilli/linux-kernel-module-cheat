@@ -1068,14 +1068,15 @@ Incompatible archs are skipped.
             env['baremetal_syscalls_basename_noext'] + '_asm' + env['obj_ext']
         )
         if env['emulator'] == 'gem5':
-            if env['machine'] == 'VExpress_GEM5_V1':
-                env['entry_address'] = 0x80000000
-                env['uart_address'] = 0x1c090000
-            elif env['machine'] == 'RealViewPBX':
-                env['entry_address'] = 0x10000
-                env['uart_address'] = 0x10009000
-            else:
-                raise Exception('unknown machine: ' + env['machine'])
+            if self.env['is_arm']:
+                if env['machine'] == 'VExpress_GEM5_V1':
+                    env['entry_address'] = 0x80000000
+                    env['uart_address'] = 0x1c090000
+                elif env['machine'] == 'RealViewPBX':
+                    env['entry_address'] = 0x10000
+                    env['uart_address'] = 0x10009000
+                else:
+                    raise Exception('unknown machine: ' + env['machine'])
         else:
             env['entry_address'] = 0x40000000
             env['uart_address'] = 0x09000000
