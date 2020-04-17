@@ -12,7 +12,7 @@
 
 void* main_thread(void *arg) {
     (void)arg;
-    printf("sched_getcpu = %d\n", sched_getcpu());
+    printf("%d\n", sched_getcpu());
     return NULL;
 }
 
