@@ -10873,7 +10873,9 @@ At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host thr
 
 gem5 user mode multithreading has been particularly flaky compared <<qemu-user-mode-multithreading,to QEMU's>>, but work is being put into improving it.
 
-In gem5 syscall simulation, the `fork` syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU. Otherwise, the `fork` call, and therefore higher level interfaces to `fork` such as `pthread_create` also fail and return a failure return status in the guest.
+In gem5 syscall simulation, the `fork` syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU.
+
+Otherwise, the `fork` call, and therefore higher level interfaces to `fork` such as `pthread_create` also fail and return a failure return status in the guest.
 
 For example, if we use just one CPU for link:userland/posix/pthread_self.c[] which spawns one thread besides `main`:
 
@@ -10909,6 +10911,29 @@ gem5 syscall emulation does show the expected number of cores when queried, e.g.
 ....
 
 outputs `1` and `2` respectively.
+
+This can also be clearly by running `sched_getcpu`:
+
+....
+./run \
+  --arch aarch64 \
+  --cli-args  4 \
+  --cpus 8 \
+  --emulator gem5 \
+  --userland userland/linux/sched_getcpu.c \
+;
+....
+
+which necessarily produces an output containing the CPU numbers from 1 to 4 and no higher:
+
+....
+1
+3
+4
+2
+....
+
+TODO why does the `2` come at the end here? Would be good to do a detailed assembly run analysis.
 
 ====== gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached
 
@@ -17331,6 +17356,8 @@ and:
 2
 1
 ....
+
+Due to the way that <<gem5-syscall-emulation-multithreading>> however, the output is more deterministic in that case, see that section for further details.
 
 === Linux calling conventions
 
