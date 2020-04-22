@@ -750,7 +750,10 @@ path_properties_tuples = (
                             'more_than_1s': True,
                             'requires_syscall_getcpu': True,
                         },
-                        'sched_getcpu.c': {'requires_syscall_getcpu': True},
+                        'sched_getcpu.c': {
+                            'requires_syscall_getcpu': True,
+                            'test_run_args': {'cpus': 2},
+                        },
                         'time_boot.c': {'requires_sudo': True},
                         'virt_to_phys_user.c': {'requires_argument': True},
                     }
