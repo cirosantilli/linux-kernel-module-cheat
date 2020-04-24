@@ -4130,6 +4130,66 @@ hello
 
 so we see that two syscall lines were added for each syscall, showing the syscall inputs and exit status, just like a mini `strace`!
 
+==== gem5 syscall emulation multiple executables
+
+This is not currently nicely exposed in LKMC, but gem5 syscall emulation does allow you to run multiple executables "at once".
+
+`--cmd` takes a semicolon separated list, so we could do:
+
+....
+./run --arch aarch64 --emulator gem5 --userland userland/posix/getpid.c --cpus 2
+....
+
+and then <<dry-run,hack the produced command>> by replacing:
+
+....
+  --cmd /home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out \
+  --param 'system.cpu[0].workload[:].release = "5.4.3"' \
+....
+
+with:
+
+....
+  --cmd '/home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out;/home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out' \
+  --param 'system.cpu[:].workload[:].release = "5.4.3"' \
+....
+
+The outcome of this is that we see two different `pid` messages printed to stdout:
+
+....
+pid=101
+pid=100
+....
+
+since from <<gem5-process>> we can see that se.py sets up one different PID per executable starting at `100:
+
+....
+    workloads = options.cmd.split(';')
+    idx = 0
+    for wrkld in workloads:
+        process = Process(pid = 100 + idx)
+....
+
+This is basically starts running one process per CPU much like if it had been forked.
+
+We can also see that these processes are running concurrently with <<gem5-tracing>> by hacking:
+
+....
+  --debug-flags ExecAll \
+  --debug-file cout \
+....
+
+which starts with:
+
+....
+      0: system.cpu1: A0 T0 : @__end__+274873647040    :   add   x0, sp, #0         : IntAlu :  D=0x0000007ffffefde0  flags=(IsInteger)
+      0: system.cpu0: A0 T0 : @__end__+274873647040    :   add   x0, sp, #0         : IntAlu :  D=0x0000007ffffefde0  flags=(IsInteger)
+    500: system.cpu0: A0 T0 : @__end__+274873647044    :   bl   <__end__+274873649648> : IntAlu :  D=0x0000004000001008  flags=(IsInteger|IsControl|IsDirectControl|IsUncondControl|IsCall)
+    500: system.cpu1: A0 T0 : @__end__+274873647044    :   bl   <__end__+274873649648> : IntAlu :  D=0x0000004000001008  flags=(IsInteger|IsControl|IsDirectControl|IsUncondControl|IsCall)
+....
+
+and therefore shows one instruction running on each CPU for each process at the same time.
+
 === QEMU user mode quirks
 
 ==== QEMU user mode does not show stdout immediately
@@ -12914,9 +12974,20 @@ Whenever possible, stick to:
 
 Both of those can be checked with `git log` and `git blame`.
 
+All CPU types inherit from the `BaseCPU` class, and looking at the class hierarchy in <<gem5-eclipse-configuration,Eclipse>> gives a good overview of what we have:
+
+* `BaseCPU`
+** `BaseKvmCPU`
+** `BaseSimpleCPU`
+*** `AtomicSimpleCPU`
+*** `TimingSimpleCPU`
+** `MinorO3CPU`
+** `BaseO3CPU`
+*** `FullO3CPU`
+
 ==== List gem5 CPU types
 
-===== gem5 BaseSimpleCPU
+===== gem5 `BaseSimpleCPU`
 
 Simple abstract CPU without a pipeline.
 
@@ -13042,6 +13113,26 @@ cd ..
 ./run --arch aarch64 --emulator gem5 --linux-exec aarch-system-201901106/binaries/vmlinux.arm64
 ....
 
+=== gem5 bootloaders
+
+Certain ISAs like ARM have bootloaders that are automatically run before the main image to setup basic system state.
+
+We cross compile those bootloaders from source automatically during `./build-gem5`.
+
+As of gem5 bcf041f257623e5c9e77d35b7531bae59edc0423, the source code of the bootloaderes can be found under:
+
+....
+system/arm/
+....
+
+and their selection can be seen under: `src/dev/arm/RealView.py`, e.g.:
+
+....
+    def setupBootLoader(self, cur_sys, loc):
+        if not cur_sys.boot_loader:
+            cur_sys.boot_loader = [ loc('boot_emm.arm64'), loc('boot_emm.arm') ]
+....
+
 === gem5 internals
 
 Internals under other sections:
@@ -13056,13 +13147,17 @@ In order to develop complex C++ software such as gem5, a good IDE setup is funda
 
 The best setup I've reached is with Eclipse. It is not perfect, and there is a learning curve, but is worth it.
 
+Notably, it is very hard to get perfect due to: <<why-are-all-c-symlinked-into-the-gem5-build-dir>>.
+
 I recommend the following settings, tested in Eclipse 2019.09, Ubuntu 18.04:
 
 * fix all missing stdlib headers: https://stackoverflow.com/questions/10373788/how-to-solve-unresolved-inclusion-iostream-in-a-c-file-in-eclipse-cdt/51099533#51099533
 * use spaces instead of tabs: Window, Preferences, Code Style, C/C++, Formatter, New, Edit, Tab Policy, Spaces Only
-* add to the include search path:
-** ./src/ in the source tree
-** the ISA specific build directory which contains some self-generated stuff, e.g.: out/gem5/default/build/ARM
+* either
+** create the project in the gem5 build directory! Files are moved around there and symlinked, and this gives the best chances of success
+** add to the include search path:
+*** ./src/ in the source tree
+*** the ISA specific build directory which contains some self-generated stuff, e.g.: out/gem5/default/build/ARM
 
 To run and GDB step debug the executable, just copy the full command line from the output `./run`, and configure it into Eclipse.
 
@@ -14696,6 +14791,447 @@ TODO: analyze the trace for:
 
 TODO: like <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>> but even more complex!
 
+==== gem5 `ThreadContext` vs `ThreadState` vs `ExecContext` vs `Process`
+
+These classes get used everywhere, and they have a somewhat convoluted relation with one another, so let's figure it out this mess.
+
+None of those objects are <<gem5-python-c-interaction,SimObjects>>, so they must all belong to some higher SimObject.
+
+This section and all children tested at gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4.
+
+===== gem5 `ThreadContext`
+
+As we delve into more details below, we will reach the following conclusion: a `ThreadContext` represents on thread of a CPU with multiple <<hardware-threads>>.
+
+We therefore we can have multiple `ThreadContext` for each <<gem5-cpu-types,`BaseCPU`>>.
+
+`ThreadContext` is what gets passed in syscalls, e.g.:
+
+src/sim/syscall_emul.hh
+
+....
+template <class OS>
+SyscallReturn
+readFunc(SyscallDesc *desc, ThreadContext *tc,
+        int tgt_fd, Addr buf_ptr, int nbytes)
+....
+
+The class hierarchy for `ThreadContext` looks like:
+
+....
+ThreadContext
+  O3ThreadContext
+  SimpleThread
+....
+
+where the gem5 MinorCPU also uses `SimpleThread`:
+
+....
+/** Minor will use the SimpleThread state for now */
+typedef SimpleThread MinorThread;
+....
+
+It is a bit confusing, things would be much clearer if `SimpleThread` was called instead `SimpleThreadContext`!
+
+`readIntReg` and other register access methods are some notable methods implemented in descendants, e.g. <<gem5-simplethread,`SimpleThread::readIntReg`>>.
+
+Essentially all methods of the base `ThreadContext` are pure virtual.
+
+====== gem5 `SimpleThread`
+
+`SimpleThread` storage defined on <<gem5-basesimplecpu,`BaseSimpleCPU`>> for simple CPUs like `AtomicSimpleCPU`:
+
+....
+    for (unsigned i = 0; i < numThreads; i++) {
+        if (FullSystem) {
+            thread = new SimpleThread(this, i, p->system,
+                                      p->itb, p->dtb, p->isa[i]);
+        } else {
+            thread = new SimpleThread(this, i, p->system, p->workload[i],
+                                      p->itb, p->dtb, p->isa[i]);
+        }
+        threadInfo.push_back(new SimpleExecContext(this, thread));
+        ThreadContext *tc = thread->getTC();
+        threadContexts.push_back(tc);
+    }
+....
+
+and on `MinorCPU` for Minor:
+
+....
+MinorCPU::MinorCPU(MinorCPUParams *params) :
+    BaseCPU(params),
+    threadPolicy(params->threadPolicy)
+{
+    /* This is only written for one thread at the moment */
+    Minor::MinorThread *thread;
+
+    for (ThreadID i = 0; i < numThreads; i++) {
+        if (FullSystem) {
+            thread = new Minor::MinorThread(this, i, params->system,
+                    params->itb, params->dtb, params->isa[i]);
+            thread->setStatus(ThreadContext::Halted);
+        } else {
+            thread = new Minor::MinorThread(this, i, params->system,
+                    params->workload[i], params->itb, params->dtb,
+                    params->isa[i]);
+        }
+
+        threads.push_back(thread);
+        ThreadContext *tc = thread->getTC();
+        threadContexts.push_back(tc);
+    }
+....
+
+Those are used from <<gem5-execcontext>>.
+
+From this we see that one CPU can have multiple threads, and that this is controlled from the Python:
+
+....
+BaseCPU::BaseCPU(Params *p, bool is_checker)
+    : numThreads(p->numThreads)
+....
+
+and since `SimpleThread` contains its registers, this must represent <<hardware-threads>>.
+
+If we analyse `SimpleThread::readIntReg`, we see that the actual register data is contained inside `ThreadContext` descendants, e.g. in `SimpleThread`:
+
+....
+    RegVal
+    readIntReg(RegIndex reg_idx) const override
+    {
+        int flatIndex = isa->flattenIntIndex(reg_idx);
+        assert(flatIndex < TheISA::NumIntRegs);
+        uint64_t regVal(readIntRegFlat(flatIndex));
+        DPRINTF(IntRegs, "Reading int reg %d (%d) as %#x.\n",
+                reg_idx, flatIndex, regVal);
+        return regVal;
+    }
+
+    RegVal readIntRegFlat(RegIndex idx) const override { return intRegs[idx]; }
+    void
+    setIntRegFlat(RegIndex idx, RegVal val) override
+    {
+        intRegs[idx] = val;
+    }
+
+    std::array<RegVal, TheISA::NumIntRegs> intRegs;
+....
+
+Another notable type of method contained in `Thread` context are methods that forward to <<gem5-threadstate>>.
+
+====== gem5 `O3ThreadContext`
+
+Instantiation happens in the `FullO3CPU` constructor:
+
+....
+FullO3CPU<Impl>::FullO3CPU(DerivO3CPUParams *params)
+
+    for (ThreadID tid = 0; tid < this->numThreads; ++tid) {
+        if (FullSystem) {
+            // SMT is not supported in FS mode yet.
+            assert(this->numThreads == 1);
+            this->thread[tid] = new Thread(this, 0, NULL);
+
+        // Setup the TC that will serve as the interface to the threads/CPU.
+        O3ThreadContext<Impl> *o3_tc = new O3ThreadContext<Impl>;
+....
+
+and the SimObject `DerivO3CPU` is just a `FullO3CPU` instantiation:
+
+....
+class DerivO3CPU : public FullO3CPU<O3CPUImpl>
+....
+
+`O3ThreadContext` is a template class:
+
+....
+template <class Impl>
+class O3ThreadContext : public ThreadContext
+....
+
+The only `Impl` used appears to be `O3CPUImpl`? This is explicitly instantiated in the source:
+
+....
+template class O3ThreadContext<O3CPUImpl>;
+....
+
+Unlike in `SimpleThread` however, `O3ThreadContext` does not contain the register data itself, e.g. `O3ThreadContext::readIntRegFlat` instead forwards to `cpu`:
+
+....
+template <class Impl>
+RegVal
+O3ThreadContext<Impl>::readIntRegFlat(RegIndex reg_idx) const
+{
+    return cpu->readArchIntReg(reg_idx, thread->threadId());
+}
+....
+
+where:
+
+....
+    typedef typename Impl::O3CPU O3CPU;
+
+   /** Pointer to the CPU. */
+    O3CPU *cpu;
+....
+
+and:
+
+....
+struct O3CPUImpl
+{
+    /** The O3CPU type to be used. */
+    typedef FullO3CPU<O3CPUImpl> O3CPU;
+....
+
+and at long last `FullO3CPU` contains the register values:
+
+....
+template <class Impl>
+RegVal
+FullO3CPU<Impl>::readArchIntReg(int reg_idx, ThreadID tid)
+{
+    intRegfileReads++;
+    PhysRegIdPtr phys_reg = commitRenameMap[tid].lookup(
+            RegId(IntRegClass, reg_idx));
+
+    return regFile.readIntReg(phys_reg);
+}
+....
+
+So we guess that this difference from `SimpleThread` is due to register renaming of the out of order implementation.
+
+===== gem5 `ThreadState`
+
+Owned one per `ThreadContext`.
+
+Many `ThreadContext` methods simply forward to `ThreadState` implementations.
+
+<<gem5-simplethread,`SimpleThread`>> inherits from `ThreadState`, and forwards to it on several methods e.g.:
+
+....
+    int cpuId() const override { return ThreadState::cpuId(); }
+    uint32_t socketId() const override { return ThreadState::socketId(); }
+    int threadId() const override { return ThreadState::threadId(); }
+    void setThreadId(int id) override { ThreadState::setThreadId(id); }
+    ContextID contextId() const override { return ThreadState::contextId(); }
+    void setContextId(ContextID id) override { ThreadState::setContextId(id); }
+....
+
+`O3ThreadContext` on the other hand contains an `O3ThreadState`:
+
+....
+template <class Impl>
+struct O3ThreadState : public ThreadState
+....
+
+at:
+
+....
+template <class Impl>
+class O3ThreadContext : public ThreadContext
+{
+    O3ThreadState<Impl> *thread
+
+    ContextID contextId() const override { return thread->contextId(); }
+
+    void setContextId(ContextID id) override { thread->setContextId(id); }
+....
+
+===== gem5 `ExecContext`
+
+`ExecContext` gets used in instruction definitions, e.g.:
+
+build/ARM/arch/arm/generated/exec-ns.cc.inc
+
+....
+    Fault Mul::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+....
+
+It contains methods to allow interacting with CPU state from inside instruction execution, notably reading and writing from/to registers.
+
+For example, the ARM `mul` instruction uses `ExecContext` to read the input operands, multiply them, and write to the output:
+
+....
+
+    Fault Mul::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+        uint64_t resTemp = 0;
+        resTemp = resTemp;
+        uint32_t OptCondCodesNZ = 0;
+        uint32_t OptCondCodesC = 0;
+        uint32_t OptCondCodesV = 0;
+        uint32_t Reg0 = 0;
+        uint32_t Reg1 = 0;
+        uint32_t Reg2 = 0;
+
+        OptCondCodesNZ = xc->readCCRegOperand(this, 0);
+        OptCondCodesC = xc->readCCRegOperand(this, 1);
+        OptCondCodesV = xc->readCCRegOperand(this, 2);
+        Reg1 =
+            ((reg1 == PCReg) ? readPC(xc) : xc->readIntRegOperand(this, 3));
+        Reg2 =
+            ((reg2 == PCReg) ? readPC(xc) : xc->readIntRegOperand(this, 4));
+
+        if (testPredicate(OptCondCodesNZ, OptCondCodesC, OptCondCodesV, condCode)/*auto*/)
+        {
+            Reg0 = resTemp = Reg1 * Reg2;;
+            if (fault == NoFault) {
+                {
+                    uint32_t final_val = Reg0;
+                    ((reg0 == PCReg) ? setNextPC(xc, Reg0) : xc->setIntRegOperand(this, 0, Reg0));
+                    if (traceData) { traceData->setData(final_val); }
+                };
+            }
+        } else {
+            xc->setPredicate(false);
+        }
+
+        return fault;
+    }
+....
+
+`ExecContext` is however basically just a wrapper that forwards to other classes that actually contain the data in a microarchitectural neutral manner. For example, in `SimpleExecContext`:
+
+....
+    /** Reads an integer register. */
+    RegVal
+    readIntRegOperand(const StaticInst *si, int idx) override
+    {
+        numIntRegReads++;
+        const RegId& reg = si->srcRegIdx(idx);
+        assert(reg.isIntReg());
+        return thread->readIntReg(reg.index());
+    }
+....
+
+So we see that this just does some register position bookkeeping needed for instruction execution, but the actual data comes from <<gem5-simplethread,`SimpleThread::readIntReg`>>, which is a specialization of <<gem5-threadcontext>>.
+
+`ExecContext` is a fully virtual class. The hierarchy is:
+
+* `ExecContext`
+** `SimpleExecContext`
+** `Minor::MinorExecContext`
+** `BaseDynInst`
+*** `BaseO3DynInst`
+
+If we follow `SimpleExecContext` creation for example, we see:
+
+....
+class BaseSimpleCPU : public BaseCPU
+{
+    std::vector<SimpleExecContext*> threadInfo;
+....
+
+and:
+
+....
+BaseSimpleCPU::BaseSimpleCPU(BaseSimpleCPUParams *p)
+    : BaseCPU(p),
+      curThread(0),
+      branchPred(p->branchPred),
+      traceData(NULL),
+      inst(),
+      _status(Idle)
+{
+    SimpleThread *thread;
+
+    for (unsigned i = 0; i < numThreads; i++) {
+        if (FullSystem) {
+            thread = new SimpleThread(this, i, p->system,
+                                      p->itb, p->dtb, p->isa[i]);
+        } else {
+            thread = new SimpleThread(this, i, p->system, p->workload[i],
+                                      p->itb, p->dtb, p->isa[i]);
+        }
+        threadInfo.push_back(new SimpleExecContext(this, thread));
+        ThreadContext *tc = thread->getTC();
+        threadContexts.push_back(tc);
+    }
+....
+
+therefore there is one `ExecContext` for each `ThreadContext`, and each `ExecContext` knows about its own `ThreadContext`.
+
+This makes sense, since each `ThreadContext` represents one CPU register set, and therefore needs a separate `ExecContext` which allows instruction implementations to access those registers.
+
+===== gem5 `Process`
+
+The `Process` class is used only for <<gem5-syscall-emulation-mode>>, and it represents a process like a Linux userland process, in addition to any further gem5 specific data needed to represent the process.
+
+The first thing most syscall implementations do is to actually pull `Process` out of <<gem5-threadcontext>>, e.g.:
+
+....
+template <class OS>
+SyscallReturn
+readFunc(SyscallDesc *desc, ThreadContext *tc,
+        int tgt_fd, Addr buf_ptr, int nbytes)
+{
+    auto p = tc->getProcessPtr();
+....
+
+For example, we can readily see from its interface that it contains several accessors for common process fields:
+
+....
+    inline uint64_t uid() { return _uid; }
+    inline uint64_t euid() { return _euid; }
+    inline uint64_t gid() { return _gid; }
+    inline uint64_t egid() { return _egid; }
+....
+
+`Process` is a <<gem5-python-c-interaction,`SimObject`>>, and therefore produced directly in e.g. se.py.
+
+se.py produces one process <<gem5-syscall-emulation-multiple-executables,per-executable given>>:
+
+....
+    workloads = options.cmd.split(';')
+    idx = 0
+    for wrkld in workloads:
+        process = Process(pid = 100 + idx)
+....
+
+and those are placed in the `workload` property:
+
+....
+for i in range(np):
+    if options.smt:
+        system.cpu[i].workload = multiprocesses
+    elif len(multiprocesses) == 1:
+        system.cpu[i].workload = multiprocesses[0]
+    else:
+        system.cpu[i].workload = multiprocesses[i]
+....
+
+and finally each thread of a CPU gets assigned to a different such workload:
+
+....
+BaseSimpleCPU::BaseSimpleCPU(BaseSimpleCPUParams *p)
+    : BaseCPU(p),
+      curThread(0),
+      branchPred(p->branchPred),
+      traceData(NULL),
+      inst(),
+      _status(Idle)
+{
+    SimpleThread *thread;
+
+    for (unsigned i = 0; i < numThreads; i++) {
+        if (FullSystem) {
+            thread = new SimpleThread(this, i, p->system,
+                                      p->itb, p->dtb, p->isa[i]);
+        } else {
+            thread = new SimpleThread(this, i, p->system, p->workload[i],
+                                      p->itb, p->dtb, p->isa[i]);
+        }
+        threadInfo.push_back(new SimpleExecContext(this, thread));
+        ThreadContext *tc = thread->getTC();
+        threadContexts.push_back(tc);
+    }
+....
+
 ==== gem5 code generation
 
 gem5 uses a ton of code generation, which makes the project horrendous:
@@ -14723,21 +15259,40 @@ But it has been widely overused to insanity. It likely also exists partly becaus
 [[gem5-the-isa]]
 ===== gem5 THE_ISA
 
-Generated code at: `build/<ISA>/config/the_isa.hh` which contains amongst other lines:
+Generated code at: `build/<ISA>/config/the_isa.hh` which e.g. for ARM contains:
 
 ....
-#define X86_ISA 8
+#ifndef __CONFIG_THE_ISA_HH__
+#define __CONFIG_THE_ISA_HH__
+
+#define ARM_ISA 1
+#define MIPS_ISA 2
+#define NULL_ISA 3
+#define POWER_ISA 4
+#define RISCV_ISA 5
+#define SPARC_ISA 6
+#define X86_ISA 7
 
 enum class Arch {
+  ArmISA = ARM_ISA,
+  MipsISA = MIPS_ISA,
+  NullISA = NULL_ISA,
+  PowerISA = POWER_ISA,
+  RiscvISA = RISCV_ISA,
+  SparcISA = SPARC_ISA,
   X86ISA = X86_ISA
 };
 
-#define THE_ISA X86_ISA
+#define THE_ISA ARM_ISA
+#define TheISA ArmISA
+#define THE_ISA_STR "arm"
+
+#endif // __CONFIG_THE_ISA_HH__
 ....
 
 Generation code: `src/SConscript` at `def makeTheISA`.
 
-Tested on gem5 211869ea950f3cc3116655f06b1d46d3fa39fb3a.
+Tested on gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4.
 
 Bibliography: https://www.mail-archive.com/gem5-users@gem5.org/msg16989.html
 
@@ -14821,6 +15376,8 @@ Tested in gem5 2a242c5f59a54bc6b8953f82486f7e6fe0aa9b3d.
 
 ===== Why are all C++ symlinked into the gem5 build dir?
 
+Upstream request: https://gem5.atlassian.net/browse/GEM5-469
+
 Some scons madness.
 
 https://scons.org/doc/2.4.1/HTML/scons-user.html#idp1378838508 generates hard links by default.
@@ -14831,29 +15388,10 @@ It was not possible to disable the symlinks automatically for the entire project
 
 The horrendous downsides of this are:
 
+* it is basically impossible to setup an IDE properly with gem5: <<gem5-eclipse-configuration>>
 * It is likely preventing <<ccache>> hits when building to different output paths, because it makes the `-I` includes point to different paths. This is especially important for <<gem5-ruby-build>>, which could have the exact same source files as the non-Ruby builds: https://stackoverflow.com/questions/60340271/can-ccache-handle-symlinks-to-the-same-input-source-file-as-hits
 * when <<debug-the-emulator,debugging the emulator>>, it shows you directories inside the build directory rather than in the source tree
 * it is harder to separate which files are <<gem5-code-generation,generated>> and which are in-tree when grepping for code generated definitions
-
-=== gem5 bootloaders
-
-Certain ISAs like ARM have bootloaders that are automatically run before the main image to setup basic system state.
-
-We cross compile those bootloaders from source automatically during `./build-gem5`.
-
-As of gem5 bcf041f257623e5c9e77d35b7531bae59edc0423, the source code of the bootloaderes can be found under:
-
-....
-system/arm/
-....
-
-and their selection can be seen under: `src/dev/arm/RealView.py`, e.g.:
-
-....
-    def setupBootLoader(self, cur_sys, loc):
-        if not cur_sys.boot_loader:
-            cur_sys.boot_loader = [ loc('boot_emm.arm64'), loc('boot_emm.arm') ]
-....
 
 == Buildroot
 
@@ -15830,6 +16368,14 @@ fork() return = 13039
 ....
 
 Read the source comments and understand everything that is going on!
+
+===== getpid
+
+The minimal interesting example is to use fork and observe different PIDs.
+
+A more minimal test-like example without forking can be seen at: link:userland/posix/getpid.c[].
+
+This example can for example be used used to play with: <<gem5-syscall-emulation-multiple-executables>>.
 
 ===== Fork bomb
 
@@ -21945,6 +22491,37 @@ The hard part is how to prevent the compiler from optimizing it away: https://st
 
 == Computer architecture
 
+=== Hardware threads
+
+Intel name: "Hyperthreading"
+
+* https://superuser.com/questions/133082/what-is-the-difference-between-hyper-threading-and-multiple-cores/995858#995858
+* https://stackoverflow.com/questions/5593328/software-threads-vs-hardware-threads/61415402#61415402
+* https://superuser.com/questions/122536/what-is-hyper-threading-and-how-does-it-work
+
+gem5 appears to possibly have attempted to implement hardware threads in <<gem5-syscall-emulation-mode>>: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104 when using <<gem5-syscall-emulation-multiple-executables>>.
+
+On fs.py it is not exposed in any in-tree config however, and as pointed by the above issue O3 FS has an assert that prevents it in https://github.com/gem5/gem5/blob/377898c4034c72b84b2662ed252fa25079a4ea62/src/cpu/o3/cpu.cc#L313[src/cpu/o3/cpu.cc]:
+
+....
+            // SMT is not supported in FS mode yet.
+            assert(this->numThreads == 1);
+....
+
+TODO why only in fs.py? Is there much difference between fs and se from a hyperthreading point of view? Maybe the message is there because as concluded in <<gem5-o3threadcontext>>, registeres for `DerivO3CPU` are stored in `DerivO3CPU` itself (`FullO3CPU`), and therefore there is no way to to currently represent multiple register sets per CPU.
+
+Other CPUs just appear to fail non-gracefully, e.g.:
+
+....
+./run --arch aarch64 --emulator gem5 -- --param 'system.cpu[0].numThreads = 2'
+....
+
+fails with:
+
+....
+fatal: fatal condition interrupts.size() != numThreads occurred: CPU system.cpu has 1 interrupt controllers, but is expecting one per thread (2)
+....
+
 === Cache coherence
 
 https://en.wikipedia.org/wiki/Cache_coherence
@@ -21957,7 +22534,7 @@ The main software use case example to have in mind is that of multiple threads i
 
 Note that cache coherency only applies to memory read/write instructions that explicitly make coherency requirements.
 
-In most ISAs, this tends to be the minority of instructions, and is only used when something is going to modify memory that is known to be shared across threads. For example, the a <<x86-thread-synchronization-primitives, x86 LOCK>> would be used to increment atomic counters that get incremented across several threads. Outside of those cases, cache coherency is not garanteed, and behaviour is undefined.
+In most ISAs, this tends to be the minority of instructions, and is only used when something is going to modify memory that is known to be shared across threads. For example, the a <<x86-thread-synchronization-primitives, x86 LOCK>> would be used to increment atomic counters that get incremented across several threads. Outside of those cases, cache coherency is not guaranteed, and behaviour is undefined.
 
 ==== Can caches snoop data from other caches?
 
