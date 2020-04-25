@@ -4150,7 +4150,7 @@ and then <<dry-run,hack the produced command>> by replacing:
 with:
 
 ....
-  --cmd '/home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out;/home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out' \
+  --cmd '/path/to/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out;/path/to/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out' \
   --param 'system.cpu[:].workload[:].release = "5.4.3"' \
 ....
 
@@ -4189,6 +4189,29 @@ which starts with:
 ....
 
 and therefore shows one instruction running on each CPU for each process at the same time.
+
+===== gem5 syscall emulation --smt
+
+gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4 syscall emulation has an `--smt` option presumably for <<hardware-threads>> but it has been neglected forever it seems: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104
+
+If we start from the manually hacked working command from <<gem5-syscall-emulation-multiple-executables>> and try to add:
+
+....
+--cpu 1 --cpu-type Derivo3CPU --caches
+....
+
+We choose <<gem5-deriveo3cpu,`DerivO3CPU`>> because of the se.py assert:
+
+....
+example/se.py:115:        assert(options.cpu_type == "DerivO3CPU")
+....
+
+But then that fails with:
+
+....
+gem5.opt: /path/to/linux-kernel-module-cheat/out/gem5/master3/build/ARM/cpu/o3/cpu.cc:205: FullO3CPU<Impl>::FullO3CPU(DerivO3CPUParams*) [with Impl = O3CPUImpl]: Assertion `params->numPhysVecPredRegs >= numThreads * TheISA::NumVecPredRegs' failed.
+Program aborted at tick 0
+....
 
 === QEMU user mode quirks
 
@@ -22499,7 +22522,7 @@ Intel name: "Hyperthreading"
 * https://stackoverflow.com/questions/5593328/software-threads-vs-hardware-threads/61415402#61415402
 * https://superuser.com/questions/122536/what-is-hyper-threading-and-how-does-it-work
 
-gem5 appears to possibly have attempted to implement hardware threads in <<gem5-syscall-emulation-mode>>: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104 when using <<gem5-syscall-emulation-multiple-executables>>.
+gem5 appears to possibly have attempted to implement hardware threads in <<gem5-syscall-emulation-mode>> as mentioned at <<gem5-syscall-emulation-smt>>.
 
 On fs.py it is not exposed in any in-tree config however, and as pointed by the above issue O3 FS has an assert that prevents it in https://github.com/gem5/gem5/blob/377898c4034c72b84b2662ed252fa25079a4ea62/src/cpu/o3/cpu.cc#L313[src/cpu/o3/cpu.cc]:
 
