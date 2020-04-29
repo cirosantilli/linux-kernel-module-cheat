@@ -4130,29 +4130,93 @@ hello
 
 so we see that two syscall lines were added for each syscall, showing the syscall inputs and exit status, just like a mini `strace`!
 
+==== gem5 syscall emulation multithreading
+
+gem5 user mode multithreading has been particularly flaky compared <<qemu-user-mode-multithreading,to QEMU's>>, but work is being put into improving it.
+
+In gem5 syscall simulation, the `fork` syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU.
+
+Otherwise, the `fork` call, and therefore higher level interfaces to `fork` such as `pthread_create` also fail and return a failure return status in the guest.
+
+For example, if we use just one CPU for link:userland/posix/pthread_self.c[] which spawns one thread besides `main`:
+
+....
+./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1
+....
+
+fails with this error message coming from the guest stderr:
+
+....
+pthread_create: Resource temporarily unavailable
+....
+
+It works however if we add on extra CPU:
+
+....
+./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1
+....
+
+Once threads exit, their CPU is freed and becomes available for new `fork` calls: For example, the following run spawns a thread, joins it, and then spawns again, and 2 CPUs are enough:
+
+....
+./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args '1 2'
+....
+
+because at each point in time, only up to two threads are running.
+
+gem5 syscall emulation does show the expected number of cores when queried, e.g.:
+
+....
+./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
+....
+
+outputs `1` and `2` respectively.
+
+This can also be clearly by running `sched_getcpu`:
+
+....
+./run \
+  --arch aarch64 \
+  --cli-args  4 \
+  --cpus 8 \
+  --emulator gem5 \
+  --userland userland/linux/sched_getcpu.c \
+;
+....
+
+which necessarily produces an output containing the CPU numbers from 1 to 4 and no higher:
+
+....
+1
+3
+4
+2
+....
+
+TODO why does the `2` come at the end here? Would be good to do a detailed assembly run analysis.
+
 ==== gem5 syscall emulation multiple executables
 
-This is not currently nicely exposed in LKMC, but gem5 syscall emulation does allow you to run multiple executables "at once".
+gem5 syscall emulation has the nice feature of allowing you to run multiple executables "at once".
 
-`--cmd` takes a semicolon separated list, so we could do:
+Each executable starts running on the next free core much as if it had been forked right at the start of simulation: <<gem5-syscall-emulation-multithreading>>.
 
-....
-./run --arch aarch64 --emulator gem5 --userland userland/posix/getpid.c --cpus 2
-....
+This can be useful to quickly create deterministic multi-CPU workload.
 
-and then <<dry-run,hack the produced command>> by replacing:
+`se.py --cmd` takes a semicolon separated list, so we could do which LKMC exposes this by taking `--userland` multiple times as in:
 
 ....
-  --cmd /home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out \
-  --param 'system.cpu[0].workload[:].release = "5.4.3"' \
+./run \
+  --arch aarch64 \
+  --cpus 2 \
+  --emulator gem5 \
+  --userland userland/posix/getpid.c \
+  --userland userland/posix/getpid.c \
+;
 ....
 
-with:
-
-....
-  --cmd '/path/to/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out;/path/to/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out' \
-  --param 'system.cpu[:].workload[:].release = "5.4.3"' \
-....
+We need at least one CPU per executable, just like when forking new processes.
 
 The outcome of this is that we see two different `pid` messages printed to stdout:
 
@@ -4161,7 +4225,7 @@ pid=101
 pid=100
 ....
 
-since from <<gem5-process>> we can see that se.py sets up one different PID per executable starting at `100:
+since from <<gem5-process>> we can see that se.py sets up one different PID per executable starting at 100:
 
 ....
     workloads = options.cmd.split(';')
@@ -4169,8 +4233,6 @@ since from <<gem5-process>> we can see that se.py sets up one different PID per 
     for wrkld in workloads:
         process = Process(pid = 100 + idx)
 ....
-
-This is basically starts running one process per CPU much like if it had been forked.
 
 We can also see that these processes are running concurrently with <<gem5-tracing>> by hacking:
 
@@ -10952,78 +11014,6 @@ Remember <<qemu-user-mode-does-not-show-stdout-immediately>> though.
 
 At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host threads plus one for every new guest thread created. Remember that link:userland/posix/pthread_count.c[] spawns N + 1 total threads if you count the `main` thread.
 
-====== gem5 syscall emulation multithreading
-
-gem5 user mode multithreading has been particularly flaky compared <<qemu-user-mode-multithreading,to QEMU's>>, but work is being put into improving it.
-
-In gem5 syscall simulation, the `fork` syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU.
-
-Otherwise, the `fork` call, and therefore higher level interfaces to `fork` such as `pthread_create` also fail and return a failure return status in the guest.
-
-For example, if we use just one CPU for link:userland/posix/pthread_self.c[] which spawns one thread besides `main`:
-
-....
-./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1
-....
-
-fails with this error message coming from the guest stderr:
-
-....
-pthread_create: Resource temporarily unavailable
-....
-
-It works however if we add on extra CPU:
-
-....
-./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1
-....
-
-Once threads exit, their CPU is freed and becomes available for new `fork` calls: For example, the following run spawns a thread, joins it, and then spawns again, and 2 CPUs are enough:
-
-....
-./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args '1 2'
-....
-
-because at each point in time, only up to two threads are running.
-
-gem5 syscall emulation does show the expected number of cores when queried, e.g.:
-
-....
-./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
-./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
-....
-
-outputs `1` and `2` respectively.
-
-This can also be clearly by running `sched_getcpu`:
-
-....
-./run \
-  --arch aarch64 \
-  --cli-args  4 \
-  --cpus 8 \
-  --emulator gem5 \
-  --userland userland/linux/sched_getcpu.c \
-;
-....
-
-which necessarily produces an output containing the CPU numbers from 1 to 4 and no higher:
-
-....
-1
-3
-4
-2
-....
-
-TODO why does the `2` come at the end here? Would be good to do a detailed assembly run analysis.
-
-====== gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached
-
-See bug report at: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81
-
-Related: <<gem5-simulate-limit-reached>>.
-
 ====== gem5 ARM full system with more than 8 cores
 
 https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8
@@ -12874,10 +12864,12 @@ PROTOCOL = 'MOESI_CMP_directory'
 
 and therefore ARM already compiles `MOESI_CMP_directory` by default.
 
-Then, with `fs.py` and `se.py`, you can choose to use either the classic or built-in ruby system at runtime with the `--ruby` option:
+Then, with `fs.py` and `se.py`, you can choose to use either the classic or the ruby system type selected at build time with `PROTOCOL=` at runtime by passing the `--ruby` option:
 
 * if `--ruby` is given, use the ruby memory system that was compiled into gem5. Caches are always present when Ruby is used, since the main goal of Ruby is to specify the cache coherence protocol, and it therefore hardcodes cache hierarchies.
 * otherwise, use the classic memory system. Caches may be optional for certain CPU types and are enabled with `--caches`.
+
+It is not possible to build more than one Ruby system into a single build, and this is a major pain point for testing Ruby: https://gem5.atlassian.net/browse/GEM5-467
 
 For example, to use a two level <<mesi-cache-coherence-protocol>> we can do:
 
@@ -12934,6 +12926,10 @@ We also observe from `ExecEnable` lines that instruction timing is not simple an
 Certain features may not work in Ruby. For example, <<gem5-checkpoint>> creation is only possible in Ruby protocols that support flush, which is the case for `PROTOCOL=MOESI_hammer` but not `PROTOCOL=MESI_Three_Level`: https://www.mail-archive.com/gem5-users@gem5.org/msg17418.html
 
 Tested in gem5 d7d9bc240615625141cd6feddbadd392457e49eb.
+
+===== gem5 Ruby MI_example protocol
+
+This is the simplest of all protocols, and therefore the first one you should study to learn how Ruby works.
 
 ===== gem5 crossbar interconnect
 
@@ -14975,6 +14971,8 @@ If we don't use such instructions that flush memory, we would only see the inter
 [[config-dot-svg-timingsimplecpu-caches-2-cpus]]
 .`config.dot.svg` for a system with two TimingSimpleCPU with caches.
 image::{cirosantilli-media-base}gem5_config_TimingSimpleCPU_caches_2_CPUs_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true[height=600]
+
+The simplest setup to understand will be to use <<gem5-syscall-emulation-multiple-executables>>.
 
 ===== gem5 event queue MinorCPU syscall emulation freestanding example analysis
 

@@ -367,7 +367,7 @@ Extra options to append at the end of the emulator command line.
             if not self.env['_args_given']['gdb_wait']:
                 self.env['gdb_wait'] = True
             if not self.env['_args_given']['tmux_args']:
-                if self.env['userland'] is None and self.env['baremetal'] is None:
+                if not self.env['userland'] and self.env['baremetal'] is None:
                     self.env['tmux_args'] = 'start_kernel'
                 else:
                     self.env['tmux_args'] = 'main'
@@ -453,7 +453,7 @@ Extra options to append at the end of the emulator command line.
             if self.env['emulator'] == 'gem5':
                 if (
                     self.env['baremetal'] is None and
-                    self.env['userland'] is None
+                    not self.env['userland']
                 ):
                     # This is an attempte to run gem5 from a prebuilt download
                     # but it is not working:
@@ -507,7 +507,7 @@ Extra options to append at the end of the emulator command line.
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
-            if self.env['baremetal'] is None and self.env['userland'] is None:
+            if self.env['baremetal'] is None and not self.env['userland']:
                 if not os.path.exists(self.env['rootfs_raw_file']):
                     if not os.path.exists(self.env['qcow2_file']):
                         raise_rootfs_not_found()
@@ -539,17 +539,24 @@ Extra options to append at the end of the emulator command line.
                 cpt_dir = cpt_dirs[-self.env['gem5_restore']]
                 cpt_dirs_sorted_by_tick = sorted(cpt_dirs, key=lambda x: int(x.split('.')[1]))
                 extra_emulator_args.extend(['-r', str(cpt_dirs_sorted_by_tick.index(cpt_dir) + 1)])
-            if self.env['userland'] is not None:
+            if self.env['userland']:
+                cmd_opt = self.env['image']
+                for u in self.env['userland'][1:]:
+                    cmd_opt += ';' + self.resolve_userland_executable(u)
+                if len(self.env['userland']) > 1:
+                    workload_cpus = ':'
+                else:
+                    workload_cpus = '0'
                 cmd.extend([
                     self.env['gem5_se_file'], LF,
-                    '--cmd', self.env['image'], LF,
+                    '--cmd', cmd_opt, LF,
                     '--num-cpus', str(self.env['cpus']), LF,
                     # We have to use cpu[0] here because on multi-cpu workloads,
                     # cpu[1] and higher use workload as a proxy to cpu[0].workload.
                     # as can be seen from the config.ini.
                     # If system.cpu[:].workload[:] were used instead, we would get the error:
                     # "KeyError: 'workload'"
-                    '--param', 'system.cpu[0].workload[:].release = "{}"'.format(self.env['kernel_version']), LF,
+                    '--param', 'system.cpu[{}].workload[:].release = "{}"'.format(workload_cpus,self.env['kernel_version']), LF,
                 ])
                 if self.env['cli_args'] is not None:
                     cmd.extend(['--options', self.env['cli_args'], LF])
@@ -672,7 +679,7 @@ Extra options to append at the end of the emulator command line.
             qemu_user_and_system_options = [
                 '-trace', 'enable={},file={}'.format(trace_type, self.env['qemu_trace_file']), LF,
             ]
-            if self.env['userland'] is not None:
+            if self.env['userland']:
                 if self.env['gdb_wait']:
                     debug_args = ['-g', str(self.env['gdb_port']), LF]
                 else:
@@ -863,7 +870,7 @@ Extra options to append at the end of the emulator command line.
                 if self.env['baremetal']:
                     tmux_args += " --baremetal '{}'".format(self.env['baremetal'])
                 if self.env['userland']:
-                    tmux_args += " --userland '{}'".format(self.env['userland'])
+                    tmux_args += " --userland '{}'".format(self.env['userland'][0])
                 if self.env['in_tree']:
                     tmux_args += ' --in-tree'
             if self.env['tmux_args'] is not None:
@@ -877,6 +884,8 @@ Extra options to append at the end of the emulator command line.
         cmd.extend(extra_emulator_args)
         cmd.extend(self.env['extra_emulator_args'])
         if self.env['userland'] and self.env['emulator'] in ('qemu', 'native'):
+            if len(self.env['userland']) > 1:
+                raise Exception('qemu and native machines only support a single executable')
             # The program and arguments must come at the every end of the CLI.
             cmd.extend([self.env['image'], LF])
             if self.env['cli_args'] is not None:

@@ -586,10 +586,15 @@ https://cirosantilli.com/linux-kernel-module-cheat#user-mode-static-executables
         self.add_argument(
             '-u',
             '--userland',
+            action='append',
             help='''\
 Run the given userland executable in user mode instead of booting the Linux kernel
 in full system mode. In gem5, user mode is called Syscall Emulation (SE) mode and
 uses se.py. Path resolution is similar to --baremetal.
+* https://cirosantilli.com/linux-kernel-module-cheat#userland-setup-getting-started
+* https://cirosantilli.com/linux-kernel-module-cheat#gem5-syscall-emulation-mode
+This option may be given multiple times only in gem5 syscall emulation:
+https://cirosantilli.com/linux-kernel-module-cheat#gem5-syscall-emulation-multiple-executables
 '''
         )
         self.add_argument(
@@ -848,14 +853,14 @@ Incompatible archs are skipped.
         )
         env['qemu_img_basename'] = 'qemu-img'
         env['qemu_img_executable'] = join(env['qemu_build_dir'], env['qemu_img_basename'])
-        if env['userland'] is None:
+        if not env['userland']:
             env['qemu_executable_basename'] = 'qemu-system-{}'.format(env['arch'])
         else:
             env['qemu_executable_basename'] = 'qemu-{}'.format(env['arch'])
         if env['qemu_which'] == 'host':
             env['qemu_executable'] = env['qemu_executable_basename']
         else:
-            if env['userland'] is None:
+            if not env['userland']:
                 env['qemu_executable'] = join(
                     env['qemu_build_dir'],
                     '{}-softmmu'.format(env['arch']),
@@ -1160,8 +1165,8 @@ Incompatible archs are skipped.
                 if os.path.exists(source_path):
                     env['source_path'] = source_path
                     break
-        elif env['userland'] is not None:
-            env['image'] = self.resolve_userland_executable(env['userland'])
+        elif env['userland']:
+            env['image'] = self.resolve_userland_executable(env['userland'][0])
             source_path_noext = os.path.splitext(join(
                 env['userland_source_dir'],
                 env['image'][len(env['userland_build_dir']) + 1:]
@@ -1458,7 +1463,7 @@ lunch aosp_{}-eng
                                 continue
                             else:
                                 raise Exception('native emulator only supported in if target arch == host arch')
-                        if env['userland'] is None and not env['mode'] == 'userland':
+                        if env['userland'] and not env['mode'] == 'userland':
                             if real_all_emulators:
                                 continue
                             else:
