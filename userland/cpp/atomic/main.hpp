@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     uint64_t expect = nthreads * niters;
 #if LKMC_USERLAND_ATOMIC_FAIL || \
     LKMC_USERLAND_ATOMIC_X86_64_INC || \
-    LKMC_USERLAND_ATOMIC_AARCH64_INC
+    LKMC_USERLAND_ATOMIC_AARCH64_ADD
     // These fail, so we just print the outcomes.
     std::cout << "expect " << expect << std::endl;
     std::cout << "global " << global << std::endl;
