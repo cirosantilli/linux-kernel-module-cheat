@@ -692,7 +692,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel3">
 <li><a href="#gem5-syscall-emulation-exit-status">10.7.1. gem5 syscall emulation exit status</a></li>
 <li><a href="#gem5-syscall-emulation-mode-syscall-tracing">10.7.2. gem5 syscall emulation mode syscall tracing</a></li>
-<li><a href="#gem5-syscall-emulation-multiple-executables">10.7.3. gem5 syscall emulation multiple executables</a></li>
+<li><a href="#gem5-syscall-emulation-multithreading">10.7.3. gem5 syscall emulation multithreading</a></li>
+<li><a href="#gem5-syscall-emulation-multiple-executables">10.7.4. gem5 syscall emulation multiple executables</a>
+<ul class="sectlevel4">
+<li><a href="#gem5-syscall-emulation-smt">10.7.4.1. gem5 syscall emulation --smt</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#qemu-user-mode-quirks">10.8. QEMU user mode quirks</a>
@@ -1100,9 +1105,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#number-of-cores">19.2.2.1. Number of cores</a>
 <ul class="sectlevel5">
 <li><a href="#qemu-user-mode-multithreading">19.2.2.1.1. QEMU user mode multithreading</a></li>
-<li><a href="#gem5-syscall-emulation-multithreading">19.2.2.1.2. gem5 syscall emulation multithreading</a></li>
-<li><a href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached">19.2.2.1.3. gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached</a></li>
-<li><a href="#gem5-arm-full-system-with-more-than-8-cores">19.2.2.1.4. gem5 ARM full system with more than 8 cores</a></li>
+<li><a href="#gem5-arm-full-system-with-more-than-8-cores">19.2.2.1.2. gem5 ARM full system with more than 8 cores</a></li>
 </ul>
 </li>
 <li><a href="#gem5-cache-size">19.2.2.2. gem5 cache size</a></li>
@@ -1197,7 +1200,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-sanitation-build">19.15.5. gem5 sanitation build</a></li>
 <li><a href="#gem5-ruby-build">19.15.6. gem5 Ruby build</a>
 <ul class="sectlevel4">
-<li><a href="#gem5-crossbar-interconnect">19.15.6.1. gem5 crossbar interconnect</a></li>
+<li><a href="#gem5-ruby-mi_example-protocol">19.15.6.1. gem5 Ruby MI_example protocol</a></li>
+<li><a href="#gem5-crossbar-interconnect">19.15.6.2. gem5 crossbar interconnect</a></li>
 </ul>
 </li>
 <li><a href="#gem5-python-3-build">19.15.7. gem5 Python 3 build</a></li>
@@ -1267,7 +1271,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#timingsimplecpu-analysis-ldr-stall">19.20.4.2.30. TimingSimpleCPU analysis: LDR stall</a></li>
 </ul>
 </li>
-<li><a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">19.20.4.3. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></li>
+<li><a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">19.20.4.3. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a>
+<ul class="sectlevel5">
+<li><a href="#what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5">19.20.4.3.1. What is the coherency protocol implemented by the classic cache system in gem5?</a></li>
+</ul>
+</li>
 <li><a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus">19.20.4.4. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a></li>
 <li><a href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">19.20.4.5. gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></li>
 <li><a href="#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis">19.20.4.6. gem5 event queue DerivO3CPU syscall emulation freestanding example analysis</a></li>
@@ -1980,7 +1988,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#mesi-cache-coherence-protocol">32.2.4. MESI cache coherence protocol</a></li>
 <li><a href="#mosi-cache-coherence-protocol">32.2.5. MOSI cache coherence protocol</a></li>
-<li><a href="#moesi-cache-coherence-protocol">32.2.6. MOESI cache coherence protocol</a></li>
+<li><a href="#moesi">32.2.6. MOESI cache coherence protocol</a></li>
 </ul>
 </li>
 </ul>
@@ -8063,35 +8071,119 @@ hello
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-syscall-emulation-multiple-executables"><a class="anchor" href="#gem5-syscall-emulation-multiple-executables"></a><a class="link" href="#gem5-syscall-emulation-multiple-executables">10.7.3. gem5 syscall emulation multiple executables</a></h4>
+<h4 id="gem5-syscall-emulation-multithreading"><a class="anchor" href="#gem5-syscall-emulation-multithreading"></a><a class="link" href="#gem5-syscall-emulation-multithreading">10.7.3. gem5 syscall emulation multithreading</a></h4>
 <div class="paragraph">
-<p>This is not currently nicely exposed in LKMC, but gem5 syscall emulation does allow you to run multiple executables "at once".</p>
+<p>gem5 user mode multithreading has been particularly flaky compared <a href="#qemu-user-mode-multithreading">to QEMU&#8217;s</a>, but work is being put into improving it.</p>
 </div>
 <div class="paragraph">
-<p><code>--cmd</code> takes a semicolon separated list, so we could do:</p>
+<p>In gem5 syscall simulation, the <code>fork</code> syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU.</p>
+</div>
+<div class="paragraph">
+<p>Otherwise, the <code>fork</code> call, and therefore higher level interfaces to <code>fork</code> such as <code>pthread_create</code> also fail and return a failure return status in the guest.</p>
+</div>
+<div class="paragraph">
+<p>For example, if we use just one CPU for <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_self.c">userland/posix/pthread_self.c</a> which spawns one thread besides <code>main</code>:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --emulator gem5 --userland userland/posix/getpid.c --cpus 2</pre>
+<pre>./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>and then <a href="#dry-run">hack the produced command</a> by replacing:</p>
+<p>fails with this error message coming from the guest stderr:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>  --cmd /home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out \
-  --param 'system.cpu[0].workload[:].release = "5.4.3"' \</pre>
+<pre>pthread_create: Resource temporarily unavailable</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>with:</p>
+<p>It works however if we add on extra CPU:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>  --cmd '/home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out;/home/ciro/bak/git/linux-kernel-module-cheat/out/userland/default/aarch64/posix/getpid.out' \
-  --param 'system.cpu[:].workload[:].release = "5.4.3"' \</pre>
+<pre>./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Once threads exit, their CPU is freed and becomes available for new <code>fork</code> calls: For example, the following run spawns a thread, joins it, and then spawns again, and 2 CPUs are enough:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args '1 2'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>because at each point in time, only up to two threads are running.</p>
+</div>
+<div class="paragraph">
+<p>gem5 syscall emulation does show the expected number of cores when queried, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
+./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>outputs <code>1</code> and <code>2</code> respectively.</p>
+</div>
+<div class="paragraph">
+<p>This can also be clearly by running <code>sched_getcpu</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --cli-args  4 \
+  --cpus 8 \
+  --emulator gem5 \
+  --userland userland/linux/sched_getcpu.c \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which necessarily produces an output containing the CPU numbers from 1 to 4 and no higher:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>1
+3
+4
+2</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO why does the <code>2</code> come at the end here? Would be good to do a detailed assembly run analysis.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-syscall-emulation-multiple-executables"><a class="anchor" href="#gem5-syscall-emulation-multiple-executables"></a><a class="link" href="#gem5-syscall-emulation-multiple-executables">10.7.4. gem5 syscall emulation multiple executables</a></h4>
+<div class="paragraph">
+<p>gem5 syscall emulation has the nice feature of allowing you to run multiple executables "at once".</p>
+</div>
+<div class="paragraph">
+<p>Each executable starts running on the next free core much as if it had been forked right at the start of simulation: <a href="#gem5-syscall-emulation-multithreading">gem5 syscall emulation multithreading</a>.</p>
+</div>
+<div class="paragraph">
+<p>This can be useful to quickly create deterministic multi-CPU workload.</p>
+</div>
+<div class="paragraph">
+<p><code>se.py --cmd</code> takes a semicolon separated list, so we could do which LKMC exposes this by taking <code>--userland</code> multiple times as in:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --cpus 2 \
+  --emulator gem5 \
+  --userland userland/posix/getpid.c \
+  --userland userland/posix/getpid.c \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We need at least one CPU per executable, just like when forking new processes.</p>
 </div>
 <div class="paragraph">
 <p>The outcome of this is that we see two different <code>pid</code> messages printed to stdout:</p>
@@ -8103,7 +8195,7 @@ pid=100</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>since from <a href="#gem5-process">gem5 <code>Process</code></a> we can see that se.py sets up one different PID per executable starting at `100:</p>
+<p>since from <a href="#gem5-process">gem5 <code>Process</code></a> we can see that se.py sets up one different PID per executable starting at 100:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -8112,9 +8204,6 @@ pid=100</pre>
     for wrkld in workloads:
         process = Process(pid = 100 + idx)</pre>
 </div>
-</div>
-<div class="paragraph">
-<p>This is basically starts running one process per CPU much like if it had been forked.</p>
 </div>
 <div class="paragraph">
 <p>We can also see that these processes are running concurrently with <a href="#gem5-tracing">gem5 tracing</a> by hacking:</p>
@@ -8138,6 +8227,37 @@ pid=100</pre>
 </div>
 <div class="paragraph">
 <p>and therefore shows one instruction running on each CPU for each process at the same time.</p>
+</div>
+<div class="sect4">
+<h5 id="gem5-syscall-emulation-smt"><a class="anchor" href="#gem5-syscall-emulation-smt"></a><a class="link" href="#gem5-syscall-emulation-smt">10.7.4.1. gem5 syscall emulation --smt</a></h5>
+<div class="paragraph">
+<p>gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4 syscall emulation has an <code>--smt</code> option presumably for <a href="#hardware-threads">Hardware threads</a> but it has been neglected forever it seems: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104</a></p>
+</div>
+<div class="paragraph">
+<p>If we start from the manually hacked working command from <a href="#gem5-syscall-emulation-multiple-executables">gem5 syscall emulation multiple executables</a> and try to add:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>--cpu 1 --cpu-type Derivo3CPU --caches</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We choose <a href="#gem5-deriveo3cpu"><code>DerivO3CPU</code></a> because of the se.py assert:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>example/se.py:115:        assert(options.cpu_type == "DerivO3CPU")</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>But then that fails with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>gem5.opt: /path/to/linux-kernel-module-cheat/out/gem5/master3/build/ARM/cpu/o3/cpu.cc:205: FullO3CPU&lt;Impl&gt;::FullO3CPU(DerivO3CPUParams*) [with Impl = O3CPUImpl]: Assertion `params-&gt;numPhysVecPredRegs &gt;= numThreads * TheISA::NumVecPredRegs' failed.
+Program aborted at tick 0</pre>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -18418,103 +18538,7 @@ ps Haux | grep qemu | wc</pre>
 </div>
 </div>
 <div class="sect5">
-<h6 id="gem5-syscall-emulation-multithreading"><a class="anchor" href="#gem5-syscall-emulation-multithreading"></a><a class="link" href="#gem5-syscall-emulation-multithreading">19.2.2.1.2. gem5 syscall emulation multithreading</a></h6>
-<div class="paragraph">
-<p>gem5 user mode multithreading has been particularly flaky compared <a href="#qemu-user-mode-multithreading">to QEMU&#8217;s</a>, but work is being put into improving it.</p>
-</div>
-<div class="paragraph">
-<p>In gem5 syscall simulation, the <code>fork</code> syscall checks if there is a free CPU, and if there is a free one, the new threads runs on that CPU.</p>
-</div>
-<div class="paragraph">
-<p>Otherwise, the <code>fork</code> call, and therefore higher level interfaces to <code>fork</code> such as <code>pthread_create</code> also fail and return a failure return status in the guest.</p>
-</div>
-<div class="paragraph">
-<p>For example, if we use just one CPU for <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_self.c">userland/posix/pthread_self.c</a> which spawns one thread besides <code>main</code>:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --cpus 1 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>fails with this error message coming from the guest stderr:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>pthread_create: Resource temporarily unavailable</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>It works however if we add on extra CPU:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args 1</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Once threads exit, their CPU is freed and becomes available for new <code>fork</code> calls: For example, the following run spawns a thread, joins it, and then spawns again, and 2 CPUs are enough:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --cpus 2 --emulator gem5 --userland userland/posix/pthread_self.c --cli-args '1 2'</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>because at each point in time, only up to two threads are running.</p>
-</div>
-<div class="paragraph">
-<p>gem5 syscall emulation does show the expected number of cores when queried, e.g.:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --cpus 1 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5
-./run --cpus 2 --userland userland/cpp/thread_hardware_concurrency.cpp --emulator gem5</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>outputs <code>1</code> and <code>2</code> respectively.</p>
-</div>
-<div class="paragraph">
-<p>This can also be clearly by running <code>sched_getcpu</code>:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run \
-  --arch aarch64 \
-  --cli-args  4 \
-  --cpus 8 \
-  --emulator gem5 \
-  --userland userland/linux/sched_getcpu.c \
-;</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>which necessarily produces an output containing the CPU numbers from 1 to 4 and no higher:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>1
-3
-4
-2</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>TODO why does the <code>2</code> come at the end here? Would be good to do a detailed assembly run analysis.</p>
-</div>
-</div>
-<div class="sect5">
-<h6 id="gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached"><a class="anchor" href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached"></a><a class="link" href="#gem5-se-py-user-mode-with-2-or-more-pthreads-fails-with-because-simulate-limit-reached">19.2.2.1.3. gem5 se.py user mode with 2 or more pthreads fails with because simulate() limit reached</a></h6>
-<div class="paragraph">
-<p>See bug report at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/81</a></p>
-</div>
-<div class="paragraph">
-<p>Related: <a href="#gem5-simulate-limit-reached">gem5 simulate() limit reached</a>.</p>
-</div>
-</div>
-<div class="sect5">
-<h6 id="gem5-arm-full-system-with-more-than-8-cores"><a class="anchor" href="#gem5-arm-full-system-with-more-than-8-cores"></a><a class="link" href="#gem5-arm-full-system-with-more-than-8-cores">19.2.2.1.4. gem5 ARM full system with more than 8 cores</a></h6>
+<h6 id="gem5-arm-full-system-with-more-than-8-cores"><a class="anchor" href="#gem5-arm-full-system-with-more-than-8-cores"></a><a class="link" href="#gem5-arm-full-system-with-more-than-8-cores">19.2.2.1.2. gem5 ARM full system with more than 8 cores</a></h6>
 <div class="paragraph">
 <p><a href="https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8" class="bare">https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8</a></p>
 </div>
@@ -20133,7 +20157,7 @@ git -C "$(./getvar linux_source_dir)" checkout -
 <p><code>drm: Add component-aware simple encoder</code> allows you to see images through VNC, see: <a href="#gem5-graphic-mode">Section 13.3, &#8220;gem5 graphic mode&#8221;</a></p>
 </li>
 <li>
-<p><code>gem5: Add support for gem5&#8217;s extended GIC mode</code> adds support for more than 8 cores, see: <a href="#gem5-arm-full-system-with-more-than-8-cores">Section 19.2.2.1.4, &#8220;gem5 ARM full system with more than 8 cores&#8221;</a></p>
+<p><code>gem5: Add support for gem5&#8217;s extended GIC mode</code> adds support for more than 8 cores, see: <a href="#gem5-arm-full-system-with-more-than-8-cores">Section 19.2.2.1.2, &#8220;gem5 ARM full system with more than 8 cores&#8221;</a></p>
 </li>
 </ul>
 </div>
@@ -21085,7 +21109,7 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 <div class="ulist">
 <ul>
 <li>
-<p>the classic memory system, which is used by default</p>
+<p>the classic memory system, which is used by default, its caches are covered at: <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></p>
 </li>
 <li>
 <p>the Ruby memory system</p>
@@ -21116,7 +21140,7 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 <p>and therefore ARM already compiles <code>MOESI_CMP_directory</code> by default.</p>
 </div>
 <div class="paragraph">
-<p>Then, with <code>fs.py</code> and <code>se.py</code>, you can choose to use either the classic or built-in ruby system at runtime with the <code>--ruby</code> option:</p>
+<p>Then, with <code>fs.py</code> and <code>se.py</code>, you can choose to use either the classic or the ruby system type selected at build time with <code>PROTOCOL=</code> at runtime by passing the <code>--ruby</code> option:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -21127,6 +21151,9 @@ Indirect leak of 1346 byte(s) in 2 object(s) allocated from:
 <p>otherwise, use the classic memory system. Caches may be optional for certain CPU types and are enabled with <code>--caches</code>.</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>It is not possible to build more than one Ruby system into a single build, and this is a major pain point for testing Ruby: <a href="https://gem5.atlassian.net/browse/GEM5-467" class="bare">https://gem5.atlassian.net/browse/GEM5-467</a></p>
 </div>
 <div class="paragraph">
 <p>For example, to use a two level <a href="#mesi-cache-coherence-protocol">MESI cache coherence protocol</a> we can do:</p>
@@ -21208,15 +21235,24 @@ cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"</pre>
 <p>Tested in gem5 d7d9bc240615625141cd6feddbadd392457e49eb.</p>
 </div>
 <div class="sect4">
-<h5 id="gem5-crossbar-interconnect"><a class="anchor" href="#gem5-crossbar-interconnect"></a><a class="link" href="#gem5-crossbar-interconnect">19.15.6.1. gem5 crossbar interconnect</a></h5>
+<h5 id="gem5-ruby-mi_example-protocol"><a class="anchor" href="#gem5-ruby-mi_example-protocol"></a><a class="link" href="#gem5-ruby-mi_example-protocol">19.15.6.1. gem5 Ruby MI_example protocol</a></h5>
+<div class="paragraph">
+<p>This is the simplest of all protocols, and therefore the first one you should study to learn how Ruby works.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="gem5-crossbar-interconnect"><a class="anchor" href="#gem5-crossbar-interconnect"></a><a class="link" href="#gem5-crossbar-interconnect">19.15.6.2. gem5 crossbar interconnect</a></h5>
 <div class="paragraph">
 <p>Crossbar or <code>XBar</code> in the code, is the default <a href="#cache-coherence">CPU interconnect</a> that gets used by <code>fs.py</code> if <a href="#gem5-ruby-build"><code>--ruby</code></a> is not given.</p>
 </div>
 <div class="paragraph">
-<p>One simple example of its operation can be seen at: <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">Section 19.20.4.2, &#8220;gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis&#8221;</a>.</p>
+<p>It presumably implements a crossbar switch along the lines of: <a href="https://en.wikipedia.org/wiki/Crossbar_switch" class="bare">https://en.wikipedia.org/wiki/Crossbar_switch</a></p>
 </div>
 <div class="paragraph">
-<p>See also: <a href="https://en.wikipedia.org/wiki/Crossbar_switch" class="bare">https://en.wikipedia.org/wiki/Crossbar_switch</a></p>
+<p>One simple example of its operation can be seen at: <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">Section 19.20.4.2, &#8220;gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis&#8221;</a></p>
+</div>
+<div class="paragraph">
+<p>But arguably interesting effects can only be observed when we have more than 1 CPUs as in <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a>.</p>
 </div>
 <div class="paragraph">
 <p>TODO: describe it in more detail. It appears to be a very simple mechanism.</p>
@@ -22554,7 +22590,6 @@ Exiting @ tick 3500 because exiting with last active thread context
 <pre>./run \
   --arch aarch64 \
   --emulator gem5 \
-  --gem5-build-type gem5 \
   --userland userland/arch/aarch64/freestanding/linux/hello.S \
   --trace Event,ExecAll,FmtFlag \
   --trace-stdout \
@@ -23045,7 +23080,8 @@ DRAMCtrl::Rank::startup(Tick ref_tick)
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run-toolchain --arch aarch64 readelf -- -h "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out</pre>
+<pre>./run-toolchain --arch aarch64 readelf -- \
+  -h "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out"</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -23095,6 +23131,50 @@ DRAMCtrl::Rank::startup(Tick ref_tick)
 <div class="content">
 <pre>_paddr = 0x78</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>se we deduce that the vitual address 0x400078 maps to the physical address 0x78. But of course, <a href="https://lmgtfy.com/">let me log that for you</a> byu adding <code>--trace MMU</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: MMU: system.cpu.workload: Translating: 0x400078-&gt;0x78</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If we try <code>--trace DRAM</code> we can see:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: DRAM: system.mem_ctrls: recvTimingReq: request ReadReq addr 120 size 4</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where 120 == 0x78 (it logs addresses in decimal? Really??) and the size 4 which is the instruction width.</p>
+</div>
+<div class="paragraph">
+<p>Now that we are here, we might as well learn how to log the data that was fetched from DRAM.</p>
+</div>
+<div class="paragraph">
+<p>Fist we determine the expected bytes from:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run-toolchain --arch aarch64 objdump -- \
+  -D "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which shows us the initial instruction encodings near the entry point <code>_start</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>0000000000400078 &lt;_start&gt;:
+  400078:       d2800020        mov     x0, #0x1                        // #1
+  40007c:       100000e1        adr     x1, 400098 &lt;msg&gt;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now, TODO :-) The <code>DRAM</code> logs don&#8217;t contain data. Maybe this can be done with <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/comm_monitor.hh#L55"><code>CommMonitor</code></a>, but it is no exposed on fs.py</p>
 </div>
 </div>
 <div class="sect5">
@@ -23625,7 +23705,7 @@ TimingSimpleCPU::IcachePort::ITickEvent::process</pre>
 <p>We first find it by looking for the <code>ExecEnable</code> of LDR.</p>
 </div>
 <div class="paragraph">
-<p>Then, we go up to the previous <code>Timing CPU icache tick</code> event, which from the analysis of previous instruction instructions, we know is where the instruction execution starts, the LDR instruction fetch is done by then!</p>
+<p>Then, we go up to the previous <code>Timing CPU icache tick</code> event, which from the analysis of previous instruction traces, we know is where the instruction execution starts, the LDR instruction fetch is done by then!</p>
 </div>
 <div class="paragraph">
 <p>Next, several events happen as the data request must be percolating through the memory system, it must be very similar to the instruction fetches. TODO analyze event function names.</p>
@@ -23657,59 +23737,72 @@ TimingSimpleCPU::IcachePort::ITickEvent::process</pre>
 <div class="sect4">
 <h5 id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches"><a class="anchor" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches"></a><a class="link" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">19.20.4.3. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></h5>
 <div class="paragraph">
-<p>Let&#8217;s just add <code>--caches</code> to see if things go any faster:</p>
+<p>Let&#8217;s just add <code>--caches</code> to <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a> to see if things go any faster, and add <code>Cache</code> to <code>--trace</code> as in:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
-**** REAL SIMULATION ****
-      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
-      0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
-      0: Event: Event_84: generic 84 scheduled @ 0
-info: Entering event queue @ 0.  Starting simulation...
-      0: Event: Event_84: generic 84 rescheduled @ 18446744073709551615
-      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
-      0: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 1000
-   1000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 executed @ 1000
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 1000
-   1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 scheduled @ 2000
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 1000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 1000
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 1000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 1000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 1000
-   2000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 executed @ 2000
-   5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
-  46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
-  46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
-  74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
-  74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 scheduled @ 77000
-  74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 scheduled @ 80000
-  77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 executed @ 77000
-  77000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 78000
-  78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 78000
-  78000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 78000
-  78000: Event: Event_40: Timing CPU icache tick 40 executed @ 78000
-  78000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
-  78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 83000
-  80000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 executed @ 80000
-  83000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 83000
-  83000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 83000
-  83000: Event: Event_40: Timing CPU icache tick 40 executed @ 83000
-  83000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
-  83000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 84000
-  [...]
- 191000: Event: Event_85: generic 85 scheduled @ 191000
- 191000: Event: Event_85: generic 85 executed @ 191000</pre>
+<pre>--trace Cache,Event,ExecAll,-ExecSymbol,FmtFlag</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The resulting trace is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#0         0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
+#2         0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
+#3         0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
+#4         0: Event: Event_84: generic 84 scheduled @ 0
+#5         0: Event: Event_84: generic 84 rescheduled @ 18446744073709551615
+#6         0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
+#7         0: Cache: system.cpu.icache: access for ReadReq [78:7b] IF miss
+#8         0: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 1000
+#9      1000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 executed @ 1000
+#10     1000: Cache: system.cpu.icache: sendMSHRQueuePacket: MSHR ReadReq [78:7b] IF
+#12     1000: Cache: system.cpu.icache: createMissPacket: created ReadCleanReq [40:7f] IF from ReadReq [78:7b] IF
+#13     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 1000
+#14     1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 scheduled @ 2000
+#15     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 1000
+#16     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 1000
+#17     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
+#18     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
+#19     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 1000
+#20     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 1000
+#22     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 1000
+#23     2000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 executed @ 2000
+#24     5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
+#25    46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
+#26    46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
+#27    74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
+#28    74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 scheduled @ 77000
+#29    74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 scheduled @ 80000
+#30    77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 executed @ 77000
+#32    77000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [40:7f] IF
+#33    77000: Cache: system.cpu.icache: Block for addr 0x40 being updated in Cache
+#34    77000: Cache: system.cpu.icache: Block addr 0x40 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+#35    77000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 78000
+#36    78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 78000
+#37    78000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 78000
+#38    78000: Event: Event_40: Timing CPU icache tick 40 executed @ 78000
+#39    78000: ExecEnable: system.cpu: A0 T0 : 0x400078    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+#40    78000: Cache: system.cpu.icache: access for ReadReq [7c:7f] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+#42    78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 83000
+#43    80000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 executed @ 80000
+#44    83000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 83000
+#45    83000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 83000
+#46    83000: Event: Event_40: Timing CPU icache tick 40 executed @ 83000
+#47    83000: ExecEnable: system.cpu: A0 T0 : 0x40007c    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+#48    83000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 84000
+          [...]
+      191000: Event: Event_85: generic 85 scheduled @ 191000
+      191000: Event: Event_85: generic 85 executed @ 191000</pre>
 </div>
 </div>
 <div class="paragraph">
 <p>So yes, <code>--caches</code> does work here, leading to a runtime of 191000 rather than 469000 without caches!</p>
 </div>
 <div class="paragraph">
-<p>Notably, we now see that very little time passed between the first and second instructions, presumably because rather than going out all the way to the DRAM system, the event chain stops right at the <code>icache.cpu_side</code> when a hit happens, which must have been the case for the second instruction, which is just adjacent to the first one.</p>
+<p>Notably, we now see that very little time passed between the first and second instructions which are marked with <code>ExecEnable</code> in #39 and #47, presumably because rather than going out all the way to the DRAM system the event chain stops right at the <code>icache.cpu_side</code> when a hit happens, which must have been the case for the second instruction, which is just adjacent to the first one.</p>
 </div>
 <div class="paragraph">
 <p>It is also interested to look into the generated <a href="#gem5-config-ini"><code>config.dot.svg</code></a> to compare it to the one without caches: <a href="#config-dot-svg-timingsimplecpu">Figure 2, &#8220;<code>config.dot.svg</code> for a TimingSimpleCPU without caches.&#8221;</a>. With caches: <a href="#config-dot-svg-timingsimplecpu-caches">Figure 3, &#8220;<code>config.dot.svg</code> for a TimingSimpleCPU with caches.&#8221;</a>.</p>
@@ -23725,6 +23818,208 @@ info: Entering event queue @ 0.  Starting simulation...
 <img src="https://raw.githubusercontent.com/cirosantilli/media/master/gem5_config_TimingSimpleCPU_caches_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true" alt="gem5 config TimingSimpleCPU caches 12c917de54145d2d50260035ba7fa614e25317a3" height="600">
 </div>
 <div class="title">Figure 3. <code>config.dot.svg</code> for a TimingSimpleCPU with caches.</div>
+</div>
+<div class="paragraph">
+<p>We can break down the events between the instructions as follows.</p>
+</div>
+<div class="paragraph">
+<p>First, based on <a href="#timingsimplecpu-analysis-5">TimingSimpleCPU analysis #5</a>, we <code>b TimingSimpleCPU::fetch</code> to see how the initial magically scheduled fetch, and necessarily cache miss, work:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>EventManager::schedule
+PacketQueue::schedSendEvent
+BaseCache::CacheMasterPort::schedSendEvent
+BaseCache::schedMemSideSendEvent
+BaseCache::allocateMissBuffer
+BaseCache::handleTimingReqMiss
+Cache::handleTimingReqMiss
+BaseCache::recvTimingReq
+Cache::recvTimingReq
+BaseCache::CpuSidePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::sendFetch
+TimingSimpleCPU::FetchTranslation::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::fetch</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By comparing this to the uncached access at <a href="#timingsimplecpu-analysis-25">TimingSimpleCPU analysis #25</a>, we see that this one does not reach the <code>CoherentXBar</code> at all: the cache must be scheduling an event in the future to model a delay between the cache request and XBar communication.</p>
+</div>
+<div class="paragraph">
+<p>A quick source structural view shows that the source for <a href="#gem5-ruby-build">non-Ruby caches</a> such as the ones from this example are located under:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>src/mem/cache</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and the following simple class hierarchy:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>BaseCache</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Cache</code></p>
+</li>
+<li>
+<p><code>NoncoherentCache</code></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Next, we fast forward to <code>#39</code> with <code>b TimingSimpleCPU::IcachePort::ITickEvent::process</code> which as we knows from previous sections, is the event that executes instructions, and therefore leaves us at the start of the second instruction.</p>
+</div>
+<div class="paragraph">
+<p>Then, we <code>b EventManager::schedule</code> to see what that schedules:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>EventManager::schedule
+PacketQueue::schedSendEvent
+PacketQueue::schedSendTiming
+QueuedSlavePort::schedTimingResp
+BaseCache::handleTimingReqHit
+Cache::handleTimingReqHit
+BaseCache::recvTimingReq
+Cache::recvTimingReq
+BaseCache::CpuSidePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::sendFetch
+TimingSimpleCPU::FetchTranslation::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::fetch
+TimingSimpleCPU::advanceInst
+TimingSimpleCPU::completeIfetch
+TimingSimpleCPU::IcachePort::ITickEvent::process</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By comparing this trace from the this cache hit and the previous cache miss, we see that <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/base.cc#L337"><code>BaseCache::recvTimingReq</code></a> decides between either: <code>Cache::handleTimingReqHit</code> and <code>Cache::handleTimingReqMiss</code>, and from there we see that the key function that decides if the block is present is <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/base.cc#L1033"><code>BaseCache::access</code></a>.</p>
+</div>
+<div class="paragraph">
+<p>We can see access behaviour at on the log lines, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#7         0: Cache: system.cpu.icache: access for ReadReq [78:7b] IF miss
+#40    78000: Cache: system.cpu.icache: access for ReadReq [7c:7f] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which makes sense since from <a href="#timingsimplecpu-analysis-5">TimingSimpleCPU analysis #5</a> we know that the physical address of the initial instruction is 0x78, and 4 bytes are read for each instruction, so the second instruction access is at 0x7c.</p>
+</div>
+<div class="paragraph">
+<p>The hit line also shows the precise cache state <code>E</code> from the MOESI protocol: <a href="#what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5">What is the coherency protocol implemented by the classic cache system in gem5?</a>.</p>
+</div>
+<div class="paragraph">
+<p>The other log lines are also very clear, e.g. for the miss we see the following lines:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#10     1000: Cache: system.cpu.icache: sendMSHRQueuePacket: MSHR ReadReq [78:7b] IF
+#12     1000: Cache: system.cpu.icache: createMissPacket: created ReadCleanReq [40:7f] IF from ReadReq [78:7b] IF
+#32    77000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [40:7f] IF
+#33    77000: Cache: system.cpu.icache: Block for addr 0x40 being updated in Cache
+#34    77000: Cache: system.cpu.icache: Block addr 0x40 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This shows us that the cache miss fills the cache line 40:7f, so we deduce that the cache block size is 0x40 == 64 bytes. The second address only barely hit at the last bytes of the block!</p>
+</div>
+<div class="paragraph">
+<p>It also informs us that the cache moved to <code>E</code> (from the initial <code>I</code>) state since a memory read was done.</p>
+</div>
+<div class="paragraph">
+<p>We can confirm this with <code>--trace DRAM</code> which shows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   1000: DRAM: system.mem_ctrls: recvTimingReq: request ReadCleanReq addr 64 size 64</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Contrast this with the non <code>--cache</code> version seen at <a href="#timingsimplecpu-analysis-5">TimingSimpleCPU analysis #5</a> in which DRAM only actually reads the 4 required bytes.</p>
+</div>
+<div class="paragraph">
+<p>Another interesting observation of running with <code>--trace Cache,DRAM,XBar</code> is that between the execution of both instructions, there is a <code>Cache</code> event, but no <code>DRAM</code> or <code>XBar</code> events:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  78000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  78000: Cache: system.cpu.icache: access for ReadReq [7c:7f] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+  83000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which is further consistent with the cache hit idea: no traffic goes down to the DRAM nor crossbar.</p>
+</div>
+<div class="paragraph">
+<p>This block size parameter can be seen set on the <a href="#gem5-config-ini">gem5 config.ini</a> file:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[system]
+cache_line_size=64</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so it is runtime configurable. The other key cache parameters can be seen further down in the config:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[system.cpu.dcache]
+assoc=2
+size=65536
+
+[system.cpu.dcache.replacement_policy]
+type=LRURP
+
+[system.cpu.dcache.tags.indexing_policy]
+type=SetAssociative</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we understand that by default the classic cache:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>is 2-way <a href="https://en.wikipedia.org/wiki/CPU_cache#Two-way_set_associative_cache" class="bare">https://en.wikipedia.org/wiki/CPU_cache#Two-way_set_associative_cache</a></p>
+</li>
+<li>
+<p>has 16KiB total size</p>
+</li>
+<li>
+<p>uses LRURP <a href="https://en.wikipedia.org/wiki/Cache_replacement_policies">replacement policy</a>. LRU is a well known policy, "LRU RP" seems to simply stand for "LRU Replacement Policy". Other policies can be seen under: <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/replacement_policies/">src/mem/cache/replacement_policies/</a></p>
+</li>
+</ul>
+</div>
+<div class="sect5">
+<h6 id="what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5"><a class="anchor" href="#what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5"></a><a class="link" href="#what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5">19.20.4.3.1. What is the coherency protocol implemented by the classic cache system in gem5?</a></h6>
+<div class="paragraph">
+<p><a href="#moesi">MOESI cache coherence protocol</a>: <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L352" class="bare">https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L352</a></p>
+</div>
+<div class="paragraph">
+<p>The actual representation is done via separate state bits: <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L66" class="bare">https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L66</a> and MOESI appears explicitly only on the pretty printing.</p>
+</div>
+<div class="paragraph">
+<p>This pretty printing appears for example in the <code>--trace Cache</code> lines as shown at <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a>.</p>
+</div>
 </div>
 </div>
 <div class="sect4">
@@ -23746,6 +24041,9 @@ info: Entering event queue @ 0.  Starting simulation...
 <img src="https://raw.githubusercontent.com/cirosantilli/media/master/gem5_config_TimingSimpleCPU_caches_2_CPUs_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true" alt="gem5 config TimingSimpleCPU caches 2 CPUs 12c917de54145d2d50260035ba7fa614e25317a3" height="600">
 </div>
 <div class="title">Figure 4. <code>config.dot.svg</code> for a system with two TimingSimpleCPU with caches.</div>
+</div>
+<div class="paragraph">
+<p>The simplest setup to understand will be to use <a href="#gem5-syscall-emulation-multiple-executables">gem5 syscall emulation multiple executables</a>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -36672,7 +36970,7 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>gem5 appears to possibly have attempted to implement hardware threads in <a href="#gem5-syscall-emulation-mode">gem5 syscall emulation mode</a>: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104</a> when using <a href="#gem5-syscall-emulation-multiple-executables">gem5 syscall emulation multiple executables</a>.</p>
+<p>gem5 appears to possibly have attempted to implement hardware threads in <a href="#gem5-syscall-emulation-mode">gem5 syscall emulation mode</a> as mentioned at <a href="#gem5-syscall-emulation-smt">gem5 syscall emulation --smt</a>.</p>
 </div>
 <div class="paragraph">
 <p>On fs.py it is not exposed in any in-tree config however, and as pointed by the above issue O3 FS has an assert that prevents it in <a href="https://github.com/gem5/gem5/blob/377898c4034c72b84b2662ed252fa25079a4ea62/src/cpu/o3/cpu.cc#L313">src/cpu/o3/cpu.cc</a>:</p>
@@ -37300,7 +37598,7 @@ CACHE2 S nyy
 <div class="sect4">
 <h5 id="msi-cache-coherence-protocol-with-transient-states"><a class="anchor" href="#msi-cache-coherence-protocol-with-transient-states"></a><a class="link" href="#msi-cache-coherence-protocol-with-transient-states">32.2.3.1. MSI cache coherence protocol with transient states</a></h5>
 <div class="paragraph">
-<p>TODO underestand well why those are needed.</p>
+<p>TODO understand well why those are needed.</p>
 </div>
 <div class="ulist">
 <ul>
@@ -37336,7 +37634,7 @@ CACHE2 S nyy
 </ul>
 </div>
 <div class="paragraph">
-<p>Exclusive is entered from Invalid after a PrRd, but only if the reply came from DRAM (<a href="#can-caches-snoop-data-from-other-caches">or if we snoped that no one sent the reply to DRAM for us to read it</a>)! If the reply came from another cache, we go directly to shared instead. It is this extra information that allows for the split of S.</p>
+<p>Exclusive is entered from Invalid after a PrRd, but only if the reply came from DRAM (<a href="#can-caches-snoop-data-from-other-caches">or if we snooped that no one sent the reply to DRAM for us to read it</a>)! If the reply came from another cache, we go directly to shared instead. It is this extra information that allows for the split of S.</p>
 </div>
 <div class="paragraph">
 <p>The advantage of this over MSI is that when we move from Exclusive to Modified, no invalidate message is required, reducing bus traffic: <a href="https://en.wikipedia.org/wiki/MESI_protocol#Advantages_of_MESI_over_MSI" class="bare">https://en.wikipedia.org/wiki/MESI_protocol#Advantages_of_MESI_over_MSI</a></p>
@@ -37382,7 +37680,7 @@ CACHE2 S nyy
 </ul>
 </div>
 <div class="paragraph">
-<p>An MSI cahe 1 would do:</p>
+<p>An MSI cache 1 would do:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -37412,12 +37710,15 @@ CACHE2 S nyy
 </div>
 </div>
 <div class="sect3">
-<h4 id="moesi-cache-coherence-protocol"><a class="anchor" href="#moesi-cache-coherence-protocol"></a><a class="link" href="#moesi-cache-coherence-protocol">32.2.6. MOESI cache coherence protocol</a></h4>
+<h4 id="moesi"><a class="anchor" href="#moesi"></a><a class="link" href="#moesi">32.2.6. MOESI cache coherence protocol</a></h4>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/MOESI_protocol" class="bare">https://en.wikipedia.org/wiki/MOESI_protocol</a></p>
 </div>
 <div class="paragraph">
 <p><a href="#mesi-cache-coherence-protocol">MESI cache coherence protocol</a> + <a href="#mosi-cache-coherence-protocol">MOSI cache coherence protocol</a>, not much else to it!</p>
+</div>
+<div class="paragraph">
+<p>In gem5 9fc9c67b4242c03f165951775be5cd0812f2a705, MOESI is the default cache coherency protocol of the <a href="#gem5-ruby-build">classic memory system</a> as shown at <a href="#what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5">Section 19.20.4.3.1, &#8220;What is the coherency protocol implemented by the classic cache system in gem5?&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>gem5 12c917de54145d2d50260035ba7fa614e25317a3 has several <a href="#gem5-ruby-build">Ruby</a> MOESI models implemented: <code>MOESI_AMD_Base</code>, <code>MOESI_CMP_directory</code>, <code>MOESI_CMP_token</code> and <code>MOESI_hammer</code>.</p>
