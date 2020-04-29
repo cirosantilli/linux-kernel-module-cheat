@@ -12855,7 +12855,7 @@ From the message, this appears however to be a Python / pyenv11 bug however and 
 
 gem5 has two types of memory system:
 
-* the classic memory system, which is used by default
+* the classic memory system, which is used by default, its caches are covered at: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>
 * the Ruby memory system
 
 The Ruby memory system includes the SLICC domain specific language to describe memory systems: http://gem5.org/Ruby SLICC transpiles to C++ auto-generated files under `build/<isa>/mem/ruby/protocol/`.
@@ -13865,7 +13865,6 @@ TODO: analyze better what each of the memory event mean. For now, we have just c
 ./run \
   --arch aarch64 \
   --emulator gem5 \
-  --gem5-build-type gem5 \
   --userland userland/arch/aarch64/freestanding/linux/hello.S \
   --trace Event,ExecAll,FmtFlag \
   --trace-stdout \
@@ -14254,7 +14253,8 @@ The log shows that event ID `43` is now executing: we had previously seen event 
 We can step into `TimingSimpleCPU::fetch()` to confirm that the expected <<elf>> entry point is being fetched. We can inspect the ELF with:
 
 ....
-./run-toolchain --arch aarch64 readelf -- -h "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out
+./run-toolchain --arch aarch64 readelf -- \
+  -h "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out"
 ....
 
 which contains:
@@ -14294,6 +14294,39 @@ the packet now contains the physical address:
 ....
 _paddr = 0x78
 ....
+
+se we deduce that the vitual address 0x400078 maps to the physical address 0x78. But of course, https://lmgtfy.com/[let me log that for you] byu adding `--trace MMU`:
+
+....
+      0: MMU: system.cpu.workload: Translating: 0x400078->0x78
+....
+
+If we try `--trace DRAM` we can see:
+
+....
+      0: DRAM: system.mem_ctrls: recvTimingReq: request ReadReq addr 120 size 4
+....
+
+where 120 == 0x78 (it logs addresses in decimal? Really??) and the size 4 which is the instruction width.
+
+Now that we are here, we might as well learn how to log the data that was fetched from DRAM.
+
+Fist we determine the expected bytes from:
+
+....
+./run-toolchain --arch aarch64 objdump -- \
+  -D "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out"
+....
+
+which shows us the initial instruction encodings near the entry point `_start`:
+
+....
+0000000000400078 <_start>:
+  400078:       d2800020        mov     x0, #0x1                        // #1
+  40007c:       100000e1        adr     x1, 400098 <msg>
+....
+
+Now, TODO :-) The `DRAM` logs don't contain data. Maybe this can be done with https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/comm_monitor.hh#L55[`CommMonitor`], but it is no exposed on fs.py
 
 ====== TimingSimpleCPU analysis #6
 
@@ -14691,7 +14724,7 @@ The following is the region of interest of the event log:
 
 We first find it by looking for the `ExecEnable` of LDR.
 
-Then, we go up to the previous `Timing CPU icache tick` event, which from the analysis of previous instruction instructions, we know is where the instruction execution starts, the LDR instruction fetch is done by then!
+Then, we go up to the previous `Timing CPU icache tick` event, which from the analysis of previous instruction traces, we know is where the instruction execution starts, the LDR instruction fetch is done by then!
 
 Next, several events happen as the data request must be percolating through the memory system, it must be very similar to the instruction fetches. TODO analyze event function names.
 
@@ -14709,57 +14742,67 @@ from which we guess:
 
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches
 
-Let's just add `--caches` to see if things go any faster:
+Let's just add `--caches` to <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis>> to see if things go any faster, and add `Cache` to `--trace` as in:
 
 ....
+--trace Cache,Event,ExecAll,-ExecSymbol,FmtFlag
+....
 
-      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
-**** REAL SIMULATION ****
-      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
-      0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
-      0: Event: Event_84: generic 84 scheduled @ 0
-info: Entering event queue @ 0.  Starting simulation...
-      0: Event: Event_84: generic 84 rescheduled @ 18446744073709551615
-      0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
-      0: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 1000
-   1000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 executed @ 1000
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 1000
-   1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 scheduled @ 2000
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 1000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 1000
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
-   1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 1000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 1000
-   1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 1000
-   2000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 executed @ 2000
-   5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
-  46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
-  46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
-  74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
-  74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 scheduled @ 77000
-  74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 scheduled @ 80000
-  77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 executed @ 77000
-  77000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 78000
-  78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 78000
-  78000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 78000
-  78000: Event: Event_40: Timing CPU icache tick 40 executed @ 78000
-  78000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
-  78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 83000
-  80000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 executed @ 80000
-  83000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 83000
-  83000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 83000
-  83000: Event: Event_40: Timing CPU icache tick 40 executed @ 83000
-  83000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
-  83000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 84000
-  [...]
- 191000: Event: Event_85: generic 85 scheduled @ 191000
- 191000: Event: Event_85: generic 85 executed @ 191000
+The resulting trace is:
+
+....
+#0         0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
+#2         0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
+#3         0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
+#4         0: Event: Event_84: generic 84 scheduled @ 0
+#5         0: Event: Event_84: generic 84 rescheduled @ 18446744073709551615
+#6         0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
+#7         0: Cache: system.cpu.icache: access for ReadReq [78:7b] IF miss
+#8         0: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 1000
+#9      1000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 executed @ 1000
+#10     1000: Cache: system.cpu.icache: sendMSHRQueuePacket: MSHR ReadReq [78:7b] IF
+#12     1000: Cache: system.cpu.icache: createMissPacket: created ReadCleanReq [40:7f] IF from ReadReq [78:7b] IF
+#13     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 1000
+#14     1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 scheduled @ 2000
+#15     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 1000
+#16     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 1000
+#17     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
+#18     1000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
+#19     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 1000
+#20     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 1000
+#22     1000: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 1000
+#23     2000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 70 executed @ 2000
+#24     5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
+#25    46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
+#26    46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
+#27    74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
+#28    74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 scheduled @ 77000
+#29    74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 scheduled @ 80000
+#30    77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 74 executed @ 77000
+#32    77000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [40:7f] IF
+#33    77000: Cache: system.cpu.icache: Block for addr 0x40 being updated in Cache
+#34    77000: Cache: system.cpu.icache: Block addr 0x40 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+#35    77000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 78000
+#36    78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 78000
+#37    78000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 78000
+#38    78000: Event: Event_40: Timing CPU icache tick 40 executed @ 78000
+#39    78000: ExecEnable: system.cpu: A0 T0 : 0x400078    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+#40    78000: Cache: system.cpu.icache: access for ReadReq [7c:7f] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+#42    78000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 scheduled @ 83000
+#43    80000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 75 executed @ 80000
+#44    83000: Event: system.cpu.icache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 57 executed @ 83000
+#45    83000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 83000
+#46    83000: Event: Event_40: Timing CPU icache tick 40 executed @ 83000
+#47    83000: ExecEnable: system.cpu: A0 T0 : 0x40007c    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+#48    83000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 84000
+          [...]
+      191000: Event: Event_85: generic 85 scheduled @ 191000
+      191000: Event: Event_85: generic 85 executed @ 191000
 ....
 
 So yes, `--caches` does work here, leading to a runtime of 191000 rather than 469000 without caches!
 
-Notably, we now see that very little time passed between the first and second instructions, presumably because rather than going out all the way to the DRAM system, the event chain stops right at the `icache.cpu_side` when a hit happens, which must have been the case for the second instruction, which is just adjacent to the first one.
+Notably, we now see that very little time passed between the first and second instructions which are marked with `ExecEnable` in #39 and #47, presumably because rather than going out all the way to the DRAM system the event chain stops right at the `icache.cpu_side` when a hit happens, which must have been the case for the second instruction, which is just adjacent to the first one.
 
 It is also interested to look into the generated <<gem5-config-ini,`config.dot.svg`>> to compare it to the one without caches: xref:config-dot-svg-timingsimplecpu[xrefstyle=full]. With caches: xref:config-dot-svg-timingsimplecpu-caches[xrefstyle=full].
 
@@ -14770,6 +14813,138 @@ It is worth noting that the caches do not affect the `ArmITB` and `ArmDTB` <<arm
 [[config-dot-svg-timingsimplecpu-caches]]
 .`config.dot.svg` for a TimingSimpleCPU with caches.
 image::{cirosantilli-media-base}gem5_config_TimingSimpleCPU_caches_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true[height=600]
+
+We can break down the events between the instructions as follows.
+
+First, based on <<timingsimplecpu-analysis-5>>, we `b TimingSimpleCPU::fetch` to see how the initial magically scheduled fetch, and necessarily cache miss, work:
+
+.....
+EventManager::schedule
+PacketQueue::schedSendEvent
+BaseCache::CacheMasterPort::schedSendEvent
+BaseCache::schedMemSideSendEvent
+BaseCache::allocateMissBuffer
+BaseCache::handleTimingReqMiss
+Cache::handleTimingReqMiss
+BaseCache::recvTimingReq
+Cache::recvTimingReq
+BaseCache::CpuSidePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::sendFetch
+TimingSimpleCPU::FetchTranslation::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::fetch
+.....
+
+By comparing this to the uncached access at <<timingsimplecpu-analysis-25>>, we see that this one does not reach the `CoherentXBar` at all: the cache must be scheduling an event in the future to model a delay between the cache request and XBar communication.
+
+A quick source structural view shows that the source for <<gem5-ruby-build,non-Ruby caches>> such as the ones from this example are located under:
+
+....
+src/mem/cache
+....
+
+and the following simple class hierarchy:
+
+* `BaseCache`
+** `Cache`
+** `NoncoherentCache`
+
+Next, we fast forward to `#39` with `b TimingSimpleCPU::IcachePort::ITickEvent::process` which as we knows from previous sections, is the event that executes instructions, and therefore leaves us at the start of the second instruction.
+
+Then, we `b EventManager::schedule` to see what that schedules:
+
+....
+EventManager::schedule
+PacketQueue::schedSendEvent
+PacketQueue::schedSendTiming
+QueuedSlavePort::schedTimingResp
+BaseCache::handleTimingReqHit
+Cache::handleTimingReqHit
+BaseCache::recvTimingReq
+Cache::recvTimingReq
+BaseCache::CpuSidePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::sendFetch
+TimingSimpleCPU::FetchTranslation::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::fetch
+TimingSimpleCPU::advanceInst
+TimingSimpleCPU::completeIfetch
+TimingSimpleCPU::IcachePort::ITickEvent::process
+....
+
+By comparing this trace from the this cache hit and the previous cache miss, we see that https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/base.cc#L337[`BaseCache::recvTimingReq`] decides between either: `Cache::handleTimingReqHit` and `Cache::handleTimingReqMiss`, and from there we see that the key function that decides if the block is present is https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/base.cc#L1033[`BaseCache::access`].
+
+We can see access behaviour at on the log lines, e.g.:
+
+....
+#7         0: Cache: system.cpu.icache: access for ReadReq [78:7b] IF miss
+#40    78000: Cache: system.cpu.icache: access for ReadReq [7c:7f] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+....
+
+which makes sense since from <<timingsimplecpu-analysis-5>> we know that the physical address of the initial instruction is 0x78, and 4 bytes are read for each instruction, so the second instruction access is at 0x7c.
+
+The hit line also shows the precise cache state `E` from the MOESI protocol: <<what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5>>.
+
+The other log lines are also very clear, e.g. for the miss we see the following lines:
+
+....
+#10     1000: Cache: system.cpu.icache: sendMSHRQueuePacket: MSHR ReadReq [78:7b] IF
+#12     1000: Cache: system.cpu.icache: createMissPacket: created ReadCleanReq [40:7f] IF from ReadReq [78:7b] IF
+#32    77000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [40:7f] IF
+#33    77000: Cache: system.cpu.icache: Block for addr 0x40 being updated in Cache
+#34    77000: Cache: system.cpu.icache: Block addr 0x40 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+....
+
+This shows us that the cache miss fills the cache line 40:7f, so we deduce that the cache block size is 0x40 == 64 bytes. The second address only barely hit at the last bytes of the block! We can confirm this with `--trace DRAM` which shows:
+
+....
+   1000: DRAM: system.mem_ctrls: recvTimingReq: request ReadCleanReq addr 64 size 64
+....
+
+Contrast this with the non `--cache` version seen at <<timingsimplecpu-analysis-5>> in which DRAM only actually reads the 4 required bytes.
+
+This block size parameter can be seen set on the <<gem5-config-ini>> file:
+
+....
+[system]
+cache_line_size=64
+....
+
+so it is runtime configurable. The other key cache parameters can be seen further down in the config:
+
+....
+[system.cpu.dcache]
+assoc=2
+size=65536
+
+[system.cpu.dcache.replacement_policy]
+type=LRURP
+
+[system.cpu.dcache.tags.indexing_policy]
+type=SetAssociative
+....
+
+so we understand that by default the classic cache:
+
+* is 2-way https://en.wikipedia.org/wiki/CPU_cache#Two-way_set_associative_cache
+* has 16KiB total size
+* uses LRURP https://en.wikipedia.org/wiki/Cache_replacement_policies[replacement policy]. LRU is a well known policy, "LRU RP" seems to simply stand for "LRU Replacement Policy". Other policies can be seen under: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/replacement_policies/[src/mem/cache/replacement_policies/]
+
+====== What is the coherency protocol implemented by the classic cache system in gem5?
+
+<<moesi>>: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L352
+
+The actual representation is done via separate state bits: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L66 and MOESI appears explicitly only on the pretty printing.
+
+This pretty printing appears for example in the `--trace Cache` lines as shown at <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>.
 
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs
 
@@ -22804,7 +22979,7 @@ TODO gem5 concrete example.
 
 ===== MSI cache coherence protocol with transient states
 
-TODO underestand well why those are needed.
+TODO understand well why those are needed.
 
 * http://learning.gem5.org/book/part3/MSI/directory.html
 * https://www.researchgate.net/figure/MSI-Protocol-with-Transient-States-Adapted-from-30_fig3_2531432
@@ -22819,7 +22994,7 @@ Splits the Shared of <<msi-cache-coherence-protocol>> into a new Exclusive state
 * MESI Exclusive: clean but only present in one cache
 * MESI Shared: clean but present in more that one cache
 
-Exclusive is entered from Invalid after a PrRd, but only if the reply came from DRAM (<<can-caches-snoop-data-from-other-caches,or if we snoped that no one sent the reply to DRAM for us to read it>>)! If the reply came from another cache, we go directly to shared instead. It is this extra information that allows for the split of S.
+Exclusive is entered from Invalid after a PrRd, but only if the reply came from DRAM (<<can-caches-snoop-data-from-other-caches,or if we snooped that no one sent the reply to DRAM for us to read it>>)! If the reply came from another cache, we go directly to shared instead. It is this extra information that allows for the split of S.
 
 The advantage of this over MSI is that when we move from Exclusive to Modified, no invalidate message is required, reducing bus traffic: https://en.wikipedia.org/wiki/MESI_protocol#Advantages_of_MESI_over_MSI
 
@@ -22845,7 +23020,7 @@ So, in case we had:
 * processor 2: I then read
 * processor 1: write
 
-An MSI cahe 1 would do:
+An MSI cache 1 would do:
 
 * write to main memory, go to S
 * BusUpgr, go back to M, 2 back to I
@@ -22857,11 +23032,14 @@ and MOSI would do:
 
 This therefore saves one memory write through and its bus traffic.
 
+[[moesi]]
 ==== MOESI cache coherence protocol
 
 https://en.wikipedia.org/wiki/MOESI_protocol
 
 <<mesi-cache-coherence-protocol>> + <<mosi-cache-coherence-protocol>>, not much else to it!
+
+In gem5 9fc9c67b4242c03f165951775be5cd0812f2a705, MOESI is the default cache coherency protocol of the <<gem5-ruby-build,classic memory system>> as shown at xref:what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5[xrefstyle=full].
 
 gem5 12c917de54145d2d50260035ba7fa614e25317a3 has several <<gem5-ruby-build,Ruby>> MOESI models implemented: `MOESI_AMD_Base`, `MOESI_CMP_directory`, `MOESI_CMP_token` and `MOESI_hammer`.
 
