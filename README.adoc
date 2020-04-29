@@ -12939,9 +12939,11 @@ Tested in gem5 d7d9bc240615625141cd6feddbadd392457e49eb.
 
 Crossbar or `XBar` in the code, is the default <<cache-coherence,CPU interconnect>> that gets used by `fs.py` if <<gem5-ruby-build,`--ruby`>> is not given.
 
-One simple example of its operation can be seen at: xref:gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis[xrefstyle=full].
+It presumably implements a crossbar switch along the lines of: https://en.wikipedia.org/wiki/Crossbar_switch
 
-See also: https://en.wikipedia.org/wiki/Crossbar_switch
+One simple example of its operation can be seen at: xref:gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis[xrefstyle=full]
+
+But arguably interesting effects can only be observed when we have more than 1 CPUs as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>.
 
 TODO: describe it in more detail. It appears to be a very simple mechanism.
 
@@ -14903,13 +14905,27 @@ The other log lines are also very clear, e.g. for the miss we see the following 
 #34    77000: Cache: system.cpu.icache: Block addr 0x40 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
 ....
 
-This shows us that the cache miss fills the cache line 40:7f, so we deduce that the cache block size is 0x40 == 64 bytes. The second address only barely hit at the last bytes of the block! We can confirm this with `--trace DRAM` which shows:
+This shows us that the cache miss fills the cache line 40:7f, so we deduce that the cache block size is 0x40 == 64 bytes. The second address only barely hit at the last bytes of the block!
+
+It also informs us that the cache moved to `E` (from the initial `I`) state since a memory read was done.
+
+We can confirm this with `--trace DRAM` which shows:
 
 ....
    1000: DRAM: system.mem_ctrls: recvTimingReq: request ReadCleanReq addr 64 size 64
 ....
 
 Contrast this with the non `--cache` version seen at <<timingsimplecpu-analysis-5>> in which DRAM only actually reads the 4 required bytes.
+
+Another interesting observation of running with `--trace Cache,DRAM,XBar` is that between the execution of both instructions, there is a `Cache` event, but no `DRAM` or `XBar` events:
+
+....
+  78000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+  78000: Cache: system.cpu.icache: access for ReadReq [7c:7f] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x1 way: 0
+  83000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+....
+
+which is further consistent with the cache hit idea: no traffic goes down to the DRAM nor crossbar.
 
 This block size parameter can be seen set on the <<gem5-config-ini>> file:
 
