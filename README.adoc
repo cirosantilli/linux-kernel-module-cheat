@@ -3972,13 +3972,27 @@ qemu-x86_64: /path/to/linux-kernel-module-cheat/submodules/qemu/accel/tcg/cpu-ex
 
 And a native Ubuntu 18.04 AMD64 run with static compilation segfaults.
 
+As of LKMC f5d4998ff51a548ed3f5153aacb0411d22022058 the aarch64 error:
+
+....
+./run --arch aarch64 --userland userland/cpp/atomic/fail.cpp --static
+....
+
+is:
+
+....
+terminate called after throwing an instance of 'std::system_error'
+  what():  Unknown error 16781344
+qemu: uncaught target signal 6 (Aborted) - core dumped
+....
+
 The workaround:
 
 ....
 -pthread -Wl,--whole-archive -lpthread -Wl,--no-whole-archive
 ....
 
-fixes some of the problems, but not all, so we are just skipping those tests for now.
+fixes some of the problems, but not all TODO which were missing?, so we are just skipping those tests for now.
 
 === syscall emulation mode program stdin
 
@@ -12869,6 +12883,8 @@ Then, with `fs.py` and `se.py`, you can choose to use either the classic or the 
 * if `--ruby` is given, use the ruby memory system that was compiled into gem5. Caches are always present when Ruby is used, since the main goal of Ruby is to specify the cache coherence protocol, and it therefore hardcodes cache hierarchies.
 * otherwise, use the classic memory system. Caches may be optional for certain CPU types and are enabled with `--caches`.
 
+Note that the `--ruby` option has some crazy side effects besides enabling Ruby, e.g. it https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/configs/ruby/Ruby.py#L61[sets the default `--cpu-type` to `TimingSimpleCPU` instead of the otherwise default `AtomicSimpleCPU`]. But why.
+
 It is not possible to build more than one Ruby system into a single build, and this is a major pain point for testing Ruby: https://gem5.atlassian.net/browse/GEM5-467
 
 For example, to use a two level <<mesi-cache-coherence-protocol>> we can do:
@@ -12930,6 +12946,30 @@ Tested in gem5 d7d9bc240615625141cd6feddbadd392457e49eb.
 ===== gem5 Ruby MI_example protocol
 
 This is the simplest of all protocols, and therefore the first one you should study to learn how Ruby works.
+
+To study it, we can take an approach similar to what was done at: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>.
+
+Our full command line will be something like
+
+....
+./build-gem5 --arch aarch64 --gem5-build-id MI_example
+./run \
+  --arch aarch64 \
+  --cli-args '2 100' \
+  --cpus 3 \
+  --emulator gem5 \
+  --userland userland/cpp/atomic/aarch64_add.cpp \
+  --gem5-build-id MI_example \
+  -- \
+  --ruby \
+;
+....
+
+which produces a <<gem5-config-dot,`config.dot.svg`>> like the following by with 3 CPUs instead of 2:
+
+[[config-dot-svg-timingsimplecpu-caches-3-cpus-ruby]]
+.`config.dot.svg` for a system with three TimingSimpleCPU CPUs with the Ruby `MI_example` protocol.
+image::{cirosantilli-media-base}gem5_config_TimingSimpleCPU_3_CPUs_MI_example_b1623cb2087873f64197e503ab8894b5e4d4c7b4.svg?sanitize=true[height=600]
 
 ===== gem5 crossbar interconnect
 
@@ -13382,6 +13422,8 @@ Tested at gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
 gem5 is an event based simulator, and as such the event queue is of of the crucial elements in the system.
 
+Every single action that takes time (e.g. notably <<timingsimplecpu-analysis-ldr-stall,reading from memory>>) models that time delay by scheduling an event in the future.
+
 The gem5 event queue stores one callback event for each future point in time.
 
 The event queue is implemented in the class `EventQueue` in the file `src/sim/eventq.hh`.
@@ -13776,20 +13818,34 @@ We assume that the memory access still goes through the <<gem5-crossbar-intercon
 Inside `AtomicSimpleCPU::tick`, we track `ifetch_req` and see:
 
 ....
-        fault = thread->itb->translateAtomic(ifetch_req, thread->getTC(),
-                                                BaseTLB::Execute);
+fault = thread->itb->translateAtomic(ifetch_req, thread->getTC(),
+                                        BaseTLB::Execute);
+....
+
+and later on after translation the memory is obtained at:
+
+....
+icache_latency = sendPacket(icachePort, &ifetch_pkt);
+....
+
+which <<gem5-functional-vs-atomic-vs-timing-memory-requests,sends the packet atomically>> through the port:
+
+....
+AtomicSimpleCPU::sendPacket(MasterPort &port, const PacketPtr &pkt) {
+    return port.sendAtomic(pkt);
+}
 ....
 
 We can compare that with what happen sin `TimingSimpleCPU`:
 
 ....
-        thread->itb->translateTiming(ifetch_req, thread->getTC(),
-                &fetchTranslation, BaseTLB::Execute);
+thread->itb->translateTiming(ifetch_req, thread->getTC(),
+        &fetchTranslation, BaseTLB::Execute);
 ....
 
 and so there it is: the `ITB` classes are the same, but there are a separate `Atomic` and `Timing` methods!
 
-The `Timing` one calls `ArmISA::TLB::translateComplete`
+The timing request is shown further at: <<gem5-functional-vs-atomic-vs-timing-memory-requests,sends the packet atomically>>.
 
 Tested in gem5 b4879ae5b0b6644e6836b0881e4da05c64a6550d.
 
@@ -14661,6 +14717,8 @@ Schedule `DRAMCtrl::processRespondEvent()`.
 
 One important thing we want to check now, is how the memory reads are going to make the processor stall in the middle of an instruction.
 
+This is also discussed at: <<gem5-execute-vs-initiateacc-vs-completeacc>>.
+
 Since we were using a simple CPU without a pipeline, the data memory access stall everything: there is no further progress until memory comes back.
 
 For that, we can GDB to the `TimingSimpleCPU::completeIfetch` of the first LDR done in our test program.
@@ -14682,12 +14740,13 @@ if (curStaticInst && curStaticInst->isMemRef()) {
 * `+curStaticInst->isMemRef()+` is true, and there is no instruction `execute` call in that part of the branch, only for instructions that don't touch memory
 * `_status` is `BaseSimpleCPU::Status::DcacheWaitResponse` and `advanceInst` is not yet called
 
-So, where is the `execute` happening? Well, I'll satisfy myself with a quick source grep and guess:
+We can verify that `execute` never happens by putting a breakpoint on `ArmISAInst::LDRXL64_LIT::execute` which never gets called.
 
-* `+curStaticInst->initiateAcc+` sets up some memory request events
-* which likely lead up to: `TimingSimpleCPU::completeDataAccess`, which off the bat ends in `advanceInst`.
-+
-It also calls `+curStaticInst->completeAcc+`, which pairs up with the `initiateAcc` call.
+Therefore, we conclude that `initiateAcc` is what actually starts the memory request.
+
+Later on, when the memory access completes the event calls `TimingSimpleCPU::completeDataAccess` which calls `ArmISAInst::LDRXL64_LIT::completeAcc`, which sets the register value to what was read from memory.
+
+More memory event details can be seen at: <<gem5-functional-vs-atomic-vs-timing-memory-requests>>.
 
 The following is the region of interest of the event log:
 
@@ -14968,11 +15027,26 @@ To observe it we could create one well controlled workload with instructions tha
 
 If we don't use such instructions that flush memory, we would only see the interconnect at work when caches run out.
 
+For this study, we will use the same CLI as <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis>> but with multiple CPUs and a content like <<atomic-cpp>> which shares a variable across threads.
+
+We will then focus on the behaviour or the memory of the shared variable to see if we can observe cache coherency on the crossbar:
+
+....
+./run \
+  --arch aarch64 \
+  --cli-args '2 100' \
+  --cpus 3 \
+  --emulator gem5 \
+  --gem5-worktree master3 \
+  --userland userland/cpp/atomic/aarch64_add.cpp \
+;
+....
+
+The <<gem5-config-dot,`config.dot.svg`>> now looks like this but with 3 CPUs instead of 2:
+
 [[config-dot-svg-timingsimplecpu-caches-2-cpus]]
 .`config.dot.svg` for a system with two TimingSimpleCPU with caches.
 image::{cirosantilli-media-base}gem5_config_TimingSimpleCPU_caches_2_CPUs_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true[height=600]
-
-The simplest setup to understand will be to use <<gem5-syscall-emulation-multiple-executables>>.
 
 ===== gem5 event queue MinorCPU syscall emulation freestanding example analysis
 
@@ -15002,6 +15076,418 @@ TODO: analyze the trace for:
 ===== gem5 event queue DerivO3CPU syscall emulation freestanding example analysis
 
 TODO: like <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>> but even more complex!
+
+==== gem5 instruction definitions
+
+This is one of the parts of gem5 that rely on semi-useless <<gem5-code-generation,code generation>> inside the `.isa` sublanguage.
+
+Which is mostly Python, with some magic letters thrown in for good measure.
+
+The class definitions get all dumped into one humongous C++ include file:
+
+....
+build/ARM/arch/arm/generated/exec-ns.cc.inc
+....
+
+That file defines the key methods of each instruction, e.g. the ARM immediate <<userland-assembly,ADD instruction>> has its `execute` method defined there:
+
+....
+    Fault AddImm::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+....
+
+or for example the key methods of an <<arm-str-instruction,ARM 64-bit (X) STR with an immediate offset>> (`STR <Wt>, [<Xn|SP>], #<simm>`):
+
+....
+    Fault STRX64_IMM::execute(ExecContext *xc,
+                                  Trace::InstRecord *traceData) const
+
+    Fault STRX64_IMM::initiateAcc(ExecContext *xc,
+                                      Trace::InstRecord *traceData) const
+
+    Fault STRX64_IMM::completeAcc(PacketPtr pkt, ExecContext *xc,
+                                      Trace::InstRecord *traceData) const
+    {
+        return NoFault;
+    }
+....
+
+
+The file is an include so that compilation can be split up into chunks by the autogenerated includers
+
+....
+build/ARM/arch/arm/generated/generic_cpu_1.cc
+build/ARM/arch/arm/generated/generic_cpu_2.cc
+...
+....
+
+via the `__SPLIT` macro as in:
+
+....
+#include "exec-g.cc.inc"
+#include "cpu/exec_context.hh"
+#include "decoder.hh"
+namespace ArmISAInst {
+#define __SPLIT 1
+#include "exec-ns.cc.inc"
+}
+....
+
+This is likely done to not overload the C++ compiler? But sure enough overloads IDEs and GDB which takes forever to load the source of any frames going through it.
+
+We should split that file into one per class for the love of God.
+
+The autogenerated instruction class declarations can be found at:
+
+....
+build/ARM/arch/arm/generated/decoder-ns.hh.inc
+....
+
+and the autogenerated bulk of the decoder:
+
+....
+build/ARM/arch/arm/generated/decoder-ns.cc.inc
+....
+
+which also happens to contain the constructor definitions of the instruction classes, e.g. for the ADD immediate because why not:
+
+....
+    AddImm::AddImm(ExtMachInst machInst,
+                                          IntRegIndex _dest,
+                                          IntRegIndex _op1,
+                                          uint32_t _imm,
+                                          bool _rotC)
+....
+
+The above files get tied in the autogenerated:
+
+....
+build/ARM/arch/arm/generated/decoder.hh
+....
+
+which contains:
+
+....
+#include "decoder-g.hh.inc"
+namespace ArmISAInst {
+#include "decoder-ns.hh.inc"
+}
+....
+
+Different instructions inherit form different classes, e.g. the ARM immediate ADD instruction is a `DataImmOp`:
+
+....
+class AddImm : public DataImmOp
+{
+    public:
+        // Constructor
+        AddImm(ExtMachInst machInst, IntRegIndex _dest,
+                IntRegIndex _op1, uint32_t _imm, bool _rotC=true);
+        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+};
+....
+
+and STRX64_IMM is an `ArmISA::MemoryImm64`:
+
+....
+    class STRX64_IMM : public ArmISA::MemoryImm64
+    {
+      public:
+
+        /// Constructor.
+        STRX64_IMM(ExtMachInst machInst,
+                IntRegIndex _dest, IntRegIndex _base, int64_t _imm);
+
+        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+        Fault initiateAcc(ExecContext *, Trace::InstRecord *) const override;
+        Fault completeAcc(PacketPtr, ExecContext *,
+                          Trace::InstRecord *) const override;
+
+        void
+        annotateFault(ArmFault *fault) override
+        {
+                    fault->annotate(ArmFault::SAS, 3);
+                    fault->annotate(ArmFault::SSE, false);
+                    fault->annotate(ArmFault::SRT, dest);
+                    fault->annotate(ArmFault::SF, true);
+                    fault->annotate(ArmFault::AR, false);
+        }
+    };
+....
+
+but different memory instructions can have different base classes too e.g. <<arm-ldxr-and-stxr-instructions,STXR>>:
+
+....
+class STXRX64 : public ArmISA::MemoryEx64
+....
+
+A summarized class hierarchy for the above is:
+
+* `StaticInst`
+** `ArmISA::ArmStaticInst`
+*** `ArmISA::PredOp`
+**** `ArmISA::DataImmOp`
+***** `ArmISA::AddImm`
+**** `ArmISA::MightBeMicro64`
+***** ArmISA::Memory64
+****** `ArmISA::MemoryImm64`
+******* `ArmISA::MemoryEx64`
+******** `ArmISA::STXRX64`
+
+Tested in gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4.
+
+===== gem5 `execute` vs `initiateAcc` vs `completeAcc`
+
+These are the key methods defined in instruction definitions, so lets see when each one gets called and what they do more or less.
+
+`execute` is the only one of the three that gets defined by "non-memory" instructions.
+
+Memory instructions define all three.
+
+The three methods are present in the base class `StaticInst`:
+
+....
+    virtual Fault execute(ExecContext *xc,
+                          Trace::InstRecord *traceData) const = 0;
+
+    virtual Fault initiateAcc(ExecContext *xc,
+                              Trace::InstRecord *traceData) const
+    {
+        panic("initiateAcc not defined!");
+    }
+
+    virtual Fault completeAcc(Packet *pkt, ExecContext *xc,
+                              Trace::InstRecord *traceData) const
+    {
+        panic("completeAcc not defined!");
+    }
+....
+
+so we see that all instructions must implement `execute`, while overriding `initiateAcc` and `completeAcc` are optional and only done by classes for which those might get called: memory instructions.
+
+`execute` is what does the actual job for non-memory instructions (obviously, since it is the only one of the three methods that is defined as not `panic` for those).
+
+Memory instructions however run either:
+
+* `execute` in `AtomicSimpleCPU`: this does the entire memory access in one go
+* `initiateAcc` + `completeAcc` in timing CPUs. `initiateAcc` is called when the instruction starts executing, and `completeAcc` is called when the memory fetch returns from the memory system.
+
+This can be seen concretely in GDB from the analysis done at: <<timingsimplecpu-analysis-ldr-stall>> and for more memory details see <<gem5-functional-vs-atomic-vs-timing-memory-requests>>.
+
+====== gem5 `completeAcc`
+
+`completeAcc` is boring on most simple store memory instructions, e.g. a simple STR:
+
+....
+    Fault STRX64_IMM::completeAcc(PacketPtr pkt, ExecContext *xc,
+                                      Trace::InstRecord *traceData) const
+    {
+        return NoFault;
+    }
+....
+
+This is because the store does all of its job on `completeAcc` basically, creating the memory write request.
+
+Loads however have non-trivial `completeAcc`, because now we have at the very least, to save the value read from memory into a CPU address.
+
+Things are much more interesting however on more interesting loads, for example <<arm-ldxr-and-stxr-instructions,STXR>> (hand formatted here):
+
+....
+Fault STXRX64::completeAcc(PacketPtr pkt, ExecContext *xc,
+                                    Trace::InstRecord *traceData) const {
+    Fault fault = NoFault;
+    uint64_t XResult = 0;
+    uint32_t SevMailbox = 0;
+    uint32_t LLSCLock = 0;
+    uint64_t writeResult = pkt->req->getExtraData();
+    XResult = !writeResult; SevMailbox = 1; LLSCLock = 0;
+    if (fault == NoFault) {
+        {
+            uint64_t final_val = XResult;
+            xc->setIntRegOperand(this, 0, (XResult) & mask(aarch64 ? 64 : 32));
+            if (traceData) { traceData->setData(final_val); }
+        }
+        xc->setMiscRegOperand(this, 1, SevMailbox);
+        if (traceData) { traceData->setData(SevMailbox); }
+        xc->setMiscRegOperand(this, 2, LLSCLock);
+        if (traceData) { traceData->setData(LLSCLock); }
+    }
+    return fault;
+}
+....
+
+==== gem5 port system
+
+The gem5 memory system is connected in a very flexible way through the port system.
+
+This system exists to allow seamlessly connecting any combination of CPU, caches, interconnects, DRAM and peripherals.
+
+===== gem5 functional vs atomic vs timing memory requests
+
+gem5 memory requests can be classified in the following broad categories:
+
+* functional: get the value magically, do not update caches
+* atomic: get the value now without making a <<gem5-event-queue,separate event>>, but do not update caches
+* timing: get the value simulating delays and updating caches
+
+This trichotomy can be notably seen in the definition of the https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/port.hh#L75[MasterPort class]:
+
+....
+class MasterPort : public Port, public AtomicRequestProtocol,
+    public TimingRequestProtocol, public FunctionalRequestProtocol
+....
+
+and the base classes are defined under `src/mem/protocol/`.
+
+Then, by reading the rest of the class, we see that the send methods are all boring, and just forward to some polymorphic receiver that does the actual interesting activity:
+
+....
+    Tick
+    sendAtomicSnoop(PacketPtr pkt)
+    {
+        return AtomicResponseProtocol::sendSnoop(_masterPort, pkt);
+    }
+
+    Tick
+    AtomicResponseProtocol::sendSnoop(AtomicRequestProtocol *peer, PacketPtr pkt)
+    {
+        assert(pkt->isRequest());
+        return peer->recvAtomicSnoop(pkt);
+    }
+....
+
+The receive methods are therefore the interesting ones, and must be overridden on derived classes if they ever expect to receive such requests:
+
+....
+    Tick
+    recvAtomicSnoop(PacketPtr pkt) override
+    {
+        panic("%s was not expecting an atomic snoop request\n", name());
+        return 0;
+    }
+
+    void
+    recvFunctionalSnoop(PacketPtr pkt) override
+    {
+        panic("%s was not expecting a functional snoop request\n", name());
+    }
+
+    void
+    recvTimingSnoopReq(PacketPtr pkt) override
+    {
+        panic("%s was not expecting a timing snoop request.\n", name());
+    }
+....
+
+One question that comes up now is: but why do CPUs need to care about <<cache-coherence,snoop requests>>?
+
+And one big answer is: to be able to implement LLSC atomicity as mentioned at: <<arm-ldxr-and-stxr-instructions>>, since when other cores update memory, they could invalidate the lock of the current core.
+
+Then, as you might expect, we can see that for example `AtomicSimpleCPU` does not override `recvTimingSnoopReq`.
+
+Now let see which requests are generated by ordinary <<arm-ldr-instruction>>. We run:
+
+....
+./run \
+  --arch aarch64 \
+  --debug-vm \
+  --emulator gem5 \
+  --gem5-build-type debug \
+  --useland userland/arch/aarch64/freestanding/linux/hello.S \
+....
+
+and then break at the methods of the LDR class `LDRXL64_LIT`: <<gem5-execute-vs-initiateacc-vs-completeacc>>.
+
+Before starting, we of course guess that:
+
+* `AtomicSimpleCPU` will be making atomic accesses from `execute`
+* `TimingSimpleCPU` will be making timing accesses from `initiateAcc`, which must generate the event which leads to `completeAcc`
+
+so let's confirm it.
+
+We break on `ArmISAInst::LDRXL64_LIT::execute` which is what `AtomicSimpleCPU` uses, and that leads as expected to:
+
+....
+MasterPort::sendAtomic
+AtomicSimpleCPU::sendPacket
+AtomicSimpleCPU::readMem
+SimpleExecContext::readMem
+readMemAtomic<(ByteOrder)1, ExecContext, unsigned long>
+readMemAtomicLE<ExecContext, unsigned long>
+ArmISAInst::LDRXL64_LIT::execute
+AtomicSimpleCPU::tick
+....
+
+Notably, `AtomicSimpleCPU::readMem` immediately translates the address, creates a packet, sends the atomic request, and gets the response back without any events.
+
+And now if we do the same with `--cpu-type TimingSimpleCPU` and break at `ArmISAInst::LDRXL64_LIT::initiateAcc`, and then add another break for the next event schedule `b EventManager::schedule` (which we imagine is the memory read) we reach:
+
+....
+EventManager::schedule
+DRAMCtrl::addToReadQueue
+DRAMCtrl::recvTimingReq
+DRAMCtrl::MemoryPort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+CoherentXBar::recvTimingReq
+CoherentXBar::CoherentXBarSlavePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::handleReadPacket
+TimingSimpleCPU::sendData
+TimingSimpleCPU::finishTranslation
+DataTranslation<TimingSimpleCPU*>::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::initiateMemRead
+SimpleExecContext::initiateMemRead
+initiateMemRead<ExecContext, unsigned long>
+ArmISAInst::LDRXL64_LIT::initiateAcc
+TimingSimpleCPU::completeIfetch
+TimingSimpleCPU::IcachePort::ITickEvent::process
+EventQueue::serviceOne
+....
+
+so as expected we have `TimingRequestProtocol::sendReq`.
+
+Remember however that timing requests are a bit more complicated due to <<arm-paging,paging>>, since the page table walk can itself lead to further memory requests.
+
+In this particular instance, the address being read with `ldr x2, =len` <<arm-ldr-pseudo-instruction>> is likely placed just after the text section, and therefore the pagewalk is already in the TLB due to previous instruction fetches, and this is because the translation just finished immediately going through `TimingSimpleCPU::finishTranslation`, some key snippets are:
+
+....
+TLB::translateComplete(const RequestPtr &req, ThreadContext *tc,
+        Translation *translation, Mode mode, TLB::ArmTranslationType tranType,
+        bool callFromS2)
+{
+    bool delay = false;
+    Fault fault;
+    if (FullSystem)
+        fault = translateFs(req, tc, mode, translation, delay, true, tranType);
+    else
+        fault = translateSe(req, tc, mode, translation, delay, true);
+    if (!delay)
+        translation->finish(fault, req, tc, mode);
+    else
+        translation->markDelayed();
+....
+
+and then `translateSe` does not use `delay` at all, so we learn that in syscall emulation, `delay` is always `false` and things progress immediately there. And then further down `TimingSimpleCPU::finishTranslation` does some more fault checking:
+
+....
+void
+TimingSimpleCPU::finishTranslation(WholeTranslationState *state)
+{
+    if (state->getFault() != NoFault) {
+        translationFault(state->getFault());
+    } else {
+        if (!state->isSplit) {
+            sendData(state->mainReq, state->data, state->res,
+                     state->mode == BaseTLB::Read);
+....
+
+
+Tested in gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4.
 
 ==== gem5 `ThreadContext` vs `ThreadState` vs `ExecContext` vs `Process`
 
@@ -15253,9 +15739,13 @@ class O3ThreadContext : public ThreadContext
 
 ===== gem5 `ExecContext`
 
-`ExecContext` gets used in instruction definitions, e.g.:
+`ExecContext` gets used in <<gem5-instruction-definitions>>, e.g.:
 
+....
 build/ARM/arch/arm/generated/exec-ns.cc.inc
+....
+
+contains:
 
 ....
     Fault Mul::execute(
@@ -15449,7 +15939,7 @@ BaseSimpleCPU::BaseSimpleCPU(BaseSimpleCPUParams *p)
 gem5 uses a ton of code generation, which makes the project horrendous:
 
 * lots of magic happen on top of pybind11, which is already magic, to more automatically glue the C++ and Python worlds: <<gem5-python-c-interaction>>
-* .isa code which describes most of the instructions
+* .isa code which describes most of the instructions: <<gem5-instruction-definitions>>
 * <<gem5-ruby-build,Ruby>> for memory systems
 
 To find the definition of generated code, do a:
