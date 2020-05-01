@@ -15326,7 +15326,7 @@ This system exists to allow seamlessly connecting any combination of CPU, caches
 
 gem5 memory requests can be classified in the following broad categories:
 
-* functional: get the value magically, do not update caches
+* functional: get the value magically, do not update caches, see also: <<gem5-functional-requests>>
 * atomic: get the value now without making a <<gem5-event-queue,separate event>>, but do not update caches
 * timing: get the value simulating delays and updating caches
 
@@ -15488,6 +15488,18 @@ TimingSimpleCPU::finishTranslation(WholeTranslationState *state)
 
 
 Tested in gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4.
+
+====== gem5 functional requests
+
+As seen at <<gem5-functional-vs-atomic-vs-timing-memory-requests>>, functional requests are not used in common simulation, since the core must always go through caches.
+
+Functional access are therefore only used for more magic simulation functionalities.
+
+One such functionality, is the <<gem5-syscall-emulation-mode>> implementation of the <<futex-system-call>> which is done at `futexFunc` in https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/sim/syscall_emul.hh#L394[`src/sim/sycall_emul.hh`].
+
+As seen from `man futex`, the Linux kernel reads the value from an address that is given as the first argument of the call.
+
+Therefore, here it makes sense for gem5 syscall implementation, which does not actually have a real kernel running, to just make a functional request and be done with it, since the impact of cache changes done by this read would be insignificant to the cost of an actual full context switch that would happen on a real syscall.
 
 ==== gem5 `ThreadContext` vs `ThreadState` vs `ExecContext` vs `Process`
 
@@ -16988,7 +17000,7 @@ We can now look into how `std::atomic` is implemented. In `-O3` the disassembly 
 
 so we clearly see that basically a `lock addq` is used to do an atomic read and write to memory every single time, just like in our other example link:userland/cpp/atomic/x86_64_lock_inc.cpp[].
 
-This setup can also be used to benchmark different synchronization mechanisms. For example, `std::mutex` was about 1.5x slower with two cores than `std::atomic`, presumably because it relies on the `futex` system call as can be seen from `strace -f -s999 -v` logs, while `std::atomic` uses just userland instructions: https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli Tested in `-O3` with:
+This setup can also be used to benchmark different synchronization mechanisms. For example, `std::mutex` was about 1.5x slower with two cores than `std::atomic`, presumably because it relies on the <<futex-system-call,`futex` system call>> as can be seen from `strace -f -s999 -v` logs, while `std::atomic` uses just userland instructions: https://www.quora.com/How-does-std-atomic-work-in-C++11/answer/Ciro-Santilli Tested in `-O3` with:
 
 ....
 time ./std_atomic.out 4 100000000
