@@ -754,6 +754,10 @@ path_properties_tuples = (
                             'requires_syscall_getcpu': True,
                             'test_run_args': {'cpus': 2},
                         },
+                        'sched_getcpu_barrier.c': {
+                            'requires_syscall_getcpu': True,
+                            'test_run_args': {'cpus': 2},
+                        },
                         'time_boot.c': {'requires_sudo': True},
                         'virt_to_phys_user.c': {'requires_argument': True},
                     }
