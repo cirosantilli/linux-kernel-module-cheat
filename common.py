@@ -575,6 +575,14 @@ are available.
 ''',
         )
         self.add_argument(
+            '--print-cmd-oneline',
+            action='store_true',
+            help='''\
+Print generated commands in a single line:
+https://cirosantilli.com/linux-kernel-module-cheat#dry-run
+'''
+        )
+        self.add_argument(
             '--static',
             default=False,
             help='''\
@@ -1482,6 +1490,7 @@ lunch aosp_{}-eng
                         self.env = env.copy()
                         self.sh = shell_helpers.ShellHelpers(
                             dry_run=self.env['dry_run'],
+                            force_oneline=self.env['print_cmd_oneline'],
                             quiet=(not show_cmds),
                         )
                         self._init_env(self.env)

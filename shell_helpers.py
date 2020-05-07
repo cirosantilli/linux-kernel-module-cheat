@@ -35,7 +35,7 @@ class ShellHelpers:
 
     _print_lock = threading.Lock()
 
-    def __init__(self, dry_run=False, quiet=False):
+    def __init__(self, dry_run=False, quiet=False, force_oneline=False):
         '''
         :param dry_run: don't run the commands, just potentially print them. Debug aid.
         :type dry_run: Bool
@@ -44,6 +44,7 @@ class ShellHelpers:
         :type dry_run: Bool
         '''
         self.dry_run = dry_run
+        self.force_oneline_default = force_oneline
         self.quiet = quiet
 
     @classmethod
@@ -108,13 +109,19 @@ class ShellHelpers:
             new_mode = old_mode & ~mode_delta
         os.chmod(path, new_mode)
 
-    @staticmethod
+    def force_oneline(self, force_oneline):
+        if force_oneline is not None:
+            return force_oneline
+        else:
+            return self.force_oneline_default
+
     def cmd_to_string(
+        self,
         cmd: List[Union[str, LF]],
         cwd=None,
         extra_env=None,
         extra_paths=None,
-        force_oneline: bool =False,
+        force_oneline: Union[bool,None] =None,
         *,
         stdin_path: Union[str,None] =None
     ):
@@ -143,12 +150,12 @@ class ShellHelpers:
         newline_count = 0
         for arg in cmd:
             if arg == LF:
-                if not force_oneline:
+                if not self.force_oneline(force_oneline):
                     cmd_quote.append(arg)
                     newline_count += 1
             else:
                 cmd_quote.append(shlex.quote(arg))
-        if force_oneline or newline_count > 0:
+        if self.force_oneline(force_oneline) or newline_count > 0:
             cmd_quote = [
                 ' '.join(list(y))
                 for x, y in itertools.groupby(
@@ -160,7 +167,7 @@ class ShellHelpers:
         out.extend(cmd_quote)
         if stdin_path is not None:
             out.append('< {}'.format(shlex.quote(stdin_path)))
-        if force_oneline or newline_count == 1 and cmd[-1] == LF:
+        if self.force_oneline(force_oneline) or newline_count == 1 and cmd[-1] == LF:
             ending = ''
         else:
             ending = last_newline + ';'
@@ -246,7 +253,7 @@ class ShellHelpers:
         cmd_files=None,
         extra_env=None,
         extra_paths=None,
-        force_oneline=False,
+        force_oneline: Union[bool,None] =None,
         *,
         stdin_path: Union[str,None] =None
     ):
