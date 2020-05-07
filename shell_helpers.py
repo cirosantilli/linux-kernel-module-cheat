@@ -140,12 +140,14 @@ class ShellHelpers:
         out = []
         if extra_env is None:
             extra_env = {}
+        preffix_arr = []
         if cwd is not None:
-            out.append('cd {} &&'.format(shlex.quote(cwd)))
+            preffix_arr.append('cd {} &&'.format(shlex.quote(cwd)))
+        extra_env2 = extra_env.copy()
         if extra_paths is not None:
-            out.append('PATH="{}:${{PATH}}"'.format(':'.join(extra_paths)))
-        for key in extra_env:
-            out.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env[key])))
+            extra_env2['PATH'] = '{}:"${{PATH}}"'.format(shlex.quote(':'.join(extra_paths)))
+        for key in extra_env2:
+            preffix_arr.append('{}={}'.format(shlex.quote(key), shlex.quote(extra_env2[key])))
         cmd_quote = []
         newline_count = 0
         for arg in cmd:
@@ -164,6 +166,10 @@ class ShellHelpers:
                 )
                 if not x
             ]
+        if self.force_oneline(force_oneline):
+            cmd_quote = [' '.join(preffix_arr + cmd_quote)]
+        else:
+            cmd_quote = preffix_arr + cmd_quote
         out.extend(cmd_quote)
         if stdin_path is not None:
             out.append('< {}'.format(shlex.quote(stdin_path)))
