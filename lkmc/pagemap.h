@@ -12,7 +12,7 @@
  * https://github.com/torvalds/linux/blob/v4.9/Documentation/vm/pagemap.txt
  */
 typedef struct {
-    uint64_t pfn : 54;
+    uint64_t pfn : 55;
     unsigned int soft_dirty : 1;
     unsigned int file_page : 1;
     unsigned int swapped : 1;
@@ -46,8 +46,8 @@ int lkmc_pagemap_get_entry(LkmcPagemapEntry *entry, int pagemap_fd, uintptr_t va
             return 1;
         }
     }
-    entry->pfn = data & (((uint64_t)1 << 54) - 1);
-    entry->soft_dirty = (data >> 54) & 1;
+    entry->pfn = data & (((uint64_t)1 << 55) - 1);
+    entry->soft_dirty = (data >> 55) & 1;
     entry->file_page = (data >> 61) & 1;
     entry->swapped = (data >> 62) & 1;
     entry->present = (data >> 63) & 1;

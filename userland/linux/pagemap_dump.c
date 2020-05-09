@@ -1,6 +1,7 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#pagemap-dump-out */
 
 #define _XOPEN_SOURCE 700
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -91,8 +92,10 @@ int main(int argc, char **argv) {
                 {
                     LkmcPagemapEntry entry;
                     for (uintptr_t vaddr = low; vaddr < high; vaddr += sysconf(_SC_PAGE_SIZE)) {
-                        /* TODO always fails for the last page (vsyscall), why? pread returns 0. */
-                        if (!lkmc_pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
+                        if (lkmc_pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
+                            /* TODO always fails for the last page (vsyscall), why? pread returns 0. */
+                            /*assert(0);*/
+                        } else {
                             printf(
                                 "%jx %jx %u %u %u %u %s\n",
                                 (uintmax_t)vaddr,
