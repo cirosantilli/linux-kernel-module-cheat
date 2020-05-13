@@ -2,18 +2,29 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <sched.h> /* getcpu */
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sched.h> /* sched_getcpu */
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+/* man getcpu says this exists since glibc 2.29, but I can't find it in Ubuntu 20.04 glibc 2.31 not even with locate
+ * (there is a hit under /usr/src/linux-headers-5.4.0-29/include/linux/getcpu.h but it only defines `struct getcpu_cache`
+ * and nothing else:
+ * https://stackoverflow.com/questions/23224607/how-do-i-include-linux-header-files-like-linux-getcpu-h
+ * Furthermore, there is already a prototype in sched.h, so we can't define our own either. */
+#if 0
+#include <linux/getcpu.h>
+#endif
+
 void* main_thread(void *arg) {
     (void)arg;
-    printf("%d\n", sched_getcpu());
+    unsigned cpu, numa;
+    getcpu(&cpu, &numa);
+    printf("%u %u\n", cpu, numa);
     return NULL;
 }
 

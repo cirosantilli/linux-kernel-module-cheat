@@ -2,7 +2,7 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
-#include <sched.h>
+#include <sched.h> /* sched_getaffinity */
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
