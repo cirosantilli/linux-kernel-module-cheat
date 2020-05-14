@@ -3,7 +3,7 @@
 CC = gcc
 CXX = g++
 CFLGS = -std=c99
-CCFLGS = -ggdb3 -O0 -pedantic-errors -Wall -Wextra -Wno-missing-field-initializers
+CCFLGS = -ggdb3 -O0 -pedantic-errors -Wall -Wextra -Wno-missing-field-initializers -fpie
 CXXFLGS = -std=c++11
 IN_EXT = .c
 IN_CXX_EXT = .cpp
@@ -16,10 +16,10 @@ OUTS = $(addsuffix $(OUT_EXT), $(basename $(wildcard *$(IN_EXT))) $(basename $(w
 all: $(OUTS)
 
 %$(OUT_EXT): %$(IN_EXT)
-	$(CC) $(CFLGS) $(CCFLGS) $$(pkg-config --cflags python3) -o '$@' '$<' $$(pkg-config --libs python3)
+	$(CC) $(CFLGS) $(CCFLGS) $$(python3-config --cflags --embed) -o '$@' '$<' $$(python3-config --embed --ldflags)
 
 %$(OUT_EXT): %$(IN_CXX_EXT)
-	$(CXX) $(CXXFLGS) $(CCFLGS) $$(pkg-config --cflags python3) -o '$@' '$<' $$(pkg-config --libs python3)
+	$(CXX) $(CXXFLGS) $(CCFLGS) $$(python3-config --cflags --embed) -o '$@' '$<' $$(python3-config --embed --ldflags)
 
 clean:
 	rm -rf *'$(OUT_EXT)' __pycache__ *.pyc
