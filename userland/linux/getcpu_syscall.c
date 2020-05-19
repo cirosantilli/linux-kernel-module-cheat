@@ -11,15 +11,9 @@
 
 void* main_thread(void *arg) {
     (void)arg;
-    unsigned cpu = 1, numa;
-    int err, ret;
+    unsigned cpu, numa;
     assert(!syscall(SYS_getcpu, &cpu, &numa, NULL));
-    err = errno;
-    if (ret == -1) {
-        printf("%d\n", err);
-        perror("getcpu");
-    }
-    printf("%d %u %u\n", ret, cpu, numa);
+    printf("%u %u\n", cpu, numa);
     return NULL;
 }
 
