@@ -67,7 +67,6 @@ class PathProperties:
         'no_build': False,
         # The path does not generate an executable in itself, e.g.
         # it only generates intermediate object files. Therefore it
-        # should not be run while testing.
         'no_executable': False,
         'qemu_unimplemented_instruction': False,
         # The script requires a non-trivial to determine argument to be passed to run properly.
@@ -655,8 +654,8 @@ path_properties_tuples = (
                             'test_run_args': {'cpus': 3},
                         },
                         'assert_fail.c': {'signal_received': signal.Signals.SIGABRT},
-                        # This has complex failure modes, too hard to assert.
-                        'smash_stack.c': {'skip_run_unclassified': True},
+                        # Not sure which argument to pass.
+                        'cat.c': {'skip_run_unclassified': True},
                         'exit1.c': {'exit_status': 1},
                         'exit2.c': {'exit_status': 2},
                         'false.c': {'exit_status': 1},
@@ -666,6 +665,8 @@ path_properties_tuples = (
                         'm5ops.c': {'allowed_emulators': {'gem5'}},
                         'return1.c': {'exit_status': 1},
                         'return2.c': {'exit_status': 2},
+                        # This has complex failure modes, too hard to assert.
+                        'smash_stack.c': {'skip_run_unclassified': True},
                         # Wrapper not defined by newlib.
                         'timespec_get.c': {'baremetal': False},
                     }
