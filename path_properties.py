@@ -82,6 +82,7 @@ class PathProperties:
         'requires_m5ops': False,
         # gem5 fatal: syscall getcpu (#168) unimplemented.
         'requires_syscall_getcpu': False,
+        'requires_syscall_get_nprocs': False,
         'requires_semihosting': False,
         # The example requires sudo, which usually implies that it can do something
         # deeply to the system it runs on, which would preventing further interactive
@@ -270,7 +271,9 @@ class PathProperties:
                     self['signal_received'] is not None or
                     self['requires_dynamic_library'] or
                     self['requires_semihosting'] or
-                    self['requires_syscall_getcpu']
+                    self['requires_syscall_getcpu'] or
+                    # https://gem5.atlassian.net/browse/GEM5-622
+                    self['requires_syscall_get_nprocs']
                 )
             ) and
             not (
@@ -687,6 +690,7 @@ path_properties_tuples = (
                             },
                         ),
                         'count.cpp': {'more_than_1s': True},
+                        'thread_hardware_concurrency.cpp': {'requires_syscall_get_nprocs': True},
                         'initialization_types.cpp': {'cc_flags':
                             ['-Wno-unused-variable', LF, '-Wno-unused-but-set-variable', LF]},
                         'm5ops.cpp': {'allowed_emulators': {'gem5'}},
@@ -775,6 +779,7 @@ path_properties_tuples = (
                             'requires_syscall_getcpu': True,
                             'test_run_args': {'cpus': 2},
                         },
+                        'sysconf.c': {'requires_syscall_get_nprocs': True},
                         'time_boot.c': {'requires_sudo': True},
                         'virt_to_phys_user.c': {'requires_argument': True},
                     }
