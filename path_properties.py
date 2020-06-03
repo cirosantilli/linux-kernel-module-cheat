@@ -534,13 +534,19 @@ path_properties_tuples = (
                                         'freestanding': freestanding_properties,
                                         'futex_sev.cpp': {'more_than_1s': True},
                                         'sve_addvl.c': {'arm_sve': True},
-                                        'wfe_sev.c': {
+                                        'wfe_ldxr_str.cpp': {
+                                            'allowed_emulators': {'qemu'},
+                                            'test_run_args': {'cpus': 2}
+                                        },
+                                        'wfe_ldxr_stxr.cpp': {
+                                            'allowed_emulators': {'qemu'},
+                                            'test_run_args': {'cpus': 2}
+                                        },
+                                        'wfe_sev.cpp': {
                                             # gem5 bug, WFE not waking up on syscall emulation,
                                             # TODO link to bug report.
-                                            'more_than_1s': True,
-                                            'test_run_args': {
-                                                'cpus': 2,
-                                            },
+                                            'allowed_emulators': {'qemu'},
+                                            'test_run_args': {'cpus': 2},
                                         },
                                     },
                                 ),
