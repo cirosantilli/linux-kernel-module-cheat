@@ -367,7 +367,7 @@ Extra options to append at the end of the emulator command line.
             if not self.env['_args_given']['gdb_wait']:
                 self.env['gdb_wait'] = True
             if not self.env['_args_given']['tmux_args']:
-                if not self.env['userland'] and self.env['baremetal'] is None:
+                if not self.env['userland'] and not self.env['baremetal']:
                     self.env['tmux_args'] = 'start_kernel'
                 else:
                     self.env['tmux_args'] = 'main'
@@ -452,7 +452,7 @@ Extra options to append at the end of the emulator command line.
         if not os.path.exists(self.env['image']):
             if self.env['emulator'] == 'gem5':
                 if (
-                    self.env['baremetal'] is None and
+                    not self.env['baremetal'] and
                     not self.env['userland']
                 ):
                     # This is an attempte to run gem5 from a prebuilt download
@@ -471,7 +471,7 @@ Extra options to append at the end of the emulator command line.
                     raise_image_not_found()
             else:
                 raise_image_not_found()
-        if self.env['baremetal'] is not None:
+        if self.env['baremetal']:
             # Setup CLI arguments into a single raw binary file to be loaded into memory.
             # The memory setup of that file is:
             # argc
@@ -503,11 +503,11 @@ Extra options to append at the end of the emulator command line.
                 f.write(b'\0'.join(arg.encode() for arg in cli_args) + b'\0')
         use_disk_image = self.env['disk_image'] is not None and \
             os.path.exists(self.env['disk_image']) or \
-            self.env['baremetal'] is None
+            not self.env['baremetal']
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
-            if self.env['baremetal'] is None and not self.env['userland']:
+            if not self.env['baremetal'] and not self.env['userland']:
                 if not os.path.exists(self.env['rootfs_raw_file']):
                     if not os.path.exists(self.env['qcow2_file']):
                         raise_rootfs_not_found()
@@ -581,7 +581,7 @@ Extra options to append at the end of the emulator command line.
                     ])
                     if use_disk_image:
                         cmd.extend(['--disk-image', self.env['disk_image'], LF])
-                    if not self.env['baremetal'] is None:
+                    if self.env['baremetal']:
                         cmd.extend([
                             '--param', 'system.workload.extras = "{}"'.format(self.python_escape_double_quotes(baremetal_cli_path)), LF,
                             '--param', 'system.workload.extras_addrs = {}'.format(hex(argc_addr)), LF,
@@ -589,7 +589,7 @@ Extra options to append at the end of the emulator command line.
                     if self.env['arch'] == 'x86_64':
                         if self.env['kvm']:
                             cmd.extend(['--cpu-type', 'X86KvmCPU', LF])
-                        if self.env['baremetal'] is None:
+                        if not self.env['baremetal']:
                             cmd.extend(['--command-line', 'earlyprintk={} lpj=7999923 root=/dev/sda {}'.format(console, kernel_cli), LF])
                     elif self.env['is_arm']:
                         if self.env['kvm']:
@@ -603,7 +603,7 @@ Extra options to append at the end of the emulator command line.
                             # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                             '--machine-type', self.env['machine'], LF,
                         ])
-                        if self.env['baremetal'] is None:
+                        if not self.env['baremetal']:
                             cmd.extend([
                                 '--command-line',
                                 'earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli), LF
@@ -625,7 +625,7 @@ Extra options to append at the end of the emulator command line.
                             )
                         if dtb is not None:
                             cmd.extend(['--dtb-filename', dtb, LF])
-                        if not self.env['baremetal'] is None:
+                        if self.env['baremetal']:
                             cmd.extend([
                                 '--bare-metal', LF,
                                 '--param', 'system.auto_reset_addr = True', LF,
@@ -770,7 +770,7 @@ Extra options to append at the end of the emulator command line.
                 )
                 if self.env['dtb'] is not None:
                     cmd.extend(['-dtb', self.env['dtb'], LF])
-                if self.env['baremetal'] is not None:
+                if self.env['baremetal']:
                     cmd.extend([
                         '-device', 'loader,addr={},file={},force-raw=on'.format(
                             hex(argc_addr),
@@ -796,7 +796,7 @@ Extra options to append at the end of the emulator command line.
                         root = 'root=/dev/vda'
                         rrid = ''
                         snapshot = ',snapshot'
-                    if self.env['baremetal'] is None:
+                    if not self.env['baremetal']:
                         if not os.path.exists(self.env['qcow2_file']):
                             if not os.path.exists(self.env['rootfs_raw_file']):
                                 raise_rootfs_not_found()
@@ -839,7 +839,7 @@ Extra options to append at the end of the emulator command line.
                     cmd.extend(
                         virtio_gpu_pci
                     )
-                if self.env['baremetal'] is None:
+                if not self.env['baremetal']:
                     cmd.extend(append)
             extra_emulator_args.extend([
                 '-cpu', cpu, LF,
@@ -868,7 +868,7 @@ Extra options to append at the end of the emulator command line.
                     self.env['userland_build_id'],
                 )
                 if self.env['baremetal']:
-                    tmux_args += " --baremetal '{}'".format(self.env['baremetal'])
+                    tmux_args += " --baremetal '{}'".format(self.env['baremetal'][0])
                 if self.env['userland']:
                     tmux_args += " --userland '{}'".format(self.env['userland'][0])
                 if self.env['in_tree']:
