@@ -435,6 +435,7 @@ See: https://cirosantilli.com/linux-kernel-module-cheat#initrd
         self.add_argument(
             '-b',
             '--baremetal',
+            action='append',
             help='''\
 Use the given baremetal executable instead of the Linux kernel.
 
@@ -1161,8 +1162,8 @@ Incompatible archs are skipped.
             env['qcow2_file'] = env['buildroot_qcow2_file']
 
         # Image
-        if env['baremetal'] is not None:
-            env['image'] = self.resolve_baremetal_executable(env['baremetal'])
+        if env['baremetal']:
+            env['image'] = self.resolve_baremetal_executable(env['baremetal'][0])
             source_path_noext = os.path.splitext(join(
                 env['root_dir'],
                 env['image'][len(env['baremetal_build_dir']) + 1:]
