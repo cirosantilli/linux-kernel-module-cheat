@@ -660,6 +660,8 @@ path_properties_tuples = (
                         'm5ops.c': {'allowed_emulators': {'gem5'}},
                         'return1.c': {'exit_status': 1},
                         'return2.c': {'exit_status': 2},
+                        # Wrapper not defined by newlib.
+                        'timespec_get.c': {'baremetal': False},
                     }
                 ),
                 'cpp': (
