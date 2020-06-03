@@ -544,6 +544,10 @@ path_properties_tuples = (
                                         },
                                     },
                                 ),
+                                'dump_regs.c': {
+                                    # https://gem5.atlassian.net/browse/GEM5-619
+                                    'allowed_emulators': {'qemu'},
+                                },
                                 'freestanding': (
                                     freestanding_properties,
                                     {
