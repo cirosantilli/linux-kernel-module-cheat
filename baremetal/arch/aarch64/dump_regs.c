@@ -6,6 +6,6 @@
 #include <lkmc/aarch64_dump_regs.h>
 
 int main(void) {
-    LKMC_DUMP_SYSTEM_REGS;
+    lkmc_dump_system_regs();
     return 0;
 }

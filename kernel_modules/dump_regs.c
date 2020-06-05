@@ -13,7 +13,7 @@
 static int myinit(void)
 {
 #if !defined(LKMC_DO_NOTHING)
-    LKMC_DUMP_SYSTEM_REGS;
+    lkmc_dump_system_regs();
 #endif
 	return 0;
 }
