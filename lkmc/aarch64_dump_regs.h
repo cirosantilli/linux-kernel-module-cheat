@@ -1,6 +1,8 @@
 #ifndef LKMC_AARCH64_DUMP_REGS_H
 #define LKMC_AARCH64_DUMP_REGS_H
 
+#include <lkmc.h>
+
 /* https://cirosantilli.com/linux-kernel-module-cheat#dump-regs */
 
 #ifndef LKMC_DUMP_SYSTEM_REGS_PRINTF
@@ -29,6 +31,14 @@ void lkmc_dump_system_regs() {
     __asm__ ("mrs %0, id_aa64isar1_el1" : "=r" (id_aa64isar1_el1) : :);
     LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_AA64ISAR1_EL1 0x%" PRIX64 "\n", id_aa64isar1_el1);
     LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_AA64ISAR1_EL1.JSCVT 0x%" PRIX64 "\n", (id_aa64isar1_el1 >> 12) & 0xF);
+
+    uint32_t id_isar0_el1;
+    __asm__ ("mrs %0, id_isar0_el1" : "=r" (id_isar0_el1) : :);
+    LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_ISAR0_EL1 0x%" PRIX32 "\n", id_isar0_el1);
+
+    uint32_t id_isar6_el1;
+    __asm__ ("mrs %0, s3_0_c0_c2_7" : "=r" (id_isar6_el1) : :);
+    LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_ISAR6_EL1 0x%" PRIX32 "\n", id_isar6_el1);
 
     uint64_t id_aa64pfr0_el1;
     __asm__ ("mrs %0, id_aa64pfr0_el1" : "=r" (id_aa64pfr0_el1) : :);

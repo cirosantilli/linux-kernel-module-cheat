@@ -47,6 +47,9 @@ void lkmc_assert_memcmp(const void *s1, const void *s2, size_t n, uint32_t line)
 #define LKMC_CONCAT_EVAL(a,b) a ## b
 #define LKMC_CONCAT(a,b) LKMC_CONCAT_EVAL(a, b)
 
+#define LKMC_STRINGIFY_DO(x) #x
+#define LKMC_STRINGIFY(x) LKMC_STRINGIFY_DO(x)
+
 #define LKMC_GLOBAL(name) \
     .global name; \
     name:
