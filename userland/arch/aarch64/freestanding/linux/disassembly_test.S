@@ -8,6 +8,7 @@ _start:
     mov x2, 2
     /* Also Movz class just like 'x' version.. */
     mov w2, 2
+    mov x2, 0x13
     /* Explicit MOVZ with shift. */
     movz x2, 3, lsl 16
 
@@ -31,6 +32,8 @@ _start:
     /* class AddImm : public DataImmOp TODO confirm AddImm vs AddImmCc */
     add x1, x2, 0
     add x1, x2, 1
+    /* Assembler converts it to sub 2. */
+    add x1, x2, -2
     add x1, x2, 1, lsl 12
 
     /* gem5 LDRWL64_LIT class. */
