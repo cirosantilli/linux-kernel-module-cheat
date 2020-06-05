@@ -25,9 +25,13 @@ int main(int argc, char **argv) {
     request = strtol(argv[2], NULL, 10);
     if (argc > 3) {
         arg0 = strtol(argv[3], NULL, 10);
+    } else {
+        arg0 = 0;
     }
     if (argc > 4) {
         arg1 = strtol(argv[4], NULL, 10);
+    } else {
+        arg1 = 0;
     }
 
     fd = open(ioctl_path, O_RDONLY);

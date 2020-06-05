@@ -7,12 +7,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-unsigned long long niters;
 unsigned long long global = 0;
 pthread_mutex_t main_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void* main_thread(void *arg) {
-    (void)arg;
+    unsigned long long niters = *(unsigned long long *)arg;
     unsigned long long i;
     for (i = 0; i < niters; ++i) {
         pthread_mutex_lock(&main_thread_mutex);
@@ -24,7 +23,7 @@ void* main_thread(void *arg) {
 
 int main(int argc, char **argv) {
     pthread_t *threads;
-    unsigned long long i, nthreads;
+    unsigned long long i, niters, nthreads;
 
     /* CLI arguments. */
     if (argc > 1) {
@@ -41,7 +40,7 @@ int main(int argc, char **argv) {
 
     /* Action */
     for (i = 0; i < nthreads; ++i)
-        pthread_create(&threads[i], NULL, main_thread, NULL);
+        pthread_create(&threads[i], NULL, main_thread, &niters);
     for (i = 0; i < nthreads; ++i)
         pthread_join(threads[i], NULL);
     assert(global == nthreads * niters);

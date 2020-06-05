@@ -8,8 +8,6 @@
 #include <thread>
 #include <vector>
 
-size_t niters;
-
 #if LKMC_USERLAND_ATOMIC_STD_ATOMIC
 std::atomic_ulong global(0);
 #else
@@ -20,7 +18,7 @@ uint64_t global = 0;
 std::mutex mutex;
 #endif
 
-void threadMain() {
+void threadMain(size_t niters) {
     for (size_t i = 0; i < niters; ++i) {
 #if LKMC_USERLAND_ATOMIC_MUTEX
         mutex.lock();
@@ -97,7 +95,7 @@ void threadMain() {
 
 int main(int argc, char **argv) {
 #if __cplusplus >= 201103L
-    size_t nthreads;
+    size_t niters, nthreads;
     if (argc > 1) {
         nthreads = std::stoull(argv[1], NULL, 0);
     } else {
@@ -110,7 +108,7 @@ int main(int argc, char **argv) {
     }
     std::vector<std::thread> threads(nthreads);
     for (size_t i = 0; i < nthreads; ++i)
-        threads[i] = std::thread(threadMain);
+        threads[i] = std::thread(threadMain, niters);
     for (size_t i = 0; i < nthreads; ++i)
         threads[i].join();
     uint64_t expect = nthreads * niters;

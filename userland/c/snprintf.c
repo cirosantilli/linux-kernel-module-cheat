@@ -39,14 +39,18 @@ int main(void) {
     /* Less common case where string does not fit. Error handling would
      * normally follow in a real program. */
     {
-        int in = 1234;
-        char out[6];
         /* The return here is the same as before.
          *
          * Because it is >= than the imposed limit of 6, we know that
          * the write failed to fully complete. */
+#if 0
+        /* GCC 8.3.0 with -O3 actually detects this and breaks the build.
+         * error: ‘cd’ directive output truncated writing 2 bytes into a region of size 0 [-Werror=format-truncation=] */
+        int in = 1234;
+        char out[6];
         assert(snprintf(out, sizeof(out), "ab%dcd", in) == 8);
         assert(strcmp(out, "ab123") == 0);
+#endif
     }
 #endif
     return EXIT_SUCCESS;

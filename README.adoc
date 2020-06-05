@@ -17253,11 +17253,73 @@ Algorithm used by the OOM: https://unix.stackexchange.com/questions/153585/how-d
 
 Added in C11!
 
-* link:userland/c/atomic.c[]: `atomic_int` and `thrd_create`
-
 Bibliography:
 
+* <<userland-multithreading>>
 * https://stackoverflow.com/questions/3908031/how-to-multithread-c-code/52453354#52453354
+
+===== atomic.c
+
+link:userland/c/atomic.c[]
+
+Demonstrates `atomic_int` and `thrd_create`.
+
+Disassembly with GDB at LKMC 619fef4b04bddc4a5a38aec5e207dd4d5a25d206 + 1:
+
+....
+./run-toolchain \
+  --arch aarch64 gdb \
+  -- \
+  -batch \
+  -ex 'disas/rs my_thread_main' $(./getvar \
+  --arch aarch64 userland_build_dir)/c/atomic.out \
+;
+....
+
+shows on ARM:
+
+....
+16              ++cnt;
+   0x00000000004008cc <+28>:    80 00 00 b0     adrp    x0, 0x411000 <malloc@got.plt>
+   0x00000000004008d0 <+32>:    00 80 01 91     add     x0, x0, #0x60
+   0x00000000004008d4 <+36>:    00 00 40 b9     ldr     w0, [x0]
+   0x00000000004008d8 <+40>:    01 04 00 11     add     w1, w0, #0x1
+   0x00000000004008dc <+44>:    80 00 00 b0     adrp    x0, 0x411000 <malloc@got.plt>
+   0x00000000004008e0 <+48>:    00 80 01 91     add     x0, x0, #0x60
+   0x00000000004008e4 <+52>:    01 00 00 b9     str     w1, [x0]
+
+17              ++acnt;
+   0x00000000004008e8 <+56>:    20 00 80 52     mov     w0, #0x1                        // #1
+   0x00000000004008ec <+60>:    e0 1b 00 b9     str     w0, [sp, #24]
+   0x00000000004008f0 <+64>:    e0 1b 40 b9     ldr     w0, [sp, #24]
+   0x00000000004008f4 <+68>:    e2 03 00 2a     mov     w2, w0
+   0x00000000004008f8 <+72>:    80 00 00 b0     adrp    x0, 0x411000 <malloc@got.plt>
+   0x00000000004008fc <+76>:    00 70 01 91     add     x0, x0, #0x5c
+   0x0000000000400900 <+80>:    03 00 e2 b8     ldaddal w2, w3, [x0]
+   0x0000000000400904 <+84>:    61 00 02 0b     add     w1, w3, w2
+   0x0000000000400908 <+88>:    e0 03 01 2a     mov     w0, w1
+   0x000000000040090c <+92>:    e0 1f 00 b9     str     w0, [sp, #28]
+....
+
+so:
+
+* the atomic increment uses <<arm-lse,`ldadd`>>
+* the non-atomic increment just does LDR, ADD, STR: <<arm-lse,`ldadd`>>
+
+With `-O3`:
+
+....
+16              ++cnt;
+   0x0000000000400a00 <+32>:    60 00 40 b9     ldr     w0, [x3]
+   0x0000000000400a04 <+36>:    00 04 00 11     add     w0, w0, #0x1
+   0x0000000000400a08 <+40>:    60 00 00 b9     str     w0, [x3]
+
+17              ++acnt;
+   0x0000000000400a0c <+44>:    20 00 80 52     mov     w0, #0x1                        // #1
+   0x0000000000400a10 <+48>:    40 00 e0 b8     ldaddal w0, w0, [x2]
+....
+
+so the situation is the same but without all the horrible stack noise.
 
 ==== GCC C extensions
 
@@ -17479,6 +17541,83 @@ Related examples:
 Bibliography:
 
 * https://stackoverflow.com/questions/31978324/what-exactly-is-stdatomic/58904448#58904448 "What exactly is std::atomic?"
+
+====== Detailed gem5 analysis of how data races happen
+
+The smallest data race we managed to come up as of LKMC 7c01b29f1ee7da878c7cc9cb4565f3f3cf516a92 and gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 was with link:userland/c/atomic.c[] (see also <<c-multithreading>>):
+
+....
+./run \
+  --arch aarch64 \
+  --cli-args '2 10' \
+  --cpus 3 \
+  --emulator gem5 \
+  --userland userland/c/atomic.c \
+;
+....
+
+which outputs:
+
+....
+atomic 20
+non-atomic 19
+....
+
+./run -aA -eg -u userland/c/atomic.c --cli-args '2 200' --cpus 3 --userland-build-id o3 -N1 --trace ExecAll -- --caches --cpu-type TimingSimpleCPU
+
+Note that that the system is very minimal, and doesn't even have caches, so I'm curious as to how this can happen at all.
+
+So first we do a run with <<gem5-tracing,`--trace Exec`>> and look at the `my_thread_main` entries.
+
+From there we see that first CPU1 enters the function, since it was spawned first.
+
+Then for some time, both CPU1 and CPU2 are running at the same time.
+
+Finally, CPU1 exists, then CPU2 runs alone for a while to finish its loops, and then CPU2 exits.
+
+By greping the LDR data read from the log, we are able to easily spot the moment where things started to go wrong based on the `D=` data:
+
+....
+grep -E 'my_thread_main\+36' trace.txt > trace-ldr.txt
+....
+
+The `grep` output contains
+
+....
+94024500: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000006 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94036500: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000007 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94048500: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000008 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94058500: system.cpu2: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000009 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94060500: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000009 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94070500: system.cpu2: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x000000000000000a A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94082500: system.cpu2: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x000000000000000b A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+....
+
+and so se see that it is at `94058500` that things started going bad, since two consecutive loads from different CPUs read the same value `D=9`! Actually, things were not too bad afterwards because this was by coincidence the last CPU1 read, we would have missed many more increments if the number of iterations had been larger.
+
+Now that we have the first bad time, let's look at the fuller disassembly to better understand what happens around that point.
+
+....
+94058500: system.cpu2: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000009 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94059000: system.cpu2: A0 T0 : @my_thread_main+40    :   add   w1, w0, #1         : IntAlu :  D=0x000000000000000a  flags=(IsInteger)
+94059000: system.cpu1: A0 T0 : @my_thread_main+120    :   b.cc   <my_thread_main+28> : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+94059500: system.cpu1: A0 T0 : @my_thread_main+28    :   adrp   x0, #69632        : IntAlu :  D=0x0000000000411000  flags=(IsInteger)
+94059500: system.cpu2: A0 T0 : @my_thread_main+44    :   adrp   x0, #69632        : IntAlu :  D=0x0000000000411000  flags=(IsInteger)
+94060000: system.cpu2: A0 T0 : @my_thread_main+48    :   add   x0, x0, #96        : IntAlu :  D=0x0000000000411060  flags=(IsInteger)
+94060000: system.cpu1: A0 T0 : @my_thread_main+32    :   add   x0, x0, #96        : IntAlu :  D=0x0000000000411060  flags=(IsInteger)
+94060500: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000009 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)
+94060500: system.cpu2: A0 T0 : @my_thread_main+52    :   str   x1, [x0]           : MemWrite :  D=0x000000000000000a A=0x411060  flags=(IsInteger|IsMemRef|IsStore)
+....
+
+and from this, all becomes crystal clear:
+
+* 94058500: CPU2 loads
+* 94060500: CPU1 loads
+* 94060500: CPU2 stores
+
+so we see that CPU2 just happened to store after CPU1 loads.
+
+We also understand why LDADD solves the race problem in AtomicSimpleCPU: it does the load and store in one single go!
 
 [[cpp-memory-order]]
 ===== C++ std::memory_order
