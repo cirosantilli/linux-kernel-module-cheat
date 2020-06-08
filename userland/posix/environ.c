@@ -1,4 +1,4 @@
-/* Print all environment variables. */
+/* https://cirosantilli.com/linux-kernel-module-cheat#environment-variables */
 
 #include <stdio.h>
 #include <stdlib.h>
