@@ -28,7 +28,7 @@ void threadMain(size_t niters) {
             "incq %0;"
             : "+g" (global),
               "+g" (i) // to prevent loop unrolling, and make results more comparable across methods,
-                       // see also: https://cirosantilli.com/linux-kernel-module-cheat#infinite-busy-loop
+                       // see also: https://cirosantilli.com/linux-kernel-module-cheat#c-busy-loop
             :
             :
         );

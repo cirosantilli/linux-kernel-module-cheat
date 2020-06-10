@@ -12643,6 +12643,56 @@ xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.svg"
 
 An example of such file can be seen at: <<config-dot-svg-timingsimplecpu>>.
 
+On Ubuntu 20.04, you can also see the dot file "directly" with xdot:
+
+....
+xdot "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot"
+....
+
+which is kind of really cool because it allows you to graph arrows with clicks.
+
+It is worth noting that if you are running a bunch of short simulations, dot/SVG/PDF generation could have a significant impact in simulation startup time, so it is something to watch out for. As per https://gem5-review.googlesource.com/c/public/gem5/+/29232 it can be turned off with:
+
+....
+gem5.opt --dot-config=''
+....
+
+or in LKMC:
+
+....
+./run --gem5-exe-args='--dot-config= --json-config= --dump-config='
+....
+
+The time difference can be readily observed on minimal examples by running gem5 with `time`.
+
+By looking into gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 `src/python/m5/util/dot_writer.py` are can try to remove the SVG/PDF conversion to see if those dominate the runtime:
+
+....
+def do_dot(root, outdir, dotFilename):
+    if not pydot:
+        warn("No dot file generated. " +
+             "Please install pydot to generate the dot file and pdf.")
+        return
+    # * use ranksep > 1.0 for for vertical separation between nodes
+    # especially useful if you need to annotate edges using e.g. visio
+    # which accepts svg format
+    # * no need for hoizontal separation as nothing moves horizonally
+    callgraph = pydot.Dot(graph_type='digraph', ranksep='1.3')
+    dot_create_nodes(root, callgraph)
+    dot_create_edges(root, callgraph)
+    dot_filename = os.path.join(outdir, dotFilename)
+    callgraph.write(dot_filename)
+    try:
+        # dot crashes if the figure is extremely wide.
+        # So avoid terminating simulation unnecessarily
+        callgraph.write_svg(dot_filename + ".svg")
+        callgraph.write_pdf(dot_filename + ".pdf")
+    except:
+        warn("failed to generate dot output from %s", dot_filename)
+....
+
+but nope, they don't, `dot_create_nodes` and `dot_create_edges` are the culprits, so the only way to gain speed is to remove `.dot` generation altogether. It is tempting to do this by default on LKMC and add an option to enable dot generation when desired so we can be a bit faster by default... but I'm lazy to document the option right now. When it annoys me further maybe :-)
+
 === m5term
 
 We use the `m5term` in-tree executable to connect to the terminal instead of a direct `telnet`.
@@ -13217,7 +13267,7 @@ Implementations:
 
 Useful to <<gem5-restore-checkpoint-with-a-different-cpu,boot Linux fast and then checkpoint and switch to a more detailed CPU>>.
 
-====== gem5 `TiminSimpleCPU`
+====== gem5 `TimingSimpleCPU`
 
 `TimingSimpleCPU`: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than `AtomicSimpleCPU`.
 
@@ -13240,6 +13290,8 @@ For example, `MinorCPU` allows all implemented instructions, including <<arm-sve
 The weird name "Minor" stands for "M (TODO what is M) IN ONder".
 
 Its 4 stage pipeline is described at the "MinorCPU" section of <<gem5-arm-rsk>>.
+
+A commented execution example can be seen at: <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>>.
 
 There is also an in-tree doxygen at: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/doc/inside-minor.doxygen[`src/doc/inside-minor.doxygen`] and rendered at: http://pages.cs.wisc.edu/~swilson/gem5-docs/minor.html
 
@@ -13267,9 +13319,11 @@ Implemented by Pierre-Yves Péneau from LIRMM, which is a research lab in Montpe
 
 ===== gem5 DerivO3CPU
 
-Generic out-of-order core. "O3" Stands for "Out Of Order"!
+Generic <<out-of-order-execution,out-of-order core>>. "O3" Stands for "Out Of Order"!
 
 Analogous to <<gem5-minorcpu,MinorCPU>>, but modelling an out of order core instead of in order.
+
+A commented execution example can be seen at: <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis>>.
 
 Existing parametrizations:
 
@@ -15789,6 +15843,16 @@ Fault STXRX64::completeAcc(PacketPtr pkt, ExecContext *xc,
 
 From GDB on <<timingsimplecpu-analysis-ldr-stall>> we see that `completeAcc` gets called from `TimingSimpleCPU::completeDataAccess`.
 
+===== gem5 microops
+
+TODO
+
+Some gem5 instructions break down into multiple microops.
+
+Microops are very similar to regular instructions, and show on the <<gem5-execall-trace-format>> since that flag implies `ExecMicro`.
+
+On aarch64 for example, one of the simplest microoped instructions is <<armv8-aarch64-ldp-and-stp-instructions,STP>>, which does the relatively complex operation of storing two values to memory at once, and is therefore a good candidate for being broken down into microops.
+
 ==== gem5 port system
 
 The gem5 memory system is connected in a very flexible way through the port system.
@@ -16650,6 +16714,36 @@ BaseSimpleCPU::BaseSimpleCPU(BaseSimpleCPUParams *p)
         ThreadContext *tc = thread->getTC();
         threadContexts.push_back(tc);
     }
+....
+
+==== gem5 functional units
+
+TODO
+
+Each instruction is marked with a class, and each class can execute in a given functional unit.
+
+Which units are available is visible for example on the <<gem5-config-ini>> of a <<gem5-minorcpu>> run. Functional units are not present in simple CPUs like <<gem5-timingsimplecpu>>.
+
+For example, on gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1, the `config.ini` of a minor run:
+
+....
+./run   \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -N1 \
+  -- \
+  --cpu-type MinorCPU \
+  --caches
+....
+
+contains:
+
+....
+[system.cpu]
+type=MinorCPU
+children=branchPred dcache dtb executeFuncUnits icache interrupts isa itb power_state tracer workload
 ....
 
 ==== gem5 code generation
@@ -24158,6 +24252,35 @@ and so clearly the one at 0x4006dc happens first and jumps to a larger address t
 Oh my God, unoptimized code is so horrendously inefficient, even I can't stand all those useless loads and stores to memory variables!!!
 
 == Computer architecture
+
+=== Instruction pipelining
+
+In gem5, can be seen on:
+
+* <<gem5-minorcpu>>
+* <<gem5-derivo3cpu>>
+
+==== Classic RISC pipeline
+
+https://en.wikipedia.org/wiki/Classic_RISC_pipeline
+
+gem5's <<gem5-minorcpu>> implements a similar but 4 stage pipeline. TODO why didn't they go with the classic RISC pipeline instead?
+
+=== Superscalar processor
+
+https://en.wikipedia.org/wiki/Superscalar_processor
+
+http://www.lighterra.com/papers/modernmicroprocessors/ explains it well.
+
+You basically decode
+
+TODO in gem5? gem5 definitely has functional units explicitly modelled: <<gem5-functional-units>>, so do <<gem5-minorcpu>> or <<gem5-derivo3cpu>> have it?
+
+=== Out-of-order execution
+
+https://en.wikipedia.org/wiki/Out-of-order_execution
+
+gem5's model is <<gem5-derivo3cpu>>.
 
 === Hardware threads
 

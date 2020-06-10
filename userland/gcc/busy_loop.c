@@ -1,5 +1,5 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#micro-benchmarks
- * https://cirosantilli.com/linux-kernel-module-cheat#infinite-busy-loop
+ * https://cirosantilli.com/linux-kernel-module-cheat#c-busy-loop
  * https://cirosantilli.com/linux-kernel-module-cheat#benchmark-emulators-on-userland-executables */
 
 #include <stdlib.h>
