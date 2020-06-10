@@ -4059,8 +4059,6 @@ Less robust than QEMU's, but still usable:
 
 There are much more unimplemented syscalls in gem5 than in QEMU. Many of those are trivial to implement however.
 
-Support for dynamic linking was added in November 2019: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098
-
 So let's just play with some static ones:
 
 ....
@@ -4092,6 +4090,12 @@ TODO: how to escape spaces on the command line arguments?
   main \
 ;
 ....
+
+==== gem5 dynamic linked executables in syscall emulation
+
+Support for dynamic linking was added in November 2019: https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098
+
+Note that as shown at xref:benchmark-emulators-on-userland-executables[xrefstyle=full], the dynamic version runs 200x more instructions, which might have an impact on smaller simulations in detailed CPUs.
 
 ==== gem5 syscall emulation exit status
 
@@ -11024,7 +11028,7 @@ The rabbit hole is likely deep, but let's scratch a bit of the surface.
 ./run --arch arm --cpus 2 --emulator gem5
 ....
 
-Check with:
+Can be checked with `/proc/cpuinfo` or <<sysconf,getconf>> in Ubuntu 18.04:
 
 ....
 cat /proc/cpuinfo
@@ -11143,9 +11147,20 @@ But keep in mind that it only affects benchmark performance of the most detailed
 Cache sizes can in theory be checked with the methods described at: https://superuser.com/questions/55776/finding-l2-cache-size-in-linux[]:
 
 ....
-getconf -a | grep CACHE
 lscpu
 cat /sys/devices/system/cpu/cpu0/cache/index2/size
+....
+
+and on Ubuntu 20.04 host <<sysconf,but not Buildroot 1.31.1>>:
+
+....
+getconf -a | grep CACHE
+....
+
+and we also have an easy to use userland executable using <<sysconf>> at link:userland/linux/sysconf.c[]:
+
+....
+./run --emulator gem5 --userland userland/linux/sysconf.c
 ....
 
 but for some reason the Linux kernel is not seeing the cache sizes:
@@ -11158,7 +11173,9 @@ Behaviour breakdown:
 * arm QEMU and gem5 (both `AtomicSimpleCPU` or `HPI`), x86 gem5: `/sys` files don't exist, and `getconf` and `lscpu` value empty
 * x86 QEMU: `/sys` files exist, but `getconf` and `lscpu` values still empty
 
-So we take a performance measurement approach instead:
+The only precise option is therefore to look at <<gem5-config-ini>> as done at: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>.
+
+Or for a quick and dirty performance measurement approach instead:
 
 ....
 ./gem5-bench-cache -- --arch aarch64
@@ -11210,7 +11227,11 @@ We make the following conclusions:
 * the number of instructions almost does not change: the CPU is waiting for memory all the extra time. TODO: why does it change at all?
 * the wall clock execution time is not directionally proportional to the number of cycles: here we had a 10x cycle increase, but only 2x time increase. This suggests that the simulation of cycles in which the CPU is waiting for memory to come back is faster.
 
-===== gem5 memory latency
+===== gem5 DRAM model
+
+Some info at: <<timingsimplecpu-analysis-1>> but highly TODO :-)
+
+====== gem5 memory latency
 
 TODO These look promising:
 
@@ -11224,7 +11245,39 @@ TODO These look promising:
 
 TODO: now to verify this with the Linux kernel? Besides raw performance benchmarks.
 
-===== Memory size
+Now for a raw simplistic benchmark on <<gem5-timingsimplecpu,`TimingSimpleCPU`>> without caches via <<c-busy-loop>>:
+
+....
+./run --arch aarch64 --cli-args 1000000 --emulator gem5 --userland userland/gcc/busy_loop.c -- --cpu-type TimingSimpleCPU
+....
+
+LKMC eb22fd3b6e7fff7e9ef946a88b208debf5b419d5 gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 outputs:
+
+....
+Exiting @ tick 897173931000 because exiting with last active thread context
+....
+
+and now because:
+
+* we have no caches, each instruction is fetched from memory
+* each loop contains 11 instructions as shown at xref:c-busy-loop[xrefstyle=full]
+* and supposing that the loop dominated executable pre/post `main`, which we know is true since as shown in <<benchmark-emulators-on-userland-executables>> an empty dynamically linked C program only as about 100k instructions, while our loop runs 1000000 * 11 = 12M.
+
+we should have about 1000000 * 11 / 897173931000 ps ~ 12260722 ~ 12MB/s of random accesses. The default memory type used is `DDR3_1600_8x8` as per:
+
+....
+common/Options.py:101:    parser.add_option("--mem-type", type="choice", default="DDR3_1600_8x8
+....
+
+and according to https://en.wikipedia.org/wiki/DDR3_SDRAM that reaches 6400 MB/s so we are only off by a factor of 50x :-) TODO. Maybe if the minimum transaction if 64 bytes, we would be on point.
+
+Another example we could use later on is link:userland/gcc/busy_loop.c[], but then that mixes icache and dcache accesses, so the analysis is a bit more complex:
+
+....
+./run --arch aarch64 --cli-args 0x1000000 --emulator gem5 --userland userland/gcc/busy_loop.c -- --cpu-type TimingSimpleCPU
+....
+
+====== Memory size
 
 ....
 ./run --memory 512M
@@ -11313,27 +11366,69 @@ and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
 
 ===== gem5 clock frequency
 
-Clock frequency: TODO how does it affect performance in benchmarks?
+As of gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 defaults to 2GHz for fs.py:
 
 ....
-./run --arch aarch64 --emulator gem5 -- --cpu-clock 10000000
+    parser.add_option("--cpu-clock", action="store", type="string",
+                      default='2GHz',
+                      help="Clock for blocks running at CPU speed")
 ....
 
-Check with:
+We can check that very easily by looking at the timestamps of a <<gem5-execall-trace-format,Exec trace>> of an <<gem5-atomicsimplecpu>> without any caches:
 
 ....
-m5 resetstats
-sleep 10
-m5 dumpstats
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+;
 ....
 
-and then:
+which shows:
 
 ....
-./gem5-stat --arch aarch64
+      0: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+    500: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+   1000: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
+   1500: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
+   2000: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+hello
+   2500: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   3000: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+   3500: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
 ....
 
-TODO: why doesn't this exist:
+so we see that it runs one instruction every 500 ps which makes up 2GHz.
+
+So if we change the frequency to say 1GHz and re-run it:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -- \
+  --cpu-clock 1GHz \
+;
+....
+
+we get as expected:
+
+....
+      0: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+   1000: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+   2000: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
+   3000: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
+   4000: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+hello
+   5000: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   6000: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+   7000: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+....
+
+As of gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1, but like <<gem5-cache-size>>, does not get propagated to the guest, and is not for example visible at:
 
 ....
 ls /sys/devices/system/cpu/cpu0/cpufreq
@@ -11698,7 +11793,7 @@ cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
 cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"
 ....
 
-At gem5 2235168b72537535d74c645a70a85479801e0651, the first run does everything in <<gem5-basesimplecpu,AtomicSimpleCPU>>:
+At gem5 2235168b72537535d74c645a70a85479801e0651, the first run does everything in <<gem5-atomicsimplecpu,AtomicSimpleCPU>>:
 
 ....
 ...
@@ -13109,22 +13204,28 @@ From this we see that there are basically only 4 C++ CPU models in gem5: Atomic,
 
 Simple abstract CPU without a pipeline.
 
-They are therefore completely unrealistic. But they also run much faster.
+They are therefore completely unrealistic. But they also run much faster. <<gem5-kvm,KVM CPUs>> are an alternative way of fast forwarding boot when they work.
 
 Implementations:
 
-* `AtomicSimpleCPU`: the default one. Memory accesses happen instantaneously. The fastest simulation except for KVM, but not realistic at all.
-+
-Useful to <<gem5-restore-checkpoint-with-a-different-cpu,boot Linux fast and then checkpoint and switch to a more detailed CPU>>.
-* `TimingSimpleCPU`: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than `AtomicSimpleCPU`.
-+
-To fully understand `TimingSimpleCPU`, see: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis>>.
-+
-Without caches, the CPU just stalls all the time waiting for memory requests for every advance of the PC or memory read from a instruction!
-+
-Caches do make a difference here of course, and lead to much faster memory return times.
+* <<gem5-atomicsimplecpu>>
+* <<gem5-timingsimplecpu>>
 
-<<gem5-kvm,KVM CPUs>> are an alternative way of fast forwarding boot when they work.
+====== gem5 `AtomicSimpleCPU`
+
+`AtomicSimpleCPU`: the default one. Memory accesses happen instantaneously. The fastest simulation except for KVM, but not realistic at all.
+
+Useful to <<gem5-restore-checkpoint-with-a-different-cpu,boot Linux fast and then checkpoint and switch to a more detailed CPU>>.
+
+====== gem5 `TiminSimpleCPU`
+
+`TimingSimpleCPU`: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than `AtomicSimpleCPU`.
+
+To fully understand `TimingSimpleCPU`, see: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis>>.
+
+Without caches, the CPU just stalls all the time waiting for memory requests for every advance of the PC or memory read from a instruction!
+
+Caches do make a difference here of course, and lead to much faster memory return times.
 
 ===== gem5 MinorCPU
 
@@ -13142,7 +13243,7 @@ Its 4 stage pipeline is described at the "MinorCPU" section of <<gem5-arm-rsk>>.
 
 There is also an in-tree doxygen at: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/doc/inside-minor.doxygen[`src/doc/inside-minor.doxygen`] and rendered at: http://pages.cs.wisc.edu/~swilson/gem5-docs/minor.html
 
-As of 2019, in-order cores are mostly present in low power / cost contexts, for example little cores of https://en.wikipedia.org/wiki/ARM_big.LITTLE[ARM bigLITTLE].
+As of 2019, in-order cores are mostly present in low power/cost contexts, for example little cores of https://en.wikipedia.org/wiki/ARM_big.LITTLE[ARM bigLITTLE].
 
 The following models extend the `MinorCPU` class by parametrization to make it match existing CPUs more closely:
 
@@ -13645,7 +13746,7 @@ Important examples of events include:
 * CPU ticks
 * peripherals and memory
 
-At <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis>> we see for example that at the beginning of an <<gem5-basesimplecpu,AtomicCPU>> simulation, gem5 sets up exactly two events:
+At <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis>> we see for example that at the beginning of an <<gem5-atomicsimplecpu,AtomicCPU>> simulation, gem5 sets up exactly two events:
 
 * the first CPU cycle
 * one exit event at the end of time which triggers <<gem5-simulate-limit-reached>>
@@ -14123,7 +14224,7 @@ This means that simulation will be much more accurate, and the DRAM memory will 
 
 TODO: analyze better what each of the memory event mean. For now, we have just collected a bunch of data there, but needs interpreting. The CPU specifics in this section are already insightful however.
 
-<<gem5-basesimplecpu,TimingSimpleCPU>> should be the second simplest CPU to analyze, so let's give it a try:
+<<gem5-timingsimplecpu,TimingSimpleCPU>> should be the second simplest CPU to analyze, so let's give it a try:
 
 ....
 ./run \
@@ -17270,6 +17371,7 @@ This section was originally moved in here from: https://github.com/cirosantilli/
 
 Programs under link:userland/c/[] are examples of https://en.wikipedia.org/wiki/ANSI_C[ANSI C] programming:
 
+* link:userland/c/empty.c[]
 * link:userland/c/hello.c[]
 * `main` and environment
 ** link:userland/c/return0.c[]
@@ -17915,6 +18017,8 @@ Examples:
 
 * link:userland/posix/sysconf.c[]
 * link:userland/linux/sysconf.c[] showcases Linux extensions to POSIX
++
+Note that this blows up on gem5 userland due to `NPROCESSORS_ONLN` however: https://gem5.atlassian.net/browse/GEM5-622
 
 Get lots of info on the system configuration.
 
@@ -17925,6 +18029,14 @@ getconf -a
 ....
 
 `getconf` is also specified by POSIX at: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/getconf.html but not the `-a` option which shows all configurations.
+
+Busybox 1.31.1 clearly states that `getconf` is not implemented however at `docs/posix_conformance.txt`:
+
+....
+POSIX Tools not supported:
+  asa, at, batch, bc, c99, command, compress, csplit, ex, fc, file,
+  gencat, getconf, iconv, join, link, locale, localedef, lp, m4,
+....
 
 ==== mmap
 
@@ -18765,7 +18877,7 @@ You may also want to test if your patches are still functionally correct inside 
 
 It eventually has to come to that, hasn't it?
 
-* link:userland/gcc/busy_loop.c[] described at <<infinite-busy-loop>>
+* link:userland/gcc/busy_loop.c[] described at <<c-busy-loop>>
 
 [[userland-libs-directory]]
 === userland/libs directory
@@ -23444,7 +23556,7 @@ TODO: automate this further, produce the results table automatically, possibly b
 
 For now we can just run on gem5 to estimate the instruction count per input size and extrapolate?
 
-For example, the simplest scalable CPU content would be a busy loop: link:userland/gcc/busy_loop.c[], so let's start by analyzing that one.
+For example, the simplest scalable CPU content would be an <<c-busy-loop>>, so let's start by analyzing that one.
 
 Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: xref:table-busy-loop-dmips[xrefstyle=full]. As expected, the less native / more detailed / more complex simulations are slower!
 
@@ -23452,7 +23564,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 .Busy loop MIPS for different simulator setups
 [options="header"]
 |===
-|Comment |LKMC |Benchmark build |Emulator command |Loops |Time (s) |Instruction count |Approximate MIPS
+|Comment |LKMC |Benchmark build |Emulator command |Loops |Time (s) |Instruction count |Approximate MIPS |gem5 version |Host
 
 |QEMU busy loop
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
@@ -23462,15 +23574,41 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |68
 |1.1 * 10^11 (approx)
 |2000
+|
+|
 
 |gem5 busy loop
-|a18f28e263c91362519ef550150b5c9d75fa3679 + 1
+|a18f28e263c91362519ef550150b5c9d75fa3679
 |link:userland/gcc/busy_loop.c[] `-O0`
 |`./run --arch aarch64 --emulator gem5 --static --userland userland/gcc/busy_loop.c --cli-args 1000000`
 |10^6
 |18
 |2.4005699 * 10^7
 |1.3
+|
+|
+
+|gem5 empty C program statically linked
+|eb22fd3b6e7fff7e9ef946a88b208debf5b419d5
+|link:userland/c/empty.c[] `-O0`
+|`./run --arch aarch64 --emulator gem5 --static --userland userland/c/empty.c`
+|1
+|0
+|5475
+|
+|872cb227fdc0b4d60acc7840889d567a6936b6e1
+|Ubuntu 20.04
+
+|gem5 empty C program dynamically linked
+|eb22fd3b6e7fff7e9ef946a88b208debf5b419d5
+|link:userland/c/empty.c[] `-O0`
+|`./run --arch aarch64 --emulator gem5 --userland userland/c/empty.c`
+|1
+|0
+|106999
+|
+|872cb227fdc0b4d60acc7840889d567a6936b6e1
+|Ubuntu 20.04
 
 |gem5 busy loop for a debug build
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
@@ -23480,6 +23618,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |33
 |2.405682 * 10^6
 |0.07
+|
+|
 
 |gem5 busy loop for a fast build
 |0d5a41a3f88fcd7ed40fc19474fe5aed0463663f + 1
@@ -23489,6 +23629,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |15
 |2.4005699 * 10^7
 |1.6
+|
+|
 
 |gem5 busy loop for a <<gem5-cpu-types,TimingSimpleCPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
@@ -23498,6 +23640,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |26
 |2.4005699 * 10^7
 |0.9
+|
+|
 
 |gem5 busy loop for a <<gem5-cpu-types,MinorCPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
@@ -23507,6 +23651,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |31
 |1.1018152 * 10^7
 |0.4
+|
+|
 
 |gem5 busy loop for a <<gem5-cpu-types,DerivO3CPU>>
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
@@ -23516,6 +23662,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |52
 |1.1018128 * 10^7
 |0.2
+|
+|
 
 |
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
@@ -23525,6 +23673,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |63
 |1.1005150 * 10^7
 |0.2
+|
+|
 
 |
 |605448f07e6380634b1aa7e9732d111759f69fd
@@ -23534,6 +23684,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |68
 |9.2034139 * 10^7
 |1.6
+|
+|
 
 |
 |5d233f2664a78789f9907d27e2a40e86cefad595
@@ -23543,6 +23695,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |64
 |9.9674773 * 10^7
 |1.6
+|
+|
 
 |glibc C pre-main effects
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
@@ -23552,6 +23706,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |2
 |1.26479 * 10^5
 |0.05
+|
+|
 
 |
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
@@ -23561,6 +23717,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |2
 |1.26479 * 10^5
 |0.05
+|
+|
 
 |
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
@@ -23570,6 +23728,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |2
 |2.385012 * 10^6
 |1
+|
+|
 
 |
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
@@ -23579,6 +23739,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |25
 |2.385012 * 10^6
 |0.1
+|
+|
 
 |gem5 optimized build immediate exit on first instruction to benchmark the simulator startup time
 |ab6f7331406b22f8ab6e2df5f8b8e464fb35b611
@@ -23587,6 +23749,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |1
 |1
 |1
+|
+|
 |
 
 |same as above but debug build
@@ -23597,6 +23761,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |1
 |1
 |
+|
+|
 
 |Check the effect of an ExecAll log (log every instruction) on execution time, compare to analogous run without it. `trace.txt` size: 3.5GB. 5x slowdown observed with output to a hard disk.
 |d29a07ddad499f273cc90dd66e40f8474b5dfc40
@@ -23606,6 +23772,7 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |2.4106774 * 10^7
 |136
 |0.2
+|
 
 |Same as above but with run command manually hacked to output to a ramfs. Slightly faster, but the bulk was still just in log format operations!
 |d29a07ddad499f273cc90dd66e40f8474b5dfc40
@@ -23615,6 +23782,8 @@ Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef55
 |2.4106774 * 10^7
 |107
 |0.2
+|
+|
 
 |===
 
@@ -23634,70 +23803,7 @@ as it gives:
 
 so ~ 110 million instructions / 100 seconds makes ~ 1 MIPS (million instructions per second).
 
-This experiment also suggests that each loop is about 11 instructions long (110M instructions / 10M loops), so we look at the disassembly:
-
-....
-./run-toolchain --arch aarch64 gdb -- -batch -ex 'disas busy_loop' "$(./getvar --arch aarch64 userland_build_dir)/gcc/busy_loop.out"
-....
-
-which contains:
-
-....
-8       ) {
-   0x0000000000400698 <+0>:     ff 83 00 d1     sub     sp, sp, #0x20
-   0x000000000040069c <+4>:     e0 07 00 f9     str     x0, [sp, #8]
-   0x00000000004006a0 <+8>:     e1 03 00 f9     str     x1, [sp]
-
-9           for (unsigned i = 0; i < max; i++) {
-   0x00000000004006a4 <+12>:    ff 1f 00 b9     str     wzr, [sp, #28]
-   0x00000000004006a8 <+16>:    11 00 00 14     b       0x4006ec <busy_loop+84>
-
-10              for (unsigned j = 0; j < max2; j++) {
-   0x00000000004006ac <+20>:    ff 1b 00 b9     str     wzr, [sp, #24]
-   0x00000000004006b0 <+24>:    08 00 00 14     b       0x4006d0 <busy_loop+56>
-
-11                  __asm__ __volatile__ ("" : "+g" (j), "+g" (j) : :);
-   0x00000000004006b4 <+28>:    e1 1b 40 b9     ldr     w1, [sp, #24]
-   0x00000000004006b8 <+32>:    e0 1b 40 b9     ldr     w0, [sp, #24]
-   0x00000000004006bc <+36>:    e1 1b 00 b9     str     w1, [sp, #24]
-   0x00000000004006c0 <+40>:    e0 17 00 b9     str     w0, [sp, #20]
-
-10              for (unsigned j = 0; j < max2; j++) {
-   0x00000000004006c4 <+44>:    e0 17 40 b9     ldr     w0, [sp, #20]
-   0x00000000004006c8 <+48>:    00 04 00 11     add     w0, w0, #0x1
-   0x00000000004006cc <+52>:    e0 1b 00 b9     str     w0, [sp, #24]
-   0x00000000004006d0 <+56>:    e0 1b 40 b9     ldr     w0, [sp, #24]
-   0x00000000004006d4 <+60>:    e1 03 40 f9     ldr     x1, [sp]
-   0x00000000004006d8 <+64>:    3f 00 00 eb     cmp     x1, x0
-   0x00000000004006dc <+68>:    c8 fe ff 54     b.hi    0x4006b4 <busy_loop+28>  // b.pmore
-
-9           for (unsigned i = 0; i < max; i++) {
-   0x00000000004006e0 <+72>:    e0 1f 40 b9     ldr     w0, [sp, #28]
-   0x00000000004006e4 <+76>:    00 04 00 11     add     w0, w0, #0x1
-   0x00000000004006e8 <+80>:    e0 1f 00 b9     str     w0, [sp, #28]
-   0x00000000004006ec <+84>:    e0 1f 40 b9     ldr     w0, [sp, #28]
-   0x00000000004006f0 <+88>:    e1 07 40 f9     ldr     x1, [sp, #8]
-   0x00000000004006f4 <+92>:    3f 00 00 eb     cmp     x1, x0
-   0x00000000004006f8 <+96>:    a8 fd ff 54     b.hi    0x4006ac <busy_loop+20>  // b.pmore
-
-12              }
-13          }
-14      }
-   0x00000000004006fc <+100>:   1f 20 03 d5     nop
-   0x0000000000400700 <+104>:   ff 83 00 91     add     sp, sp, #0x20
-   0x0000000000400704 <+108>:   c0 03 5f d6     ret
-....
-
-We look for the internal backwards jumps, and we find two:
-
-....
-   0x00000000004006dc <+68>:    c8 fe ff 54     b.hi    0x4006b4 <busy_loop+28>  // b.pmore
-   0x00000000004006f8 <+96>:    a8 fd ff 54     b.hi    0x4006ac <busy_loop+20>  // b.pmore
-....
-
-and so clearly the one at 0x4006dc happens first and jumps to a larger address than the other one, so the internal loop must be between 4006dc and 4006b4, which contains exactly 11 instructions! Bingo!
-
-Oh my God, unoptimized code is so horrendously inefficient, even I can't stand all those useless loads and stores to memory variables!!!
+This experiment also suggests that each loop is about 11 instructions long (110M instructions / 10M loops), which we confirm at xref:c-busy-loop[xrefstyle=full], bingo!
 
 Then for QEMU, we experimentally turn the number of loops up to 10^10 loops (`100000 100000`), which contains an expected 11 * 10^10 instructions, and the runtime is 00:01:08, so we have 1.1 * 10^11 instruction / 68 seconds ~ 2 * 10^9 = 2000 MIPS!
 
@@ -23980,11 +24086,76 @@ https://stackoverflow.com/questions/37786547/enforcing-statement-order-in-c/5686
 
 We often need to do this to be sure that benchmark instrumentation is actually being put around the region of interest!
 
-=== Infinite busy loop
+=== C busy loop
 
 link:userland/gcc/busy_loop.c[]
 
 The hard part is how to prevent the compiler from optimizing it away: https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133
+
+Disassembly analysis:
+
+....
+./run-toolchain --arch aarch64 gdb -- -nh -batch -ex 'disas/rs busy_loop' "$(./getvar --arch aarch64 userland_build_dir)/gcc/busy_loop.out"
+....
+
+which contains at LKMC eb22fd3b6e7fff7e9ef946a88b208debf5b419d5:
+
+....
+10      ) {
+   0x0000000000400700 <+0>:     ff 83 00 d1     sub     sp, sp, #0x20
+   0x0000000000400704 <+4>:     e0 07 00 f9     str     x0, [sp, #8]
+   0x0000000000400708 <+8>:     e1 03 00 f9     str     x1, [sp]
+
+11          for (unsigned long long i = 0; i < max2; i++) {
+   0x000000000040070c <+12>:    ff 0f 00 f9     str     xzr, [sp, #24]
+   0x0000000000400710 <+16>:    11 00 00 14     b       0x400754 <busy_loop+84>
+
+12              for (unsigned long long j = 0; j < max; j++) {
+   0x0000000000400714 <+20>:    ff 0b 00 f9     str     xzr, [sp, #16]
+   0x0000000000400718 <+24>:    08 00 00 14     b       0x400738 <busy_loop+56>
+
+13                  __asm__ __volatile__ ("" : "+g" (i), "+g" (j) : :);
+   0x000000000040071c <+28>:    e1 0f 40 f9     ldr     x1, [sp, #24]
+   0x0000000000400720 <+32>:    e0 0b 40 f9     ldr     x0, [sp, #16]
+   0x0000000000400724 <+36>:    e1 0f 00 f9     str     x1, [sp, #24]
+   0x0000000000400728 <+40>:    e0 0b 00 f9     str     x0, [sp, #16]
+
+12              for (unsigned long long j = 0; j < max; j++) {
+   0x000000000040072c <+44>:    e0 0b 40 f9     ldr     x0, [sp, #16]
+   0x0000000000400730 <+48>:    00 04 00 91     add     x0, x0, #0x1
+   0x0000000000400734 <+52>:    e0 0b 00 f9     str     x0, [sp, #16]
+   0x0000000000400738 <+56>:    e1 0b 40 f9     ldr     x1, [sp, #16]
+   0x000000000040073c <+60>:    e0 07 40 f9     ldr     x0, [sp, #8]
+   0x0000000000400740 <+64>:    3f 00 00 eb     cmp     x1, x0
+   0x0000000000400744 <+68>:    c3 fe ff 54     b.cc    0x40071c <busy_loop+28>  // b.lo, b.ul, b.last
+
+11          for (unsigned long long i = 0; i < max2; i++) {
+   0x0000000000400748 <+72>:    e0 0f 40 f9     ldr     x0, [sp, #24]
+   0x000000000040074c <+76>:    00 04 00 91     add     x0, x0, #0x1
+   0x0000000000400750 <+80>:    e0 0f 00 f9     str     x0, [sp, #24]
+   0x0000000000400754 <+84>:    e1 0f 40 f9     ldr     x1, [sp, #24]
+   0x0000000000400758 <+88>:    e0 03 40 f9     ldr     x0, [sp]
+   0x000000000040075c <+92>:    3f 00 00 eb     cmp     x1, x0
+   0x0000000000400760 <+96>:    a3 fd ff 54     b.cc    0x400714 <busy_loop+20>  // b.lo, b.ul, b.last
+
+14              }
+15          }
+16      }
+   0x0000000000400764 <+100>:   1f 20 03 d5     nop
+   0x0000000000400768 <+104>:   ff 83 00 91     add     sp, sp, #0x20
+   0x000000000040076c <+108>:   c0 03 5f d6     ret
+....
+
+We look for the internal backwards jumps, and we find two:
+
+....
+   0x00000000004006dc <+68>:    c8 fe ff 54     b.hi    0x4006b4 <busy_loop+28>  // b.pmore
+   0x00000000004006f8 <+96>:    a8 fd ff 54     b.hi    0x4006ac <busy_loop+20>  // b.pmore
+....
+
+and so clearly the one at 0x4006dc happens first and jumps to a larger address than the other one, so the internal loop must be between 4006dc and 4006b4, which contains exactly 11 instructions.
+
+Oh my God, unoptimized code is so horrendously inefficient, even I can't stand all those useless loads and stores to memory variables!!!
 
 == Computer architecture
 
