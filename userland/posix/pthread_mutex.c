@@ -40,9 +40,9 @@ int main(int argc, char **argv) {
 
     /* Action */
     for (i = 0; i < nthreads; ++i)
-        pthread_create(&threads[i], NULL, main_thread, &niters);
+        assert(!pthread_create(&threads[i], NULL, main_thread, &niters));
     for (i = 0; i < nthreads; ++i)
-        pthread_join(threads[i], NULL);
+        assert(!pthread_join(threads[i], NULL));
     assert(global == nthreads * niters);
 
     /* Cleanup. */

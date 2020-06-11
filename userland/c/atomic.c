@@ -1,6 +1,7 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#atomic-c */
 
 #if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_THREADS__)
+#include <assert.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <threads.h>
@@ -36,9 +37,9 @@ int main(int argc, char **argv) {
     }
     threads = malloc(sizeof(thrd_t) * nthreads);
     for(size_t i = 0; i < nthreads; ++i)
-        thrd_create(threads + i, my_thread_main, &niters);
+        assert(thrd_create(threads + i, my_thread_main, &niters) == thrd_success);
     for(size_t i = 0; i < nthreads; ++i)
-        thrd_join(threads[i], NULL);
+        assert(thrd_join(threads[i], NULL) == thrd_success);
     free(threads);
     printf("atomic %u\n", acnt);
     printf("non-atomic %u\n", cnt);

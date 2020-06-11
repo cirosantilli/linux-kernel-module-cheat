@@ -43,8 +43,8 @@ int main(void) {
     enum NUM_THREADS {NUM_THREADS = 2};
     pthread_t threads[NUM_THREADS];
     int thread_args[NUM_THREADS];
-    pthread_create(&threads[0], NULL, main_thread_0, (void*)&thread_args[0]);
-    pthread_create(&threads[1], NULL, main_thread_1, (void*)&thread_args[1]);
+    assert(!pthread_create(&threads[0], NULL, main_thread_0, (void*)&thread_args[0]));
+    assert(!pthread_create(&threads[1], NULL, main_thread_1, (void*)&thread_args[1]));
     pthread_join(threads[0], NULL);
     pthread_join(threads[1], NULL);
     return EXIT_SUCCESS;

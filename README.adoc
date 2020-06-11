@@ -2391,6 +2391,8 @@ to switch between two simultaneous live threads with different affinities, it ju
 b main_thread_0
 ....
 
+Note that secondary cores in gem5 are kind of broken however: <<gem5-gdb-step-debug-secondary-cores>>.
+
 Bibliography:
 
 * https://stackoverflow.com/questions/10490756/how-to-use-sched-getaffinity-and-sched-setaffinity-in-linux-from-c/50117787#50117787
@@ -11508,6 +11510,20 @@ TODO:
 ....
 
 breaks when `m5` is run on guest, but does not show the source code.
+
+==== gem5 GDB step debug secondary cores
+
+gem5's secondary core GDB setup is a hack and spawns one gdbserver for each core in separate ports, e.g. 7000, 7001, etc.
+
+Partly because of this, it is basically unusable/very hard to use, because you can't attach to a core that is stopped either because it hasn't been initialized, or if you are already currently debugging another core.
+
+This affects both full system and <<gdb-step-debug-multicore-userland,userland>>, and is described in more detail at: https://gem5.atlassian.net/browse/GEM5-626
+
+In LKMC 0a3ce2f41f12024930bcdc74ff646b66dfc46999, we can easily test attaching to another core by passing `--run-id`, e.g. to connect to the second core we can use `--run-id 1`:
+
+....
+./run-gdb --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --run-id 1
+....
 
 === gem5 checkpoint
 
