@@ -690,12 +690,13 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#syscall-emulation-mode-program-stdin">10.6. syscall emulation mode program stdin</a></li>
 <li><a href="#gem5-syscall-emulation-mode">10.7. gem5 syscall emulation mode</a>
 <ul class="sectlevel3">
-<li><a href="#gem5-syscall-emulation-exit-status">10.7.1. gem5 syscall emulation exit status</a></li>
-<li><a href="#gem5-syscall-emulation-mode-syscall-tracing">10.7.2. gem5 syscall emulation mode syscall tracing</a></li>
-<li><a href="#gem5-syscall-emulation-multithreading">10.7.3. gem5 syscall emulation multithreading</a></li>
-<li><a href="#gem5-syscall-emulation-multiple-executables">10.7.4. gem5 syscall emulation multiple executables</a>
+<li><a href="#gem5-dynamic-linked-executables-in-syscall-emulation">10.7.1. gem5 dynamic linked executables in syscall emulation</a></li>
+<li><a href="#gem5-syscall-emulation-exit-status">10.7.2. gem5 syscall emulation exit status</a></li>
+<li><a href="#gem5-syscall-emulation-mode-syscall-tracing">10.7.3. gem5 syscall emulation mode syscall tracing</a></li>
+<li><a href="#gem5-syscall-emulation-multithreading">10.7.4. gem5 syscall emulation multithreading</a></li>
+<li><a href="#gem5-syscall-emulation-multiple-executables">10.7.5. gem5 syscall emulation multiple executables</a>
 <ul class="sectlevel4">
-<li><a href="#gem5-syscall-emulation-smt">10.7.4.1. gem5 syscall emulation --smt</a></li>
+<li><a href="#gem5-syscall-emulation-smt">10.7.5.1. gem5 syscall emulation --smt</a></li>
 </ul>
 </li>
 </ul>
@@ -1109,10 +1110,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </ul>
 </li>
 <li><a href="#gem5-cache-size">19.2.2.2. gem5 cache size</a></li>
-<li><a href="#gem5-memory-latency">19.2.2.3. gem5 memory latency</a></li>
-<li><a href="#memory-size">19.2.2.4. Memory size</a></li>
-<li><a href="#gem5-disk-and-network-latency">19.2.2.5. gem5 disk and network latency</a></li>
-<li><a href="#gem5-clock-frequency">19.2.2.6. gem5 clock frequency</a></li>
+<li><a href="#gem5-dram-model">19.2.2.3. gem5 DRAM model</a>
+<ul class="sectlevel5">
+<li><a href="#gem5-memory-latency">19.2.2.3.1. gem5 memory latency</a></li>
+<li><a href="#memory-size">19.2.2.3.2. Memory size</a></li>
+</ul>
+</li>
+<li><a href="#gem5-disk-and-network-latency">19.2.2.4. gem5 disk and network latency</a></li>
+<li><a href="#gem5-clock-frequency">19.2.2.5. gem5 clock frequency</a></li>
 </ul>
 </li>
 </ul>
@@ -1122,6 +1127,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel3">
 <li><a href="#gem5-gdb-step-debug-kernel">19.4.1. gem5 GDB step debug kernel</a></li>
 <li><a href="#gem5-gdb-step-debug-userland-process">19.4.2. gem5 GDB step debug userland process</a></li>
+<li><a href="#gem5-gdb-step-debug-secondary-cores">19.4.3. gem5 GDB step debug secondary cores</a></li>
 </ul>
 </li>
 <li><a href="#gem5-checkpoint">19.5. gem5 checkpoint</a>
@@ -1211,7 +1217,12 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <ul class="sectlevel3">
 <li><a href="#list-of-gem5-cpu-types">19.16.1. List of gem5 CPU types</a>
 <ul class="sectlevel4">
-<li><a href="#gem5-basesimplecpu">19.16.1.1. gem5 <code>BaseSimpleCPU</code></a></li>
+<li><a href="#gem5-basesimplecpu">19.16.1.1. gem5 <code>BaseSimpleCPU</code></a>
+<ul class="sectlevel5">
+<li><a href="#gem5-atomicsimplecpu">19.16.1.1.1. gem5 <code>AtomicSimpleCPU</code></a></li>
+<li><a href="#gem5-timingsimplecpu">19.16.1.1.2. gem5 <code>TimingSimpleCPU</code></a></li>
+</ul>
+</li>
 <li><a href="#gem5-minorcpu">19.16.1.2. gem5 MinorCPU</a></li>
 <li><a href="#gem5-derivo3cpu">19.16.1.3. gem5 DerivO3CPU</a></li>
 </ul>
@@ -1296,6 +1307,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-completeacc">19.20.5.1.1. gem5 <code>completeAcc</code></a></li>
 </ul>
 </li>
+<li><a href="#gem5-microops">19.20.5.2. gem5 microops</a></li>
 </ul>
 </li>
 <li><a href="#gem5-port-system">19.20.6. gem5 port system</a>
@@ -1324,17 +1336,18 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gem5-process">19.20.7.4. gem5 <code>Process</code></a></li>
 </ul>
 </li>
-<li><a href="#gem5-code-generation">19.20.8. gem5 code generation</a>
+<li><a href="#gem5-functional-units">19.20.8. gem5 functional units</a></li>
+<li><a href="#gem5-code-generation">19.20.9. gem5 code generation</a>
 <ul class="sectlevel4">
-<li><a href="#gem5-the-isa">19.20.8.1. gem5 THE_ISA</a></li>
+<li><a href="#gem5-the-isa">19.20.9.1. gem5 THE_ISA</a></li>
 </ul>
 </li>
-<li><a href="#gem5-build-system">19.20.9. gem5 build system</a>
+<li><a href="#gem5-build-system">19.20.10. gem5 build system</a>
 <ul class="sectlevel4">
-<li><a href="#m5-override-py-source">19.20.9.1. M5_OVERRIDE_PY_SOURCE</a></li>
-<li><a href="#gem5-build-broken-on-recent-compiler-version">19.20.9.2. gem5 build broken on recent compiler version</a></li>
-<li><a href="#gem5-polymorphic-isa-includes">19.20.9.3. gem5 polymorphic ISA includes</a></li>
-<li><a href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.20.9.4. Why are all C++ symlinked into the gem5 build dir?</a></li>
+<li><a href="#m5-override-py-source">19.20.10.1. M5_OVERRIDE_PY_SOURCE</a></li>
+<li><a href="#gem5-build-broken-on-recent-compiler-version">19.20.10.2. gem5 build broken on recent compiler version</a></li>
+<li><a href="#gem5-polymorphic-isa-includes">19.20.10.3. gem5 polymorphic ISA includes</a></li>
+<li><a href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.20.10.4. Why are all C++ symlinked into the gem5 build dir?</a></li>
 </ul>
 </li>
 </ul>
@@ -1430,27 +1443,28 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#posix">21.3. POSIX</a>
 <ul class="sectlevel3">
-<li><a href="#unistd-h">21.3.1. unistd.h</a></li>
-<li><a href="#fork">21.3.2. fork</a>
+<li><a href="#environment-variables">21.3.1. Environment variables</a></li>
+<li><a href="#unistd-h">21.3.2. unistd.h</a></li>
+<li><a href="#fork">21.3.3. fork</a>
 <ul class="sectlevel4">
-<li><a href="#getpid">21.3.2.1. getpid</a></li>
-<li><a href="#fork-bomb">21.3.2.2. Fork bomb</a></li>
+<li><a href="#getpid">21.3.3.1. getpid</a></li>
+<li><a href="#fork-bomb">21.3.3.2. Fork bomb</a></li>
 </ul>
 </li>
-<li><a href="#pthreads">21.3.3. pthreads</a>
+<li><a href="#pthreads">21.3.4. pthreads</a>
 <ul class="sectlevel4">
-<li><a href="#pthread-mutex">21.3.3.1. pthread_mutex</a></li>
+<li><a href="#pthread-mutex">21.3.4.1. pthread_mutex</a></li>
 </ul>
 </li>
-<li><a href="#sysconf">21.3.4. sysconf</a></li>
-<li><a href="#mmap-2">21.3.5. mmap</a>
+<li><a href="#sysconf">21.3.5. sysconf</a></li>
+<li><a href="#mmap-2">21.3.6. mmap</a>
 <ul class="sectlevel4">
-<li><a href="#mmap-map-anonymous">21.3.5.1. mmap MAP_ANONYMOUS</a></li>
-<li><a href="#mmap-file">21.3.5.2. mmap file</a></li>
-<li><a href="#brk">21.3.5.3. brk</a></li>
+<li><a href="#mmap-map-anonymous">21.3.6.1. mmap MAP_ANONYMOUS</a></li>
+<li><a href="#mmap-file">21.3.6.2. mmap file</a></li>
+<li><a href="#brk">21.3.6.3. brk</a></li>
 </ul>
 </li>
-<li><a href="#socket">21.3.6. socket</a></li>
+<li><a href="#socket">21.3.7. socket</a></li>
 </ul>
 </li>
 <li><a href="#userland-multithreading">21.4. Userland multithreading</a></li>
@@ -2010,29 +2024,36 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#compilers">31. Compilers</a>
 <ul class="sectlevel2">
 <li><a href="#prevent-statement-reordering">31.1. Prevent statement reordering</a></li>
-<li><a href="#infinite-busy-loop">31.2. Infinite busy loop</a></li>
+<li><a href="#c-busy-loop">31.2. C busy loop</a></li>
 </ul>
 </li>
 <li><a href="#computer-architecture">32. Computer architecture</a>
 <ul class="sectlevel2">
-<li><a href="#hardware-threads">32.1. Hardware threads</a></li>
-<li><a href="#cache-coherence">32.2. Cache coherence</a>
+<li><a href="#instruction-pipelining">32.1. Instruction pipelining</a>
 <ul class="sectlevel3">
-<li><a href="#memory-consistency">32.2.1. Memory consistency</a>
-<ul class="sectlevel4">
-<li><a href="#sequential-consistency">32.2.1.1. Sequential Consistency</a></li>
+<li><a href="#classic-risc-pipeline">32.1.1. Classic RISC pipeline</a></li>
 </ul>
 </li>
-<li><a href="#can-caches-snoop-data-from-other-caches">32.2.2. Can caches snoop data from other caches?</a></li>
-<li><a href="#vi-cache-coherence-protocol">32.2.3. VI cache coherence protocol</a></li>
-<li><a href="#msi-cache-coherence-protocol">32.2.4. MSI cache coherence protocol</a>
+<li><a href="#superscalar-processor">32.2. Superscalar processor</a></li>
+<li><a href="#out-of-order-execution">32.3. Out-of-order execution</a></li>
+<li><a href="#hardware-threads">32.4. Hardware threads</a></li>
+<li><a href="#cache-coherence">32.5. Cache coherence</a>
+<ul class="sectlevel3">
+<li><a href="#memory-consistency">32.5.1. Memory consistency</a>
 <ul class="sectlevel4">
-<li><a href="#msi-cache-coherence-protocol-with-transient-states">32.2.4.1. MSI cache coherence protocol with transient states</a></li>
+<li><a href="#sequential-consistency">32.5.1.1. Sequential Consistency</a></li>
 </ul>
 </li>
-<li><a href="#mesi-cache-coherence-protocol">32.2.5. MESI cache coherence protocol</a></li>
-<li><a href="#mosi-cache-coherence-protocol">32.2.6. MOSI cache coherence protocol</a></li>
-<li><a href="#moesi">32.2.7. MOESI cache coherence protocol</a></li>
+<li><a href="#can-caches-snoop-data-from-other-caches">32.5.2. Can caches snoop data from other caches?</a></li>
+<li><a href="#vi-cache-coherence-protocol">32.5.3. VI cache coherence protocol</a></li>
+<li><a href="#msi-cache-coherence-protocol">32.5.4. MSI cache coherence protocol</a>
+<ul class="sectlevel4">
+<li><a href="#msi-cache-coherence-protocol-with-transient-states">32.5.4.1. MSI cache coherence protocol with transient states</a></li>
+</ul>
+</li>
+<li><a href="#mesi-cache-coherence-protocol">32.5.5. MESI cache coherence protocol</a></li>
+<li><a href="#mosi-cache-coherence-protocol">32.5.6. MOSI cache coherence protocol</a></li>
+<li><a href="#moesi">32.5.7. MOESI cache coherence protocol</a></li>
 </ul>
 </li>
 </ul>
@@ -5581,6 +5602,9 @@ sched_getcpu = 0</pre>
 </div>
 </div>
 <div class="paragraph">
+<p>Note that secondary cores in gem5 are kind of broken however: <a href="#gem5-gdb-step-debug-secondary-cores">gem5 GDB step debug secondary cores</a>.</p>
+</div>
+<div class="paragraph">
 <p>Bibliography:</p>
 </div>
 <div class="ulist">
@@ -8028,9 +8052,6 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 <p>There are much more unimplemented syscalls in gem5 than in QEMU. Many of those are trivial to implement however.</p>
 </div>
 <div class="paragraph">
-<p>Support for dynamic linking was added in November 2019: <a href="https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098" class="bare">https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098</a></p>
-</div>
-<div class="paragraph">
 <p>So let&#8217;s just play with some static ones:</p>
 </div>
 <div class="literalblock">
@@ -8068,7 +8089,16 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-syscall-emulation-exit-status"><a class="anchor" href="#gem5-syscall-emulation-exit-status"></a><a class="link" href="#gem5-syscall-emulation-exit-status">10.7.1. gem5 syscall emulation exit status</a></h4>
+<h4 id="gem5-dynamic-linked-executables-in-syscall-emulation"><a class="anchor" href="#gem5-dynamic-linked-executables-in-syscall-emulation"></a><a class="link" href="#gem5-dynamic-linked-executables-in-syscall-emulation">10.7.1. gem5 dynamic linked executables in syscall emulation</a></h4>
+<div class="paragraph">
+<p>Support for dynamic linking was added in November 2019: <a href="https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098" class="bare">https://stackoverflow.com/questions/50542222/how-to-run-a-dynamically-linked-executable-syscall-emulation-mode-se-py-in-gem5/50696098#50696098</a></p>
+</div>
+<div class="paragraph">
+<p>Note that as shown at <a href="#benchmark-emulators-on-userland-executables">Section 29.2.2, &#8220;Benchmark emulators on userland executables&#8221;</a>, the dynamic version runs 200x more instructions, which might have an impact on smaller simulations in detailed CPUs.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-syscall-emulation-exit-status"><a class="anchor" href="#gem5-syscall-emulation-exit-status"></a><a class="link" href="#gem5-syscall-emulation-exit-status">10.7.2. gem5 syscall emulation exit status</a></h4>
 <div class="paragraph">
 <p>As of gem5 7fa4c946386e7207ad5859e8ade0bbfc14000d91, the crappy <code>se.py</code> script does not forward the exit status of syscall emulation mode, you can test it with:</p>
 </div>
@@ -8107,7 +8137,7 @@ qemu: uncaught target signal 6 (Aborted) - core dumped</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-syscall-emulation-mode-syscall-tracing"><a class="anchor" href="#gem5-syscall-emulation-mode-syscall-tracing"></a><a class="link" href="#gem5-syscall-emulation-mode-syscall-tracing">10.7.2. gem5 syscall emulation mode syscall tracing</a></h4>
+<h4 id="gem5-syscall-emulation-mode-syscall-tracing"><a class="anchor" href="#gem5-syscall-emulation-mode-syscall-tracing"></a><a class="link" href="#gem5-syscall-emulation-mode-syscall-tracing">10.7.3. gem5 syscall emulation mode syscall tracing</a></h4>
 <div class="paragraph">
 <p>Since gem5 has to implement syscalls itself in syscall emulation mode, it can of course clearly see which syscalls are being made, and we can log them for debug purposes with <a href="#gem5-tracing">gem5 tracing</a>, e.g.:</p>
 </div>
@@ -8153,7 +8183,7 @@ hello
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-syscall-emulation-multithreading"><a class="anchor" href="#gem5-syscall-emulation-multithreading"></a><a class="link" href="#gem5-syscall-emulation-multithreading">10.7.3. gem5 syscall emulation multithreading</a></h4>
+<h4 id="gem5-syscall-emulation-multithreading"><a class="anchor" href="#gem5-syscall-emulation-multithreading"></a><a class="link" href="#gem5-syscall-emulation-multithreading">10.7.4. gem5 syscall emulation multithreading</a></h4>
 <div class="paragraph">
 <p>gem5 user mode multithreading has been particularly flaky compared <a href="#qemu-user-mode-multithreading">to QEMU&#8217;s</a>, but work is being put into improving it.</p>
 </div>
@@ -8240,7 +8270,7 @@ hello
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-syscall-emulation-multiple-executables"><a class="anchor" href="#gem5-syscall-emulation-multiple-executables"></a><a class="link" href="#gem5-syscall-emulation-multiple-executables">10.7.4. gem5 syscall emulation multiple executables</a></h4>
+<h4 id="gem5-syscall-emulation-multiple-executables"><a class="anchor" href="#gem5-syscall-emulation-multiple-executables"></a><a class="link" href="#gem5-syscall-emulation-multiple-executables">10.7.5. gem5 syscall emulation multiple executables</a></h4>
 <div class="paragraph">
 <p>gem5 syscall emulation has the nice feature of allowing you to run multiple executables "at once".</p>
 </div>
@@ -8311,7 +8341,7 @@ pid=100</pre>
 <p>and therefore shows one instruction running on each CPU for each process at the same time.</p>
 </div>
 <div class="sect4">
-<h5 id="gem5-syscall-emulation-smt"><a class="anchor" href="#gem5-syscall-emulation-smt"></a><a class="link" href="#gem5-syscall-emulation-smt">10.7.4.1. gem5 syscall emulation --smt</a></h5>
+<h5 id="gem5-syscall-emulation-smt"><a class="anchor" href="#gem5-syscall-emulation-smt"></a><a class="link" href="#gem5-syscall-emulation-smt">10.7.5.1. gem5 syscall emulation --smt</a></h5>
 <div class="paragraph">
 <p>gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4 syscall emulation has an <code>--smt</code> option presumably for <a href="#hardware-threads">Hardware threads</a> but it has been neglected forever it seems: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/104</a></p>
 </div>
@@ -18599,7 +18629,7 @@ cat out/gem5-bench-dhrystone.txt</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Check with:</p>
+<p>Can be checked with <code>/proc/cpuinfo</code> or <a href="#sysconf">getconf</a> in Ubuntu 18.04:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -18773,9 +18803,24 @@ ps Haux | grep qemu | wc</pre>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>getconf -a | grep CACHE
-lscpu
+<pre>lscpu
 cat /sys/devices/system/cpu/cpu0/cache/index2/size</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and on Ubuntu 20.04 host <a href="#sysconf">but not Buildroot 1.31.1</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>getconf -a | grep CACHE</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and we also have an easy to use userland executable using <a href="#sysconf">sysconf</a> at <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/sysconf.c">userland/linux/sysconf.c</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --emulator gem5 --userland userland/linux/sysconf.c</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -18805,7 +18850,10 @@ cat /sys/devices/system/cpu/cpu0/cache/index2/size</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>So we take a performance measurement approach instead:</p>
+<p>The only precise option is therefore to look at <a href="#gem5-config-ini">gem5 config.ini</a> as done at: <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a>.</p>
+</div>
+<div class="paragraph">
+<p>Or for a quick and dirty performance measurement approach instead:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -18870,7 +18918,12 @@ instructions 91738770</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="gem5-memory-latency"><a class="anchor" href="#gem5-memory-latency"></a><a class="link" href="#gem5-memory-latency">19.2.2.3. gem5 memory latency</a></h5>
+<h5 id="gem5-dram-model"><a class="anchor" href="#gem5-dram-model"></a><a class="link" href="#gem5-dram-model">19.2.2.3. gem5 DRAM model</a></h5>
+<div class="paragraph">
+<p>Some info at: <a href="#timingsimplecpu-analysis-1">TimingSimpleCPU analysis #1</a> but highly TODO :-)</p>
+</div>
+<div class="sect5">
+<h6 id="gem5-memory-latency"><a class="anchor" href="#gem5-memory-latency"></a><a class="link" href="#gem5-memory-latency">19.2.2.3.1. gem5 memory latency</a></h6>
 <div class="paragraph">
 <p>TODO These look promising:</p>
 </div>
@@ -18886,9 +18939,60 @@ instructions 91738770</pre>
 <div class="paragraph">
 <p>TODO: now to verify this with the Linux kernel? Besides raw performance benchmarks.</p>
 </div>
+<div class="paragraph">
+<p>Now for a raw simplistic benchmark on <a href="#gem5-timingsimplecpu"><code>TimingSimpleCPU</code></a> without caches via <a href="#c-busy-loop">C busy loop</a>:</p>
 </div>
-<div class="sect4">
-<h5 id="memory-size"><a class="anchor" href="#memory-size"></a><a class="link" href="#memory-size">19.2.2.4. Memory size</a></h5>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --cli-args 1000000 --emulator gem5 --userland userland/gcc/busy_loop.c -- --cpu-type TimingSimpleCPU</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>LKMC eb22fd3b6e7fff7e9ef946a88b208debf5b419d5 gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 outputs:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Exiting @ tick 897173931000 because exiting with last active thread context</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and now because:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>we have no caches, each instruction is fetched from memory</p>
+</li>
+<li>
+<p>each loop contains 11 instructions as shown at <a href="#c-busy-loop">Section 31.2, &#8220;C busy loop&#8221;</a></p>
+</li>
+<li>
+<p>and supposing that the loop dominated executable pre/post <code>main</code>, which we know is true since as shown in <a href="#benchmark-emulators-on-userland-executables">Benchmark emulators on userland executables</a> an empty dynamically linked C program only as about 100k instructions, while our loop runs 1000000 * 11 = 12M.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>we should have about 1000000 * 11 / 897173931000 ps ~ 12260722 ~ 12MB/s of random accesses. The default memory type used is <code>DDR3_1600_8x8</code> as per:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>common/Options.py:101:    parser.add_option("--mem-type", type="choice", default="DDR3_1600_8x8</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and according to <a href="https://en.wikipedia.org/wiki/DDR3_SDRAM" class="bare">https://en.wikipedia.org/wiki/DDR3_SDRAM</a> that reaches 6400 MB/s so we are only off by a factor of 50x :-) TODO. Maybe if the minimum transaction if 64 bytes, we would be on point.</p>
+</div>
+<div class="paragraph">
+<p>Another example we could use later on is <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a>, but then that mixes icache and dcache accesses, so the analysis is a bit more complex:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --cli-args 0x1000000 --emulator gem5 --userland userland/gcc/busy_loop.c -- --cpu-type TimingSimpleCPU</pre>
+</div>
+</div>
+</div>
+<div class="sect5">
+<h6 id="memory-size"><a class="anchor" href="#memory-size"></a><a class="link" href="#memory-size">19.2.2.3.2. Memory size</a></h6>
 <div class="literalblock">
 <div class="content">
 <pre>./run --memory 512M</pre>
@@ -18988,8 +19092,9 @@ get_avphys_pages() * sysconf(_SC_PAGESIZE) = 0x1D178000</pre>
 <p>AV means available and gives the free memory: <a href="https://stackoverflow.com/questions/14386856/c-check-available-ram/57659190#57659190" class="bare">https://stackoverflow.com/questions/14386856/c-check-available-ram/57659190#57659190</a></p>
 </div>
 </div>
+</div>
 <div class="sect4">
-<h5 id="gem5-disk-and-network-latency"><a class="anchor" href="#gem5-disk-and-network-latency"></a><a class="link" href="#gem5-disk-and-network-latency">19.2.2.5. gem5 disk and network latency</a></h5>
+<h5 id="gem5-disk-and-network-latency"><a class="anchor" href="#gem5-disk-and-network-latency"></a><a class="link" href="#gem5-disk-and-network-latency">19.2.2.4. gem5 disk and network latency</a></h5>
 <div class="paragraph">
 <p>TODO These look promising:</p>
 </div>
@@ -19004,35 +19109,82 @@ get_avphys_pages() * sysconf(_SC_PAGESIZE) = 0x1D178000</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="gem5-clock-frequency"><a class="anchor" href="#gem5-clock-frequency"></a><a class="link" href="#gem5-clock-frequency">19.2.2.6. gem5 clock frequency</a></h5>
+<h5 id="gem5-clock-frequency"><a class="anchor" href="#gem5-clock-frequency"></a><a class="link" href="#gem5-clock-frequency">19.2.2.5. gem5 clock frequency</a></h5>
 <div class="paragraph">
-<p>Clock frequency: TODO how does it affect performance in benchmarks?</p>
+<p>As of gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 defaults to 2GHz for fs.py:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --arch aarch64 --emulator gem5 -- --cpu-clock 10000000</pre>
+<pre>    parser.add_option("--cpu-clock", action="store", type="string",
+                      default='2GHz',
+                      help="Clock for blocks running at CPU speed")</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Check with:</p>
+<p>We can check that very easily by looking at the timestamps of a <a href="#gem5-execall-trace-format">Exec trace</a> of an <a href="#gem5-atomicsimplecpu">gem5 <code>AtomicSimpleCPU</code></a> without any caches:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>m5 resetstats
-sleep 10
-m5 dumpstats</pre>
+<pre>./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+;</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>and then:</p>
+<p>which shows:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./gem5-stat --arch aarch64</pre>
+<pre>      0: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+    500: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+   1000: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
+   1500: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
+   2000: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+hello
+   2500: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   3000: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+   3500: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>TODO: why doesn&#8217;t this exist:</p>
+<p>so we see that it runs one instruction every 500 ps which makes up 2GHz.</p>
+</div>
+<div class="paragraph">
+<p>So if we change the frequency to say 1GHz and re-run it:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -- \
+  --cpu-clock 1GHz \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>we get as expected:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>      0: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+   1000: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+   2000: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   ldr   w2, #4194464       : MemRead :  D=0x0000000000000006 A=0x4000a0  flags=(IsInteger|IsMemRef|IsLoad)
+   3000: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x8, #64, #0       : IntAlu :  D=0x0000000000000040  flags=(IsInteger)
+   4000: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+hello
+   5000: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+   6000: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+   7000: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As of gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1, but like <a href="#gem5-cache-size">gem5 cache size</a>, does not get propagated to the guest, and is not for example visible at:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -19143,6 +19295,26 @@ m5 dumpstats</pre>
 </div>
 <div class="paragraph">
 <p>breaks when <code>m5</code> is run on guest, but does not show the source code.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-gdb-step-debug-secondary-cores"><a class="anchor" href="#gem5-gdb-step-debug-secondary-cores"></a><a class="link" href="#gem5-gdb-step-debug-secondary-cores">19.4.3. gem5 GDB step debug secondary cores</a></h4>
+<div class="paragraph">
+<p>gem5&#8217;s secondary core GDB setup is a hack and spawns one gdbserver for each core in separate ports, e.g. 7000, 7001, etc.</p>
+</div>
+<div class="paragraph">
+<p>Partly because of this, it is basically unusable/very hard to use, because you can&#8217;t attach to a core that is stopped either because it hasn&#8217;t been initialized, or if you are already currently debugging another core.</p>
+</div>
+<div class="paragraph">
+<p>This affects both full system and <a href="#gdb-step-debug-multicore-userland">userland</a>, and is described in more detail at: <a href="https://gem5.atlassian.net/browse/GEM5-626" class="bare">https://gem5.atlassian.net/browse/GEM5-626</a></p>
+</div>
+<div class="paragraph">
+<p>In LKMC 0a3ce2f41f12024930bcdc74ff646b66dfc46999, we can easily test attaching to another core by passing <code>--run-id</code>, e.g. to connect to the second core we can use <code>--run-id 1</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run-gdb --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --run-id 1</pre>
+</div>
 </div>
 </div>
 </div>
@@ -19527,7 +19699,7 @@ cat "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)"</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>At gem5 2235168b72537535d74c645a70a85479801e0651, the first run does everything in <a href="#gem5-basesimplecpu">AtomicSimpleCPU</a>:</p>
+<p>At gem5 2235168b72537535d74c645a70a85479801e0651, the first run does everything in <a href="#gem5-atomicsimplecpu">AtomicSimpleCPU</a>:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -20733,6 +20905,67 @@ xdg-open "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot.svg"</pre>
 <div class="paragraph">
 <p>An example of such file can be seen at: <a href="#config-dot-svg-timingsimplecpu"><code>config.dot.svg</code> for a TimingSimpleCPU without caches.</a>.</p>
 </div>
+<div class="paragraph">
+<p>On Ubuntu 20.04, you can also see the dot file "directly" with xdot:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>xdot "$(./getvar --arch arm --emulator gem5 m5out_dir)/config.dot"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which is kind of really cool because it allows you to graph arrows with clicks.</p>
+</div>
+<div class="paragraph">
+<p>It is worth noting that if you are running a bunch of short simulations, dot/SVG/PDF generation could have a significant impact in simulation startup time, so it is something to watch out for. As per <a href="https://gem5-review.googlesource.com/c/public/gem5/+/29232" class="bare">https://gem5-review.googlesource.com/c/public/gem5/+/29232</a> it can be turned off with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>gem5.opt --dot-config=''</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or in LKMC:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --gem5-exe-args='--dot-config= --json-config= --dump-config='</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The time difference can be readily observed on minimal examples by running gem5 with <code>time</code>.</p>
+</div>
+<div class="paragraph">
+<p>By looking into gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 <code>src/python/m5/util/dot_writer.py</code> are can try to remove the SVG/PDF conversion to see if those dominate the runtime:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>def do_dot(root, outdir, dotFilename):
+    if not pydot:
+        warn("No dot file generated. " +
+             "Please install pydot to generate the dot file and pdf.")
+        return
+    # * use ranksep &gt; 1.0 for for vertical separation between nodes
+    # especially useful if you need to annotate edges using e.g. visio
+    # which accepts svg format
+    # * no need for hoizontal separation as nothing moves horizonally
+    callgraph = pydot.Dot(graph_type='digraph', ranksep='1.3')
+    dot_create_nodes(root, callgraph)
+    dot_create_edges(root, callgraph)
+    dot_filename = os.path.join(outdir, dotFilename)
+    callgraph.write(dot_filename)
+    try:
+        # dot crashes if the figure is extremely wide.
+        # So avoid terminating simulation unnecessarily
+        callgraph.write_svg(dot_filename + ".svg")
+        callgraph.write_pdf(dot_filename + ".pdf")
+    except:
+        warn("failed to generate dot output from %s", dot_filename)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>but nope, they don&#8217;t, <code>dot_create_nodes</code> and <code>dot_create_edges</code> are the culprits, so the only way to gain speed is to remove <code>.dot</code> generation altogether. It is tempting to do this by default on LKMC and add an option to enable dot generation when desired so we can be a bit faster by default&#8230;&#8203; but I&#8217;m lazy to document the option right now. When it annoys me further maybe :-)</p>
+</div>
 </div>
 </div>
 </div>
@@ -21577,7 +21810,7 @@ class SystemXBar(CoherentXBar):</pre>
 <p>Simple abstract CPU without a pipeline.</p>
 </div>
 <div class="paragraph">
-<p>They are therefore completely unrealistic. But they also run much faster.</p>
+<p>They are therefore completely unrealistic. But they also run much faster. <a href="#gem5-kvm">KVM CPUs</a> are an alternative way of fast forwarding boot when they work.</p>
 </div>
 <div class="paragraph">
 <p>Implementations:</p>
@@ -21585,13 +21818,27 @@ class SystemXBar(CoherentXBar):</pre>
 <div class="ulist">
 <ul>
 <li>
+<p><a href="#gem5-atomicsimplecpu">gem5 <code>AtomicSimpleCPU</code></a></p>
+</li>
+<li>
+<p><a href="#gem5-timingsimplecpu">gem5 <code>TimingSimpleCPU</code></a></p>
+</li>
+</ul>
+</div>
+<div class="sect5">
+<h6 id="gem5-atomicsimplecpu"><a class="anchor" href="#gem5-atomicsimplecpu"></a><a class="link" href="#gem5-atomicsimplecpu">19.16.1.1.1. gem5 <code>AtomicSimpleCPU</code></a></h6>
+<div class="paragraph">
 <p><code>AtomicSimpleCPU</code>: the default one. Memory accesses happen instantaneously. The fastest simulation except for KVM, but not realistic at all.</p>
+</div>
 <div class="paragraph">
 <p>Useful to <a href="#gem5-restore-checkpoint-with-a-different-cpu">boot Linux fast and then checkpoint and switch to a more detailed CPU</a>.</p>
 </div>
-</li>
-<li>
+</div>
+<div class="sect5">
+<h6 id="gem5-timingsimplecpu"><a class="anchor" href="#gem5-timingsimplecpu"></a><a class="link" href="#gem5-timingsimplecpu">19.16.1.1.2. gem5 <code>TimingSimpleCPU</code></a></h6>
+<div class="paragraph">
 <p><code>TimingSimpleCPU</code>: memory accesses are realistic, but the CPU has no pipeline. The simulation is faster than detailed models, but slower than <code>AtomicSimpleCPU</code>.</p>
+</div>
 <div class="paragraph">
 <p>To fully understand <code>TimingSimpleCPU</code>, see: <a href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a>.</p>
 </div>
@@ -21601,11 +21848,6 @@ class SystemXBar(CoherentXBar):</pre>
 <div class="paragraph">
 <p>Caches do make a difference here of course, and lead to much faster memory return times.</p>
 </div>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p><a href="#gem5-kvm">KVM CPUs</a> are an alternative way of fast forwarding boot when they work.</p>
 </div>
 </div>
 <div class="sect4">
@@ -21629,10 +21871,13 @@ class SystemXBar(CoherentXBar):</pre>
 <p>Its 4 stage pipeline is described at the "MinorCPU" section of <a href="#gem5-arm-rsk">gem5 ARM RSK</a>.</p>
 </div>
 <div class="paragraph">
+<p>A commented execution example can be seen at: <a href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">gem5 event queue MinorCPU syscall emulation freestanding example analysis</a>.</p>
+</div>
+<div class="paragraph">
 <p>There is also an in-tree doxygen at: <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/doc/inside-minor.doxygen"><code>src/doc/inside-minor.doxygen</code></a> and rendered at: <a href="http://pages.cs.wisc.edu/~swilson/gem5-docs/minor.html" class="bare">http://pages.cs.wisc.edu/~swilson/gem5-docs/minor.html</a></p>
 </div>
 <div class="paragraph">
-<p>As of 2019, in-order cores are mostly present in low power / cost contexts, for example little cores of <a href="https://en.wikipedia.org/wiki/ARM_big.LITTLE">ARM bigLITTLE</a>.</p>
+<p>As of 2019, in-order cores are mostly present in low power/cost contexts, for example little cores of <a href="https://en.wikipedia.org/wiki/ARM_big.LITTLE">ARM bigLITTLE</a>.</p>
 </div>
 <div class="paragraph">
 <p>The following models extend the <code>MinorCPU</code> class by parametrization to make it match existing CPUs more closely:</p>
@@ -21674,10 +21919,13 @@ class SystemXBar(CoherentXBar):</pre>
 <div class="sect4">
 <h5 id="gem5-derivo3cpu"><a class="anchor" href="#gem5-derivo3cpu"></a><a class="link" href="#gem5-derivo3cpu">19.16.1.3. gem5 DerivO3CPU</a></h5>
 <div class="paragraph">
-<p>Generic out-of-order core. "O3" Stands for "Out Of Order"!</p>
+<p>Generic <a href="#out-of-order-execution">out-of-order core</a>. "O3" Stands for "Out Of Order"!</p>
 </div>
 <div class="paragraph">
 <p>Analogous to <a href="#gem5-minorcpu">MinorCPU</a>, but modelling an out of order core instead of in order.</p>
+</div>
+<div class="paragraph">
+<p>A commented execution example can be seen at: <a href="#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis">gem5 event queue DerivO3CPU syscall emulation freestanding example analysis</a>.</p>
 </div>
 <div class="paragraph">
 <p>Existing parametrizations:</p>
@@ -22372,7 +22620,7 @@ for source in PySource.all:
 </ul>
 </div>
 <div class="paragraph">
-<p>At <a href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a> we see for example that at the beginning of an <a href="#gem5-basesimplecpu">AtomicCPU</a> simulation, gem5 sets up exactly two events:</p>
+<p>At <a href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a> we see for example that at the beginning of an <a href="#gem5-atomicsimplecpu">AtomicCPU</a> simulation, gem5 sets up exactly two events:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -22979,7 +23227,7 @@ Exiting @ tick 3500 because exiting with last active thread context
 <p>TODO: analyze better what each of the memory event mean. For now, we have just collected a bunch of data there, but needs interpreting. The CPU specifics in this section are already insightful however.</p>
 </div>
 <div class="paragraph">
-<p><a href="#gem5-basesimplecpu">TimingSimpleCPU</a> should be the second simplest CPU to analyze, so let&#8217;s give it a try:</p>
+<p><a href="#gem5-timingsimplecpu">TimingSimpleCPU</a> should be the second simplest CPU to analyze, so let&#8217;s give it a try:</p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -25064,6 +25312,21 @@ namespace ArmISAInst {
 </div>
 </div>
 </div>
+<div class="sect4">
+<h5 id="gem5-microops"><a class="anchor" href="#gem5-microops"></a><a class="link" href="#gem5-microops">19.20.5.2. gem5 microops</a></h5>
+<div class="paragraph">
+<p>TODO</p>
+</div>
+<div class="paragraph">
+<p>Some gem5 instructions break down into multiple microops.</p>
+</div>
+<div class="paragraph">
+<p>Microops are very similar to regular instructions, and show on the <a href="#gem5-execall-trace-format">gem5 ExecAll trace format</a> since that flag implies <code>ExecMicro</code>.</p>
+</div>
+<div class="paragraph">
+<p>On aarch64 for example, one of the simplest microoped instructions is <a href="#armv8-aarch64-ldp-and-stp-instructions">STP</a>, which does the relatively complex operation of storing two values to memory at once, and is therefore a good candidate for being broken down into microops.</p>
+</div>
+</div>
 </div>
 <div class="sect3">
 <h4 id="gem5-port-system"><a class="anchor" href="#gem5-port-system"></a><a class="link" href="#gem5-port-system">19.20.6. gem5 port system</a></h4>
@@ -26128,7 +26391,45 @@ readFunc(SyscallDesc *desc, ThreadContext *tc,
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-code-generation"><a class="anchor" href="#gem5-code-generation"></a><a class="link" href="#gem5-code-generation">19.20.8. gem5 code generation</a></h4>
+<h4 id="gem5-functional-units"><a class="anchor" href="#gem5-functional-units"></a><a class="link" href="#gem5-functional-units">19.20.8. gem5 functional units</a></h4>
+<div class="paragraph">
+<p>TODO</p>
+</div>
+<div class="paragraph">
+<p>Each instruction is marked with a class, and each class can execute in a given functional unit.</p>
+</div>
+<div class="paragraph">
+<p>Which units are available is visible for example on the <a href="#gem5-config-ini">gem5 config.ini</a> of a <a href="#gem5-minorcpu">gem5 MinorCPU</a> run. Functional units are not present in simple CPUs like <a href="#gem5-timingsimplecpu">gem5 <code>TimingSimpleCPU</code></a>.</p>
+</div>
+<div class="paragraph">
+<p>For example, on gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1, the <code>config.ini</code> of a minor run:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run   \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -N1 \
+  -- \
+  --cpu-type MinorCPU \
+  --caches</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[system.cpu]
+type=MinorCPU
+children=branchPred dcache dtb executeFuncUnits icache interrupts isa itb power_state tracer workload</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="gem5-code-generation"><a class="anchor" href="#gem5-code-generation"></a><a class="link" href="#gem5-code-generation">19.20.9. gem5 code generation</a></h4>
 <div class="paragraph">
 <p>gem5 uses a ton of code generation, which makes the project horrendous:</p>
 </div>
@@ -26173,7 +26474,7 @@ readFunc(SyscallDesc *desc, ThreadContext *tc,
 <p>But it has been widely overused to insanity. It likely also exists partly because when the project started in 2003 C++ compilers weren&#8217;t that good, so you couldn&#8217;t rely on features like templates that much.</p>
 </div>
 <div class="sect4">
-<h5 id="gem5-the-isa"><a class="anchor" href="#gem5-the-isa"></a><a class="link" href="#gem5-the-isa">19.20.8.1. gem5 THE_ISA</a></h5>
+<h5 id="gem5-the-isa"><a class="anchor" href="#gem5-the-isa"></a><a class="link" href="#gem5-the-isa">19.20.9.1. gem5 THE_ISA</a></h5>
 <div class="paragraph">
 <p>Generated code at: <code>build/&lt;ISA&gt;/config/the_isa.hh</code> which e.g. for ARM contains:</p>
 </div>
@@ -26219,9 +26520,9 @@ enum class Arch {
 </div>
 </div>
 <div class="sect3">
-<h4 id="gem5-build-system"><a class="anchor" href="#gem5-build-system"></a><a class="link" href="#gem5-build-system">19.20.9. gem5 build system</a></h4>
+<h4 id="gem5-build-system"><a class="anchor" href="#gem5-build-system"></a><a class="link" href="#gem5-build-system">19.20.10. gem5 build system</a></h4>
 <div class="sect4">
-<h5 id="m5-override-py-source"><a class="anchor" href="#m5-override-py-source"></a><a class="link" href="#m5-override-py-source">19.20.9.1. M5_OVERRIDE_PY_SOURCE</a></h5>
+<h5 id="m5-override-py-source"><a class="anchor" href="#m5-override-py-source"></a><a class="link" href="#m5-override-py-source">19.20.10.1. M5_OVERRIDE_PY_SOURCE</a></h5>
 <div class="paragraph">
 <p><a href="https://stackoverflow.com/questions/52312070/how-to-modify-a-file-under-src-python-and-run-it-without-rebuilding-in-gem5" class="bare">https://stackoverflow.com/questions/52312070/how-to-modify-a-file-under-src-python-and-run-it-without-rebuilding-in-gem5</a></p>
 </div>
@@ -26236,7 +26537,7 @@ enum class Arch {
 </div>
 </div>
 <div class="sect4">
-<h5 id="gem5-build-broken-on-recent-compiler-version"><a class="anchor" href="#gem5-build-broken-on-recent-compiler-version"></a><a class="link" href="#gem5-build-broken-on-recent-compiler-version">19.20.9.2. gem5 build broken on recent compiler version</a></h5>
+<h5 id="gem5-build-broken-on-recent-compiler-version"><a class="anchor" href="#gem5-build-broken-on-recent-compiler-version"></a><a class="link" href="#gem5-build-broken-on-recent-compiler-version">19.20.10.2. gem5 build broken on recent compiler version</a></h5>
 <div class="paragraph">
 <p>gem5 moves a bit slowly, and if your host compiler is very new, the gem5 build might be broken for it, e.g. this was the case for Ubuntu 19.10 with GCC 9 and gem5 62d75e7105fe172eb906d4f80f360ff8591d4178 from Dec 2019.</p>
 </div>
@@ -26261,7 +26562,7 @@ enum class Arch {
 </div>
 </div>
 <div class="sect4">
-<h5 id="gem5-polymorphic-isa-includes"><a class="anchor" href="#gem5-polymorphic-isa-includes"></a><a class="link" href="#gem5-polymorphic-isa-includes">19.20.9.3. gem5 polymorphic ISA includes</a></h5>
+<h5 id="gem5-polymorphic-isa-includes"><a class="anchor" href="#gem5-polymorphic-isa-includes"></a><a class="link" href="#gem5-polymorphic-isa-includes">19.20.10.3. gem5 polymorphic ISA includes</a></h5>
 <div class="paragraph">
 <p>E.g. <code>src/cpu/decode_cache.hh</code> includes:</p>
 </div>
@@ -26340,7 +26641,7 @@ build/ARM/config/the_isa.hh
 </div>
 </div>
 <div class="sect4">
-<h5 id="why-are-all-c-symlinked-into-the-gem5-build-dir"><a class="anchor" href="#why-are-all-c-symlinked-into-the-gem5-build-dir"></a><a class="link" href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.20.9.4. Why are all C++ symlinked into the gem5 build dir?</a></h5>
+<h5 id="why-are-all-c-symlinked-into-the-gem5-build-dir"><a class="anchor" href="#why-are-all-c-symlinked-into-the-gem5-build-dir"></a><a class="link" href="#why-are-all-c-symlinked-into-the-gem5-build-dir">19.20.10.4. Why are all C++ symlinked into the gem5 build dir?</a></h5>
 <div class="paragraph">
 <p>Upstream request: <a href="https://gem5.atlassian.net/browse/GEM5-469" class="bare">https://gem5.atlassian.net/browse/GEM5-469</a></p>
 </div>
@@ -27261,6 +27562,9 @@ cd ../..
 </div>
 <div class="ulist">
 <ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/empty.c">userland/c/empty.c</a></p>
+</li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/hello.c">userland/c/hello.c</a></p>
 </li>
@@ -28256,7 +28560,13 @@ non-atomic 19</pre>
 </ul>
 </div>
 <div class="sect3">
-<h4 id="unistd-h"><a class="anchor" href="#unistd-h"></a><a class="link" href="#unistd-h">21.3.1. unistd.h</a></h4>
+<h4 id="environment-variables"><a class="anchor" href="#environment-variables"></a><a class="link" href="#environment-variables">21.3.1. Environment variables</a></h4>
+<div class="paragraph">
+<p>POSIX C example that prints all environment variables: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/environ.c">userland/posix/environ.c</a></p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="unistd-h"><a class="anchor" href="#unistd-h"></a><a class="link" href="#unistd-h">21.3.2. unistd.h</a></h4>
 <div class="ulist">
 <ul>
 <li>
@@ -28269,7 +28579,7 @@ non-atomic 19</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="fork"><a class="anchor" href="#fork"></a><a class="link" href="#fork">21.3.2. fork</a></h4>
+<h4 id="fork"><a class="anchor" href="#fork"></a><a class="link" href="#fork">21.3.3. fork</a></h4>
 <div class="paragraph">
 <p>POSIX' multiprocess API. Contrast with <a href="#pthreads">pthreads</a> which are for threads.</p>
 </div>
@@ -28294,7 +28604,7 @@ fork() return = 13039</pre>
 <p>Read the source comments and understand everything that is going on!</p>
 </div>
 <div class="sect4">
-<h5 id="getpid"><a class="anchor" href="#getpid"></a><a class="link" href="#getpid">21.3.2.1. getpid</a></h5>
+<h5 id="getpid"><a class="anchor" href="#getpid"></a><a class="link" href="#getpid">21.3.3.1. getpid</a></h5>
 <div class="paragraph">
 <p>The minimal interesting example is to use fork and observe different PIDs.</p>
 </div>
@@ -28306,7 +28616,7 @@ fork() return = 13039</pre>
 </div>
 </div>
 <div class="sect4">
-<h5 id="fork-bomb"><a class="anchor" href="#fork-bomb"></a><a class="link" href="#fork-bomb">21.3.2.2. Fork bomb</a></h5>
+<h5 id="fork-bomb"><a class="anchor" href="#fork-bomb"></a><a class="link" href="#fork-bomb">21.3.3.2. Fork bomb</a></h5>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/Fork_bomb" class="bare">https://en.wikipedia.org/wiki/Fork_bomb</a></p>
 </div>
@@ -28341,7 +28651,7 @@ fork() return = 13039</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="pthreads"><a class="anchor" href="#pthreads"></a><a class="link" href="#pthreads">21.3.3. pthreads</a></h4>
+<h4 id="pthreads"><a class="anchor" href="#pthreads"></a><a class="link" href="#pthreads">21.3.4. pthreads</a></h4>
 <div class="paragraph">
 <p>POSIX' multithreading API. Contrast with <a href="#fork">fork</a> which is for processes.</p>
 </div>
@@ -28365,7 +28675,7 @@ fork() return = 13039</pre>
 </ul>
 </div>
 <div class="sect4">
-<h5 id="pthread-mutex"><a class="anchor" href="#pthread-mutex"></a><a class="link" href="#pthread-mutex">21.3.3.1. pthread_mutex</a></h5>
+<h5 id="pthread-mutex"><a class="anchor" href="#pthread-mutex"></a><a class="link" href="#pthread-mutex">21.3.4.1. pthread_mutex</a></h5>
 <div class="paragraph">
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/pthread_count.c">userland/posix/pthread_count.c</a> exemplifies the functions:</p>
 </div>
@@ -28402,7 +28712,7 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 </div>
 <div class="sect3">
-<h4 id="sysconf"><a class="anchor" href="#sysconf"></a><a class="link" href="#sysconf">21.3.4. sysconf</a></h4>
+<h4 id="sysconf"><a class="anchor" href="#sysconf"></a><a class="link" href="#sysconf">21.3.5. sysconf</a></h4>
 <div class="paragraph">
 <p><a href="https://pubs.opengroup.org/onlinepubs/9699919799/functions/sysconf.html" class="bare">https://pubs.opengroup.org/onlinepubs/9699919799/functions/sysconf.html</a></p>
 </div>
@@ -28416,6 +28726,9 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </li>
 <li>
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/sysconf.c">userland/linux/sysconf.c</a> showcases Linux extensions to POSIX</p>
+<div class="paragraph">
+<p>Note that this blows up on gem5 userland due to <code>NPROCESSORS_ONLN</code> however: <a href="https://gem5.atlassian.net/browse/GEM5-622" class="bare">https://gem5.atlassian.net/browse/GEM5-622</a></p>
+</div>
 </li>
 </ul>
 </div>
@@ -28433,9 +28746,19 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 <div class="paragraph">
 <p><code>getconf</code> is also specified by POSIX at: <a href="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/getconf.html" class="bare">https://pubs.opengroup.org/onlinepubs/9699919799/utilities/getconf.html</a> but not the <code>-a</code> option which shows all configurations.</p>
 </div>
+<div class="paragraph">
+<p>Busybox 1.31.1 clearly states that <code>getconf</code> is not implemented however at <code>docs/posix_conformance.txt</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>POSIX Tools not supported:
+  asa, at, batch, bc, c99, command, compress, csplit, ex, fc, file,
+  gencat, getconf, iconv, join, link, locale, localedef, lp, m4,</pre>
+</div>
+</div>
 </div>
 <div class="sect3">
-<h4 id="mmap-2"><a class="anchor" href="#mmap-2"></a><a class="link" href="#mmap-2">21.3.5. mmap</a></h4>
+<h4 id="mmap-2"><a class="anchor" href="#mmap-2"></a><a class="link" href="#mmap-2">21.3.6. mmap</a></h4>
 <div class="paragraph">
 <p>The mmap system call allows advanced memory operations.</p>
 </div>
@@ -28446,7 +28769,7 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 <p>Linux adds has several POSIX extension flags to it.</p>
 </div>
 <div class="sect4">
-<h5 id="mmap-map-anonymous"><a class="anchor" href="#mmap-map-anonymous"></a><a class="link" href="#mmap-map-anonymous">21.3.5.1. mmap MAP_ANONYMOUS</a></h5>
+<h5 id="mmap-map-anonymous"><a class="anchor" href="#mmap-map-anonymous"></a><a class="link" href="#mmap-map-anonymous">21.3.6.1. mmap MAP_ANONYMOUS</a></h5>
 <div class="paragraph">
 <p>Basic <code>mmap</code> example, do the same as <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/malloc.c">userland/c/malloc.c</a>, but with <code>mmap</code>.</p>
 </div>
@@ -28464,7 +28787,7 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 </div>
 <div class="sect4">
-<h5 id="mmap-file"><a class="anchor" href="#mmap-file"></a><a class="link" href="#mmap-file">21.3.5.2. mmap file</a></h5>
+<h5 id="mmap-file"><a class="anchor" href="#mmap-file"></a><a class="link" href="#mmap-file">21.3.6.2. mmap file</a></h5>
 <div class="paragraph">
 <p>Memory mapped file example: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/mmap_file.c">userland/posix/mmap_file.c</a></p>
 </div>
@@ -28476,7 +28799,7 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 </div>
 <div class="sect4">
-<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">21.3.5.3. brk</a></h5>
+<h5 id="brk"><a class="anchor" href="#brk"></a><a class="link" href="#brk">21.3.6.3. brk</a></h5>
 <div class="paragraph">
 <p>Previously <a href="#posix">POSIX</a>, but was deprecated in favor of <a href="#malloc">malloc</a></p>
 </div>
@@ -28492,7 +28815,7 @@ There are no non-locking atomic types or atomic primitives in POSIX: <a href="ht
 </div>
 </div>
 <div class="sect3">
-<h4 id="socket"><a class="anchor" href="#socket"></a><a class="link" href="#socket">21.3.6. socket</a></h4>
+<h4 id="socket"><a class="anchor" href="#socket"></a><a class="link" href="#socket">21.3.7. socket</a></h4>
 <div class="paragraph">
 <p>A bit like <code>read</code> and <code>write</code>, but from / to the Internet!</p>
 </div>
@@ -29788,7 +30111,7 @@ git clean -xdf .</pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> described at <a href="#infinite-busy-loop">Infinite busy loop</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> described at <a href="#c-busy-loop">C busy loop</a></p>
 </li>
 </ul>
 </div>
@@ -37925,7 +38248,7 @@ instructions 124346081</pre>
 <p>For now we can just run on gem5 to estimate the instruction count per input size and extrapolate?</p>
 </div>
 <div class="paragraph">
-<p>For example, the simplest scalable CPU content would be a busy loop: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a>, so let&#8217;s start by analyzing that one.</p>
+<p>For example, the simplest scalable CPU content would be an <a href="#c-busy-loop">C busy loop</a>, so let&#8217;s start by analyzing that one.</p>
 </div>
 <div class="paragraph">
 <p>Summary of manually collected results on <a href="#p51">P51</a> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: <a href="#table-busy-loop-dmips">Table 7, &#8220;Busy loop MIPS for different simulator setups&#8221;</a>. As expected, the less native / more detailed / more complex simulations are slower!</p>
@@ -37933,14 +38256,16 @@ instructions 124346081</pre>
 <table id="table-busy-loop-dmips" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 7. Busy loop MIPS for different simulator setups</caption>
 <colgroup>
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
-<col style="width: 12.5%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -37952,6 +38277,8 @@ instructions 124346081</pre>
 <th class="tableblock halign-left valign-top">Time (s)</th>
 <th class="tableblock halign-left valign-top">Instruction count</th>
 <th class="tableblock halign-left valign-top">Approximate MIPS</th>
+<th class="tableblock halign-left valign-top">gem5 version</th>
+<th class="tableblock halign-left valign-top">Host</th>
 </tr>
 </thead>
 <tbody>
@@ -37964,16 +38291,44 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.1 * 10^11 (approx)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2000</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --static --userland userland/gcc/busy_loop.c --cli-args 1000000</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">18</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.4005699 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.3</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 empty C program statically linked</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">eb22fd3b6e7fff7e9ef946a88b208debf5b419d5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/empty.c">userland/c/empty.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --static --userland userland/c/empty.c</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5475</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">872cb227fdc0b4d60acc7840889d567a6936b6e1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ubuntu 20.04</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 empty C program dynamically linked</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">eb22fd3b6e7fff7e9ef946a88b208debf5b419d5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/empty.c">userland/c/empty.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --userland userland/c/empty.c</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">106999</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">872cb227fdc0b4d60acc7840889d567a6936b6e1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ubuntu 20.04</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a debug build</p></td>
@@ -37984,6 +38339,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">33</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.405682 * 10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.07</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a fast build</p></td>
@@ -37994,6 +38351,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">15</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.4005699 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a <a href="#gem5-cpu-types">TimingSimpleCPU</a></p></td>
@@ -38004,6 +38363,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">26</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.4005699 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.9</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a <a href="#gem5-cpu-types">MinorCPU</a></p></td>
@@ -38014,6 +38375,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">31</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.1018152 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.4</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a <a href="#gem5-cpu-types">DerivO3CPU</a></p></td>
@@ -38024,6 +38387,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">52</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.1018128 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"></td>
@@ -38034,6 +38399,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">63</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.1005150 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"></td>
@@ -38044,6 +38411,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">9.2034139 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"></td>
@@ -38054,6 +38423,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">64</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">9.9674773 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">glibc C pre-main effects</p></td>
@@ -38064,6 +38435,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.26479 * 10^5</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.05</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"></td>
@@ -38074,6 +38447,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.26479 * 10^5</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.05</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"></td>
@@ -38084,6 +38459,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.385012 * 10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"></td>
@@ -38094,6 +38471,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">25</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.385012 * 10^6</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">gem5 optimized build immediate exit on first instruction to benchmark the simulator startup time</p></td>
@@ -38103,6 +38482,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 <td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
@@ -38114,6 +38495,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
 <td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Check the effect of an ExecAll log (log every instruction) on execution time, compare to analogous run without it. <code>trace.txt</code> size: 3.5GB. 5x slowdown observed with output to a hard disk.</p></td>
@@ -38124,16 +38507,8 @@ instructions 124346081</pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.4106774 * 10^7</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">136</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
-</tr>
-<tr>
+<td class="tableblock halign-left valign-top"></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Same as above but with run command manually hacked to output to a ramfs. Slightly faster, but the bulk was still just in log format operations!</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">d29a07ddad499f273cc90dd66e40f8474b5dfc40</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args 1000000 --gem5-worktree master --trace ExecAll</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2.4106774 * 10^7</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">107</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
 </tr>
 </tbody>
 </table>
@@ -38166,77 +38541,7 @@ instructions 124346081</pre>
 <p>so ~ 110 million instructions / 100 seconds makes ~ 1 MIPS (million instructions per second).</p>
 </div>
 <div class="paragraph">
-<p>This experiment also suggests that each loop is about 11 instructions long (110M instructions / 10M loops), so we look at the disassembly:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run-toolchain --arch aarch64 gdb -- -batch -ex 'disas busy_loop' "$(./getvar --arch aarch64 userland_build_dir)/gcc/busy_loop.out"</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>which contains:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>8       ) {
-   0x0000000000400698 &lt;+0&gt;:     ff 83 00 d1     sub     sp, sp, #0x20
-   0x000000000040069c &lt;+4&gt;:     e0 07 00 f9     str     x0, [sp, #8]
-   0x00000000004006a0 &lt;+8&gt;:     e1 03 00 f9     str     x1, [sp]
-
-9           for (unsigned i = 0; i &lt; max; i++) {
-   0x00000000004006a4 &lt;+12&gt;:    ff 1f 00 b9     str     wzr, [sp, #28]
-   0x00000000004006a8 &lt;+16&gt;:    11 00 00 14     b       0x4006ec &lt;busy_loop+84&gt;
-
-10              for (unsigned j = 0; j &lt; max2; j++) {
-   0x00000000004006ac &lt;+20&gt;:    ff 1b 00 b9     str     wzr, [sp, #24]
-   0x00000000004006b0 &lt;+24&gt;:    08 00 00 14     b       0x4006d0 &lt;busy_loop+56&gt;
-
-11                  __asm__ __volatile__ ("" : "+g" (j), "+g" (j) : :);
-   0x00000000004006b4 &lt;+28&gt;:    e1 1b 40 b9     ldr     w1, [sp, #24]
-   0x00000000004006b8 &lt;+32&gt;:    e0 1b 40 b9     ldr     w0, [sp, #24]
-   0x00000000004006bc &lt;+36&gt;:    e1 1b 00 b9     str     w1, [sp, #24]
-   0x00000000004006c0 &lt;+40&gt;:    e0 17 00 b9     str     w0, [sp, #20]
-
-10              for (unsigned j = 0; j &lt; max2; j++) {
-   0x00000000004006c4 &lt;+44&gt;:    e0 17 40 b9     ldr     w0, [sp, #20]
-   0x00000000004006c8 &lt;+48&gt;:    00 04 00 11     add     w0, w0, #0x1
-   0x00000000004006cc &lt;+52&gt;:    e0 1b 00 b9     str     w0, [sp, #24]
-   0x00000000004006d0 &lt;+56&gt;:    e0 1b 40 b9     ldr     w0, [sp, #24]
-   0x00000000004006d4 &lt;+60&gt;:    e1 03 40 f9     ldr     x1, [sp]
-   0x00000000004006d8 &lt;+64&gt;:    3f 00 00 eb     cmp     x1, x0
-   0x00000000004006dc &lt;+68&gt;:    c8 fe ff 54     b.hi    0x4006b4 &lt;busy_loop+28&gt;  // b.pmore
-
-9           for (unsigned i = 0; i &lt; max; i++) {
-   0x00000000004006e0 &lt;+72&gt;:    e0 1f 40 b9     ldr     w0, [sp, #28]
-   0x00000000004006e4 &lt;+76&gt;:    00 04 00 11     add     w0, w0, #0x1
-   0x00000000004006e8 &lt;+80&gt;:    e0 1f 00 b9     str     w0, [sp, #28]
-   0x00000000004006ec &lt;+84&gt;:    e0 1f 40 b9     ldr     w0, [sp, #28]
-   0x00000000004006f0 &lt;+88&gt;:    e1 07 40 f9     ldr     x1, [sp, #8]
-   0x00000000004006f4 &lt;+92&gt;:    3f 00 00 eb     cmp     x1, x0
-   0x00000000004006f8 &lt;+96&gt;:    a8 fd ff 54     b.hi    0x4006ac &lt;busy_loop+20&gt;  // b.pmore
-
-12              }
-13          }
-14      }
-   0x00000000004006fc &lt;+100&gt;:   1f 20 03 d5     nop
-   0x0000000000400700 &lt;+104&gt;:   ff 83 00 91     add     sp, sp, #0x20
-   0x0000000000400704 &lt;+108&gt;:   c0 03 5f d6     ret</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>We look for the internal backwards jumps, and we find two:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>   0x00000000004006dc &lt;+68&gt;:    c8 fe ff 54     b.hi    0x4006b4 &lt;busy_loop+28&gt;  // b.pmore
-   0x00000000004006f8 &lt;+96&gt;:    a8 fd ff 54     b.hi    0x4006ac &lt;busy_loop+20&gt;  // b.pmore</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>and so clearly the one at 0x4006dc happens first and jumps to a larger address than the other one, so the internal loop must be between 4006dc and 4006b4, which contains exactly 11 instructions! Bingo!</p>
-</div>
-<div class="paragraph">
-<p>Oh my God, unoptimized code is so horrendously inefficient, even I can&#8217;t stand all those useless loads and stores to memory variables!!!</p>
+<p>This experiment also suggests that each loop is about 11 instructions long (110M instructions / 10M loops), which we confirm at <a href="#c-busy-loop">Section 31.2, &#8220;C busy loop&#8221;</a>, bingo!</p>
 </div>
 <div class="paragraph">
 <p>Then for QEMU, we experimentally turn the number of loops up to 10^10 loops (<code>100000 100000</code>), which contains an expected 11 * 10^10 instructions, and the runtime is 00:01:08, so we have 1.1 * 10^11 instruction / 68 seconds ~ 2 * 10^9 = 2000 MIPS!</p>
@@ -38701,12 +39006,85 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="infinite-busy-loop"><a class="anchor" href="#infinite-busy-loop"></a><a class="link" href="#infinite-busy-loop">31.2. Infinite busy loop</a></h3>
+<h3 id="c-busy-loop"><a class="anchor" href="#c-busy-loop"></a><a class="link" href="#c-busy-loop">31.2. C busy loop</a></h3>
 <div class="paragraph">
 <p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a></p>
 </div>
 <div class="paragraph">
 <p>The hard part is how to prevent the compiler from optimizing it away: <a href="https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133" class="bare">https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133</a></p>
+</div>
+<div class="paragraph">
+<p>Disassembly analysis:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run-toolchain --arch aarch64 gdb -- -nh -batch -ex 'disas/rs busy_loop' "$(./getvar --arch aarch64 userland_build_dir)/gcc/busy_loop.out"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which contains at LKMC eb22fd3b6e7fff7e9ef946a88b208debf5b419d5:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>10      ) {
+   0x0000000000400700 &lt;+0&gt;:     ff 83 00 d1     sub     sp, sp, #0x20
+   0x0000000000400704 &lt;+4&gt;:     e0 07 00 f9     str     x0, [sp, #8]
+   0x0000000000400708 &lt;+8&gt;:     e1 03 00 f9     str     x1, [sp]
+
+11          for (unsigned long long i = 0; i &lt; max2; i++) {
+   0x000000000040070c &lt;+12&gt;:    ff 0f 00 f9     str     xzr, [sp, #24]
+   0x0000000000400710 &lt;+16&gt;:    11 00 00 14     b       0x400754 &lt;busy_loop+84&gt;
+
+12              for (unsigned long long j = 0; j &lt; max; j++) {
+   0x0000000000400714 &lt;+20&gt;:    ff 0b 00 f9     str     xzr, [sp, #16]
+   0x0000000000400718 &lt;+24&gt;:    08 00 00 14     b       0x400738 &lt;busy_loop+56&gt;
+
+13                  __asm__ __volatile__ ("" : "+g" (i), "+g" (j) : :);
+   0x000000000040071c &lt;+28&gt;:    e1 0f 40 f9     ldr     x1, [sp, #24]
+   0x0000000000400720 &lt;+32&gt;:    e0 0b 40 f9     ldr     x0, [sp, #16]
+   0x0000000000400724 &lt;+36&gt;:    e1 0f 00 f9     str     x1, [sp, #24]
+   0x0000000000400728 &lt;+40&gt;:    e0 0b 00 f9     str     x0, [sp, #16]
+
+12              for (unsigned long long j = 0; j &lt; max; j++) {
+   0x000000000040072c &lt;+44&gt;:    e0 0b 40 f9     ldr     x0, [sp, #16]
+   0x0000000000400730 &lt;+48&gt;:    00 04 00 91     add     x0, x0, #0x1
+   0x0000000000400734 &lt;+52&gt;:    e0 0b 00 f9     str     x0, [sp, #16]
+   0x0000000000400738 &lt;+56&gt;:    e1 0b 40 f9     ldr     x1, [sp, #16]
+   0x000000000040073c &lt;+60&gt;:    e0 07 40 f9     ldr     x0, [sp, #8]
+   0x0000000000400740 &lt;+64&gt;:    3f 00 00 eb     cmp     x1, x0
+   0x0000000000400744 &lt;+68&gt;:    c3 fe ff 54     b.cc    0x40071c &lt;busy_loop+28&gt;  // b.lo, b.ul, b.last
+
+11          for (unsigned long long i = 0; i &lt; max2; i++) {
+   0x0000000000400748 &lt;+72&gt;:    e0 0f 40 f9     ldr     x0, [sp, #24]
+   0x000000000040074c &lt;+76&gt;:    00 04 00 91     add     x0, x0, #0x1
+   0x0000000000400750 &lt;+80&gt;:    e0 0f 00 f9     str     x0, [sp, #24]
+   0x0000000000400754 &lt;+84&gt;:    e1 0f 40 f9     ldr     x1, [sp, #24]
+   0x0000000000400758 &lt;+88&gt;:    e0 03 40 f9     ldr     x0, [sp]
+   0x000000000040075c &lt;+92&gt;:    3f 00 00 eb     cmp     x1, x0
+   0x0000000000400760 &lt;+96&gt;:    a3 fd ff 54     b.cc    0x400714 &lt;busy_loop+20&gt;  // b.lo, b.ul, b.last
+
+14              }
+15          }
+16      }
+   0x0000000000400764 &lt;+100&gt;:   1f 20 03 d5     nop
+   0x0000000000400768 &lt;+104&gt;:   ff 83 00 91     add     sp, sp, #0x20
+   0x000000000040076c &lt;+108&gt;:   c0 03 5f d6     ret</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We look for the internal backwards jumps, and we find two:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   0x00000000004006dc &lt;+68&gt;:    c8 fe ff 54     b.hi    0x4006b4 &lt;busy_loop+28&gt;  // b.pmore
+   0x00000000004006f8 &lt;+96&gt;:    a8 fd ff 54     b.hi    0x4006ac &lt;busy_loop+20&gt;  // b.pmore</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and so clearly the one at 0x4006dc happens first and jumps to a larger address than the other one, so the internal loop must be between 4006dc and 4006b4, which contains exactly 11 instructions.</p>
+</div>
+<div class="paragraph">
+<p>Oh my God, unoptimized code is so horrendously inefficient, even I can&#8217;t stand all those useless loads and stores to memory variables!!!</p>
 </div>
 </div>
 </div>
@@ -38715,7 +39093,56 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 <h2 id="computer-architecture"><a class="anchor" href="#computer-architecture"></a><a class="link" href="#computer-architecture">32. Computer architecture</a></h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="hardware-threads"><a class="anchor" href="#hardware-threads"></a><a class="link" href="#hardware-threads">32.1. Hardware threads</a></h3>
+<h3 id="instruction-pipelining"><a class="anchor" href="#instruction-pipelining"></a><a class="link" href="#instruction-pipelining">32.1. Instruction pipelining</a></h3>
+<div class="paragraph">
+<p>In gem5, can be seen on:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#gem5-minorcpu">gem5 MinorCPU</a></p>
+</li>
+<li>
+<p><a href="#gem5-derivo3cpu">gem5 DerivO3CPU</a></p>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="classic-risc-pipeline"><a class="anchor" href="#classic-risc-pipeline"></a><a class="link" href="#classic-risc-pipeline">32.1.1. Classic RISC pipeline</a></h4>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Classic_RISC_pipeline" class="bare">https://en.wikipedia.org/wiki/Classic_RISC_pipeline</a></p>
+</div>
+<div class="paragraph">
+<p>gem5&#8217;s <a href="#gem5-minorcpu">gem5 MinorCPU</a> implements a similar but 4 stage pipeline. TODO why didn&#8217;t they go with the classic RISC pipeline instead?</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="superscalar-processor"><a class="anchor" href="#superscalar-processor"></a><a class="link" href="#superscalar-processor">32.2. Superscalar processor</a></h3>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Superscalar_processor" class="bare">https://en.wikipedia.org/wiki/Superscalar_processor</a></p>
+</div>
+<div class="paragraph">
+<p><a href="http://www.lighterra.com/papers/modernmicroprocessors/" class="bare">http://www.lighterra.com/papers/modernmicroprocessors/</a> explains it well.</p>
+</div>
+<div class="paragraph">
+<p>You basically decode</p>
+</div>
+<div class="paragraph">
+<p>TODO in gem5? gem5 definitely has functional units explicitly modelled: <a href="#gem5-functional-units">gem5 functional units</a>, so do <a href="#gem5-minorcpu">gem5 MinorCPU</a> or <a href="#gem5-derivo3cpu">gem5 DerivO3CPU</a> have it?</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="out-of-order-execution"><a class="anchor" href="#out-of-order-execution"></a><a class="link" href="#out-of-order-execution">32.3. Out-of-order execution</a></h3>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Out-of-order_execution" class="bare">https://en.wikipedia.org/wiki/Out-of-order_execution</a></p>
+</div>
+<div class="paragraph">
+<p>gem5&#8217;s model is <a href="#gem5-derivo3cpu">gem5 DerivO3CPU</a>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hardware-threads"><a class="anchor" href="#hardware-threads"></a><a class="link" href="#hardware-threads">32.4. Hardware threads</a></h3>
 <div class="paragraph">
 <p>Intel name: "Hyperthreading"</p>
 </div>
@@ -38765,7 +39192,7 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="cache-coherence"><a class="anchor" href="#cache-coherence"></a><a class="link" href="#cache-coherence">32.2. Cache coherence</a></h3>
+<h3 id="cache-coherence"><a class="anchor" href="#cache-coherence"></a><a class="link" href="#cache-coherence">32.5. Cache coherence</a></h3>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/Cache_coherence" class="bare">https://en.wikipedia.org/wiki/Cache_coherence</a></p>
 </div>
@@ -38807,7 +39234,7 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 <p>Even if caches are coherent, this is still not enough to avoid data race conditions, because this does not enforce atomicity of read modify write sequences. This is for example shown at: <a href="#detailed-gem5-analysis-of-how-data-races-happen">Detailed gem5 analysis of how data races happen</a>.</p>
 </div>
 <div class="sect3">
-<h4 id="memory-consistency"><a class="anchor" href="#memory-consistency"></a><a class="link" href="#memory-consistency">32.2.1. Memory consistency</a></h4>
+<h4 id="memory-consistency"><a class="anchor" href="#memory-consistency"></a><a class="link" href="#memory-consistency">32.5.1. Memory consistency</a></h4>
 <div class="paragraph">
 <p>According to <a href="http://www.inf.ed.ac.uk/teaching/courses/pa/Notes/lecture07-sc.pdf" class="bare">http://www.inf.ed.ac.uk/teaching/courses/pa/Notes/lecture07-sc.pdf</a> "memory consistency" is about ordering requirements of different memory addresses.</p>
 </div>
@@ -38815,14 +39242,14 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 <p>This is represented explicitly in C++ for example <a href="#cpp-memory-order">C++ std::memory_order</a>.</p>
 </div>
 <div class="sect4">
-<h5 id="sequential-consistency"><a class="anchor" href="#sequential-consistency"></a><a class="link" href="#sequential-consistency">32.2.1.1. Sequential Consistency</a></h5>
+<h5 id="sequential-consistency"><a class="anchor" href="#sequential-consistency"></a><a class="link" href="#sequential-consistency">32.5.1.1. Sequential Consistency</a></h5>
 <div class="paragraph">
 <p>According to <a href="http://www.inf.ed.ac.uk/teaching/courses/pa/Notes/lecture07-sc.pdf" class="bare">http://www.inf.ed.ac.uk/teaching/courses/pa/Notes/lecture07-sc.pdf</a>, the strongest possible consistency, everything nicely ordered as you&#8217;d expect.</p>
 </div>
 </div>
 </div>
 <div class="sect3">
-<h4 id="can-caches-snoop-data-from-other-caches"><a class="anchor" href="#can-caches-snoop-data-from-other-caches"></a><a class="link" href="#can-caches-snoop-data-from-other-caches">32.2.2. Can caches snoop data from other caches?</a></h4>
+<h4 id="can-caches-snoop-data-from-other-caches"><a class="anchor" href="#can-caches-snoop-data-from-other-caches"></a><a class="link" href="#can-caches-snoop-data-from-other-caches">32.5.2. Can caches snoop data from other caches?</a></h4>
 <div class="paragraph">
 <p>Either they can snoop only control, or both control and data can be snooped.</p>
 </div>
@@ -38837,7 +39264,7 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="vi-cache-coherence-protocol"><a class="anchor" href="#vi-cache-coherence-protocol"></a><a class="link" href="#vi-cache-coherence-protocol">32.2.3. VI cache coherence protocol</a></h4>
+<h4 id="vi-cache-coherence-protocol"><a class="anchor" href="#vi-cache-coherence-protocol"></a><a class="link" href="#vi-cache-coherence-protocol">32.5.3. VI cache coherence protocol</a></h4>
 <div class="paragraph">
 <p>Mentioned at:</p>
 </div>
@@ -39084,7 +39511,7 @@ west build -b qemu_aarch64 samples/hello_world</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="msi-cache-coherence-protocol"><a class="anchor" href="#msi-cache-coherence-protocol"></a><a class="link" href="#msi-cache-coherence-protocol">32.2.4. MSI cache coherence protocol</a></h4>
+<h4 id="msi-cache-coherence-protocol"><a class="anchor" href="#msi-cache-coherence-protocol"></a><a class="link" href="#msi-cache-coherence-protocol">32.5.4. MSI cache coherence protocol</a></h4>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/MSI_protocol" class="bare">https://en.wikipedia.org/wiki/MSI_protocol</a></p>
 </div>
@@ -39396,7 +39823,7 @@ CACHE2 S nyy
 <p>TODO gem5 concrete example.</p>
 </div>
 <div class="sect4">
-<h5 id="msi-cache-coherence-protocol-with-transient-states"><a class="anchor" href="#msi-cache-coherence-protocol-with-transient-states"></a><a class="link" href="#msi-cache-coherence-protocol-with-transient-states">32.2.4.1. MSI cache coherence protocol with transient states</a></h5>
+<h5 id="msi-cache-coherence-protocol-with-transient-states"><a class="anchor" href="#msi-cache-coherence-protocol-with-transient-states"></a><a class="link" href="#msi-cache-coherence-protocol-with-transient-states">32.5.4.1. MSI cache coherence protocol with transient states</a></h5>
 <div class="paragraph">
 <p>TODO understand well why those are needed.</p>
 </div>
@@ -39416,7 +39843,7 @@ CACHE2 S nyy
 </div>
 </div>
 <div class="sect3">
-<h4 id="mesi-cache-coherence-protocol"><a class="anchor" href="#mesi-cache-coherence-protocol"></a><a class="link" href="#mesi-cache-coherence-protocol">32.2.5. MESI cache coherence protocol</a></h4>
+<h4 id="mesi-cache-coherence-protocol"><a class="anchor" href="#mesi-cache-coherence-protocol"></a><a class="link" href="#mesi-cache-coherence-protocol">32.5.5. MESI cache coherence protocol</a></h4>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/MESI_protocol" class="bare">https://en.wikipedia.org/wiki/MESI_protocol</a></p>
 </div>
@@ -39476,7 +39903,7 @@ CACHE2 S nyy
 </div>
 </div>
 <div class="sect3">
-<h4 id="mosi-cache-coherence-protocol"><a class="anchor" href="#mosi-cache-coherence-protocol"></a><a class="link" href="#mosi-cache-coherence-protocol">32.2.6. MOSI cache coherence protocol</a></h4>
+<h4 id="mosi-cache-coherence-protocol"><a class="anchor" href="#mosi-cache-coherence-protocol"></a><a class="link" href="#mosi-cache-coherence-protocol">32.5.6. MOSI cache coherence protocol</a></h4>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/MOSI_protocol" class="bare">https://en.wikipedia.org/wiki/MOSI_protocol</a> The critical MSI vs MOSI section was a bit bogus though: <a href="https://en.wikipedia.org/w/index.php?title=MOSI_protocol&amp;oldid=895443023" class="bare">https://en.wikipedia.org/w/index.php?title=MOSI_protocol&amp;oldid=895443023</a> but I edited it :-)</p>
 </div>
@@ -39536,7 +39963,7 @@ CACHE2 S nyy
 </div>
 </div>
 <div class="sect3">
-<h4 id="moesi"><a class="anchor" href="#moesi"></a><a class="link" href="#moesi">32.2.7. MOESI cache coherence protocol</a></h4>
+<h4 id="moesi"><a class="anchor" href="#moesi"></a><a class="link" href="#moesi">32.5.7. MOESI cache coherence protocol</a></h4>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/MOESI_protocol" class="bare">https://en.wikipedia.org/wiki/MOESI_protocol</a></p>
 </div>
@@ -41117,7 +41544,7 @@ echo $?</pre>
 <p>gem5: <a href="#m5-fail">m5 fail</a> works on all archs</p>
 </li>
 <li>
-<p>user mode: QEMU forwards exit status, for gem5 we do some log parsing as described at: <a href="#gem5-syscall-emulation-exit-status">Section 10.7.1, &#8220;gem5 syscall emulation exit status&#8221;</a></p>
+<p>user mode: QEMU forwards exit status, for gem5 we do some log parsing as described at: <a href="#gem5-syscall-emulation-exit-status">Section 10.7.2, &#8220;gem5 syscall emulation exit status&#8221;</a></p>
 </li>
 </ul>
 </div>
