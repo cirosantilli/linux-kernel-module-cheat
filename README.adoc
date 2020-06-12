@@ -10693,7 +10693,7 @@ Breakdown:
 fatal: fatal condition interrupts.size() != numThreads occurred: CPU system.cpu has 1 interrupt controllers, but is expecting one per thread (2)
 ....
 * `@start_kernel`: we are in the `start_kernel` function. Awesome feature! Implemented with libelf https://sourceforge.net/projects/elftoolchain/ copy pasted in-tree `ext/libelf`. To get raw addresses, remove the `ExecSymbol`, which is enabled by `Exec`. This can be done with `Exec,-ExecSymbol`.
-* `.1` as in `@start_kernel.1`: index of the microop
+* `.1` as in `@start_kernel.1`: index of the <<gem5-microops>>
 * `stp`: instruction disassembly. Note however that the disassembly of many instructions are very broken as of 2019q2, and you can't just trust them blindly.
 * `strxi_uop   x29, [ureg0]`: microop disassembly.
 * `MemWrite :  D=0x0000000000000000 A=0xffffff8008913f90`: a memory write microop:
@@ -14730,7 +14730,7 @@ the packet now contains the physical address:
 _paddr = 0x78
 ....
 
-se we deduce that the vitual address 0x400078 maps to the physical address 0x78. But of course, https://lmgtfy.com/[let me log that for you] byu adding `--trace MMU`:
+so we deduce that the virtual address 0x400078 maps to the physical address 0x78. But of course, https://lmgtfy.com/[let me log that for you] by adding `--trace MMU`:
 
 ....
       0: MMU: system.cpu.workload: Translating: 0x400078->0x78
@@ -15596,21 +15596,133 @@ But as we venture into <<gem5-cpu-types,more complex CPU models>> such as `Minor
 
 The memory system system part must be similar to that of `TimingSimpleCPU` that we previously studied <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis>>: the main thing we want to see is how the CPU pipeline speeds up execution by preventing some memory stalls.
 
-The <<gem5-config-ini,`config.dot.svg`>> also indicates that: everything is exactly as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>, except that the CPU is a `MinorCPU` instead of `TimingSimpleCPU`, and the `--caches` are now mandatory.
-
-TODO: analyze the trace for:
+The <<gem5-config-ini,`config.dot.svg`>> also indicates that: everything is exactly as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>, except that the CPU is a `MinorCPU` instead of `TimingSimpleCPU`, and the `--caches` are now mandatory:
 
 ....
 ./run \
   --arch aarch64 \
   --emulator gem5 \
   --userland userland/arch/aarch64/freestanding/linux/hello.S \
-  --trace Event \
+  --trace FmtFlag,Cache,Event,ExecAll,Minor \
   --trace-stdout \
   -- \
   --cpu-type MinorCPU \
   --caches \
 ;
+....
+
+and here's a handy link to the source: link:userland/arch/aarch64/freestanding/linux/hello.S[].
+
+On LKMC ce3ea9faea95daf46dea80d4236a30a0891c3ca5 gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 we see the following.
+
+First there is a missed instruction fetch for the initial entry address which we know from <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>> is the virtual address 0x400078 which maps to physical 0x78:
+
+....
+    500: Cache: system.cpu.icache: access for ReadReq [40:7f] IF miss
+....
+
+The memory request comes back later on at:
+
+....
+  77000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [40:7f] IF
+....
+
+and soon after the CPU also ifetches across the barrier:
+
+....
+  79000: Cache: system.cpu.icache: access for ReadReq [80:bf] IF miss
+....
+
+TODO why? We have 0x78 and 0x7c, and those should be it since we <<gem5-functional-units,are dual issue>>, right? Is this prefetching at work?
+
+Later on we see the first instruction, our <<arm-mov-instruction,MOVZ>>, was decoded:
+
+....
+  80000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/1/1.1 pc: 0x400078 (movz) to FU: 0
+....
+
+and that issue succeeds, because the functional unit 0 (FU 0) is an `IntAlu` as shown at <<gem5-functional-units>>:
+
+....
+  80000: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/1/1.1 pc: 0x400078 (movz) into FU 0
+....
+
+At the very same tick, the second instruction is also decoded, our <<arm-adr-instruction,ADR>>:
+
+....
+  80000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/1/2.2 pc: 0x40007c (adr) to FU: 0
+  80000: MinorExecute: system.cpu.execute: Can't issue as FU: 0 is already busy
+  80000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/1/2.2 pc: 0x40007c (adr) to FU: 1
+  80000: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/1/2.2 pc: 0x40007c (adr) into FU 1
+....
+
+This is also an `IntAlu` instruction, and it can't run on FU 0 because the first instruction is already running there. But to our luck, FU 1 is also an `IntAlu` unit, and so it runs there.
+
+Crap, those Minor logs should say what `OpClass` each instruction is, that would make things clearer.
+
+TODO what is that `0/1.1/1/1.1` notation that shows up everywhere? Must be important, let's look at the source.
+
+Soon after (3 ticks later, so guessing due to `opLat=3`?), the execution appears to be over already since we see the `ExecAll` come through, which generally happens at the very end:
+
+....
+  81500: MinorExecute: system.cpu.execute: Attempting to commit [tid:0]
+  81500: MinorExecute: system.cpu.execute: Committing micro-ops for interrupt[tid:0]
+  81500: MinorExecute: system.cpu.execute: Trying to commit canCommitInsts: 1
+  81500: MinorExecute: system.cpu.execute: Trying to commit from FUs
+  81500: MinorExecute: global: ExecContext setting PC: (0x400078=>0x40007c).(0=>1)
+  81500: MinorExecute: system.cpu.execute: Committing inst: 0/1.1/1/1.1 pc: 0x400078 (movz)
+  81500: MinorExecute: system.cpu.execute: Unstalling 0 for inst 0/1.1/1/1.1
+  81500: MinorExecute: system.cpu.execute: Completed inst: 0/1.1/1/1.1 pc: 0x400078 (movz)
+  81500: MinorScoreboard: system.cpu.execute.scoreboard0: Clearing inst: 0/1.1/1/1.1 pc: 0x400078 (movz) regIndex: 0 final numResults: 0
+  81500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  FetchSeq=1  CPSeq=1  flags=(IsInteger)
+  81500: MinorExecute: system.cpu.execute: Trying to commit canCommitInsts: 1
+  81500: MinorExecute: system.cpu.execute: Trying to commit from FUs
+  81500: MinorExecute: global: ExecContext setting PC: (0x40007c=>0x400080).(0=>1)
+  81500: MinorExecute: system.cpu.execute: Committing inst: 0/1.1/1/2.2 pc: 0x40007c (adr)
+  81500: MinorExecute: system.cpu.execute: Unstalling 1 for inst 0/1.1/1/2.2
+  81500: MinorExecute: system.cpu.execute: Completed inst: 0/1.1/1/2.2 pc: 0x40007c (adr)
+  81500: MinorScoreboard: system.cpu.execute.scoreboard0: Clearing inst: 0/1.1/1/2.2 pc: 0x40007c (adr) regIndex: 1 final numResults: 0
+  81500: MinorExecute: system.cpu.execute: Reached inst commit limit
+  81500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  FetchSeq=2  CPSeq=2  flags=(IsInteger)
+....
+
+The ifetch for the third instruction returns at:
+
+....
+ 129000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [80:bf] IF
+....
+
+so now we are ready to run the third and fourth instructions of the program:
+
+,...
+    ldr x2, =len
+    mov x8, 64
+,...
+
+The <<arm-ldr-instruction,LDR>> goes all the way down to FU 6 which is the memory one:
+
+....
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 0
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 0 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 1
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 1 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 2
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 2 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 3
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 3 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 4
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 4 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 5
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 5 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 6
+ 132000: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) into FU 6
+....
+
+and then the MOV issue follows soon afterwards (TODO why not at the same time like for the previous pair?):
+
+....
+ 132500: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/4.4 pc: 0x400084 (movz) to FU: 0
+ 132500: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/2/4.4 pc: 0x400084 (movz) into FU 0
 ....
 
 ===== gem5 event queue DerivO3CPU syscall emulation freestanding example analysis
@@ -15861,13 +15973,44 @@ From GDB on <<timingsimplecpu-analysis-ldr-stall>> we see that `completeAcc` get
 
 ===== gem5 microops
 
-TODO
-
 Some gem5 instructions break down into multiple microops.
 
 Microops are very similar to regular instructions, and show on the <<gem5-execall-trace-format>> since that flag implies `ExecMicro`.
 
-On aarch64 for example, one of the simplest microoped instructions is <<armv8-aarch64-ldp-and-stp-instructions,STP>>, which does the relatively complex operation of storing two values to memory at once, and is therefore a good candidate for being broken down into microops.
+On aarch64 for example, one of the simplest microoped instructions is <<armv8-aarch64-ldp-and-stp-instructions,STP>>, which does the relatively complex operation of storing two values to memory at once, and is therefore a good candidate for being broken down into microops. We can observe it when executing:
+
+....
+./run \
+  --arch arch64 \
+  --emulator gem5 \
+  --trace-insts-stdout \
+  --userland userland/arch/aarch64/freestanding/linux/disassembly_test.S \
+;
+....
+
+which contains in gem5's broken-ish disassembly that the input:
+
+....
+stp x1, x2 [x0, 16]
+....
+
+generated the output:
+
+....
+  16500: system.cpu: A0 T0 : @_start+108    : stp
+  16500: system.cpu: A0 T0 : @_start+108. 0 :   addxi_uop   ureg0, x0, #16 : IntAlu :  D=0x0000000000420010  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+  17000: system.cpu: A0 T0 : @_start+108. 1 :   strxi_uop   w1, [ureg0]  : MemWrite :  D=0x000000009abcdef0 A=0x420010  flags=(IsInteger|IsMemRef|IsStore|IsMicroop|IsDelayedCommit)
+  17500: system.cpu: A0 T0 : @_start+108. 2 :   strxi_uop   w2, [ureg0, #8] : MemWrite :  D=0x0000000000000002 A=0x420018  flags=(IsInteger|IsMemRef|IsStore|IsMicroop|IsLastMicroop)
+....
+
+Where `@_start+108. 0`, `@_start+108. 1` and `@_start+108. 2` all happen at the same PC, and are therefore microops of STP.
+
+From their names, which are of course not specified in the <<armarm8>>, we guess that:
+
+* `addxi_uop`: adds 16
+* `strxi_uop`: stores one of the two members of the pair, like a regular STR
+
+From the gem5 source code, we see that STP is a `class LdpStp : public PairMemOp`, and then the constructor of `PairMemOp` sets up the microops depending on the exact type of LDP/STP:
 
 ==== gem5 port system
 
@@ -16734,8 +16877,6 @@ BaseSimpleCPU::BaseSimpleCPU(BaseSimpleCPUParams *p)
 
 ==== gem5 functional units
 
-TODO
-
 Each instruction is marked with a class, and each class can execute in a given functional unit.
 
 Which units are available is visible for example on the <<gem5-config-ini>> of a <<gem5-minorcpu>> run. Functional units are not present in simple CPUs like <<gem5-timingsimplecpu>>.
@@ -16760,6 +16901,94 @@ contains:
 [system.cpu]
 type=MinorCPU
 children=branchPred dcache dtb executeFuncUnits icache interrupts isa itb power_state tracer workload
+executeInputWidth=2
+executeIssueLimit=2
+....
+
+Here also note the `executeInputWidth=2` and `executeIssueLimit=2` suggesting that this is a <<superscalar-processor,dual issue superscalar processor>>.
+
+The `system.cpu` points to:
+
+....
+[system.cpu.executeFuncUnits]
+type=MinorFUPool
+children=funcUnits0 funcUnits1 funcUnits2 funcUnits3 funcUnits4 funcUnits5 funcUnits6 funcUnits7
+....
+
+and the two first units are in full:
+
+....
+[system.cpu.executeFuncUnits.funcUnits0]
+type=MinorFU
+children=opClasses timings
+opClasses=system.cpu.executeFuncUnits.funcUnits0.opClasses
+opLat=3
+
+[system.cpu.executeFuncUnits.funcUnits0.opClasses]
+type=MinorOpClassSet
+children=opClasses
+
+[system.cpu.executeFuncUnits.funcUnits0.opClasses.opClasses]
+type=MinorOpClass
+opClass=IntAlu
+....
+
+and:
+
+....
+[system.cpu.executeFuncUnits.funcUnits1]
+type=MinorFU
+children=opClasses timings
+opLat=3
+
+[system.cpu.executeFuncUnits.funcUnits1.opClasses]
+type=MinorOpClassSet
+children=opClasses
+opClasses=system.cpu.executeFuncUnits.funcUnits1.opClasses.opClasses
+
+[system.cpu.executeFuncUnits.funcUnits1.opClasses.opClasses]
+type=MinorOpClass
+opClass=IntAlu
+....
+
+So we understand that both:
+
+* the first and second functional units are `IntAlu`, so doing integer arithmetic operations
+* both have a latency of 3
+* each functional unit can have a set of `opClass` with more than one type. Those first two units just happen to have a single type.
+
+The full list is:
+
+* 0, 1: `IntAlu`, `opLat=3`
+* 2: `IntMult`, `opLat=3`
+* 3: `IntDiv`, `opLat=9`. So we see that a more complex operation such as division has higher latency.
+* 4: `FloatAdd`, `FloatCmp`, and a gazillion other floating point related things. `opLat=6`.
+* 5: `SimdPredAlu`: TODO SVE-related? `opLat=3`
+* 6: `MemRead`, `MemWrite`, `FloatMemRead`, `FloatMemWrite`. `opLat=1`
+* 7: `IprAccess` (TODO), `InstPrefetch`
+
+These are of course all specified in <<gem5-python-c-interaction,from the Python>> at `src/cpu/minor/MinorCPU.py`:
+
+....
+class MinorDefaultFUPool(MinorFUPool):
+    funcUnits = [MinorDefaultIntFU(), MinorDefaultIntFU(),
+        MinorDefaultIntMulFU(), MinorDefaultIntDivFU(),
+        MinorDefaultFloatSimdFU(), MinorDefaultPredFU(),
+        MinorDefaultMemFU(), MinorDefaultMiscFU()]
+....
+
+We then expect that each instruction has a certain `opClass` that determines on which unit it can run.
+
+For example: `class AddImm`, which is what we get on a simple `add x1, x2, 0`, sets itself as an `IntAluOp` on the constructor as expected:
+
+....
+    AddImm::AddImm(ExtMachInst machInst,
+                                          IntRegIndex _dest,
+                                          IntRegIndex _op1,
+                                          uint32_t _imm,
+                                          bool _rotC)
+        : DataImmOp("add", machInst, IntAluOp,
+                         _dest, _op1, _imm, _rotC)
 ....
 
 ==== gem5 code generation
@@ -24288,15 +24517,45 @@ https://en.wikipedia.org/wiki/Superscalar_processor
 
 http://www.lighterra.com/papers/modernmicroprocessors/ explains it well.
 
-You basically decode
+You basically decode multiple instructions in one go, and run them at the same time if they can go in separate funcdtional units and have no conflicts. Genious!
+
+And so the concept of <<branch-predictor,branch predictor>> must come in here: when a conditional branch is reached, you have to decide which side to execute before knowing for sure.
+
+This is why it is called a type of <<instruction-level-parallelism>>.
 
 TODO in gem5? gem5 definitely has functional units explicitly modelled: <<gem5-functional-units>>, so do <<gem5-minorcpu>> or <<gem5-derivo3cpu>> have it?
+
+Although this is a microarchitectural feature, it is so important that it is publicly documented. For example:
+
+* https://en.wikipedia.org/wiki/ARM_Cortex-A77[]: ARM Cortex A77 (2019) has a 4-wide superscalar decode (and is <<out-of-order-execution,out-of-order>>)
 
 === Out-of-order execution
 
 https://en.wikipedia.org/wiki/Out-of-order_execution
 
 gem5's model is <<gem5-derivo3cpu>>.
+
+Allows working around data dependencies: you can execute the second next instruction forward if the first next depends on the current one.
+
+As mentioned at: https://stackoverflow.com/questions/10074831/what-is-general-difference-between-superscalar-and-ooo-execution likely all out-o
+
+=== Instruction level parallelism
+
+https://en.wikipedia.org/wiki/Instruction-level_parallelism
+
+Basically means decoding and then potentially executing a bunch of instructions in one go.
+
+Important examples:
+
+* <<superscalar-processor>>
+
+=== Branch predictor
+
+https://en.wikipedia.org/wiki/Branch_predictor
+
+Comes in for <<superscalar-processor,superscalar processors>>.
+
+TODO analysis in gem5.
 
 === Hardware threads
 

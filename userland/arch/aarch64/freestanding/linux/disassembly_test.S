@@ -56,7 +56,7 @@ _start:
     str x1, [x0], 0
     str x1, [x0], 128
 
-    /* Pre increment. */
+    /* Pre-increment. */
     str x1, [x0, 0]!
     str x1, [x0, -128]!
 
@@ -78,6 +78,13 @@ _start:
      */
     mov x2, 2
     ldr x1, [x0, x2, lsl 3]
+
+    /* gem5 class LdpStp : public PairMemOp. */
+    stp x1, x2, [x0]
+    stp x1, x2, [x0, 16]
+    stp w1, w2, [x0]
+    ldp x1, x2, [x0]
+    ldp w1, w2, [x0]
 
     /* gem5 MemoryImm64, showing . non-zero immediate.
      * Now assembler actually emits LDR because the offset is a multiple of 8. */
