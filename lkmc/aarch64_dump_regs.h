@@ -5,6 +5,7 @@
 
 /* https://cirosantilli.com/linux-kernel-module-cheat#dump-regs */
 
+/* So that a sigle source will work with baremetal and printk from kernel module. */
 #ifndef LKMC_DUMP_SYSTEM_REGS_PRINTF
 #define LKMC_DUMP_SYSTEM_REGS_PRINTF printf
 #endif
