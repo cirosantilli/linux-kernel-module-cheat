@@ -29,6 +29,17 @@ _start:
 
     /* Run main. */
     mov r0, 0
+
+#if 0
+    /* Just turn CLI args off for now since not supported.
+     * https://cirosantilli.com/linux-kernel-module-cheat#gem5-baremetal-arm-cli-args */
+    ldr r0, =lkmc_argc
+    ldr r0, [r0]
+    ldr r1, =lkmc_argv
+#else
+    /* Run main. */
+    mov r0, 0
+#endif
     bl main
 
     /* If main returns, exit. */

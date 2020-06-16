@@ -790,7 +790,9 @@ Incompatible archs are skipped.
         # just too many, and gem5 does not allow selecting lower feature in general.
         env['int_size'] = 4
         if env['arch'] == 'arm':
-            env['address_size'] = 4
+            # TODO this shoud be 4. But that blows up running all gem5 arm 32-bit examples.
+            # https://cirosantilli.com/linux-kernel-module-cheat#gem5-baremetal-arm-cli-args
+            env['address_size'] = 8
             env['armv'] = 7
             env['buildroot_toolchain_prefix'] = 'arm-buildroot-linux-gnueabihf'
             env['crosstool_ng_toolchain_prefix'] = 'arm-unknown-eabi'
