@@ -1166,6 +1166,10 @@ Incompatible archs are skipped.
         # Image
         if env['baremetal']:
             env['image'] = self.resolve_baremetal_executable(env['baremetal'][0])
+            # This is needed because the Linux kerne limage for certain emulators like QEMU
+            # might not be in plain ELF format, but rather some crazy compressed kernel format.
+            # https://cirosantilli.com/linux-kernel-module-cheat#vmlinux-vs-bzimage-vs-zimage-vs-image
+            env['image_elf'] = env['image']
             source_path_noext = os.path.splitext(join(
                 env['root_dir'],
                 env['image'][len(env['baremetal_build_dir']) + 1:]
@@ -1178,6 +1182,7 @@ Incompatible archs are skipped.
                     break
         elif env['userland']:
             env['image'] = self.resolve_userland_executable(env['userland'][0])
+            env['image_elf'] = env['image']
             source_path_noext = os.path.splitext(join(
                 env['userland_source_dir'],
                 env['image'][len(env['userland_build_dir']) + 1:]
@@ -1195,6 +1200,7 @@ Incompatible archs are skipped.
             else:
                 if not env['_args_given']['linux_exec']:
                     env['image'] = env['linux_image']
+            env['image_elf'] = env['vmlinux']
             if env['_args_given']['linux_exec']:
                 env['image'] = env['linux_exec']
         if env['emulator'] == 'gem5':

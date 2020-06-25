@@ -14756,19 +14756,17 @@ where 120 == 0x78 (it logs addresses in decimal? Really??) and the size 4 which 
 
 Now that we are here, we might as well learn how to log the data that was fetched from DRAM.
 
-Fist we determine the expected bytes from:
+Fist we determine the expected bytes from the <<disas,disassembly>>:
 
 ....
-./run-toolchain --arch aarch64 objdump -- \
-  -D "$(./getvar --arch aarch64 userland_build_dir)/arch/aarch64/freestanding/linux/hello.out"
+./disas --arch aarch64 --userland userland/arch/aarch64/freestanding/linux/hello.S _start
 ....
 
 which shows us the initial instruction encodings near the entry point `_start`:
 
 ....
-0000000000400078 <_start>:
-  400078:       d2800020        mov     x0, #0x1                        // #1
-  40007c:       100000e1        adr     x1, 400098 <msg>
+   0x0000000000400078 <+0>:     20 00 80 d2     mov     x0, #0x1                        // #1
+   0x000000000040007c <+4>:     e1 00 00 10     adr     x1, 0x400098 <msg>
 ....
 
 Now, TODO :-) The `DRAM` logs don't contain data. Maybe this can be done with https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/comm_monitor.hh#L55[`CommMonitor`], but it is no exposed on fs.py
@@ -17874,16 +17872,10 @@ link:userland/c/atomic.c[]
 
 Demonstrates `atomic_int` and `thrd_create`.
 
-Disassembly with GDB at LKMC 619fef4b04bddc4a5a38aec5e207dd4d5a25d206 + 1:
+<<disas,Disassembly with GDB>> at LKMC 619fef4b04bddc4a5a38aec5e207dd4d5a25d206 + 1:
 
 ....
-./run-toolchain \
-  --arch aarch64 gdb \
-  -- \
-  -batch \
-  -ex 'disas/rs my_thread_main' $(./getvar \
-  --arch aarch64 userland_build_dir)/c/atomic.out \
-;
+./disas --arch aarch64 --userland userland/c/atomic.c my_thread_main
 ....
 
 shows on ARM:
@@ -24499,10 +24491,10 @@ link:userland/gcc/busy_loop.c[]
 
 The hard part is how to prevent the compiler from optimizing it away: https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop/58758133#58758133
 
-Disassembly analysis:
+<<disas,Disassembly>> analysis:
 
 ....
-./run-toolchain --arch aarch64 gdb -- -nh -batch -ex 'disas/rs busy_loop' "$(./getvar --arch aarch64 userland_build_dir)/gcc/busy_loop.out"
+./disas --arch aarch64 --userland userland/gcc/busy_loop.out busy_loop
 ....
 
 which contains at LKMC eb22fd3b6e7fff7e9ef946a88b208debf5b419d5:
@@ -25362,6 +25354,14 @@ you can save some typing and get portability across directory structure changes 
 ./run-toolchain --arch aarch64 objdump -- -D a.out
 ....
 
+This plays nicely with <<getvar>> e.g. you could disassembly link:userland/c/hello.c[] with:
+
+....
+./run-toolchain --arch aarch64 objdump -- -D $(./getvar --arch aarch64 userland_build_dir)/c/hello.out
+....
+
+however disassembly is such a common use case that we have a shortcut for it: <<disas>>.
+
 Alternatively, if you just need a variable to feed into your own Build system, you can also use <<getvar>>:
 
 ....
@@ -25374,10 +25374,26 @@ which outputs as of LKMC b15a0e455d691afa49f3b813ad9b09394dfb02b7:
 /path/to/linux-kernel-module-cheat/out/buildroot/build/default/aarch64/host/usr/bin/aarch64-buildroot-linux-gnu
 ....
 
-Since disassembly of a single function with GDB is such a common use case https://stackoverflow.com/questions/22769246/how-to-disassemble-one-single-function-using-objdump[], we have a shortcut for it:
+===== disas
+
+Since disassembly of a single function of a LKMC executable with GDB is such a common use case for <<run-toolchain>> via https://stackoverflow.com/questions/22769246/how-to-disassemble-one-single-function-using-objdump[], we have this shortcut for it.
+
+For example to disassemle a function from an <<userland-content,userland binary>>:
 
 ....
 ./disas --arch aarch64 --userland userland/c/hello.c main
+....
+
+or to disassemble a function from the <<linux-kernel>>:
+
+....
+./disas --arch aarch64 start_kernel
+....
+
+and a <<baremetal-setup,baremetal>> executable:
+
+....
+./disas --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/exit.S _start
 ....
 
 === Rebuild Buildroot while running
