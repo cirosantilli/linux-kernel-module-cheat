@@ -8,8 +8,6 @@
 #include <mutex>
 #include <thread>
 
-#include <lkmc/futex.h>
-
 std::atomic_ulong done;
 int futex = 1;
 
