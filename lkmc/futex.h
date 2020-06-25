@@ -26,8 +26,6 @@ lkmc_futex(int *uaddr, int futex_op, int val,
         : "memory"
     );
     return x0;
-    //return syscall(SYS_futex, uaddr, futex_op, val,
-    //                timeout, uaddr2, val3);
 }
 
 #endif

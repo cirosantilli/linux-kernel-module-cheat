@@ -12,11 +12,15 @@
 
 #include <lkmc/futex.h>
 
+#define LDXR_OPS_SIZE 1024
 static int futex1 = 1;
 static int futex2 = 1;
-atomic_int ldxr_done = 0;
-atomic_int stdr_wake_done = 0;
-static uint64_t ldxr_var = 0;
+/* We do this to ensure that those two varibles are well separated.
+ * If they are too close (same cache line?), then the str to ldxr_done
+ * can make CPU1 lose the lock. */
+static uint64_t ldxr_ops[LDXR_OPS_SIZE];
+static uint64_t *ldxr_done = ldxr_ops;
+static uint64_t *ldxr_var = ldxr_ops + LDXR_OPS_SIZE - 1;
 
 void __attribute__ ((noinline)) busy_loop(
     unsigned long long max,
@@ -32,11 +36,11 @@ void __attribute__ ((noinline)) busy_loop(
 void* thread_main(void *arg) {
     (void)arg;
     __asm__ __volatile__ (
-        "ldxr x0, [%0]"
-        :
-        : "r" (&ldxr_var) : "x0", "memory"
+        "ldxr x0, [%[ldxr_var]];mov %[ldxr_done], 1"
+        : [ldxr_done] "=r" (*ldxr_done)
+        : [ldxr_var] "r" (ldxr_var)
+        : "x0", "memory"
     );
-    ldxr_done = 1;
     lkmc_futex(&futex1, FUTEX_WAIT, futex1, NULL, NULL, 0);
     lkmc_futex(&futex2, FUTEX_WAIT, futex2, NULL, NULL, 0);
     return NULL;
@@ -45,19 +49,21 @@ void* thread_main(void *arg) {
 int main(void) {
     pthread_t thread;
     pthread_create(&thread, NULL, thread_main, NULL);
-    while (!ldxr_done) {}
+    while (!*ldxr_done) {}
     /* Wait for thread1 to sleep on futex1. */
     busy_loop(1000, 1);
-    /* Wrongly wake up the thread with a SEV. */
+    /* Try to wake up the thread with an LLSC event.
+     * It should not wake up in a correct implementation,
+     * but it used to happen in gem5 before it was fixed. */
     __asm__ __volatile__ (
         "mov x0, 1;ldxr x0, [%0]; stxr w1, x0, [%0]"
         :
-        : "r" (&ldxr_var) : "x0", "x1", "memory"
+        : "r" (ldxr_var) : "x0", "x1", "memory"
     );
     /* Wait for thread1 to sleep on futex2. */
     busy_loop(1000, 1);
-    /* Wrongly wake thread from futex1 again. */
-    /* But it is now sleeping on futex2, so this is wrong. */
+    /* Before it was fixed in gem5, this would wrongly wake a futex2
+     * because the previous futex1 was woken up via LLSC. */
     lkmc_futex(&futex1, FUTEX_WAKE, 1, NULL, NULL, 0);
     assert(!pthread_join(thread, NULL));
 }
