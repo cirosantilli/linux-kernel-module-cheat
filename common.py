@@ -1345,6 +1345,8 @@ lunch aosp_{}-eng
         These are arguments that might be used by more than one script,
         and are all defined in this class instead of in the derived class
         of the script.
+
+        This can be used to forward common arguments to a call of another CLI function.
         '''
         return {
             key:self.env[key] for key in self._common_args if

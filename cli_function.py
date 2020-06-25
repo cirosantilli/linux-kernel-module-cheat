@@ -231,7 +231,7 @@ class CliFunction:
     def cli_noexit(self, cli_args=None):
         '''
         Call the function from the CLI. Parse command line arguments
-        to get all arguments.
+        to get all arguments. Does not exit the program after running this function.
 
         :return: the return of main
         '''
@@ -435,6 +435,8 @@ amazing function!
 
     # Positional
     out = one_cli_function(pos_mandatory=1, pos_optional=2, args_star=['3', '4'])
+    # TODO: make actual positional arguments work.
+    # out = one_cli_function(1, 2, '3', '4')
     assert out['pos_mandatory'] == 1
     assert out['pos_optional'] == 2
     assert out['args_star'] == ['3', '4']

@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+import os
+
+import lkmc.import_path
+
+import common
+from shell_helpers import LF
+
+class Main(common.LkmcCliFunction):
+    def __init__(self):
+        super().__init__(
+            defaults = {
+                'show_time': False,
+            },
+            description='''\
+Disassemble one function of the given executable.
+https://cirosantilli.com/linux-kernel-module-cheat#run-toolchain
+''',
+        )
+        self.add_argument('function', help='Which function to disassemble.')
+
+    def timed_main(self):
+        lkmc.import_path.import_path_main('run-toolchain')(
+            tool='gdb',
+            extra_args=[
+                '-nh',
+                '-batch',
+                '-ex',
+                'disas/rs {}'.format(self.env['function']),
+                self.env['image'],
+            ],
+            quiet=True,
+            **self.get_common_args()
+        )
+
+if __name__ == '__main__':
+    Main().cli()
