@@ -31,7 +31,11 @@ void __attribute__ ((noinline)) busy_loop(
 
 void* thread_main(void *arg) {
     (void)arg;
-    __asm__ __volatile__ ("ldxr x0, [%0]" : : "r" (&ldxr_var) : "x0");
+    __asm__ __volatile__ (
+        "ldxr x0, [%0]"
+        :
+        : "r" (&ldxr_var) : "x0", "memory"
+    );
     ldxr_done = 1;
     lkmc_futex(&futex1, FUTEX_WAIT, futex1, NULL, NULL, 0);
     lkmc_futex(&futex2, FUTEX_WAIT, futex2, NULL, NULL, 0);
@@ -45,7 +49,11 @@ int main(void) {
     /* Wait for thread1 to sleep on futex1. */
     busy_loop(1000, 1);
     /* Wrongly wake up the thread with a SEV. */
-    __asm__ __volatile__ ("mov x0, 1;ldxr x0, [%0]; stxr w1, x0, [%0]" : : "r" (&ldxr_var) : "x0", "x1");
+    __asm__ __volatile__ (
+        "mov x0, 1;ldxr x0, [%0]; stxr w1, x0, [%0]"
+        :
+        : "r" (&ldxr_var) : "x0", "x1", "memory"
+    );
     /* Wait for thread1 to sleep on futex2. */
     busy_loop(1000, 1);
     /* Wrongly wake thread from futex1 again. */

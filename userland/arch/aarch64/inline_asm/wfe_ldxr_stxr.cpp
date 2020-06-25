@@ -12,7 +12,11 @@ std::atomic_ulong done;
 int futex = 1;
 
 void myfunc() {
-    __asm__ __volatile__ ("sevl;wfe;ldxr x0, [%0];wfe" : : "r" (&futex) : "x0");
+    __asm__ __volatile__ (
+        "sevl;wfe;ldxr x0, [%0];wfe"
+        :
+        : "r" (&futex) : "x0", "memory"
+    );
     done.store(futex);
 }
 
@@ -26,7 +30,12 @@ int main(int argc, char **argv) {
     thread = std::thread(myfunc);
     while (!done.load()) {
         if (do_sev) {
-            __asm__ __volatile__ ("ldxr x0, [%0];mov x0, 1;stxr w1, x0, [%0]" : : "r" (&futex) : "x0", "x1");
+            __asm__ __volatile__ (
+                "ldxr x0, [%0];mov x0, 1;stxr w1, x0, [%0]"
+                :
+                : "r" (&futex)
+                : "x0", "x1", "memory"
+            );
         }
     }
     thread.join();
