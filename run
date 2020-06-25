@@ -59,6 +59,14 @@ Like --debug-vm, but also source this file. Equivalent to
 '''
         )
         self.add_argument(
+            '--debug-vm-ex',
+            default='',
+            help='''\
+Like --debug-vm-args, but takes as argument a semicolon separated list of
+-ex commands.
+'''
+        )
+        self.add_argument(
             '--debug-vm-rr',
             default=False,
             help='''
@@ -377,8 +385,10 @@ Extra options to append at the end of the emulator command line.
             self.env['tmux'] = True
         if self.env['debug_vm_rr']:
             debug_vm = ['rr', 'record']
-        elif self.env['debug_vm'] or self.env['debug_vm_args'] or self.env['debug_vm_file']:
+        elif self.env['debug_vm'] or self.env['debug_vm_args'] or self.env['debug_vm_file'] or self.env['debug_vm_ex']:
             debug_vm = ['gdb', LF, '-q', LF] + self.sh.shlex_split(self.env['debug_vm_args'])
+            for cmd in self.env['debug_vm_ex'].split(';'):
+                debug_vm.extend(['-ex', cmd, LF]);
             if self.env['debug_vm_file'] is not None:
                 debug_vm.extend(['-ex', 'source {}'.format(self.env['debug_vm_file']), LF])
             debug_vm.extend(['--args', LF])
