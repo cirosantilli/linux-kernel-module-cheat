@@ -1755,11 +1755,7 @@ Force rebuild even if sources didn't change.
             '--optimization-level': {
                 'default': '0',
                 'help': '''\
-Use the given GCC -O optimization level.
-For some scripts, there are hard technical challenges why it cannot
-be implemented, e.g.: https://cirosantilli.com/linux-kernel-module-cheat#kernel-o0
-and for others such as gem5 have their custom mechanism:
-https://cirosantilli.com/linux-kernel-module-cheat#gem5-debug-build
+https://cirosantilli.com/linux-kernel-module-cheat#optimization-level-of-a-build
 ''',
             },
             'extra_make_args': {

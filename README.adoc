@@ -1110,7 +1110,7 @@ Pass custom compiler options:
 
 Here we used `--force-rebuild` to force rebuild since the sources weren't modified since the last build.
 
-Some CLI options have more specialized flags, e.g. `-O` optimization level:
+Some CLI options have more specialized flags, e.g. `-O` for the <<optimization-level-of-a-build>>:
 
 ....
 ./build --optimization-level 3 --force-rebuild
@@ -1145,7 +1145,7 @@ Do a more clean out-of-tree build instead and run the program:
 
 Here we:
 
-* put the host executables in a separate <<build-variants,build-variant>> to avoid conflict with Buildroot builds.
+* put the host executables in a separate <<build-variants,build variant>> to avoid conflict with Buildroot builds.
 * ran with the `--emulator native` option to run the program natively
 
 In this case you can debub the program with:
@@ -1506,6 +1506,8 @@ https://stackoverflow.com/questions/29151235/how-to-de-optimize-the-linux-kernel
 `O=0` is an impossible dream, `O=2` being the default.
 
 So get ready for some weird jumps, and `<value optimized out>` fun. Why, Linux, why.
+
+The `-O` level of some other userland content can be controlled as explained at: <<optimization-level-of-a-build>>.
 
 === GDB step debug kernel post-boot
 
@@ -18043,7 +18045,7 @@ global 12676
 
 The actual value is much smaller, because the threads have often overwritten one another with older values.
 
-With `--optimization-level 3`, the result almost always equals that of a single thread, e.g.:
+With <<optimization-level-of-a-build,`--optimization-level 3`>>, the result almost always equals that of a single thread, e.g.:
 
 ....
 ./build --optimization-level 3 --force-rebuild fail.cpp
@@ -18164,8 +18166,6 @@ which outputs:
 atomic 20
 non-atomic 19
 ....
-
-./run -aA -eg -u userland/c/atomic.c --cli-args '2 200' --cpus 3 --userland-build-id o3 -N1 --trace ExecAll -- --caches --cpu-type TimingSimpleCPU
 
 Note that that the system is very minimal, and doesn't even have caches, so I'm curious as to how this can happen at all.
 
@@ -25652,6 +25652,25 @@ git -C "$(./getvar buildroot_source_dir)" checkout -
 ./run
 ./run --buildroot-build-id 2018.05
 ....
+
+=== Optimization level of a build
+
+The `--optimization-level` option is available on all build scripts and sets the given GCC `-`O optimization level where it has been implemented for guest binaries.
+
+The default optimization level is `-O0` to improve guest visibility.
+
+To keep things sane, you generally want to create a separate <<build-variants,build variant>> for each optimization level, e.g. to create an `-O3` build:
+
+....
+./build-userland --optimization-level 3 --userland-build-id o3
+./run --userland userland/c/hello.c --userland-build-id o3
+....
+
+Note that for some guest content, there are hard technical challenges why we are not able to forward `-O`, notably the linux kernel: <<kernel-o0>>.
+
+Our emulators however are build with higher optimization levels by default otherwise running anything would be too unbearably slow.
+
+Emulator builds are also controlled with other mechanisms instead of `--optimization-level` as explained at: <<debug-the-emulator>>.
 
 === Directory structure
 
