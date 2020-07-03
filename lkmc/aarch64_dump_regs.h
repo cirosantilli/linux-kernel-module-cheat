@@ -37,6 +37,7 @@ void lkmc_dump_system_regs() {
     __asm__ ("mrs %0, id_isar0_el1" : "=r" (id_isar0_el1) : :);
     LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_ISAR0_EL1 0x%" PRIX32 "\n", id_isar0_el1);
 
+    /* https://cirosantilli.com/linux-kernel-module-cheat#arm-system-register-encodings */
     uint32_t id_isar6_el1;
     __asm__ ("mrs %0, s3_0_c0_c2_7" : "=r" (id_isar6_el1) : :);
     LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_ISAR6_EL1 0x%" PRIX32 "\n", id_isar6_el1);

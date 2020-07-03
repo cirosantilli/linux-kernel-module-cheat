@@ -11651,6 +11651,13 @@ Here we don't see the last `m5 exit` instruction on the log, but it must just be
 
 ==== gem5 checkpoint internals
 
+A quick way to get a <<gem5-syscall-emulation-mode>> or full system checkpoint to observe is:
+
+....
+./run --arch aarch64 --emulator gem5 --baremetal userland/freestanding/gem5_checkpoint.S --trace-insts-stdout
+./run --arch aarch64 --emulator gem5 --userland userland/freestanding/gem5_checkpoint.S --trace-insts-stdout
+....
+
 Checkpoints are stored inside the <<m5out-directory>> at:
 
 ....
@@ -11666,6 +11673,18 @@ However, that interface is bad because if you had taken previous checkpoints, yo
 Therefore, just use our superior `--gem5-restore` flag, which uses directory timestamps to determine which checkpoint you created most recently.
 
 The `-r N` integer value is just pure `fs.py` sugar, the backend at `m5.instantiate` just takes the actual tracepoint directory path as input.
+
+The file `m5out/cpt.1000/m5.cpt` contains almost everything in the checkpoint except memory.
+
+It is a https://docs.python.org/3/library/configparser.html[Python configparser compatible file] with a section structure that matches the <<gem5-python-c-interaction,SimObject>> tree e.g.:
+
+....
+[system.cpu.itb.walker.power_state]
+currState=0
+prvEvalTick=0
+....
+
+When a checkpoint is taken, each `SimObject` calls its overridden `serialize` method to generate the checkpoint, and when loading, `unserialize` is called.
 
 [[gem5-restore-new-script]]
 ==== gem5 checkpoint restore and run a different script
@@ -11859,6 +11878,7 @@ which is the `movz` after the checkpoint. The final `m5exit` does not appear due
 
 Bibliography:
 
+* https://stackoverflow.com/questions/60876259/which-system-characteristics-such-as-number-of-cores-of-cache-configurations-can
 * https://stackoverflow.com/questions/49011096/how-to-switch-cpu-models-in-gem5-after-restoring-a-checkpoint-and-then-observe-t
 
 ===== gem5 fast forward
@@ -11955,6 +11975,31 @@ Therefore, it is clear that what we wanted happen:
 Bibliography:
 
 * https://cs.stackexchange.com/questions/69511/what-does-fast-forwarding-mean-in-the-context-of-cpu-simulation
+
+==== gem5 checkpoint upgrader
+
+The in-tree `util/cpt_upgrader.py` is a tool to upgrade checkpoints taken from an older version of gem5 to be compatible with the newest version, so you can update gem5 without having to re-run the simulation that generated the checkpoints.
+
+For example, whenever a <<arm-system-register-instructions,system register is added in ARMv8>>, old checkpoints break unless upgraded.
+
+Unfortunately, since the process is not very automated (automatable?), and requires manually patching the upgrader every time a new breaking change is done, the upgrader tends to break soon if you try to move many versions of gem5 ahead as of 2020. This is evidenced in bug reports such as this one: https://gem5.atlassian.net/browse/GEM5-472
+
+The script can be used as:
+
+....
+util/cpt_upgrader.py m5out/cpt.1000/m5.cpt
+....
+
+This updates the `m5.cpt` file in-place, and a `m5out/cpt.1000/m5.cpt.bak` is generated as a backup of the old file.
+
+The upgrader determines which upgrades are needed by checking the `version_tags` entry of the checkpoint:
+
+....
+[Globals]
+version_tags=arm-ccregs arm-contextidr-el2 arm-gem5-gic-ext ...
+....
+
+Each of those tags corresponds to a Python file under `util/cpt_upgraders/` e.g. `util/cpt_upgraders/arm-ccregs.py`.
 
 === Pass extra options to gem5
 
@@ -21522,6 +21567,30 @@ and the actual coprocessor registers are specified at:
 
 * CP14: Table G7-1 "Mapping of (coproc ==0b1110) MCR, MRC, and MRRC instruction arguments to System registers"
 * CP15: Table G7-3 "VMSAv8-32 (coproc==0b1111) register summary, in MCR/MRC parameter order."
+
+===== ARM system register encodings
+
+Each aarch64 system register is specified in the encoding of <<arm-system-register-instructions>> by 5 integer numbers:
+
+* `op0`
+* `op1`
+* `CRn`
+* `CRm`
+* `op2`
+
+The encodings are given on large tables in <<armarm8-fa>> Chapter D12 "AArch64 System Register Encoding".
+
+As shown in link:baremetal/arch/aarch64/dump_regs.c[] as of LKMC 4e05b00d23c73cc4d3b83be94affdb6f28008d99, you can use the encoding parameters directly in GNU GAS assembly:
+
+....
+uint32_t id_isar6_el1;
+__asm__ ("mrs %0, s3_0_c0_c2_7" : "=r" (id_isar6_el1) : :);
+LKMC_DUMP_SYSTEM_REGS_PRINTF("ID_ISAR6_EL1 0x%" PRIX32 "\n", id_isar6_el1);
+....
+
+This can be useful to refer to new system registers which your older version of GNU GAS version does not yet have a name for.
+
+The Linux kernel also uses explicit sysreg encoding extensively since it is of course a very early user of many new system registers, this is done at https://github.com/torvalds/linux/blob/v5.4/arch/arm64/include/asm/sysreg.h[`arch/arm64/include/asm/sysreg.h` in Linux v5.4].
 
 === ARM SIMD
 
