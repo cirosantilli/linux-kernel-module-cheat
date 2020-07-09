@@ -12,6 +12,7 @@ static int
 lkmc_futex(int *uaddr, int futex_op, int val,
         const struct timespec *timeout, int *uaddr2, int val3)
 {
+#if defined(__aarch64__)
     register uint64_t x0 __asm__ ("x0") = (uint64_t)uaddr;
     register uint64_t x1 __asm__ ("x1") = futex_op;
     register uint64_t x2 __asm__ ("x2") = val;
@@ -26,6 +27,11 @@ lkmc_futex(int *uaddr, int futex_op, int val,
         : "memory"
     );
     return x0;
+#else
+    (void)uaddr2;
+    return syscall(SYS_futex, uaddr, futex_op, val,
+                    timeout, uaddr, val3);
+#endif
 }
 
 #endif
