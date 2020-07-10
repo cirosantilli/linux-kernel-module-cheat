@@ -13160,7 +13160,7 @@ Then, with `fs.py` and `se.py`, you can choose to use either the classic or the 
 * if `--ruby` is given, use the ruby memory system that was compiled into gem5. Caches are always present when Ruby is used, since the main goal of Ruby is to specify the cache coherence protocol, and it therefore hardcodes cache hierarchies.
 * otherwise, use the classic memory system. Caches may be optional for certain CPU types and are enabled with `--caches`.
 
-Note that the `--ruby` option has some crazy side effects besides enabling Ruby, e.g. it https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/configs/ruby/Ruby.py#L61[sets the default `--cpu-type` to `TimingSimpleCPU` instead of the otherwise default `AtomicSimpleCPU`]. But why.
+Note that the `--ruby` option has some crazy side effects besides enabling Ruby, e.g. it https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/configs/ruby/Ruby.py#L61[sets the default `--cpu-type` to `TimingSimpleCPU` instead of the otherwise default `AtomicSimpleCPU`]. TODO: I have been told that this is because <<gem5-functional-vs-atomic-vs-timing-memory-requests,sends the packet atomically,atomic requests do not work with Ruby, only timing>>.
 
 It is not possible to build more than one Ruby system into a single build, and this is a major pain point for testing Ruby: https://gem5.atlassian.net/browse/GEM5-467
 
@@ -16083,7 +16083,7 @@ This system exists to allow seamlessly connecting any combination of CPU, caches
 gem5 memory requests can be classified in the following broad categories:
 
 * functional: get the value magically, do not update caches, see also: <<gem5-functional-requests>>
-* atomic: get the value now without making a <<gem5-event-queue,separate event>>, but do not update caches
+* atomic: get the value now without making a <<gem5-event-queue,separate event>>, but do not update caches. Cannot work in <<gem5-ruby-build,Ruby>> due to fundamental limitations, mentioned in passing at: https://gem5.atlassian.net/browse/GEM5-676
 * timing: get the value simulating delays and updating caches
 
 This trichotomy can be notably seen in the definition of the https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/port.hh#L75[MasterPort class]:
@@ -16256,6 +16256,19 @@ One such functionality, is the <<gem5-syscall-emulation-mode>> implementation of
 As seen from `man futex`, the Linux kernel reads the value from an address that is given as the first argument of the call.
 
 Therefore, here it makes sense for gem5 syscall implementation, which does not actually have a real kernel running, to just make a functional request and be done with it, since the impact of cache changes done by this read would be insignificant to the cost of an actual full context switch that would happen on a real syscall.
+
+It is generally hard to implement functional requests for <<gem5-ruby-build,Ruby>> runs, because packets are flying through the memory system in a transient state, and there is no simple way of finding exactly which ones might have the latest version of the memory. See for example:
+
+* https://gem5.atlassian.net/browse/GEM5-496
+* https://gem5.atlassian.net/browse/GEM5-604
+* https://gem5.atlassian.net/browse/GEM5-675
+* https://gem5.atlassian.net/browse/GEM5-676
+
+The typical error message in that case is:
+
+....
+fatal: Ruby functional read failed for address
+....
 
 ==== gem5 `ThreadContext` vs `ThreadState` vs `ExecContext` vs `Process`
 
@@ -18000,6 +18013,84 @@ pthreads are more versatile though and allow for a superset of OpenMP.
 The implementation lives under `libgomp` in the GCC tree, and is documented at: https://gcc.gnu.org/onlinedocs/libgomp/
 
 `strace` shows that OpenMP makes `clone()` syscalls in Linux. TODO: does it actually call `pthread_` functions, or does it make syscalls directly? Or in other words, can it work on <<freestanding-programs>>? A quick grep shows many references to pthreads.
+
+====== OpenMP validation
+
+https://github.com/uhhpctools/omp-validation
+
+Host build on Ubuntu 20.04:
+
+....
+git submodule update --init submodules/omp-validation
+cd submodules/omp-validation
+PERL5LIB="${PERL5LIB}:." make -j `nproc` ctest
+....
+
+This both builds and runs, took about 5 minutes on <<p51>>, but had build failues for some reason:
+
+....
+Summary:
+S Number of tested Open MP constructs: 62
+S Number of used tests:                123
+S Number of failed tests:              4
+S Number of successful tests:          119
+S + from this were verified:           115
+
+Normal tests:
+N Number of failed tests:              2
+N + from this fail compilation:        0
+N + from this timed out                0
+N Number of successful tests:          60
+N + from this were verified:           58
+
+Orphaned tests:
+O Number of failed tests:              2
+O + from this fail compilation:        0
+O + from this timed out                0
+O Number of successful tests:          59
+O + from this were verified:           57
+....
+
+The tests and run results placed under `bin/c/`, e.g.:
+
+....
+test_omp_threadprivate
+test_omp_threadprivate.c
+test_omp_threadprivate.log
+test_omp_threadprivate.out
+test_omp_threadprivate_compile.log
+....
+
+C files are also present as some kind of code generaion is used.
+
+Build only and run one of them manually:
+
+....
+make -j`nproc` omp_my_sleep omp_testsuite
+PERL5LIB="${PERL5LIB}:." ./runtest.pl --lang=c --norun testlist-c.txt
+./bin/c/test_omp_barrier
+....
+
+The `bin/c` directory is hardcoded in the executable, so to run it you must ensure that it exists relative to CWD, e.g.:
+
+....
+cd bin/c
+mkdir -p bin/c
+./test_omp_barrier
+....
+
+Manually cross compile all tests and optionally add some extra options, e.g. `-static` to <<gem5-dynamic-linked-executables-in-syscall-emulation,more conveniently run in gem5>>:
+
+....
+PERL5LIB="${PERL5LIB}:." ./runtest.pl --lang=c --makeopts 'CC=aarch64-linux-gnu-gcc CFLAGS_EXTRA=-static' --norun testlist-c.txt
+./../../run --arch aarch64 --emulator gem5 --userland submodules/omp-validation/bin/c/test_omp_parallel_reduction -N1 --cpus 8 --memory 8G
+....
+
+Build a single test:
+
+....
+make bin/c/test_omp_sections_reduction
+....
 
 [[cpp]]
 === C++
