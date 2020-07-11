@@ -14,6 +14,10 @@
 #include <linux/wait.h> /* wait_queue_head_t, wait_event_interruptible, wake_up_interruptible  */
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
+static int ret0 = 0;
+module_param(ret0, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(i, "if 1, always return 0 from poll");
+
 static char readbuf[1024];
 static size_t readbuflen;
 static struct dentry *debugfs_file;
@@ -34,24 +38,33 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 	return ret;
 }
 
-/* If you return 0 here, then the kernel will sleep until an event happens in the queue.
- *
- * This gets called again every time an event happens in the wait queue.
- */
+/* If you return 0 here, then the kernel will sleep until an event
+ * happens in the queue. and then call this again, because of the call to poll_wait. */
 unsigned int poll(struct file *filp, struct poll_table_struct *wait)
 {
+	pr_info("poll\n");
+	/* This doesn't sleep. It just makes the kernel call poll again if we return 0. */
 	poll_wait(filp, &waitqueue, wait);
-	if (readbuflen)
+	if (readbuflen && !ret0) {
+		pr_info("return POLLIN\n");
 		return POLLIN;
-	else
+	} else {
+		pr_info("return 0\n");
 		return 0;
+	}
 }
 
 static int kthread_func(void *data)
 {
 	while (!kthread_should_stop()) {
-		readbuflen = snprintf(readbuf, sizeof(readbuf), "%llu", (unsigned long long)jiffies);
+		readbuflen = snprintf(
+			readbuf,
+			sizeof(readbuf),
+			"%llu",
+			(unsigned long long)jiffies
+		);
 		usleep_range(1000000, 1000001);
+		pr_info("wake_up\n");
 		wake_up(&waitqueue);
 	}
 	return 0;

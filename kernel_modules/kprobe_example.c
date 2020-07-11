@@ -3,8 +3,7 @@
  * Adapted from: https://github.com/torvalds/linux/blob/v4.17/samples/kprobes/kprobe_example.c
  */
 
-/*
- * NOTE: This example is works on x86 and powerpc.
+/* NOTE: This example is works on x86 and powerpc.
  * Here's a sample kernel module showing the use of kprobes to dump a
  * stack trace and selected registers when _do_fork() is called.
  *

@@ -26,13 +26,14 @@ int main(int argc, char **argv) {
     pfd.fd = fd;
     pfd.events = POLLIN;
     while (1) {
-        puts("loop");
+        puts("poll");
         i = poll(&pfd, 1, -1);
         if (i == -1) {
             perror("poll");
             assert(0);
         }
         revents = pfd.revents;
+        printf("revents = %d\n", revents);
         if (revents & POLLIN) {
             n = read(pfd.fd, buf, sizeof(buf));
             printf("POLLIN n=%d buf=%.*s\n", n, n, buf);

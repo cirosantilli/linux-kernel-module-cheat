@@ -7126,7 +7126,9 @@ Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device
 
 ==== File operations
 
-File operations are the main method of userland driver communication. `struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
+File operations are the main method of userland driver communication.
+
+`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
 
 This example illustrates the most basic system calls: `open`, `read`, `write`, `close` and `lseek`:
 
@@ -7224,18 +7226,67 @@ cd
 
 ==== poll
 
-The poll system call allows an user process to do a non-busy wait on a kernel event:
-
-....
-./poll.sh
-....
-
-Outcome: `jiffies` gets printed to stdout every second from userland.
+The poll system call allows an user process to do a non-busy wait on a kernel event.
 
 Sources:
 
 * link:kernel_modules/poll.c[]
 * link:rootfs_overlay/lkmc/poll.sh[]
+
+Example:
+
+....
+./poll.sh
+....
+
+Outcome: `jiffies` gets printed to stdout every second from userland, e.g.:
+
+....
+poll
+<6>[    4.275305] poll
+<6>[    4.275580] return POLLIN
+revents = 1
+POLLIN n=10 buf=4294893337
+poll
+<6>[    4.276627] poll
+<6>[    4.276911] return 0
+<6>[    5.271193] wake_up
+<6>[    5.272326] poll
+<6>[    5.273207] return POLLIN
+revents = 1
+POLLIN n=10 buf=4294893588
+poll
+<6>[    5.276367] poll
+<6>[    5.276618] return 0
+<6>[    6.275178] wake_up
+<6>[    6.276370] poll
+<6>[    6.277269] return POLLIN
+revents = 1
+POLLIN n=10 buf=4294893839
+....
+
+Force the poll <<file-operations,`file_operation`>> to return 0 to see what happens more clearly:
+
+....
+./poll.sh pol0=1
+....
+
+Sample output:
+
+....
+poll
+<6>[   85.674801] poll
+<6>[   85.675788] return 0
+<6>[   86.675182] wake_up
+<6>[   86.676431] poll
+<6>[   86.677373] return 0
+<6>[   87.679198] wake_up
+<6>[   87.680515] poll
+<6>[   87.681564] return 0
+<6>[   88.683198] wake_up
+....
+
+From this we see that control is not returned to userland: the kernel just keeps calling the poll `file_operation` again and again.
 
 Typically, we are waiting for some hardware to make some piece of data available available to the kernel.
 
@@ -7243,7 +7294,10 @@ The hardware notifies the kernel that the data is ready with an interrupt.
 
 To simplify this example, we just fake the hardware interrupts with a <<kthread>> that sleeps for a second in an infinite loop.
 
-Bibliography: https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-kernel-module-code/44645336#44645336
+Bibliography:
+
+* https://stackoverflow.com/questions/30035776/how-to-add-poll-function-to-the-kernel-module-code/44645336#44645336
+* https://stackoverflow.com/questions/30234496/why-do-we-need-to-call-poll-wait-in-poll/44645480#44645480
 
 ==== ioctl
 

@@ -7,8 +7,8 @@
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_release */
 #include <uapi/linux/stat.h> /* S_IRUSR | S_IWUSR */
 
-static u32 i = 0;
-static u32 j = 0;
+static int i = 0;
+static int j = 0;
 module_param(i, int, S_IRUSR | S_IWUSR);
 module_param(j, int, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(i, "my favorite int");
