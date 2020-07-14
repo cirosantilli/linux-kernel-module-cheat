@@ -9766,8 +9766,9 @@ I've contacted the awesome original author author of `edu` https://github.com/ji
 
 TODO exercise DMA on the kernel module. The `edu` hardware model has that feature:
 
-* https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
 * https://stackoverflow.com/questions/17913679/how-to-instantiate-and-use-a-dma-driver-linux-module
+* https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
+* https://stackoverflow.com/questions/62831327/add-memory-device-to-qemu
 
 ===== Manipulate PCI registers directly
 
@@ -13411,11 +13412,11 @@ Caches do make a difference here of course, and lead to much faster memory retur
 
 ===== gem5 MinorCPU
 
-Generic in-order core that does not model any specific CPU.
+Generic <<out-of-order-execution,in-order>> <<superscalar-processor,superscalar>> core.
 
 Its C++ implementation that can be parametrized to more closely match real cores.
 
-Note that since gem5 is highly parametrizable, the parametrization could even change which instructions a CPU can execute by altering its available https://en.wikipedia.org/wiki/Execution_unit[functional units], which are used to model performance.
+Note that since gem5 is highly parametrizable, the parametrization could even change which instructions a CPU can execute by altering its available <<gem5-functional-units,functional units>>, which are used to model performance.
 
 For example, `MinorCPU` allows all implemented instructions, including <<arm-sve>> instructions, but a derived class modelling, say, an https://en.wikipedia.org/wiki/ARM_Cortex-A7[ARM Cortex A7 core], might not, since SVE is a newer feature and the A7 core does not have SVE.
 
@@ -13449,13 +13450,32 @@ ____
 +
 Implemented by Pierre-Yves Péneau from LIRMM, which is a research lab in Montpellier, France, in 2017.
 
-===== gem5 DerivO3CPU
+===== gem5 `DerivO3CPU`
 
 Generic <<out-of-order-execution,out-of-order core>>. "O3" Stands for "Out Of Order"!
+
+Basic documentation on the old gem5 wiki: http://www.m5sim.org/O3CPU
 
 Analogous to <<gem5-minorcpu,MinorCPU>>, but modelling an out of order core instead of in order.
 
 A commented execution example can be seen at: <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis>>.
+
+The default <<execution-unit,functional units>> are described at: <<gem5-derivo3cpu-default-functional-units>>. All default widths are set to 8 instructions, from the <<gem5-config-ini,`config.ini`>>:
+
+....
+[system.cpu]
+type=DerivO3CPU
+commitWidth=8
+decodeWidth=8
+dispatchWidth=8
+fetchWidth=8
+issueWidth=8
+renameWidth=8
+squashWidth=8
+wbWidth=8
+....
+
+This can be observed for example at: <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless>>.
 
 Existing parametrizations:
 
@@ -13469,6 +13489,46 @@ ____
 Not sure why it has v7a in the name, since I believe the CPUs are just the microarchitectural implementation of any ISA, and the v8 hello world did run.
 +
 The CLI option is named slightly differently as: `--cpu-type O3_ARM_v7a_3`.
+
+====== gem5 util/o3-pipeview.py O3 pipeline viewer
+[[gem5-util-o3-pipeview-py-o3-pipeline-viewer]]
+
+Mentioned at: http://www.m5sim.org/Visualization
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace O3PipeView \
+  --trace-stdout \
+  -- \
+  --cpu-type DerivO3CPU \
+  --caches \
+  > o3pipeview.tmp.log
+;
+"$(./getvar gem5_source_dir)/util/o3-pipeview.py" -c 500 -o o3pipeview-post.tmp.log --color o3pipeview.tmp.log
+less -R o3pipeview-post.tmp.log
+....
+
+Or without color:
+
+....
+"$(./getvar gem5_source_dir)/util/o3-pipeview.py" -c 500 -o o3pipeview-post.tmp.log o3pipeview.tmp.log
+less o3pipeview-post.tmp.log
+....
+
+A sample output for this can be seen at: <<hazardless-o3-pipeline>>.
+
+====== gem5 Konata O3 pipeline viewer
+
+https://github.com/shioyadan/Konata
+
+http://learning.gem5.org/tutorial/presentations/vis-o3-gem5.pdf
+
+Appears to be browser based, so you can zoom in and out, rather than the forced wrapping as for <<gem5-util-o3-pipeview-py-o3-pipeline-viewer>>.
+
+Uses the same data source as `util/o3-pipeview.py`.
 
 ==== gem5 ARM RSK
 
@@ -15839,9 +15899,274 @@ and then the MOV issue follows soon afterwards (TODO why not at the same time li
  132500: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/2/4.4 pc: 0x400084 (movz) into FU 0
 ....
 
+====== gem5 event queue MinorCPU syscall emulation freestanding example analysis: hazard
+
+TODO like <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazard>> but with the hazard.
+
 ===== gem5 event queue DerivO3CPU syscall emulation freestanding example analysis
 
-TODO: like <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>> but even more complex!
+Like <<gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis>> but even more complex since for the <<gem5-derivo3cpu>>!
+
+The key new <<gem5-tracing,debug flag>> is `O3CPUAll`:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace FmtFlag,Cache,Event,ExecAll,O3CPUAll \
+  --trace-stdout \
+  -- \
+  --cpu-type DerivO3CPU \
+  --caches \
+;
+....
+
+The output is huge and contains about 7 thousand lines!!!
+
+====== gem5 event queue DerivO3CPU syscall emulation freestanding example analysis: hazardless
+
+Let's  have a look at the arguably simplest example link:userland/arch/aarch64/freestanding/linux/hazardless.S[].
+
+First let's start with a <<gem5-util-o3-pipeview-py-o3-pipeline-viewer>> visualization:
+
+[[hazardless-o3-pipeline]]
+----
+// f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
+
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
+[.ic.r........................................................................fdn]-(          40000) 0x00400078.0 movz x0, #0, #0           [         1]
+[.ic.r........................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [         4]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
+[....................fdn.ic.r....................................................]-(         120000) 0x0040008c.0 movz x5, #5, #0           [         6]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400090.0 movz x6, #6, #0           [         7]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400094.0 movz x7, #7, #0           [         8]
+[....................fdn.pic.r...................................................]-(         120000) 0x00400098.0 movz x8, #8, #0           [         9]
+[....................fdn.pic.r...................................................]-(         120000) 0x0040009c.0 movz x9, #9, #0           [        10]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a0.0 movz x10, #10, #0         [        11]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a4.0 movz x11, #11, #0         [        12]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a8.0 movz x12, #12, #0         [        13]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000ac.0 movz x13, #13, #0         [        14]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b0.0 movz x14, #14, #0         [        15]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b4.0 movz x15, #15, #0         [        16]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b8.0 movz x16, #16, #0         [        17]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000bc.0 movz x17, #17, #0         [        18]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c0.0 movz x18, #18, #0         [        19]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c4.0 movz x19, #19, #0         [        20]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c8.0 movz x20, #20, #0         [        21]
+[............................................fdn.ic.r............................]-(         160000) 0x004000cc.0 movz x21, #21, #0         [        22]
+[............................................fdn.ic.r............................]-(         160000) 0x004000d0.0 movz x22, #22, #0         [        23]
+[............................................fdn.ic.r............................]-(         160000) 0x004000d4.0 movz x23, #23, #0         [        24]
+[............................................fdn.pic.r...........................]-(         160000) 0x004000d8.0 movz x24, #24, #0         [        25]
+[............................................fdn.pic.r...........................]-(         160000) 0x004000dc.0 movz x25, #25, #0         [        26]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e0.0 movz x26, #26, #0         [        27]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e4.0 movz x27, #27, #0         [        28]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e8.0 movz x28, #28, #0         [        29]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000ec.0 movz x29, #29, #0         [        30]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000f0.0 movz x0, #0, #0           [        31]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000f4.0 movz x1, #1, #0           [        32]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000f8.0 movz x2, #2, #0           [        33]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000fc.0 movz x3, #3, #0           [        34]
+----
+
+The first of instructions has only two instructions because the first instruction is at address 0x400078, so only two instructions fit on that cache line, as the next cache line starts at 0x400080!
+
+The initial `fdn` on top middle is likely bugged out, did it wrap around? But the rest makes sense.
+
+From this, we clearly see that up to 8 instructions can be issued concurrently, which matches the default width values we had seen at <<gem5-derivo3cpu>>.
+
+For example, we can clearly see how:
+
+* `movz x2` through to `movz x9` start running at the exact same time. TODO why does `mov x7` do `fdn.ic.r` while `mov x8` do `fdn.ic.r`? How are they different?
+* `movz x10` through `movz x17` then starts running one step later. This second chunk is fully pipelined with the first instruction pack
+* then comes a pause while the next fetch comes back. This group of 16 instructions took up the entire 64-byte cacheline that had been read
+
+First we can have a look at `ExecEnable` to get an initial ideal of how many instructions are run at one time:
+
+....
+  78500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  FetchSeq=1  CPSeq=1  flags=(IsInteger)
+  78500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   movz   x1, #1, #0        : IntAlu :  D=0x0000000000000001  FetchSeq=2  CPSeq=2  flags=(IsInteger)
+
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   movz   x2, #2, #0        : IntAlu :  D=0x0000000000000002  FetchSeq=3  CPSeq=3  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x3, #3, #0        : IntAlu :  D=0x0000000000000003  FetchSeq=4  CPSeq=4  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   movz   x4, #4, #0        : IntAlu :  D=0x0000000000000004  FetchSeq=5  CPSeq=5  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x5, #5, #0        : IntAlu :  D=0x0000000000000005  FetchSeq=6  CPSeq=6  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x6, #6, #0        : IntAlu :  D=0x0000000000000006  FetchSeq=7  CPSeq=7  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   movz   x7, #7, #0        : IntAlu :  D=0x0000000000000007  FetchSeq=8  CPSeq=8  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+32    :   movz   x8, #8, #0        : IntAlu :  D=0x0000000000000008  FetchSeq=9  CPSeq=9  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   movz   x9, #9, #0        : IntAlu :  D=0x0000000000000009  FetchSeq=10  CPSeq=10  flags=(IsInteger)
+
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+40    :   movz   x10, #10, #0      : IntAlu :  D=0x000000000000000a  FetchSeq=11  CPSeq=11  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+44    :   movz   x11, #11, #0      : IntAlu :  D=0x000000000000000b  FetchSeq=12  CPSeq=12  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+48    :   movz   x12, #12, #0      : IntAlu :  D=0x000000000000000c  FetchSeq=13  CPSeq=13  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+52    :   movz   x13, #13, #0      : IntAlu :  D=0x000000000000000d  FetchSeq=14  CPSeq=14  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+56    :   movz   x14, #14, #0      : IntAlu :  D=0x000000000000000e  FetchSeq=15  CPSeq=15  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+60    :   movz   x15, #15, #0      : IntAlu :  D=0x000000000000000f  FetchSeq=16  CPSeq=16  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+64    :   movz   x16, #16, #0      : IntAlu :  D=0x0000000000000010  FetchSeq=17  CPSeq=17  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+68    :   movz   x17, #17, #0      : IntAlu :  D=0x0000000000000011  FetchSeq=18  CPSeq=18  flags=(IsInteger)
+....
+
+This suggests 8, but remember that `ExecEnable` shows issue time labels, which do not coincide necessarily with commit times. As we saw in the pipeline viewer above, instructions 9 and 10 have one extra stage.
+
+After the initial two execs from the first cache line, the full commit log chunk around the first group of six `ExecEnable`s looks like:
+
+....
+ 133500: Commit: system.cpu.commit: Getting instructions from Rename stage.
+ 133500: Commit: system.cpu.commit: Trying to commit instructions in the ROB.
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:3]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:3] Committing instruction with PC (0x400080=>0x400084).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   movz   x2, #2, #0        : IntAlu :  D=0x0000000000000002  FetchSeq=3  CPSeq=3  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400080=>0x400084).(0=>1), [sn:3]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400080=>0x400084).(0=>1) [sn:3]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:4]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:4] Committing instruction with PC (0x400084=>0x400088).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x3, #3, #0        : IntAlu :  D=0x0000000000000003  FetchSeq=4  CPSeq=4  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400084=>0x400088).(0=>1), [sn:4]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400084=>0x400088).(0=>1) [sn:4]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:5]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:5] Committing instruction with PC (0x400088=>0x40008c).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   movz   x4, #4, #0        : IntAlu :  D=0x0000000000000004  FetchSeq=5  CPSeq=5  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400088=>0x40008c).(0=>1), [sn:5]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400088=>0x40008c).(0=>1) [sn:5]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:6]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:6] Committing instruction with PC (0x40008c=>0x400090).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x5, #5, #0        : IntAlu :  D=0x0000000000000005  FetchSeq=6  CPSeq=6  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x40008c=>0x400090).(0=>1), [sn:6]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x40008c=>0x400090).(0=>1) [sn:6]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:7]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:7] Committing instruction with PC (0x400090=>0x400094).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x6, #6, #0        : IntAlu :  D=0x0000000000000006  FetchSeq=7  CPSeq=7  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400090=>0x400094).(0=>1), [sn:7]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400090=>0x400094).(0=>1) [sn:7]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:8]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:8] Committing instruction with PC (0x400094=>0x400098).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   movz   x7, #7, #0        : IntAlu :  D=0x0000000000000007  FetchSeq=8  CPSeq=8  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400094=>0x400098).(0=>1), [sn:8]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400094=>0x400098).(0=>1) [sn:8]
+
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x400098=>0x40009c).(0=>1), [sn:9] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x40009c=>0x4000a0).(0=>1), [sn:10] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000a0=>0x4000a4).(0=>1), [sn:11] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000a4=>0x4000a8).(0=>1), [sn:12] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000a8=>0x4000ac).(0=>1), [sn:13] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000ac=>0x4000b0).(0=>1), [sn:14] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Instruction [sn:9] PC (0x400098=>0x40009c).(0=>1) is head of ROB and ready to commit
+ 133500: Commit: system.cpu.commit: [tid:0] ROB has 10 insts & 182 free entries.
+....
+
+`ROB` stands for <<re-order-buffer>>.
+
+`0x400080=>0x400084` is an old/new PC address of the first committed instruction.
+
+Another thing we can do, it to try to follow one of the instructions back as it goes through the pipeline. Searching for example for the address `0x400080`, we find:
+
+The first mention of the address happens when is the fetch of the two initial instructions completes. TODO not sure why it doesn't just also fetch the next cache line at the same time:
+
+....
+FullO3CPU: Ticking main, FullO3CPU.
+  78500: Fetch: system.cpu.fetch: Running stage.
+  78500: Fetch: system.cpu.fetch: Attempting to fetch from [tid:0]
+  78500: Fetch: system.cpu.fetch: [tid:0] Icache miss is complete.
+  78500: Fetch: system.cpu.fetch: [tid:0] Adding instructions to queue to decode.
+  78500: DynInst: global: DynInst: [sn:1] Instruction created. Instcount for system.cpu = 1
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x400078 (0) created [sn:1].
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x0, #0, #0
+  78500: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (1/32).
+  78500: DynInst: global: DynInst: [sn:2] Instruction created. Instcount for system.cpu = 2
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x40007c (0) created [sn:2].
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x1, #1, #0
+  78500: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (2/32).
+  78500: Fetch: system.cpu.fetch: [tid:0] Issuing a pipelined I-cache access, starting at PC (0x400080=>0x400084).(0=>1).
+  78500: Fetch: system.cpu.fetch: [tid:0] Fetching cache line 0x400080 for addr 0x400080
+....
+
+so we observe that the first two instructions arrived, and the CPU noticed that 0x400080 hasn't been fetched yet.
+
+Then for several cycles that follow, the fetch stage just says that it is blocked on data returning, e.g. the 
+
+....
+FullO3CPU: Ticking main, FullO3CPU.
+  79000: Fetch: system.cpu.fetch: Running stage.
+  79000: Fetch: system.cpu.fetch: There are no more threads available to fetch from.
+  79000: Fetch: system.cpu.fetch: [tid:0] Fetch is waiting cache response!
+....
+
+At the same time, the execution of the initial 2 instructions progresses through the pipeline.
+
+These progress up until:
+
+....
+  88000: O3CPU: system.cpu: Idle!
+....
+
+at which point there are no more events scheduled besides waiting for the second cache line to come back.
+
+After this, some time passes without events, and the next tick happens when the fetch data returns:
+
+....
+FullO3CPU: Ticking main, FullO3CPU.
+ 130000: Fetch: system.cpu.fetch: Running stage.
+ 130000: Fetch: system.cpu.fetch: Attempting to fetch from [tid:0]
+ 130000: Fetch: system.cpu.fetch: [tid:0] Icache miss is complete.
+ 130000: Fetch: system.cpu.fetch: [tid:0] Adding instructions to queue to decode.
+ 130000: DynInst: global: DynInst: [sn:3] Instruction created. Instcount for system.cpu = 1
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x400080 (0) created [sn:3].
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x2, #2, #0
+ 130000: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (1/32).
+ 130000: DynInst: global: DynInst: [sn:4] Instruction created. Instcount for system.cpu = 2
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x400084 (0) created [sn:4].
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x3, #3, #0
+ 130000: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (2/32).
+ 130000: DynInst: global: DynInst: [sn:5] Instruction created. Instcount for system.cpu = 3
+....
+
+====== gem5 event queue DerivO3CPU syscall emulation freestanding example analysis: hazard
+
+Now let's do the same as in <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless>> but with a hazard: link:userland/arch/aarch64/freestanding/linux/hazard.S[].
+
+....
+// f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
+
+                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+[.ic.r........................................................................fdn]-(          40000) 0x00400078.0 movz x0, #0, #0           [         1]
+[.ic.r........................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
+[....................fdn.pic.r...................................................]-(         120000) 0x00400084.0 add x3, x2, #1            [         4]
+[....................fdn.ic..r...................................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
+[....................fdn.ic..r...................................................]-(         120000) 0x0040008c.0 movz x5, #5, #0           [         6]
+[....................fdn.ic..r...................................................]-(         120000) 0x00400090.0 movz x6, #6, #0           [         7]
+[....................fdn.ic..r...................................................]-(         120000) 0x00400094.0 movz x7, #7, #0           [         8]
+[....................fdn.ic..r...................................................]-(         120000) 0x00400098.0 movz x8, #8, #0           [         9]
+[....................fdn.pic.r...................................................]-(         120000) 0x0040009c.0 movz x9, #9, #0           [        10]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a0.0 movz x10, #10, #0         [        11]
+[.....................fdn.ic..r..................................................]-(         120000) 0x004000a4.0 movz x11, #11, #0         [        12]
+[.....................fdn.ic..r..................................................]-(         120000) 0x004000a8.0 movz x12, #12, #0         [        13]
+[.....................fdn.ic..r..................................................]-(         120000) 0x004000ac.0 movz x13, #13, #0         [        14]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b0.0 movz x14, #14, #0         [        15]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b4.0 movz x15, #15, #0         [        16]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b8.0 movz x16, #16, #0         [        17]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000bc.0 movz x17, #17, #0         [        18]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c0.0 movz x18, #18, #0         [        19]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c4.0 movz x19, #19, #0         [        20]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c8.0 movz x20, #20, #0         [        21]
+[............................................fdn.ic.r............................]-(         160000) 0x004000cc.0 movz x21, #21, #0         [        22]
+[............................................fdn.ic.r............................]-(         160000) 0x004000d0.0 movz x22, #22, #0         [        23]
+[............................................fdn.ic.r............................]-(         160000) 0x004000d4.0 movz x23, #23, #0         [        24]
+[............................................fdn.pic.r...........................]-(         160000) 0x004000d8.0 movz x24, #24, #0         [        25]
+[............................................fdn.pic.r...........................]-(         160000) 0x004000dc.0 movz x25, #25, #0         [        26]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e0.0 movz x0, #0, #0           [        27]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e4.0 movz x8, #93, #0          [        28]
+....
+
+TODO understand how the hazard happens in detail.
 
 ==== gem5 instruction definitions
 
@@ -17004,7 +17329,9 @@ BaseSimpleCPU::BaseSimpleCPU(BaseSimpleCPUParams *p)
 
 ==== gem5 functional units
 
-Each instruction is marked with a class, and each class can execute in a given functional unit.
+Each instruction is marked with a class, and each class can execute in a given <<execution-unit,functional unit>>.
+
+===== gem5 `MinorCPU` default functional units
 
 Which units are available is visible for example on the <<gem5-config-ini>> of a <<gem5-minorcpu>> run. Functional units are not present in simple CPUs like <<gem5-timingsimplecpu>>.
 
@@ -17016,7 +17343,6 @@ For example, on gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1, the `config.ini` 
   --emulator gem5 \
   --userland userland/arch/aarch64/freestanding/linux/hello.S \
   --trace-insts-stdout \
-  -N1 \
   -- \
   --cpu-type MinorCPU \
   --caches
@@ -17117,6 +17443,80 @@ For example: `class AddImm`, which is what we get on a simple `add x1, x2, 0`, s
         : DataImmOp("add", machInst, IntAluOp,
                          _dest, _op1, _imm, _rotC)
 ....
+
+===== gem5 DerivO3CPU default functional units
+
+On gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772, after running:
+
+....
+./run   \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace-insts-stdout \
+  -- \
+  --cpu-type Derivo3CPU \
+  --caches
+....
+
+we see:
+
+....
+[system.cpu]
+type=DerivO3CPU
+children=branchPred dcache dtb fuPool icache interrupts isa itb power_state tracer workload
+....
+
+and following `fuPool`:
+
+....
+[system.cpu.fuPool]
+type=FUPool
+children=FUList0 FUList1 FUList2 FUList3 FUList4 FUList5 FUList6 FUList7 FUList8 FUList9
+....
+
+so for example `FUList0` is:
+
+....
+[system.cpu.fuPool.FUList0]
+type=FUDesc
+children=opList
+count=6
+eventq_index=0
+opList=system.cpu.fuPool.FUList0.opList
+
+[system.cpu.fuPool.FUList0.opList]
+type=OpDesc
+eventq_index=0
+opClass=IntAlu
+opLat=1
+pipelined=true
+....
+
+and `FUList1`:
+
+....
+[system.cpu.fuPool.FUList1.opList0]
+type=OpDesc
+eventq_index=0
+opClass=IntMult
+opLat=3
+pipelined=true
+
+[system.cpu.fuPool.FUList1.opList1]
+type=OpDesc
+eventq_index=0
+opClass=IntDiv
+opLat=20
+pipelined=false
+....
+
+So summarizing all units we have:
+
+* 0, 1: `IntAlu` with `opLat=3`
+* 2: `IntMult` with `opLat=3` and `IntDiv` with `opLat=20`
+* 3: `FloatAdd`, `FloatCmp`, `FloatCvt` with `opLat=2`
+* TODO lazy to finish the list :-)
 
 ==== gem5 code generation
 
@@ -18137,7 +18537,7 @@ Manually cross compile all tests and optionally add some extra options, e.g. `-s
 
 ....
 PERL5LIB="${PERL5LIB}:." ./runtest.pl --lang=c --makeopts 'CC=aarch64-linux-gnu-gcc CFLAGS_EXTRA=-static' --norun testlist-c.txt
-./../../run --arch aarch64 --emulator gem5 --userland submodules/omp-validation/bin/c/test_omp_parallel_reduction -N1 --cpus 8 --memory 8G
+./../../run --arch aarch64 --emulator gem5 --userland submodules/omp-validation/bin/c/test_omp_parallel_reduction --cpus 8 --memory 8G
 ....
 
 Build a single test:
@@ -24146,7 +24546,7 @@ Same but with: <<gem5-arm-linux-kernel-patches>> at v4.15: 73s, kernel size: 132
 On Ubuntu 20.04 gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772 this took 22 minutes 53 seconds:
 
 ....
-./run -aa -eg --cpus 2 -N1 --tmux --quit-after-boot -- --cpu-type DerivO3CPU --caches
+./run -aa -eg --cpus 2 --tmux --quit-after-boot -- --cpu-type DerivO3CPU --caches
 ....
 
 ===== gem5 arm HPI boot takes much longer than aarch64
@@ -24807,17 +25207,23 @@ https://en.wikipedia.org/wiki/Superscalar_processor
 
 http://www.lighterra.com/papers/modernmicroprocessors/ explains it well.
 
-You basically decode multiple instructions in one go, and run them at the same time if they can go in separate funcdtional units and have no conflicts. Genious!
+You basically decode multiple instructions in one go, and run them at the same time if they can go in separate <<execution-unit,functional units>> and have no conflicts. Genius!
 
 And so the concept of <<branch-predictor,branch predictor>> must come in here: when a conditional branch is reached, you have to decide which side to execute before knowing for sure.
 
 This is why it is called a type of <<instruction-level-parallelism>>.
 
-TODO in gem5? gem5 definitely has functional units explicitly modelled: <<gem5-functional-units>>, so do <<gem5-minorcpu>> or <<gem5-derivo3cpu>> have it?
-
 Although this is a microarchitectural feature, it is so important that it is publicly documented. For example:
 
 * https://en.wikipedia.org/wiki/ARM_Cortex-A77[]: ARM Cortex A77 (2019) has a 4-wide superscalar decode (and is <<out-of-order-execution,out-of-order>>)
+
+==== Execution unit
+
+https://en.wikipedia.org/wiki/Execution_unit
+
+gem5 calls them "functional units".
+
+gem5 has <<execution-unit,functional units>> explicitly modelled as shown at <<gem5-functional-units>>, and those are used by both <<gem5-minorcpu>> and <<gem5-derivo3cpu>>.
 
 === Out-of-order execution
 
@@ -24827,7 +25233,17 @@ gem5's model is <<gem5-derivo3cpu>>.
 
 Allows working around data dependencies: you can execute the second next instruction forward if the first next depends on the current one.
 
-As mentioned at: https://stackoverflow.com/questions/10074831/what-is-general-difference-between-superscalar-and-ooo-execution likely all out-o
+Likely used on basically all (?) 2020 non-power-constrained CPUs.
+
+As mentioned at: https://stackoverflow.com/questions/10074831/what-is-general-difference-between-superscalar-and-ooo-execution it is in theory possible for an out-of-order CPU to not a <<superscalar-processor>>, but the combination is so natural (since you can look ahead, you might as well run it!) that it is not super common.
+
+==== Re-order buffer
+
+https://en.wikipedia.org/wiki/Re-order_buffer
+
+==== Register renaming
+
+https://en.wikipedia.org/wiki/Register_renaming
 
 === Instruction level parallelism
 

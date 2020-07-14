@@ -5,7 +5,7 @@
 _start:
 asm_main_after_prologue:
     sevl
-    /* Shoul not sleep due to above sevl. */
+    /* Should not sleep due to above sevl. */
     wfe
 
     /* exit */
