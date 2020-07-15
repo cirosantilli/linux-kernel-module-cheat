@@ -1,4 +1,4 @@
-/* An example that has a simple hazard.
+/* An example that does not have any CPU pipeline hazards, to observe
  * the simpliest possible steady state of CPU execution.
  * Useful during microarchitectural analysis such as:
  * https://cirosantilli.com/linux-kernel-module-cheat#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis  
@@ -8,20 +8,25 @@
 .global _start
 _start:
 asm_main_after_prologue:
-    /* Skip these two instructions to align with the cache line.
-     * Now that's some proper microbenchmarking!
-     * https://cirosantilli.com/linux-kernel-module-cheat#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless */
-    mov x0, 0
+
+    /* ifetch 1 */
+    /* argc */
+    ldr x0, [sp]
     mov x1, 1
 
+    /* ifetch 2 */
+.Lifetch2:
     mov x2, 2
-    add x3, x2, 1
+    mov x3, 3
     mov x4, 4
     mov x5, 5
     mov x6, 6
-    mov x7, 7
-    mov x8, 8
-    mov x9, 9
+    /* Check if a CLi argument was passed. */
+    cmp x0, 2
+    /* Ensure that we will break out on the next loop. */
+    mov x0, 3
+    blt .Lifetch2
+
     mov x10, 10
     mov x11, 11
     mov x12, 12
@@ -30,14 +35,6 @@ asm_main_after_prologue:
     mov x15, 15
     mov x16, 16
     mov x17, 17
-    mov x18, 18
-    mov x19, 19
-    mov x20, 20
-    mov x21, 21
-    mov x22, 22
-    mov x23, 23
-    mov x24, 24
-    mov x25, 25
 
     /* exit */
     mov x0, 0
