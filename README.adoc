@@ -9481,7 +9481,7 @@ https://en.wikipedia.org/wiki/QEMU[QEMU] is a system simulator: it simulates a C
 
 If you are familiar with https://en.wikipedia.org/wiki/VirtualBox[VirtualBox], then QEMU then basically does the same thing: it opens a "window" inside your desktop that can run an operating system inside your operating system.
 
-Also both can use very similar techniques: either https://en.wikipedia.org/wiki/Binary_translation[binary translation] or <<KVM>>. VirtualBox' binary translator is / was based on QEMU's it seems: https://en.wikipedia.org/wiki/VirtualBox#Software-based_virtualization
+Also both can use very similar techniques: either <<binary-translation>> or <<KVM>>. VirtualBox' binary translator is / was based on QEMU's it seems: https://en.wikipedia.org/wiki/VirtualBox#Software-based_virtualization
 
 The huge advantage of QEMU over VirtualBox is that is supports cross arch simulation, e.g. simulate an ARM guest on an x86 host.
 
@@ -9494,6 +9494,12 @@ Another advantage of QEMU is that is has no nice configuration GUI. Because who 
 QEMU is also supported by Buildroot in-tree, see e.g.: https://github.com/buildroot/buildroot/blob/2018.05/configs/qemu_aarch64_virt_defconfig We however just build our own manually with link:build-qemu[], as it gives more flexibility, and building QEMU is very easy!
 
 All of this makes QEMU the natural choice of reference system simulator for this repo.
+
+=== Binary translation
+
+https://en.wikipedia.org/wiki/Binary_translation
+
+Used by <<qemu>> and <<gensim>>.
 
 === Disk persistency
 
@@ -13490,6 +13496,16 @@ Not sure why it has v7a in the name, since I believe the CPUs are just the micro
 +
 The CLI option is named slightly differently as: `--cpu-type O3_ARM_v7a_3`.
 
+====== gem5 `DerivO3CPU` pipeline stages
+
+* fetch: besides obviously fetching the instruction, this is also where branch prediction runs. Presumably because you need to branch predict before deciding what to fetch next.
+
+* retire: the instruction is completely and totally done with.
++
+Mispeculated instructions never reach this stage as can be seen at: <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-speculative>>.
++
+The `ExecAll` happens at this time as well. And therefore `ExecAll` does not happen for mispeculated instructions.
+
 ====== gem5 util/o3-pipeview.py O3 pipeline viewer
 [[gem5-util-o3-pipeview-py-o3-pipeline-viewer]]
 
@@ -16450,6 +16466,85 @@ Then, at time 120000, the LDR data came back, after the wrong prediction had alr
 
 The CPU then noticed that it mispredicted, and so it started again from the correct branch target `movz x2`, and the instructions that were thrown away are marked as `=====` in the timeline.
 
+We can also see some <<branch-predictor>> log lines in the `O3CPUAll` log:
+
+....
+ 130000: Fetch: system.cpu.fetch: [tid:0] [sn:10] Branch at PC 0x40009c predicted to be not taken
+ 130000: Fetch: system.cpu.fetch: [tid:0] [sn:10] Branch at PC 0x40009c predicted to go to (0x4000a0=>0x4000a4).(0=>1)
+
+ 131500: Commit: system.cpu.commit: [tid:10] [sn:0] Inserting PC (0x40009c=>0x4000a0).(0=>1) into ROB.
+ 131500: ROB: system.cpu.rob: Adding inst PC (0x40009c=>0x4000a0).(0=>1) to the ROB.
+ 131500: ROB: system.cpu.rob: [tid:0] Now has 10 instructions.
+
+ 132000: IEW: system.cpu.iew: [tid:0] Issue: Adding PC (0x40009c=>0x4000a0).(0=>1) [sn:10] [tid:0] to IQ.
+ 132000: IQ: system.cpu.iq: Adding instruction [sn:10] PC (0x40009c=>0x4000a0).(0=>1) to the IQ.
+ 132000: IQ: system.cpu.iq: Instruction PC (0x40009c=>0x4000a0).(0=>1) has src reg 6 (CCRegClass) that is being added to the dependency chain.
+ 132000: IQ: system.cpu.iq: Instruction PC (0x40009c=>0x4000a0).(0=>1) has src reg 8 (CCRegClass) that is being added to the dependency chain.
+ 132000: IQ: system.cpu.iq: Instruction PC (0x40009c=>0x4000a0).(0=>1) has src reg 7 (CCRegClass) that is being added to the dependency chain.
+
+ 135500: IQ: system.cpu.iq: Waking up a dependent instruction, [sn:10] PC (0x40009c=>0x4000a0).(0=>1).
+ 135500: IQ: global: [sn:10] has 1 ready out of 3 sources. RTI 0)
+ 135500: IQ: system.cpu.iq: Waking any dependents on register 7 (CCRegClass).
+ 135500: IQ: system.cpu.iq: Waking up a dependent instruction, [sn:10] PC (0x40009c=>0x4000a0).(0=>1).
+ 135500: IQ: global: [sn:10] has 2 ready out of 3 sources. RTI 0)
+ 135500: IQ: system.cpu.iq: Waking any dependents on register 8 (CCRegClass).
+ 135500: IQ: system.cpu.iq: Waking up a dependent instruction, [sn:10] PC (0x40009c=>0x4000a0).(0=>1).
+ 135500: IQ: global: [sn:10] has 3 ready out of 3 sources. RTI 0)
+ 135500: IQ: system.cpu.iq: Instruction is ready to issue, putting it onto the ready list, PC (0x40009c=>0x4000a0).(0=>1) opclass:1 [sn:10].
+ 135500: IEW: system.cpu.iew: Setting Destination Register 6 (CCRegClass)
+ 135500: Scoreboard: system.cpu.scoreboard: Setting reg 6 (CCRegClass) as ready
+ 135500: IEW: system.cpu.iew: Setting Destination Register 7 (CCRegClass)
+ 135500: Scoreboard: system.cpu.scoreboard: Setting reg 7 (CCRegClass) as ready
+ 135500: IEW: system.cpu.iew: Setting Destination Register 8 (CCRegClass)
+ 135500: Scoreboard: system.cpu.scoreboard: Setting reg 8 (CCRegClass) as ready
+ 135500: IQ: system.cpu.iq: Attempting to schedule ready instructions from the IQ.
+ 135500: IQ: system.cpu.iq: Thread 0: Issuing instruction PC (0x40009c=>0x4000a0).(0=>1) [sn:10]
+
+ 136000: IEW: system.cpu.iew: Execute: Processing PC (0x40009c=>0x4000a0).(0=>1), [tid:0] [sn:10].
+ 136000: IEW: global: RegFile: Access to cc register 6, has data 0x2
+ 136000: IEW: global: RegFile: Access to cc register 8, has data 0
+ 136000: IEW: global: RegFile: Access to cc register 7, has data 0
+ 136000: IEW: system.cpu.iew: Current wb cycle: 0, width: 8, numInst: 0
+wbActual:0
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Execute: Branch mispredict detected.
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Predicted target was PC: (0x4000a0=>0x4000a4).(0=>1)
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Execute: Redirecting fetch to PC: (0x40009c=>0x400080).(0=>1)
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Squashing from a specific instruction, PC: (0x40009c=>0x400080).(0=>1) 
+
+ 136500: Commit: system.cpu.commit: [tid:0] Squashing due to branch mispred PC:0x40009c [sn:10]
+ 136500: Commit: system.cpu.commit: [tid:0] Redirecting to PC 0x400084
+ 136500: ROB: system.cpu.rob: Starting to squash within the ROB.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instructions until [sn:10].
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000bc=>0x4000c0).(0=>1), seq num 18.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000b8=>0x4000bc).(0=>1), seq num 17.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000b4=>0x4000b8).(0=>1), seq num 16.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000b0=>0x4000b4).(0=>1), seq num 15.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000ac=>0x4000b0).(0=>1), seq num 14.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000a8=>0x4000ac).(0=>1), seq num 13.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000a4=>0x4000a8).(0=>1), seq num 12.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000a0=>0x4000a4).(0=>1), seq num 11.
+ 136500: ROB: system.cpu.rob: [tid:0] Done squashing instructions.
+ 136500: Commit: system.cpu.commit: [tid:0] Marking PC (0x40009c=>0x400080).(0=>1), [sn:10] ready within ROB.
+
+ 137000: Commit: system.cpu.commit: [tid:0] [sn:10] Committing instruction with PC (0x40009c=>0x400080).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   b.lt   0x400080          : IntAlu :   FetchSeq=10  CPSeq=10  flags=(IsControl|IsDirectControl|IsCondControl)
+ 137000: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x40009c=>0x400080).(0=>1), [sn:10]
+ 137000: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x40009c=>0x400080).(0=>1) [sn:10]
+ 137000: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:11]
+ 137000: Commit: system.cpu.commit: Retiring squashed instruction from ROB.
+
+ 137000: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:10]
+ 137000: Commit: system.cpu.commit: [tid:0] [sn:10] Committing instruction with PC (0x40009c=>0x400080).(0=>1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   b.lt   0x400080          : IntAlu :   FetchSeq=10  CPSeq=10  flags=(IsControl|IsDirectControl|IsCondControl)
+
+ 138500: Fetch: system.cpu.fetch: [tid:0] [sn:26] Branch at PC 0x40009c predicted to be not taken
+ 138500: Fetch: system.cpu.fetch: [tid:0] [sn:26] Branch at PC 0x40009c predicted to go to (0x4000a0=>0x4000a4).(0=>1)
+
+ 142500: Commit: system.cpu.commit: [tid:0] [sn:26] Committing instruction with PC (0x40009c=>0x4000a0).(0=>1)
+ 138500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   b.lt   0x400080          : IntAlu :   FetchSeq=26  CPSeq=18  flags=(IsControl|IsDirectControl|IsCondControl)
+ 142500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x40009c=>0x4000a0).(0=>1), [sn:26]
+....
+
 With an extra CLI (the branch is not taken):
 
 ....
@@ -18004,6 +18099,83 @@ The horrendous downsides of this are:
 * It is likely preventing <<ccache>> hits when building to different output paths, because it makes the `-I` includes point to different paths. This is especially important for <<gem5-ruby-build>>, which could have the exact same source files as the non-Ruby builds: https://stackoverflow.com/questions/60340271/can-ccache-handle-symlinks-to-the-same-input-source-file-as-hits
 * when <<debug-the-emulator,debugging the emulator>>, it shows you directories inside the build directory rather than in the source tree
 * it is harder to separate which files are <<gem5-code-generation,generated>> and which are in-tree when grepping for code generated definitions
+
+=== Gensim
+
+https://gensim.org
+
+https://bitbucket.org/gensim/gensim
+
+MIT licensed <<binary-translation>> simulator, so a bit like an MIT <<qemu>>.
+
+Video showing it boot Linux fast: https://www.youtube.com/watch?v=aZXx17oYumc
+
+Its name is unfortunately completely and totally overshadowed by an unrelated software with the sane name: https://radimrehurek.com/gensim/
+
+TODO: advantages over QEMU. Like the name implies, they seem to have a nice ISA description language. From quick internals look, seems to generate LLVM intermediate language, which sound good.
+
+Build on Ubuntu 20.04:
+
+....
+sudo apt install libantlr3c-dev
+cd submodule/gensim
+make
+....
+
+First fails with:
+
+....
+arm-none-eabi-gcc: error: unrecognized -march target: armv5
+....
+
+Let's try just armv8, who cares about arvm5!!!
+
+....
+mkdir build
+cd build
+cmake -DTESTING_ENABLED=FALSE -DCMAKE_BUILD_TYPE=DEBUGOPT ..
+make -j`nproc` model-armv8
+....
+
+Now fails as mentioned at https://bitbucket.org/gensim/gensim/issues/34/build-fails-with-unrecognised-intrinsic[]:
+
+....
+terminate called after throwing an instance of 'std::logic_error'
+  what():  Unrecognised intrinsic: __builtin_abs64
+Aborted (core dumped)
+....
+
+Get the failing command with:
+
+,,..
+make VERBOSE=1 model-armv8
+....
+
+and we see some code generation step:
+
+....
+cd /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/models/armv8 && \
+  /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/build/dist/bin/gensim \
+  -a /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/models/armv8/aarch64.ac \
+  -s module,arch,decode,disasm,ee_interp,ee_blockjit,jumpinfo,function,makefile \
+  -o decode.GenerateDotGraph=1,makefile.libtrace_path=/home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/support/libtrace/inc,makefile.archsim_path=/home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/archsim/inc,makefile.llvm_path=,makefile.Optimise=2,makefile.Debug=1 \
+  -t /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/build/models/armv8/output-aarch64/
+....
+
+We can see an inclusion path:
+
+....
+gensim/models/armv8/aarch64.ac
+		ac_isa("isa.ac");
+gensim/models/armv8/isa.ac
+		ac_execute("execute.simd");
+....
+
+and where `gensim/models/armv8/isa.ac` contains `__builtin_abs64` usages.
+
+GDB on `gensim` shows that the error comes from a call to `gci.GenerateExecuteBodyFor(body_str, *action);`, so it looks like there are some missing cases in `EmitFixedCode`.
+
+This is completely broken academic code! They must be using an off-tree of part of the tool and forgot to commit.
 
 == Buildroot
 
@@ -19907,6 +20079,97 @@ http://www.bitmover.com/lmbench/
 Canonical source at https://sourceforge.net/projects/lmbench/ but Intel has a fork at: https://github.com/intel/lmbench which has more recent build updates, so I think that's the one I'd put my money on as of 2020.
 
 Feels old, guessing not representative anymore like <<dhrystone>>. But hey, history!
+
+Ubuntu 20.04 AMD64 native build and run:
+
+....
+git submodule update --init submodules/lmbench
+cd submodules/lmbench
+cd src
+make results
+....
+
+TODO it hangs for a long time at:
+
+....
+Hang on, we are calculating your cache line size.
+....
+
+Bug report: https://github.com/intel/lmbench/issues/15
+
+the If I kill it, configuration process continues:
+
+....
+Killed
+OK, it looks like your cache line is  bytes.
+....
+
+and continues with a few more interactive questions until finally:
+
+....
+Confguration done, thanks.
+....
+
+where it again hangs for at least 2 hours, so I lost patience and killed it.
+
+TODO: how to do a non-interactive config? After the above procedure, `bin/x86_64-linux-gnu/CONFIG.ciro-p51` contains:
+
+....
+DISKS=""
+DISK_DESC=""
+OUTPUT=/dev/null
+ENOUGH=50000
+FASTMEM="NO"
+FILE=/var/tmp/XXX
+FSDIR=/var/tmp
+INFO=INFO.ciro-p51
+LINE_SIZE=
+LOOP_O=0.00000000
+MAIL=no
+TOTAL_MEM=31903
+MB=22332
+MHZ="-1 System too busy"
+MOTHERBOARD=""
+NETWORKS=""
+OS="x86_64-linux-gnu"
+PROCESSORS="8"
+REMOTE=""
+SLOWFS="NO"
+SYNC_MAX="1"
+LMBENCH_SCHED="DEFAULT"
+TIMING_O=0
+RSH=rsh
+RCP=rcp
+VERSION=lmbench-3alpha4
+BENCHMARK_HARDWARE=YES
+BENCHMARK_OS=YES
+BENCHMARK_SYSCALL=
+BENCHMARK_SELECT=
+BENCHMARK_PROC=
+BENCHMARK_CTX=
+BENCHMARK_PAGEFAULT=
+BENCHMARK_FILE=
+BENCHMARK_MMAP=
+BENCHMARK_PIPE=
+BENCHMARK_UNIX=
+BENCHMARK_UDP=
+BENCHMARK_TCP=
+BENCHMARK_CONNECT=
+BENCHMARK_RPC=
+BENCHMARK_HTTP=
+BENCHMARK_BCOPY=
+BENCHMARK_MEM=
+BENCHMARK_OPS=
+....
+
+Native build only without running tests:
+
+....
+cd src
+make
+....
+
+Interestingly, one of the creators of LMbench, Larry Mcvoy (https://www.linkedin.com/in/larrymcvoy/[], https://en.wikipedia.org/wiki/Larry_McVoy[]), is also a co-founder of https://en.wikipedia.org/wiki/BitKeeper[BitKeeper]. Their SMC must be blazingly fast!!! Also his LinkedIn says Intel uses it. But they will forever be remembered as "the closed source Git precursor that died N years ago", RIP.
 
 ==== STREAM benchmark
 
@@ -22422,8 +22685,25 @@ aarch32 is a bit more messy due to older setups, we have both:
 * coprocessor accesses:
 ** MRC: reads a system register, C means coprocessor, which is how system registers were previously known as
 ** MCR: write to the system register
-** MRRC: like MRC, but used for the system registers that are marked as 64-bit, and reads to two general purpose regis
+** MRRC: like MRC, but used for the system registers that are marked as 64-bit, and reads to two general purpose register
 ** MCRR: write version of MCRR
+
+TODO why both? For example, as mentioned at https://stackoverflow.com/questions/62920281/cross-compilng-c-program-for-armv8-a-in-linux-x86-64-system/62922677#62922677 a register that was accessed with MRC in armv7 can move to MRS in aarch64, as is the case for:
+
+....
+mrs r0, ctr     /* aarch32 */
+mrc x0, ctr_el0 /* aarch64 */
+....
+
+Other functionality has moved away from coprocessors into actual instructions, e.g. cache invalidation:
+
+....
+/* aarch32: DCISW, Data Cache line Invalidate by Set/Way. */
+mcr     p15, 0, r5, c7, c6, 2
+
+/* aarch64: moved to one of the DC instruction variants. */
+dc isw
+....
 
 <<armarm8-fa>> G1.19.4 "Background to the System register interface" says that only CP14 and CP15 are specified by the ISA:
 
@@ -22431,10 +22711,22 @@ ____
 The interface to the System registers was originally defined as part of a generic coprocessor interface, that gave access to 15 coprocessors, CP0 - CP15. Of these, CP8 - CP15 were reserved for use by Arm, while CP0 - CP7 were available for IMPLEMENTATION DEFINED coprocessors.
 ____
 
-and the actual coprocessor registers are specified at:
+and the actual coprocessor registers are specified in Chapter G7 "AArch32 System Register Encoding" at:
 
 * CP14: Table G7-1 "Mapping of (coproc ==0b1110) MCR, MRC, and MRRC instruction arguments to System registers"
 * CP15: Table G7-3 "VMSAv8-32 (coproc==0b1111) register summary, in MCR/MRC parameter order."
+
+The actual MRC assembly does not exactly match the order of that table, this is how you can decode it, sample MCR:
+
+....
+mcr     p15, 0, r5, c7, c6, 2
+....
+
+what each part means:
+
+....
+mcr     p<coproc>, <opc1>, <src-dest-reg>, <CRn>, <CRm>, <opc2>
+....
 
 ===== ARM system register encodings
 
@@ -25570,6 +25862,14 @@ Bibliography:
 
 * https://stackoverflow.com/questions/49601910/out-of-order-execution-vs-speculative-execution
 
+===== Branch predictor
+
+https://en.wikipedia.org/wiki/Branch_predictor
+
+Comes in for <<superscalar-processor,superscalar processors>>.
+
+A gem5 example can be seen at: <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-speculative>>.
+
 ==== Re-order buffer
 
 https://en.wikipedia.org/wiki/Re-order_buffer
@@ -25587,14 +25887,6 @@ Basically means decoding and then potentially executing a bunch of instructions 
 Important examples:
 
 * <<superscalar-processor>>
-
-=== Branch predictor
-
-https://en.wikipedia.org/wiki/Branch_predictor
-
-Comes in for <<superscalar-processor,superscalar processors>>.
-
-TODO analysis in gem5.
 
 === Hardware threads
 
