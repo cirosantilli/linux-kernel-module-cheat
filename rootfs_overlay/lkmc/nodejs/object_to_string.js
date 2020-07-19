@@ -16,9 +16,13 @@ class MyClassUtilInspectCustom {
 }
 
 let my_object = new MyClassUtilInspectCustom(1, 2);
+console.log('util.inspect');
 console.log(util.inspect(my_object));
+console.log('console.log');
 console.log(my_object);
+console.log('toString');
 console.log(my_object.toString());
+console.log();
 
 class MyClassToString {
   constructor(a, b) {
@@ -31,6 +35,9 @@ class MyClassToString {
 }
 
 my_object = new MyClassToString(1, 2);
+console.log('util.inspect');
 console.log(util.inspect(my_object));
+console.log('console.log');
 console.log(my_object);
+console.log('toString');
 console.log(my_object.toString());
