@@ -2494,6 +2494,123 @@ Bibliography:
 * https://wiki.linaro.org/LandingTeams/ST/GDB
 * https://events.static.linuxfound.org/sites/events/files/slides/Debugging%20the%20Linux%20Kernel%20with%20GDB.pdf presentation: https://www.youtube.com/watch?v=pqn5hIrz3A8
 
+===== CONFIG_PID_IN_CONTEXTIDR
+
+https://stackoverflow.com/questions/54133479/accessing-logical-software-thread-id-in-gem5 on ARM the kernel can store an indication of PID in the CONTEXTIDR_EL1 register, making that much easier to observe from simulators.
+
+In particular, gem5 prints that number out by default on `ExecAll` messages!
+
+Let's test it out with <<linux-kernel-build-variants>> + <<gem5-restore-new-script>>:
+
+....
+./build-linux --arch aarch64 --linux-build-id CONFIG_PID_IN_CONTEXTIDR --config 'CONFIG_PID_IN_CONTEXTIDR=y'
+# Checkpoint run.
+./run --arch aarch64 --emulator gem5 --linux-build-id CONFIG_PID_IN_CONTEXTIDR --eval './gem5.sh'
+# Trace run.
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --gem5-readfile 'posix/getpid.out; posix/getpid.out' \
+  --gem5-restore 1 \
+  --linux-build-id CONFIG_PID_IN_CONTEXTIDR \
+  --trace FmtFlag,ExecAll,-ExecSymbol \
+;
+....
+
+The terminal runs both programs which output their PID to stdout:
+
+....
+pid=44
+pid=45
+....
+
+By quickly inspecting the `trace.txt` file, we immediately notice that the `system.cpu: A<n>` part of the logs, which used to always be `system.cpu: A0`, now has a few different values! Nice!
+
+We can briefly summarize those values by removing repetitions:
+
+....
+cut -d' ' -f4 "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)" | uniq -c
+....
+
+gives:
+
+....
+  97227 A39
+ 147476 A38
+ 222052 A40
+      1 terminal
+1117724 A40
+  27529 A31
+  43868 A40
+  27487 A31
+ 138349 A40
+  13781 A38
+ 231246 A40
+  25536 A38
+  28337 A40
+ 214799 A38
+ 963561 A41
+  92603 A38
+  27511 A31
+ 224384 A38
+ 564949 A42
+ 182360 A38
+ 729009 A43
+   8398 A23
+  20200 A10
+ 636848 A43
+ 187995 A44
+  27529 A31
+  70071 A44
+  16981 A0
+ 623806 A44
+  16981 A0
+ 139319 A44
+  24487 A0
+ 174986 A44
+  25420 A0
+  89611 A44
+  16981 A0
+ 183184 A44
+  24728 A0
+  89608 A44
+  17226 A0
+ 899075 A44
+  24974 A0
+ 250608 A44
+ 137700 A43
+1497997 A45
+ 227485 A43
+ 138147 A38
+ 482646 A46
+....
+
+I'm not smart enough to be able to deduce all of those IDs, but we can at least see that:
+
+* A44 and A45 are there as expected from stdout!
+* A39 must be the end of the execution of `m5 checkpoint`
+* so we guess that A38 is the shell as it comes next
+* the weird "terminal" line is `336969745500: system.terminal: attach terminal 0`
+* which is the shell PID? I should have printed that as well :-)
+* why are there so many other PIDs? This was supposed to be a silent system without daemons!
+* A0 is presumably the kernel. However we see process switches without going into A0, so I'm not sure how, it appears to count kernel instructions as part of processes
+* A46 has to be the `m5 exit` call
+
+<<armarm8-fa>> D13.2.27 "CONTEXTIDR_EL1, Context ID Register (EL1)" documents `CONTEXTIDR_EL1` as:
+
+____
+Identifies the current Process Identifier.
+
+The value of the whole of this register is called the Context ID and is used by:
+
+* The debug logic, for Linked and Unlinked Context ID matching.
+* The trace logic, to identify the current process.
+
+The significance of this register is for debug and trace use only.
+____
+
+Tested on 145769fc387dc5ee63ec82e55e6b131d9c968538 + 1.
+
 === Debug the GDB remote protocol
 
 For when it breaks again, or you want to add a new feature!
