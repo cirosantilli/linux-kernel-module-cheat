@@ -4,6 +4,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <inttypes.h>
 #include <linux/futex.h>
 #include <sys/syscall.h>
 #include <unistd.h>
