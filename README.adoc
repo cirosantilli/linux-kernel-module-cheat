@@ -11162,7 +11162,21 @@ At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host thr
 
 https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8
 
-Build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
+With <<arm-gic,GICv3>>, tested at LKMC 224fae82e1a79d9551b941b19196c7e337663f22 gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772 on vanilla kernel:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --cpus 16 \
+  -- \
+  --machine-type VExpress_GEM5_V2 \
+;
+....
+
+boots to a shell and `nproc` shows `16`.
+
+For the GICv2 extension method, build the kernel with the <<gem5-arm-linux-kernel-patches>>, and then run:
 
 ....
 ./run \
@@ -15429,6 +15443,7 @@ The resulting trace is:
       191000: Event: Event_85: generic 85 executed @ 191000
 ....
 
+
 So yes, `--caches` does work here, leading to a runtime of 191000 rather than 469000 without caches!
 
 Notably, we now see that very little time passed between the first and second instructions which are marked with `ExecEnable` in #39 and #47, presumably because rather than going out all the way to the DRAM system the event chain stops right at the `icache.cpu_side` when a hit happens, which must have been the case for the second instruction, which is just adjacent to the first one.
@@ -15543,6 +15558,24 @@ We can confirm this with `--trace DRAM` which shows:
 ....
 
 Contrast this with the non `--cache` version seen at <<timingsimplecpu-analysis-5>> in which DRAM only actually reads the 4 required bytes.
+
+The only cryptic thing about the messages is the `IF` flag, but good computer architects would have guessed it correctly, and https://github.com/gem5/gem5/blob/fa70478413e4650d0058cbfe81fd5ce362101994/src/mem/packet.cc#L372[src/mem/packet.cc] confirms:
+
+....
+void
+Packet::print(std::ostream &o, const int verbosity,
+              const std::string &prefix) const
+{
+    ccprintf(o, "%s%s [%x:%x]%s%s%s%s%s%s", prefix, cmdString(),
+             getAddr(), getAddr() + getSize() - 1,
+             req->isSecure() ? " (s)" : "",
+             req->isInstFetch() ? " IF" : "",
+             req->isUncacheable() ? " UC" : "",
+             isExpressSnoop() ? " ES" : "",
+             req->isToPOC() ? " PoC" : "",
+             req->isToPOU() ? " PoU" : "");
+}
+....
 
 Another interesting observation of running with `--trace Cache,DRAM,XBar` is that between the execution of both instructions, there is a `Cache` event, but no `DRAM` or `XBar` events:
 
