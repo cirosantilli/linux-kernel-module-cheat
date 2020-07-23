@@ -37,7 +37,7 @@ int lkmc_pagemap_get_entry(LkmcPagemapEntry *entry, int pagemap_fd, uintptr_t va
     while (nread < sizeof(data)) {
         ret = pread(
             pagemap_fd,
-            &data,
+            ((uint8_t*)&data) + nread,
             sizeof(data) - nread,
             vpn * sizeof(data) + nread
         );
