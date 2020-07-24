@@ -534,7 +534,14 @@ path_properties_tuples = (
                                     },
                                     {
                                         'freestanding': freestanding_properties,
-                                        'futex_sev.cpp': {'more_than_1s': True},
+                                        'futex_sev.cpp': {
+                                            'baremetal': False,
+                                            'more_than_1s': True,
+                                        },
+                                        'futex_ldxr_stxr.c': {
+                                            'baremetal': False,
+                                            'more_than_1s': True,
+                                        },
                                         'sve_addvl.c': {'arm_sve': True},
                                         'wfe_ldxr_str.cpp': {
                                             'allowed_emulators': {'qemu'},

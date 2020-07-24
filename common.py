@@ -841,7 +841,8 @@ Incompatible archs are skipped.
         env['buildroot_linux_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
         env['buildroot_vmlinux'] = join(env['buildroot_linux_build_dir'], 'vmlinux')
         env['buildroot_host_dir'] = join(env['buildroot_build_dir'], 'host')
-        env['buildroot_host_bin_dir'] = join(env['buildroot_host_dir'], 'usr', 'bin')
+        env['buildroot_host_usr_dir'] = join(env['buildroot_host_dir'], 'usr')
+        env['buildroot_host_bin_dir'] = join(env['buildroot_host_usr_dir'], 'bin')
         env['buildroot_pkg_config'] = join(env['buildroot_host_bin_dir'], 'pkg-config')
         env['buildroot_images_dir'] = join(env['buildroot_build_dir'], 'images')
         env['buildroot_rootfs_raw_file'] = join(env['buildroot_images_dir'], 'rootfs.ext2')
@@ -1224,8 +1225,11 @@ lunch aosp_{}-eng
 '''.format(self.env['android_arch'])
 
         # Toolchain.
-        if env['baremetal'] and not env['_args_given']['mode']:
-            env['mode'] = 'baremetal'
+        if not env['_args_given']['mode']:
+            if env['baremetal']:
+                env['mode'] = 'baremetal'
+            if env['userland']:
+                env['mode'] = 'userland'
         if not env['_args_given']['gcc_which']:
             if env['mode'] == 'baremetal':
                 env['gcc_which'] = 'crosstool-ng'
@@ -1476,17 +1480,6 @@ lunch aosp_{}-eng
                         arch = env['arch_short_to_long_dict'][arch]
                     if emulator in env['emulator_short_to_long_dict']:
                         emulator = env['emulator_short_to_long_dict'][emulator]
-                    if emulator == 'native':
-                        if arch != env['host_arch']:
-                            if real_all_archs:
-                                continue
-                            else:
-                                raise Exception('native emulator only supported in if target arch == host arch')
-                        if env['userland'] and not env['mode'] == 'userland':
-                            if real_all_emulators:
-                                continue
-                            else:
-                                raise Exception('native emulator only supported in user mode')
                     if self.is_arch_supported(arch, env['mode']):
                         if not env['dry_run']:
                             start_time = time.time()
@@ -1505,6 +1498,17 @@ lunch aosp_{}-eng
                             quiet=(not show_cmds),
                         )
                         self._init_env(self.env)
+                        if emulator == 'native':
+                            if arch != self.env['host_arch']:
+                                if real_all_archs:
+                                    continue
+                                else:
+                                    raise Exception('native emulator only supported in if target arch ({}) == host arch ({})'.format(arch, self.env['host_arch']))
+                            if self.env['userland'] and not self.env['mode'] == 'userland':
+                                if real_all_emulators:
+                                    continue
+                                else:
+                                    raise Exception('native emulator only supported in user mode')
                         self.setup_one()
                         ret = self.timed_main()
                         if not env['dry_run']:

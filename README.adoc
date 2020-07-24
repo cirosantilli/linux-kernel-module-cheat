@@ -2494,6 +2494,7 @@ Bibliography:
 * https://wiki.linaro.org/LandingTeams/ST/GDB
 * https://events.static.linuxfound.org/sites/events/files/slides/Debugging%20the%20Linux%20Kernel%20with%20GDB.pdf presentation: https://www.youtube.com/watch?v=pqn5hIrz3A8
 
+[[config-pid-in-contextidr]]
 ===== CONFIG_PID_IN_CONTEXTIDR
 
 https://stackoverflow.com/questions/54133479/accessing-logical-software-thread-id-in-gem5 on ARM the kernel can store an indication of PID in the CONTEXTIDR_EL1 register, making that much easier to observe from simulators.
@@ -2595,6 +2596,35 @@ I'm not smart enough to be able to deduce all of those IDs, but we can at least 
 * why are there so many other PIDs? This was supposed to be a silent system without daemons!
 * A0 is presumably the kernel. However we see process switches without going into A0, so I'm not sure how, it appears to count kernel instructions as part of processes
 * A46 has to be the `m5 exit` call
+
+Or if you want to have some real fun, try: link:baremetal/arch/aarch64/contextidr_el1.c[]:
+
+....
+./run --arch aarch64 --emulator gem5 --baremetal baremetal/arch/aarch64/contextidr_el1.c --trace-insts-stdout
+....
+
+in which we directly set the register ourselves! Output excerpt:
+
+....
+  31500: system.cpu: A0 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000001 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  32000: system.cpu: A1 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+  32500: system.cpu: A1 T0 : @main+20    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000001 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  33000: system.cpu: A1 T0 : @main+24    :   add   w0, w0, #1         : IntAlu :  D=0x0000000000000002  flags=(IsInteger)
+  33500: system.cpu: A1 T0 : @main+28    :   str   x0, [sp, #12]      : MemWrite :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsStore)
+  34000: system.cpu: A1 T0 : @main+32    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  34500: system.cpu: A1 T0 : @main+36    :   subs   w0, #9            : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+  35000: system.cpu: A1 T0 : @main+40    :   b.le   <main+12>         : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+  35500: system.cpu: A1 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  36000: system.cpu: A2 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000002  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+  36500: system.cpu: A2 T0 : @main+20    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  37000: system.cpu: A2 T0 : @main+24    :   add   w0, w0, #1         : IntAlu :  D=0x0000000000000003  flags=(IsInteger)
+  37500: system.cpu: A2 T0 : @main+28    :   str   x0, [sp, #12]      : MemWrite :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsStore)
+  38000: system.cpu: A2 T0 : @main+32    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  38500: system.cpu: A2 T0 : @main+36    :   subs   w0, #9            : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+  39000: system.cpu: A2 T0 : @main+40    :   b.le   <main+12>         : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+  39500: system.cpu: A2 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  40000: system.cpu: A3 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000003  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+....
 
 <<armarm8-fa>> D13.2.27 "CONTEXTIDR_EL1, Context ID Register (EL1)" documents `CONTEXTIDR_EL1` as:
 
@@ -20169,252 +20199,6 @@ TODO also consider the following:
 * http://www.cs.virginia.edu/stream/ref.html STREAM memory bandwidth benchmarks.
 * https://github.com/kozyraki/stamp transactional memory benchmarks
 
-==== Boost
-
-https://en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)
-
-link:userland/libs/boost[]
-
-* link:userland/libs/boost/bimap.cpp[]
-
-==== Dhrystone
-
-https://en.wikipedia.org/wiki/Dhrystone
-
-Created in the 80's, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by https://en.wikipedia.org/wiki/SPECint[SPEC], which is... closed source! Unbelievable.
-
-Dhrystone is very simple:
-
-* there is one loop in the `dhry_1.c` main function that gets executed N times
-* that loop calls 9 short functions called `Proc_0` to `Proc_9`, most of which are defined in `dhry_1.c`, and a few others in `dhry_2.c`
-
-The benchmark is single-threaded.
-
-After a quick look at it, Dhrystone in `-O3` is is very likely completely CPU bound, as there are no loops over variable sized arrays, except for some dummy ones that only run once. It just does a bunch of operations on local and global C variables, which are very likely to be inlined and treated fully in registers until the final write back, or to fit entirely in cache. TODO confirm with some kind of measurement. The benchmark also makes no syscalls except for measuring time and reporting results.
-
-<<buildroot>> has a `dhrystone` package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.
-
-Build and run on QEMU <<user-mode-simulation>>:
-
-....
-git submodule update --init submodules/dhrystone
-./build-dhrystone --optimization-level 3
-./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
-....
-
-TODO automate run more nicely to dispense `getvar`.
-
-Increase the number of loops to try and reach more meaningful results:
-
-....
-./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone" --cli-args 100000000
-....
-
-Build and run on gem5 user mode:
-
-....
-./build-dhrystone --optimization-level 3
-./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
-....
-
-Run natively on the host:
-
-....
-./build-dhrystone --host
-"$(./getvar --host userland_build_dir)/submodules/dhrystone/dhrystone"
-....
-
-Build Dhrystone for <<baremetal>> and run it in on QEMU:
-
-....
-# Build our Newlib stubs.
-./build-baremetal --arch aarch64
-./build-dhrystone --arch aarch64 --mode baremetal
-./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 baremetal_build_dir)/submodules/dhrystone/dhrystone" --cli-args 10000
-....
-
-or with gem5:
-
-....
-# Build our Newlib stubs.
-./build-baremetal --arch aarch64
-./build-dhrystone --arch aarch64 --emulator gem5 --mode baremetal
-./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 --emulator gem5 baremetal_build_dir)/submodules/dhrystone/dhrystone" --cli-args 10000 --emulator gem5
-....
-
-If you really want the Buildroot package for some reason, build it with:
-
-....
-./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'
-....
-
-and run inside the guest from `PATH` with:
-
-....
-dhrystone
-....
-
-==== LMbench
-
-http://www.bitmover.com/lmbench/
-
-Canonical source at https://sourceforge.net/projects/lmbench/ but Intel has a fork at: https://github.com/intel/lmbench which has more recent build updates, so I think that's the one I'd put my money on as of 2020.
-
-Feels old, guessing not representative anymore like <<dhrystone>>. But hey, history!
-
-Ubuntu 20.04 AMD64 native build and run:
-
-....
-git submodule update --init submodules/lmbench
-cd submodules/lmbench
-cd src
-make results
-....
-
-TODO it hangs for a long time at:
-
-....
-Hang on, we are calculating your cache line size.
-....
-
-Bug report: https://github.com/intel/lmbench/issues/15
-
-the If I kill it, configuration process continues:
-
-....
-Killed
-OK, it looks like your cache line is  bytes.
-....
-
-and continues with a few more interactive questions until finally:
-
-....
-Confguration done, thanks.
-....
-
-where it again hangs for at least 2 hours, so I lost patience and killed it.
-
-TODO: how to do a non-interactive config? After the above procedure, `bin/x86_64-linux-gnu/CONFIG.ciro-p51` contains:
-
-....
-DISKS=""
-DISK_DESC=""
-OUTPUT=/dev/null
-ENOUGH=50000
-FASTMEM="NO"
-FILE=/var/tmp/XXX
-FSDIR=/var/tmp
-INFO=INFO.ciro-p51
-LINE_SIZE=
-LOOP_O=0.00000000
-MAIL=no
-TOTAL_MEM=31903
-MB=22332
-MHZ="-1 System too busy"
-MOTHERBOARD=""
-NETWORKS=""
-OS="x86_64-linux-gnu"
-PROCESSORS="8"
-REMOTE=""
-SLOWFS="NO"
-SYNC_MAX="1"
-LMBENCH_SCHED="DEFAULT"
-TIMING_O=0
-RSH=rsh
-RCP=rcp
-VERSION=lmbench-3alpha4
-BENCHMARK_HARDWARE=YES
-BENCHMARK_OS=YES
-BENCHMARK_SYSCALL=
-BENCHMARK_SELECT=
-BENCHMARK_PROC=
-BENCHMARK_CTX=
-BENCHMARK_PAGEFAULT=
-BENCHMARK_FILE=
-BENCHMARK_MMAP=
-BENCHMARK_PIPE=
-BENCHMARK_UNIX=
-BENCHMARK_UDP=
-BENCHMARK_TCP=
-BENCHMARK_CONNECT=
-BENCHMARK_RPC=
-BENCHMARK_HTTP=
-BENCHMARK_BCOPY=
-BENCHMARK_MEM=
-BENCHMARK_OPS=
-....
-
-Native build only without running tests:
-
-....
-cd src
-make
-....
-
-Interestingly, one of the creators of LMbench, Larry Mcvoy (https://www.linkedin.com/in/larrymcvoy/[], https://en.wikipedia.org/wiki/Larry_McVoy[]), is also a co-founder of https://en.wikipedia.org/wiki/BitKeeper[BitKeeper]. Their SMC must be blazingly fast!!! Also his LinkedIn says Intel uses it. But they will forever be remembered as "the closed source Git precursor that died N years ago", RIP.
-
-==== STREAM benchmark
-
-http://www.cs.virginia.edu/stream/ref.html
-
-Very simple memory width benchmark with one C and one Fortran version, originally published in 1991, and the latest version at the time of writing is from 2013.
-
-Its operation is very simple: fork one thread for each CPU in the system (using OpenMP) and do the following four array operations (4 separate loops of individual operations):
-
-....
-/* Copy. */
-times[0 * ntimes + k] = mysecond();
-#pragma omp parallel for
-for (j=0; j<stream_array_size; j++)
-    c[j] = a[j];
-times[0 * ntimes + k] = mysecond() - times[0 * ntimes + k];
-
-/* Scale. */
-times[1 * ntimes + k] = mysecond();
-#pragma omp parallel for
-for (j=0; j<stream_array_size; j++)
-    b[j] = scalar*c[j];
-times[1 * ntimes + k] = mysecond() - times[1 * ntimes + k];
-
-/* Add. */
-times[2 * ntimes + k] = mysecond();
-#pragma omp parallel for
-for (j=0; j<stream_array_size; j++)
-    c[j] = a[j]+b[j];
-times[2 * ntimes + k] = mysecond() - times[2 * ntimes + k];
-
-/* Triad. */
-times[3 * ntimes + k] = mysecond();
-#pragma omp parallel for
-for (j=0; j<stream_array_size; j++)
-    a[j] = b[j]+scalar*c[j];
-times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
-}
-....
-
-See also: https://stackoverflow.com/questions/56086993/what-does-stream-memory-bandwidth-benchmark-really-measure
-
-The LKMC usage of STREAM is analogous to that of <<dhrystone>>. Build and run on QEMU <<user-mode-simulation>>:
-
-....
-git submodule update --init submodules/stream-benchmark
-./build-stream --optimization-level 3
-./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe"
-....
-
-Decrease the benchmark size and the retry count to finish simulation faster, but possibly have a less representative result:
-
-....
-./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --cli-args '100 2'
-....
-
-Build and run on gem5 user mode:
-
-....
-./build-stream --optimization-level 3
-./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --cli-args '1000 2'
-....
-
 ==== PARSEC benchmark
 
 We have ported parts of the http://parsec.cs.princeton.edu[PARSEC benchmark] for cross compilation at: https://github.com/cirosantilli/parsec-benchmark See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.
@@ -20578,11 +20362,438 @@ Don't forget to explicitly rebuild PARSEC with:
 You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.
 * sell your soul, and compile natively inside the guest. We won't do this, not only because it is evil, but also because Buildroot explicitly does not support it: https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target ARM employees have been known to do this: https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff
 
-=== Micro benchmarks
+===== Coremark
+
+https://en.wikipedia.org/wiki/Coremark
+
+Part of https://en.wikipedia.org/wiki/EEMBC[EEMBC].
+
+They have two versions:
+
+* 2009: https://github.com/eembc/coremark
+* 2015: https://github.com/eembc/coremark-pro
++
+Describes very clearly on the README what tests it does. Most of them are understandable high level operations.
++
+In particular, it contains "a greatly improved version of the https://en.wikipedia.org/wiki/Livermore_loops[Livermore loops]"
+
+Both have a custom license, so yeah, no patience to read this stuff.
+
+Coremark-pro build and run on Ubuntu 20.04:
+
+....
+git submodule update --init submodules coremark-pro
+cd submodules/coremark-pro
+make TARGET=linux64 build
+make TARGET=linux64 XCMD='-c4' certify-all
+....
+
+This uses `4` contexts. TODO what are contexts? Is the same as threads?
+
+Finishes in a few seconds, <<p51>> results:
+
+....
+Workload Name                                     (iter/s)   (iter/s)    Scaling
+----------------------------------------------- ---------- ---------- ----------
+cjpeg-rose7-preset                                  526.32     178.57       2.95
+core                                                  7.39       2.16       3.42
+linear_alg-mid-100x100-sp                           684.93     238.10       2.88
+loops-all-mid-10k-sp                                 27.65       7.80       3.54
+nnet_test                                            32.79      10.57       3.10
+parser-125k                                          71.43      25.00       2.86
+radix2-big-64k                                     2320.19     623.44       3.72
+sha-test                                            555.56     227.27       2.44
+zip-test                                            363.64     166.67       2.18
+
+MARK RESULTS TABLE
+
+Mark Name                                        MultiCore SingleCore    Scaling
+----------------------------------------------- ---------- ---------- ----------
+CoreMark-PRO                                      18743.79    6306.76       2.97
+....
+
+And scaling appears to be the ration between multicore (4 due to `-c4` and single core performance), each benchmark gets run twice with multicore and single core.
+
+The tester script also outputs test commands, some of which are:
+
+....
+builds/linux64/gcc64/bin/zip-test.exe -c1 -w1 -c4 -v1
+builds/linux64/gcc64/bin/zip-test.exe -c1 -w1 -c4 -v0
+builds/linux64/gcc64/bin/zip-test.exe -c4 -v1
+builds/linux64/gcc64/bin/zip-test.exe -c4 -v0
+....
+
+`-v1` appears to be a fast verification run, and both `-c1` vs `-c4` get run because for the single vs multicore preformance.
+
+Sample `-c4 -v0` output:
+
+....
+-  Info: Starting Run...
+-- Workload:zip-test=946108807
+-- zip-test:time(ns)=11
+-- zip-test:contexts=4
+-- zip-test:iterations=4
+-- zip-test:time(secs)=   0.011
+-- zip-test:secs/workload= 0.00275
+-- zip-test:workloads/sec= 363.636
+-- Done:zip-test=946108807
+....
+
+and so we see the `zip-test:workloads/sec= 363.636` output is the key value, which is close to that of the `zip-test 363.64` in the earlier full summarized result.
+
+Cross compile statically for aarch64. From LKMC toplevel:
+
+....
+make \
+  -C submodules/coremark-pro \
+  LINKER_FLAGS='-static' \
+  LINKER_LAST='-lm -lpthread -lrt' \
+  TARGET=gcc-cross-linux \
+  TOOLCHAIN=gcc-cross-linux \
+  TOOLS="$(./getvar --arch aarch64 buildroot_host_usr_dir)" \
+  TPREF="$(./getvar --arch aarch64 buildroot_toolchain_prefix)-" \
+  build \
+;
+....
+
+Run a single executable on QEMU:
+
+....
+./run --arch aarch64 --userland submodules/coremark-pro/builds/gcc-cross-linux/bin/zip-test.exe --cli-args='-c4 -v0'
+....
+
+Finishes in about 1 second, and gives `zip-test:workloads/sec= 74.0741` so we see that it ran about 5x slower than the native host.
+
+Run a single executable on gem5 in a verification run:
+
+....
+./run \
+  --arch aarch64 \
+  --cli-args='-c1 -v1' \
+  --emulator gem5 \
+  --userland submodules/coremark-pro/builds/gcc-cross-linux/bin/zip-test.exe \
+;
+....
+
+TODO: hangs for at least 15 minutes, there must be something wrong. Stuck on an evolving strlen loop:
+
+....
+7837834500: system.cpu: A0 T0 : @__strlen_generic+112    : ldp
+7837834500: system.cpu: A0 T0 : @__strlen_generic+112. 0 :   addxi_uop   ureg0, x1, #16 : IntAlu :  D=0x0000003ffff07170  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+7837835000: system.cpu: A0 T0 : @__strlen_generic+112. 1 :   ldp_uop   x2, x3, [ureg0] : MemRead :  D=0x20703c0a3e702f3c A=0x3ffff07170  flags=(IsInteger|IsMemRef|IsLoad|IsMicroop|IsLastMicroop)
+7837835500: system.cpu: A0 T0 : @__strlen_generic+116    :   sub   x4, x2, x8         : IntAlu :  D=0x3d607360632e3b34  flags=(IsInteger)
+7837836000: system.cpu: A0 T0 : @__strlen_generic+120    :   sub   x6, x3, x8         : IntAlu :  D=0x1f6f3b093d6f2e3b  flags=(IsInteger)
+7837836500: system.cpu: A0 T0 : @__strlen_generic+124    :   orr   x5, x4, x6         : IntAlu :  D=0x3f6f7b697f6f3f3f  flags=(IsInteger)
+7837837000: system.cpu: A0 T0 : @__strlen_generic+128    :   ands   x5, x8, LSL #7    : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+7837837500: system.cpu: A0 T0 : @__strlen_generic+132    :   b.eq   <__strlen_generic+88> : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+7837838000: system.cpu: A0 T0 : @__strlen_generic+88    : ldp
+7837838000: system.cpu: A0 T0 : @__strlen_generic+88. 0 :   addxi_uop   ureg0, x1, #32 : IntAlu :  D=0x0000003ffff07180  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+7837838500: system.cpu: A0 T0 : @__strlen_generic+88. 1 :   ldp_uop   x2, x3, [ureg0] : MemRead :  D=0x6565686b636f4c27 A=0x3ffff07180  flags=(IsInteger|IsMemRef|IsLoad|IsMicroop|IsDelayedCommit)
+7837839000: system.cpu: A0 T0 : @__strlen_generic+88. 2 :   addxi_uop   x1, ureg0, #0 : IntAlu :  D=0x0000003ffff07180  flags=(IsInteger|IsMicroop|IsLastMicroop)
+7837839500: system.cpu: A0 T0 : @__strlen_generic+92    :   sub   x4, x2, x8         : IntAlu :  D=0x3c786d606f6c6e62  flags=(IsInteger)
+7837840000: system.cpu: A0 T0 : @__strlen_generic+96    :   sub   x6, x3, x8         : IntAlu :  D=0x6464676a626e4b26  flags=(IsInteger)
+7837840500: system.cpu: A0 T0 : @__strlen_generic+100    :   orr   x5, x4, x6         : IntAlu :  D=0x7c7c6f6a6f6e6f66  flags=(IsInteger)
+7837841000: system.cpu: A0 T0 : @__strlen_generic+104    :   ands   x5, x8, LSL #7    : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+....
+
+Instructions before `__strlen_generic` starts:
+
+....
+7831019000: system.cpu: A0 T0 : @define_params_zip+664    :   add   x1, sp, #168       : IntAlu :  D=0x0000007ffffef988  flags=(IsInteger)
+7831019500: system.cpu: A0 T0 : @define_params_zip+668    :   orr   x0, xzr, x24       : IntAlu :  D=0x0000003ffff00010  flags=(IsInteger)
+7831020000: system.cpu: A0 T0 : @define_params_zip+672    :   bl   <th_strcat>         : IntAlu :  D=0x000000000040a4c4  flags=(IsInteger|IsControl|IsDirectControl|IsUncondControl|IsCall)
+7831020500: system.cpu: A0 T0 : @th_strcat    :   b   <strcat>             : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
+7831021000: system.cpu: A0 T0 : @strcat    : stp
+7831021000: system.cpu: A0 T0 : @strcat. 0 :   addxi_uop   ureg0, sp, #-48 : IntAlu :  D=0x0000007ffffef8b0  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+7831021500: system.cpu: A0 T0 : @strcat. 1 :   strxi_uop   x29, [ureg0] : MemWrite :  D=0x0000007ffffef8e0 A=0x7ffffef8b0  flags=(IsInteger|IsMemRef|IsStore|IsMicroop|IsDelayedCommit)
+7831022000: system.cpu: A0 T0 : @strcat. 2 :   strxi_uop   x30, [ureg0, #8] : MemWrite :  D=0x000000000040a4c4 A=0x7ffffef8b8  flags=(IsInteger|IsMemRef|IsStore|IsMicroop|IsDelayedCommit)
+7831022500: system.cpu: A0 T0 : @strcat. 3 :   addxi_uop   sp, ureg0, #0 : IntAlu :  D=0x0000007ffffef8b0  flags=(IsInteger|IsMicroop|IsLastMicroop)
+7831023000: system.cpu: A0 T0 : @strcat+4    :   add   x29, sp, #0        : IntAlu :  D=0x0000007ffffef8b0  flags=(IsInteger)
+7831023500: system.cpu: A0 T0 : @strcat+8    :   str   x19, [sp, #16]     : MemWrite :  D=0x00000000004d6560 A=0x7ffffef8c0  flags=(IsInteger|IsMemRef|IsStore)
+7831024000: system.cpu: A0 T0 : @strcat+12    :   orr   x19, xzr, x0       : IntAlu :  D=0x0000003ffff00010  flags=(IsInteger)
+7831024500: system.cpu: A0 T0 : @strcat+16    :   str   x1, [sp, #40]      : MemWrite :  D=0x0000007ffffef988 A=0x7ffffef8d8  flags=(IsInteger|IsMemRef|IsStore)
+7831025000: system.cpu: A0 T0 : @strcat+20    :   bl   <_init+120>         : IntAlu :  D=0x00000000004464c8  flags=(IsInteger|IsControl|IsDirectControl|IsUncondControl|IsCall)
+7831025500: system.cpu: A0 T0 : @_init+120    :   adrp   x16, #835584      : IntAlu :  D=0x00000000004cc000  flags=(IsInteger)
+7831026000: system.cpu: A0 T0 : @_init+124    :   ldr   x17, [x16, #48]    : MemRead :  D=0x0000000000449680 A=0x4cc030  flags=(IsInteger|IsMemRef|IsLoad)
+7831026500: system.cpu: A0 T0 : @_init+128    :   add   x16, x16, #48      : IntAlu :  D=0x00000000004cc030  flags=(IsInteger)
+7831027000: system.cpu: A0 T0 : @_init+132    :   br   x17                 : IntAlu :   flags=(IsInteger|IsControl|IsIndirectControl|IsUncondControl)
+....
+
+Their build/run system is nice, it even user mode simulators out-of-the-box! TODO give it a shot. See :
+
+....
+RUN =
+RUN_FLAGS =
+....
+
+under `util/make/linux64.mak`.
+
+Tested on a7ae8e6a8e29ef46d79eb9178d8599d1faeea0e5 + 1.
+
+==== Microbenchmarks
 
 It eventually has to come to that, hasn't it?
 
 * link:userland/gcc/busy_loop.c[] described at <<c-busy-loop>>
+
+Of course, there is a continuum between what is a "microbenchmark" and a "macrobechmark".
+
+One would hope that every microbenchmark exercises a concentrated subset of part of an important macro benchmark, otherwise what's the point, right?
+
+Also for parametrized "macro benchmark", you can always in theory reduce the problem size to be so small that it might be more appropriate to call it a micro benchmark.
+
+So our working definition will be more of the type: "does it solve an understandable useful high level problem from start to end?".
+
+If the answer is yes, then we call it a macro benchmark, otherwise micro.
+
+Bibliography:
+
+* https://stackoverflow.com/questions/2842695/what-is-microbenchmarking
+
+===== Dhrystone
+
+https://en.wikipedia.org/wiki/Dhrystone
+
+Created in the 80's, it is not a representative measure of performance in modern computers anymore. It has mostly been replaced by https://en.wikipedia.org/wiki/SPECint[SPEC], which is... closed source! Unbelievable.
+
+Dhrystone is very simple:
+
+* there is one loop in the `dhry_1.c` main function that gets executed N times
+* that loop calls 9 short functions called `Proc_0` to `Proc_9`, most of which are defined in `dhry_1.c`, and a few others in `dhry_2.c`
+
+The benchmark is single-threaded.
+
+After a quick look at it, Dhrystone in `-O3` is is very likely completely CPU bound, as there are no loops over variable sized arrays, except for some dummy ones that only run once. It just does a bunch of operations on local and global C variables, which are very likely to be inlined and treated fully in registers until the final write back, or to fit entirely in cache. TODO confirm with some kind of measurement. The benchmark also makes no syscalls except for measuring time and reporting results.
+
+<<buildroot>> has a `dhrystone` package, but because it is so interesting to us, we decided to also build it ourselves, which allows things like static and baremetal compilation more easily.
+
+Build and run on QEMU <<user-mode-simulation>>:
+
+....
+git submodule update --init submodules/dhrystone
+./build-dhrystone --optimization-level 3
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+TODO automate run more nicely to dispense `getvar`.
+
+Increase the number of loops to try and reach more meaningful results:
+
+....
+./run --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone" --cli-args 100000000
+....
+
+Build and run on gem5 user mode:
+
+....
+./build-dhrystone --optimization-level 3
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/dhrystone/dhrystone"
+....
+
+Run natively on the host:
+
+....
+./build-dhrystone --host
+"$(./getvar --host userland_build_dir)/submodules/dhrystone/dhrystone" 1000000000
+....
+
+Output for <<p51>> Ubuntu 20.04:
+
+....
+Microseconds for one run through Dhrystone:    0.1
+Dhrystones per Second:                      16152479.0
+....
+
+Build Dhrystone for <<baremetal>> and run it in on QEMU:
+
+....
+# Build our Newlib stubs.
+./build-baremetal --arch aarch64
+./build-dhrystone --arch aarch64 --mode baremetal
+./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 baremetal_build_dir)/submodules/dhrystone/dhrystone" --cli-args 10000
+....
+
+or with gem5:
+
+....
+# Build our Newlib stubs.
+./build-baremetal --arch aarch64
+./build-dhrystone --arch aarch64 --emulator gem5 --mode baremetal
+./run --arch aarch64 --baremetal "$(./getvar --arch aarch64 --emulator gem5 baremetal_build_dir)/submodules/dhrystone/dhrystone" --cli-args 10000 --emulator gem5
+....
+
+If you really want the Buildroot package for some reason, build it with:
+
+....
+./build-buildroot --config 'BR2_PACKAGE_DHRYSTONE=y'
+....
+
+and run inside the guest from `PATH` with:
+
+....
+dhrystone
+....
+
+===== LMbench
+
+http://www.bitmover.com/lmbench/
+
+Canonical source at https://sourceforge.net/projects/lmbench/ but Intel has a fork at: https://github.com/intel/lmbench which has more recent build updates, so I think that's the one I'd put my money on as of 2020.
+
+Feels old, guessing not representative anymore like <<dhrystone>>. But hey, history!
+
+Ubuntu 20.04 AMD64 native build and run:
+
+....
+git submodule update --init submodules/lmbench
+cd submodules/lmbench
+cd src
+make results
+....
+
+TODO it hangs for a long time at:
+
+....
+Hang on, we are calculating your cache line size.
+....
+
+Bug report: https://github.com/intel/lmbench/issues/15
+
+the If I kill it, configuration process continues:
+
+....
+Killed
+OK, it looks like your cache line is  bytes.
+....
+
+and continues with a few more interactive questions until finally:
+
+....
+Confguration done, thanks.
+....
+
+where it again hangs for at least 2 hours, so I lost patience and killed it.
+
+TODO: how to do a non-interactive config? After the above procedure, `bin/x86_64-linux-gnu/CONFIG.ciro-p51` contains:
+
+....
+DISKS=""
+DISK_DESC=""
+OUTPUT=/dev/null
+ENOUGH=50000
+FASTMEM="NO"
+FILE=/var/tmp/XXX
+FSDIR=/var/tmp
+INFO=INFO.ciro-p51
+LINE_SIZE=
+LOOP_O=0.00000000
+MAIL=no
+TOTAL_MEM=31903
+MB=22332
+MHZ="-1 System too busy"
+MOTHERBOARD=""
+NETWORKS=""
+OS="x86_64-linux-gnu"
+PROCESSORS="8"
+REMOTE=""
+SLOWFS="NO"
+SYNC_MAX="1"
+LMBENCH_SCHED="DEFAULT"
+TIMING_O=0
+RSH=rsh
+RCP=rcp
+VERSION=lmbench-3alpha4
+BENCHMARK_HARDWARE=YES
+BENCHMARK_OS=YES
+BENCHMARK_SYSCALL=
+BENCHMARK_SELECT=
+BENCHMARK_PROC=
+BENCHMARK_CTX=
+BENCHMARK_PAGEFAULT=
+BENCHMARK_FILE=
+BENCHMARK_MMAP=
+BENCHMARK_PIPE=
+BENCHMARK_UNIX=
+BENCHMARK_UDP=
+BENCHMARK_TCP=
+BENCHMARK_CONNECT=
+BENCHMARK_RPC=
+BENCHMARK_HTTP=
+BENCHMARK_BCOPY=
+BENCHMARK_MEM=
+BENCHMARK_OPS=
+....
+
+Native build only without running tests:
+
+....
+cd src
+make
+....
+
+Interestingly, one of the creators of LMbench, Larry Mcvoy (https://www.linkedin.com/in/larrymcvoy/[], https://en.wikipedia.org/wiki/Larry_McVoy[]), is also a co-founder of https://en.wikipedia.org/wiki/BitKeeper[BitKeeper]. Their SMC must be blazingly fast!!! Also his LinkedIn says Intel uses it. But they will forever be remembered as "the closed source Git precursor that died N years ago", RIP.
+
+===== STREAM benchmark
+
+http://www.cs.virginia.edu/stream/ref.html
+
+Very simple memory width benchmark with one C and one Fortran version, originally published in 1991, and the latest version at the time of writing is from 2013.
+
+Its operation is very simple: fork one thread for each CPU in the system (using OpenMP) and do the following four array operations (4 separate loops of individual operations):
+
+....
+/* Copy. */
+times[0 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    c[j] = a[j];
+times[0 * ntimes + k] = mysecond() - times[0 * ntimes + k];
+
+/* Scale. */
+times[1 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    b[j] = scalar*c[j];
+times[1 * ntimes + k] = mysecond() - times[1 * ntimes + k];
+
+/* Add. */
+times[2 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    c[j] = a[j]+b[j];
+times[2 * ntimes + k] = mysecond() - times[2 * ntimes + k];
+
+/* Triad. */
+times[3 * ntimes + k] = mysecond();
+#pragma omp parallel for
+for (j=0; j<stream_array_size; j++)
+    a[j] = b[j]+scalar*c[j];
+times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
+}
+....
+
+See also: https://stackoverflow.com/questions/56086993/what-does-stream-memory-bandwidth-benchmark-really-measure
+
+The LKMC usage of STREAM is analogous to that of <<dhrystone>>. Build and run on QEMU <<user-mode-simulation>>:
+
+....
+git submodule update --init submodules/stream-benchmark
+./build-stream --optimization-level 3
+./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe"
+....
+
+Decrease the benchmark size and the retry count to finish simulation faster, but possibly have a less representative result:
+
+....
+./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --cli-args '100 2'
+....
+
+Build and run on gem5 user mode:
+
+....
+./build-stream --optimization-level 3
+./run --emulator gem5 --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe" --cli-args '1000 2'
+....
 
 [[userland-libs-directory]]
 === userland/libs directory
@@ -20595,6 +20806,14 @@ Tests under link:userland/libs[] require certain optional libraries to be instal
 ....
 
 See for example <<blas>>.
+
+==== Boost
+
+link:https://++en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)++[]
+
+link:userland/libs/boost[]
+
+* link:userland/libs/boost/bimap.cpp[]
 
 ==== HDF5
 
@@ -25384,18 +25603,29 @@ For now we can just run on gem5 to estimate the instruction count per input size
 
 For example, the simplest scalable CPU content would be an <<c-busy-loop>>, so let's start by analyzing that one.
 
-Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: xref:table-busy-loop-dmips[xrefstyle=full]. As expected, the less native / more detailed / more complex simulations are slower!
+Summary of manually collected results on <<p51>> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: xref:table-busy-loop-dmips[xrefstyle=full]. As expected, the less native/more detailed/more complex simulations are slower!
 
 [[table-busy-loop-dmips]]
 .Busy loop MIPS for different simulator setups
 [options="header"]
 |===
-|Comment |LKMC |Benchmark build |Emulator command |Loops |Time (s) |Instruction count |Approximate MIPS |gem5 version |Host
+|Comment |LKMC |Benchmark build |Emulator command |Loops |Time (s) |Instruction count |Approximate MIPS |Hardware version |Host OS
 
-|QEMU busy loop
+|Native busy loop
+|a7ae8e6a8e29ef46d79eb9178d8599d1faeea0e5 + 1
+|link:userland/gcc/busy_loop.c[] `-O0`
+|`./run --emulator native --userland userland/gcc/busy_loop.c --cli-args 10000000000`
+|10^10
+|27
+|
+|
+|<<p51>>
+|Ubuntu 20.04
+
+|QEMU aarch64 busy loop
 |a18f28e263c91362519ef550150b5c9d75fa3679 + 1
 |link:userland/gcc/busy_loop.c[] `-O0`
-|`./run --arch aarch64 --userland userland/gcc/busy_loop.c `
+|`./run --arch aarch64 --userland userland/gcc/busy_loop.c --cli-args 10000000000`
 |10^10
 |68
 |1.1 * 10^11 (approx)
