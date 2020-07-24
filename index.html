@@ -567,7 +567,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#gdb-step-debug-multicore-userland">2.9. GDB step debug multicore userland</a></li>
 <li><a href="#linux-kernel-gdb-scripts">2.10. Linux kernel GDB scripts</a>
 <ul class="sectlevel3">
-<li><a href="#lx-ps">2.10.1. lx-ps</a></li>
+<li><a href="#lx-ps">2.10.1. lx-ps</a>
+<ul class="sectlevel4">
+<li><a href="#config-pid-in-contextidr">2.10.1.1. CONFIG_PID_IN_CONTEXTIDR</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#debug-the-gdb-remote-protocol">2.11. Debug the GDB remote protocol</a>
@@ -1538,29 +1542,33 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#benchmarks">21.8. Benchmarks</a>
 <ul class="sectlevel3">
-<li><a href="#boost">21.8.1. Boost</a></li>
-<li><a href="#dhrystone">21.8.2. Dhrystone</a></li>
-<li><a href="#lmbench">21.8.3. LMbench</a></li>
-<li><a href="#stream-benchmark">21.8.4. STREAM benchmark</a></li>
-<li><a href="#parsec-benchmark">21.8.5. PARSEC benchmark</a>
+<li><a href="#parsec-benchmark">21.8.1. PARSEC benchmark</a>
 <ul class="sectlevel4">
-<li><a href="#parsec-benchmark-without-parsecmgmt">21.8.5.1. PARSEC benchmark without parsecmgmt</a></li>
-<li><a href="#parsec-change-the-input-size">21.8.5.2. PARSEC change the input size</a></li>
-<li><a href="#parsec-benchmark-with-parsecmgmt">21.8.5.3. PARSEC benchmark with parsecmgmt</a></li>
-<li><a href="#parsec-uninstall">21.8.5.4. PARSEC uninstall</a></li>
-<li><a href="#parsec-benchmark-hacking">21.8.5.5. PARSEC benchmark hacking</a></li>
+<li><a href="#parsec-benchmark-without-parsecmgmt">21.8.1.1. PARSEC benchmark without parsecmgmt</a></li>
+<li><a href="#parsec-change-the-input-size">21.8.1.2. PARSEC change the input size</a></li>
+<li><a href="#parsec-benchmark-with-parsecmgmt">21.8.1.3. PARSEC benchmark with parsecmgmt</a></li>
+<li><a href="#parsec-uninstall">21.8.1.4. PARSEC uninstall</a></li>
+<li><a href="#parsec-benchmark-hacking">21.8.1.5. PARSEC benchmark hacking</a></li>
+<li><a href="#coremark">21.8.1.6. Coremark</a></li>
+</ul>
+</li>
+<li><a href="#microbenchmarks">21.8.2. Microbenchmarks</a>
+<ul class="sectlevel4">
+<li><a href="#dhrystone">21.8.2.1. Dhrystone</a></li>
+<li><a href="#lmbench">21.8.2.2. LMbench</a></li>
+<li><a href="#stream-benchmark">21.8.2.3. STREAM benchmark</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a href="#micro-benchmarks">21.9. Micro benchmarks</a></li>
-<li><a href="#userland-libs-directory">21.10. userland/libs directory</a>
+<li><a href="#userland-libs-directory">21.9. userland/libs directory</a>
 <ul class="sectlevel3">
-<li><a href="#hdf5">21.10.1. HDF5</a></li>
+<li><a href="#boost">21.9.1. Boost</a></li>
+<li><a href="#hdf5">21.9.2. HDF5</a></li>
 </ul>
 </li>
-<li><a href="#userland-content-filename-conventions">21.11. Userland content filename conventions</a></li>
-<li><a href="#userland-content-bibliography">21.12. Userland content bibliography</a></li>
+<li><a href="#userland-content-filename-conventions">21.10. Userland content filename conventions</a></li>
+<li><a href="#userland-content-bibliography">21.11. Userland content bibliography</a></li>
 </ul>
 </li>
 <li><a href="#userland-assembly">22. Userland assembly</a>
@@ -5825,6 +5833,202 @@ pwd</pre>
 <p><a href="https://events.static.linuxfound.org/sites/events/files/slides/Debugging%20the%20Linux%20Kernel%20with%20GDB.pdf" class="bare">https://events.static.linuxfound.org/sites/events/files/slides/Debugging%20the%20Linux%20Kernel%20with%20GDB.pdf</a> presentation: <a href="https://www.youtube.com/watch?v=pqn5hIrz3A8" class="bare">https://www.youtube.com/watch?v=pqn5hIrz3A8</a></p>
 </li>
 </ul>
+</div>
+<div class="sect4">
+<h5 id="config-pid-in-contextidr"><a class="anchor" href="#config-pid-in-contextidr"></a><a class="link" href="#config-pid-in-contextidr">2.10.1.1. CONFIG_PID_IN_CONTEXTIDR</a></h5>
+<div class="paragraph">
+<p><a href="https://stackoverflow.com/questions/54133479/accessing-logical-software-thread-id-in-gem5" class="bare">https://stackoverflow.com/questions/54133479/accessing-logical-software-thread-id-in-gem5</a> on ARM the kernel can store an indication of PID in the CONTEXTIDR_EL1 register, making that much easier to observe from simulators.</p>
+</div>
+<div class="paragraph">
+<p>In particular, gem5 prints that number out by default on <code>ExecAll</code> messages!</p>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s test it out with <a href="#linux-kernel-build-variants">Linux kernel build variants</a> + <a href="#gem5-restore-new-script">gem5 checkpoint restore and run a different script</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-linux --arch aarch64 --linux-build-id CONFIG_PID_IN_CONTEXTIDR --config 'CONFIG_PID_IN_CONTEXTIDR=y'
+# Checkpoint run.
+./run --arch aarch64 --emulator gem5 --linux-build-id CONFIG_PID_IN_CONTEXTIDR --eval './gem5.sh'
+# Trace run.
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --gem5-readfile 'posix/getpid.out; posix/getpid.out' \
+  --gem5-restore 1 \
+  --linux-build-id CONFIG_PID_IN_CONTEXTIDR \
+  --trace FmtFlag,ExecAll,-ExecSymbol \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The terminal runs both programs which output their PID to stdout:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>pid=44
+pid=45</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By quickly inspecting the <code>trace.txt</code> file, we immediately notice that the <code>system.cpu: A&lt;n&gt;</code> part of the logs, which used to always be <code>system.cpu: A0</code>, now has a few different values! Nice!</p>
+</div>
+<div class="paragraph">
+<p>We can briefly summarize those values by removing repetitions:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cut -d' ' -f4 "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)" | uniq -c</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>gives:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  97227 A39
+ 147476 A38
+ 222052 A40
+      1 terminal
+1117724 A40
+  27529 A31
+  43868 A40
+  27487 A31
+ 138349 A40
+  13781 A38
+ 231246 A40
+  25536 A38
+  28337 A40
+ 214799 A38
+ 963561 A41
+  92603 A38
+  27511 A31
+ 224384 A38
+ 564949 A42
+ 182360 A38
+ 729009 A43
+   8398 A23
+  20200 A10
+ 636848 A43
+ 187995 A44
+  27529 A31
+  70071 A44
+  16981 A0
+ 623806 A44
+  16981 A0
+ 139319 A44
+  24487 A0
+ 174986 A44
+  25420 A0
+  89611 A44
+  16981 A0
+ 183184 A44
+  24728 A0
+  89608 A44
+  17226 A0
+ 899075 A44
+  24974 A0
+ 250608 A44
+ 137700 A43
+1497997 A45
+ 227485 A43
+ 138147 A38
+ 482646 A46</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>I&#8217;m not smart enough to be able to deduce all of those IDs, but we can at least see that:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>A44 and A45 are there as expected from stdout!</p>
+</li>
+<li>
+<p>A39 must be the end of the execution of <code>m5 checkpoint</code></p>
+</li>
+<li>
+<p>so we guess that A38 is the shell as it comes next</p>
+</li>
+<li>
+<p>the weird "terminal" line is <code>336969745500: system.terminal: attach terminal 0</code></p>
+</li>
+<li>
+<p>which is the shell PID? I should have printed that as well :-)</p>
+</li>
+<li>
+<p>why are there so many other PIDs? This was supposed to be a silent system without daemons!</p>
+</li>
+<li>
+<p>A0 is presumably the kernel. However we see process switches without going into A0, so I&#8217;m not sure how, it appears to count kernel instructions as part of processes</p>
+</li>
+<li>
+<p>A46 has to be the <code>m5 exit</code> call</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Or if you want to have some real fun, try: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/contextidr_el1.c">baremetal/arch/aarch64/contextidr_el1.c</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --emulator gem5 --baremetal baremetal/arch/aarch64/contextidr_el1.c --trace-insts-stdout</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>in which we directly set the register ourselves! Output excerpt:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  31500: system.cpu: A0 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000001 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  32000: system.cpu: A1 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+  32500: system.cpu: A1 T0 : @main+20    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000001 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  33000: system.cpu: A1 T0 : @main+24    :   add   w0, w0, #1         : IntAlu :  D=0x0000000000000002  flags=(IsInteger)
+  33500: system.cpu: A1 T0 : @main+28    :   str   x0, [sp, #12]      : MemWrite :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsStore)
+  34000: system.cpu: A1 T0 : @main+32    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  34500: system.cpu: A1 T0 : @main+36    :   subs   w0, #9            : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+  35000: system.cpu: A1 T0 : @main+40    :   b.le   &lt;main+12&gt;         : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+  35500: system.cpu: A1 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  36000: system.cpu: A2 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000002  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+  36500: system.cpu: A2 T0 : @main+20    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  37000: system.cpu: A2 T0 : @main+24    :   add   w0, w0, #1         : IntAlu :  D=0x0000000000000003  flags=(IsInteger)
+  37500: system.cpu: A2 T0 : @main+28    :   str   x0, [sp, #12]      : MemWrite :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsStore)
+  38000: system.cpu: A2 T0 : @main+32    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  38500: system.cpu: A2 T0 : @main+36    :   subs   w0, #9            : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+  39000: system.cpu: A2 T0 : @main+40    :   b.le   &lt;main+12&gt;         : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+  39500: system.cpu: A2 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  40000: system.cpu: A3 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000003  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><a href="#armarm8-fa">ARMv8 architecture reference manual db</a> D13.2.27 "CONTEXTIDR_EL1, Context ID Register (EL1)" documents <code>CONTEXTIDR_EL1</code> as:</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>Identifies the current Process Identifier.</p>
+</div>
+<div class="paragraph">
+<p>The value of the whole of this register is called the Context ID and is used by:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The debug logic, for Linked and Unlinked Context ID matching.</p>
+</li>
+<li>
+<p>The trace logic, to identify the current process.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The significance of this register is for debug and trace use only.</p>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p>Tested on 145769fc387dc5ee63ec82e55e6b131d9c968538 + 1.</p>
+</div>
 </div>
 </div>
 </div>
@@ -14108,7 +14312,17 @@ pid 63
 </div>
 </div>
 <div class="paragraph">
-<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/pagemap_dump.c">userland/linux/pagemap_dump.c</a></p>
+<p>Source:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/pagemap_dump.c">userland/linux/pagemap_dump.c</a></p>
+</li>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/lkmc/pagemap.h">lkmc/pagemap.h</a></p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>Adapted from: <a href="https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c" class="bare">https://github.com/dwks/pagemap/blob/8a25747bc79d6080c8b94eac80807a4dceeda57a/pagemap2.c</a></p>
@@ -20980,6 +21194,17 @@ system.cpu.dtb.inst_hits</pre>
 </div>
 <div class="paragraph">
 <p>We also note however that the stat dump made the such a simulation that just loops and dumps considerably slower, from 3s to 15s on <a href="#p51">P51</a>. Fascinating, we are definitely not disk bound there.</p>
+</div>
+<div class="paragraph">
+<p>We enable HDF5 on the build by default with <code>USE_HDF5=1</code>. To disable it, you can add <code>USE_HDF5=0</code> to the build as in:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-gem5 -- USE_HDF5=0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Library support is automatically detected, and only built if you have it installed. But there have been some compilation bugs with HDF5, which is why you might want to turn it off sometimes, e.g.: <a href="https://gem5.atlassian.net/browse/GEM5-365" class="bare">https://gem5.atlassian.net/browse/GEM5-365</a></p>
 </div>
 </div>
 <div class="sect4">
@@ -28252,7 +28477,8 @@ build/ARM/config/the_isa.hh
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>sudo apt install libantlr3c-dev
+<pre>git submodule update --init submodules/gensim-simulator
+sudo apt install libantlr3c-dev
 cd submodule/gensim
 make</pre>
 </div>
@@ -28685,7 +28911,7 @@ make menuconfig</pre>
 <p>Also mentioned at: <a href="https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot" class="bare">https://stackoverflow.com/questions/47320800/how-to-clean-only-target-in-buildroot</a></p>
 </div>
 <div class="paragraph">
-<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 21.8.5.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
+<p>See this for a sample manual workaround: <a href="#parsec-uninstall">Section 21.8.1.4, &#8220;PARSEC uninstall&#8221;</a>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -31425,23 +31651,503 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </ul>
 </div>
 <div class="sect3">
-<h4 id="boost"><a class="anchor" href="#boost"></a><a class="link" href="#boost">21.8.1. Boost</a></h4>
+<h4 id="parsec-benchmark"><a class="anchor" href="#parsec-benchmark"></a><a class="link" href="#parsec-benchmark">21.8.1. PARSEC benchmark</a></h4>
 <div class="paragraph">
-<p><a href="https://en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries" class="bare">https://en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries</a>)</p>
+<p>We have ported parts of the <a href="http://parsec.cs.princeton.edu">PARSEC benchmark</a> for cross compilation at: <a href="https://github.com/cirosantilli/parsec-benchmark" class="bare">https://github.com/cirosantilli/parsec-benchmark</a> See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.</p>
 </div>
 <div class="paragraph">
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/boost">userland/libs/boost</a></p>
+<p>There are two ways to run PARSEC with this repo:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/boost/bimap.cpp">userland/libs/boost/bimap.cpp</a></p>
+<p><a href="#parsec-benchmark-without-parsecmgmt">without <code>pasecmgmt</code></a>, most likely what you want</p>
+</li>
+<li>
+<p><a href="#parsec-benchmark-with-parsecmgmt">with <code>pasecmgmt</code></a></p>
+</li>
+</ul>
+</div>
+<div class="sect4">
+<h5 id="parsec-benchmark-without-parsecmgmt"><a class="anchor" href="#parsec-benchmark-without-parsecmgmt"></a><a class="link" href="#parsec-benchmark-without-parsecmgmt">21.8.1.1. PARSEC benchmark without parsecmgmt</a></h5>
+<div class="literalblock">
+<div class="content">
+<pre>./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
+./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
+./run --arch arm --emulator gem5</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Once inside the guest, launch one of the <code>test</code> input sized benchmarks manually as in:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cd /parsec/ext/splash2x/apps/fmm/run
+../inst/arm-linux.gcc/bin/fmm 1 &lt; input_1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To find run out how to run many of the benchmarks, have a look at the <code>test.sh</code> script of the <code>parse-benchmark</code> repo.</p>
+</div>
+<div class="paragraph">
+<p>From the guest, you can also run it as:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cd /parsec
+./test.sh</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>but this might be a bit time consuming in gem5.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="parsec-change-the-input-size"><a class="anchor" href="#parsec-change-the-input-size"></a><a class="link" href="#parsec-change-the-input-size">21.8.1.2. PARSEC change the input size</a></h5>
+<div class="paragraph">
+<p>Running a benchmark of a size different than <code>test</code>, e.g. <code>simsmall</code>, requires a rebuild with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-buildroot \
+  --arch arm \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
+  -- parsec_benchmark-reconfigure \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Large input may also require tweaking:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#br2-target-rootfs-ext2-size">BR2_TARGET_ROOTFS_EXT2_SIZE</a> if the unpacked inputs are large</p>
+</li>
+<li>
+<p><a href="#memory-size">Memory size</a>, unless you want to meet the OOM killer, which is admittedly kind of fun</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><code>test.sh</code> only contains the run commands for the <code>test</code> size, and cannot be used for <code>simsmall</code>.</p>
+</div>
+<div class="paragraph">
+<p>The easiest thing to do, is to <a href="https://superuser.com/questions/231002/how-can-i-search-within-the-output-buffer-of-a-tmux-shell/1253137#1253137">scroll up on the host shell</a> after the build, and look for a line of type:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Running /root/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then tweak the command found in <code>test.sh</code> accordingly.</p>
+</div>
+<div class="paragraph">
+<p>Yes, we do run the benchmarks on host just to unpack / generate inputs. They are expected fail to run since they were build for the guest instead of host, including for x86_64 guest which has a different interpreter than the host&#8217;s (see <code>file myexecutable</code>).</p>
+</div>
+<div class="paragraph">
+<p>The rebuild is required because we unpack input files on the host.</p>
+</div>
+<div class="paragraph">
+<p>Separating input sizes also allows to create smaller images when only running the smaller benchmarks.</p>
+</div>
+<div class="paragraph">
+<p>This limitation exists because <code>parsecmgmt</code> generates the input files just before running via the Bash scripts, but we can&#8217;t run <code>parsecmgmt</code> on gem5 as it is too slow!</p>
+</div>
+<div class="paragraph">
+<p>One option would be to do that inside the guest with QEMU.</p>
+</div>
+<div class="paragraph">
+<p>Also, we can&#8217;t generate all input sizes at once, because many of them have the same name and would overwrite one another&#8230;&#8203;</p>
+</div>
+<div class="paragraph">
+<p>PARSEC simply wasn&#8217;t designed with non native machines in mind&#8230;&#8203;</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="parsec-benchmark-with-parsecmgmt"><a class="anchor" href="#parsec-benchmark-with-parsecmgmt"></a><a class="link" href="#parsec-benchmark-with-parsecmgmt">21.8.1.3. PARSEC benchmark with parsecmgmt</a></h5>
+<div class="paragraph">
+<p>Most users won&#8217;t want to use this method because:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>running the <code>parsecmgmt</code> Bash scripts takes forever before it ever starts running the actual benchmarks on gem5</p>
+<div class="paragraph">
+<p>Running on QEMU is feasible, but not the main use case, since QEMU cannot be used for performance measurements</p>
+</div>
+</li>
+<li>
+<p>it requires putting the full <code>.tar</code> inputs on the guest, which makes the image twice as large (1x for the <code>.tar</code>, 1x for the unpacked input files)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>It would be awesome if it were possible to use this method, since this is what Parsec supports officially, and so:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>you don&#8217;t have to dig into what raw command to run</p>
+</li>
+<li>
+<p>there is an easy way to run all the benchmarks in one go to test them out</p>
+</li>
+<li>
+<p>you can just run any of the benchmarks that you want</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>but it simply is not feasible in gem5 because it takes too long.</p>
+</div>
+<div class="paragraph">
+<p>If you still want to run this, try it out with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-buildroot \
+  --arch aarch64 \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
+  --config 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
+  -- parsec_benchmark-reconfigure \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And then you can run it just as you would on the host:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cd /parsec/
+bash
+. env.sh
+parsecmgmt -a run -p splash2x.fmm -i test</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">21.8.1.4. PARSEC uninstall</a></h5>
+<div class="paragraph">
+<p>If you want to remove PARSEC later, Buildroot doesn&#8217;t provide an automated package removal mechanism as mentioned at: <a href="#remove-buildroot-packages">Section 20.6, &#8220;Remove Buildroot packages&#8221;</a>, but the following procedure should be satisfactory:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>rm -rf \
+  "$(./getvar buildroot_download_dir)"/parsec-* \
+  "$(./getvar buildroot_build_dir)"/build/parsec-* \
+  "$(./getvar buildroot_build_dir)"/build/packages-file-list.txt \
+  "$(./getvar buildroot_build_dir)"/images/rootfs.* \
+  "$(./getvar buildroot_build_dir)"/target/parsec-* \
+;
+./build-buildroot --arch arm</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="parsec-benchmark-hacking"><a class="anchor" href="#parsec-benchmark-hacking"></a><a class="link" href="#parsec-benchmark-hacking">21.8.1.5. PARSEC benchmark hacking</a></h5>
+<div class="paragraph">
+<p>If you end up going inside <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/submodules/parsec-benchmark">submodules/parsec-benchmark</a> to hack up the benchmark (you will!), these tips will be helpful.</p>
+</div>
+<div class="paragraph">
+<p>Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.</p>
+</div>
+<div class="paragraph">
+<p>A few workarounds are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>develop in host first as much as you can. Our PARSEC fork supports it.</p>
+<div class="paragraph">
+<p>If you do this, don&#8217;t forget to do a:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cd "$(./getvar parsec_source_dir)"
+git clean -xdf .</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>before going for the cross compile build.</p>
+</div>
+</li>
+<li>
+<p>patch Buildroot to work well, and keep cross compiling all the way. This should be totally viable, and we should do it.</p>
+<div class="paragraph">
+<p>Don&#8217;t forget to explicitly rebuild PARSEC with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-buildroot \
+  --arch arm \
+  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
+  -- parsec_benchmark-reconfigure \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.</p>
+</div>
+</li>
+<li>
+<p>sell your soul, and compile natively inside the guest. We won&#8217;t do this, not only because it is evil, but also because Buildroot explicitly does not support it: <a href="https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target" class="bare">https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target</a> ARM employees have been known to do this: <a href="https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff" class="bare">https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff</a></p>
 </li>
 </ul>
 </div>
 </div>
+<div class="sect4">
+<h5 id="coremark"><a class="anchor" href="#coremark"></a><a class="link" href="#coremark">21.8.1.6. Coremark</a></h5>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Coremark" class="bare">https://en.wikipedia.org/wiki/Coremark</a></p>
+</div>
+<div class="paragraph">
+<p>Part of <a href="https://en.wikipedia.org/wiki/EEMBC">EEMBC</a>.</p>
+</div>
+<div class="paragraph">
+<p>They have two versions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>2009: <a href="https://github.com/eembc/coremark" class="bare">https://github.com/eembc/coremark</a></p>
+</li>
+<li>
+<p>2015: <a href="https://github.com/eembc/coremark-pro" class="bare">https://github.com/eembc/coremark-pro</a></p>
+<div class="paragraph">
+<p>Describes very clearly on the README what tests it does. Most of them are understandable high level operations.</p>
+</div>
+<div class="paragraph">
+<p>In particular, it contains "a greatly improved version of the <a href="https://en.wikipedia.org/wiki/Livermore_loops">Livermore loops</a>"</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Both have a custom license, so yeah, no patience to read this stuff.</p>
+</div>
+<div class="paragraph">
+<p>Coremark-pro build and run on Ubuntu 20.04:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>git submodule update --init submodules coremark-pro
+cd submodules/coremark-pro
+make TARGET=linux64 build
+make TARGET=linux64 XCMD='-c4' certify-all</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This uses <code>4</code> contexts. TODO what are contexts? Is the same as threads?</p>
+</div>
+<div class="paragraph">
+<p>Finishes in a few seconds, <a href="#p51">P51</a> results:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Workload Name                                     (iter/s)   (iter/s)    Scaling
+----------------------------------------------- ---------- ---------- ----------
+cjpeg-rose7-preset                                  526.32     178.57       2.95
+core                                                  7.39       2.16       3.42
+linear_alg-mid-100x100-sp                           684.93     238.10       2.88
+loops-all-mid-10k-sp                                 27.65       7.80       3.54
+nnet_test                                            32.79      10.57       3.10
+parser-125k                                          71.43      25.00       2.86
+radix2-big-64k                                     2320.19     623.44       3.72
+sha-test                                            555.56     227.27       2.44
+zip-test                                            363.64     166.67       2.18
+
+MARK RESULTS TABLE
+
+Mark Name                                        MultiCore SingleCore    Scaling
+----------------------------------------------- ---------- ---------- ----------
+CoreMark-PRO                                      18743.79    6306.76       2.97</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And scaling appears to be the ration between multicore (4 due to <code>-c4</code> and single core performance), each benchmark gets run twice with multicore and single core.</p>
+</div>
+<div class="paragraph">
+<p>The tester script also outputs test commands, some of which are:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>builds/linux64/gcc64/bin/zip-test.exe -c1 -w1 -c4 -v1
+builds/linux64/gcc64/bin/zip-test.exe -c1 -w1 -c4 -v0
+builds/linux64/gcc64/bin/zip-test.exe -c4 -v1
+builds/linux64/gcc64/bin/zip-test.exe -c4 -v0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>-v1</code> appears to be a fast verification run, and both <code>-c1</code> vs <code>-c4</code> get run because for the single vs multicore preformance.</p>
+</div>
+<div class="paragraph">
+<p>Sample <code>-c4 -v0</code> output:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>-  Info: Starting Run...
+-- Workload:zip-test=946108807
+-- zip-test:time(ns)=11
+-- zip-test:contexts=4
+-- zip-test:iterations=4
+-- zip-test:time(secs)=   0.011
+-- zip-test:secs/workload= 0.00275
+-- zip-test:workloads/sec= 363.636
+-- Done:zip-test=946108807</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and so we see the <code>zip-test:workloads/sec= 363.636</code> output is the key value, which is close to that of the <code>zip-test 363.64</code> in the earlier full summarized result.</p>
+</div>
+<div class="paragraph">
+<p>Cross compile statically for aarch64. From LKMC toplevel:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>make \
+  -C submodules/coremark-pro \
+  LINKER_FLAGS='-static' \
+  LINKER_LAST='-lm -lpthread -lrt' \
+  TARGET=gcc-cross-linux \
+  TOOLCHAIN=gcc-cross-linux \
+  TOOLS="$(./getvar --arch aarch64 buildroot_host_usr_dir)" \
+  TPREF="$(./getvar --arch aarch64 buildroot_toolchain_prefix)-" \
+  build \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Run a single executable on QEMU:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --userland submodules/coremark-pro/builds/gcc-cross-linux/bin/zip-test.exe --cli-args='-c4 -v0'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Finishes in about 1 second, and gives <code>zip-test:workloads/sec= 74.0741</code> so we see that it ran about 5x slower than the native host.</p>
+</div>
+<div class="paragraph">
+<p>Run a single executable on gem5 in a verification run:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --cli-args='-c1 -v1' \
+  --emulator gem5 \
+  --userland submodules/coremark-pro/builds/gcc-cross-linux/bin/zip-test.exe \
+;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO: hangs for at least 15 minutes, there must be something wrong. Stuck on an evolving strlen loop:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>7837834500: system.cpu: A0 T0 : @__strlen_generic+112    : ldp
+7837834500: system.cpu: A0 T0 : @__strlen_generic+112. 0 :   addxi_uop   ureg0, x1, #16 : IntAlu :  D=0x0000003ffff07170  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+7837835000: system.cpu: A0 T0 : @__strlen_generic+112. 1 :   ldp_uop   x2, x3, [ureg0] : MemRead :  D=0x20703c0a3e702f3c A=0x3ffff07170  flags=(IsInteger|IsMemRef|IsLoad|IsMicroop|IsLastMicroop)
+7837835500: system.cpu: A0 T0 : @__strlen_generic+116    :   sub   x4, x2, x8         : IntAlu :  D=0x3d607360632e3b34  flags=(IsInteger)
+7837836000: system.cpu: A0 T0 : @__strlen_generic+120    :   sub   x6, x3, x8         : IntAlu :  D=0x1f6f3b093d6f2e3b  flags=(IsInteger)
+7837836500: system.cpu: A0 T0 : @__strlen_generic+124    :   orr   x5, x4, x6         : IntAlu :  D=0x3f6f7b697f6f3f3f  flags=(IsInteger)
+7837837000: system.cpu: A0 T0 : @__strlen_generic+128    :   ands   x5, x8, LSL #7    : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+7837837500: system.cpu: A0 T0 : @__strlen_generic+132    :   b.eq   &lt;__strlen_generic+88&gt; : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+7837838000: system.cpu: A0 T0 : @__strlen_generic+88    : ldp
+7837838000: system.cpu: A0 T0 : @__strlen_generic+88. 0 :   addxi_uop   ureg0, x1, #32 : IntAlu :  D=0x0000003ffff07180  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+7837838500: system.cpu: A0 T0 : @__strlen_generic+88. 1 :   ldp_uop   x2, x3, [ureg0] : MemRead :  D=0x6565686b636f4c27 A=0x3ffff07180  flags=(IsInteger|IsMemRef|IsLoad|IsMicroop|IsDelayedCommit)
+7837839000: system.cpu: A0 T0 : @__strlen_generic+88. 2 :   addxi_uop   x1, ureg0, #0 : IntAlu :  D=0x0000003ffff07180  flags=(IsInteger|IsMicroop|IsLastMicroop)
+7837839500: system.cpu: A0 T0 : @__strlen_generic+92    :   sub   x4, x2, x8         : IntAlu :  D=0x3c786d606f6c6e62  flags=(IsInteger)
+7837840000: system.cpu: A0 T0 : @__strlen_generic+96    :   sub   x6, x3, x8         : IntAlu :  D=0x6464676a626e4b26  flags=(IsInteger)
+7837840500: system.cpu: A0 T0 : @__strlen_generic+100    :   orr   x5, x4, x6         : IntAlu :  D=0x7c7c6f6a6f6e6f66  flags=(IsInteger)
+7837841000: system.cpu: A0 T0 : @__strlen_generic+104    :   ands   x5, x8, LSL #7    : IntAlu :  D=0x0000000000000000  flags=(IsInteger)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Instructions before <code>__strlen_generic</code> starts:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>7831019000: system.cpu: A0 T0 : @define_params_zip+664    :   add   x1, sp, #168       : IntAlu :  D=0x0000007ffffef988  flags=(IsInteger)
+7831019500: system.cpu: A0 T0 : @define_params_zip+668    :   orr   x0, xzr, x24       : IntAlu :  D=0x0000003ffff00010  flags=(IsInteger)
+7831020000: system.cpu: A0 T0 : @define_params_zip+672    :   bl   &lt;th_strcat&gt;         : IntAlu :  D=0x000000000040a4c4  flags=(IsInteger|IsControl|IsDirectControl|IsUncondControl|IsCall)
+7831020500: system.cpu: A0 T0 : @th_strcat    :   b   &lt;strcat&gt;             : IntAlu :   flags=(IsControl|IsDirectControl|IsUncondControl)
+7831021000: system.cpu: A0 T0 : @strcat    : stp
+7831021000: system.cpu: A0 T0 : @strcat. 0 :   addxi_uop   ureg0, sp, #-48 : IntAlu :  D=0x0000007ffffef8b0  flags=(IsInteger|IsMicroop|IsDelayedCommit|IsFirstMicroop)
+7831021500: system.cpu: A0 T0 : @strcat. 1 :   strxi_uop   x29, [ureg0] : MemWrite :  D=0x0000007ffffef8e0 A=0x7ffffef8b0  flags=(IsInteger|IsMemRef|IsStore|IsMicroop|IsDelayedCommit)
+7831022000: system.cpu: A0 T0 : @strcat. 2 :   strxi_uop   x30, [ureg0, #8] : MemWrite :  D=0x000000000040a4c4 A=0x7ffffef8b8  flags=(IsInteger|IsMemRef|IsStore|IsMicroop|IsDelayedCommit)
+7831022500: system.cpu: A0 T0 : @strcat. 3 :   addxi_uop   sp, ureg0, #0 : IntAlu :  D=0x0000007ffffef8b0  flags=(IsInteger|IsMicroop|IsLastMicroop)
+7831023000: system.cpu: A0 T0 : @strcat+4    :   add   x29, sp, #0        : IntAlu :  D=0x0000007ffffef8b0  flags=(IsInteger)
+7831023500: system.cpu: A0 T0 : @strcat+8    :   str   x19, [sp, #16]     : MemWrite :  D=0x00000000004d6560 A=0x7ffffef8c0  flags=(IsInteger|IsMemRef|IsStore)
+7831024000: system.cpu: A0 T0 : @strcat+12    :   orr   x19, xzr, x0       : IntAlu :  D=0x0000003ffff00010  flags=(IsInteger)
+7831024500: system.cpu: A0 T0 : @strcat+16    :   str   x1, [sp, #40]      : MemWrite :  D=0x0000007ffffef988 A=0x7ffffef8d8  flags=(IsInteger|IsMemRef|IsStore)
+7831025000: system.cpu: A0 T0 : @strcat+20    :   bl   &lt;_init+120&gt;         : IntAlu :  D=0x00000000004464c8  flags=(IsInteger|IsControl|IsDirectControl|IsUncondControl|IsCall)
+7831025500: system.cpu: A0 T0 : @_init+120    :   adrp   x16, #835584      : IntAlu :  D=0x00000000004cc000  flags=(IsInteger)
+7831026000: system.cpu: A0 T0 : @_init+124    :   ldr   x17, [x16, #48]    : MemRead :  D=0x0000000000449680 A=0x4cc030  flags=(IsInteger|IsMemRef|IsLoad)
+7831026500: system.cpu: A0 T0 : @_init+128    :   add   x16, x16, #48      : IntAlu :  D=0x00000000004cc030  flags=(IsInteger)
+7831027000: system.cpu: A0 T0 : @_init+132    :   br   x17                 : IntAlu :   flags=(IsInteger|IsControl|IsIndirectControl|IsUncondControl)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Their build/run system is nice, it even user mode simulators out-of-the-box! TODO give it a shot. See :</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>RUN =
+RUN_FLAGS =</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>under <code>util/make/linux64.mak</code>.</p>
+</div>
+<div class="paragraph">
+<p>Tested on a7ae8e6a8e29ef46d79eb9178d8599d1faeea0e5 + 1.</p>
+</div>
+</div>
+</div>
 <div class="sect3">
-<h4 id="dhrystone"><a class="anchor" href="#dhrystone"></a><a class="link" href="#dhrystone">21.8.2. Dhrystone</a></h4>
+<h4 id="microbenchmarks"><a class="anchor" href="#microbenchmarks"></a><a class="link" href="#microbenchmarks">21.8.2. Microbenchmarks</a></h4>
+<div class="paragraph">
+<p>It eventually has to come to that, hasn&#8217;t it?</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> described at <a href="#c-busy-loop">C busy loop</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Of course, there is a continuum between what is a "microbenchmark" and a "macrobechmark".</p>
+</div>
+<div class="paragraph">
+<p>One would hope that every microbenchmark exercises a concentrated subset of part of an important macro benchmark, otherwise what&#8217;s the point, right?</p>
+</div>
+<div class="paragraph">
+<p>Also for parametrized "macro benchmark", you can always in theory reduce the problem size to be so small that it might be more appropriate to call it a micro benchmark.</p>
+</div>
+<div class="paragraph">
+<p>So our working definition will be more of the type: "does it solve an understandable useful high level problem from start to end?".</p>
+</div>
+<div class="paragraph">
+<p>If the answer is yes, then we call it a macro benchmark, otherwise micro.</p>
+</div>
+<div class="paragraph">
+<p>Bibliography:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://stackoverflow.com/questions/2842695/what-is-microbenchmarking" class="bare">https://stackoverflow.com/questions/2842695/what-is-microbenchmarking</a></p>
+</li>
+</ul>
+</div>
+<div class="sect4">
+<h5 id="dhrystone"><a class="anchor" href="#dhrystone"></a><a class="link" href="#dhrystone">21.8.2.1. Dhrystone</a></h5>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/Dhrystone" class="bare">https://en.wikipedia.org/wiki/Dhrystone</a></p>
 </div>
@@ -31506,7 +32212,16 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 <div class="literalblock">
 <div class="content">
 <pre>./build-dhrystone --host
-"$(./getvar --host userland_build_dir)/submodules/dhrystone/dhrystone"</pre>
+"$(./getvar --host userland_build_dir)/submodules/dhrystone/dhrystone" 1000000000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Output for <a href="#p51">P51</a> Ubuntu 20.04:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Microseconds for one run through Dhrystone:    0.1
+Dhrystones per Second:                      16152479.0</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -31548,8 +32263,8 @@ cblas_dgemm(      CblasColMajor, CblasNoTrans, CblasTrans,3,3,2  ,1,    A,3,  B,
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="lmbench"><a class="anchor" href="#lmbench"></a><a class="link" href="#lmbench">21.8.3. LMbench</a></h4>
+<div class="sect4">
+<h5 id="lmbench"><a class="anchor" href="#lmbench"></a><a class="link" href="#lmbench">21.8.2.2. LMbench</a></h5>
 <div class="paragraph">
 <p><a href="http://www.bitmover.com/lmbench/" class="bare">http://www.bitmover.com/lmbench/</a></p>
 </div>
@@ -31666,8 +32381,8 @@ make</pre>
 <p>Interestingly, one of the creators of LMbench, Larry Mcvoy (<a href="https://www.linkedin.com/in/larrymcvoy/" class="bare">https://www.linkedin.com/in/larrymcvoy/</a>, <a href="https://en.wikipedia.org/wiki/Larry_McVoy" class="bare">https://en.wikipedia.org/wiki/Larry_McVoy</a>), is also a co-founder of <a href="https://en.wikipedia.org/wiki/BitKeeper">BitKeeper</a>. Their SMC must be blazingly fast!!! Also his LinkedIn says Intel uses it. But they will forever be remembered as "the closed source Git precursor that died N years ago", RIP.</p>
 </div>
 </div>
-<div class="sect3">
-<h4 id="stream-benchmark"><a class="anchor" href="#stream-benchmark"></a><a class="link" href="#stream-benchmark">21.8.4. STREAM benchmark</a></h4>
+<div class="sect4">
+<h5 id="stream-benchmark"><a class="anchor" href="#stream-benchmark"></a><a class="link" href="#stream-benchmark">21.8.2.3. STREAM benchmark</a></h5>
 <div class="paragraph">
 <p><a href="http://www.cs.virginia.edu/stream/ref.html" class="bare">http://www.cs.virginia.edu/stream/ref.html</a></p>
 </div>
@@ -31740,272 +32455,10 @@ times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="parsec-benchmark"><a class="anchor" href="#parsec-benchmark"></a><a class="link" href="#parsec-benchmark">21.8.5. PARSEC benchmark</a></h4>
-<div class="paragraph">
-<p>We have ported parts of the <a href="http://parsec.cs.princeton.edu">PARSEC benchmark</a> for cross compilation at: <a href="https://github.com/cirosantilli/parsec-benchmark" class="bare">https://github.com/cirosantilli/parsec-benchmark</a> See the documentation on that repo to find out which benchmarks have been ported. Some of the benchmarks were are segfaulting, they are documented in that repo.</p>
-</div>
-<div class="paragraph">
-<p>There are two ways to run PARSEC with this repo:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="#parsec-benchmark-without-parsecmgmt">without <code>pasecmgmt</code></a>, most likely what you want</p>
-</li>
-<li>
-<p><a href="#parsec-benchmark-with-parsecmgmt">with <code>pasecmgmt</code></a></p>
-</li>
-</ul>
-</div>
-<div class="sect4">
-<h5 id="parsec-benchmark-without-parsecmgmt"><a class="anchor" href="#parsec-benchmark-without-parsecmgmt"></a><a class="link" href="#parsec-benchmark-without-parsecmgmt">21.8.5.1. PARSEC benchmark without parsecmgmt</a></h5>
-<div class="literalblock">
-<div class="content">
-<pre>./build --arch arm --download-dependencies gem5-buildroot parsec-benchmark
-./build-buildroot --arch arm --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y'
-./run --arch arm --emulator gem5</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Once inside the guest, launch one of the <code>test</code> input sized benchmarks manually as in:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>cd /parsec/ext/splash2x/apps/fmm/run
-../inst/arm-linux.gcc/bin/fmm 1 &lt; input_1</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>To find run out how to run many of the benchmarks, have a look at the <code>test.sh</code> script of the <code>parse-benchmark</code> repo.</p>
-</div>
-<div class="paragraph">
-<p>From the guest, you can also run it as:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>cd /parsec
-./test.sh</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>but this might be a bit time consuming in gem5.</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="parsec-change-the-input-size"><a class="anchor" href="#parsec-change-the-input-size"></a><a class="link" href="#parsec-change-the-input-size">21.8.5.2. PARSEC change the input size</a></h5>
-<div class="paragraph">
-<p>Running a benchmark of a size different than <code>test</code>, e.g. <code>simsmall</code>, requires a rebuild with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-buildroot \
-  --arch arm \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_INPUT_SIZE="simsmall"' \
-  -- parsec_benchmark-reconfigure \
-;</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Large input may also require tweaking:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="#br2-target-rootfs-ext2-size">BR2_TARGET_ROOTFS_EXT2_SIZE</a> if the unpacked inputs are large</p>
-</li>
-<li>
-<p><a href="#memory-size">Memory size</a>, unless you want to meet the OOM killer, which is admittedly kind of fun</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p><code>test.sh</code> only contains the run commands for the <code>test</code> size, and cannot be used for <code>simsmall</code>.</p>
-</div>
-<div class="paragraph">
-<p>The easiest thing to do, is to <a href="https://superuser.com/questions/231002/how-can-i-search-within-the-output-buffer-of-a-tmux-shell/1253137#1253137">scroll up on the host shell</a> after the build, and look for a line of type:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>Running /root/linux-kernel-module-cheat/out/aarch64/buildroot/build/parsec-benchmark-custom/ext/splash2x/apps/ocean_ncp/inst/aarch64-linux.gcc/bin/ocean_ncp -n2050 -p1 -e1e-07 -r20000 -t28800</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>and then tweak the command found in <code>test.sh</code> accordingly.</p>
-</div>
-<div class="paragraph">
-<p>Yes, we do run the benchmarks on host just to unpack / generate inputs. They are expected fail to run since they were build for the guest instead of host, including for x86_64 guest which has a different interpreter than the host&#8217;s (see <code>file myexecutable</code>).</p>
-</div>
-<div class="paragraph">
-<p>The rebuild is required because we unpack input files on the host.</p>
-</div>
-<div class="paragraph">
-<p>Separating input sizes also allows to create smaller images when only running the smaller benchmarks.</p>
-</div>
-<div class="paragraph">
-<p>This limitation exists because <code>parsecmgmt</code> generates the input files just before running via the Bash scripts, but we can&#8217;t run <code>parsecmgmt</code> on gem5 as it is too slow!</p>
-</div>
-<div class="paragraph">
-<p>One option would be to do that inside the guest with QEMU.</p>
-</div>
-<div class="paragraph">
-<p>Also, we can&#8217;t generate all input sizes at once, because many of them have the same name and would overwrite one another&#8230;&#8203;</p>
-</div>
-<div class="paragraph">
-<p>PARSEC simply wasn&#8217;t designed with non native machines in mind&#8230;&#8203;</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="parsec-benchmark-with-parsecmgmt"><a class="anchor" href="#parsec-benchmark-with-parsecmgmt"></a><a class="link" href="#parsec-benchmark-with-parsecmgmt">21.8.5.3. PARSEC benchmark with parsecmgmt</a></h5>
-<div class="paragraph">
-<p>Most users won&#8217;t want to use this method because:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>running the <code>parsecmgmt</code> Bash scripts takes forever before it ever starts running the actual benchmarks on gem5</p>
-<div class="paragraph">
-<p>Running on QEMU is feasible, but not the main use case, since QEMU cannot be used for performance measurements</p>
-</div>
-</li>
-<li>
-<p>it requires putting the full <code>.tar</code> inputs on the guest, which makes the image twice as large (1x for the <code>.tar</code>, 1x for the unpacked input files)</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>It would be awesome if it were possible to use this method, since this is what Parsec supports officially, and so:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>you don&#8217;t have to dig into what raw command to run</p>
-</li>
-<li>
-<p>there is an easy way to run all the benchmarks in one go to test them out</p>
-</li>
-<li>
-<p>you can just run any of the benchmarks that you want</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>but it simply is not feasible in gem5 because it takes too long.</p>
-</div>
-<div class="paragraph">
-<p>If you still want to run this, try it out with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-buildroot \
-  --arch aarch64 \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK_PARSECMGMT=y' \
-  --config 'BR2_TARGET_ROOTFS_EXT2_SIZE="3G"' \
-  -- parsec_benchmark-reconfigure \
-;</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>And then you can run it just as you would on the host:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>cd /parsec/
-bash
-. env.sh
-parsecmgmt -a run -p splash2x.fmm -i test</pre>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="parsec-uninstall"><a class="anchor" href="#parsec-uninstall"></a><a class="link" href="#parsec-uninstall">21.8.5.4. PARSEC uninstall</a></h5>
-<div class="paragraph">
-<p>If you want to remove PARSEC later, Buildroot doesn&#8217;t provide an automated package removal mechanism as mentioned at: <a href="#remove-buildroot-packages">Section 20.6, &#8220;Remove Buildroot packages&#8221;</a>, but the following procedure should be satisfactory:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>rm -rf \
-  "$(./getvar buildroot_download_dir)"/parsec-* \
-  "$(./getvar buildroot_build_dir)"/build/parsec-* \
-  "$(./getvar buildroot_build_dir)"/build/packages-file-list.txt \
-  "$(./getvar buildroot_build_dir)"/images/rootfs.* \
-  "$(./getvar buildroot_build_dir)"/target/parsec-* \
-;
-./build-buildroot --arch arm</pre>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="parsec-benchmark-hacking"><a class="anchor" href="#parsec-benchmark-hacking"></a><a class="link" href="#parsec-benchmark-hacking">21.8.5.5. PARSEC benchmark hacking</a></h5>
-<div class="paragraph">
-<p>If you end up going inside <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/submodules/parsec-benchmark">submodules/parsec-benchmark</a> to hack up the benchmark (you will!), these tips will be helpful.</p>
-</div>
-<div class="paragraph">
-<p>Buildroot was not designed to deal with large images, and currently cross rebuilds are a bit slow, due to some image generation and validation steps.</p>
-</div>
-<div class="paragraph">
-<p>A few workarounds are:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>develop in host first as much as you can. Our PARSEC fork supports it.</p>
-<div class="paragraph">
-<p>If you do this, don&#8217;t forget to do a:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>cd "$(./getvar parsec_source_dir)"
-git clean -xdf .</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>before going for the cross compile build.</p>
-</div>
-</li>
-<li>
-<p>patch Buildroot to work well, and keep cross compiling all the way. This should be totally viable, and we should do it.</p>
-<div class="paragraph">
-<p>Don&#8217;t forget to explicitly rebuild PARSEC with:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./build-buildroot \
-  --arch arm \
-  --config 'BR2_PACKAGE_PARSEC_BENCHMARK=y' \
-  -- parsec_benchmark-reconfigure \
-;</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>You may also want to test if your patches are still functionally correct inside of QEMU first, which is a faster emulator.</p>
-</div>
-</li>
-<li>
-<p>sell your soul, and compile natively inside the guest. We won&#8217;t do this, not only because it is evil, but also because Buildroot explicitly does not support it: <a href="https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target" class="bare">https://buildroot.org/downloads/manual/manual.html#faq-no-compiler-on-target</a> ARM employees have been known to do this: <a href="https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff" class="bare">https://github.com/arm-university/arm-gem5-rsk/blob/aa3b51b175a0f3b6e75c9c856092ae0c8f2a7cdc/parsec_patches/qemu-patch.diff</a></p>
-</li>
-</ul>
-</div>
-</div>
 </div>
 </div>
 <div class="sect2">
-<h3 id="micro-benchmarks"><a class="anchor" href="#micro-benchmarks"></a><a class="link" href="#micro-benchmarks">21.9. Micro benchmarks</a></h3>
-<div class="paragraph">
-<p>It eventually has to come to that, hasn&#8217;t it?</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> described at <a href="#c-busy-loop">C busy loop</a></p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="userland-libs-directory"><a class="anchor" href="#userland-libs-directory"></a><a class="link" href="#userland-libs-directory">21.10. userland/libs directory</a></h3>
+<h3 id="userland-libs-directory"><a class="anchor" href="#userland-libs-directory"></a><a class="link" href="#userland-libs-directory">21.9. userland/libs directory</a></h3>
 <div class="paragraph">
 <p>Tests under <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs">userland/libs</a> require certain optional libraries to be installed on the target, and are not built or tested by default, you must enable them with either:</p>
 </div>
@@ -32019,7 +32472,23 @@ git clean -xdf .</pre>
 <p>See for example <a href="#blas">BLAS</a>.</p>
 </div>
 <div class="sect3">
-<h4 id="hdf5"><a class="anchor" href="#hdf5"></a><a class="link" href="#hdf5">21.10.1. HDF5</a></h4>
+<h4 id="boost"><a class="anchor" href="#boost"></a><a class="link" href="#boost">21.9.1. Boost</a></h4>
+<div class="paragraph">
+<p><a href="https://en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)"><a href="https://en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)" class="bare">https://en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)</a></a></p>
+</div>
+<div class="paragraph">
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/boost">userland/libs/boost</a></p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/libs/boost/bimap.cpp">userland/libs/boost/bimap.cpp</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="hdf5"><a class="anchor" href="#hdf5"></a><a class="link" href="#hdf5">21.9.2. HDF5</a></h4>
 <div class="paragraph">
 <p><a href="https://en.wikipedia.org/wiki/Hierarchical_Data_Format" class="bare">https://en.wikipedia.org/wiki/Hierarchical_Data_Format</a></p>
 </div>
@@ -32042,7 +32511,7 @@ git clean -xdf .</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="userland-content-filename-conventions"><a class="anchor" href="#userland-content-filename-conventions"></a><a class="link" href="#userland-content-filename-conventions">21.11. Userland content filename conventions</a></h3>
+<h3 id="userland-content-filename-conventions"><a class="anchor" href="#userland-content-filename-conventions"></a><a class="link" href="#userland-content-filename-conventions">21.10. Userland content filename conventions</a></h3>
 <div class="paragraph">
 <p>The following basenames should always refer to programs that do the same thing, but in different languages:</p>
 </div>
@@ -32071,7 +32540,7 @@ git clean -xdf .</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="userland-content-bibliography"><a class="anchor" href="#userland-content-bibliography"></a><a class="link" href="#userland-content-bibliography">21.12. Userland content bibliography</a></h3>
+<h3 id="userland-content-bibliography"><a class="anchor" href="#userland-content-bibliography"></a><a class="link" href="#userland-content-bibliography">21.11. Userland content bibliography</a></h3>
 <div class="ulist">
 <ul>
 <li>
@@ -40351,7 +40820,7 @@ instructions 124346081</pre>
 <p>For example, the simplest scalable CPU content would be an <a href="#c-busy-loop">C busy loop</a>, so let&#8217;s start by analyzing that one.</p>
 </div>
 <div class="paragraph">
-<p>Summary of manually collected results on <a href="#p51">P51</a> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: <a href="#table-busy-loop-dmips">Table 7, &#8220;Busy loop MIPS for different simulator setups&#8221;</a>. As expected, the less native / more detailed / more complex simulations are slower!</p>
+<p>Summary of manually collected results on <a href="#p51">P51</a> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: <a href="#table-busy-loop-dmips">Table 7, &#8220;Busy loop MIPS for different simulator setups&#8221;</a>. As expected, the less native/more detailed/more complex simulations are slower!</p>
 </div>
 <table id="table-busy-loop-dmips" class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 7. Busy loop MIPS for different simulator setups</caption>
@@ -40377,16 +40846,28 @@ instructions 124346081</pre>
 <th class="tableblock halign-left valign-top">Time (s)</th>
 <th class="tableblock halign-left valign-top">Instruction count</th>
 <th class="tableblock halign-left valign-top">Approximate MIPS</th>
-<th class="tableblock halign-left valign-top">gem5 version</th>
-<th class="tableblock halign-left valign-top">Host</th>
+<th class="tableblock halign-left valign-top">Hardware version</th>
+<th class="tableblock halign-left valign-top">Host OS</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">QEMU busy loop</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Native busy loop</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a7ae8e6a8e29ef46d79eb9178d8599d1faeea0e5 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --emulator native --userland userland/gcc/busy_loop.c --cli-args 10000000000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^10</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">27</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="#p51">P51</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ubuntu 20.04</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">QEMU aarch64 busy loop</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">`./run --arch aarch64 --userland userland/gcc/busy_loop.c `</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --userland userland/gcc/busy_loop.c --cli-args 10000000000</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">10^10</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">1.1 * 10^11 (approx)</p></td>
@@ -40658,7 +41139,7 @@ instructions 124346081</pre>
 <p>First we build <a href="#dhrystone">Dhrystone</a> manually statically since dynamic linking is broken in gem5 as explained at: <a href="#gem5-syscall-emulation-mode">Section 10.7, &#8220;gem5 syscall emulation mode&#8221;</a>.</p>
 </div>
 <div class="paragraph">
-<p>TODO: move this section to our new custom dhrystone setup: <a href="#dhrystone">Section 21.8.2, &#8220;Dhrystone&#8221;</a>.</p>
+<p>TODO: move this section to our new custom dhrystone setup: <a href="#dhrystone">Section 21.8.2.1, &#8220;Dhrystone&#8221;</a>.</p>
 </div>
 <div class="paragraph">
 <p>gem5 user mode:</p>
