@@ -39,7 +39,7 @@ static vm_fault_t vm_fault(struct vm_fault *vmf)
 	return 0;
 }
 
-/* Aftr mmap. TODO vs mmap, when can this happen at a different time than mmap? */
+/* After mmap. TODO vs mmap, when can this happen at a different time than mmap? */
 static void vm_open(struct vm_area_struct *vma)
 {
 	pr_info("vm_open\n");
@@ -78,13 +78,19 @@ static int open(struct inode *inode, struct file *filp)
 static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
 	struct mmap_info *info;
-	int ret;
+	ssize_t ret;
 
 	pr_info("read\n");
-	info = filp->private_data;
-	ret = min(len, (size_t)BUFFER_SIZE);
-	if (copy_to_user(buf, info->data, ret)) {
-		ret = -EFAULT;
+	if ((size_t)BUFFER_SIZE <= *off) {
+		ret = 0;
+	} else {
+		info = filp->private_data;
+		ret = min(len, (size_t)BUFFER_SIZE - (size_t)*off);
+		if (copy_to_user(buf, info->data + *off, ret)) {
+			ret = -EFAULT;
+		} else {
+			*off += ret;
+		}
 	}
 	return ret;
 }
