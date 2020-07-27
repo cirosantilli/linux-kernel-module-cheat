@@ -18310,7 +18310,7 @@ Build on Ubuntu 20.04:
 ....
 git submodule update --init submodules/gensim-simulator
 sudo apt install libantlr3c-dev
-cd submodule/gensim
+cd submodule/gensim-simulator
 make
 ....
 
@@ -18346,12 +18346,12 @@ make VERBOSE=1 model-armv8
 and we see some code generation step:
 
 ....
-cd /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/models/armv8 && \
-  /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/build/dist/bin/gensim \
-  -a /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/models/armv8/aarch64.ac \
+cd /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim-simulator/models/armv8 && \
+  /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim-simulator/build/dist/bin/gensim \
+  -a /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim-simulator/models/armv8/aarch64.ac \
   -s module,arch,decode,disasm,ee_interp,ee_blockjit,jumpinfo,function,makefile \
-  -o decode.GenerateDotGraph=1,makefile.libtrace_path=/home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/support/libtrace/inc,makefile.archsim_path=/home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/archsim/inc,makefile.llvm_path=,makefile.Optimise=2,makefile.Debug=1 \
-  -t /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim/build/models/armv8/output-aarch64/
+  -o decode.GenerateDotGraph=1,makefile.libtrace_path=/home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim-simulator/support/libtrace/inc,makefile.archsim_path=/home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim-simulator/archsim/inc,makefile.llvm_path=,makefile.Optimise=2,makefile.Debug=1 \
+  -t /home/ciro/bak/git/linux-kernel-module-cheat/submodules/gensim-simulator/build/models/armv8/output-aarch64/
 ....
 
 We can see an inclusion path:
@@ -18365,7 +18365,7 @@ gensim/models/armv8/isa.ac
 
 and where `gensim/models/armv8/isa.ac` contains `__builtin_abs64` usages.
 
-GDB on `gensim` shows that the error comes from a call to `gci.GenerateExecuteBodyFor(body_str, *action);`, so it looks like there are some missing cases in `EmitFixedCode`.
+Rebuilding with `-DCMAKE_BUILD_TYPE=DEBUG` + GDB on `gensim` shows that the error comes from a call to `gci.GenerateExecuteBodyFor(body_str, *action);`, so it looks like there are some missing cases in `gensim/src/generators/GenCInterpreter/InterpreterNodeWalker.cpp` function `SSAIntrinsicStatementWalker::EmitFixedCode`, e.g. there should be one for `__builtin_abs64`.
 
 This is completely broken academic code! They must be using an off-tree of part of the tool and forgot to commit.
 
