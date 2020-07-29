@@ -20388,7 +20388,7 @@ make TARGET=linux64 build
 make TARGET=linux64 XCMD='-c4' certify-all
 ....
 
-This uses `4` contexts. TODO what are contexts? Is the same as threads?
+This uses `4` contexts. TODO what are contexts? Is the same as threads? You likely want to use `-c$(nproc)` in practice instead?
 
 Finishes in a few seconds, <<p51>> results:
 
@@ -20411,6 +20411,8 @@ Mark Name                                        MultiCore SingleCore    Scaling
 ----------------------------------------------- ---------- ---------- ----------
 CoreMark-PRO                                      18743.79    6306.76       2.97
 ....
+
+More sample results: <<p51-coremark-pro>>.
 
 And scaling appears to be the ration between multicore (4 due to `-c4` and single core performance), each benchmark gets run twice with multicore and single core.
 
@@ -20597,7 +20599,7 @@ Run natively on the host:
 "$(./getvar --host userland_build_dir)/submodules/dhrystone/dhrystone" 1000000000
 ....
 
-Output for <<p51>> Ubuntu 20.04:
+Sample output for <<p51>> Ubuntu 20.04:
 
 ....
 Microseconds for one run through Dhrystone:    0.1
@@ -20774,10 +20776,56 @@ times[3 * ntimes + k] = mysecond() - times[3 * ntimes + k];
 
 See also: https://stackoverflow.com/questions/56086993/what-does-stream-memory-bandwidth-benchmark-really-measure
 
-The LKMC usage of STREAM is analogous to that of <<dhrystone>>. Build and run on QEMU <<user-mode-simulation>>:
+Ubuntu 20.04 native build and run:
 
 ....
 git submodule update --init submodules/stream-benchmark
+cd submodules/stream-benchmark
+make
+./stream_c.exe
+....
+
+Sample output:
+
+....
+-------------------------------------------------------------
+STREAM version $Revision: 5.10 $
+-------------------------------------------------------------
+This system uses 8 bytes per array element.
+-------------------------------------------------------------
+Array size = 10000000 (elements), Offset = 0 (elements)
+Memory per array = 76.3 MiB (= 0.1 GiB).
+Total memory required = 228.9 MiB (= 0.2 GiB).
+Each kernel will be executed 10 times.
+ The *best* time for each kernel (excluding the first iteration)
+ will be used to compute the reported bandwidth.
+-------------------------------------------------------------
+Number of Threads requested = 8
+Number of Threads counted = 8
+-------------------------------------------------------------
+Your clock granularity/precision appears to be 1 microseconds.
+Each test below will take on the order of 7027 microseconds.
+   (= 7027 clock ticks)
+Increase the size of the arrays if this shows that
+you are not getting at least 20 clock ticks per test.
+-------------------------------------------------------------
+WARNING -- The above is only a rough guideline.
+For best results, please be sure you know the
+precision of your system timer.
+-------------------------------------------------------------
+Function    Best Rate MB/s  Avg time     Min time     Max time
+Copy:           20123.2     0.008055     0.007951     0.008267
+Scale:          20130.4     0.008032     0.007948     0.008177
+Add:            22528.8     0.010728     0.010653     0.010867
+Triad:          22448.4     0.010826     0.010691     0.011352
+-------------------------------------------------------------
+Solution Validates: avg error less than 1.000000e-13 on all three arrays
+-------------------------------------------------------------
+....
+
+The LKMC usage of STREAM is analogous to that of <<dhrystone>>. Build and run on QEMU <<user-mode-simulation>>:
+
+....
 ./build-stream --optimization-level 3
 ./run --userland "$(./getvar userland_build_dir)/submodules/stream-benchmark/stream_c.exe"
 ....
@@ -26062,11 +26110,218 @@ Tested at: d4b3e064adeeace3c3e7d106801f95c14637c12f + 1.
 
 === Benchmark machines
 
-==== P51
+[[p51]]
+==== 2017 Lenovo ThinkPad P51
 
-Lenovo ThinkPad https://www3.lenovo.com/gb/en/laptops/thinkpad/p-series/P51/p/22TP2WPWP51[P51 laptop] with the Latest stable Ubuntu.
+Serial number: TYPE 20HH-CTO1WW S/N PF-0V5V5N 17/11
 
-Full specs and benchmark scores will be maintained at the latest version of: https://github.com/cirosantilli/notes/blob/0c038b0e430d0017f12d028c6a0e7c0b99ec957f/my-hardware.adoc#thinkpad-p51
+Parts: https://support.lenovo.com/gb/en/solutions/pd105026 (https://web.archive.org/web/20200607133848/https://support.lenovo.com/gb/en/solutions/pd105026[archive])
+
+Hardware maintenance manual: https://download.lenovo.com/pccbbs/mobiles_pdf/p51_hmm_en_sp40k88791_01.pdf (https://web.archive.org/web/20200607155330/https://download.lenovo.com/pccbbs/mobiles_pdf/p51_hmm_en_sp40k88791_01.pdf[archive])
+
+Summary string of key hardware for copy paste:
+
+____
+Lenovo ThinkPad P51 laptop with CPU: <<intel-core-i7-7820hq-cpu,Intel Core i7-7820HQ>> (4 cores / 8 threads, 2.90 GHz base, 8 MB cache), DRAM: 2x <<samsung-m471a2k43bb1-crc-16gb-dram,Samsung M471A2K43BB1-CRC>> (2x 16GiB, 2400 Mbps), SSD: <<samsung-mzvlb512hajq-000l7-512gb-ssd,Samsung MZVLB512HAJQ-000L7>> (512GB, 3,000 MB/s).
+____
+
+Further specs:
+
+* Hard disk: <<seagate-st1000lm035-1rk1-1tb-hard-disk>>
+* GPU: <<nvidia-quadro-m1200-4gb-gddr5-gpu>>
+* Pre-installed OS:
+** Windows 10 Pro 64
+** Windows 10 Pro 64 WE (EN/FR/DE/NL/IT)
+* Display: 15.6" FHD (1920x1080), anti-glare, IPS
+* With Color Sensor
+* 720p HD Camera with Microphone
+* Keyboard with Number Pad - Euro English
+* 3+3BCP, Fingerprint Reader,Color Sensor
+* Integrated Fingerprint Reader
+* Hardware dTPM2.0 Enabled
+* 1TB 5400rpm HDD
+* 170W AC Adapter - UK(3pin)
+* 6 Cell Li-Polymer Battery, 90Wh
+* Intel Dual Band Wireless AC(2x2) 8265, Bluetooth Version 4.1, vPro
+
+Parts:
+
+* keyboard FRU number: 01HW271 (written on part, Payton2Walter2 NBL KBD,USI,DFN according to https://support.lenovo.com/us/en/partslookup That website says 01ER981 is equivalent (Payton2Walter2 NBL KBD,USI,CHY), just different manufacturer
+
+Reddit threads:
+
+* https://www.reddit.com/r/linux4noobs/comments/5zyejw/update_1604_tp_1610_boot_hangs_at_started_nvidia/
+* https://www.reddit.com/r/Lenovo/comments/6g8m9w/ubuntu_on_lenovo_p51/
+* https://www.reddit.com/r/thinkpad/comments/6hi0zn/if_youre_thinking_of_running_linux_on_a_p51_read/
+
+===== P51 benchmarks
+
+<<dhrystone>> on Ubuntu 20.04 results at <<dhrystone>>.
+
+<<stream-benchmark>> on Ubuntu 20.04 results at <<stream-benchmark>>.
+
+====== P51 CoreMark-Pro
+
+<<coremark,CoreMark-Pro>> d5b4f2ba7ba31e37a5aa93423831e7d5eb933868 on Ubuntu 20.04 with `XCMD="-c$(nproc)"`:
+
+....
+                                                 MultiCore SingleCore
+Workload Name                                     (iter/s)   (iter/s)    Scaling
+----------------------------------------------- ---------- ---------- ----------
+cjpeg-rose7-preset                                  769.23     175.44       4.38
+core                                                  7.98       2.11       3.78
+linear_alg-mid-100x100-sp                           892.86     233.64       3.82
+loops-all-mid-10k-sp                                 35.84       7.58       4.73
+nnet_test                                            35.09      10.05       3.49
+parser-125k                                         125.00      20.41       6.12
+radix2-big-64k                                     3278.69     630.91       5.20
+sha-test                                            625.00     227.27       2.75
+zip-test                                            615.38     166.67       3.69
+
+MARK RESULTS TABLE
+
+Mark Name                                        MultiCore SingleCore    Scaling
+----------------------------------------------- ---------- ---------- ----------
+CoreMark-PRO                                      25016.00    6079.70       4.11
+....
+
+===== P51 maintenance history
+
+Bought: 2017 for approximately 2400 pounds.
+
+Ubuntu 17.10 setup after buying it:
+
+* partition setup: https://askubuntu.com/questions/343268/how-to-use-manual-partitioning-during-installation/976430#976430
+* BIOS:
+** for NVIDIA driver:
+** for KVM, required by Android Emulator: enable virtualization extensions
+* TODO fix the brightness keys:
+** failed: https://askubuntu.com/questions/769006/brightness-key-not-working-ubuntu-16-04-lts/770100#770100
+
+Battery life shown by Ubuntu battery app after installation:
+
+* before NVIDIA driver setup: 8h
+* after: 6.5h
+
+2019-04-17: popup asking about "ThinkPad P51 Management Engine Update" from from 182.29.3287 to 184.60.3561, said yes.
+
+2020-06-06: dropped some lemon juice on the bottom left of touchpad. Bottom left button not working anymore... I'm an idiot. There are many other alternatives, but very aggravating, I'll replace it for sure. Can't find the exact replacement part or any videos showing its replacement online easliy, dang. For the T430: https://www.youtube.com/watch?v=F3lzV9uXRjU Asked at: https://forums.lenovo.com/t5/ThinkPad-P-and-W-Series-Mobile-Workstations/P51-left-bottom-button-below-trackpad-mouse-left-click-stopped-working-possible-to-replace/m-p/5019903 Also I could not access it because you need to remove the HDD first: https://www.youtube.com/watch?v=5Klawxc7T_Y and I can't pull it out even with considerable force, unlike in the video... And OMG, those button caps are impossible to re-install once removed!!! Then when I put the whole thing back together, the upper buttons were not working anymore. FUUUUUUUUCK. When first opening I pulled on it without properly removing the cap and it came off, but it didn't look broken in any way and I put it back in. Keyboard works thank God, so right black connector is fine, left white one oppears to be the one for upper keys and trackpoint, both of which stopped working. The hardware manual confirms that they are both part of the same device, so basically a mouse :-) TODO can it be bought separately from te keyboard? Doesn't look like it, photo of keyboard part includes those buttons. The manual also confirms that the bottom buttons are one device with the trackpad "trackpad with buttons", thus forming the second entire mouse.
+
+===== Intel Core i7-7820HQ CPU
+
+https://ark.intel.com/products/97496/Intel-Core-i7-7820HQ-Processor-8M-Cache-up-to-3-90-GHz- (http://web.archive.org/web/20181224203737/https://ark.intel.com/products/97496/Intel-Core-i7-7820HQ-Processor-8M-Cache-up-to-3-90-GHz-[archive]).
+
+Cache: 8MB
+
+Max frequency: 3.90GHz
+
+Cores: 4
+
+<<hardware-threads>>: 8
+
+Recommended customer price: 378.00 USD
+
+Launch date: Q1'17
+
+Process: 14 nm
+
+`cat /proc/cpuinfo` of one CPU on Ubuntu 20.04 Linux kernel 5.4.0:
+
+....
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 158
+model name      : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz
+stepping        : 9
+microcode       : 0xd6
+cpu MHz         : 1025.664
+cache size      : 8192 KB
+physical id     : 0
+siblings        : 8
+core id         : 0
+cpu cores       : 4
+apicid          : 0
+initial apicid  : 0
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 22
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb invpcid_single pti ssbd ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm mpx rdseed adx smap clflushopt intel_pt xsaveopt xsavec xgetbv1 xsaves dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp md_clear flush_l1d
+bugs            : cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds swapgs taa itlb_multihit srbds
+bogomips        : 5799.77
+clflush size    : 64
+cache_alignment : 64
+address sizes   : 39 bits physical, 48 bits virtual
+power management:
+....
+
+`getconf -a | grep CACHE` on Ubuntu 20.04 Linux kernel 5.4.0:
+
+....
+LEVEL1_ICACHE_SIZE                 32768
+LEVEL1_ICACHE_ASSOC                8
+LEVEL1_ICACHE_LINESIZE             64
+LEVEL1_DCACHE_SIZE                 32768
+LEVEL1_DCACHE_ASSOC                8
+LEVEL1_DCACHE_LINESIZE             64
+LEVEL2_CACHE_SIZE                  262144
+LEVEL2_CACHE_ASSOC                 4
+LEVEL2_CACHE_LINESIZE              64
+LEVEL3_CACHE_SIZE                  8388608
+LEVEL3_CACHE_ASSOC                 16
+LEVEL3_CACHE_LINESIZE              64
+LEVEL4_CACHE_SIZE                  0
+LEVEL4_CACHE_ASSOC                 0
+LEVEL4_CACHE_LINESIZE              0
+....
+
+===== Samsung M471A2K43BB1-CRC 16GB DRAM
+
+Nominal speed: 2400 Mbps
+
+Type: SODIMM
+
+https://www.samsung.com/semiconductor/dram/module/M471A2K43BB1-CRC/ (http://web.archive.org/web/20181224202657/https://www.samsung.com/semiconductor/dram/module/M471A2K43BB1-CRC/[archive]).
+
+https://www.amazon.co.uk/Samsung-DDR4-16-GB-DDR4-2400-MHz-Memory-Module/dp/B016N24XKQ (http://web.archive.org/web/20181224203214/https://www.amazon.co.uk/Samsung-DDR4-16-GB-DDR4-2400-MHz-Memory-Module/dp/B016N24XKQ[archive]) 355.43 UK Pounds for 2x 16 GiB.
+
+===== Samsung MZVLB512HAJQ-000L7 512GB SSD
+
+PCIe TLC OPAL2.
+
+https://www.samsung.com/semiconductor/ssd/client-ssd/MZVLB512HAJQ/ (http://web.archive.org/web/20181224225400/https://www.samsung.com/semiconductor/ssd/client-ssd/MZVLB512HAJQ/[archive]).
+
+https://www.samsung.com/semiconductor/global.semi/file/resource/2018/05/PM981_M.2_SSD_Datasheet_v1.3_for_General.pdf | http://web.archive.org/web/20181224225410/https://www.samsung.com/semiconductor/global.semi/file/resource/2018/05/PM981_M.2_SSD_Datasheet_v1.3_for_General.pdf
+
+`sudo hdparm -Tt /dev/nvme0n1p5` on Ubuntu 20.04:
+
+....
+ Timing cached reads:   29812 MB in  1.99 seconds = 15007.00 MB/sec
+ HDIO_DRIVE_CMD(identify) failed: Inappropriate ioctl for device
+ Timing buffered disk reads: 6328 MB in  3.00 seconds = 2109.00 MB/sec
+....
+
+Nominal maximum sequential read speed: 3,000 MB/s
+
+===== Seagate ST1000LM035-1RK1 1TB hard disk
+
+1TB.
+
+https://www.disctech.com/Seagate-ST1000LM035-1TB-SATA-Hard-Drive 80 USD | http://web.archive.org/web/20181224201408/https://www.disctech.com/Seagate-ST1000LM035-1TB-SATA-Hard-Drive
+
+https://www.seagate.com/www-content/datasheets/pdfs/mobile-hddDS1861-2-1603-en_US.pdf | http://web.archive.org/web/20181225095438/https://www.seagate.com/www-content/datasheets/pdfs/mobile-hddDS1861-2-1603-en_US.pdf
+
+`sudo hdparm -Tt /dev/sda3` on Ubuntu 20.04:
+
+....
+ Timing cached reads:   29594 MB in  1.99 seconds = 14893.89 MB/sec
+ Timing buffered disk reads: 386 MB in  3.01 seconds = 128.07 MB/sec
+....
+
+Nominal maximum speed: 140MB/s
+
+===== NVIDIA Quadro M1200 4GB GDDR5 GPU
 
 === Benchmark Internets
 
