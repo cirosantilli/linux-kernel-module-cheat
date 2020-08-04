@@ -1,0 +1,39 @@
+diff --git a/configs/common/CacheConfig.py b/configs/common/CacheConfig.py
+index 05c38e011..0e0a719e4 100644
+--- a/configs/common/CacheConfig.py
++++ b/configs/common/CacheConfig.py
+@@ -132,6 +132,11 @@ def config_cache(options, system):
+                 iwalkcache = None
+                 dwalkcache = None
+ 
++            dcache_mon = CommMonitor()
++            dcache_real = dcache
++            dcache_mon.master = dcache.cpu_side
++            dcache = dcache_mon
++
+             if options.memchecker:
+                 dcache_mon = MemCheckerMonitor(warn_only=True)
+                 dcache_real = dcache
+@@ -170,6 +175,9 @@ def config_cache(options, system):
+             system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
+                                                   iwalkcache, dwalkcache)
+ 
++            system.cpu[i].dcache = dcache_real
++            system.cpu[i].dcache_mon = dcache_mon
++
+             if options.memchecker:
+                 # The mem_side ports of the caches haven't been connected yet.
+                 # Make sure connectAllPorts connects the right objects.
+diff --git a/src/cpu/BaseCPU.py b/src/cpu/BaseCPU.py
+index e487cbb6b..cef5d3791 100644
+--- a/src/cpu/BaseCPU.py
++++ b/src/cpu/BaseCPU.py
+@@ -214,7 +214,7 @@ class BaseCPU(ClockedObject):
+         self.icache = ic
+         self.dcache = dc
+         self.icache_port = ic.cpu_side
+-        self.dcache_port = dc.cpu_side
++        self.dcache_port = dc.slave
+         self._cached_ports = ['icache.mem_side', 'dcache.mem_side']
+         if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv']:
+             if iwc and dwc:

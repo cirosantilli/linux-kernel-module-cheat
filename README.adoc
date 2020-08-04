@@ -13837,6 +13837,39 @@ and their selection can be seen under: `src/dev/arm/RealView.py`, e.g.:
             cur_sys.boot_loader = [ loc('boot_emm.arm64'), loc('boot_emm.arm') ]
 ....
 
+=== gem5 `CommMonitor`
+
+You can place this <<gem5-python-c-interaction,SimObject>> in between two <<gem5-port-system,ports>> to get extra statistics about the packets that are going through.
+
+It only works on timing CPUs, and does not seem to dump any memory values, only add extra <<gem5-m5out-stats-txt-file,statistics>>.
+
+For example, the patch link:patches/manual/gem5-commmonitor-se.patch[] hack a `CommMonitor` between the CPU and the L1 cache on top of gem5 1c3662c9557c85f0d25490dc4fbde3f8ab0cb350:
+
+....
+patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-commmonitor-se.patch
+....
+
+which you can run with:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  -- \
+  --caches \
+  --cpu-type TimingSimpleCPU \
+;
+....
+
+and now we have some new extra histogram statistics such as:
+
+....
+system.cpu.dcache_mon.readBurstLengthHist::samples            1
+....
+
+One neat thing about this is that it is agnostic to the memory object type, so you don't have to recode those statistics for every new type of object that operates on memory packets.
+
 === gem5 internals
 
 Internals under other sections:
@@ -14002,6 +14035,7 @@ To get a feeling of how `SimObject` objects are run, see: <<gem5-event-queue-ato
 Bibliography:
 
 * https://stackoverflow.com/questions/61910993/viewing-the-parameters-of-the-branch-predictor-in-gem5/61914449#61914449
+* https://stackoverflow.com/questions/62969566/attributes-of-system-object-in-gem5/62970092#62970092
 
 Tested on gem5 08c79a194d1a3430801c04f37d13216cc9ec1da3.
 
@@ -18341,7 +18375,7 @@ The horrendous downsides of this are:
 * when <<debug-the-emulator,debugging the emulator>>, it shows you directories inside the build directory rather than in the source tree
 * it is harder to separate which files are <<gem5-code-generation,generated>> and which are in-tree when grepping for code generated definitions
 
-=== Gensim
+== Gensim
 
 https://gensim.org
 
@@ -23957,7 +23991,7 @@ Bibliography:
 
 ==== gem5 semihosting
 
-For gem5, you need:
+For gem5, you need link:patches/manual/gem5-semihost.patch[]:
 
 ....
 patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-semihost.patch
