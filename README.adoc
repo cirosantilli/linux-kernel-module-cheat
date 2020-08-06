@@ -7081,35 +7081,102 @@ Source: link:kernel_modules/warn_on.c[]
 
 Can also be activated with the `panic_on_warn` boot parameter.
 
-[[not-syncing]]
+[[not-syncing-vfs]]
 ==== not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
 
 Let's learn how to diagnose problems with the root filesystem not being found. TODO add a sample panic error message for each error type:
 
 * https://askubuntu.com/questions/41930/kernel-panic-not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0/1048477#1048477
 
-This is the diagnosis procedure:
+This is the diagnosis procedure.
 
-* does the filesystem appear on the list of filesystems? If not, then likely you are missing either:
-** the driver for that hardware type, e.g. hard drive/SSD/virtio type.
-+
-Here, Linux does not know how to communicate with a given hardware to get bytes from it at all, so you can't even see.
-+
-In simulation, the most important often missing one is virtio which needs:
-+
+First, if we remove the following options from the our kernel build:
+
 ....
-CONFIG_VIRTIO_PCI=y
 CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_PCI=y
 ....
-** the driver for that filesystem type. Here, Linux can read bytes from the hardware, but cannot interpret them as a tree of files because it does not recognize the file system format. For example, to boot from <<squashfs>> we would need:
+
+we get a message like this:
+
+....
+<4>[    0.541708] VFS: Cannot open root device "vda" or unknown-block(0,0): error -6
+<4>[    0.542035] Please append a correct "root=" boot option; here are the available partitions:
+<0>[    0.542562] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+....
+
+From the message, we notice that the kernel sees a disk of some sort (vda means a virtio disk), but it could not open it.
+
+This means that the kernel cannot properly read any bytes from the disk.
+
+And afterwards, it has an useless message `here are the available partitions:`, but of course we have no available partitions, the list is empty, because the kernel cannot even read bytes from the disk, so it definitely cannot understand its filesystems.
+
+This can indicate basically two things:
+
+* on real hardware, it could mean that the hardware is broken. Kind of hard on emulators ;-)
+* you didn't configure the kernel with the option that enables it to read from that kind of disk.
++
+In our case, disks are virtio devices that QEMU exposes to the guest kernel. This is why removing the options:
 +
 ....
-CONFIG_SQUASHFS=y
+CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_PCI=y
 ....
-* your filesystem of interest appears in the list, then you just need to set the `root` <<kernel-command-line-parameters,command line parameter>> to point to that, e.g. `root=/dev/sda`
++
+let to this error.
+
+Now, let's restore the previously removed virtio options, and instead remove:
+
+....
+CONFIG_EXT4_FS=y
+....
+
+This time, the kernel will be able to read bytes from the device. But it won't be able to read files from the filesystem, because our filesystem is in ext4 format.
+
+Therefore, this time the error message looks like this:
+
+....
+<4>[    0.585296] List of all partitions:
+<4>[    0.585913] fe00          524288 vda
+<4>[    0.586123]  driver: virtio_blk
+<4>[    0.586471] No filesystem could mount root, tried:
+<4>[    0.586497]  squashfs
+<4>[    0.586724]
+<0>[    0.587360] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(254,0)
+....
+
+In this case, we see that the kernel did manage to read from the `vda` disk! It even told us how: by using the `driver: virtio_blk`.
+
+However, it then went through the list of all filesystem types it knows how to read files from, in our case just `squashf`, and none of those worked, because our partition is an ext4 partition.
+
+Finally, the last possible error is that we simply passed the wrong `root=` <<kernel-command-line-parameters,kernel CLI option>>. For example, if we hack our command to pass:
+
+....
+root=/dev/vda2
+....
+
+which does not even exist since `/dev/vda` is a raw non-partitioned ext4 image, then boot fails with a message:
+
+....
+<4>[    0.608475] Please append a correct "root=" boot option; here are the available partitions:
+<4>[    0.609563] fe00          524288 vda
+<4>[    0.609723]  driver: virtio_blk
+<0>[    0.610433] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(254,2)
+....
+
+This one is easy, because the kernel tells us clearly which partitions it would have been able to understand. In our case `/dev/vda`.
+
+Once all those problems are solved, in the working setup, we finally see something like:
+
+....
+<6>[    0.636129] EXT4-fs (vda): mounted filesystem with ordered data mode. Opts: (null)
+<6>[    0.636700] VFS: Mounted root (ext4 filesystem) on device 254:0.
+....
 
 Bibliography:
 
+* https://askubuntu.com/questions/41930/kernel-panic-not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0/1048477#1048477
+* https://unix.stackexchange.com/questions/414655/not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0
 * https://stackoverflow.com/questions/63277677/i-meet-a-problem-when-i-encountered-in-the-fs-mode-of-running-gem5/63278487#63278487
 
 === Pseudo filesystems
@@ -9586,6 +9653,18 @@ We are trying to maintain a description of each at: https://unix.stackexchange.c
 QEMU does not seem able to boot ELF files like `vmlinux`: https://superuser.com/questions/1376944/can-qemu-boot-linux-from-vmlinux-instead-of-bzimage
 
 Converting `arch/*` images to `vmlinux` is possible in theory x86 with https://github.com/torvalds/linux/blob/v5.1/scripts/extract-vmlinux[`extract-vmlinux`] but we didn't get any gem5 boots working from images generated like that for some reason, see: https://github.com/cirosantilli/linux-kernel-module-cheat/issues/79
+
+=== Virtio
+
+https://www.linux-kvm.org/page/Virtio
+
+Virtio is an interface that guest machines can use to efficiently use resources from host machines.
+
+The types of resources it supports are for disks and networking hardware.
+
+This interface is not like the real interface used by the host to read from real disks and network devices.
+
+Rather, it is a simplified interface, that makes those operations simpler and faster since guest and host work together knowing that this is an emulation use case.
 
 === Kernel modules
 
