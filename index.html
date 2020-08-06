@@ -891,7 +891,7 @@ pre{ white-space:pre }
 <li><a href="#oops">15.7.2. Kernel oops</a></li>
 <li><a href="#dump-stack">15.7.3. dump_stack</a></li>
 <li><a href="#warn-on">15.7.4. WARN_ON</a></li>
-<li><a href="#not-syncing">15.7.5. not syncing: VFS: Unable to mount root fs on unknown-block(0,0)</a></li>
+<li><a href="#not-syncing-vfs">15.7.5. not syncing: VFS: Unable to mount root fs on unknown-block(0,0)</a></li>
 </ul>
 </li>
 <li><a href="#pseudo-filesystems">15.8. Pseudo filesystems</a>
@@ -1027,9 +1027,10 @@ pre{ white-space:pre }
 <li><a href="#vmlinux-vs-bzimage-vs-zimage-vs-image">15.21.1. vmlinux vs bzImage vs zImage vs Image</a></li>
 </ul>
 </li>
-<li><a href="#kernel-modules">15.22. Kernel modules</a>
+<li><a href="#virtio">15.22. Virtio</a></li>
+<li><a href="#kernel-modules">15.23. Kernel modules</a>
 <ul class="sectlevel3">
-<li><a href="#dump-regs">15.22.1. dump_regs</a></li>
+<li><a href="#dump-regs">15.23.1. dump_regs</a></li>
 </ul>
 </li>
 </ul>
@@ -12542,7 +12543,7 @@ insmod warn_on.ko</pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="not-syncing"><a class="anchor" href="#not-syncing"></a><a class="link" href="#not-syncing">15.7.5. not syncing: VFS: Unable to mount root fs on unknown-block(0,0)</a></h4>
+<h4 id="not-syncing-vfs"><a class="anchor" href="#not-syncing-vfs"></a><a class="link" href="#not-syncing-vfs">15.7.5. not syncing: VFS: Unable to mount root fs on unknown-block(0,0)</a></h4>
 <div class="paragraph">
 <p>Let&#8217;s learn how to diagnose problems with the root filesystem not being found. TODO add a sample panic error message for each error type:</p>
 </div>
@@ -12554,50 +12555,134 @@ insmod warn_on.ko</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>This is the diagnosis procedure:</p>
+<p>This is the diagnosis procedure.</p>
+</div>
+<div class="paragraph">
+<p>First, if we remove the following options from the our kernel build:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_PCI=y</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>we get a message like this:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>&lt;4&gt;[    0.541708] VFS: Cannot open root device "vda" or unknown-block(0,0): error -6
+&lt;4&gt;[    0.542035] Please append a correct "root=" boot option; here are the available partitions:
+&lt;0&gt;[    0.542562] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>From the message, we notice that the kernel sees a disk of some sort (vda means a virtio disk), but it could not open it.</p>
+</div>
+<div class="paragraph">
+<p>This means that the kernel cannot properly read any bytes from the disk.</p>
+</div>
+<div class="paragraph">
+<p>And afterwards, it has an useless message <code>here are the available partitions:</code>, but of course we have no available partitions, the list is empty, because the kernel cannot even read bytes from the disk, so it definitely cannot understand its filesystems.</p>
+</div>
+<div class="paragraph">
+<p>This can indicate basically two things:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>does the filesystem appear on the list of filesystems? If not, then likely you are missing either:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>the driver for that hardware type, e.g. hard drive/SSD/virtio type.</p>
-<div class="paragraph">
-<p>Here, Linux does not know how to communicate with a given hardware to get bytes from it at all, so you can&#8217;t even see.</p>
-</div>
-<div class="paragraph">
-<p>In simulation, the most important often missing one is virtio which needs:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>CONFIG_VIRTIO_PCI=y
-CONFIG_VIRTIO_BLK=y</pre>
-</div>
-</div>
+<p>on real hardware, it could mean that the hardware is broken. Kind of hard on emulators ;-)</p>
 </li>
 <li>
-<p>the driver for that filesystem type. Here, Linux can read bytes from the hardware, but cannot interpret them as a tree of files because it does not recognize the file system format. For example, to boot from <a href="#squashfs">SquashFS</a> we would need:</p>
+<p>you didn&#8217;t configure the kernel with the option that enables it to read from that kind of disk.</p>
+<div class="paragraph">
+<p>In our case, disks are virtio devices that QEMU exposes to the guest kernel. This is why removing the options:</p>
+</div>
 <div class="literalblock">
 <div class="content">
-<pre>CONFIG_SQUASHFS=y</pre>
+<pre>CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_PCI=y</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>let to this error.</p>
 </div>
 </li>
 </ul>
 </div>
-</li>
-<li>
-<p>your filesystem of interest appears in the list, then you just need to set the <code>root</code> <a href="#kernel-command-line-parameters">command line parameter</a> to point to that, e.g. <code>root=/dev/sda</code></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>Now, let&#8217;s restore the previously removed virtio options, and instead remove:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>CONFIG_EXT4_FS=y</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This time, the kernel will be able to read bytes from the device. But it won&#8217;t be able to read files from the filesystem, because our filesystem is in ext4 format.</p>
+</div>
+<div class="paragraph">
+<p>Therefore, this time the error message looks like this:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>&lt;4&gt;[    0.585296] List of all partitions:
+&lt;4&gt;[    0.585913] fe00          524288 vda
+&lt;4&gt;[    0.586123]  driver: virtio_blk
+&lt;4&gt;[    0.586471] No filesystem could mount root, tried:
+&lt;4&gt;[    0.586497]  squashfs
+&lt;4&gt;[    0.586724]
+&lt;0&gt;[    0.587360] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(254,0)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this case, we see that the kernel did manage to read from the <code>vda</code> disk! It even told us how: by using the <code>driver: virtio_blk</code>.</p>
+</div>
+<div class="paragraph">
+<p>However, it then went through the list of all filesystem types it knows how to read files from, in our case just <code>squashf</code>, and none of those worked, because our partition is an ext4 partition.</p>
+</div>
+<div class="paragraph">
+<p>Finally, the last possible error is that we simply passed the wrong <code>root=</code> <a href="#kernel-command-line-parameters">kernel CLI option</a>. For example, if we hack our command to pass:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>root=/dev/vda2</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which does not even exist since <code>/dev/vda</code> is a raw non-partitioned ext4 image, then boot fails with a message:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>&lt;4&gt;[    0.608475] Please append a correct "root=" boot option; here are the available partitions:
+&lt;4&gt;[    0.609563] fe00          524288 vda
+&lt;4&gt;[    0.609723]  driver: virtio_blk
+&lt;0&gt;[    0.610433] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(254,2)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This one is easy, because the kernel tells us clearly which partitions it would have been able to understand. In our case <code>/dev/vda</code>.</p>
+</div>
+<div class="paragraph">
+<p>Once all those problems are solved, in the working setup, we finally see something like:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>&lt;6&gt;[    0.636129] EXT4-fs (vda): mounted filesystem with ordered data mode. Opts: (null)
+&lt;6&gt;[    0.636700] VFS: Mounted root (ext4 filesystem) on device 254:0.</pre>
+</div>
 </div>
 <div class="paragraph">
 <p>Bibliography:</p>
 </div>
 <div class="ulist">
 <ul>
+<li>
+<p><a href="https://askubuntu.com/questions/41930/kernel-panic-not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0/1048477#1048477" class="bare">https://askubuntu.com/questions/41930/kernel-panic-not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0/1048477#1048477</a></p>
+</li>
+<li>
+<p><a href="https://unix.stackexchange.com/questions/414655/not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0" class="bare">https://unix.stackexchange.com/questions/414655/not-syncing-vfs-unable-to-mount-root-fs-on-unknown-block0-0</a></p>
+</li>
 <li>
 <p><a href="https://stackoverflow.com/questions/63277677/i-meet-a-problem-when-i-encountered-in-the-fs-mode-of-running-gem5/63278487#63278487" class="bare">https://stackoverflow.com/questions/63277677/i-meet-a-problem-when-i-encountered-in-the-fs-mode-of-running-gem5/63278487#63278487</a></p>
 </li>
@@ -16462,9 +16547,27 @@ ps</pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="kernel-modules"><a class="anchor" href="#kernel-modules"></a><a class="link" href="#kernel-modules">15.22. Kernel modules</a></h3>
+<h3 id="virtio"><a class="anchor" href="#virtio"></a><a class="link" href="#virtio">15.22. Virtio</a></h3>
+<div class="paragraph">
+<p><a href="https://www.linux-kvm.org/page/Virtio" class="bare">https://www.linux-kvm.org/page/Virtio</a></p>
+</div>
+<div class="paragraph">
+<p>Virtio is an interface that guest machines can use to efficiently use resources from host machines.</p>
+</div>
+<div class="paragraph">
+<p>The types of resources it supports are for disks and networking hardware.</p>
+</div>
+<div class="paragraph">
+<p>This interface is not like the real interface used by the host to read from real disks and network devices.</p>
+</div>
+<div class="paragraph">
+<p>Rather, it is a simplified interface, that makes those operations simpler and faster since guest and host work together knowing that this is an emulation use case.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="kernel-modules"><a class="anchor" href="#kernel-modules"></a><a class="link" href="#kernel-modules">15.23. Kernel modules</a></h3>
 <div class="sect3">
-<h4 id="dump-regs"><a class="anchor" href="#dump-regs"></a><a class="link" href="#dump-regs">15.22.1. dump_regs</a></h4>
+<h4 id="dump-regs"><a class="anchor" href="#dump-regs"></a><a class="link" href="#dump-regs">15.23.1. dump_regs</a></h4>
 <div class="paragraph">
 <p>The following kernel modules and <a href="#baremetal">Baremetal</a> executables dump and disassemble various registers which cannot be observed from userland (usually "system registers", "control registers"):</p>
 </div>
@@ -41087,7 +41190,7 @@ instructions 124346081</pre>
 <p>I had previously documented on README 10 minutes at: 2eff007f7c3458be240c673c32bb33892a45d3a0 found with <code>git log</code> search for <code>10 minutes</code>. But then I checked out there, run it, and kernel panics before any messages come out. Lol?</p>
 </div>
 <div class="paragraph">
-<p>Logs of the runs can be found at: <a href="https://github.com/cirosantilli-work/gem5-issues/tree/0df13e862b50ae20fcd10bae1a9a53e55d01caac/arm-hpi-slow" class="bare">https://github.com/cirosantilli-work/gem5-issues/tree/0df13e862b50ae20fcd10bae1a9a53e55d01caac/arm-hpi-slow</a></p>
+<p>Logs of the runs can be found at: <a href="https://github.com/cirosantilli2/gem5-issues/tree/0df13e862b50ae20fcd10bae1a9a53e55d01caac/arm-hpi-slow" class="bare">https://github.com/cirosantilli2/gem5-issues/tree/0df13e862b50ae20fcd10bae1a9a53e55d01caac/arm-hpi-slow</a></p>
 </div>
 <div class="paragraph">
 <p>The cycle count is higher for <code>arm</code>, 350M vs 250M for <code>aarch64</code>, not nowhere near the 5x runtime time increase.</p>
@@ -41099,7 +41202,7 @@ instructions 124346081</pre>
 <div class="sect4">
 <h5 id="gem5-x86_64-derivo3cpu-boot-panics"><a class="anchor" href="#gem5-x86_64-derivo3cpu-boot-panics"></a><a class="link" href="#gem5-x86_64-derivo3cpu-boot-panics">30.2.1.2. gem5 x86_64 DerivO3CPU boot panics</a></h5>
 <div class="paragraph">
-<p><a href="https://github.com/cirosantilli-work/gem5-issues/issues/2" class="bare">https://github.com/cirosantilli-work/gem5-issues/issues/2</a></p>
+<p><a href="https://github.com/cirosantilli2/gem5-issues/issues/2" class="bare">https://github.com/cirosantilli2/gem5-issues/issues/2</a></p>
 </div>
 <div class="literalblock">
 <div class="content">
@@ -43914,7 +44017,7 @@ export CCACHE_MAXSIZE="20G"</pre>
 <p>When doing long simulations sweeping across multiple system parameters, it becomes fundamental to do multiple simulations in parallel.</p>
 </div>
 <div class="paragraph">
-<p>This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: <a href="https://github.com/cirosantilli-work/gem5-issues/issues/15" class="bare">https://github.com/cirosantilli-work/gem5-issues/issues/15</a>, so the only way to parallelize is to run multiple instances in parallel.</p>
+<p>This is specially true for gem5, which runs much slower than QEMU, and cannot use multiple host cores to speed up the simulation: <a href="https://github.com/cirosantilli2/gem5-issues/issues/15" class="bare">https://github.com/cirosantilli2/gem5-issues/issues/15</a>, so the only way to parallelize is to run multiple instances in parallel.</p>
 </div>
 <div class="paragraph">
 <p>This also has a good synergy with <a href="#build-variants">Build variants</a>.</p>
