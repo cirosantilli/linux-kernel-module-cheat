@@ -7091,7 +7091,11 @@ Let's learn how to diagnose problems with the root filesystem not being found. T
 This is the diagnosis procedure:
 
 * does the filesystem appear on the list of filesystems? If not, then likely you are missing either:
-** the driver for that hardware type, e.g. hard drive / SSD type. Here, Linux does not know how to communicate with a given hardware to get bytes from it at all. In simiulation, the most important often missing one is virtio which needs:
+** the driver for that hardware type, e.g. hard drive/SSD/virtio type.
++
+Here, Linux does not know how to communicate with a given hardware to get bytes from it at all, so you can't even see.
++
+In simulation, the most important often missing one is virtio which needs:
 +
 ....
 CONFIG_VIRTIO_PCI=y
@@ -7103,6 +7107,10 @@ CONFIG_VIRTIO_BLK=y
 CONFIG_SQUASHFS=y
 ....
 * your filesystem of interest appears in the list, then you just need to set the `root` <<kernel-command-line-parameters,command line parameter>> to point to that, e.g. `root=/dev/sda`
+
+Bibliography:
+
+* https://stackoverflow.com/questions/63277677/i-meet-a-problem-when-i-encountered-in-the-fs-mode-of-running-gem5/63278487#63278487
 
 === Pseudo filesystems
 
@@ -11294,13 +11302,13 @@ Discussion at: https://stackoverflow.com/questions/48944587/how-to-count-the-num
 
 Those problems should be insignificant if the benchmark runs for long enough however.
 
-==== gem5 system parameters
+=== gem5 system parameters
 
 Besides optimizing a program for a given CPU setup, chip developers can also do the inverse, and optimize the chip for a given benchmark!
 
 The rabbit hole is likely deep, but let's scratch a bit of the surface.
 
-===== Number of cores
+==== Number of cores
 
 ....
 ./run --arch arm --cpus 2 --emulator gem5
@@ -11331,7 +11339,7 @@ Or from <<user-mode-simulation>>, we can use either of:
 ./run --cpus 2 --emulator gem5 --userland userland/c/cat.c --cli-args /proc/cpuinfo
 ....
 
-====== QEMU user mode multithreading
+===== QEMU user mode multithreading
 
 <<user-mode-simulation>> QEMU v4.0.0 always shows the number of cores of the host, presumably because the thread switching uses host threads directly which would make that harder to implement.
 
@@ -11358,7 +11366,7 @@ Remember <<qemu-user-mode-does-not-show-stdout-immediately>> though.
 
 At 369a47fc6e5c2f4a7f911c1c058b6088f8824463 + 1 QEMU appears to spawn 3 host threads plus one for every new guest thread created. Remember that link:userland/posix/pthread_count.c[] spawns N + 1 total threads if you count the `main` thread.
 
-====== gem5 ARM full system with more than 8 cores
+===== gem5 ARM full system with more than 8 cores
 
 https://stackoverflow.com/questions/50248067/how-to-run-a-gem5-arm-aarch64-full-system-simulation-with-fs-py-with-more-than-8
 
@@ -11391,7 +11399,7 @@ For the GICv2 extension method, build the kernel with the <<gem5-arm-linux-kerne
 
 Tested in LKMC 788087c6f409b84adf3cff7ac050fa37df6d4c46. It fails after boot with `FATAL: kernel too old` as mentioned at: <<gem5-arm-linux-kernel-patches>> but everything seems to work on the gem5 side of things.
 
-===== gem5 cache size
+==== gem5 cache size
 
 https://stackoverflow.com/questions/49624061/how-to-run-gem5-simulator-in-fs-mode-without-cache/49634544#49634544
 
@@ -11519,11 +11527,11 @@ We make the following conclusions:
 * the number of instructions almost does not change: the CPU is waiting for memory all the extra time. TODO: why does it change at all?
 * the wall clock execution time is not directionally proportional to the number of cycles: here we had a 10x cycle increase, but only 2x time increase. This suggests that the simulation of cycles in which the CPU is waiting for memory to come back is faster.
 
-===== gem5 DRAM model
+==== gem5 DRAM model
 
 Some info at: <<timingsimplecpu-analysis-1>> but highly TODO :-)
 
-====== gem5 memory latency
+===== gem5 memory latency
 
 TODO These look promising:
 
@@ -11569,7 +11577,9 @@ Another example we could use later on is link:userland/gcc/busy_loop.c[], but th
 ./run --arch aarch64 --cli-args 0x1000000 --emulator gem5 --userland userland/gcc/busy_loop.c -- --cpu-type TimingSimpleCPU
 ....
 
-====== Memory size
+===== Memory size
+
+Can be set across emulators with:
 
 ....
 ./run --memory 512M
@@ -11645,7 +11655,86 @@ This is mentioned at: https://stackoverflow.com/questions/22670257/getting-ram-s
 
 AV means available and gives the free memory: https://stackoverflow.com/questions/14386856/c-check-available-ram/57659190#57659190
 
-===== gem5 disk and network latency
+===== gem5 DRAM setup
+
+This can be explored pretty well from <<gem5-config-ini>>.
+
+se.py just has a single `DDR3_1600_8x8` DRAM with size given as <<memory-size>> and physical address starting at 0.
+
+fs.py also has that `DDR3_1600_8x8` DRAM, but can have more memory types. Notably, aarch64 has as shown on RealView.py `VExpress_GEM5_Base`:
+
+....
+0x00000000-0x03ffffff: (  0     -  64 MiB) Boot memory (CS0)
+0x04000000-0x07ffffff: ( 64 MiB - 128 MiB) Reserved
+0x08000000-0x0bffffff: (128 MiB - 192 MiB) NOR FLASH0 (CS0 alias)
+0x0c000000-0x0fffffff: (192 MiB - 256 MiB) NOR FLASH1 (Off-chip, CS4)
+0x80000000-XxXXXXXXXX: (  2 GiB -        ) DRAM
+....
+
+We place the entry point of our baremetal executables right at the start of DRAM with our <<baremetal-linker-script>>.
+
+This can be seen indirectly with:
+
+....
+./getvar --arch aarch64 --emulator gem5 entry_address
+....
+
+which gives 0x80000000 in decimal, or more directly with some some <<gem5-tracing>>:
+
+....
+./run \
+  --arch aarch64 \
+  --baremetal baremetal/arch/aarch64/no_bootloader/exit.S \
+  --emulator gem5 \
+  --trace ExecAll,-ExecSymbol \
+  --trace-stdout \
+;
+....
+
+and we see that the first instruction runs at 0x80000000:
+
+....
+      0: system.cpu: A0 T0 : 0x80000000
+....
+
+TODO: what are the boot memory and NOR FLASH used for?
+
+==== gem5 `CommMonitor`
+
+You can place this <<gem5-python-c-interaction,SimObject>> in between two <<gem5-port-system,ports>> to get extra statistics about the packets that are going through.
+
+It only works on <<gem5-functional-vs-atomic-vs-timing-memory-requests,timing requests>>, and does not seem to dump any memory values, only add extra <<gem5-m5out-stats-txt-file,statistics>>.
+
+For example, the patch link:patches/manual/gem5-commmonitor-se.patch[] hack a `CommMonitor` between the CPU and the L1 cache on top of gem5 1c3662c9557c85f0d25490dc4fbde3f8ab0cb350:
+
+....
+patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-commmonitor-se.patch
+....
+
+That patch was done largely by copying what `fs.py --memcheck` does with a `MemChecker` object.
+
+You can then run with:
+
+....
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  -- \
+  --caches \
+  --cpu-type TimingSimpleCPU \
+;
+....
+
+and now we have some new extra histogram statistics such as:
+
+....
+system.cpu.dcache_mon.readBurstLengthHist::samples            1
+....
+
+One neat thing about this is that it is agnostic to the memory object type, so you don't have to recode those statistics for every new type of object that operates on memory packets.
+
+==== gem5 disk and network latency
 
 TODO These look promising:
 
@@ -11656,7 +11745,7 @@ TODO These look promising:
 
 and also: `gem5-dist`: https://publish.illinois.edu/icsl-pdgem5/
 
-===== gem5 clock frequency
+==== gem5 clock frequency
 
 As of gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 defaults to 2GHz for fs.py:
 
@@ -13837,39 +13926,6 @@ and their selection can be seen under: `src/dev/arm/RealView.py`, e.g.:
             cur_sys.boot_loader = [ loc('boot_emm.arm64'), loc('boot_emm.arm') ]
 ....
 
-=== gem5 `CommMonitor`
-
-You can place this <<gem5-python-c-interaction,SimObject>> in between two <<gem5-port-system,ports>> to get extra statistics about the packets that are going through.
-
-It only works on <<gem5-functional-vs-atomic-vs-timing-memory-requests,timing requests>>, and does not seem to dump any memory values, only add extra <<gem5-m5out-stats-txt-file,statistics>>.
-
-For example, the patch link:patches/manual/gem5-commmonitor-se.patch[] hack a `CommMonitor` between the CPU and the L1 cache on top of gem5 1c3662c9557c85f0d25490dc4fbde3f8ab0cb350:
-
-....
-patch -d "$(./getvar gem5_source_dir)" -p 1 < patches/manual/gem5-commmonitor-se.patch
-....
-
-which you can run with:
-
-....
-./run \
-  --arch aarch64 \
-  --emulator gem5 \
-  --userland userland/arch/aarch64/freestanding/linux/hello.S \
-  -- \
-  --caches \
-  --cpu-type TimingSimpleCPU \
-;
-....
-
-and now we have some new extra histogram statistics such as:
-
-....
-system.cpu.dcache_mon.readBurstLengthHist::samples            1
-....
-
-One neat thing about this is that it is agnostic to the memory object type, so you don't have to recode those statistics for every new type of object that operates on memory packets.
-
 === gem5 internals
 
 Internals under other sections:
@@ -15922,7 +15978,6 @@ Now that we know how to read cache logs from <<gem5-event-queue-timingsimplecpu-
 * CPU0 already has has that cache line (0x880) in its cache at <<what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5,state E of MOESI>>, so it snoops and moves to S. We can look up the logs to see exactly where CPU0 had previously read that address:
 +
 ....
-table: 1, dirty: 0
 59135500: Cache: system.cpu0.icache: Block addr 0x880 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x22 way: 0
 59135500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[1] packet WritebackClean [8880:88bf]
 59135500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[1] packet WritebackClean [8880:88bf] SF size: 0 lat: 1
@@ -16021,9 +16076,9 @@ and then CPU2 writes moving to M and moving CPU1 to I:
 
 and so on, they just keep fighting over that address and changing one another's state.
 
-====== gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby
+===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby
 
-Now let's do the exact same we did for <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>, but with <<gem5-ruby-build,Ruby>> rather than the classic system.
+Now let's do the exact same we did for <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>, but with <<gem5-ruby-build,Ruby>> rather than the classic system and TimingSimpleCPU (atomic does not work with Ruby) 
 
 Since we have fully understood coherency in that previous example, it should now be easier to understand what is going on with Ruby:
 
@@ -16036,7 +16091,7 @@ Since we have fully understood coherency in that previous example, it should now
   --trace FmtFlag,DRAM,ExecAll,Ruby \
   --userland userland/c/atomic.c \
   -- \
-  --cpu-type AtomicSimpleCPU \
+  --cpu-type TimingSimpleCPU \
   --ruby \
 ;
 ....
