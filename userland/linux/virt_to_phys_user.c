@@ -1,4 +1,7 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#userland-physical-address-experiments */
+/* https://cirosantilli.com/linux-kernel-module-cheat#userland-physical-address-experiments
+ *
+ * This file is dual licensed as both 3-Clause BSD and GPLv3.
+ */
 
 #define _XOPEN_SOURCE 700
 #include <stdio.h> /* printf */

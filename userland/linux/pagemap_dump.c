@@ -1,4 +1,7 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#pagemap-dump-out */
+/* https://cirosantilli.com/linux-kernel-module-cheat#pagemap-dump-out
+ *
+ * This file is dual licensed as both 3-Clause BSD and GPLv3.
+ */
 
 #define _XOPEN_SOURCE 700
 #include <assert.h>

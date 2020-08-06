@@ -1,3 +1,9 @@
+/* https://cirosantilli.com/linux-kernel-module-cheat#userland-physical-address-experiments
+ * https://cirosantilli.com/linux-kernel-module-cheat#pagemap-dump-out
+ *
+ * This file is dual licensed as both 3-Clause BSD and GPLv3.
+ */
+
 #ifndef LKMC_PAGEMAP_H
 #define LKMC_PAGEMAP_H
 
