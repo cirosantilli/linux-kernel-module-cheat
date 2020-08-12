@@ -659,6 +659,18 @@ path_properties_tuples = (
                     },
                     {
                         'abort.c': {'signal_received': signal.Signals.SIGABRT},
+                        'atomic': (
+                            {
+                                'test_run_args': {'cpus': 3},
+                            },
+                            {
+                                'aarch64_add.c': {'allowed_archs': {'aarch64'}},
+                                'aarch64_ldadd.c': {'allowed_archs': {'aarch64'}},
+                                'aarch64_ldaxr_stlxr.c': {'allowed_archs': {'aarch64'}},
+                                'x86_64_inc.c': {'allowed_archs': {'x86_64'}},
+                                'x86_64_lock_inc.c': {'allowed_archs': {'x86_64'}},
+                            },
+                        ),
                         'atomic.c': {
                             'baremetal': False,
                             'test_run_args': {'cpus': 3},

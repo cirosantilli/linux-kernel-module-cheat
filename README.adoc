@@ -6311,6 +6311,8 @@ This likely comes from the ifdef split at `init/main.c`:
 
 `start_kernel` is a good definition of it: https://stackoverflow.com/questions/18266063/does-kernel-have-main-function/33422401#33422401
 
+In gem5 aarc64 Linux v4.18, experimentally the entry point of secondary CPUs seems to be `secondary_holding_pen` as shown at https://gist.github.com/cirosantilli2/34a7bc450fcb6c1c1a910369be1fdd90
+
 === Kernel module APIs
 
 ==== Kernel module parameters
@@ -12968,7 +12970,7 @@ We can further reduce this size by removing spaces from the dumps with this hack
 +            stream << " " << pdfstr.str();
 +        if (cdfstr.rdbuf()->in_avail())
 +            stream << " " << cdfstr.str();
- 
+
          if (descriptions) {
              if (!desc.empty())
 ....
@@ -13723,9 +13725,11 @@ Crossbar or `XBar` in the code, is the default <<cache-coherence,CPU interconnec
 
 It presumably implements a crossbar switch along the lines of: https://en.wikipedia.org/wiki/Crossbar_switch
 
-One simple example of its operation can be seen at: xref:gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis[xrefstyle=full]
+This is the best introductory example analysis we have so far: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>. It contains more or less the most minimal example in which something interesting can be observed: multiple cores fighting over a single data memory variable.
 
-But arguably interesting effects can only be observed when we have more than 1 CPUs as in <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>.
+Long story short: the interconnect contains the snoop mechanism, and it forwards packets coming form caches of a CPU to the caches of other CPUs in which the block is present.
+
+It is therefore the heart of the <<cache-coherence>> mechanism, as it informs other caches of bus transactions they need to know about.
 
 TODO: describe it in more detail. It appears to be a very simple mechanism.
 
@@ -14022,6 +14026,10 @@ and their selection can be seen under: `src/dev/arm/RealView.py`, e.g.:
         if not cur_sys.boot_loader:
             cur_sys.boot_loader = [ loc('boot_emm.arm64'), loc('boot_emm.arm') ]
 ....
+
+The bootloader basically just sets up a bit of CPU state and jumps to the kernel entry point.
+
+In aarch64 at least, CPUs other than CPU0 are also started up briefly, run some initialization, and are made wait on a WFE. This can be seen easily by booting a multicore Linux kernel run with <<gem5-execall-trace-format>>.
 
 === gem5 memory system
 
@@ -14418,7 +14426,7 @@ req->setVirt(fetchPC, sizeof(MachInst), Request::INST_FETCH,
                 instMasterId(), instAddr);
 ....
 
-Virtual to physical address translation done by the CPU stores the physical address: 
+Virtual to physical address translation done by the CPU stores the physical address:
 
 ....
 fault = thread->dtb->translateAtomic(req, thread->getTC(),
@@ -16509,6 +16517,22 @@ so we understand that by default the classic cache:
 * has 16KiB total size
 * uses LRURP https://en.wikipedia.org/wiki/Cache_replacement_policies[replacement policy]. LRU is a well known policy, "LRU RP" seems to simply stand for "LRU Replacement Policy". Other policies can be seen under: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/replacement_policies/[src/mem/cache/replacement_policies/]
 
+At:
+
+....
+#7         0: Cache: system.cpu.icache: access for ReadReq [78:7b] IF miss
+#8         0: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 scheduled @ 1000
+#9      1000: Event: system.cpu.icache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 59 executed @ 1000
+#10     1000: Cache: system.cpu.icache: sendMSHRQueuePacket: MSHR ReadReq [78:7b] IF
+#12     1000: Cache: system.cpu.icache: createMissPacket: created ReadCleanReq [40:7f] IF from ReadReq [78:7b] IF
+....
+
+we can briefly see the <<gem5-mshr>> doing its thing.
+
+At time 0, the CPU icache wants to read, so it creates a <<gem5-packet,packet>> that reads 4 bytes only (`[78:7b]`) for the instruction, and that goes into the MSHR, to be treated in a future event.
+
+At 1000, the future event is executed, and so it reads the original packet from the MSHR, and uses that to create a new request `[40:7f]` which gets forwarded.
+
 ====== What is the coherency protocol implemented by the classic cache system in gem5?
 
 <<moesi>>: https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/cache/cache_blk.hh#L352
@@ -16673,9 +16697,185 @@ and then CPU2 writes moving to M and moving CPU1 to I:
 
 and so on, they just keep fighting over that address and changing one another's state.
 
+===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs
+
+Like <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>> but with <<gem5-timingsimplecpu>> and link:userland/c/atomic/aarch64_add.c[]:
+
+....
+./build-userland --arch aarch64 --optimization-level 3 --userland-build-id o3
+./run \
+  --arch aarch64 \
+  --cli-args '2 1000' \
+  --cpus 3 \
+  --emulator gem5 \
+  --trace FmtFlag,CacheAll,DRAM,Event,ExecAll,SimpleCPU,XBar \
+  --userland userland/c/atomic/aarch64_add.c \
+  --userland-build-id o3 \
+  -- \
+  --caches \
+  --cpu-type TimingSimpleCPU \
+;
+....
+
+This is arguably the best experiment to study the <<gem5-crossbar-interconnect>>.
+
+We increase the loop count to 100 loops because 100 did not show memory conflicts. The output is:
+
+....
+expect 200
+global 147
+....
+
+Let's double check what it compiles to with <<disas>>:
+
+....
+./disas --arch aarch64 --userland userland/c/atomic/aarch64_add.c --userland-build-id o3 my_thread_main
+....
+
+which contains:
+
+....
+   0x0000000000400a70 <+0>:     03 00 40 f9     ldr     x3, [x0]
+   0x0000000000400a74 <+4>:     63 01 00 b4     cbz     x3, 0x400aa0 <my_thread_main+48>
+   0x0000000000400a78 <+8>:     82 00 00 d0     adrp    x2, 0x412000 <malloc@got.plt>
+   0x0000000000400a7c <+12>:    42 a0 01 91     add     x2, x2, #0x68
+   0x0000000000400a80 <+16>:    00 00 80 d2     mov     x0, #0x0                        // #0
+   0x0000000000400a84 <+20>:    1f 20 03 d5     nop
+   0x0000000000400a88 <+24>:    41 00 40 f9     ldr     x1, [x2]
+   0x0000000000400a8c <+28>:    21 04 00 91     add     x1, x1, #0x1
+   0x0000000000400a90 <+32>:    41 00 00 f9     str     x1, [x2]
+   0x0000000000400a94 <+36>:    00 04 00 91     add     x0, x0, #0x1
+   0x0000000000400a98 <+40>:    7f 00 00 eb     cmp     x3, x0
+   0x0000000000400a9c <+44>:    68 ff ff 54     b.hi    0x400a88 <my_thread_main+24>  // b.pmore
+   0x0000000000400aa0 <+48>:    00 00 80 52     mov     w0, #0x0                        // #0
+   0x0000000000400aa4 <+52>:    c0 03 5f d6     ret
+....
+
+Grepping the logs for my_thread_main+24 shows where the first non-atomic interleaves happen at:
+
+....
+471039000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471034000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471059000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+44    :   b.hi   <my_thread_main+24> : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+471070000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+44    :   b.hi   <my_thread_main+24> : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+471071000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000030 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+....
+
+after a long string of cpu1 hits, since CPU1 was forked first and therefore had more time to run that operation.
+
+From those and logs around we deduce that:
+
+* the shared address of interest is 0x412068
+* the physical address is 2068
+* it fits into the cache line for 2040:207f
+
+With that guide, we look at the fuller logs around that region of interest. With start at the first ifetch that CPU2 does for our LDR of interest at 0x400a88:
+
+....
+471033000: SimpleCPU: system.cpu2: Fetch
+471033000: SimpleCPU: system.cpu2: Translating address 0x400a88
+....
+
+Things get a bit interleaved with CPU1, but soon afterwards we see the miss forwarding via <<gem5-mshr>> as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>:
+
+....
+471034000: Cache: system.cpu2.dcache: access for ReadReq [2068:206f] D=b0d989c328560000 ptr=0x5628c3d26f00 miss
+471034000: CachePort: system.cpu2.dcache.mem_side: Scheduling send event at 471035000
+471034000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 scheduled @ 471035000
+....
+
+Before the request moves on, some CPU1 action happens: a CPU1 STR finished! It hit the cache, and now we know the cache state: M:
+
+....
+471034000: Cache: system.cpu1.dcache: access for WriteReq [2068:206f] D=2f00000000000000 ptr=0x5628c3d26c80 hit state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471034000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+32    :   str   x1, [x2]           : MemWrite :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsStore)
+....
+
+After this is done, CPU2 dcache finally decides that it is time to forward its request, and _now_ we see the crux of this experiment happen.
+
+First `createMissPacket` creates a new packet for the cache request, and then it sends that packet into `CoherentXBar`.
+
+....
+471035000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 executed @ 471035000
+471035000: Cache: system.cpu2.dcache: sendMSHRQueuePacket: MSHR ReadReq [2068:206f] D=b0d989c328560000 ptr=0x5628c3d26f00
+471035000: Cache: system.cpu2.dcache: createMissPacket: created ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80 from ReadReq [2068:206f] D=b0d989c328560000 ptr=0x5628c3d26f00
+471035000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+....
+
+Now, the `SnoopFilte` which lives inside the crossbar decides if any other CPUs care aout hat address:
+
+....
+471035000: SnoopFilter: system.membus.snoop_filter: lookupRequest: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471035000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471035000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471035000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80 SF size: 1 lat: 1
+....
+
+and the answer is yes: CPU1 does care about that address obviously! So the packet is forwarded as is to CPU1:
+
+....
+471035000: CoherentXBar: system.membus: forwardTiming for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471035000: CacheVerbose: system.cpu1.dcache: recvTimingSnoopReq: for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471035000: CacheVerbose: system.cpu1.dcache: handleSnoop: for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471035000: Cache: system.cpu1.dcache: handleSnoop: snoop hit for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80, old state is state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471035000: Cache: system.cpu1.dcache: new state is state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471035000: Cache: system.cpu1.dcache: doTimingSupplyResponse: for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471035000: CacheVerbose: system.cpu1.dcache: doTimingSupplyResponse: created response: ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000 tick: 471044000
+471035000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 scheduled @ 471044000
+471035000: CoherentXBar: system.membus: recvTimingReq: Not forwarding ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471035000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 164 scheduled @ 471036000
+471035000: BaseXBar: system.membus.reqLayer0: The crossbar layer is now busy from tick 471035000 to 471036000
+....
+
+and from this we see that this read request from CPU2 made a cache from CPU1 go from M to O!
+
+Then, the CPU1 dcache actually goes ahead, and creates a response or CPU2, since it has the data. This response is sent back to the crossbar which will forward it back to CPU1.
+
+This also makes the crossbar not forward the original request to DRAM as mentioned at `Not forwarding`.
+
+This reply from CPU1 reaches the crossbar at:
+
+....
+471044000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 executed @ 471044000
+471044000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
+471044000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse: rsp system.membus.slave[6] req system.membus.slave[10] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
+471044000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   old SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471044000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471044000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000 FWD RESP
+471044000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 scheduled @ 471046000
+471044000: Event: system.membus.respLayer10.wrapped_function_event: EventFunctionWrapped 187 scheduled @ 471049000
+471044000: BaseXBar: system.membus.respLayer10: The crossbar layer is now busy from tick 471044000 to 471049000
+....
+
+and finally, at long last, CPU2 receives the snoop reply that was created in CPU1 and sent back through the crossbar, and the LDR completes:
+
+....
+471046000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 executed @ 471046000
+471046000: Cache: system.cpu2.dcache: recvTimingResp: Handling response ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
+471046000: Cache: system.cpu2.dcache: Block for addr 0x2040 being updated in Cache
+471046000: CacheRepl: system.cpu2.dcache: Replacement victim: state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+471046000: Cache: system.cpu2.dcache: Block addr 0x2040 (ns) moving from state 0 (I) to state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+471046000: Cache: system.cpu2.dcache: serviceMSHRTargets: updated cmd to ReadRespWithInvalidate [2068:206f] D=2f00000000000000 ptr=0x5628c3d26f00
+471046000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 scheduled @ 471047000
+471046000: Cache: system.cpu2.dcache: processing deferred snoop...
+471046000: CacheVerbose: system.cpu2.dcache: handleSnoop: for UpgradeReq [2040:207f] D= ptr=0x5628c2d37b80
+471046000: Cache: system.cpu2.dcache: handleSnoop: snoop hit for UpgradeReq [2040:207f] D= ptr=0x5628c2d37b80, old state is state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+471046000: Cache: system.cpu2.dcache: new state is state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+471046000: CacheVerbose: system.cpu2.dcache: recvTimingResp: Leaving with ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
+471047000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 executed @ 471047000
+471047000: SimpleCPU: system.cpu2.dcache_port: Received load/store response 0x2068
+471047000: Event: Event_136: Timing CPU dcache tick 136 scheduled @ 471047000
+471047000: Event: Event_136: Timing CPU dcache tick 136 executed @ 471047000
+471034000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+....
+
+We note therefore that no DRAM access was involved, one cache services the other directly!
+
+Tested on LKMC d429552cdeb0fc0a08cff8e627bf501eaffb068f + 1, gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772.
+
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby
 
-Now let's do the exact same we did for <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>, but with <<gem5-ruby-build,Ruby>> rather than the classic system and TimingSimpleCPU (atomic does not work with Ruby) 
+Now let's do the exact same we did for <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>, but with <<gem5-ruby-build,Ruby>> rather than the classic system and TimingSimpleCPU (atomic does not work with Ruby)
 
 Since we have fully understood coherency in that previous example, it should now be easier to understand what is going on with Ruby:
 
@@ -17036,7 +17236,7 @@ FullO3CPU: Ticking main, FullO3CPU.
 
 so we observe that the first two instructions arrived, and the CPU noticed that 0x400080 hasn't been fetched yet.
 
-Then for several cycles that follow, the fetch stage just says that it is blocked on data returning, e.g. the 
+Then for several cycles that follow, the fetch stage just says that it is blocked on data returning:
 
 ....
 FullO3CPU: Ticking main, FullO3CPU.
@@ -17081,7 +17281,7 @@ Now let's do the same as in <<gem5-event-queue-derivo3cpu-syscall-emulation-free
 ....
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.ic.r........................................................................fdn]-(          40000) 0x00400078.0 movz x0, #0, #0           [         1]
 [.ic.r........................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
 [....................fdn.ic.r....................................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
@@ -17121,7 +17321,7 @@ Like <<gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analys
 ....
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.ic.r........................................................................fdn]-(          40000) 0x00400078.0 movz x0, #0, #0           [         1]
 [.ic.r........................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
 [....................fdn.ic.r....................................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
@@ -17166,13 +17366,13 @@ We can see here that:
 
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.ic.r........................................................................fdn]-(          40000) 0x004000b0.0 movz x0, #0, #0           [         1]
 [.ic.r........................................................................fdn]-(          40000) 0x004000b4.0 movz x1, #1, #0           [         2]
 [.ic.r........................................................................fdn]-(          40000) 0x004000b8.0 adr x2, #65780            [         3]
 [.............................................................................fdn]-(          40000) 0x004000bc.0 ldr x3, [x2]              [         4]
-[.pic............................................................................]-(          80000)     ...     
-[................................r...............................................]-(         120000)     ...     
+[.pic............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
 [....................fdn.ic......r...............................................]-(         120000) 0x004000c0.0 movz x4, #4, #0           [         5]
 [....................fdn.ic......r...............................................]-(         120000) 0x004000c4.0 movz x5, #5, #0           [         6]
 [....................fdn.ic......r...............................................]-(         120000) 0x004000c8.0 movz x6, #6, #0           [         7]
@@ -17200,42 +17400,42 @@ So in this case we see that there were actual potential gains, since the `movz x
 ....
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.ic.r........................................................................fdn]-(          40000) 0x004000b0.0 movz x0, #0, #0           [         1]
 [.ic.r........................................................................fdn]-(          40000) 0x004000b4.0 movz x1, #1, #0           [         2]
 [.ic.r........................................................................fdn]-(          40000) 0x004000b8.0 movz x2, #4, #0           [         3]
 [.ic.r........................................................................fdn]-(          40000) 0x004000bc.0 movz x3, #5, #0           [         4]
 [....................fdn.ic.r....................................................]-(         120000) 0x004000c0.0 adr x4, #65772            [         5]
 [....................fdn.pic.....................................................]-(         120000) 0x004000c4.0 ldr x5, [x4]              [         6]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000c8.0 movz x6, #6, #0           [         7]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000cc.0 movz x7, #7, #0           [         8]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000d0.0 movz x8, #8, #0           [         9]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000d4.0 movz x9, #9, #0           [        10]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000d8.0 movz x10, #10, #0         [        11]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.pic.....................................................]-(         120000) 0x004000dc.0 movz x11, #11, #0         [        12]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000e0.0 movz x12, #12, #0         [        13]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000e4.0 movz x13, #13, #0         [        14]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000e8.0 movz x14, #14, #0         [        15]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000ec.0 movz x15, #15, #0         [        16]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000f0.0 movz x16, #16, #0         [        17]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [.....................fdn.pic....................................................]-(         120000) 0x004000f4.0 movz x17, #17, #0         [        18]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [.....................fdn.pic....................................................]-(         120000) 0x004000f8.0 movz x18, #18, #0         [        19]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [.....................fdn.pic....................................................]-(         120000) 0x004000fc.0 movz x19, #19, #0         [        20]
-[.........................................................r......................]-(         160000)     ...     
+[.........................................................r......................]-(         160000)     ...
 [............................................fdn.ic.......r......................]-(         160000) 0x00400100.0 movz x20, #20, #0         [        21]
 [............................................fdn.ic........r.....................]-(         160000) 0x00400104.0 movz x21, #21, #0         [        22]
 [............................................fdn.ic........r.....................]-(         160000) 0x00400108.0 movz x22, #22, #0         [        23]
@@ -17258,9 +17458,9 @@ We now also understand the graph better from lines such as this:
 
 ....
 [....................fdn.pic.....................................................]-(         120000) 0x004000c4.0 ldr x5, [x4]              [         6]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000c8.0 movz x6, #6, #0           [         7]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 ....
 
 We see that extra lines are drawn (the `160000 ... lines` here) whenever something stalls for a period longer than the width of the visualisation.
@@ -17278,42 +17478,42 @@ So in this case the `ic` of dependencies like `add x6, x5, #1` have to wait unti
 ....
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.ic.r........................................................................fdn]-(          40000) 0x004000b0.0 movz x0, #0, #0           [         1]
 [.ic.r........................................................................fdn]-(          40000) 0x004000b4.0 movz x1, #1, #0           [         2]
 [.ic.r........................................................................fdn]-(          40000) 0x004000b8.0 movz x2, #4, #0           [         3]
 [.ic.r........................................................................fdn]-(          40000) 0x004000bc.0 movz x3, #5, #0           [         4]
 [....................fdn.ic.r....................................................]-(         120000) 0x004000c0.0 adr x4, #65772            [         5]
 [....................fdn.pic.....................................................]-(         120000) 0x004000c4.0 ldr x5, [x4]              [         6]
-[........................................................r.......................]-(         160000)     ...     
+[........................................................r.......................]-(         160000)     ...
 [....................fdn.p.......................................................]-(         120000) 0x004000c8.0 add x6, x5, #1            [         7]
-[......................................................ic.r......................]-(         160000)     ...     
+[......................................................ic.r......................]-(         160000)     ...
 [....................fdn.p.......................................................]-(         120000) 0x004000cc.0 add x7, x6, #1            [         8]
-[.......................................................ic.r.....................]-(         160000)     ...     
+[.......................................................ic.r.....................]-(         160000)     ...
 [....................fdn.p.......................................................]-(         120000) 0x004000d0.0 add x8, x7, #1            [         9]
-[........................................................ic.r....................]-(         160000)     ...     
+[........................................................ic.r....................]-(         160000)     ...
 [....................fdn.p.......................................................]-(         120000) 0x004000d4.0 add x9, x8, #1            [        10]
-[.........................................................ic.r...................]-(         160000)     ...     
+[.........................................................ic.r...................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000d8.0 movz x10, #10, #0         [        11]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [....................fdn.ic......................................................]-(         120000) 0x004000dc.0 movz x11, #11, #0         [        12]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000e0.0 movz x12, #12, #0         [        13]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000e4.0 movz x13, #13, #0         [        14]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000e8.0 movz x14, #14, #0         [        15]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000ec.0 movz x15, #15, #0         [        16]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000f0.0 movz x16, #16, #0         [        17]
-[............................................................r...................]-(         160000)     ...     
+[............................................................r...................]-(         160000)     ...
 [.....................fdn.ic.....................................................]-(         120000) 0x004000f4.0 movz x17, #17, #0         [        18]
-[.............................................................r..................]-(         160000)     ...     
+[.............................................................r..................]-(         160000)     ...
 [.....................fdn.pic....................................................]-(         120000) 0x004000f8.0 movz x18, #18, #0         [        19]
-[.............................................................r..................]-(         160000)     ...     
+[.............................................................r..................]-(         160000)     ...
 [.....................fdn.pic....................................................]-(         120000) 0x004000fc.0 movz x19, #19, #0         [        20]
-[.............................................................r..................]-(         160000)     ...     
+[.............................................................r..................]-(         160000)     ...
 [............................................fdn.ic...........r..................]-(         160000) 0x00400100.0 movz x20, #20, #0         [        21]
 [............................................fdn.ic...........r..................]-(         160000) 0x00400104.0 movz x21, #21, #0         [        22]
 [............................................fdn.ic...........r..................]-(         160000) 0x00400108.0 movz x22, #22, #0         [        23]
@@ -17345,13 +17545,13 @@ Without an extra CLI argument (the branch is taken):
 ....
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.............................................................................fdn]-(          40000) 0x00400078.0 ldr x0, [sp]              [         1]
-[.ic.............................................................................]-(          80000)     ...     
-[................................r...............................................]-(         120000)     ...     
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
 [.............................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
-[.ic.............................................................................]-(          80000)     ...     
-[................................r...............................................]-(         120000)     ...     
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
 [....................fdn.ic......r...............................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
 [....................fdn.ic......r...............................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [         4]
 [....................fdn.ic......r...............................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
@@ -17436,7 +17636,7 @@ wbActual:0
  136000: IEW: system.cpu.iew: [tid:0] [sn:10] Execute: Branch mispredict detected.
  136000: IEW: system.cpu.iew: [tid:0] [sn:10] Predicted target was PC: (0x4000a0=>0x4000a4).(0=>1)
  136000: IEW: system.cpu.iew: [tid:0] [sn:10] Execute: Redirecting fetch to PC: (0x40009c=>0x400080).(0=>1)
- 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Squashing from a specific instruction, PC: (0x40009c=>0x400080).(0=>1) 
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Squashing from a specific instruction, PC: (0x40009c=>0x400080).(0=>1)
 
  136500: Commit: system.cpu.commit: [tid:0] Squashing due to branch mispred PC:0x40009c [sn:10]
  136500: Commit: system.cpu.commit: [tid:0] Redirecting to PC 0x400084
@@ -17477,13 +17677,13 @@ With an extra CLI (the branch is not taken):
 ....
 // f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
 
-                                     timeline                                             tick          pc.upc     disasm                      seq_num  
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
 [.............................................................................fdn]-(          40000) 0x00400078.0 ldr x0, [sp]              [         1]
-[.ic.............................................................................]-(          80000)     ...     
-[................................r...............................................]-(         120000)     ...     
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
 [.............................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
-[.ic.............................................................................]-(          80000)     ...     
-[................................r...............................................]-(         120000)     ...     
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
 [....................fdn.ic......r...............................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
 [....................fdn.ic......r...............................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [         4]
 [....................fdn.ic......r...............................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
@@ -19604,7 +19804,14 @@ Bibliography:
 
 ===== atomic.c
 
-link:userland/c/atomic.c[]
+* link:userland/c/atomic.c[]
+* link:userland/c/atomic/[]: files in this directory use the same technique as <<atomic-cpp>>, i.e. with one special case per file.
++
+Maybe link:userland/c/atomic.c[] should be deprecated in favor of those more minimal ones.
++
+This was added because C++-pre main is too bloated, especially when we turn one a gazillion <<gem5>> logs, it makes me want to cry.
++
+And we want a single operation per test rather than to as in `atomic.c` because when using gem5 we want absolute control over the microbenchmark.
 
 Demonstrates `atomic_int` and `thrd_create`.
 
@@ -19827,6 +20034,8 @@ Good rule:
 ===== atomic.cpp
 
 link:userland/cpp/atomic/[]
+
+C version at: <<atomic-c>>.
 
 In this set of examples, we exemplify various synchronization mechanisms, including assembly specific ones, by using the convenience of C++ multithreading:
 
@@ -25253,7 +25462,7 @@ The traces then look like this at LKMC 777b7cbbd1d553baf2be9bc2075102be740054dd:
 112285501668498000: Thread: system.cpu: suspend contextId 0
 112285501668498000: ExecEnable: system.cpu: A0 T0 : 0x40007c    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
 112285501909320284: Thread: system.cpu: activate contextId 0
-112285501909320500: Faults: IRQ: Invoking Fault (AArch64 target EL):IRQ cpsr:0x4003c5 PC:0x400080 elr:0x400080 newVec: 0xffffff8010082480 
+112285501909320500: Faults: IRQ: Invoking Fault (AArch64 target EL):IRQ cpsr:0x4003c5 PC:0x400080 elr:0x400080 newVec: 0xffffff8010082480
 112285501909320500: ExecEnable: system.cpu: A0 T0 : @vectors+1152    :   nop                      : IntAlu :   flags=(IsNop)
 112285501909321000: ExecEnable: system.cpu: A0 T0 : @vectors+1156    :   nop                      : IntAlu :   flags=(IsNop)
 

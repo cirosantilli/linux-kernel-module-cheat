@@ -4,9 +4,9 @@
 #include <assert.h>
 #include <stdatomic.h>
 #include <stdio.h>
-#include <threads.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <threads.h>
 
 atomic_int acnt;
 int cnt;
