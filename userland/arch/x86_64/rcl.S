@@ -9,7 +9,7 @@ LKMC_PROLOGUE
     rcl $1, %r12b
     /* We'll have to save and restore flags across our asserts!
         * 2x PUSHF to maintain 16-bit stack alignment.
-        * https://cirosantilli.com/linux-kernel-module-cheat#x86_64-calling-convention
+        * https://cirosantilli.com/linux-kernel-module-cheat#x86-64-calling-convention
         */
     pushf
     pushf

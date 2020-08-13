@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#rand_check-out */
+/* https://cirosantilli.com/linux-kernel-module-cheat#rand-check-out */
 
 #include <inttypes.h>
 #include <signal.h>
