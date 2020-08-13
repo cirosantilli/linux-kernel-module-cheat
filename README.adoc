@@ -1061,7 +1061,7 @@ dmesg
 In order to test the kernel and emulators, userland content in the form of executables and scripts is of course required, and we store it mostly under:
 
 * link:userland/[]
-* <<rootfs_overlay>>
+* <<rootfs-overlay>>
 * <<add-new-buildroot-packages>>
 
 When we started this repository, it only contained content that interacted very closely with the kernel, or that had required performance analysis.
@@ -1176,7 +1176,7 @@ The `build` scripts inside link:userland/[] are just symlinks to link:build-user
 ./build-userland-in-tree userland/c/hello.c
 ....
 
-`build-userland-in-tre` is in turn just a thin wrapper around link:build-userland[]:
+`build-userland-in-tree` is in turn just a thin wrapper around link:build-userland[]:
 
 ....
 ./build-userland --gcc-which host --in-tree userland/c
@@ -2041,43 +2041,29 @@ Break at the very first instruction executed by QEMU:
 ./run-gdb --no-continue
 ....
 
-TODO why can't we break at early startup stuff such as:
+Note however that early boot parts appear to be relocated in memory somehow, and therefore:
+
+* you won't see the source location in GDB, only assembly
+* you won't be able to break by symbol in those early locations
+
+Further discussion at: <<linux-kernel-entry-point>>.
+
+==== Linux kernel entry point
+
+TODO https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
+
+As mentioned at: <<gdb-step-debug-early-boot>>, the very first kernel instructions executed appear to be placed into memory at a different location than that of the kernel ELF section.
+
+As a result, we are unable to break on early symbols such as:
 
 ....
 ./run-gdb extract_kernel
 ./run-gdb main
 ....
 
-Maybe it is because they are being copied around at specific locations instead of being run directly from inside the main image, which is where the debug information points to?
+<<gem5-execall-trace-format>>>> however does show the right symbols however! This could be because <<vmlinux-vs-bzimage-vs-zimage-vs-image,gem5 uses vmlinux to boot>>, which QEMU uses the compressed version, and as mentioned on the Stack Overflow answer, the entry point is actually a tiny decompresser routine.
 
-See also: https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
-
-<<gem5-tracing>> with `--debug-flags=Exec` does show the right symbols however! So in the worst case, we can just read their source. Amazing.
-
-v4.19 also added a `CONFIG_HAVE_KERNEL_UNCOMPRESSED=y` option for having the kernel uncompressed which could make following the startup easier, but it is only available on s390. `aarch64` however is already uncompressed by default, so might be the easiest one. See also: xref:vmlinux-vs-bzimage-vs-zimage-vs-image[xrefstyle=full].
-
-==== GDB step debug early boot by address
-
-One possibility is to run:
-
-....
-./trace-boot --arch arm
-....
-
-and then find the second address (the first one does not work, already too late maybe):
-
-....
-less "$(./getvar --arch arm trace_txt_file)"
-....
-
-and break there:
-
-....
-./run --arch arm --gdb-wait
-./run-gdb --arch arm '*0x1000'
-....
-
-but TODO: it does not show the source assembly under `arch/arm`: https://stackoverflow.com/questions/11423784/qemu-arm-linux-kernel-boot-debug-no-source-code
+In gem5 aarch64 Linux v4.18, experimentally the entry point of secondary CPUs seems to be `secondary_holding_pen` as shown at https://gist.github.com/cirosantilli2/34a7bc450fcb6c1c1a910369be1fdd90
 
 I also tried to hack `run-gdb` with:
 
@@ -2094,6 +2080,22 @@ I also tried to hack `run-gdb` with:
 ....
 
 and no I do have the symbols from `arch/arm/boot/compressed/vmlinux'`, but the breaks still don't work.
+
+v4.19 also added a `CONFIG_HAVE_KERNEL_UNCOMPRESSED=y` option for having the kernel uncompressed which could make following the startup easier, but it is only available on s390. `aarch64` however is already uncompressed by default, so might be the easiest one. See also: xref:vmlinux-vs-bzimage-vs-zimage-vs-image[xrefstyle=full].
+
+You then need the associated `KERNEL_UNCOMPRESSED` to enable it if available:
+
+....
+config KERNEL_UNCOMPRESSED
+    bool "None"
+    depends on HAVE_KERNEL_UNCOMPRESSED
+....
+
+==== Linux kernel arch-agnostic entry point
+
+`start_kernel` is the first C function to be executed basically: https://stackoverflow.com/questions/18266063/does-kernel-have-main-function/33422401#33422401
+
+For the earlier arch-specific entry point, see: <<linux-kernel-entry-point>>.
 
 ==== Linux kernel early boot messages
 
@@ -6306,12 +6308,6 @@ This likely comes from the ifdef split at `init/main.c`:
     no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
 ....
-
-=== Linux kernel entry point
-
-`start_kernel` is a good definition of it: https://stackoverflow.com/questions/18266063/does-kernel-have-main-function/33422401#33422401
-
-In gem5 aarc64 Linux v4.18, experimentally the entry point of secondary CPUs seems to be `secondary_holding_pen` as shown at https://gist.github.com/cirosantilli2/34a7bc450fcb6c1c1a910369be1fdd90
 
 === Kernel module APIs
 
@@ -19277,23 +19273,32 @@ with:
 
 === Add new files to the Buildroot image
 
-There are basically two choices:
+These are your options:
 
 * create a Buildroot package: <<add-new-buildroot-packages>>
-* drop your files directly in <<rootfs_overlay>> and follow instructions from that section
-
-If you need to cross compile input files such as C for the guest, then Buildroot packages are definitely the cleaner option as they make cross compilation easy.
-
-However, for a quick initial prototype, it should be fine to just manually compile your files and drop them in <<rootfs_overlay>>.
-
-Ideally, you should still use the Buildroot cross compiler for this which ensures compatibility.
-
-The best way to do that is to use either <<run-toolchain>> or <<getvar>>.
-
-In case you can't for some reason, e.g. if you need to use your own custom toolchain, you should:
-
-* make sure that you have built your toolchain to match the our kernel version. It often just works even if they are not perfectly matched however, partly because the Linux kernel is highly <<update-the-linux-kernel,backwards compatible>>
-* build statically with `-static` to avoid binary compatibility issues with our own glibc
++
+This is the most general option, but the most laborious. No big deal if you copy our template however as shown in that section.
++
+Handles any type of cross compilation, including multiple input sources.
+* drop your files directly in <<rootfs-overlay>> and follow instructions from that section.
++
+Files in that directory are directly copied to the image, so this is the best option for files that don't need to be compiled such as <<interpreted-languages>>.
++
+You could also use this method to inject compiled binaries into the image for quick-and-dirty testing.
++
+But it will be much more likely to work if you use our cross compiler with <<run-toolchain>> or <<getvar>>.
++
+If you can't do that, at the very least make it statically with `-static` compiled to remove the possibility of binary mismatch with our dynamic glibc.
++
+But things can still break if your random glibc is configured to work with a newer Linux kernel than ours.
++
+It often just works even if they are not perfectly matched however, partly because the Linux kernel is highly <<update-the-linux-kernel,backwards compatible>>
+* fork this repo and add new files to <<userland-content,userland/>> or <<kernel-modules,kernel_modules/>>
++
+To add a simple executable that compiles from a single source file, like the dozens of examples that we have, you could just go this route.
++
+This mechanisms bypasses having to create/modify Buildroot packages, and is very simple when you have a single input single output executable.
+* <<9p>>. OK, this is not really adding to the image, but it is the most convenient way to quickly modify a binary on the host, cross compile, and test it out without rebooting.
 
 Related threads:
 
@@ -19309,7 +19314,7 @@ First, see if you can't get away without actually adding a new package, for exam
 
 If none of those methods are flexible enough for you, you can just fork or hack up link:buildroot_packages/sample_package[] the sample package to do what you want.
 
-For how to use that package, see: xref:buildroot_packages-directory[xrefstyle=full].
+For how to use that package, see: xref:buildroot-packages-directory[xrefstyle=full].
 
 Then iterate trying to do what you want and reading the manual until it works: https://buildroot.org/downloads/manual/manual.html
 
@@ -19649,6 +19654,40 @@ This content makes up the bulk of the link:userland/[] directory.
 The quickest way to run the arch agnostic examples, which comprise the majority of the examples, is natively as shown at: xref:userland-setup-getting-started-natively[xrefstyle=full]
 
 This section was originally moved in here from: https://github.com/cirosantilli/cpp-cheat
+
+=== build-userland
+
+link:build-userland[]
+
+Build <<userland-content,userland programs>>.
+
+Build all with:
+
+....
+./build-userland
+....
+
+or build only those under e.g. `userland/c` with:
+
+....
+./build-userland userland/c
+....
+
+The executables are not automatically added to the Buildroot image, you must follow the command with a `./build-buildroot` command as in:
+
+....
+./build-userland
+./build-buildroot
+....
+
+Remember that certain executables have specific requirements, e.g.:
+
+* link:userland/arch/[] programs only build if the target arch matches
+* link:userland/libs[] directory require the `--package` option <<userland-libs-directory>>
+
+Default: build all examples that have their package dependencies met, e.g.:
+
+* an OpenBLAS example can only be built if the target root filesystem has the OpenBLAS libraries and headers installed, which you must inform with --package
 
 === C
 
@@ -21601,7 +21640,12 @@ Tests under link:userland/libs[] require certain optional libraries to be instal
 --package-all
 ....
 
-See for example <<blas>>.
+See for example <<blas>>. Since it is located under `userland/libs/openblas`, it will only build with either:
+
+....
+./build-userland --package openblas
+./build-userland --package-all
+....
 
 ==== Boost
 
@@ -28419,6 +28463,7 @@ The slower compilation should be OK as long as split functionality amongst diffe
 Also we don't have a choice in the case of C++ template, which must stay in headers.
 * if the functionality will be called from assembly, then we don't have a choice, and must add it to a separate source file and link against it.
 
+[[buildroot-packages-directory]]
 ==== buildroot_packages directory
 
 Source: link:buildroot_packages/[].
@@ -28512,6 +28557,7 @@ Patches in this directory are never applied automatically: it is up to users to 
 
 These are typically patches that don't contain fundamental functionality, so we don't feel like forking the target repos.
 
+[[rootfs-overlay]]
 ==== rootfs_overlay
 
 Source: link:rootfs_overlay[].
@@ -28553,13 +28599,13 @@ This path can be found with:
 This output directory contains all the files that LKMC will put inside the final image, including for example:
 
 * <<userland-content>> that needs to be compiled
-* <<rootfs_overlay>> content that gets put inside the image as is
+* <<rootfs-overlay>> content that gets put inside the image as is
 
 LKMC first collects all the files that it will dump into the guest there, and then in the very last step dumps everything into the final image.
 
 In Buildroot, this is done by pointing `BR2_ROOTFS_OVERLAY` to that directory, which is documented at: https://buildroot.org/downloads/manual/manual.html#rootfs-custom
 
-This does not include native image modification mechanisms such as <<buildroot_packages-directory,Buildroot packages>>, which we let Buildroot itself manage.
+This does not include native image modification mechanisms such as <<buildroot-packages-directory,Buildroot packages>>, which we let Buildroot itself manage.
 
 ==== lkmc.c
 

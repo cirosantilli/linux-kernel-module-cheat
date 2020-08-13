@@ -1050,7 +1050,7 @@ Incompatible archs are skipped.
         env['kernel_modules_build_host_subdir'] = join(env['kernel_modules_build_host_dir'], env['kernel_modules_subdir'])
 
         # Overlay.
-        # https://cirosantilli.com/linux-kernel-module-cheat#buildroot_packages-directory
+        # https://cirosantilli.com/linux-kernel-module-cheat#buildroot-packages-directory
         env['out_rootfs_overlay_dir'] = join(env['out_dir'], 'rootfs_overlay', env['arch'])
         env['out_rootfs_overlay_lkmc_dir'] = join(env['out_rootfs_overlay_dir'], env['repo_short_id'])
         env['out_rootfs_overlay_bin_dir'] = join(env['out_rootfs_overlay_dir'], 'bin')
