@@ -12668,6 +12668,8 @@ However, I think it is usually not worth the trouble of hacking up the build sys
 
 Bibliography:
 
+* https://stackoverflow.com/questions/63488050/what-are-pseudo-instructions-for-in-gem5/63489417#63489417
+* https://stackoverflow.com/questions/62757008/how-to-use-m5-in-gem5-20/62759204#62759204
 * https://stackoverflow.com/questions/56506154/how-to-analyze-only-interest-area-in-source-code-by-using-gem5/56506419#56506419
 * https://www.mail-archive.com/gem5-users@gem5.org/msg15418.html
 
@@ -14295,8 +14297,14 @@ The most important properties of a Packet are:
 Addr addr;
 ....
 * `Flags flags;`: flags describing properties of the `Packet`
-* `MemCmd cmd;`: this is basically an enumeration of possible commands, stuff like:
-+
+* `MemCmd cmd;`: see <<gem5-memcmd>>
+
+====== gem5 `MemCmd`
+
+Each <<gem5-packet>> contains a `MemCmd`
+
+The `MemCmd` is basically an enumeration of possible commands, stuff like:
+
 ....
 enum Command
 {
@@ -14304,15 +14312,15 @@ enum Command
     ReadReq,
     ReadResp,
 ....
-+
+
 Each command has a fixed number of attributes defined in the static array:
-+
+
 ....
 static const CommandInfo commandInfo[];
 ....
-+
+
 which gets initialized in the .cc file in the same order as the Command enum.
-+
+
 ....
 const MemCmd::CommandInfo
 MemCmd::commandInfo[] =
@@ -14325,11 +14333,11 @@ MemCmd::commandInfo[] =
     /* ReadResp */
     { SET3(IsRead, IsResponse, HasData), InvalidCmd, "ReadResp" },
 ....
-+
+
 From this we see for example that both `ReadReq` and `ReadResp` are marked with the `IsRead` attribute.
-+
+
 The second field of this array also specifies the corresponding reply of each request. E.g. the reply of a `ReadReq` is a `ReadResp`. `InvalidCmd` is just a placeholders for requests that are already replies.
-+
+
 ....
 struct CommandInfo
 {
@@ -14342,6 +14350,14 @@ struct CommandInfo
     const std::string str;
 };
 ....
+
+Some important commands include:
+
+* `ReadReq`: what the CPU sends out to its cache, see also: <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>
+* `ReadSharedReq`: what dcache of the CPU sends forward to the <<gem5-crossbar-interconnect>> after a `ReadReq`, see also: see also: <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>
+* `ReadResp`: response to a `ReadReq`. Can come from either DRAM or another cache that has the data. On <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>> we see that a new packet is created.
+* `WriteReq`: what the CPU sends out to its cache, see also: <<gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>
+* `UpgradeReq`: what dcache of CPU sends forward after a `WriteReq`
 
 ===== gem5 `Request`
 
@@ -14491,6 +14507,19 @@ class MSHRQueue : public Queue<MSHR>
 ....
 
 and Queue is also a gem5 class under `src/mem/cache/queue.hh`.
+
+The MSHR basically keeps track of all information the cache receives, and helps it take appropriate action. I'm not sure why it is separate form the cache at all, as it is basically performing essential cache bookkeeping.
+
+A clear example of MSHR in action can be seen at: <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus>>. In that example what happened was:
+
+* CPU1 writes to an address and it completes
+* CPU2 sends read
+* CPU1 writes to the address again
+* CPU2 snoops the write, and notes it down in its MSHR
+* CPU2 receives a snoop reply for its read, also from CPU1 which has the data and the line becomes valid
+* CPU2 gets its data. But the MSHR remembers that it had also received a write snoop, so it also immediately invalidates that line
+
+From this we understand that MSHR is the part of the cache that synchronizes stuff pending snoops and ensures that things get invalidated.
 
 ==== gem5 `CommMonitor`
 
@@ -16748,14 +16777,16 @@ which contains:
    0x0000000000400aa4 <+52>:    c0 03 5f d6     ret
 ....
 
-Grepping the logs for my_thread_main+24 shows where the first non-atomic interleaves happen at:
+Grepping the logs with `grep '@my_thread_main\+24` shows where the first non-atomic interleaves happen at:
 
 ....
-471039000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
-471034000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
-471059000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+44    :   b.hi   <my_thread_main+24> : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
-471070000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+44    :   b.hi   <my_thread_main+24> : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
-471071000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000030 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+[many other CPU1 hits]
+471199000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002e A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)                                                                                                  
+471207000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)                                                                                                  
+471202000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)                                                                                                  
+471239000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000030 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)                                                                                                  
+471228000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000030 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)                                                                                                  
+471269000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000031 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
 ....
 
 after a long string of cpu1 hits, since CPU1 was forked first and therefore had more time to run that operation.
@@ -16763,112 +16794,196 @@ after a long string of cpu1 hits, since CPU1 was forked first and therefore had 
 From those and logs around we deduce that:
 
 * the shared address of interest is 0x412068
-* the physical address is 2068
-* it fits into the cache line for 2040:207f
+* the physical address is 0x2068
+* it fits into the cache line for 0x2040:0x207f
 
 With that guide, we look at the fuller logs around that region of interest. With start at the first ifetch that CPU2 does for our LDR of interest at 0x400a88:
 
 ....
-471033000: SimpleCPU: system.cpu2: Fetch
-471033000: SimpleCPU: system.cpu2: Translating address 0x400a88
+471201000: SimpleCPU: system.cpu2: Fetch
+471201000: SimpleCPU: system.cpu2: Translating address 0x400a88
 ....
 
-Things get a bit interleaved with CPU1, but soon afterwards we see the miss forwarding via <<gem5-mshr>> as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>:
+Things get a bit interleaved with CPU1, but soon afterwards we see the CPU2 make its memory request to the cache:
 
 ....
-471034000: Cache: system.cpu2.dcache: access for ReadReq [2068:206f] D=b0d989c328560000 ptr=0x5628c3d26f00 miss
-471034000: CachePort: system.cpu2.dcache.mem_side: Scheduling send event at 471035000
-471034000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 scheduled @ 471035000
+471202000: Event: Event_134: Timing CPU icache tick 134 executed @ 471202000
+471202000: SimpleCPU: system.cpu2: Complete ICache Fetch for addr 0xa88
+471202000: Cache: system.cpu2.dcache: access for ReadReq [2068:206f] D=c879334bb1550000 num=266073 miss
+471202000: CachePort: system.cpu2.dcache.mem_side: Scheduling send event at 471203000
+471202000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 scheduled @ 471203000
 ....
 
-Before the request moves on, some CPU1 action happens: a CPU1 STR finished! It hit the cache, and now we know the cache state: M:
+Before the request moves on, some CPU1 action happens: a CPU1 is sending its data out! It hit the cache, and now we confirm that the cache is in <<moesi-cache-coherence-protocol,state: M>> as expected, since CPU1 had already been previously writting repeatedly to that address:
 
 ....
-471034000: Cache: system.cpu1.dcache: access for WriteReq [2068:206f] D=2f00000000000000 ptr=0x5628c3d26c80 hit state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
-471034000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+32    :   str   x1, [x2]           : MemWrite :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsStore)
+471202000: Event: Event_87: Timing CPU icache tick 87 executed @ 471202000
+471202000: SimpleCPU: system.cpu1: Complete ICache Fetch for addr 0xa90
+471202000: Cache: system.cpu1.dcache: access for WriteReq [2068:206f] D=2f00000000000000 num=266074 hit state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471202000: CacheVerbose: system.cpu1.dcache: satisfyRequest for WriteReq [2068:206f] D=2f00000000000000 num=266074 (write)
+471202000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 scheduled @ 471203000
 ....
 
-After this is done, CPU2 dcache finally decides that it is time to forward its request, and _now_ we see the crux of this experiment happen.
-
-First `createMissPacket` creates a new packet for the cache request, and then it sends that packet into `CoherentXBar`.
+Immediately afterwards, CPU1 gets its reply from the cache, which is fast as that was a hit, and its STR finishes:
 
 ....
-471035000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 executed @ 471035000
-471035000: Cache: system.cpu2.dcache: sendMSHRQueuePacket: MSHR ReadReq [2068:206f] D=b0d989c328560000 ptr=0x5628c3d26f00
-471035000: Cache: system.cpu2.dcache: createMissPacket: created ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80 from ReadReq [2068:206f] D=b0d989c328560000 ptr=0x5628c3d26f00
-471035000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
+471203000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 executed @ 471203000
+471203000: SimpleCPU: system.cpu1.dcache_port: Received load/store response 0x2068
+471203000: Event: Event_89: Timing CPU dcache tick 89 scheduled @ 471203000
+471203000: Event: Event_89: Timing CPU dcache tick 89 executed @ 471203000
+471202000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+32    :   str   x1, [x2]           : MemWrite :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsStore)
 ....
 
-Now, the `SnoopFilte` which lives inside the crossbar decides if any other CPUs care aout hat address:
+Now we approach the crux of this example: cpu2 dcache decides to forward its read request:
 
 ....
-471035000: SnoopFilter: system.membus.snoop_filter: lookupRequest: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
-471035000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
-471035000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
-471035000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80 SF size: 1 lat: 1
+471203000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 executed @ 471203000
+471203000: Cache: system.cpu2.dcache: sendMSHRQueuePacket: MSHR ReadReq [2068:206f] D=c879334bb1550000 num=266073
+471203000: Cache: system.cpu2.dcache: createMissPacket: created ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076 from ReadReq [2068:206f] D=c879334bb1550000 num=266073
 ....
 
-and the answer is yes: CPU1 does care about that address obviously! So the packet is forwarded as is to CPU1:
+Here, CPU2 dcache finally forwards to the XBar its request via the <<gem5-mshr>> mechanism as in <<gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches>>
+
+`createMissPacket` creates a new packet for the cache request with a different type: `ReadSharedReq` instead of the original `ReadReq`, and then it sends that packet into <<gem5-crossbar-interconnect,`CoherentXBar`>>:
 
 ....
-471035000: CoherentXBar: system.membus: forwardTiming for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
-471035000: CacheVerbose: system.cpu1.dcache: recvTimingSnoopReq: for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
-471035000: CacheVerbose: system.cpu1.dcache: handleSnoop: for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
-471035000: Cache: system.cpu1.dcache: handleSnoop: snoop hit for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80, old state is state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
-471035000: Cache: system.cpu1.dcache: new state is state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
-471035000: Cache: system.cpu1.dcache: doTimingSupplyResponse: for ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
-471035000: CacheVerbose: system.cpu1.dcache: doTimingSupplyResponse: created response: ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000 tick: 471044000
-471035000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 scheduled @ 471044000
-471035000: CoherentXBar: system.membus: recvTimingReq: Not forwarding ReadSharedReq [2040:207f] D=c0ae37c4285600005b323036383a323036665d20443d62306439383963333238353630303030207074723d307835363238633364323666303000000000000000 ptr=0x5628c3d26e80
-471035000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 164 scheduled @ 471036000
-471035000: BaseXBar: system.membus.reqLayer0: The crossbar layer is now busy from tick 471035000 to 471036000
+471203000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: SnoopFilter: system.membus.snoop_filter: lookupRequest: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471203000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471203000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076 SF size: 1 lat: 1
+471203000: CoherentXBar: system.membus: forwardTiming for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
 ....
 
-and from this we see that this read request from CPU2 made a cache from CPU1 go from M to O!
-
-Then, the CPU1 dcache actually goes ahead, and creates a response or CPU2, since it has the data. This response is sent back to the crossbar which will forward it back to CPU1.
-
-This also makes the crossbar not forward the original request to DRAM as mentioned at `Not forwarding`.
-
-This reply from CPU1 reaches the crossbar at:
+The XBar receives the request, and notices that CPU1 cares about it, because obviously it has that line from previous writes, so the XBar forwards the exact same request to the CPU1 dcache:
 
 ....
-471044000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 executed @ 471044000
-471044000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
-471044000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse: rsp system.membus.slave[6] req system.membus.slave[10] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
-471044000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   old SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
-471044000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
-471044000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000 FWD RESP
-471044000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 scheduled @ 471046000
-471044000: Event: system.membus.respLayer10.wrapped_function_event: EventFunctionWrapped 187 scheduled @ 471049000
-471044000: BaseXBar: system.membus.respLayer10: The crossbar layer is now busy from tick 471044000 to 471049000
+471203000: CacheVerbose: system.cpu1.dcache: recvTimingSnoopReq: for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: CacheVerbose: system.cpu1.dcache: handleSnoop: for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: Cache: system.cpu1.dcache: handleSnoop: snoop hit for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076, old state is state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471203000: Cache: system.cpu1.dcache: new state is state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471203000: Cache: system.cpu1.dcache: doTimingSupplyResponse: for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: CacheVerbose: system.cpu1.dcache: doTimingSupplyResponse: created response: ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078 tick: 471212000
+471203000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 scheduled @ 471212000
+471203000: CoherentXBar: system.membus: recvTimingReq: Not forwarding ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
 ....
 
-and finally, at long last, CPU2 receives the snoop reply that was created in CPU1 and sent back through the crossbar, and the LDR completes:
+and from this we see that this read request from CPU2 made a cache from CPU1 go <<moesi-cache-coherence-protocol,from M to O>>! <<cache-coherence>> is being maintained!
+
+Furthermore, it also suggests that now CPU1 is going to supply the response to CPU2 directly from its cache, and the memory request will be suppressed! As mentioned in lecture notes from <<cache-coherence>>, we know that this is one of the ways that cache coherence may be maintained in MOESI-like protocols.
+
+After this point, CPU1 continues to go around the loop. After a few instructions we don't care about, we once again reach the LDR:
 
 ....
-471046000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 executed @ 471046000
-471046000: Cache: system.cpu2.dcache: recvTimingResp: Handling response ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
-471046000: Cache: system.cpu2.dcache: Block for addr 0x2040 being updated in Cache
-471046000: CacheRepl: system.cpu2.dcache: Replacement victim: state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
-471046000: Cache: system.cpu2.dcache: Block addr 0x2040 (ns) moving from state 0 (I) to state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
-471046000: Cache: system.cpu2.dcache: serviceMSHRTargets: updated cmd to ReadRespWithInvalidate [2068:206f] D=2f00000000000000 ptr=0x5628c3d26f00
-471046000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 scheduled @ 471047000
-471046000: Cache: system.cpu2.dcache: processing deferred snoop...
-471046000: CacheVerbose: system.cpu2.dcache: handleSnoop: for UpgradeReq [2040:207f] D= ptr=0x5628c2d37b80
-471046000: Cache: system.cpu2.dcache: handleSnoop: snoop hit for UpgradeReq [2040:207f] D= ptr=0x5628c2d37b80, old state is state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
-471046000: Cache: system.cpu2.dcache: new state is state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
-471046000: CacheVerbose: system.cpu2.dcache: recvTimingResp: Leaving with ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 ptr=0x5628c3d27000
-471047000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 executed @ 471047000
-471047000: SimpleCPU: system.cpu2.dcache_port: Received load/store response 0x2068
-471047000: Event: Event_136: Timing CPU dcache tick 136 scheduled @ 471047000
-471047000: Event: Event_136: Timing CPU dcache tick 136 executed @ 471047000
-471034000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471207000: SimpleCPU: system.cpu1: Complete ICache Fetch for addr 0xa88
+471207000: Cache: system.cpu1.dcache: access for ReadReq [2068:206f] D=c879334bb1550000 num=266082 hit state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471207000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 scheduled @ 471208000
+471208000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 executed @ 471208000
+471208000: SimpleCPU: system.cpu1.dcache_port: Received load/store response 0x2068
+471208000: Event: Event_89: Timing CPU dcache tick 89 scheduled @ 471208000
+471208000: Event: Event_89: Timing CPU dcache tick 89 executed @ 471208000
+471207000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+....
+
+but it is immediately satisfied since the line is already in `O`, and nothing needs to be sent out to the bus since it's a read.
+
+Then the add 1 runs entirely from cache of course, and then CPU1 starts its STR:
+
+....
+471210000: Event: Event_87: Timing CPU icache tick 87 executed @ 471210000
+471210000: SimpleCPU: system.cpu1: Complete ICache Fetch for addr 0xa90
+471210000: Cache: system.cpu1.dcache: access for WriteReq [2068:206f] D=3000000000000000 num=266085 hit state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471210000: CachePort: system.cpu1.dcache.mem_side: Scheduling send event at 471211000
+471210000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 93 scheduled @ 471211000
+....
+
+In parallel, the CPU1 snoop response to the CPU2 LDR that had been previously sent reaches the XBar:
+
+....
+471212000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 executed @ 471212000
+471212000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+471212000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse: rsp system.membus.slave[6] req system.membus.slave[10] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+471212000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   old SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471212000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471212000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078 FWD RESP
+471212000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 scheduled @ 471214000
+471212000: Event: system.membus.respLayer10.wrapped_function_event: EventFunctionWrapped 187 scheduled @ 471217000
+471212000: BaseXBar: system.membus.respLayer10: The crossbar layer is now busy from tick 471212000 to 471217000
+....
+
+We know that it is the same one based on the packet `num=` match.
+
+And just after that, by coincidence, the CPU1 STR write request also starts going to the XBar:
+
+....
+471212001: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 93 executed @ 471212001
+471212001: Cache: system.cpu1.dcache: sendMSHRQueuePacket: MSHR WriteReq [2068:206f] D=3000000000000000 num=266085
+471212001: Cache: system.cpu1.dcache: createMissPacket: created UpgradeReq [2040:207f] D= num=266086 from WriteReq [2068:206f] D=3000000000000000 num=266085
+471212001: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[6] packet UpgradeReq [2040:207f] D= num=266086
+471212001: SnoopFilter: system.membus.snoop_filter: lookupRequest: src system.membus.slave[6] packet UpgradeReq [2040:207f] D= num=266086
+471212001: SnoopFilter: system.membus.snoop_filter: lookupRequest:   SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471212001: SnoopFilter: system.membus.snoop_filter: lookupRequest:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471212001: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[6] packet UpgradeReq [2040:207f] D= num=266086 SF size: 1 lat: 1
+471212001: CoherentXBar: system.membus: forwardTiming for UpgradeReq [2040:207f] D= num=266086
+471212001: CacheVerbose: system.cpu2.dcache: recvTimingSnoopReq: for UpgradeReq [2040:207f] D= num=266086
+471212001: Cache: global: handleSnoop for UpgradeReq [2040:207f] D= num=266086
+471212001: CacheVerbose: system.cpu2.dcache: handleSnoop: for UpgradeReq [2040:207f] D= num=266086
+471212001: CacheVerbose: system.cpu2.dcache: handleSnoop: snoop miss for UpgradeReq [2040:207f] D= num=266086
+....
+
+This time, we can see that the `WriteReq` gets turned into an `UpgradeReq` by the cache.
+
+It does not however change the CPU2 cacheline state, because the CPU2 cache is not yet valid line because LDR reply still hasn't come back! We see on the source code:
+
+....
+Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
+                   bool is_deferred, bool pending_inval)
+{
+    } else if (!blk_valid) {
+        DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
+                pkt->print());
+....
+
+At last, the CPU1 snoop reply reaches the CPU2 dcache with the (now old `2f`) data:
+
+....
+471214000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 164 executed @ 471214000
+471214000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 executed @ 471214000
+471214000: Cache: system.cpu2.dcache: recvTimingResp: Handling response ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+471214000: Cache: system.cpu2.dcache: Block for addr 0x2040 being updated in Cache
+471214000: CacheRepl: system.cpu2.dcache: Replacement victim: state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+471214000: Cache: system.cpu2.dcache: Block addr 0x2040 (ns) moving from state 0 to state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+....
+
+On the above, we see that this initially moves the cache to S state.
+
+However, remember that after CPU2 started its LDR, CPU1 did an STR, and that STR was already snooped by CPU2 above? Well, the MSHR or the cache had noted that down, and now it proceeds to invalidate the line:
+
+....
+471214000: Cache: system.cpu2.dcache: serviceMSHRTargets: updated cmd to ReadRespWithInvalidate [2068:206f] D=2f00000000000000 num=266073
+471214000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 scheduled @ 471215000
+471214000: Cache: system.cpu2.dcache: processing deferred snoop...
+471214000: CacheVerbose: system.cpu2.dcache: handleSnoop: for UpgradeReq [2040:207f] D= num=266087
+471214000: Cache: system.cpu2.dcache: handleSnoop: snoop hit for UpgradeReq [2040:207f] D= num=266087, old state is state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+471214000: Cache: system.cpu2.dcache: new state is state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+471214000: CacheVerbose: system.cpu2.dcache: recvTimingResp: Leaving with ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+....
+
+It is a bit funny, but we see that at the same time, both the response arrived with the data, and the cache gets invalidated with a delay. The MSHR kept track of that for us. On the above logs, actually `Cache: global: handleSnoop` is the line in question.
+
+And at long long last, the CPU2 LDR finishes:
+
+....
+471215000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 executed @ 471215000
+471215000: SimpleCPU: system.cpu2.dcache_port: Received load/store response 0x2068
+471215000: Event: Event_136: Timing CPU dcache tick 136 scheduled @ 471215000
+471215000: Event: Event_136: Timing CPU dcache tick 136 executed @ 471215000
+471202000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
 ....
 
 We note therefore that no DRAM access was involved, one cache services the other directly!
 
-Tested on LKMC d429552cdeb0fc0a08cff8e627bf501eaffb068f + 1, gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772.
+Tested on LKMC 4f82f79be7b0717c12924f4c9b7c4f46f8f18e2f + 1, gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772 with a hack to add packet IDs and data to `Packet::print`.
 
 ===== gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby
 
@@ -26988,7 +27103,7 @@ Ubuntu 17.10 setup after buying it:
 
 * partition setup: https://askubuntu.com/questions/343268/how-to-use-manual-partitioning-during-installation/976430#976430
 * BIOS:
-** for NVIDIA driver:
+** for NVIDIA driver: https://askubuntu.com/questions/973605/ubuntu-17-10-boot-stuck-at-message-started-nvidia-persistence-daemon-after-ins/976578#976578
 ** for KVM, required by Android Emulator: enable virtualization extensions
 * TODO fix the brightness keys:
 ** failed: https://askubuntu.com/questions/769006/brightness-key-not-working-ubuntu-16-04-lts/770100#770100
