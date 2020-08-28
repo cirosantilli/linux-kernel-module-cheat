@@ -18,8 +18,8 @@ struct ClassTestDerived : ClassTest {
 
 namespace py = pybind11;
 
-PYBIND11_PLUGIN(class_test) {
-    py::module m("my_module", "pybind11 example plugin");
+PYBIND11_MODULE(class_test, m) {
+    m.doc() = "pybind11 example plugin";
     py::class_<ClassTest>(m, "ClassTest")
         .def(py::init<const std::string &>())
         .def("setName", &ClassTest::setName)
@@ -29,5 +29,4 @@ PYBIND11_PLUGIN(class_test) {
         .def(py::init<const std::string &, const std::string &>())
         .def("getName2", &ClassTestDerived::getName2)
         .def_readwrite("name", &ClassTestDerived::name);
-    return m.ptr();
 }
