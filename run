@@ -616,13 +616,13 @@ Extra options to append at the end of the emulator command line.
                         else:
                             dp650_cmd = ''
                         cmd.extend([
-                            # TODO why is it mandatory to pass mem= here? Not true for QEMU.
-                            # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                             '--machine-type', self.env['machine'], LF,
                         ])
                         if not self.env['baremetal']:
                             cmd.extend([
                                 '--command-line',
+                                # TODO why is it mandatory to pass mem= here? Not true for QEMU.
+                                # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
                                 'earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli), LF
                             ])
                             cmd.extend(['--param', 'system.workload.panic_on_panic = True', LF])
@@ -758,6 +758,10 @@ Extra options to append at the end of the emulator command line.
                     # Needed since v3.0.0 due to:
                     # http://lists.nongnu.org/archive/html/qemu-discuss/2018-08/msg00034.html
                     machines.append('highmem=off')
+                if self.env['is_arm'] and self.env['kvm']:
+                    # Otherwise "PMU: KVM_SET_DEVICE_ATTR: Invalid argument"
+                    # https://bugzilla.redhat.com/show_bug.cgi?format=multiple&id=1661976
+                    machines.append('gic-version=host')
                 machines_cli = []
                 for machine in machines:
                     machines_cli.extend(['-machine', machine, LF])
