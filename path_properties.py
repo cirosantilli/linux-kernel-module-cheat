@@ -689,6 +689,8 @@ path_properties_tuples = (
                         'return2.c': {'exit_status': 2},
                         # This has complex failure modes, too hard to assert.
                         'smash_stack.c': {'skip_run_unclassified': True},
+                        'std_atomic.c': {'baremetal': False},
+                        'atomic': {'baremetal': False},
                         # Wrapper not defined by newlib.
                         'timespec_get.c': {'baremetal': False},
                     }
