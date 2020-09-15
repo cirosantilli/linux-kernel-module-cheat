@@ -915,6 +915,11 @@ Incompatible archs are skipped.
             else:
                 env['gem5_source_dir'] = env['gem5_default_source_dir']
         env['gem5_m5_source_dir'] = join(env['gem5_source_dir'], 'util', 'm5')
+        if self.env['arch'] == 'x86_64':
+            env['gem5_m5_source_dir_build_arch'] = 'x86'
+        else:
+            env['gem5_m5_source_dir_build_arch'] = env['arch']
+        env['gem5_m5_source_dir_build'] = join(env['gem5_m5_source_dir'], 'build', env['gem5_m5_source_dir_build_arch'], 'out', 'm5')
         env['gem5_config_dir'] = join(env['gem5_source_dir'], 'configs')
         env['gem5_se_file'] = join(env['gem5_config_dir'], 'example', 'se.py')
         env['gem5_fs_file'] = join(env['gem5_config_dir'], 'example', 'fs.py')
