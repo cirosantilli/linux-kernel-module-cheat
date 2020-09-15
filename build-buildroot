@@ -152,9 +152,15 @@ files on the root filesystem.
             ] +
             extra_make_args
             ,
-            out_file=os.path.join(self.env['buildroot_build_dir'], self.env['repo_short_id'] + '.log'),
-            delete_env=['LD_LIBRARY_PATH', 'PERL_MM_OPT'],
             cwd=self.env['buildroot_source_dir'],
+            delete_env=['LD_LIBRARY_PATH', 'PERL_MM_OPT'],
+            extra_env={
+                # In Docker, >>> host-tar 1.29 Configuring
+                # checking whether mknod can create fifo without root privileges... configure: error: in `/root/lkmc/out.docker/buildroot/build/default/aarch64/build/host-tar-1.29':
+                # configure: error: you should not run configure as root (set FORCE_UNSAFE_CONFIGURE=1 in environment to bypass this check)
+                'FORCE_UNSAFE_CONFIGURE': '1',
+            },
+            out_file=os.path.join(self.env['buildroot_build_dir'], self.env['repo_short_id'] + '.log'),
         )
         # Create the qcow2 from ext2.
         # Skip if qemu is not present, because gem5 does not need the qcow2.

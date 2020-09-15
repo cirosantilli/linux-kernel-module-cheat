@@ -1453,7 +1453,7 @@ lunch aosp_{}-eng
         '''
         Run timed_main across all selected archs and emulators.
 
-        :return: if any of the timed_mains exits non-zero and non-null,
+        :return: if any of the timed_mains exits non-zero and non-None,
                  return that. Otherwise, return 0.
         '''
         env = kwargs.copy()
