@@ -661,6 +661,7 @@ path_properties_tuples = (
                         'abort.c': {'signal_received': signal.Signals.SIGABRT},
                         'atomic': (
                             {
+                                'baremetal': False,
                                 'test_run_args': {'cpus': 3},
                             },
                             {
@@ -689,19 +690,6 @@ path_properties_tuples = (
                         'return2.c': {'exit_status': 2},
                         # This has complex failure modes, too hard to assert.
                         'smash_stack.c': {'skip_run_unclassified': True},
-                        'std_atomic.c': {'baremetal': False},
-                        'atomic': (
-                            {
-                                'test_run_args': {'cpus': 3},
-                            },
-                            {
-                                'aarch64_add.c': {'allowed_archs': {'aarch64'}},
-                                'aarch64_ldadd.c': {'allowed_archs': {'aarch64'}},
-                                'aarch64_ldaxr_stlxr.c': {'allowed_archs': {'aarch64'}},
-                                'x86_64_inc.c': {'allowed_archs': {'x86_64'}},
-                                'x86_64_lock_inc.c': {'allowed_archs': {'x86_64'}},
-                            },
-                        ),
                         # Wrapper not defined by newlib.
                         'timespec_get.c': {'baremetal': False},
                     }
