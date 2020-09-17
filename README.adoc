@@ -5425,17 +5425,66 @@ Bibliography:
 
 ==== 9P gem5
 
-TODO seems possible! Lets do it:
+Is possible on aarch64 as shown at: https://gem5-review.googlesource.com/c/public/gem5/+/22831[], and it is just a matter of exposing to X86 for those that want it.
 
-* http://gem5.org/wiki/images/b/b8/Summit2017_wa_devlib.pdf
-* http://gem5.org/WA-gem5
+Enable it by passing the `--vio-9p` option on the fs.py gem5 command line:
 
-From the source, there is just one exported tag named `gem5`, so we could try on the guest:
+....
+./run --arch aarch64 --emulator gem5 -- --vio-9p
+....
+
+Then on the guest:
 
 ....
 mkdir -p /mnt/9p/gem5
-mount -t 9p -o trans=virtio,version=9p2000.L gem5 /mnt/9p/data
+mount -t 9p -o trans=virtio,version=9p2000.L,aname=/path/to/linux-kernel-module-cheat/out/run/gem5/aarch64/0/m5out/9p/share gem5 /mnt/9p/gem5
+echo asdf > /mnt/9p/gem5/qwer
 ....
+
+Yes, you have to pass the full path to the directory on the host. Yes, this is horrible.
+
+The shared directory is:
+
+....
+out/run/gem5/aarch64/0/m5out/9p/share
+....
+
+so we can observe the file the guest wrote from the host with:
+
+....
+out/run/gem5/aarch64/0/m5out/9p/share/qwer
+....
+
+and vice versa:
+
+....
+echo zxvc > out/run/gem5/aarch64/0/m5out/9p/share/qwer
+....
+
+is now visible from the guest:
+
+....
+cat /mnt/9p/gem5/qwer
+....
+
+Checkpoint restore with an open mount will likely fail because gem5 uses an ugly external executable to implement diod. The protocol is not very complex, and QEMU implements it in-tree, which is what gem5 should do as well at some point.
+
+Also checkpoint without `--vio-9p` and restore with `--vio-9p` did not work either, the mount fails.
+
+However, this did work, on guest:
+
+....
+unmount /mnt/9p/gem5
+m5 checkpoint
+....
+
+then restore with the detalied CPU of interest e.g.
+
+....
+./run --arch aarch64 --emulator gem5 -- --vio-9p --cpu-type DerivO3CPU --caches
+....
+
+Tested on gem5 b2847f43c91e27f43bd4ac08abd528efcf00f2fd, LKMC 52a5fdd7c1d6eadc5900fc76e128995d4849aada.
 
 ==== NFS
 
