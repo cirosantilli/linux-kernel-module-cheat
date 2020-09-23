@@ -62,7 +62,7 @@ class _Argument:
                     default = []
             if self.is_bool and not 'action' in kwargs:
                 self.kwargs['action'] = bool_action
-            if help is not None:
+            if help is not None and help != '':
                 if default is not None:
                     if help[-1] == '\n':
                         if '\n\n' in help[:-1]:
