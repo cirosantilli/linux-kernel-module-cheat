@@ -2063,8 +2063,6 @@ As a result, we are unable to break on early symbols such as:
 
 <<gem5-execall-trace-format>>>> however does show the right symbols however! This could be because <<vmlinux-vs-bzimage-vs-zimage-vs-image,gem5 uses vmlinux to boot>>, which QEMU uses the compressed version, and as mentioned on the Stack Overflow answer, the entry point is actually a tiny decompresser routine.
 
-In gem5 aarch64 Linux v4.18, experimentally the entry point of secondary CPUs seems to be `secondary_holding_pen` as shown at https://gist.github.com/cirosantilli2/34a7bc450fcb6c1c1a910369be1fdd90
-
 I also tried to hack `run-gdb` with:
 
 ....
@@ -2089,6 +2087,75 @@ You then need the associated `KERNEL_UNCOMPRESSED` to enable it if available:
 config KERNEL_UNCOMPRESSED
     bool "None"
     depends on HAVE_KERNEL_UNCOMPRESSED
+....
+
+===== arm64 secondary CPU entry point
+
+In gem5 aarch64 Linux v4.18, experimentally the entry point of secondary CPUs seems to be `secondary_holding_pen` as shown at https://gist.github.com/cirosantilli2/34a7bc450fcb6c1c1a910369be1fdd90
+
+What happens is that:
+
+* the bootloader goes in in WFE
+* the kernel writes the entry point to the secondary CPU (the address of `secondary_holding_pen`) with CPU0 at the address given to the kernel in the `cpu-release-addr` of the DTB
+* the kernel wakes up the bootloader with a SEV, and the bootloader boots to the address the kernel told it
+
+The CPU0 action happens at: https://github.com/cirosantilli/linux/blob/v5.7/arch/arm64/kernel/smp_spin_table.c[]:
+
+Here's the code that writes the address and does SEV:
+
+....
+static int smp_spin_table_cpu_prepare(unsigned int cpu)
+{
+	__le64 __iomem *release_addr;
+
+	if (!cpu_release_addr[cpu])
+		return -ENODEV;
+
+	/*
+	 * The cpu-release-addr may or may not be inside the linear mapping.
+	 * As ioremap_cache will either give us a new mapping or reuse the
+	 * existing linear mapping, we can use it to cover both cases. In
+	 * either case the memory will be MT_NORMAL.
+	 */
+	release_addr = ioremap_cache(cpu_release_addr[cpu],
+				     sizeof(*release_addr));
+	if (!release_addr)
+		return -ENOMEM;
+
+	/*
+	 * We write the release address as LE regardless of the native
+	 * endianess of the kernel. Therefore, any boot-loaders that
+	 * read this address need to convert this address to the
+	 * boot-loader's endianess before jumping. This is mandated by
+	 * the boot protocol.
+	 */
+	writeq_relaxed(__pa_symbol(secondary_holding_pen), release_addr);
+	__flush_dcache_area((__force void *)release_addr,
+			    sizeof(*release_addr));
+
+	/*
+	 * Send an event to wake up the secondary CPU.
+	 */
+	sev();
+....
+
+and here's the code that reads the value from the DTB:
+
+....
+static int smp_spin_table_cpu_init(unsigned int cpu)
+{
+	struct device_node *dn;
+	int ret;
+
+	dn = of_get_cpu_node(cpu, NULL);
+	if (!dn)
+		return -ENODEV;
+
+	/*
+	 * Determine the address from which the CPU is polling.
+	 */
+	ret = of_property_read_u64(dn, "cpu-release-addr",
+				   &cpu_release_addr[cpu]);
 ....
 
 ==== Linux kernel arch-agnostic entry point
@@ -5578,7 +5645,7 @@ To use just your own exact `.config` instead of our defaults ones, use:
 ./build-linux --custom-config-file data/myconfig
 ....
 
-There is also a shortcut `--custom-config-file` to use the <<gem5-arm-linux-kernel-patches>>.
+There is also a shortcut `--custom-config-file-gem5` to use the <<gem5-arm-linux-kernel-patches>>.
 
 The following options can all be used together, sorted by decreasing config setting power precedence:
 
@@ -26586,6 +26653,17 @@ Same but hacking `BR2_LINUX_KERNEL_LATEST_VERSION=y` and `BR2_PACKAGE_HOST_LINUX
 
 Same but with: <<gem5-arm-linux-kernel-patches>> at v4.15: 73s, kernel size: 132M.
 
+On Ubuntu 20.04, LKMC d3f8d3e99f2e554aae6c3b325b350bcf7f3f087f (Linux kernel 5.4.3), gem5 6bc2111c9674d0c8db22f6a6adcc00e49625aabd (sept 2020):
+
+....
+./run --arch aarch64 --emulator gem5 --quit-after-boot
+....
+
+took 193s. With some minimal newer kernel boot patches:
+
+* kernel v5.7: 238s
+* kernel v5.8: 239s
+
 On Ubuntu 20.04 gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772 this took 22 minutes 53 seconds:
 
 ....
@@ -27322,6 +27400,12 @@ gem5:
 * what are the minimum system requirements:
 ** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
 ** https://github.com/gem5/gem5/issues/25
+
+== FreeBSD
+
+Prebuilt on Ubuntu 20.04 worked: https://stackoverflow.com/questions/49656395/how-to-boot-freebsd-image-under-qemu/64027161#64027161[]
+
+TODO minimal build + boot on QEMU example anywhere???
 
 == RTOS
 
