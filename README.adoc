@@ -5638,7 +5638,19 @@ If you don't want to start the NFS server after the next boot automatically so s
 systemctl disable nfs-kernel-server
 ....
 
+== Operating systems
+
+https://en.wikipedia.org/wiki/Operating_system
+
+* <<linux-kernel>>
+* <<freebsd>>
+* <<rtos>>
+* <<xen>>
+* <<u-boot>>
+
 == Linux kernel
+
+https://en.wikipedia.org/wiki/Linux_kernel
 
 === Linux kernel configuration
 
@@ -9856,7 +9868,61 @@ See also:
 * https://stackoverflow.com/questions/5429137/how-to-print-register-values-in-gdb/31340294#31340294
 * https://stackoverflow.com/questions/24169614/how-to-show-all-x86-control-registers-when-debugging-the-linux-kernel-in-gdb-thr/59311764#59311764
 
+== FreeBSD
+
+https://en.wikipedia.org/wiki/FreeBSD
+
+Prebuilt on Ubuntu 20.04 worked: https://stackoverflow.com/questions/49656395/how-to-boot-freebsd-image-under-qemu/64027161#64027161[]
+
+TODO minimal build + boot on QEMU example anywhere???
+
+== RTOS
+
+https://en.wikipedia.org/wiki/Real-time_operating_system
+
+=== Zephyr
+
+https://en.wikipedia.org/wiki/Zephyr_(operating_system)
+
+Zephyr is an RTOS that has <<posix>> support. I think it works much like our <<baremetal-setup>> which uses Newlib and generates individual ELF files that contain both our C program's code, and the Zephyr libraries.
+
+TODO get a hello world working, and then consider further integration in this repo, e.g. being able to run all C userland content on it.
+
+TODO: Cortex-A CPUs are not currently supported, there are some `qemu_cortex_m0` boards, but can't find a QEMU Cortex-A. There is an x86_64 qemu board, but we don't currently have an <<about-the-baremetal-setup,x86 baremetal toolchain>>. For this reason, we won't touch this further for now.
+
+However, unlike Newlib, Zephyr must be setting up a simple pre-main runtime to be able to handle threads.
+
+Failed attempt:
+
+....
+# https://askubuntu.com/questions/952429/is-there-a-good-ppa-for-cmake-backports
+wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add -
+sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic-rc main'
+sudo apt-get update
+sudo apt-get install cmake
+git clone https://github.com/zephyrproject-rtos/zephyr
+pip3 install --user -U west packaging
+cd zephyr
+git checkout v1.14.1
+west init zephyrproject
+west update
+export ZEPHYR_TOOLCHAIN_VARIANT=xtools
+export XTOOLS_TOOLCHAIN_PATH="$(pwd)/out/crosstool-ng/build/default/install/aarch64/bin/"
+source zephyr-env.sh
+west build -b qemu_aarch64 samples/hello_world
+....
+
+The build system of that project is a bit excessive / wonky. You need an edge CMake not present in Ubuntu 18.04, which I don't want to install right now, and it uses the weird custom `west` build tool frontend.
+
+=== ARM Mbed
+
+https://en.wikipedia.org/wiki/Mbed
+
+TODO minimal setup to run it on QEMU? Possible?
+
 == Xen
+
+https://en.wikipedia.org/wiki/Xen
 
 TODO: get prototype working and then properly integrate:
 
@@ -9912,6 +9978,14 @@ https://en.wikipedia.org/wiki/Das_U-Boot
 U-Boot is a popular bootloader.
 
 It can read disk filesystems, and Buildroot supports it, so we could in theory put it into memory, and let it find a kernel image from the root filesystem and boot that, but I didn't manage to get it working yet: https://stackoverflow.com/questions/58028789/how-to-boot-linux-aarch64-with-u-boot-with-buildroot-on-qemu
+
+== Emulators
+
+https://en.wikipedia.org/wiki/Emulator
+
+* <<qemu>>
+* <<gem5>>
+* <<gensim>>
 
 == QEMU
 
@@ -27189,14 +27263,25 @@ Some approximate reference values on <<p51>>:
 
 * `opt`
 ** unmodified: 10 seconds
-** hack with `-fuse-ld=gold`: 6 seconds. Huge improvement!
+** `LDFLAGS_EXTRA=-fuse-ld=gold`: 6 seconds. Huge improvement! Note that in general you have to do a full rebuild or else link may fail:  https://sourceware.org/bugzilla/show_bug.cgi?id=23869
++
+More info on gold:
++
+*** https://stackoverflow.com/questions/3476093/replacing-ld-with-gold-any-experience/53921263#53921263
+*** https://gem5-review.googlesource.com/c/public/gem5/+/14075
 * `debug`
-** unmodified: 14 seconds. Why two times slower than unmodified?
-** hack with `-fuse-ld=gold`: `internal error in read_cie, at ../../gold/ehframe.cc:919` on Ubuntu 18.04 all GCC. TODO report.
+** unmodified: 14 seconds. Why so much slower than unmodified?
+** `-fuse-ld=gold`: `internal error in read_cie, at ../../gold/ehframe.cc:919` on Ubuntu 18.04 all GCC. https://sourceware.org/bugzilla/show_bug.cgi?id=23869
 * `fast`
 ** `--force-lto`: 1 minute. Slower as expected, since more optimizations are done at link time. `--force-lto` is only used for `fast`, and it adds `-flto` to the build.
+* `opt LDFLAGS_EXTRA=-s`: stripping the executable greatly reduces link time, but you get no symbols
 
 ramfs made no difference, the kernel must be caching files in memory very efficiently already.
+
+In addition to the link time, scons startup time can also be considerable:
+
+* https://gem5.atlassian.net/browse/GEM5-256
+* https://gem5-review.googlesource.com/c/public/gem5/+/25385
 
 Tested at: d4b3e064adeeace3c3e7d106801f95c14637c12f + 1.
 
@@ -27434,54 +27519,6 @@ gem5:
 * what are the minimum system requirements:
 ** https://stackoverflow.com/questions/47997565/gem5-system-requirements-for-decent-performance/48941793#48941793
 ** https://github.com/gem5/gem5/issues/25
-
-== FreeBSD
-
-Prebuilt on Ubuntu 20.04 worked: https://stackoverflow.com/questions/49656395/how-to-boot-freebsd-image-under-qemu/64027161#64027161[]
-
-TODO minimal build + boot on QEMU example anywhere???
-
-== RTOS
-
-=== Zephyr
-
-https://en.wikipedia.org/wiki/Zephyr_(operating_system)
-
-Zephyr is an RTOS that has <<posix>> support. I think it works much like our <<baremetal-setup>> which uses Newlib and generates individual ELF files that contain both our C program's code, and the Zephyr libraries.
-
-TODO get a hello world working, and then consider further integration in this repo, e.g. being able to run all C userland content on it.
-
-TODO: Cortex-A CPUs are not currently supported, there are some `qemu_cortex_m0` boards, but can't find a QEMU Cortex-A. There is an x86_64 qemu board, but we don't currently have an <<about-the-baremetal-setup,x86 baremetal toolchain>>. For this reason, we won't touch this further for now.
-
-However, unlike Newlib, Zephyr must be setting up a simple pre-main runtime to be able to handle threads.
-
-Failed attempt:
-
-....
-# https://askubuntu.com/questions/952429/is-there-a-good-ppa-for-cmake-backports
-wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add -
-sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic-rc main'
-sudo apt-get update
-sudo apt-get install cmake
-git clone https://github.com/zephyrproject-rtos/zephyr
-pip3 install --user -U west packaging
-cd zephyr
-git checkout v1.14.1
-west init zephyrproject
-west update
-export ZEPHYR_TOOLCHAIN_VARIANT=xtools
-export XTOOLS_TOOLCHAIN_PATH="$(pwd)/out/crosstool-ng/build/default/install/aarch64/bin/"
-source zephyr-env.sh
-west build -b qemu_aarch64 samples/hello_world
-....
-
-The build system of that project is a bit excessive / wonky. You need an edge CMake not present in Ubuntu 18.04, which I don't want to install right now, and it uses the weird custom `west` build tool frontend.
-
-=== ARM Mbed
-
-https://en.wikipedia.org/wiki/Mbed
-
-TODO minimal setup to run it on QEMU? Possible?
 
 == Compilers
 
