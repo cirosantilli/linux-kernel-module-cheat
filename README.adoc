@@ -2048,6 +2048,38 @@ Note however that early boot parts appear to be relocated in memory somehow, and
 
 Further discussion at: <<linux-kernel-entry-point>>.
 
+In the specific case of gem5 aarch64 at least:
+
+* gem5 relocates the kernel in memory to a fixed location, see e.g. https://gem5.atlassian.net/browse/GEM5-787
+* `--param 'system.workload.early_kernel_symbols=True` should in theory duplicate the symbols to the correct physical location, but it was broken at one point: https://gem5.atlassian.net/browse/GEM5-785
+* gem5 executes directly from vmlinux, so there is no decompression code involved, so you actually immediately start running the "true" first instruction from `head.S` as described at: https://stackoverflow.com/questions/18266063/does-linux-kernel-have-main-function/33422401#33422401
+* once the MMU gets turned on at kernel symbol `__primary_switched`, the virtual address matches the ELF symbols, and you start seeing correct symbols without the need for `early_kernel_symbols`. This can be observed clearly with `function_trace = True`: https://stackoverflow.com/questions/64049487/how-to-trace-executed-guest-function-symbol-names-with-their-timestamp-in-gem5/64049488#64049488 which produces:
++
+....
+0: _kernel_flags_le_lo32 (12500)
+12500: __crc_tcp_add_backlog (1000)
+13500: __crc_crypto_alg_tested (6500)
+20000: __crc_tcp_add_backlog (10000)
+30000: __crc_crypto_alg_tested (500)
+30500: __crc_scsi_is_host_device (5000)
+35500: __crc_crypto_alg_tested (1500)
+37000: __crc_scsi_is_host_device (4000)
+41000: __crc_crypto_alg_tested (3000)
+44000: __crc_tcp_add_backlog (263500)
+307500: __crc_crypto_alg_tested (975500)
+1283000: __crc_tcp_add_backlog (77191500)
+78474500: __crc_crypto_alg_tested (1000)
+78475500: __crc_scsi_is_host_device (19500)
+78495000: __crc_crypto_alg_tested (500)
+78495500: __crc_scsi_is_host_device (13500)
+78509000: __primary_switched (14000)
+78523000: memset (21118000)
+99641000: __primary_switched (2500)
+99643500: start_kernel (11000)
+....
++
+so we see that `__primary_switched` is the first non-trash symbol (non-`__crc_*` and non-`_kernel_flags_*`, which are just informative symbols, not actual executable code)
+
 ==== Linux kernel entry point
 
 TODO https://stackoverflow.com/questions/2589845/what-are-the-first-operations-that-the-linux-kernel-executes-on-boot
@@ -20286,8 +20318,10 @@ Programs under link:userland/cpp/[] are examples of https://en.wikipedia.org/wik
 ** link:userland/cpp/random.cpp[]
 * containers
 ** associative
-*** <<algorithms>> contains a benchmark comparison of different c++ containers
 *** link:userland/cpp/set.cpp[]: `std::set` contains unique keys
+*** link:userland/cpp/map.cpp[]: `std::map`
+*** link:userland/cpp/multimap.cpp[]: `std::multimap`
+** <<algorithms>> contains a benchmark comparison of different c++ containers
 
 [[cpp-initialization-types]]
 ==== C++ initialization types
