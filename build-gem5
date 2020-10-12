@@ -33,6 +33,7 @@ Build and run all the gem5 unit tests instead of the gem5 executable.
 https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-tests
 '''
         )
+        self._add_argument('--ldflags')
         self._add_argument('extra_make_args')
 
     def build(self):
@@ -108,15 +109,10 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-t
                 'CC': 'clang',
                 'CXX': 'clang++',
             }
-            gold_linker_cmd = []
         else:
             extra_env = {}
-            if self.env['gem5_build_type'] == 'debug':
-                # A debug build is pointless if I can't... debug!
-                # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/109
-                gold_linker_cmd = []
-            else:
-                gold_linker_cmd = ['--gold-linker', LF]
+        # https://cirosantilli.com/cirodown#benchmark-gem5-single-file-change-rebuild-time
+        ldflags_extra = ['-fuse-ld=lld'] + self.env['ldflags']
         kwargs = {}
         if self.env['ccache']:
             kwargs['extra_paths'] = [self.env['ccache_dir']]
@@ -126,9 +122,9 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-t
                     'scons', LF,
                     '-j', str(self.env['nproc']), LF,
                     '--ignore-style', LF,
+                    'LDFLAGS_EXTRA={}'.format(self.sh.cmd_to_string(ldflags_extra, force_oneline=True)), LF,
                     'USE_HDF5=1', LF,
                 ] +
-                gold_linker_cmd +
                 verbose +
                 [
                     # TODO reenable, broken, had enough of this.

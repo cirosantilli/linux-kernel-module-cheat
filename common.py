@@ -1749,6 +1749,12 @@ class BuildCliFunction(LkmcCliFunction):
 Pass the given compiler flags to all languages (C, C++, Fortran, etc.)
 ''',
             },
+            '--ldflags': {
+                'default': '',
+                'help': '''\
+Extra linker flags.
+''',
+            },
             '--configure': {
                 'default': True,
                 'help': '''\
