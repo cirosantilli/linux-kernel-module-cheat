@@ -891,6 +891,13 @@ Incompatible archs are skipped.
         env['gem5_test_binaries_dir'] = join(env['gem5_out_dir'], 'test_binaries')
         env['gem5_m5term'] = join(env['gem5_build_dir'], 'm5term')
         env['gem5_build_build_dir'] = join(env['gem5_build_dir'], 'build')
+
+        # https://cirosantilli.com/linux-kernel-module-cheat#gem5-eclipse-configuration
+        env['gem5_eclipse_cproject_basename'] = '.cproject'
+        env['gem5_eclipse_project_basename'] = '.project'
+        env['gem5_eclipse_cproject_path'] = join(env['gem5_build_build_dir'], env['gem5_eclipse_cproject_basename'])
+        env['gem5_eclipse_project_path'] = join(env['gem5_build_build_dir'], env['gem5_eclipse_project_basename'])
+
         env['gem5_executable_dir'] = join(env['gem5_build_build_dir'], env['gem5_arch'])
         env['gem5_executable_suffix'] = '.{}'.format(env['gem5_build_type'])
         env['gem5_executable'] = self.get_gem5_target_path(env, 'gem5')
@@ -1963,10 +1970,18 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
                 )
         return ret
 
+    def clean_pre(self):
+        pass
+
     def clean(self):
         build_dir = self.get_build_dir()
+        self.clean_pre(build_dir)
         if build_dir is not None:
             self.sh.rmrf(build_dir)
+        self.clean_post(build_dir)
+
+    def clean_post(self):
+        pass
 
     def build(self):
         '''

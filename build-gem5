@@ -3,6 +3,7 @@
 import os
 import pathlib
 import subprocess
+import tempfile
 
 import common
 from shell_helpers import LF
@@ -35,6 +36,7 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-t
         )
         self._add_argument('--ldflags')
         self._add_argument('extra_make_args')
+        self.eclipse_tmpdir = None
 
     def build(self):
         build_dir = self.get_build_dir()
@@ -142,6 +144,19 @@ https://github.com/cirosantilli/linux-kernel-module-cheat-regression#gem5-unit-t
             **kwargs
         )
         return exit_status
+
+    def clean_pre(self, builddir):
+        if os.path.exists(self.env['gem5_eclipse_cproject_path']):
+            self.eclipse_tmpdir = tempfile.mkdtemp()
+            self.sh.mv(self.env['gem5_eclipse_cproject_path'], self.eclipse_tmpdir)
+            self.sh.mv(self.env['gem5_eclipse_project_path'], self.eclipse_tmpdir)
+
+    def clean_post(self, builddir):
+        if self.eclipse_tmpdir is not None:
+            self.sh.mkdir_p(self.env['gem5_build_build_dir'])
+            self.sh.mv(os.path.join(self.eclipse_tmpdir, self.env['gem5_eclipse_cproject_basename']), self.env['gem5_build_build_dir'])
+            self.sh.mv(os.path.join(self.eclipse_tmpdir, self.env['gem5_eclipse_project_basename']), self.env['gem5_build_build_dir'])
+            self.sh.rmrf(self.eclipse_tmpdir)
 
     def get_build_dir(self):
         return self.env['gem5_build_dir']
