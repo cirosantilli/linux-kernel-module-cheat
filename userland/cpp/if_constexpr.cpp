@@ -1,5 +1,4 @@
-// https://cirosantilli.com/linux-kernel-module-cheat#cpp
-
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp-compile-time-magic
 
 #if __cplusplus >= 201703L
 #include <cassert>

@@ -1,4 +1,4 @@
-// https://cirosantilli.com/linux-kernel-module-cheat#cpp
+// https://cirosantilli.com/linux-kernel-module-cheat#cpp-templates
 
 #include <cassert>
 
