@@ -521,6 +521,8 @@ Extra options to append at the end of the emulator command line.
         use_disk_image = self.env['disk_image'] is not None and \
             os.path.exists(self.env['disk_image']) or \
             not self.env['baremetal']
+        if self.env['_args_given']['disk_image'] and not os.path.exists(self.env['disk_image']) :
+            raise_rootfs_not_found()
         if self.env['emulator'] == 'gem5':
             if self.env['quiet']:
                 show_stdout = False
@@ -827,10 +829,15 @@ Extra options to append at the end of the emulator command line.
                             '-device', 'ide-hd,drive=img-blkreplay', LF,
                         ])
                     if use_disk_image:
+                        if os.path.splitext(self.env['disk_image'])[1] == '.qcow2':
+                            disk_format = 'qcow2'
+                        else:
+                            disk_format = 'raw'
                         extra_emulator_args.extend([
                             '-drive',
-                            'file={},format=qcow2,if={}{}{}'.format(
+                            'file={},format={},if={}{}{}'.format(
                                 self.env['disk_image'],
+                                disk_format,
                                 driveif,
                                 snapshot,
                                 rrid

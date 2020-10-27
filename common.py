@@ -244,6 +244,9 @@ To have some fun when the kernel starts to beat you.
 '''
         )
         self.add_argument(
+            '--disk-image',
+        )
+        self.add_argument(
             '--dry-run',
             default=False,
             help='''\
@@ -1216,13 +1219,14 @@ Incompatible archs are skipped.
             env['image_elf'] = env['vmlinux']
             if env['_args_given']['linux_exec']:
                 env['image'] = env['linux_exec']
-        if env['emulator'] == 'gem5':
-            if env['ramfs']:
-                env['disk_image'] = None
+        if not env['_args_given']['disk_image']:
+            if env['emulator'] == 'gem5':
+                if env['ramfs']:
+                    env['disk_image'] = None
+                else:
+                    env['disk_image'] = env['rootfs_raw_file']
             else:
-                env['disk_image'] = env['rootfs_raw_file']
-        else:
-            env['disk_image'] = env['qcow2_file']
+                env['disk_image'] = env['qcow2_file']
 
         # Android
         if not env['_args_given']['android_base_dir']:
