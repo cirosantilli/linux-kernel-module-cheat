@@ -12689,9 +12689,22 @@ adsf
 
 ==== m5ops instructions
 
-gem5 allocates some magic instructions on unused instruction encodings for convenient guest instrumentation.
+There are few different possible instructions that can be used to implement identical m5ops:
 
-Those instructions are exposed through the <<gem5-m5-executable>> in tree executable.
+* magic instructions reserved in the encoding space
+* magic addresses: <<m5ops-magic-addresses>>
+* unused <<semihosting>> addresses space on ARM platforms
+
+All of those those methods are exposed through the <<gem5-m5-executable>> in-tree executable. You can select which method to use when calling the executable, e.g.:
+
+....
+m5 exit
+# Same as the above.
+m5 --inst exit
+# The address is mandatory if not configured at build time.
+m5 --addr 0x10010000 exit
+m5 --semi exit
+....
 
 To make things simpler to understand, you can play around with our own minimized educational `m5` subset:
 
@@ -12743,6 +12756,33 @@ Bibliography:
 * https://stackoverflow.com/questions/56506154/how-to-analyze-only-interest-area-in-source-code-by-using-gem5/56506419#56506419
 * https://www.mail-archive.com/gem5-users@gem5.org/msg15418.html
 
+===== m5ops magic addresses
+
+These are magic addresses that when accessed lead to an <<m5ops,m5op>>.
+
+The base address is given by `system.m5ops_base`, and then each m5op happens at a different address offset form that base.
+
+If `system.m5ops_base` is 0, then the memory m5ops are disabled.
+
+Note that the address is physical, and therefore when running in full system on top of the Linux kernel, you must first map a virtual to physical address with `/dev/mem` as mentioned at: <<userland-physical-address-experiments>>.
+
+One advantage of this method is that it can work with <<gem5-kvm>>, whereas the magic instructions don't, since the host cannot handle them and it is hard to hook into that.
+
+A <<baremetal>> example of that can be found at: link:baremetal/arch/aarch64/no_bootloader/m5_exit_addr.S[].
+
+As of gem5 0d5a80cb469f515b95e03f23ddaf70c9fd2ecbf2, `fs.py --baremetal` disables the memory m5ops however for some reason, therefore you should run that program as:
+
+....
+./run --arch aarch64 --baremetal baremetal/arch/aarch64/no_bootloader/m5_exit_addr.S --emulator gem5 --trace-insts-stdout -- --param 'system.m5ops_base=0x10010000'
+....
+
+TODO failing with:
+
+....
+info: Entering event queue @ 0.  Starting simulation...
+fatal: Unable to find destination for [0x10012100:0x10012108] on system.iobus
+....
+
 ===== m5ops instructions interface
 
 Let's study how the <<gem5-m5-executable>> uses them:
@@ -12754,9 +12794,7 @@ Let's study how the <<gem5-m5-executable>> uses them:
 We notice that there are two different implementations for each arch:
 
 * magic instructions, which don't exist in the corresponding arch
-* magic memory addresses on a given page
-
-TODO: what is the advantage of magic memory addresses? Because you have to do more setup work by telling the kernel never to touch the magic page. For the magic instructions, the only thing that could go wrong is if you run some crazy kind of fuzzing workload that generates random instructions.
+* magic memory addresses on a given page: <<m5ops-magic-addresses>>
 
 Then, in aarch64 magic instructions for example, the lines:
 
