@@ -320,52 +320,6 @@ All of this put together makes the safe procedure acceptably fast for regular de
 
 It is also easy to GDB step debug kernel modules with our setup, see: xref:gdb-step-debug-kernel-module[xrefstyle=full].
 
-===== Your first QEMU hack
-
-Not satisfied with mere software? OK then, let's hack up the QEMU x86 CPU identification:
-
-....
-vim submodules/qemu/target/i386/cpu.c
-....
-
-and modify:
-
-....
-.model_id = "QEMU Virtual CPU version " QEMU_HW_VERSION,
-....
-
-to contain:
-
-....
-.model_id = "QEMU Virtual CPU version HACKED " QEMU_HW_VERSION,
-....
-
-then as usual rebuild and re-run:
-
-.....
-./build-qemu
-./run --eval-after 'grep "model name" /proc/cpuinfo'
-.....
-
-and once again, there is your message: QEMU communicated it to the Linux kernel, which printed it out.
-
-You have now gone from newb to hardware hacker in a mere 15 minutes, your rate of progress is truly astounding!!!
-
-Seriously though, if you want to be a real hardware hacker, it just can't be done with open source tools as of 2018. The root obstacle is that:
-
-* https://en.wikipedia.org/wiki/Semiconductor_fabrication_plant[Silicon fabs] don't publish reveal their https://en.wikipedia.org/wiki/Design_rule_checking[design rules]
-* which implies that there are no decent https://en.wikipedia.org/wiki/Standard_cell[standard cell libraries]. See also: https://www.quora.com/Are-there-good-open-source-standard-cell-libraries-to-learn-IC-synthesis-with-EDA-tools/answer/Ciro-Santilli
-* which implies that people can't develop open source https://en.wikipedia.org/wiki/Electronic_design_automation[EDA tools]
-* which implies that you can't get decent https://community.cadence.com/cadence_blogs_8/b/di/posts/hls-ppa-is-it-all-you-need-to-know[power, performance and area] estimates
-
-The only thing you can do with open source is purely functional designs with https://en.wikipedia.org/wiki/Verilator[Verilator], but you will never know if it can be actually produced and how efficient it can be.
-
-If you really want to develop semiconductors, your only choice is to join an university or a semiconductor company that has the EDA licenses.
-
-See also: xref:should-you-waste-your-life-with-systems-programming[xrefstyle=full].
-
-While hacking QEMU, you will likely want to GDB step its source. That is trivial since QEMU is just another userland program like any other, but our setup has a shortcut to make it even more convenient, see: xref:debug-the-emulator[xrefstyle=full].
-
 ===== Your first glibc hack
 
 We use <<libc-choice,glibc as our default libc now>>, and it is tracked as an unmodified submodule at link:submodules/glibc[], at the exact same version that Buildroot has it, which can be found at: https://github.com/buildroot/buildroot/blob/2018.05/package/glibc/glibc.mk#L13[package/glibc/glibc.mk]. Buildroot 2018.05 applies no patches.
@@ -887,8 +841,6 @@ Be saner and use our custom built QEMU instead:
 ./build --download-dependencies qemu
 ./run
 ....
-
-This also allows you to <<your-first-qemu-hack,modify QEMU>> if you're into that sort of thing.
 
 To build the kernel modules as in <<your-first-kernel-module-hack>> do:
 
@@ -3747,8 +3699,6 @@ Interestingly, using initramfs significantly slows down the gem5 boot, even thou
 == Device tree
 
 The device tree is a Linux kernel defined data structure that serves to inform the kernel how the hardware is setup.
-
-<<platform-device>> contains a minimal runnable example of device tree manipulation.
 
 Device trees serve to reduce the need for hardware vendors to patch the kernel: they just provide a device tree file instead, which is much simpler.
 
@@ -8228,8 +8178,6 @@ However, this module is intended to fire only once as can be seen from its sourc
 
 and furthermore interrupt `1` and `12` happen immediately TODO why, were they somehow pending?
 
-So so see something interesting, you need to monitor an interrupt that is more rare than the keyboard, e.g. <<platform-device>>.
-
 ==== /proc/interrupts
 
 In the guest with <<qemu-graphic-mode>>:
@@ -10203,56 +10151,10 @@ For the more complex interfaces, we focus on simplified educational devices, eit
 
 * present in the QEMU upstream:
 ** <<qemu-edu>>
-* added in https://github.com/cirosantilli/qemu[our fork of QEMU]:
-** <<pci-min>>
-** <<platform-device>>
 
 ==== PCI
 
 Only tested in x86.
-
-[[pci-min]]
-===== pci_min
-
-PCI driver for our minimal `pci_min.c` QEMU fork device:
-
-....
-./run -- -device lkmc_pci_min
-....
-
-then:
-
-....
-insmod pci_min.ko
-....
-
-Sources:
-
-* Kernel module: link:kernel_modules/pci_min.c[].
-* QEMU device: https://github.com/cirosantilli/qemu/blob/lkmc/hw/misc/lkmc_pci_min.c
-
-Outcome:
-
-....
-<4>[   10.608241] pci_min: loading out-of-tree module taints kernel.
-<6>[   10.609935] probe
-<6>[   10.651881] dev->irq = 11
-lkmc_pci_min mmio_write addr = 0 val = 12345678 size = 4
-<6>[   10.668515] irq_handler irq = 11 dev = 251
-lkmc_pci_min mmio_write addr = 4 val = 0 size = 4
-....
-
-What happened:
-
-* right at probe time, we write to a register
-* our hardware model is coded such that it generates an interrupt when written to
-* the Linux kernel interrupt handler write to another register, which tells the hardware to stop sending interrupts
-
-Kernel messages and printks from inside QEMU are shown all together, to see that more clearly, run in <<qemu-graphic-mode>> instead.
-
-We don't enable the device by default because it does not work for vanilla QEMU, which we often want to test with this repository.
-
-Probe already does a MMIO write, which generates an IRQ and tests everything.
 
 [[qemu-edu]]
 ===== QEMU edu PCI device
@@ -10307,7 +10209,7 @@ In our case for example, we see:
 00:07.0 Unclassified device [00ff]: Device 1234:11e9
 ....
 
-which we identify as being `edu` and `pci_min` respectively by the magic numbers: `1234:11e?`
+which we identify as being <<qemu-edu>> by the magic number: `1234:11e8`.
 
 Alternatively, we can also do use the QEMU monitor:
 
@@ -10318,16 +10220,6 @@ Alternatively, we can also do use the QEMU monitor:
 which gives:
 
 ....
-      dev: lkmc_pci_min, id ""
-        addr = 07.0
-        romfile = ""
-        rombar = 1 (0x1)
-        multifunction = false
-        command_serr_enable = true
-        x-pcie-lnksta-dllla = true
-        x-pcie-extcap-init = true
-        class Class 00ff, addr 00:07.0, pci id 1234:11e9 (sub 1af4:1100)
-        bar 0: mem at 0xfeb54000 [0xfeb54007]
       dev: edu, id ""
         addr = 06.0
         romfile = ""
@@ -10358,7 +10250,7 @@ Get the values of a given config register from its human readable name, either w
 
 ....
 setpci -s 0000:00:06.0 BASE_ADDRESS_0
-setpci -d 1234:11e9 BASE_ADDRESS_0
+setpci -d 1234:11e8 BASE_ADDRESS_0
 ....
 
 Note however that `BASE_ADDRESS_0` also appears when you do:
@@ -10379,13 +10271,11 @@ Then you can try messing with that address with <<dev-mem>>:
 devmem 0xfeb54000 w 0x12345678
 ....
 
-which writes to the first register of our <<pci-min>> device.
+which writes to the first register of the edu device.
 
-The device then fires an interrupt at irq 11, which is unhandled, which leads the kernel to say you are a bad boy:
+The device then fires an interrupt at irq 11, which is unhandled, which leads the kernel to say you are a bad person:
 
 ....
-lkmc_pci_min mmio_write addr = 0 val = 12345678 size = 4
-<5>[ 1064.042435] random: crng init done
 <3>[ 1065.567742] irq 11: nobody cared (try booting with the "irqpoll" option)
 ....
 
@@ -10398,7 +10288,7 @@ insmod irq.ko
 devmem 0xfeb54000 w 0x12345678
 ....
 
-Our kernel module handles the interrupt, but does not acknowledge it like our proper <<pci-min>> kernel module, and so it keeps firing, which leads to infinitely many messages being printed:
+Our kernel module handles the interrupt, but does not acknowledge it like our proper edu kernel module, and so it keeps firing, which leads to infinitely many messages being printed:
 
 ....
 handler irq = 11 dev = 251
@@ -10568,55 +10458,6 @@ Relevant kernel files:
 * `arch/arm/boot/dts/versatile-pb.dts`
 * `drivers/leds/led-class.c`
 * `drivers/leds/leds-sysctl.c`
-
-[[platform-device]]
-==== platform_device
-
-Minimal platform device example coded into the `-M versatilepb` SoC of our QEMU fork.
-
-Using this device now requires checking out to the branch:
-
-....
-git checkout platform-device
-git submodule sync
-....
-
-before building, it does not work on master.
-
-Rationale: we found out that the kernels that build for `qemu -M versatilepb` don't work on gem5 because `versatilepb` is an old pre-v7 platform, and gem5 requires armv7. So we migrated over to `-M virt` to have a single kernel for both gem5 and QEMU, and broke this since the single kernel was more important. TODO port to `-M virt`.
-
-The module itself can be found at: https://github.com/cirosantilli/linux-kernel-module-cheat/blob/platform-device/kernel_modules/platform_device.c
-
-Uses:
-
-* `hw/misc/lkmc_platform_device.c` minimal device added in our QEMU fork to `-M versatilepb`
-* the device tree entry we added to our Linux kernel fork: https://github.com/cirosantilli/linux/blob/361bb623671a52a36a077a6dd45843389a687a33/arch/arm/boot/dts/versatile-pb.dts#L42
-
-Expected outcome after insmod:
-
-* QEMU reports MMIO with printfs
-* IRQs are generated and handled by this module, which logs to dmesg
-
-Without insmoding this module, try writing to the register with <<dev-mem>>:
-
-....
-devmem 0x101e9000 w 0x12345678
-....
-
-We can also observe the interrupt with <<dummy-irq>>:
-
-....
-modprobe dummy-irq irq=34
-insmod platform_device.ko
-....
-
-The IRQ number `34` was found by on the dmesg after:
-
-....
-insmod platform_device.ko
-....
-
-Bibliography: https://stackoverflow.com/questions/28315265/how-to-add-a-new-device-in-qemu-source-code/44612957#44612957
 
 ==== gem5 educational hardware models
 
