@@ -787,7 +787,14 @@ path_properties_tuples = (
                             'gem5_unimplemented_syscall': True
                         },
                         'pagemap_dump.c': {'requires_argument': True},
-                        'perf_event_open.c': {'extra_objs_lkmc_common': True},
+                        'perf_event_open.c': {
+                            # QEMU the syscall just fails on QEMU, presumably because QEMU
+                            # does not have a microarchitecture model, and so it must just set
+                            # CPU bits that inform the kernel that the feature is not available.
+                            # https://cirosantilli.com/linux-kernel-module-cheat#gem5-vs-qemu
+                            'allowed_emulators': {'gem5'},
+                            'extra_objs_lkmc_common': True,
+                        },
                         'poweroff.c': {'requires_sudo': True},
                         'proc_events.c': {'requires_sudo': True},
                         'proc_events.c': {'requires_sudo': True},
