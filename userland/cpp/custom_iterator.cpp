@@ -28,6 +28,11 @@ class MyMap {
             auto pair = *it;
             return std::make_pair(2*pair.first, 3*pair.second);
         }
+        // TODO. How to return that new object by address?
+        //value_type& operator->() {
+        //    auto pair = *it;
+        //    return std::make_pair(2*pair.first, 3*pair.second);
+        //}
     };
     iterator begin() { return iterator(map.begin()); }
     iterator end() { return iterator(map.end()); }
@@ -44,7 +49,14 @@ int main() {
     assert((*it++ == std::pair<const int, int>(2, 33)));
     assert((*it++ == std::pair<const int, int>(4, 36)));
 
+    // TODO operator->()
+    it = map.begin();
+    //assert((it->first == 0));
+    auto stl_it = map.map.begin();
+    assert((stl_it->first == 0));
+
     for (const auto& v : map) {
         std::cout << v.first << " " << v.second << std::endl;
     }
+
 }

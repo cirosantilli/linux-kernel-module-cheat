@@ -57,6 +57,17 @@ void lkmc_assert_memcmp(
     }
 }
 
+void __attribute__ ((noinline)) lkmc_busy_loop(
+    unsigned long long max,
+    unsigned long long max2
+) {
+    for (unsigned long long i = 0; i < max2; i++) {
+        for (unsigned long long j = 0; j < max; j++) {
+            __asm__ __volatile__ ("" : "+g" (i), "+g" (j) : :);
+        }
+    }
+}
+
 void lkmc_print_hex_32(uint32_t x) {
     printf("0x%08" PRIX32, x);
 }

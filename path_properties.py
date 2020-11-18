@@ -49,6 +49,7 @@ class PathProperties:
         # added to baremetal examples.
         'extra_objs_disable_baremetal_bootloader': False,
         # We should get rid of this if we ever properly implement dependency graphs.
+        # Enable: https://cirosantilli.com/linux-kernel-module-cheat#lkmc-c
         'extra_objs_lkmc_common': False,
         'freestanding': False,
         'gem5_unimplemented_instruction': False,
@@ -735,7 +736,10 @@ path_properties_tuples = (
                 'gcc': (
                     {**gnu_extension_properties, **{'cc_pedantic': False}},
                     {
-                        'busy_loop.c': {'baremetal': True},
+                        'busy_loop.c': {
+                            'baremetal': True,
+                            'extra_objs_lkmc_common': True,
+                        },
                         'openmp.c': {'cc_flags': ['-fopenmp', LF]},
                     }
                 ),
@@ -783,6 +787,7 @@ path_properties_tuples = (
                             'gem5_unimplemented_syscall': True
                         },
                         'pagemap_dump.c': {'requires_argument': True},
+                        'perf_event_open.c': {'extra_objs_lkmc_common': True},
                         'poweroff.c': {'requires_sudo': True},
                         'proc_events.c': {'requires_sudo': True},
                         'proc_events.c': {'requires_sudo': True},

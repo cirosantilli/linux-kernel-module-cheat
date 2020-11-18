@@ -10206,6 +10206,7 @@ TODO exercise DMA on the kernel module. The `edu` hardware model has that featur
 * https://stackoverflow.com/questions/32592734/are-there-any-dma-driver-example-pcie-and-fpga/44716747#44716747
 * https://stackoverflow.com/questions/62831327/add-memory-device-to-qemu
 * https://stackoverflow.com/questions/64539528/qemu-pci-dma-read-and-pci-dma-write-does-not-work
+* https://stackoverflow.com/questions/64842929/general-protection-error-while-tring-to-perform-ioctl
 
 ===== Manipulate PCI registers directly
 
@@ -21881,6 +21882,16 @@ and:
 
 Due to the way that <<gem5-syscall-emulation-multithreading>> however, the output is more deterministic in that case, see that section for further details.
 
+[[perf-event-open]]
+==== `perf_event_open` system call
+
+link:userland/linux/perf_event_open.c[] counts instructions of a given loop: https://stackoverflow.com/questions/13313510/quick-way-to-count-number-of-instructions-executed-in-a-c-program/64863392#64863392
+
+Bibliography:
+
+* `man perf_event_open`
+* https://community.arm.com/developer/ip-products/system/b/embedded-blog/posts/using-the-arm-performance-monitor-unit-pmu-linux-driver
+
 === Linux calling conventions
 
 A summary of results is shown at: xref:table-linux-calling-conventions[xrefstyle=full].
@@ -22758,15 +22769,10 @@ produces:
 
 There is also the RDPID instruction that reads just the processor ID, but it appears to be very new for QEMU 4.0.0 or <<p51>>, as it fails with SIGILL on both.
 
-Bibliography: https://stackoverflow.com/questions/22310028/is-there-an-x86-instruction-to-tell-which-core-the-instruction-is-being-run-on/56622112#56622112
+Bibliography:
 
-===== ARM PMCCNTR register
-
-TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
-
-* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
-* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
-* https://blog.regehr.org/archives/794
+* ARM has an analogous <<arm-pmccntr-register>>
+* https://stackoverflow.com/questions/22310028/is-there-an-x86-instruction-to-tell-which-core-the-instruction-is-being-run-on/56622112#56622112
 
 === x86 thread synchronization primitives
 
@@ -23964,6 +23970,24 @@ Bibliography:
 <<armarm8-db>> A1.7.3 "The ARMv8.1 architecture extension"
 
 * <<arm-lse>>
+
+=== ARM PMU
+
+The PMU (Performance Monitor Unit) is an unit in the ARM CPU that counts performance events of interest. These can be used to benchmark, and sometimes debug, code running on ARM CPUs.
+
+The <<linux-kernel>> exposes some (all?) of those events through the arch-agnostic <<perf-event-open>> system call.
+
+The PMU is exposed through <<arm-system-register-instructions>>, with registers that start with the prefix `PM*`.
+
+Bibliography: https://community.arm.com/developer/ip-products/system/b/embedded-blog/posts/using-the-arm-performance-monitor-unit-pmu-linux-driver
+
+==== ARM PMCCNTR register
+
+TODO We didn't manage to find a working ARM analogue to <<x86-rdtsc-instruction>>: link:kernel_modules/pmccntr.c[] is oopsing, and even it if weren't, it likely won't give the cycle count since boot since it needs to be activate before it starts counting anything:
+
+* https://stackoverflow.com/questions/40454157/is-there-an-equivalent-instruction-to-rdtsc-in-arm
+* https://stackoverflow.com/questions/31620375/arm-cortex-a7-returning-pmccntr-0-in-kernel-mode-and-illegal-instruction-in-u/31649809#31649809
+* https://blog.regehr.org/archives/794
 
 === ARM assembly bibliography
 
@@ -28170,6 +28194,12 @@ Those files also contain arch specific helpers under ifdefs like:
 ....
 
 We try to keep as much as possible in those files. It bloats builds a little, but just makes everything simpler to understand.
+
+Link with lkmc.o is enabled with the <<path-properties>>
+
+....
+'extra_objs_lkmc_common': False,
+....
 
 [[lkmc-home]]
 ==== lkmc_home

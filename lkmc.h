@@ -34,6 +34,12 @@ void lkmc_assert_memcmp(const void *s1, const void *s2, size_t n, uint32_t line)
 /* Temporary per C source file name that our examples can safely create. */
 #define LKMC_TMP_FILE __FILE__ LKMC_TMP_EXT
 #define LKMC_TMP_FILE_NAMED(name) __FILE__ "__" name LKMC_TMP_EXT
+
+/* https://cirosantilli.com/linux-kernel-module-cheat#c-busy-loop */
+void __attribute__ ((noinline)) lkmc_busy_loop(
+    unsigned long long max,
+    unsigned long long max2
+);
 #endif
 
 /* Assert that the given branch instruction is taken. */

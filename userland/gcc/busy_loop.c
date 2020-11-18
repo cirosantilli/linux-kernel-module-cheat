@@ -2,18 +2,7 @@
  * https://cirosantilli.com/linux-kernel-module-cheat#c-busy-loop
  * https://cirosantilli.com/linux-kernel-module-cheat#benchmark-emulators-on-userland-executables */
 
-#include <stdlib.h>
-
-void __attribute__ ((noinline)) busy_loop(
-    unsigned long long max,
-    unsigned long long max2
-) {
-    for (unsigned long long i = 0; i < max2; i++) {
-        for (unsigned long long j = 0; j < max; j++) {
-            __asm__ __volatile__ ("" : "+g" (i), "+g" (j) : :);
-        }
-    }
-}
+#include <lkmc.h>
 
 int main(int argc, char **argv) {
     unsigned long long max, max2;
@@ -27,5 +16,5 @@ int main(int argc, char **argv) {
     } else {
         max2 = 1;
     }
-    busy_loop(max, max2);
+    lkmc_busy_loop(max, max2);
 }
