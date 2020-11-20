@@ -968,7 +968,9 @@ Incompatible archs are skipped.
             except ValueError:
                 env['port_offset'] = 0
         if env['emulator'] == 'gem5':
-            env['gem5_telnet_port'] = 3456 + env['port_offset']
+            # Tims 4 because gem5 now has 3 UARTs tha take up the previous ports:
+            # https://github.com/cirosantilli/linux-kernel-module-cheat/issues/131
+            env['gem5_telnet_port'] = 3456 + env['port_offset'] * 4
             env['gdb_port'] = 7000 + env['port_offset']
         else:
             env['qemu_base_port'] = 45454 + 10 * env['port_offset']
@@ -1227,6 +1229,8 @@ Incompatible archs are skipped.
                     env['disk_image'] = env['rootfs_raw_file']
             else:
                 env['disk_image'] = env['qcow2_file']
+        # A squahfs of 'out_rootfs_overlay_dir'.
+        env['disk_image_2'] = env['out_rootfs_overlay_dir'] + '.squashfs'
 
         # Android
         if not env['_args_given']['android_base_dir']:

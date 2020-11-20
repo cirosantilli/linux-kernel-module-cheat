@@ -4799,9 +4799,42 @@ A simpler and possibly less overhead alternative to <<9P>> would be to generate 
 
 Then you can `umount` and re-mount on guest without reboot.
 
-We don't support this yet, but it should not be too hard to hack it up, maybe by hooking into link:rootfs-post-build-script[].
+To build the secondary disk image run link:build-disk2[]:
 
-This was not possible from gem5 `fs.py` as of 60600f09c25255b3c8f72da7fb49100e2682093a: https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661
+....
+./build-disk2
+....
+
+This will put the entire <<out-rootfs-overlay-dir>> into a squashfs filesystem.
+
+Then, if that filesystem is present, `./run` will automatically pass it as the second disk on the command line.
+
+For example, from inside QEMU, you can mount that disk with:
+
+....
+mkdir /mnt/vdb
+mount /dev/vdb /mnt/vdb
+/mnt/vdb/lkmc/c/hello.out
+....
+
+To update the secondary disk while a simulation is running to avoid rebooting, first unmount in the guest:
+
+....
+umount /mnt/vdb
+....
+
+and then on the host:
+
+....
+# Edit the file.
+vim userland/c/hello.c
+./build-userland
+./build-disk2
+....
+
+and now you can re-run the updated version of the executable on the guest after remounting it.
+
+gem5 fs.py support for multiple disks is discussed at: https://stackoverflow.com/questions/50862906/how-to-attach-multiple-disk-images-in-a-simulation-with-gem5-fs-py/51037661#51037661
 
 == Graphics
 
@@ -5414,7 +5447,7 @@ Bibliography:
 
 The https://en.wikipedia.org/wiki/9P_(protocol)[9p protocol] allows the guest to mount a host directory.
 
-Both QEMU and <<9p-gem5>> support 9P.
+Both QEMU and <<gem5-9p>> support 9P.
 
 ==== 9P vs NFS
 
@@ -5486,7 +5519,7 @@ Bibliography:
 * https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu
 * https://wiki.qemu.org/Documentation/9psetup
 
-==== 9P gem5
+==== gem5 9P
 
 Is possible on aarch64 as shown at: https://gem5-review.googlesource.com/c/public/gem5/+/22831[], and it is just a matter of exposing to X86 for those that want it.
 
@@ -12249,7 +12282,7 @@ First we reset the readfile to something that runs quickly:
 printf 'echo "first benchmark"' > "$(./getvar gem5_readfile_file)"
 ....
 
-and then in the guest, take a checkpoint and exit:
+and then in the guest, take a checkpoint and exit with:
 
 ....
 ./gem5.sh
@@ -21885,12 +21918,22 @@ Due to the way that <<gem5-syscall-emulation-multithreading>> however, the outpu
 [[perf-event-open]]
 ==== `perf_event_open` system call
 
-link:userland/linux/perf_event_open.c[] counts instructions of a given loop: https://stackoverflow.com/questions/13313510/quick-way-to-count-number-of-instructions-executed-in-a-c-program/64863392#64863392
+link:userland/linux/perf_event_open.c[]
+
+On ARM, `perf_event_open` uses the <<arm-pmu>>. The mapping between kernel events and ARM PMU events can be found at: https://github.com/cirosantilli/linux/blob/v5.9/arch/arm64/kernel/perf_event.c
 
 Bibliography:
 
 * `man perf_event_open`
 * https://community.arm.com/developer/ip-products/system/b/embedded-blog/posts/using-the-arm-performance-monitor-unit-pmu-linux-driver
+* instruction counts: https://stackoverflow.com/questions/13313510/quick-way-to-count-number-of-instructions-executed-in-a-c-program/64863392#64863392
+* cycle counts:
+** https://stackoverflow.com/questions/13772567/how-to-get-the-cpu-cycle-count-in-x86-64-from-c/64898073#64898073
+** https://stackoverflow.com/questions/3830883/cpu-cycle-count-based-profiling-in-c-c-linux-x86-64/64898121#64898121
+** https://stackoverflow.com/questions/35923834/what-is-the-most-reliable-way-to-measure-the-number-of-cycles-of-my-program-in-c/64898206#64898206
+** https://unix.stackexchange.com/questions/352166/measure-exact-clock-cycles-for-a-c-assembly-program/620317#620317
+** https://stackoverflow.com/questions/8522140/linux-alternative-to-windows-high-resolution-performance-counter-api/64898303#64898303
+* cache misses: https://stackoverflow.com/questions/10082517/simplest-tool-to-measure-c-program-cache-hit-miss-and-cpu-time-in-linux/64899613#64899613
 
 === Linux calling conventions
 
@@ -23975,9 +24018,39 @@ Bibliography:
 
 The PMU (Performance Monitor Unit) is an unit in the ARM CPU that counts performance events of interest. These can be used to benchmark, and sometimes debug, code running on ARM CPUs.
 
+It is documented at <<armarm8-fa>> Chapter D7 "The Performance Monitors Extension">
+
 The <<linux-kernel>> exposes some (all?) of those events through the arch-agnostic <<perf-event-open>> system call.
 
+Exposing the PMU to Linux v5.9.2 requires a <<dtb-files,DTB>> entry of type:
+
+....
+pmu {
+        compatible = "arm,armv8-pmuv3";
+        interrupts = <0x01 0x04 0xf04>;
+};
+....
+
+and if sucessful, a boot message shows:
+
+....
+<6>[    0.044391] hw perfevents: enabled with armv8_pmuv3 PMU driver, 32 counters available
+....
+
 The PMU is exposed through <<arm-system-register-instructions>>, with registers that start with the prefix `PM*`.
+
+
+<6>[    0.044391] hw perfevents: enabled with armv8_pmuv3 PMU driver, 32 counters available
+
+<<armarm8-fa>> D7.11.3 "Common event numbers" gives the available standardized events. Address space is also reverved for vendor extensions. For example, from it we see that the instruction count is documented at:
+
+____
+0x0008, INST_RETIRED, Instruction architecturally executed
+
+The counter increments for every architecturally executed instruction.
+____
+
+where "architecturally executed" is a reference to the possibility of <<out-of-order-execution>> in the implementation, which leads to some instructions being executed speculatively, but not have any side effects in the end.
 
 Bibliography: https://community.arm.com/developer/ip-products/system/b/embedded-blog/posts/using-the-arm-performance-monitor-unit-pmu-linux-driver
 
@@ -28159,7 +28232,7 @@ ls /mnt/9p/rootfs_overlay
 This way you can just hack away the scripts and try them out immediately without any further operations.
 
 [[out-rootfs-overlay-dir]]
-===== out_rootfs_overlay_dir
+===== `out_rootfs_overlay_dir`
 
 This path can be found with:
 
@@ -28177,6 +28250,13 @@ LKMC first collects all the files that it will dump into the guest there, and th
 In Buildroot, this is done by pointing `BR2_ROOTFS_OVERLAY` to that directory, which is documented at: https://buildroot.org/downloads/manual/manual.html#rootfs-custom
 
 This does not include native image modification mechanisms such as <<buildroot-packages-directory,Buildroot packages>>, which we let Buildroot itself manage.
+
+[[disk-image-2]]
+====== `disk_image_2`
+
+A squashfs of <<out-rootfs-overlay-dir>> that gets passed as the second argument.
+
+Especially useful with <<gem5>> as a way to <<gem5-restore-new-script>> via <<secondary-disk>> since setting up <<gem5-9p>> is slightly laborious.
 
 ==== lkmc.c
 

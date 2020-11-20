@@ -1,12 +1,14 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#perf-event-open
  * Adapted from `man perf_event_open` in manpages 5.05-1. */
 
+#define _GNU_SOURCE
 #include <asm/unistd.h>
 #include <linux/perf_event.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #define LKMC_M5OPS_ENABLE 1
@@ -28,10 +30,6 @@ static long perf_event_open(struct perf_event_attr *hw_event,
     hw_event->exclude_hv = 1;
     ret = syscall(__NR_perf_event_open, hw_event, pid, cpu,
                     group_fd, flags);
-    if (ret == -1) {
-        fprintf(stderr, "Error opening leader %llx\n", hw_event->config);
-        exit(EXIT_FAILURE);
-    }
     return ret;
 }
 
@@ -50,9 +48,17 @@ main(int argc, char **argv) {
     long long count;
     uint64_t n;
     Desc descs[] = {
+        /* ARMV8_PMUV3_PERFCTR_PC_WRITE_RETIRED = 0x0C */
         DESC(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS),
+
+        /* ARMV8_PMUV3_PERFCTR_BR_MIS_PRED = 0x10 */
         DESC(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES),
+
+        /* ARMV8_PMUV3_PERFCTR_CPU_CYCLES = 0x11 */
         DESC(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES),
+        DESC(PERF_TYPE_HARDWARE, PERF_COUNT_HW_REF_CPU_CYCLES),
+
+        /* ARMV8_PMUV3_PERFCTR_INST_RETIRED = 0x08 */
         DESC(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS),
         DESC(PERF_TYPE_HW_CACHE, PERF_COUNT_HW_CACHE_L1D | PERF_COUNT_HW_CACHE_OP_READ << 8 | PERF_COUNT_HW_CACHE_RESULT_MISS << 16),
     };
@@ -70,9 +76,17 @@ main(int argc, char **argv) {
         gem5 = 0;
     }
 
-    for (i = 0; i < LKMC_ARRAY_SIZE(descs); i++)
+    for (i = 0; i < LKMC_ARRAY_SIZE(descs); i++) {
         fds[i] = perf_event_open(&pes[i],
             descs[i].type, descs[i].config, 0, -1, -1, 0);
+        if (fds[i] == -1) {
+            fprintf(
+                stderr, "perf_event_open error name=%s type=%zx config=%zx\n",
+                descs[i].name, (uintmax_t)pes[i].type, (uintmax_t)pes[i].config
+            );
+            /*exit(EXIT_FAILURE);*/
+        }
+    }
 
     /* Start the counts. */
     for (i = 0; i < LKMC_ARRAY_SIZE(descs); i++)

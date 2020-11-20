@@ -3,6 +3,8 @@
 m5 checkpoint
 tmp="$(mktemp)"
 m5 readfile > "$tmp"
-m5 resetstats
-sh "$tmp"
-m5 exit
+if [ -s "$tmp" ]; then
+  m5 resetstats
+  sh "$tmp"
+  m5 exit
+fi
