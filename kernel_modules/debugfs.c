@@ -33,17 +33,12 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
-	struct dentry *file;
 	dir = debugfs_create_dir("lkmc_debugfs", 0);
 	if (!dir) {
 		pr_alert("debugfs_create_dir failed");
 		return -1;
 	}
-	file = debugfs_create_u32("myfile", S_IRUSR | S_IWUSR, dir, &value);
-	if (!file) {
-		pr_alert("debugfs_create_u32 failed");
-		return -1;
-	}
+	debugfs_create_u32("myfile", S_IRUSR | S_IWUSR, dir, &value);
 
 	/* Created on the toplevel of the debugfs mount,
 	 * and with explicit fops instead of a fixed integer value.

@@ -6,17 +6,18 @@
 
 u32 lkmc_dep = 0;
 EXPORT_SYMBOL(lkmc_dep);
-static struct dentry *debugfs_file;
+static char *debugfs_filename = "lkmc_dep";
 
 static int myinit(void)
 {
-	debugfs_file = debugfs_create_u32("lkmc_dep", S_IRUSR | S_IWUSR, NULL, &lkmc_dep);
+	debugfs_create_u32(debugfs_filename, S_IRUSR | S_IWUSR, NULL, &lkmc_dep);
 	return 0;
 }
 
 static void myexit(void)
 {
-	debugfs_remove(debugfs_file);
+
+	debugfs_remove(debugfs_lookup(debugfs_filename, NULL));
 }
 
 module_init(myinit)

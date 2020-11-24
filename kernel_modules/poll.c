@@ -54,7 +54,7 @@ unsigned int poll(struct file *filp, struct poll_table_struct *wait)
 	}
 }
 
-static int kthread_func(void *data)
+static int lkmc_kthread_func(void *data)
 {
 	while (!kthread_should_stop()) {
 		readbuflen = snprintf(
@@ -81,7 +81,7 @@ static int myinit(void)
 	debugfs_file = debugfs_create_file(
 		"lkmc_poll", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
 	init_waitqueue_head(&waitqueue);
-	kthread = kthread_create(kthread_func, NULL, "mykthread");
+	kthread = kthread_create(lkmc_kthread_func, NULL, "mykthread");
 	wake_up_process(kthread);
 	return 0;
 }

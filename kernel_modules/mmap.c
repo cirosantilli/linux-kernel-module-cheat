@@ -1,5 +1,6 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#mmap */
 
+#include <asm-generic/io.h> /* virt_to_phys */
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h> /* min */
@@ -120,17 +121,17 @@ static int release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static const struct file_operations fops = {
-	.mmap = mmap,
-	.open = open,
-	.release = release,
-	.read = read,
-	.write = write,
+static const struct proc_ops pops = {
+	.proc_mmap = mmap,
+	.proc_open = open,
+	.proc_release = release,
+	.proc_read = read,
+	.proc_write = write,
 };
 
 static int myinit(void)
 {
-	proc_create(filename, 0, NULL, &fops);
+	proc_create(filename, 0, NULL, &pops);
 	return 0;
 }
 

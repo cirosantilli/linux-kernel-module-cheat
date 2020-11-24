@@ -1,6 +1,5 @@
 /* https://cirosantilli.com/linux-kernel-module-cheat#procfs */
 
-#include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h> /* seq_read, seq_lseek, single_open, single_release */
@@ -19,17 +18,16 @@ static int open(struct inode *inode, struct  file *file)
 	return single_open(file, show, NULL);
 }
 
-static const struct file_operations fops = {
-	.llseek = seq_lseek,
-	.open = open,
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.release = single_release,
+static const struct proc_ops pops = {
+	.proc_lseek = seq_lseek,
+	.proc_open = open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
 };
 
 static int myinit(void)
 {
-	proc_create(filename, 0, NULL, &fops);
+	proc_create(filename, 0, NULL, &pops);
 	return 0;
 }
 
