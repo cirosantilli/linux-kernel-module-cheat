@@ -69,6 +69,8 @@ consts['kernel_modules_subdir'] = 'kernel_modules'
 consts['kernel_modules_source_dir'] = os.path.join(consts['root_dir'], consts['kernel_modules_subdir'])
 consts['userland_subdir'] = 'userland'
 consts['userland_source_dir'] = os.path.join(consts['root_dir'], consts['userland_subdir'])
+consts['userland_libs_basename'] = 'libs'
+consts['userland_source_libs_dir'] = os.path.join(consts['userland_source_dir'], consts['userland_libs_basename'])
 consts['userland_source_arch_dir'] = os.path.join(consts['userland_source_dir'], 'arch')
 consts['userland_executable_ext'] = '.out'
 consts['baremetal_executable_ext'] = '.elf'
@@ -83,6 +85,7 @@ consts['crosstool_ng_supported_archs'] = set(['arm', 'aarch64'])
 consts['linux_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
 consts['linux_config_dir'] = os.path.join(consts['root_dir'], 'linux_config')
 consts['gem5_default_source_dir'] = os.path.join(consts['submodules_dir'], 'gem5')
+consts['googletest_source_dir'] = os.path.join(consts['submodules_dir'], 'googletest')
 consts['rootfs_overlay_dir'] = os.path.join(consts['root_dir'], 'rootfs_overlay')
 consts['extract_vmlinux'] = os.path.join(consts['linux_source_dir'], 'scripts', 'extract-vmlinux')
 consts['qemu_source_dir'] = os.path.join(consts['submodules_dir'], 'qemu')
@@ -1358,6 +1361,10 @@ lunch aosp_{}-eng
         '''
         return os.path.join(env['gem5_executable_dir'], name + env['gem5_executable_suffix'])
 
+    @staticmethod
+    def cwd_in_lib():
+        return pathlib.Path(common.consts['userland_source_libs_dir']) in pathlib.Path(os.getcwd()).parents
+
     def gem5_list_checkpoint_dirs(self):
         '''
         List checkpoint directory, oldest first.
@@ -1896,14 +1903,15 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
                             '-march={}'.format(self.env['march']), LF,
                         ])
                 if dirpath_relative_root_components_len > 0:
-                    if dirpath_relative_root_components[0] == 'userland':
+                    if dirpath_relative_root_components[0] == consts['userland_subdir']:
                         if dirpath_relative_root_components_len > 1:
-                            if dirpath_relative_root_components[1] == 'libs':
+                            if dirpath_relative_root_components[1] == self.env['userland_libs_basename']:
                                 if dirpath_relative_root_components_len > 1:
                                     if self.env['gcc_which'] == 'host':
                                         eigen_root = '/'
                                     else:
                                         eigen_root = self.env['buildroot_staging_dir']
+                                    # TODO move to path_properties.py somehow.
                                     packages = {
                                         'boost': {
                                             # Header only, no pkg-config package.
@@ -1931,6 +1939,17 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
                                         'hdf5': {
                                             'pkg_config_id': 'hdf5-serial',
                                         },
+                                        'googletest': {
+                                            'cc_flags': [
+                                                '-I', os.path.join(self.env['googletest_source_dir'], 'googletest', 'include'), LF,
+                                                '-I', os.path.join(self.env['googletest_source_dir'], 'googlemock', 'include'), LF,
+                                            ],
+                                            'cc_flags_after': [
+                                                os.path.join(self.env['googletest_source_dir'], 'build', 'lib', 'libgtest.a'), LF,
+                                                os.path.join(self.env['googletest_source_dir'], 'build', 'lib', 'libgtest_main.a'), LF,
+                                                os.path.join(self.env['googletest_source_dir'], 'build', 'lib', 'libgmock.a'), LF,
+                                            ],
+                                        },
                                     }
                                     package_key = dirpath_relative_root_components[2]
                                     if package_key in packages:
@@ -1951,7 +1970,7 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
                                         ]).decode()
                                         cc_flags.extend(self.sh.shlex_split(pkg_config_output))
                                     if 'cc_flags_after' in package:
-                                        cc_flags.extend(package['cc_flags_after'])
+                                        cc_flags_after.extend(package['cc_flags_after'])
                                     else:
                                         pkg_config_output = subprocess.check_output([
                                             self.env['pkg_config'],

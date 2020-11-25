@@ -13504,7 +13504,7 @@ Running individual unit tests is not yet exposed, but it is easy to do: while ru
 
 so you can just copy paste the command.
 
-Building individual tests is possible with:
+Building individual tests is possible with `--unit-test` (singular, no 's'):
 
 ....
 ./build-gem5 --unit-test base/circlebuf.test
@@ -20628,6 +20628,62 @@ link:userland/cpp/custom_iterator.cpp[]: there is no way to easily define a nice
 * https://stackoverflow.com/questions/3582608/how-to-correctly-implement-custom-iterators-and-const-iterators
 * https://stackoverflow.com/questions/6471019/can-should-i-inherit-from-an-stl-iterator
 
+[[cpp-third-party-libraries]]
+==== C++ third-party libraries
+
+Under: <<userland-libs-directory>>.
+
+===== Boost
+
+link:https://++en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)++[]
+
+link:userland/libs/boost[]:
+
+* link:userland/libs/boost/bimap.cpp[]
+
+===== GoogleTest
+
+https://github.com/google/googletest
+
+On Ubuntu 20.04, the package:
+
+....
+sudo apt install googletest
+....
+
+does not contain prebuilts, and it is intentional, it is incomprehensible:
+
+* https://askubuntu.com/questions/97626/how-to-install-googletest/1295185#1295185
+* https://askubuntu.com/questions/145887/why-no-library-files-installed-for-google-test
+
+so you might as well just `git clone` and build the damned thing yourself:
+
+....
+git submodule update --init submodules/googletest
+cd submodules/googletest
+mkdir build
+cd build
+cmake ..
+make -j`nproc`
+cd ../../userland/libs/googletest
+./build
+....
+
+link:userland/libs/googletest[]:
+
+* userland/libs/googletest/main.cpp[]
+
+===== HDF5
+
+https://en.wikipedia.org/wiki/Hierarchical_Data_Format
+
+Binary format to store data. TODO vs databases, notably SQLite: https://datascience.stackexchange.com/questions/262/hierarchical-data-format-what-are-the-advantages-compared-to-alternative-format
+
+Examples:
+
+* link:userland/libs/hdf5[]
+* gem5 can dump statistics as HDF5: <<gem5-hdf5-statistics>>
+
 === POSIX
 
 Programs under link:userland/posix/[] are examples of POSIX C programming.
@@ -21344,24 +21400,19 @@ See for example <<blas>>. Since it is located under `userland/libs/openblas`, it
 ./build-userland --package-all
 ....
 
-==== Boost
+As an exception, if you first `cd` directly into one of the directories and do a <<userland-setup-getting-started-natively,native host build>>, e.g.:
 
-link:https://++en.wikipedia.org/wiki/Boost_(C%2B%2B_libraries)++[]
+....
+sudo apt install libeigen3-dev
+cd userland/libs/eigen
+./build
+....
 
-link:userland/libs/boost[]
+then that library will be automatically enabled.
 
-* link:userland/libs/boost/bimap.cpp[]
+See also:
 
-==== HDF5
-
-https://en.wikipedia.org/wiki/Hierarchical_Data_Format
-
-Binary format to store data. TODO vs databases, notably SQLite: https://datascience.stackexchange.com/questions/262/hierarchical-data-format-what-are-the-advantages-compared-to-alternative-format
-
-Examples:
-
-* link:userland/libs/hdf5[]
-* gem5 can dump statistics as HDF5: <<gem5-hdf5-statistics>>
+* <<cpp-third-party-libraries>>
 
 === Userland content filename conventions
 

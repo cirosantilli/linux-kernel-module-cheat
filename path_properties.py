@@ -749,6 +749,12 @@ path_properties_tuples = (
                     {'requires_dynamic_library': True},
                     {
                         'cython': {'no_build': True},
+                        'googletest': (
+                            {},
+                            {
+                                'fail.cpp': {'exit_status': 1},
+                            }
+                        ),
                         'libdrm': {'requires_sudo': True},
                         'hdf5': (
                             {},
