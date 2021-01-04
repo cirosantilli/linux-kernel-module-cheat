@@ -1997,7 +1997,7 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
                 )
         return ret
 
-    def clean_pre(self):
+    def clean_pre(self, build_dir):
         pass
 
     def clean(self):
@@ -2007,7 +2007,7 @@ after configure, e.g. SCons. Usually contains specific targets or other build fl
             self.sh.rmrf(build_dir)
         self.clean_post(build_dir)
 
-    def clean_post(self):
+    def clean_post(self, build_dir):
         pass
 
     def build(self):
