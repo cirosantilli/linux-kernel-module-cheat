@@ -591,6 +591,8 @@ Extra options to append at the end of the emulator command line.
                         ])
                     cmd.extend(['--interp-dir', self.env['userland_library_dir'], LF])
             else:
+                if self.env['is_arm']:
+                    arm_kernel_cli = 'earlycon=pl011,0x1c090000 earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={}'.format(memory)
                 if self.env['gem5_script'] == 'fs':
                     cmd.extend([
                         self.env['gem5_fs_file'], LF,
@@ -611,7 +613,7 @@ Extra options to append at the end of the emulator command line.
                         if self.env['kvm']:
                             cmd.extend(['--cpu-type', 'X86KvmCPU', LF])
                         if not self.env['baremetal']:
-                            cmd.extend(['--command-line', 'earlycon={} earlyprintk={} lpj=7999923 root=/dev/sda {}'.format(console, console, kernel_cli), LF])
+                            cmd.extend(['--command-line', 'earlycon={} earlyprintk={} lpj=7999923 root=/dev/sda {}'.format(arm_kernel_cli, console, console, kernel_cli), LF])
                     elif self.env['is_arm']:
                         if self.env['kvm']:
                             cmd.extend(['--cpu-type', 'ArmV8KvmCPU', LF])
@@ -627,7 +629,7 @@ Extra options to append at the end of the emulator command line.
                                 '--command-line',
                                 # TODO why is it mandatory to pass mem= here? Not true for QEMU.
                                 # Anything smaller than physical blows up as expected, but why can't it auto-detect the right value?
-                                'earlycon=pl011,0x1c090000 earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem={} root=/dev/sda {}'.format(memory, kernel_cli), LF
+                                'root=/dev/sda {} {}'.format(arm_kernel_cli, kernel_cli), LF
                             ])
                             cmd.extend(['--param', 'system.workload.panic_on_panic = True', LF])
                         dtb = None
@@ -674,8 +676,8 @@ Extra options to append at the end of the emulator command line.
                         '--big-cpus', str((self.env['cpus'] + 1) // 2), LF,
                         '--cpu-type', cpu_type, LF,
                         '--kernel', self.env['image'], LF,
+                        '--kernel-cmd', 'root=/dev/vda {} {}'.format(arm_kernel_cli, kernel_cli), LF,
                         '--little-cpus', str(self.env['cpus'] // 2), LF,
-                        '--root', '/dev/vda', LF,
                     ])
                     if use_disk_image:
                         cmd.extend(['--disk', self.env['disk_image'], LF])
