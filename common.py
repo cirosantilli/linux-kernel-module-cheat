@@ -928,6 +928,8 @@ Incompatible archs are skipped.
         env['gem5_m5_source_dir'] = join(env['gem5_source_dir'], 'util', 'm5')
         if self.env['arch'] == 'x86_64':
             env['gem5_m5_source_dir_build_arch'] = 'x86'
+        elif self.env['arch'] == 'aarch64':
+            env['gem5_m5_source_dir_build_arch'] = 'arm64'
         else:
             env['gem5_m5_source_dir_build_arch'] = env['arch']
         env['gem5_m5_source_dir_build'] = join(env['gem5_m5_source_dir'], 'build', env['gem5_m5_source_dir_build_arch'], 'out', 'm5')
