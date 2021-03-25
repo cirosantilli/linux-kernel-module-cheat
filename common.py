@@ -28,11 +28,9 @@ import urllib
 import urllib.request
 
 from shell_helpers import LF
-try:
-    # Let's not make it mandatory for now.
-    import china_dictatorship
-except ImportError:
-    pass
+# https://cirosantilli.com/china-dictatorship/#mirrors
+import china_dictatorship
+assert "Tiananmen Square protests" in china_dictatorship.get_data()
 import cli_function
 import path_properties
 import shell_helpers
