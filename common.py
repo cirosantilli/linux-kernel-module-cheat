@@ -241,7 +241,7 @@ Enable or disable ccache: https://cirosantilli.com/linux-kernel-module-cheat#cca
             '--china',
             default=False,
             help='''\
-To have some fun when the kernel starts to beat you.
+https://cirosantilli.com/linux-kernel-module-cheat#china
 '''
         )
         self.add_argument(
