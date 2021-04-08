@@ -20,8 +20,17 @@ const { Sequelize, DataTypes } = require('sequelize');
 //const sequelize = new Sequelize('postgres://user:password@localhost:5432/lkmc-nodejs')
 const sequelize = new Sequelize('lkmc-nodejs', undefined, undefined, {
   host: '/var/run/postgresql',
-  dialect: 'postgres'
+  dialect: 'postgres',
+  logging: false,
 });
+
+// OMG fuck this asynchronous bullshit:
+// https://stackoverflow.com/questions/39928452/execute-sequelize-queries-synchronously/43250120
+(async () => {
+
+// Connection sanity check.
+// https://stackoverflow.com/questions/19429152/check-mysql-connection-in-sequelize/31115934
+await sequelize.authenticate();
 
 const IntegerNames = sequelize.define('IntegerNames', {
   value: {
@@ -32,14 +41,6 @@ const IntegerNames = sequelize.define('IntegerNames', {
     type: DataTypes.STRING,
   },
 }, {});
-
-// OMG fuck this asynchronous bullshit:
-// https://stackoverflow.com/questions/39928452/execute-sequelize-queries-synchronously/43250120
-(async () => {
-
-// Connection sanity check.
-// https://stackoverflow.com/questions/19429152/check-mysql-connection-in-sequelize/31115934
-await sequelize.authenticate();
 
 // Create the database defined by `sequelize.define`.
 await IntegerNames.sync({force: true})
@@ -91,6 +92,29 @@ let integerNames = await IntegerNames.findAll({
   }
 });
 assert(integerNames[0].name === 'two');
+
+// Truncate all tables.
+// https://stackoverflow.com/questions/47816162/wipe-all-tables-in-a-schema-sequelize-nodejs/66985334#66985334
+await sequelize.truncate();
+assert((await IntegerNames.findAll()).length === 0);
+
+// Datetime. Automatically converts to/from date objects.
+const Dates = sequelize.define('Dates', {
+  date: {
+    type: DataTypes.DATE,
+  },
+}, {});
+await Dates.sync({force: true})
+let dateCreate = await Dates.create({date: new Date(2000, 0, 1, 2, 3, 4, 5)});
+await Dates.create({date: new Date(2000, 0, 1, 2, 3, 4, 6)});
+await Dates.create({date: new Date(2000, 0, 1, 2, 3, 4, 7)});
+let date = await Dates.findOne({
+  order: [
+    ['date', 'ASC'],
+  ],
+});
+assert(date.date.getTime() === new Date(2000, 0, 1, 2, 3, 4, 5).getTime());
+assert(date.date.getTime() === dateCreate.date.getTime());
 
 // Otherwise it hangs for 10 seconds, it seems that it keeps the connection alive.
 // https://stackoverflow.com/questions/28253831/recreating-database-sequelizejs-is-slow
