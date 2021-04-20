@@ -3,7 +3,6 @@ var assert = require('assert');
 describe('describe0', function() {
   // Only runs before the current describe.
   before(async () => {
-    myhelper();
     console.error('before describe 0');
   });
   beforeEach(async () => {

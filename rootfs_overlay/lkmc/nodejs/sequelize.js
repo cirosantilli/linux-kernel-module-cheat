@@ -17,11 +17,19 @@ const { Sequelize, DataTypes } = require('sequelize');
 // To use the URI syntax, we need an explcit username and password.
 // But the second constructor works with peer authentication.
 // https://stackoverflow.com/questions/46207155/sequelize-and-peer-authentication-for-postgres
+//
+// Fails
 //const sequelize = new Sequelize('postgres://user:password@localhost:5432/lkmc-nodejs')
-const sequelize = new Sequelize('lkmc-nodejs', undefined, undefined, {
-  host: '/var/run/postgresql',
-  dialect: 'postgres',
-  logging: false,
+//
+// Works with peer authentication:
+//const sequelize = new Sequelize('lkmc-nodejs', undefined, undefined, {
+//  host: '/var/run/postgresql',
+//  dialect: 'postgres',
+//  logging: false,
+//});
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: 'tmp.sequelize.sqlite',
 });
 
 // OMG fuck this asynchronous bullshit:

@@ -15,8 +15,9 @@ exports.mochaHooks = {
   },
 };
 
+// TODO don't know a better way to make this available
+// to test files than just requiring it by relative path.
 function myhelper() {
   console.error('myhelper');
 }
-
 exports.myhelper = myhelper;
