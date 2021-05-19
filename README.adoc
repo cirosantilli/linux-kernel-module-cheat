@@ -11013,62 +11013,33 @@ By comparing the terminal output of both runs, we can see that they are the exac
 * timestamps of dmesg output
 * <<rand-check-out>> output
 
-The record and replay feature was revived around QEMU v3.0.0. It existed earlier but it rot completely. As of v3.0.0 it is still flaky: sometimes we get deadlocks, and only a limited number of command line arguments are supported.
+The record and replay feature was revived around QEMU v3.0.0. In v5.2.0 it is quite usable, almost all peripherals and vCPUs are supported.
 
-Documented at: https://github.com/qemu/qemu/blob/v2.12.0/docs/replay.txt
+Documented at: https://github.com/qemu/qemu/blob/v5.2.0/docs/replay.txt
 
-TODO: using `-r` as above leads to a kernel warning:
-
-....
-rcu_sched detected stalls on CPUs/tasks
-....
-
-TODO: replay deadlocks intermittently at disk operations, last kernel message:
-
-....
-EXT4-fs (sda): re-mounted. Opts: block_validity,barrier,user_xattr
-....
-
-TODO replay with network gets stuck:
+replay may be used with with network:
 
 ....
 ./qemu-rr --eval-after 'ifup -a;wget -S google.com;./linux/poweroff.out;'
 ....
 
-after the message:
+`arm` and `aarch64` targets can also be used with rr:
 
 ....
-adding dns 10.0.2.3
+./qemu-rr --arch aarch64 --eval-after './linux/rand_check.out;./linux/poweroff.out;'
+./qemu-rr --arch aarch64 --eval-after 'ifup -a;wget -S google.com;./linux/poweroff.out;'
 ....
 
-There is explicit network support on the QEMU patches, but either it is buggy or we are not using the correct magic options.
-
-Solved on unmerged c42634d8e3428cfa60672c3ba89cabefc720cde9 from https://github.com/ispras/qemu/tree/rr-180725
-
-TODO `arm` and `aarch64` only seem to work with initrd since I cannot plug a working IDE disk device? See also: https://lists.gnu.org/archive/html/qemu-devel/2018-02/msg05245.html
-
-Then, when I tried with <<initrd>> and no disk:
+Replay also supports <<initrd>> and no disk:
 
 ....
 ./build-buildroot --arch aarch64 --initrd
 ./qemu-rr --arch aarch64 --eval-after './linux/rand_check.out;./linux/poweroff.out;' --initrd
 ....
 
-QEMU crashes with:
-
-....
-ERROR:replay/replay-time.c:49:replay_read_clock: assertion failed: (replay_file && replay_mutex_locked())
-....
-
-I had the same error previously on x86-64, but it was fixed: https://bugs.launchpad.net/qemu/+bug/1762179 so maybe the forgot to fix it for `aarch64`?
-
-Solved on unmerged c42634d8e3428cfa60672c3ba89cabefc720cde9 from https://github.com/ispras/qemu/tree/rr-180725
-
 ===== QEMU reverse debugging
 
-TODO get working.
-
-QEMU replays support checkpointing, and this allows for a simplistic "reverse debugging" implementation proposed at https://lists.gnu.org/archive/html/qemu-devel/2018-06/msg00478.html on the unmerged https://github.com/ispras/qemu/tree/rr-180725[]:
+QEMU replays support checkpointing, and this allows for a simplistic "reverse debugging" implementation since v5.2.0:
 
 ....
 ./run --eval-after './linux/rand_check.out;./linux/poweroff.out;' --record
@@ -11092,6 +11063,8 @@ reverse-continue
 ....
 
 and we are back at `start_kernel`
+
+`reverse-continue` proceeds to the latest of the earlier breakpoints or to the very beginning if there were no breakpoints before.
 
 ==== QEMU trace multicore
 

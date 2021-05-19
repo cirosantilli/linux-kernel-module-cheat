@@ -817,23 +817,20 @@ Extra options to append at the end of the emulator command line.
                     if rr:
                         driveif = 'none'
                         rrid = ',id=img-direct'
+                        rrid2 = ',id=img-direct2'
                         root = 'root=/dev/sda'
-                        snapshot = ''
+                        snapshot = ',snapshot'
                     else:
                         driveif = 'virtio'
                         root = 'root=/dev/vda'
                         rrid = ''
+                        rrid2 = ''
                         snapshot = ',snapshot'
                     if not self.env['baremetal']:
                         if not os.path.exists(self.env['qcow2_file']):
                             if not os.path.exists(self.env['rootfs_raw_file']):
                                 raise_rootfs_not_found()
                             self.raw_to_qcow2(qemu_which=self.env['qemu_which'])
-                        if rr:
-                            extra_emulator_args.extend([
-                            '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay', LF,
-                            '-device', 'ide-hd,drive=img-blkreplay', LF,
-                        ])
                     if use_disk_image:
                         if os.path.splitext(self.env['disk_image'])[1] == '.qcow2':
                             disk_format = 'qcow2'
@@ -850,6 +847,15 @@ Extra options to append at the end of the emulator command line.
                             ),
                             LF,
                         ])
+                        hd_dev = 'ide-hd'
+                        if self.env['is_arm']:
+                            hd_dev = 'virtio-blk-device'
+                            root = 'root=/dev/vda'
+                        if rr:
+                            extra_emulator_args.extend([
+                            '-drive', 'driver=blkreplay,if=none,image=img-direct,id=img-blkreplay', LF,
+                            '-device', '{},drive=img-blkreplay'.format(hd_dev), LF,
+                        ])
                     if os.path.exists(self.env['disk_image_2']):
                         extra_emulator_args.extend([
                             '-drive',
@@ -858,9 +864,14 @@ Extra options to append at the end of the emulator command line.
                                 'raw',
                                 driveif,
                                 snapshot,
-                                rrid
+                                rrid2
                             ),
                             LF,
+                        ])
+                        if rr:
+                            extra_emulator_args.extend([
+                            '-drive', 'driver=blkreplay,if=none,image=img-direct2,id=img-blkreplay', LF,
+                            '-device', '{},drive=img-blkreplay2'.format(hd_dev), LF,
                         ])
                 if rr:
                     extra_emulator_args.extend([
