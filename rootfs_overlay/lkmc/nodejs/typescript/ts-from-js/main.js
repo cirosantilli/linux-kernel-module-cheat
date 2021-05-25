@@ -10,3 +10,4 @@ const notmain = require('./notmain');
 
 assert(notmain.x === 1);
 assert(notmain.y === 2);
+assert(notmain.z === 3);
