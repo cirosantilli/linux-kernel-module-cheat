@@ -44,7 +44,8 @@ await sequelize.authenticate();
 const IntegerNames = sequelize.define('IntegerNames', {
   value: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    unique: true,
   },
   name: {
     type: DataTypes.STRING,

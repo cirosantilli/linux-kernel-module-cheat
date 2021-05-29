@@ -9,6 +9,7 @@ const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: 'tmp.' + path.basename(__filename) + '.sqlite',
 });
+
 (async () => {
 const Comment = sequelize.define('Comment', {
   body: { type: DataTypes.STRING },
@@ -45,7 +46,10 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
   const u0Comments = await Comment.findAll({
     where: { UserId: u0.id },
     order: [['id', 'ASC']],
-    include: [{ model: User }],
+    include: User,
+    // Equivalent alternatives in this case.
+    //include: [User],
+    //include: [{ model: User }],
   });
   assert(u0Comments[0].body === 'u0c0');
   assert(u0Comments[1].body === 'u0c1');
@@ -58,6 +62,7 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
 
 // Nicer higher level way.
 {
+  console.log(Object.getOwnPropertyNames(u0));
   const u0Comments = await u0.getComments({
     include: [{ model: User }],
   });
@@ -79,14 +84,65 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
 }
 
 // Removal auto-cascades.
-const u0id = u0.id
-await u0.destroy()
-assert((await Comment.findAll({
-  where: { UserId: u0id },
-})).length === 0);
-assert((await Comment.findAll({
-  where: { UserId: u1.id },
-})).length === 1);
+{
+  const u0id = u0.id
+  await u0.destroy()
+  assert((await Comment.findAll({
+    where: { UserId: u0id },
+  })).length === 0);
+  assert((await Comment.findAll({
+    where: { UserId: u1.id },
+  })).length === 1);
+}
+
+// as aliases.
+// Allows us to use a nicer name for a relation rather than the exact class name.
+// E.g. here we name the User of a Comment as a "author".
+// And mandatory do diambiguate multiple associations with a single type.
+{
+  const CommentAs = sequelize.define('CommentAs', {
+    body: { type: DataTypes.STRING },
+  }, {});
+  const UserAs = sequelize.define('UserAs', {
+    name: { type: DataTypes.STRING },
+  }, {});
+  UserAs.hasMany(CommentAs)
+  CommentAs.belongsTo(UserAs, {as: 'author'})
+  await sequelize.sync({force: true});
+  const u0 = await UserAs.create({name: 'u0'})
+  const u1 = await UserAs.create({name: 'u1'})
+  await CommentAs.create({body: 'u0c0', authorId: u0.id});
+  await CommentAs.create({body: 'u0c1', authorId: u0.id});
+  await CommentAs.create({body: 'u1c0', authorId: u1.id});
+
+  {
+    const u0Comments = await CommentAs.findAll({
+      where: { authorId: u0.id },
+      order: [['id', 'ASC']],
+      // Instead of include: UserAs
+      include: 'author',
+    });
+    assert(u0Comments[0].body === 'u0c0');
+    assert(u0Comments[1].body === 'u0c1');
+    assert(u0Comments[0].authorId === u0.id);
+    assert(u0Comments[1].authorId === u0.id);
+    assert(u0Comments[0].author.name === 'u0');
+    assert(u0Comments[1].author.name === 'u0');
+  }
+
+  // Trying with the higher level getter.
+  {
+    // TODO
+    // u0.getComments is not a function
+    //const u0Comments = await u0.getComments({
+    //  include: 'author',
+    //});
+    //assert(u0Comments[0].body === 'u0c0');
+    //assert(u0Comments[1].body === 'u0c1');
+    //assert(u0Comments[0].author.name === 'u0');
+    //assert(u0Comments[1].author.name === 'u0');
+  }
+}
 
 await sequelize.close();
 })();
