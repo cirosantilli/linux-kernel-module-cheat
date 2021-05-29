@@ -11,6 +11,7 @@
 //   ``
 
 const assert = require('assert');
+const path = require('path');
 
 const { Sequelize, DataTypes } = require('sequelize');
 
@@ -29,7 +30,7 @@ const { Sequelize, DataTypes } = require('sequelize');
 //});
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: 'tmp.sequelize.sqlite',
+  storage: 'tmp.' + path.basename(__filename) + '.sqlite',
 });
 
 // OMG fuck this asynchronous bullshit:
