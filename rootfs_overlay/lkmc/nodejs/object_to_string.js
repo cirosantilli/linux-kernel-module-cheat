@@ -29,15 +29,19 @@ let my_object = new MyClassUtilInspectCustom(1, 2, new MyClassUtilInspectCustomS
 // Affected.
 console.log('util.inspect');
 console.log(util.inspect(my_object));
+console.log();
 // Affected.
 console.log('console.log');
 console.log(my_object);
+console.log();
 // Not affected.
 console.log('toString');
 console.log(my_object.toString());
+console.log();
 // Not affected.
 console.log('toString implicit +');
 console.log('implicit ' + my_object);
+console.log();
 // Not affected.
 console.log('template string');
 console.log(`${my_object}`);
@@ -68,15 +72,20 @@ my_object = new MyClassToString(1, 2, new MyClassToStringSubobject(3, 4));
 // Affected.
 console.log('util.inspect');
 console.log(util.inspect(my_object));
+console.log();
 // Affected.
 console.log('console.log');
 console.log(my_object);
+console.log();
 // Affected.
 console.log('toString');
 console.log(my_object.toString());
+console.log();
 // Affected.
 console.log('toString implicit +');
 console.log('implicit ' + my_object);
+console.log();
 // Affected.
 console.log('template string');
 console.log(`${my_object}`);
+console.log();

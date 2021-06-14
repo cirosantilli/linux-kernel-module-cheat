@@ -65,6 +65,7 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
   console.log(Object.getOwnPropertyNames(u0));
   const u0Comments = await u0.getComments({
     include: [{ model: User }],
+    order: [['id', 'ASC']],
   });
   assert(u0Comments[0].body === 'u0c0');
   assert(u0Comments[1].body === 'u0c1');
@@ -143,6 +144,5 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
     //assert(u0Comments[1].author.name === 'u0');
   }
 }
-
 await sequelize.close();
 })();
