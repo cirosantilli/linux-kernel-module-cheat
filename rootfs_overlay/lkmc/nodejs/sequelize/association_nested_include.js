@@ -37,7 +37,7 @@ const users = await User.bulkCreate([
 
 const posts = await Post.bulkCreate([
   {body: 'body00', UserId: users[0].id},
-  {body: 'body11', UserId: users[0].id},
+  {body: 'body01', UserId: users[0].id},
   {body: 'body10', UserId: users[1].id},
   {body: 'body11', UserId: users[1].id},
   {body: 'body20', UserId: users[2].id},
@@ -108,7 +108,6 @@ await users[0].addFollows([users[1], users[2]])
     postsFound.push(...followedUser.Posts)
   }
   postsFound.sort((x, y) => { return x.body < y.body ? -1 : x.body > y.body ? 1 : 0 })
-  // Note that what happens is that some of the
   assert(postsFound[0].body === 'body11')
   assert(postsFound[1].body === 'body20')
   assert(postsFound.length === 2)
@@ -229,6 +228,37 @@ await users[0].addFollows([users[1], users[2]])
     assert(postsFound[3].body === 'body1')
     assert(postsFound.length === 4)
   }
+
+  //// This is likely almost it. We just have to understand the undocumented custom on:
+  //// to specify from which side of the UserFollowsUser we are coming.
+  //{
+  //  const postsFound = await Post.findAll({
+  //    order: [[
+  //      'body',
+  //      'DESC'
+  //    ]],
+  //    subQuery: false,
+  //    include: [
+  //      {
+  //        model: User,
+  //        on: {'id': '$Post.User.FollowId$'},
+  //        include: [
+  //          {
+  //            model: User,
+  //            as: 'Follows',
+  //            where: {id: users[0].id},
+  //          }
+  //        ],
+  //      },
+  //    ],
+  //  })
+  //  console.error(postsFound.length);
+  //  assert.strictEqual(postsFound[0].body, 'body6')
+  //  assert.strictEqual(postsFound[1].body, 'body5')
+  //  assert.strictEqual(postsFound[0].body, 'body1')
+  //  assert.strictEqual(postsFound[1].body, 'body2')
+  //  assert.strictEqual(postsFound.length, 4)
+  //}
 }
 
 await sequelize.close();
