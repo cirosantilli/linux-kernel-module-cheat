@@ -96,7 +96,7 @@ await IntegerNames.create({value: 5, name: 'five'});
 //   3 |     5 | five  | 2021-03-19 19:12:08.437+00 | 2021-03-19 19:12:08.437+00
 // (3 rows)
 
-let integerNames = await IntegerNames.findAll({
+const integerNames = await IntegerNames.findAll({
   where: {
     value: 2
   }
