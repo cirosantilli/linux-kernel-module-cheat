@@ -11,6 +11,9 @@ const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: 'tmp.' + path.basename(__filename) + '.sqlite',
+  define: {
+    timestamps: false
+  },
 });
 
 (async () => {
@@ -18,10 +21,10 @@ const sequelize = new Sequelize({
 // Create the tables.
 const User = sequelize.define('User', {
   name: { type: DataTypes.STRING },
-}, {});
+});
 const Post = sequelize.define('Post', {
   body: { type: DataTypes.STRING },
-}, {});
+});
 User.belongsToMany(User, {through: 'UserFollowUser', as: 'Follows'});
 User.hasMany(Post);
 Post.belongsTo(User);
@@ -173,6 +176,31 @@ await users[0].addFollows([users[1], users[2]])
   assert(user0FollowsLimit2[0].name === 'user1')
   assert(user0FollowsLimit2.length === 1)
 
+  // Get just the count of the posts authored by useres followed by user0.
+  // attributes: [] excludes all other data from the SELECT of the querries
+  // to optimize things a bit.
+  // https://stackoverflow.com/questions/37817808/counting-associated-entries-with-sequelize
+  {
+    const user0Follows = await User.findByPk(users[0].id, {
+      attributes: [
+        [Sequelize.fn('COUNT', Sequelize.col('Follows.Posts.id')), 'count']
+      ],
+      include: [
+        {
+          model: User,
+          as: 'Follows',
+          attributes: [],
+          through: {attributes: []},
+          include: [{
+              model: Post,
+              attributes: [],
+          }],
+        },
+      ],
+    })
+    assert.strictEqual(user0Follows.dataValues.count, 4);
+  }
+
   // Case in which our post-sorting is needed.
   // TODO: possible to get sequelize to do this for us by returning
   // a flat array directly?
@@ -229,36 +257,37 @@ await users[0].addFollows([users[1], users[2]])
     assert(postsFound.length === 4)
   }
 
-  //// This is likely almost it. We just have to understand the undocumented custom on:
-  //// to specify from which side of the UserFollowsUser we are coming.
-  //{
-  //  const postsFound = await Post.findAll({
-  //    order: [[
-  //      'body',
-  //      'DESC'
-  //    ]],
-  //    subQuery: false,
-  //    include: [
-  //      {
-  //        model: User,
-  //        on: {'id': '$Post.User.FollowId$'},
-  //        include: [
-  //          {
-  //            model: User,
-  //            as: 'Follows',
-  //            where: {id: users[0].id},
-  //          }
-  //        ],
-  //      },
-  //    ],
-  //  })
-  //  console.error(postsFound.length);
-  //  assert.strictEqual(postsFound[0].body, 'body6')
-  //  assert.strictEqual(postsFound[1].body, 'body5')
-  //  assert.strictEqual(postsFound[0].body, 'body1')
-  //  assert.strictEqual(postsFound[1].body, 'body2')
-  //  assert.strictEqual(postsFound.length, 4)
-  //}
+  //// This almost achieves the flat array return. We just have to understand the undocumented custom on:
+  //// to specify from which side of the UserFollowsUser we are coming. The on:
+  //// is ignored without super many to many unfortunately, the below just returns all posts.
+  {
+    const postsFound = await Post.findAll({
+      order: [[
+        'body',
+        'DESC'
+      ]],
+      subQuery: false,
+      include: [
+        {
+          model: User,
+          //on: {idasdf: '$Post.User.FollowId$'},
+          include: [
+            {
+              model: User,
+              as: 'Follows',
+              where: {id: users[0].id},
+            }
+          ],
+        },
+      ],
+    })
+    console.error(postsFound.length);
+    //assert.strictEqual(postsFound[0].body, 'body6')
+    //assert.strictEqual(postsFound[1].body, 'body5')
+    //assert.strictEqual(postsFound[2].body, 'body2')
+    //assert.strictEqual(postsFound[3].body, 'body1')
+    assert.strictEqual(postsFound.length, 4)
+  }
 }
 
 await sequelize.close();

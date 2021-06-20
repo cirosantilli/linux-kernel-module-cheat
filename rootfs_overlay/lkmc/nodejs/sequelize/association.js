@@ -13,12 +13,13 @@ const sequelize = new Sequelize({
 (async () => {
 const Comment = sequelize.define('Comment', {
   body: { type: DataTypes.STRING },
-}, {});
+});
 const User = sequelize.define('User', {
   name: { type: DataTypes.STRING },
-}, {});
+});
 User.hasMany(Comment)
 Comment.belongsTo(User)
+console.dir(User);
 await sequelize.sync({force: true});
 const u0 = await User.create({name: 'u0'})
 const u1 = await User.create({name: 'u1'})
@@ -62,7 +63,6 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
 
 // Nicer higher level way.
 {
-  console.log(Object.getOwnPropertyNames(u0));
   const u0Comments = await u0.getComments({
     include: [{ model: User }],
     order: [['id', 'ASC']],
@@ -73,15 +73,16 @@ await Comment.create({body: 'u1c0', UserId: u1.id});
   assert(u0Comments[1].User.name === 'u0');
 }
 
-// No way to create new item with association without explicit foreign key??
+// If you REALLY wanted to not repeat the UserId magic constant everywhere, you could use User.associations.Comments.foreignKey
+// But it is such a mouthful, that nobody likely ever uses it?
 // https://stackoverflow.com/questions/34059081/how-do-i-reference-an-association-when-creating-a-row-in-sequelize-without-assum
-// This does not work as we would like:
 {
-  await Comment.create({body: 'u0c2', User: u0});
-  // We'd want 3 here.
+  await Comment.create({body: 'u0c2', [User.associations.Comments.foreignKey]: u0.id});
+  // Syntax that we really would like instead.
+  //await Comment.create({body: 'u0c2', User: u0});
   assert((await Comment.findAll({
-    where: { UserId: u0.id },
-  })).length === 2);
+    where: { [User.associations.Comments.foreignKey]: u0.id },
+  })).length === 3);
 }
 
 // Removal auto-cascades.

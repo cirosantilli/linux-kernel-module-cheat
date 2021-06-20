@@ -108,11 +108,27 @@ const post2Followers = await post2.getFollowers({order: [['name', 'ASC']]})
 assert(post2Followers.length === 0);
 
 // Same as getLikedPosts but with the user ID instead of the model object.
+// as is mandatory to disambiguate which one we want to get.
 {
   const user0Likes = await Post.findAll({
     include: [{
       model: User,
       as: 'likers',
+      where: {id: user0.id},
+    }],
+    order: [['body', 'ASC']],
+  })
+  assert(user0Likes[0].body === 'post0');
+  assert(user0Likes[1].body === 'post1');
+  assert(user0Likes.length === 2);
+}
+
+// Alternatively, we can also pass the association object instead of model + as.
+// This is actually nicer!
+{
+  const user0Likes = await Post.findAll({
+    include: [{
+      association: Post.associations.likers,
       where: {id: user0.id},
     }],
     order: [['body', 'ASC']],

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-// https://stackoverflow.com/questions/22958683/how-to-implement-many-to-many-association-in-sequelize/67973948#67973948
+// Like association_many_to_many_same_model but with a super many to many,
+// i.e. explicit through table relations).
 
 const assert = require('assert');
 const path = require('path');
 
-const { Sequelize, DataTypes } = require('sequelize');
+const { Sequelize, DataTypes, Op } = require('sequelize');
 
 const sequelize = new Sequelize({
   dialect: 'sqlite',
@@ -20,8 +21,30 @@ const sequelize = new Sequelize({
 // Create the tables.
 const User = sequelize.define('User', {
   name: { type: DataTypes.STRING },
-}, {});
-User.belongsToMany(User, {through: 'UserFollowUser', as: 'Follows'});
+});
+const UserFollowUser = sequelize.define('UserFollowUser', {
+    UserId: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: User,
+        key: 'id'
+      }
+    },
+    FollowId: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: User,
+        key: 'id'
+      }
+    },
+  }
+);
+
+// Super many to many. Only works with explicit table for some reason.
+User.belongsToMany(User, {through: UserFollowUser, as: 'Follows'});
+UserFollowUser.belongsTo(User)
+User.hasMany(UserFollowUser)
+
 await sequelize.sync({force: true});
 
 // Create some users.
@@ -30,14 +53,11 @@ const user0 = await User.create({name: 'user0'})
 const user1 = await User.create({name: 'user1'})
 const user2 = await User.create({name: 'user2'})
 const user3 = await User.create({name: 'user3'})
-
-// Make user0 follow user1 and user2
 await user0.addFollows([user1, user2])
-// Make user2 and user3 follow user0
 await user2.addFollow(user0)
 await user3.addFollow(user0)
 
-// Check that the follows worked.
+// Find all users that a user follows.
 const user0Follows = await user0.getFollows({order: [['name', 'ASC']]})
 assert(user0Follows[0].name === 'user1');
 assert(user0Follows[1].name === 'user2');
@@ -54,8 +74,7 @@ const user3Follows = await user3.getFollows({order: [['name', 'ASC']]})
 assert(user3Follows[0].name === 'user0');
 assert(user3Follows.length === 1);
 
-// Same but with ID instead of object.
-// Also get rid of all useless fields from the trough table.
+// Same but with explicit id.
 {
   const user0Follows = (await User.findOne({
     where: {id: user0.id},
@@ -71,54 +90,25 @@ assert(user3Follows.length === 1);
   assert(user0Follows.length === 2);
 }
 
-//// Yet another method with the many-to-many reversed.
-//// TODO close to working, but on is being ignored...
-//{
-//  const user0Follows = await User.findAll({
-//    include: [{
-//      model: User,
-//      as: 'Follows',
-//      on: {
-//        '$User.UserFollowUser.FollowIdasdf$': { [Sequelize.Op.col]: 'User.user_id' },
-//        '$User.UserFollowUser.UserId$': user0.id,
-//      },
-//      attributes: [],
-//      through: {attributes: []},
-//    }],
-//    order: [['name', 'ASC']],
-//  })
-//  // TODO
-//  //assert(user0Follows[0].name === 'user1');
-//  //assert(user0Follows[1].name === 'user2');
-//  //assert(user0Follows.length === 2);
-//}
-
-// Find users that follow user0
+// Another method with the many-to-many reversed.
+// Using the super many to many is the only way I know of doing this so far.
+// which is a pain.
 {
-  const followsUser0 = await User.findAll({
+  const user0Follows = await User.findAll({
     include: [{
-      model: User,
-      as: 'Follows',
-      where: {id: user0.id},
+      model: UserFollowUser,
       attributes: [],
-      through: {attributes: []}
+      on: {
+        FollowId: { [Op.col]: 'User.id' },
+      },
+      where: {UserId: user0.id}
     }],
     order: [['name', 'ASC']],
   })
-  assert(followsUser0[0].name === 'user2');
-  assert(followsUser0[1].name === 'user3');
-  assert(followsUser0.length === 2);
+  assert(user0Follows[0].name === 'user1');
+  assert(user0Follows[1].name === 'user2');
+  assert(user0Follows.length === 2);
 }
-
-// has methods
-assert(!await user0.hasFollow(user0))
-assert(!await user0.hasFollow(user0.id))
-assert( await user0.hasFollow(user1))
-assert( await user0.hasFollow(user2))
-assert(!await user0.hasFollow(user3))
-
-// Count method
-assert(await user0.countFollows() === 2)
 
 await sequelize.close();
 })();

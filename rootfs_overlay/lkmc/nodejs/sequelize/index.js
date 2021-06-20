@@ -50,7 +50,7 @@ const IntegerNames = sequelize.define('IntegerNames', {
   name: {
     type: DataTypes.STRING,
   },
-}, {});
+});
 
 // Create the database defined by `sequelize.define`.
 await IntegerNames.sync({force: true})
