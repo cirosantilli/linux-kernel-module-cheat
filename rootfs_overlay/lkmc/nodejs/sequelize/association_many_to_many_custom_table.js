@@ -17,10 +17,10 @@ const sequelize = new Sequelize({
 // Create the tables.
 const User = sequelize.define('User', {
   name: { type: DataTypes.STRING },
-}, {});
+});
 const Post = sequelize.define('Post', {
   body: { type: DataTypes.STRING },
-}, {});
+});
 const UserLikesPost = sequelize.define('UserLikesPost', {
   UserId: {
     type: DataTypes.INTEGER,

@@ -72,7 +72,7 @@ const posts = await Post.bulkCreate([
 await users[0].addFollows([users[1], users[2]])
 
 // Get all the posts by authors that user0 follows.
-// without post process sorting. We only managed to to this
+// without any post process sorting. We only managed to to this
 // with a super many to many, because that allows us to specify
 // a reversed order in the through table with `on`, since we need to
 // match with `FollowId` and not `UserId`.
@@ -100,7 +100,6 @@ await users[0].addFollows([users[1], users[2]])
       },
     ],
   })
-  console.error(postsFound.length);
   assert.strictEqual(postsFound[0].body, 'body6')
   assert.strictEqual(postsFound[1].body, 'body5')
   assert.strictEqual(postsFound[2].body, 'body2')

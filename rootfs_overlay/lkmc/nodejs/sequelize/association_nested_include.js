@@ -80,10 +80,9 @@ await users[0].addFollows([users[1], users[2]])
   assert(postsFound.length === 4)
 }
 
-// With ordering, offset and limit.
+// Similar to the above, but now with ordering, offset and limit.
 // The posts are placed inside their respetive authors under .Posts
 // The only difference is that posts that we didn't select got removed.
-
 {
   const user0Follows = (await User.findByPk(users[0].id, {
     offset: 1,
@@ -257,9 +256,10 @@ await users[0].addFollows([users[1], users[2]])
     assert(postsFound.length === 4)
   }
 
-  //// This almost achieves the flat array return. We just have to understand the undocumented custom on:
-  //// to specify from which side of the UserFollowsUser we are coming. The on:
-  //// is ignored without super many to many unfortunately, the below just returns all posts.
+  // This almost achieves the flat array return. We just have to understand the undocumented custom on:
+  // to specify from which side of the UserFollowsUser we are coming. The on:
+  // is ignored without super many to many unfortunately, the below just returns all posts.
+  // We only managed to achieve this with super many to many so far.
   {
     const postsFound = await Post.findAll({
       order: [[
@@ -281,7 +281,7 @@ await users[0].addFollows([users[1], users[2]])
         },
       ],
     })
-    console.error(postsFound.length);
+    //console.error(postsFound.length);
     //assert.strictEqual(postsFound[0].body, 'body6')
     //assert.strictEqual(postsFound[1].body, 'body5')
     //assert.strictEqual(postsFound[2].body, 'body2')
