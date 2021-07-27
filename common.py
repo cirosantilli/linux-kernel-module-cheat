@@ -53,8 +53,10 @@ if consts['in_docker']:
 else:
     consts['out_dir'] = os.path.join(consts['root_dir'], 'out')
 consts['readme'] = os.path.join(consts['root_dir'], 'README.adoc')
+consts['out_doc_dir'] = os.path.join(consts['out_dir'], 'doc')
 consts['readme_out'] = os.path.join(consts['out_dir'], 'README.html')
 consts['build_doc_log'] = os.path.join(consts['out_dir'], 'build-doc.log')
+consts['build_doc_multipage_log'] = os.path.join(consts['out_dir'], 'build-doc-multipage.log')
 consts['gem5_out_dir'] = os.path.join(consts['out_dir'], 'gem5')
 consts['kernel_modules_build_base_dir'] = os.path.join(consts['out_dir'], 'kernel_modules')
 consts['buildroot_out_dir'] = os.path.join(consts['out_dir'], 'buildroot')

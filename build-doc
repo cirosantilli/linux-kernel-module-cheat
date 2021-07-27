@@ -32,21 +32,36 @@ from the README to example sources to GitHub rather than locally.
             link_target_script = 'link-target-github.rb'
         else:
             link_target_script = 'link-target-up.rb'
+        common_cmd = [
+            'bundle', LF,
+            'exec', LF,
+            'asciidoctor', LF,
+            '--attribute', 'docinfo=shared', LF,
+            '--failure-level', 'info', LF,
+            '--require', os.path.join(asciidoctor_dir, link_target_script), LF,
+            '--trace', LF,
+            '--verbose', LF,
+        ]
         exit_status = self.sh.run_cmd(
+            common_cmd +
             [
-                'asciidoctor', LF,
-                '--attribute', 'docinfo=shared', LF,
-                '--failure-level', 'info', LF,
-                '--require', os.path.join(asciidoctor_dir, link_target_script), LF,
                 '--out-file', self.env['readme_out'], LF,
-                '--trace', LF,
-                '--verbose', LF,
-            ] +
-            [
                 self.env['readme'], LF,
             ],
             out_file=self.env['build_doc_log'],
         )
+        if exit_status == 0:
+            exit_status = self.sh.run_cmd(
+                common_cmd +
+                [
+                    '-D', self.env['out_doc_dir'], LF,
+                    '-a', 'multipage-level=6', LF,
+                    '-b', 'multipage_html5', LF,
+                    '-r', 'asciidoctor-multipage', LF,
+                    self.env['readme'], LF,
+                ],
+                out_file=self.env['build_doc_multipage_log'],
+            )
 
         # Check that all local files linked from README exist.
         external_link_re = re.compile('^https?://')
