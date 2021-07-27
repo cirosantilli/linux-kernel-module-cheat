@@ -451,246 +451,333 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="msi-cache-coherence-protocol" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="msi-cache-coherence-protocol"><a class="anchor" href="#msi-cache-coherence-protocol"></a><a class="link" href="#msi-cache-coherence-protocol">37.6.1.4. MSI cache coherence protocol</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p><a href="https://en.wikipedia.org/wiki/MSI_protocol" class="bare">https://en.wikipedia.org/wiki/MSI_protocol</a></p>
 </div>
 <div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>This is the most basic non-trivial coherency protocol, and therefore the first one you should learn.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
-</div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>Compared to the <a href="vi-cache-coherence-protocol.html">VI cache coherence protocol</a>, MSI:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
+<p>adds one bit of knowledge per cache line (shared)</p>
 </li>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
+<p>splits Valid into Modified and Shared depending on the shared bit</p>
 </li>
 <li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
+<p>this allows us to not send BusUpgr messages on the bus when writing to Modified, since we now we know that the data is not present in any other cache!</p>
 </li>
 </ul>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>Helpful video: <a href="https://www.youtube.com/watch?v=gAUVAel-2Fg" class="bare">https://www.youtube.com/watch?v=gAUVAel-2Fg</a> "MSI Coherence - Georgia Tech - HPCA: Part 5" by Udacity.</p>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s focus on a single cache line representing a given memory address.</p>
+</div>
+<div class="paragraph">
+<p>The system looks like this:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>+----+
+|DRAM|
++----+
+^
+|
+v
++--------+
+| BUS    |
++--------+
+^        ^
+|        |
+v        v
++------+ +------+
+|CACHE1| |CACHE2|
++------+ +------+
+^        ^
+|        |
+|        |
++----+   +----+
+|CPU1|   |CPU2|
++----+   +----+</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
-</div>
-</div>
+<div class="paragraph">
+<p>MSI stands for which states each cache can be in for a given cache line. The states are:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>Modified: a single cache has the valid data and it has been modified from DRAM.</p>
+<div class="paragraph">
+<p>Both reads and writes are free, because we don&#8217;t have to worry about other processors.</p>
+</div>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p>Shared: the data is synchronized with DRAM, and may be present in multiple caches.</p>
+<div class="paragraph">
+<p>Reads are free, but writes need to do extra work.</p>
+</div>
+<div class="paragraph">
+<p>This is the "most interesting" state of the protocol, as it allows for those free reads, even when multiple processors are using some address.</p>
+</div>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>Invalid: the cache does not have the data, CPU reads and writes need to do extra work</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>The above allowed states can be summarized in the following table:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>         CACHE1
+         MSI
+       M nny
+CACHE2 S nyy
+       I yyy</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The whole goal of the protocol is to maintain that state at all times, so that we can get those free reads when in shared state!</p>
+</div>
+<div class="paragraph">
+<p>To do so, the caches have to pass messages between themselves! This means generating bus traffic, which has a cost and must be kept to a minimum.</p>
+</div>
+<div class="paragraph">
+<p>The system components can receive and send the following messages:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>CPUn can send to CACHEn:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"Local read": CPU reads from cache</p>
+</li>
+<li>
+<p>"Local write": CPU writes to cache</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>CACHEn to itself:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"Evict": the cache is running out of space due to another request</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>CACHEn can send the following message to the bus.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"Bus read": the cache needs to get the data. The reply will contain the full data line. It can come either from another cache that has the data, or from DRAM if none do.</p>
+</li>
+<li>
+<p>"Bus write": the cache wants to modify some data, and it does not have the line.</p>
+<div class="paragraph">
+<p>The reply must contain the full data line, because maybe the processor just wants to change one byte, but the line is much larger.</p>
+</div>
+<div class="paragraph">
+<p>That&#8217;s why this request can also be called "Read Exclusive", as it is basically a "Bus Read" + "Invalidate" in one</p>
+</div>
+</li>
+<li>
+<p>"Invalidate": the cache wants to modify some data, but it knows that all other caches are up to date, because it is in shared state.</p>
+<div class="paragraph">
+<p>Therefore, it does not need to fetch the data, which saves bus traffic compared to "Bus write" since the data itself does not need to be sent.</p>
+</div>
+<div class="paragraph">
+<p>This is also called a Bus Upgrade message or BusUpgr, as it informs others that the value is going to be upgraded.</p>
+</div>
+</li>
+<li>
+<p>"Write back": send the data on the bus and tell someone to pick it up: either DRAM or another cache</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When a message is sent to the bus:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>all other caches and the DRAM will see it, this is called "snooping"</p>
+</li>
+<li>
+<p>either caches or DRAM can reply if a reply is needed, but other caches get priority to reply earlier if they can, e.g. to serve a cache request from other caches rather than going all the way to DRAM</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When a cache receives a message, it do one or both of:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>change to another MSI state</p>
+</li>
+<li>
+<p>send a message to the bus</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>And finally, the transitions are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Modified:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"Local read": don&#8217;t need to do anything because only the current cache holds the data</p>
+</li>
+<li>
+<p>"Local write": don&#8217;t need to do anything because only the current cache holds the data</p>
+</li>
+<li>
+<p>"Evict": have to save data to DRAM so that our local modifications won&#8217;t be lost</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Move to: Invalid</p>
+</li>
+<li>
+<p>Send message: "Write back"</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>"Bus read": another cache is trying to read the address which we owned exclusively.</p>
+<div class="paragraph">
+<p>Since we know what the latest data is, we can move to "Shared" rather than "Invalid" to possibly save time on future reads.</p>
+</div>
+<div class="paragraph">
+<p>But to do that, we need to write the data back to DRAM to maintain the shared state consistent. The <a href="mesi-cache-coherence-protocol.html">MESI cache coherence protocol</a> prevents that extra read in some cases.</p>
+</div>
+<div class="paragraph">
+<p>And it has to be either: before the other cache gets its data from DRAM, or better, the other cache can get its data from our write back itself just like the DRAM.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Move to: Shared</p>
+</li>
+<li>
+<p>Send message: "Write back"</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>"Bus write": someone else will write to our address.</p>
+<div class="paragraph">
+<p>We don&#8217;t know what they will write, so the best bet is to move to invalid.</p>
+</div>
+<div class="paragraph">
+<p>Since the writer will become the new sole data owner, the writer can get the cache from us without going to DRAM at all! This is fine, because the writer will be the new sole owner of the line, so DRAM can remain dirty without problems.</p>
+</div>
+<div class="paragraph">
+<p>TODO Wikipedia requires a Flush there, why? <a href="https://electronics.stackexchange.com/questions/484830/why-is-a-flush-needed-in-the-msi-cache-coherency-protocol-when-moving-from-modif" class="bare">https://electronics.stackexchange.com/questions/484830/why-is-a-flush-needed-in-the-msi-cache-coherency-protocol-when-moving-from-modif</a></p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Move to: Invalid</p>
+</li>
+<li>
+<p>Send message: "Write back"</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Shared: TODO</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"Local read":</p>
+</li>
+<li>
+<p>"Local write":</p>
+</li>
+<li>
+<p>"Evict":</p>
+</li>
+<li>
+<p>"Bus read":</p>
+</li>
+<li>
+<p>"Bus write":</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Invalid: TODO</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"Local read":</p>
+</li>
+<li>
+<p>"Local write":</p>
+</li>
+<li>
+<p>"Evict":</p>
+</li>
+<li>
+<p>"Bus read":</p>
+</li>
+<li>
+<p>"Bus write":</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>TODO gem5 concrete example.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="msi-cache-coherence-protocol-with-transient-states.html">MSI cache coherence protocol with transient states</a></p>
+</li>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="vi-cache-coherence-protocol.html">VI cache coherence protocol</a> | ↑ Up: <a href="cache-coherence.html">Cache coherence</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="msi-cache-coherence-protocol-with-transient-states.html">MSI cache coherence protocol with transient states</a> →</p>
 </div>
 </div>
 <script>

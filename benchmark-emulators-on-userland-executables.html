@@ -451,246 +451,325 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="benchmark-emulators-on-userland-executables" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="benchmark-emulators-on-userland-executables"><a class="anchor" href="#benchmark-emulators-on-userland-executables"></a><a class="link" href="#benchmark-emulators-on-userland-executables">35.2.2. Benchmark emulators on userland executables</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>Let&#8217;s see how fast our simulators are running some well known or easy to understand userland benchmarks!</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>TODO: would be amazing to have an automated guest instructions per second count, but I&#8217;m not sure how to do that nicely for QEMU: <a href="qemu-get-guest-instruction-count.html">QEMU get guest instruction count</a>.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>TODO: automate this further, produce the results table automatically, possibly by generalizing <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/test-executables">test-executables</a>.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>For now we can just run on gem5 to estimate the instruction count per input size and extrapolate?</p>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>For example, the simplest scalable CPU content would be an <a href="c-busy-loop.html">C busy loop</a>, so let&#8217;s start by analyzing that one.</p>
+</div>
+<div class="paragraph">
+<p>Summary of manually collected results on <a href="p51.html">2017 Lenovo ThinkPad P51</a> at LKMC a18f28e263c91362519ef550150b5c9d75fa3679 + 1: <a href="benchmark-emulators-on-userland-executables.html#table-busy-loop-dmips">Table 7, &#8220;Busy loop MIPS for different simulator setups&#8221;</a>. As expected, the less native/more detailed/more complex simulations are slower!</p>
+</div>
+<table id="table-busy-loop-dmips" class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 7. Busy loop MIPS for different simulator setups</caption>
+<colgroup>
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+<col style="width: 10%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Comment</th>
+<th class="tableblock halign-left valign-top">LKMC</th>
+<th class="tableblock halign-left valign-top">Benchmark build</th>
+<th class="tableblock halign-left valign-top">Emulator command</th>
+<th class="tableblock halign-left valign-top">Loops</th>
+<th class="tableblock halign-left valign-top">Time (s)</th>
+<th class="tableblock halign-left valign-top">Instruction count</th>
+<th class="tableblock halign-left valign-top">Approximate MIPS</th>
+<th class="tableblock halign-left valign-top">Hardware version</th>
+<th class="tableblock halign-left valign-top">Host OS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Native busy loop</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a7ae8e6a8e29ef46d79eb9178d8599d1faeea0e5 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --emulator native --userland userland/gcc/busy_loop.c --cli-args 10000000000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^10</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">27</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="p51.html">2017 Lenovo ThinkPad P51</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ubuntu 20.04</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">QEMU aarch64 busy loop</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --userland userland/gcc/busy_loop.c --cli-args 10000000000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^10</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">68</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.1 * 10^11 (approx)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2000</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --static --userland userland/gcc/busy_loop.c --cli-args 1000000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">18</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.4005699 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.3</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 empty C program statically linked</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">eb22fd3b6e7fff7e9ef946a88b208debf5b419d5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/empty.c">userland/c/empty.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --static --userland userland/c/empty.c</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5475</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">872cb227fdc0b4d60acc7840889d567a6936b6e1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ubuntu 20.04</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 empty C program dynamically linked</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">eb22fd3b6e7fff7e9ef946a88b208debf5b419d5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/empty.c">userland/c/empty.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --userland userland/c/empty.c</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">106999</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">872cb227fdc0b4d60acc7840889d567a6936b6e1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ubuntu 20.04</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a debug build</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --gem5-build-type debug --static --userland userland/gcc/busy_loop.c --cli-args 100000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">33</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.405682 * 10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.07</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a fast build</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0d5a41a3f88fcd7ed40fc19474fe5aed0463663f + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0 -static</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --gem5-build-type fast --static --userland userland/gcc/busy_loop.c --cli-args 1000000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">15</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.4005699 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a <a href="gem5-cpu-types.html">TimingSimpleCPU</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --arch aarch64 --static --userland userland/gcc/busy_loop.c --cli-args 1000000 -- --cpu-type TimingSimpleCPU --caches</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">26</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.4005699 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.9</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a <a href="gem5-cpu-types.html">MinorCPU</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --arch aarch64 --userland userland/gcc/busy_loop.c --cli-args 1000000 -- --cpu-type MinorCPU --caches</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">31</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.1018152 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.4</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 busy loop for a <a href="gem5-cpu-types.html">DerivO3CPU</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --userland args 1000000 -- --cpu-type DerivO3CPU --caches</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">52</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.1018128 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a18f28e263c91362519ef550150b5c9d75fa3679 + 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --gem5-build-id MOESI_CMP_directory -- --cpu-type DerivO3CPU --caches --ruby</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 * 1000000 = 10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">63</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.1005150 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">glibc C pre-main effects</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/m5ops.c">userland/c/m5ops.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --cli-args e</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.26479 * 10^5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.05</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">glibc C pre-main <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/m5ops.c">userland/c/m5ops.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --cli-args e --gem5-build-type debug</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.26479 * 10^5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.05</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">glibc C++ pre-main <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/m5ops.cpp">userland/cpp/m5ops.cpp</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --cli-args e</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.385012 * 10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">glibc C++ pre-main <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/m5ops.cpp">userland/cpp/m5ops.cpp</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --cli-args e --gem5-build-type debug</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">25</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.385012 * 10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gem5 optimized build immediate exit on first instruction to benchmark the simulator startup time</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">immediate exit <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/freestanding/gem5_exit.S">userland/freestanding/gem5_exit.S</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">same as above but debug build</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ab6f7331406b22f8ab6e2df5f8b8e464fb35b611</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/freestanding/gem5_exit.S">userland/freestanding/gem5_exit.S</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gem5 --arch aarch64 --gem5-build-type debug</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check the effect of an ExecAll log (log every instruction) on execution time, compare to analogous run without it. <code>trace.txt</code> size: 3.5GB. 5x slowdown observed with output to a hard disk.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d29a07ddad499f273cc90dd66e40f8474b5dfc40</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/gcc/busy_loop.c">userland/gcc/busy_loop.c</a> <code>-O0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args 1000000 --gem5-worktree master --trace ExecAll</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10^6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.4106774 * 10^7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">136</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.2</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Same as above but with run command manually hacked to output to a ramfs. Slightly faster, but the bulk was still just in log format operations!</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The first step is to determine a number of loops that will run long enough to have meaningful results, but not too long that we will get bored, so about 1 minute.</p>
+</div>
+<div class="paragraph">
+<p>On our <a href="p51.html">2017 Lenovo ThinkPad P51</a> machine, we found 10^7 (10 million == 1000 times 10000) loops to be a good number for a gem5 atomic simulation:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./run --arch aarch64 --emulator gem5 --userland userland/gcc/busy_loop.c --cli-args '1 10000000'
+./gem5-stat --arch aarch64 sim_insts</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
-</div>
-</div>
+<div class="paragraph">
+<p>as it gives:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>time: 00:01:40</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>instructions: 110018162 ~ 110 millions</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>so ~ 110 million instructions / 100 seconds makes ~ 1 MIPS (million instructions per second).</p>
+</div>
+<div class="paragraph">
+<p>This experiment also suggests that each loop is about 11 instructions long (110M instructions / 10M loops), which we confirm at <a href="c-busy-loop.html">Section 36.2, &#8220;C busy loop&#8221;</a>, bingo!</p>
+</div>
+<div class="paragraph">
+<p>Then for QEMU, we experimentally turn the number of loops up to 10^10 loops (<code>100000 100000</code>), which contains an expected 11 * 10^10 instructions, and the runtime is 00:01:08, so we have 1.1 * 10^11 instruction / 68 seconds ~ 2 * 10^9 = 2000 MIPS!</p>
+</div>
+<div class="paragraph">
+<p>We can then repeat the experiment for other gem5 CPUs to see how they compare.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="user-mode-vs-full-system-benchmark.html">User mode vs full system benchmark</a></p>
+</li>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-x86-64-derivo3cpu-boot-panics.html">gem5 x86_64 DerivO3CPU boot panics</a> | ↑ Up: <a href="benchmark-this-repo-benchmarks.html">Benchmark this repo benchmarks</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="user-mode-vs-full-system-benchmark.html">User mode vs full system benchmark</a> →</p>
 </div>
 </div>
 <script>

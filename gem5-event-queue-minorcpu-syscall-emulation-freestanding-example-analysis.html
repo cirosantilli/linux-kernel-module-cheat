@@ -451,246 +451,191 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis"><a class="anchor" href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis"></a><a class="link" href="#gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis">24.22.4.7. gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>The events <a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis.html">for the Atomic CPU</a> were pretty simple: basically just ticks.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>But as we venture into <a href="gem5-cpu-types.html">more complex CPU models</a> such as <code>MinorCPU</code>, the events get much more complex and interesting.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>The memory system system part must be similar to that of <code>TimingSimpleCPU</code> that we previously studied <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a>: the main thing we want to see is how the CPU pipeline speeds up execution by preventing some memory stalls.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>The <a href="gem5-config-ini.html"><code>config.dot.svg</code></a> also indicates that: everything is exactly as in <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a>, except that the CPU is a <code>MinorCPU</code> instead of <code>TimingSimpleCPU</code>, and the <code>--caches</code> are now mandatory:</p>
 </div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace FmtFlag,Cache,Event,ExecAll,Minor \
+  --trace-stdout \
+  -- \
+  --cpu-type MinorCPU \
+  --caches \
+;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>and here&#8217;s a handy link to the source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/linux/hello.S">userland/arch/aarch64/freestanding/linux/hello.S</a>.</p>
 </div>
+<div class="paragraph">
+<p>On LKMC ce3ea9faea95daf46dea80d4236a30a0891c3ca5 gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 we see the following.</p>
+</div>
+<div class="paragraph">
+<p>First there is a missed instruction fetch for the initial entry address which we know from <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a> is the virtual address 0x400078 which maps to physical 0x78:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    500: Cache: system.cpu.icache: access for ReadReq [40:7f] IF miss</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The memory request comes back later on at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  77000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [40:7f] IF</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and soon after the CPU also ifetches across the barrier:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  79000: Cache: system.cpu.icache: access for ReadReq [80:bf] IF miss</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO why? We have 0x78 and 0x7c, and those should be it since we <a href="gem5-functional-units.html">are dual issue</a>, right? Is this prefetching at work?</p>
+</div>
+<div class="paragraph">
+<p>Later on we see the first instruction, our <a href="arm-mov-instruction.html">MOVZ</a>, was decoded:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  80000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/1/1.1 pc: 0x400078 (movz) to FU: 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and that issue succeeds, because the functional unit 0 (FU 0) is an <code>IntAlu</code> as shown at <a href="gem5-functional-units.html">gem5 functional units</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  80000: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/1/1.1 pc: 0x400078 (movz) into FU 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>At the very same tick, the second instruction is also decoded, our <a href="arm-adr-instruction.html">ADR</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  80000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/1/2.2 pc: 0x40007c (adr) to FU: 0
+  80000: MinorExecute: system.cpu.execute: Can't issue as FU: 0 is already busy
+  80000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/1/2.2 pc: 0x40007c (adr) to FU: 1
+  80000: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/1/2.2 pc: 0x40007c (adr) into FU 1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This is also an <code>IntAlu</code> instruction, and it can&#8217;t run on FU 0 because the first instruction is already running there. But to our luck, FU 1 is also an <code>IntAlu</code> unit, and so it runs there.</p>
+</div>
+<div class="paragraph">
+<p>Crap, those Minor logs should say what <code>OpClass</code> each instruction is, that would make things clearer.</p>
+</div>
+<div class="paragraph">
+<p>TODO what is that <code>0/1.1/1/1.1</code> notation that shows up everywhere? Must be important, let&#8217;s look at the source.</p>
+</div>
+<div class="paragraph">
+<p>Soon after (3 ticks later, so guessing due to <code>opLat=3</code>?), the execution appears to be over already since we see the <code>ExecAll</code> come through, which generally happens at the very end:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  81500: MinorExecute: system.cpu.execute: Attempting to commit [tid:0]
+  81500: MinorExecute: system.cpu.execute: Committing micro-ops for interrupt[tid:0]
+  81500: MinorExecute: system.cpu.execute: Trying to commit canCommitInsts: 1
+  81500: MinorExecute: system.cpu.execute: Trying to commit from FUs
+  81500: MinorExecute: global: ExecContext setting PC: (0x400078=&gt;0x40007c).(0=&gt;1)
+  81500: MinorExecute: system.cpu.execute: Committing inst: 0/1.1/1/1.1 pc: 0x400078 (movz)
+  81500: MinorExecute: system.cpu.execute: Unstalling 0 for inst 0/1.1/1/1.1
+  81500: MinorExecute: system.cpu.execute: Completed inst: 0/1.1/1/1.1 pc: 0x400078 (movz)
+  81500: MinorScoreboard: system.cpu.execute.scoreboard0: Clearing inst: 0/1.1/1/1.1 pc: 0x400078 (movz) regIndex: 0 final numResults: 0
+  81500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  FetchSeq=1  CPSeq=1  flags=(IsInteger)
+  81500: MinorExecute: system.cpu.execute: Trying to commit canCommitInsts: 1
+  81500: MinorExecute: system.cpu.execute: Trying to commit from FUs
+  81500: MinorExecute: global: ExecContext setting PC: (0x40007c=&gt;0x400080).(0=&gt;1)
+  81500: MinorExecute: system.cpu.execute: Committing inst: 0/1.1/1/2.2 pc: 0x40007c (adr)
+  81500: MinorExecute: system.cpu.execute: Unstalling 1 for inst 0/1.1/1/2.2
+  81500: MinorExecute: system.cpu.execute: Completed inst: 0/1.1/1/2.2 pc: 0x40007c (adr)
+  81500: MinorScoreboard: system.cpu.execute.scoreboard0: Clearing inst: 0/1.1/1/2.2 pc: 0x40007c (adr) regIndex: 1 final numResults: 0
+  81500: MinorExecute: system.cpu.execute: Reached inst commit limit
+  81500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  FetchSeq=2  CPSeq=2  flags=(IsInteger)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The ifetch for the third instruction returns at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre> 129000: Cache: system.cpu.icache: recvTimingResp: Handling response ReadResp [80:bf] IF</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so now we are ready to run the third and fourth instructions of the program:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    ldr x2, =len
+    mov x8, 64</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <a href="arm-ldr-instruction.html">LDR</a> goes all the way down to FU 6 which is the memory one:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre> 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 0
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 0 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 1
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 1 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 2
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 2 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 3
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 3 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 4
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 4 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 5
+ 132000: MinorExecute: system.cpu.execute: Can't issue as FU: 5 isn't capable
+ 132000: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) to FU: 6
+ 132000: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/2/3.3 pc: 0x400080 (ldr) into FU 6</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then the MOV issue follows soon afterwards (TODO why not at the same time like for the previous pair?):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre> 132500: MinorExecute: system.cpu.execute: Trying to issue inst: 0/1.1/2/4.4 pc: 0x400084 (movz) to FU: 0
+ 132500: MinorExecute: system.cpu.execute: Issuing inst: 0/1.1/2/4.4 pc: 0x400084 (movz) into FU 0</pre>
 </div>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
-</li>
-<li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><a href="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis-hazard.html">gem5 event queue MinorCPU syscall emulation freestanding example analysis: hazard</a></p>
 </li>
 </ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus-and-ruby.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby</a> | ↑ Up: <a href="gem5-event-queue.html">gem5 event queue</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis-hazard.html">gem5 event queue MinorCPU syscall emulation freestanding example analysis: hazard</a> →</p>
 </div>
 </div>
 <script>

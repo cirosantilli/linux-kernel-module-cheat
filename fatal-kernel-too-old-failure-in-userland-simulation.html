@@ -451,246 +451,62 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="fatal-kernel-too-old-failure-in-userland-simulation" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="fatal-kernel-too-old-failure-in-userland-simulation"><a class="anchor" href="#fatal-kernel-too-old-failure-in-userland-simulation"></a><a class="link" href="#fatal-kernel-too-old-failure-in-userland-simulation">11.4.1. FATAL: kernel too old failure in userland simulation</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>glibc has a check for kernel version, likely obtained from the <code>uname</code> syscall, and if the kernel is not new enough, it quits.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>Both gem5 and QEMU however allow setting the reported <code>uname</code> version from the command line, which we do to always match our toolchain.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>QEMU by default copies the host <code>uname</code> value, but we always override it in our scripts.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>Determining the right number to use for the kernel version is of course highly non-trivial and would require an extensive userland test suite, which most emulators don&#8217;t have.</p>
 </div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./run --arch aarch64 --kernel-version 4.18 --userland userland/posix/uname.c</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/posix/uname.c">userland/posix/uname.c</a>.</p>
 </div>
+<div class="paragraph">
+<p>The QEMU source that does this is at: <a href="https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931" class="bare">https://github.com/qemu/qemu/blob/v3.1.0/linux-user/syscall.c#L8931</a></p>
 </div>
+<div class="paragraph">
+<p>Bibliography:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><a href="https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m" class="bare">https://stackoverflow.com/questions/48959349/how-to-solve-fatal-kernel-too-old-when-running-gem5-in-syscall-emulation-se-m</a></p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p><a href="https://stackoverflow.com/questions/53085048/how-to-compile-and-run-an-executable-in-gem5-syscall-emulation-mode-with-se-py/53085049#53085049" class="bare">https://stackoverflow.com/questions/53085048/how-to-compile-and-run-an-executable-in-gem5-syscall-emulation-mode-with-se-py/53085049#53085049</a></p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><a href="https://gem5-review.googlesource.com/c/public/gem5/+/15855" class="bare">https://gem5-review.googlesource.com/c/public/gem5/+/15855</a></p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>The ID is just hardcoded on the source:</p>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="user-mode-simulation-with-glibc.html">User mode simulation with glibc</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="stack-smashing-detected-when-using-glibc.html">stack smashing detected when using glibc</a> →</p>
 </div>
 </div>
 <script>

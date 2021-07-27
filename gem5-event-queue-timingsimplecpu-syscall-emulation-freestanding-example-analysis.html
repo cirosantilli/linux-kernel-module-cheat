@@ -451,246 +451,389 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis"><a class="anchor" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis"></a><a class="link" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis">24.22.4.2. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>Now, let&#8217;s move on to <code>TimingSimpleCPU</code>, which is just like <code>AtomicSimpleCPU</code> internally, but now the memory requests don&#8217;t actually finish immediately: <a href="gem5-cpu-types.html">gem5 CPU types</a>!</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>This means that simulation will be much more accurate, and the DRAM memory will be modelled.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>TODO: analyze better what each of the memory event mean. For now, we have just collected a bunch of data there, but needs interpreting. The CPU specifics in this section are already insightful however.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p><a href="gem5-timingsimplecpu.html">TimingSimpleCPU</a> should be the second simplest CPU to analyze, so let&#8217;s give it a try:</p>
 </div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --userland userland/arch/aarch64/freestanding/linux/hello.S \
+  --trace Event,ExecAll,FmtFlag \
+  --trace-stdout \
+  -- \
+  --cpu-type TimingSimpleCPU \
+;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>As of LKMC 78ce2dabe18ef1d87dc435e5bc9369ce82e8d6d2 gem5 12c917de54145d2d50260035ba7fa614e25317a3 the log is now much more complex.</p>
 </div>
-</div>
+<div class="paragraph">
+<p>Here is an abridged version with:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>the beginning up to the second instruction</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>end ending</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>because all that happens in between is exactly the same as the first two instructions and therefore boring.</p>
+</div>
+<div class="paragraph">
+<p>We have also manually added:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>double newlines before each event execution</p>
+</li>
+<li>
+<p>line IDs to be able to refer to specific events more easily (<code>#0</code>, <code>#1</code>, etc.)</p>
+</li>
+</ul>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>#0       0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 scheduled @ 0
+**** REAL SIMULATION ****
+#1       0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 14 scheduled @ 7786250
+#2       0: Event: system.mem_ctrls_1.wrapped_function_event: EventFunctionWrapped 20 scheduled @ 7786250
+#3       0: Event: Event_74: generic 74 scheduled @ 0
+info: Entering event queue @ 0.  Starting simulation...
+#4       0: Event: Event_74: generic 74 rescheduled @ 18446744073709551615
+
+#5       0: Event: system.cpu.wrapped_function_event: EventFunctionWrapped 43 executed @ 0
+#6       0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 0
+#7       0: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 1000
+
+#8       0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 0
+#9       0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 scheduled @ 0
+#10      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 46250
+#11      0: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 5000
+
+#12      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 12 executed @ 0
+#13      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 scheduled @ 0
+
+#14      0: Event: system.mem_ctrls_0.wrapped_function_event: EventFunctionWrapped 15 executed @ 0
+
+#15   1000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 executed @ 1000
+
+#16   5000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 5000
+
+#17  46250: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 46250
+#18  46250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 74250
+
+#19  74250: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 74250
+#20  74250: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 scheduled @ 77000
+#21  74250: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 scheduled @ 77000
+
+#22  77000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 executed @ 77000
+
+#23  77000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 executed @ 77000
+#24  77000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 77000
+
+#25  77000: Event: Event_40: Timing CPU icache tick 40 executed @ 77000
+     77000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #1, #0        : IntAlu :  D=0x0000000000000001  flags=(IsInteger)
+#26  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 77000
+#27  77000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 78000
+
+#28  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 77000
+#29  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 scheduled @ 95750
+#30  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 77000
+
+#31  77000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 executed @ 77000
+
+#32  78000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 executed @ 78000
+
+#33  95750: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 10 executed @ 95750
+#34  95750: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 scheduled @ 123750
+
+#35 123750: Event: system.mem_ctrls.port-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 8 executed @ 123750
+#36 123750: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 scheduled @ 126000
+#37 123750: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 scheduled @ 126000
+
+#38 126000: Event: system.membus.respLayer1.wrapped_function_event: EventFunctionWrapped 65 executed @ 126000
+
+#39 126000: Event: system.membus.slave[1]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 64 executed @ 126000
+#40 126000: Event: Event_40: Timing CPU icache tick 40 scheduled @ 126000
+
+#41 126000: Event: Event_40: Timing CPU icache tick 40 executed @ 126000
+    126000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   adr   x1, #28            : IntAlu :  D=0x0000000000400098  flags=(IsInteger)
+#42 126000: Event: system.mem_ctrls.wrapped_function_event: EventFunctionWrapped 9 scheduled @ 126000
+#43 126000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 60 scheduled @ 127000
+
+    [...]
+
+    469000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)
+    469000: Event: Event_75: generic 75 scheduled @ 469000
+    469000: Event: Event_75: generic 75 executed @ 469000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Looking into the generated <a href="gem5-config-ini.html"><code>config.dot.svg</code></a> can give a better intuition on the shape of the memory system: <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis.html#config-dot-svg-timingsimplecpu">Figure 3, &#8220;<code>config.dot.svg</code> for a TimingSimpleCPU without caches.&#8221;</a>, so it is good to keep that in mind.</p>
+</div>
+<div id="config-dot-svg-timingsimplecpu" class="imageblock">
+<div class="content">
+<img src="https://raw.githubusercontent.com/cirosantilli/media/master/gem5_config_TimingSimpleCPU_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true" alt="gem5 config TimingSimpleCPU 12c917de54145d2d50260035ba7fa614e25317a3" height="600">
+</div>
+<div class="title">Figure 3. <code>config.dot.svg</code> for a TimingSimpleCPU without caches.</div>
+</div>
+<div class="paragraph">
+<p>It is also helpful to see this as a tree of events where one execute event schedules other events:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    | | | | |
+    0 1 2 3 4   0 TimingSimpleCPU::fetch
+    5
+    |
+    +---+
+    |   |
+    6   7       6 DRAMCtrl::processNextReqEvent (0)
+    8   15      7 BaseXBar::Layer::releaseLayer
+    |
++---+---+
+|   |   |
+9   10  11      9 DRAMCtrl::Rank::processActivateEvent
+12  17  16     10 DRAMCtrl::processRespondEvent (46.25)
+|   |          11 DRAMCtrl::processNextReqEvent (5)
+|   |
+13  18         13 DRAMCtrl::Rank::processPowerEvent
+14  19         18 PacketQueue::processSendEvent (28)
+    |
+    +---+
+    |   |
+    20  21     20 PacketQueue::processSendEvent  (2.75)
+    23  22     21 BaseXBar::Layer&lt;SrcType, DstType&gt;::releaseLayer
+    |
+    24         24 TimingSimpleCPU::IcachePort::ITickEvent::process (0)
+    25
+    |
+    +---+
+    |   |
+    26  27     26 DRAMCtrl::processNextReqEvent
+    28  32     27 BaseXBar::Layer&lt;SrcType, DstType&gt;::releaseLayer
+    |
+    +---+
+    |   |
+    29  30     29 DRAMCtrl::processRespondEvent
+    33  31     30 DRAMCtrl::processNextReqEvent
+    |
+    34         34 PacketQueue::processSendEvent
+    35
+    |
+    +---+
+    |   |
+    36  37     36 PacketQueue::processSendEvent
+    39  38     37 BaseXBar::Layer&lt;SrcType, DstType&gt;::releaseLayer
+    |
+    40         40 TimingSimpleCPU::IcachePort::ITickEvent::process
+    41
+    |
+    +---+
+    |   |
+    42  43     42 DRAMCtrl::processNextReqEvent
+               43 BaseXBar::Layer&lt;SrcType, DstType&gt;::releaseLayer</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that every schedule is followed by an execution, so we put them together, for example:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    |   |
+    6   7    6 DRAMCtrl::processNextReqEvent (0)
+    8   15   7 BaseXBar::Layer::releaseLayer (0)
+    |</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>means:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>6</code>: schedule <code>DRAMCtrl::processNextReqEvent</code> to run in <code>0</code> ns after the execution that scheduled it</p>
+</li>
+<li>
+<p><code>8</code>: execute <code>DRAMCtrl::processNextReqEvent</code></p>
+</li>
+<li>
+<p><code>7</code>: schedule <code>BaseXBar::Layer::releaseLayer</code> to run in <code>0</code> ns after the execution that scheduled it</p>
+</li>
+<li>
+<p><code>15</code>: execute <code>BaseXBar::Layer::releaseLayer</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>With this, we can focus on going up the event tree from an event of interest until we see what originally caused it!</p>
+</div>
+<div class="paragraph">
+<p>Notably, the above tree contains the execution of the first two instructions.</p>
+</div>
+<div class="paragraph">
+<p>Observe how the events leading up to the second instruction are basically a copy of those of the first one, this is the basic <code>TimingSimpleCPU</code> event loop in action.</p>
+</div>
+<div class="paragraph">
+<p>One line summary of events:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>#5: adds the request to the DRAM queue, and schedules a <code>DRAMCtrl::processNextReqEvent</code> which later sees that request immediately</p>
+</li>
+<li>
+<p>#8: picks up the only request from the DRAM read queue (<code>readQueue</code>) and services that.</p>
+<div class="paragraph">
+<p>If there were multiple requests, priority arbitration under <code>DRAMCtrl::chooseNext</code> could chose a different one than the first based on packet priorities</p>
+</div>
+<div class="paragraph">
+<p>This puts the request on the response queue <code>respQueue</code> and schedules another <code>DRAMCtrl::processNextReqEvent</code> but the request queue is empty, and that does nos schedule further events</p>
+</div>
+</li>
+<li>
+<p>#17: picks up the only request from the DRAM response queue and services that by placing it in yet another queue, and scheduling the <code>PacketQueue::processSendEvent</code> which will later pick up that packet</p>
+</li>
+<li>
+<p>#19: picks up the request from the previous queue, and forwards it to another queue, and schedules yet another <code>PacketQueue::processSendEvent</code></p>
+<div class="paragraph">
+<p>The current one is the DRAM passing the message to the XBar, and the next <code>processSendEvent</code> is the XBar finally sending it back to the CPU</p>
+</div>
+</li>
+<li>
+<p>#23: the XBar port is actually sending the reply back.</p>
+<div class="paragraph">
+<p>If knows to which CPU core to send the request to because ports keep a map of request to source:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>const auto route_lookup = routeTo.find(pkt-&gt;req);</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="timingsimplecpu-analysis-0.html">TimingSimpleCPU analysis #0</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-1.html">TimingSimpleCPU analysis #1</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-2.html">TimingSimpleCPU analysis #2</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-3-and-4.html">TimingSimpleCPU analysis #3 and #4</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-5.html">TimingSimpleCPU analysis #5</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-6.html">TimingSimpleCPU analysis #6</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-7.html">TimingSimpleCPU analysis #7</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-8.html">TimingSimpleCPU analysis #8</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-9.html">TimingSimpleCPU analysis #9</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-10.html">TimingSimpleCPU analysis #10</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-11.html">TimingSimpleCPU analysis #11</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-12.html">TimingSimpleCPU analysis #12</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-13.html">TimingSimpleCPU analysis #13</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-14.html">TimingSimpleCPU analysis #14</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-15.html">TimingSimpleCPU analysis #15</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-16.html">TimingSimpleCPU analysis #16</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-17.html">TimingSimpleCPU analysis #17</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-18.html">TimingSimpleCPU analysis #18</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-19.html">TimingSimpleCPU analysis #19</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-20.html">TimingSimpleCPU analysis #20</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-21.html">TimingSimpleCPU analysis #21</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-22.html">TimingSimpleCPU analysis #22</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-23.html">TimingSimpleCPU analysis #23</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-24.html">TimingSimpleCPU analysis #24</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-25.html">TimingSimpleCPU analysis #25</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-26.html">TimingSimpleCPU analysis #26</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-27.html">TimingSimpleCPU analysis #27</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-28.html">TimingSimpleCPU analysis #28</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-29.html">TimingSimpleCPU analysis #29</a></p>
+</li>
+<li>
+<p><a href="timingsimplecpu-analysis-ldr-stall.html">TimingSimpleCPU analysis: LDR stall</a></p>
+</li>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-se-py-page-translation.html">gem5 se.py page translation</a> | ↑ Up: <a href="gem5-event-queue.html">gem5 event queue</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="timingsimplecpu-analysis-0.html">TimingSimpleCPU analysis #0</a> →</p>
 </div>
 </div>
 <script>

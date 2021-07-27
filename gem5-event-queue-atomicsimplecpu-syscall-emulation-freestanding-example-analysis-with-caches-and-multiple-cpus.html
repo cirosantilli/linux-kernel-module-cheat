@@ -451,246 +451,227 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus"><a class="anchor" href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus"></a><a class="link" href="#gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus">24.22.4.4. gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>It would be amazing to analyze a simple example with interconnect packets possibly invalidating caches of other CPUs.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>To observe it we could create one well controlled workload with instructions that flush memory, and run it on two CPUs.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>If we don&#8217;t use such instructions that flush memory, we would only see the interconnect at work when caches run out.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>For this study, we will use the same CLI as <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a> but with multiple CPUs and a multithreaded which shares a variable across threads.</p>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>We can use <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/atomic.c">userland/c/atomic.c</a> (see also <a href="c-multithreading.html">C multithreading</a>) at LKMC 7c01b29f1ee7da878c7cc9cb4565f3f3cf516a92 and gem5 872cb227fdc0b4d60acc7840889d567a6936b6e1 was with as in <a href="detailed-gem5-analysis-of-how-data-races-happen.html">Detailed gem5 analysis of how data races happen</a>:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./run \
+  --arch aarch64 \
+  --cli-args '2 10' \
+  --cpus 3 \
+  --emulator gem5 \
+  --trace FmtFlag,Cache,DRAM,ExecAll,XBar \
+  --userland userland/c/atomic.c \
+  -- \
+  --caches \
+;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>The <a href="gem5-config-dot.html"><code>config.dot.svg</code></a> now looks like this but with 3 CPUs instead of 2:</p>
+</div>
+<div id="config-dot-svg-timingsimplecpu-caches-2-cpus" class="imageblock">
+<div class="content">
+<img src="https://raw.githubusercontent.com/cirosantilli/media/master/gem5_config_TimingSimpleCPU_caches_2_CPUs_12c917de54145d2d50260035ba7fa614e25317a3.svg?sanitize=true" alt="gem5 config TimingSimpleCPU caches 2 CPUs 12c917de54145d2d50260035ba7fa614e25317a3" height="600">
+</div>
+<div class="title">Figure 5. <code>config.dot.svg</code> for a system with two TimingSimpleCPU with caches.</div>
+</div>
+<div class="paragraph">
+<p>Once again we focus on the shared function region <code>my_thread_main</code> which is where the interesting cross core memory collisions will be happening.</p>
+</div>
+<div class="paragraph">
+<p>As a maybe-not-so-interesting, we have a look at the very first <code>my_thread_main</code> icache hit points:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>93946000: Cache: system.cpu1.icache: access for ReadReq [8b0:8b3] IF miss
+93946000: Cache: system.cpu1.icache: createMissPacket: created ReadCleanReq [880:8bf] IF from ReadReq [8b0:8b3] IF
+93946000: Cache: system.cpu1.icache: handleAtomicReqMiss: Sending an atomic ReadCleanReq [880:8bf] IF
+93946000: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[5] packet ReadCleanReq [880:8bf] IF
+93946000: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[5] packet ReadCleanReq [880:8bf] IF SF size: 1 lat: 1
+93946000: Cache: system.cpu0.icache: handleSnoop: snoop hit for ReadCleanReq [880:8bf] IF, old state is state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x22 way: 0
+93946000: Cache: system.cpu0.icache: new state is state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x22 way: 0
+93946000: DRAM: system.mem_ctrls: recvAtomic: ReadCleanReq 0x880
+93946000: Cache: system.cpu1.icache: handleAtomicReqMiss: Receive response: ReadResp [880:8bf] IF in state 0
+93946000: Cache: system.cpu1.icache: Block addr 0x880 (ns) moving from state 0 to state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x22 way: 0
+93946000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main    :   sub   sp, sp, #48        : IntAlu :  D=0x0000003fffd6b9a0  flags=(IsInteger)
+93946500: Cache: system.cpu1.icache: access for ReadReq [8b4:8b7] IF hit state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x22 way: 0
+93946500: Cache: system.cpu1.dcache: access for WriteReq [a19a8:a19af] hit state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0x14 set: 0x66 way: 0
+93946500: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+4    :   str   x0, [sp, #8]       : MemWrite :  D=0x0000007ffffefc70 A=0x3fffd6b9a8  flags=(IsInteger|IsMemRef|IsStore)</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>Now that we know how to read cache logs from <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a>, it is easier to understand what happened:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>the physical address for <code>my_thread_main</code> is at 0x8b0, which gets requested is a miss, since it is the first time CPU1 goes near that region, since CPU1 was previously executing in standard library code far from our text segment</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p>CPU0 already has has that cache line (0x880) in its cache at <a href="what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5.html">state E of MOESI</a>, so it snoops and moves to S. We can look up the logs to see exactly where CPU0 had previously read that address:</p>
+<div class="literalblock">
+<div class="content">
+<pre>59135500: Cache: system.cpu0.icache: Block addr 0x880 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x22 way: 0
+59135500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[1] packet WritebackClean [8880:88bf]
+59135500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[1] packet WritebackClean [8880:88bf] SF size: 0 lat: 1
+59135500: DRAM: system.mem_ctrls: recvAtomic: WritebackClean 0x8880
+59135500: ExecEnable: system.cpu0: A0 T0 : @frame_dummy    : stp</pre>
+</div>
+</div>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
+<p>the request does touch RAM, it does not get served by the other cache directly. CPU1 is now also at state S for the block</p>
 </li>
 <li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>the second cache request from CPU1 is 4 bytes further ahead 0x8b4, and this time it is of course a hit.</p>
+<div class="paragraph">
+<p>Since this is an STR, it also does a dcache access, to 0xA19A8 in this case near its stack SP, and it is a hit, which is not surprising, since basically stack accesses are the very first thing any C code does, and there must be some setup code running on CPU1 before <code>my_thread_main</code>.</p>
+</div>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>Now let&#8217;s look for the incremented integer address that is shared across threads. We know from <a href="detailed-gem5-analysis-of-how-data-races-happen.html">Detailed gem5 analysis of how data races happen</a> that the read happens at <code>my_thread_main+36</code>, so searching for he first occurrence:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>93952500: Cache: system.cpu1.icache: access for ReadReq [8d4:8d7] IF hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x23 way: 0
+93952500: Cache: system.cpu1.dcache: access for ReadReq [2060:2063] miss
+93952500: Cache: system.cpu1.dcache: createMissPacket: created ReadSharedReq [2040:207f] from ReadReq [2060:2063]
+93952500: Cache: system.cpu1.dcache: handleAtomicReqMiss: Sending an atomic ReadSharedReq [2040:207f]
+93952500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[6] packet ReadSharedReq [2040:207f]
+93952500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[6] packet ReadSharedReq [2040:207f] SF size: 0 lat: 1
+93952500: DRAM: system.mem_ctrls: recvAtomic: ReadSharedReq 0x2040
+93952500: Cache: system.cpu1.dcache: handleAtomicReqMiss: Receive response: ReadResp [2040:207f] in state 0
+93952500: Cache: system.cpu1.dcache: Block addr 0x2040 (ns) moving from state 0 to state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+93952500: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000000 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we determine its physical address of 0x2060. It was a miss, and then it went into E.</p>
+</div>
+<div class="paragraph">
+<p>So we look ahead to the following accesses to that physical address, before CPU2 reaches that point of the code and starts making requests as well.</p>
+</div>
+<div class="paragraph">
+<p>First there is the STR for the first LDR which is of course a hit:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>93954500: Cache: system.cpu1.dcache: access for WriteReq [2060:2063] hit state: 7 (E) valid: 1 writable: 1 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+93954500: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+52    :   str   x1, [x0]           : MemWrite :  D=0x0000000000000001 A=0x411060  flags=(IsInteger|IsMemRef|IsStore)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If found the line in E, so we presume that it moves it to M. Then the second read confirms that it was in M:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>93964500: Cache: system.cpu1.dcache: access for ReadReq [2060:2063] hit state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+93964500: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000001 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and so on.</p>
+</div>
+<div class="paragraph">
+<p>Now let&#8217;s jump to when CPU2 starts making requests.</p>
+</div>
+<div class="paragraph">
+<p>The first time this happens is on its first LDR at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>94058500: Cache: system.cpu2.dcache: access for ReadReq [2060:2063] miss
+94058500: Cache: system.cpu2.dcache: createMissPacket: created ReadSharedReq [2040:207f] from ReadReq [2060:2063]
+94058500: Cache: system.cpu2.dcache: handleAtomicReqMiss: Sending an atomic ReadSharedReq [2040:207f]
+94058500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[10] packet ReadSharedReq [2040:207f]
+94058500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[10] packet ReadSharedReq [2040:207f] SF size: 1 lat: 1
+94058500: Cache: system.cpu1.dcache: handleSnoop: snoop hit for ReadSharedReq [2040:207f], old state is state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+94058500: Cache: system.cpu1.dcache: new state is state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+94058500: CoherentXBar: system.membus: recvAtomicBackdoor: Not forwarding ReadSharedReq [2040:207f]
+94058500: Cache: system.cpu2.dcache: handleAtomicReqMiss: Receive response: ReadResp [2040:207f] in state 0
+94058500: Cache: system.cpu2.dcache: Block addr 0x2040 (ns) moving from state 0 to state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+94058500: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000009 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and from this we see:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>CPU1 moves from M to O</p>
+</li>
+<li>
+<p>CPU2 moves from I to S</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>It also appears that no DRAM was accessed since there are no logs for it, so did the XBar get the value directly from the other cache? TODO: why did the earlier <code>93946000: DRAM</code> read happened then, since CPU0 had the line when CPU1 asked for it?</p>
+</div>
+<div class="paragraph">
+<p>The above log sequence also makes it clear that it is the XBar that maintains coherency: it appears that the CPU2 caches tells the XBar what it is doing, and then the XBar tells other caches on other CPUs about it, which leads CPU1 to move to O.</p>
+</div>
+<div class="paragraph">
+<p>Then CPU1 hits its LDR on O:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>94060500: Cache: system.cpu1.dcache: access for ReadReq [2060:2063] hit state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+94060500: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+36    :   ldr   x0, [x0]           : MemRead :  D=0x0000000000000009 A=0x411060  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then CPU2 writes moving to M and moving CPU1 to I:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>94060500: Cache: system.cpu2.dcache: access for WriteReq [2060:2063] hit state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+94060500: Cache: system.cpu2.dcache: createMissPacket: created UpgradeReq [2040:207f] from WriteReq [2060:2063]
+94060500: Cache: system.cpu2.dcache: handleAtomicReqMiss: Sending an atomic UpgradeReq [2040:207f]
+94060500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[10] packet UpgradeReq [2040:207f]
+94060500: CoherentXBar: system.membus: recvAtomicBackdoor: src system.membus.slave[10] packet UpgradeReq [2040:207f] SF size: 1 lat: 1
+94060500: Cache: system.cpu1.dcache: handleSnoop: snoop hit for UpgradeReq [2040:207f], old state is state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+94060500: Cache: system.cpu1.dcache: new state is state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+94060500: CoherentXBar: system.membus: recvAtomicBackdoor: Not forwarding UpgradeReq [2040:207f]
+94060500: Cache: system.cpu2.dcache: handleAtomicReqMiss: Receive response: UpgradeResp [2040:207f] in state 5
+94060500: Cache: system.cpu2.dcache: Block addr 0x2040 (ns) moving from state 5 to state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+94060500: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+52    :   str   x1, [x0]           : MemWrite :  D=0x000000000000000a A=0x411060  flags=(IsInteger|IsMemRef|IsStore)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and so on, they just keep fighting over that address and changing one another&#8217;s state.</p>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="what-is-the-coherency-protocol-implemented-by-the-classic-cache-system-in-gem5.html">What is the coherency protocol implemented by the classic cache system in gem5?</a> | ↑ Up: <a href="gem5-event-queue.html">gem5 event queue</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a> →</p>
 </div>
 </div>
 <script>

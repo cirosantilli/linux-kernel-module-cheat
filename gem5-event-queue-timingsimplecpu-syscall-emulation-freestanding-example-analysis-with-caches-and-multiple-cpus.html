@@ -451,246 +451,342 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus"><a class="anchor" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus"></a><a class="link" href="#gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus">24.22.4.5. gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p>Like <a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus.html">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a> but with <a href="gem5-timingsimplecpu.html">gem5 <code>TimingSimpleCPU</code></a> and <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/c/atomic/aarch64_add.c">userland/c/atomic/aarch64_add.c</a>:</p>
 </div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
-</div>
-<div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
-</div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
-</div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./build-userland --arch aarch64 --optimization-level 3 --userland-build-id o3
+./run \
+  --arch aarch64 \
+  --cli-args '2 1000' \
+  --cpus 3 \
+  --emulator gem5 \
+  --trace FmtFlag,CacheAll,DRAM,Event,ExecAll,SimpleCPU,XBar \
+  --userland userland/c/atomic/aarch64_add.c \
+  --userland-build-id o3 \
+  -- \
+  --caches \
+  --cpu-type TimingSimpleCPU \
+;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>This is arguably the best experiment to study the <a href="gem5-crossbar-interconnect.html">gem5 crossbar interconnect</a>.</p>
+</div>
+<div class="paragraph">
+<p>We increase the loop count to 100 loops because 100 did not show memory conflicts. The output is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>expect 200
+global 147</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>Let&#8217;s double check what it compiles to with <a href="disas.html">disas</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./disas --arch aarch64 --userland userland/c/atomic/aarch64_add.c --userland-build-id o3 my_thread_main</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which contains:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   0x0000000000400a70 &lt;+0&gt;:     03 00 40 f9     ldr     x3, [x0]
+   0x0000000000400a74 &lt;+4&gt;:     63 01 00 b4     cbz     x3, 0x400aa0 &lt;my_thread_main+48&gt;
+   0x0000000000400a78 &lt;+8&gt;:     82 00 00 d0     adrp    x2, 0x412000 &lt;malloc@got.plt&gt;
+   0x0000000000400a7c &lt;+12&gt;:    42 a0 01 91     add     x2, x2, #0x68
+   0x0000000000400a80 &lt;+16&gt;:    00 00 80 d2     mov     x0, #0x0                        // #0
+   0x0000000000400a84 &lt;+20&gt;:    1f 20 03 d5     nop
+   0x0000000000400a88 &lt;+24&gt;:    41 00 40 f9     ldr     x1, [x2]
+   0x0000000000400a8c &lt;+28&gt;:    21 04 00 91     add     x1, x1, #0x1
+   0x0000000000400a90 &lt;+32&gt;:    41 00 00 f9     str     x1, [x2]
+   0x0000000000400a94 &lt;+36&gt;:    00 04 00 91     add     x0, x0, #0x1
+   0x0000000000400a98 &lt;+40&gt;:    7f 00 00 eb     cmp     x3, x0
+   0x0000000000400a9c &lt;+44&gt;:    68 ff ff 54     b.hi    0x400a88 &lt;my_thread_main+24&gt;  // b.pmore
+   0x0000000000400aa0 &lt;+48&gt;:    00 00 80 52     mov     w0, #0x0                        // #0
+   0x0000000000400aa4 &lt;+52&gt;:    c0 03 5f d6     ret</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Grepping the logs with <code>grep '@my_thread_main\+24</code> shows where the first non-atomic interleaves happen at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[many other CPU1 hits]
+471199000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002e A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471207000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471202000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471239000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000030 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471228000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000030 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)
+471269000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x0000000000000031 A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>after a long string of cpu1 hits, since CPU1 was forked first and therefore had more time to run that operation.</p>
+</div>
+<div class="paragraph">
+<p>From those and logs around we deduce that:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>the shared address of interest is 0x412068</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p>the physical address is 0x2068</p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>it fits into the cache line for 0x2040:0x207f</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>With that guide, we look at the fuller logs around that region of interest. With start at the first ifetch that CPU2 does for our LDR of interest at 0x400a88:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471201000: SimpleCPU: system.cpu2: Fetch
+471201000: SimpleCPU: system.cpu2: Translating address 0x400a88</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Things get a bit interleaved with CPU1, but soon afterwards we see the CPU2 make its memory request to the cache:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471202000: Event: Event_134: Timing CPU icache tick 134 executed @ 471202000
+471202000: SimpleCPU: system.cpu2: Complete ICache Fetch for addr 0xa88
+471202000: Cache: system.cpu2.dcache: access for ReadReq [2068:206f] D=c879334bb1550000 num=266073 miss
+471202000: CachePort: system.cpu2.dcache.mem_side: Scheduling send event at 471203000
+471202000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 scheduled @ 471203000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Before the request moves on, some CPU1 action happens: a CPU1 is sending its data out! It hit the cache, and now we confirm that the cache is in <a href="moesi.html">state: M</a> as expected, since CPU1 had already been previously writting repeatedly to that address:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471202000: Event: Event_87: Timing CPU icache tick 87 executed @ 471202000
+471202000: SimpleCPU: system.cpu1: Complete ICache Fetch for addr 0xa90
+471202000: Cache: system.cpu1.dcache: access for WriteReq [2068:206f] D=2f00000000000000 num=266074 hit state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471202000: CacheVerbose: system.cpu1.dcache: satisfyRequest for WriteReq [2068:206f] D=2f00000000000000 num=266074 (write)
+471202000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 scheduled @ 471203000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Immediately afterwards, CPU1 gets its reply from the cache, which is fast as that was a hit, and its STR finishes:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471203000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 executed @ 471203000
+471203000: SimpleCPU: system.cpu1.dcache_port: Received load/store response 0x2068
+471203000: Event: Event_89: Timing CPU dcache tick 89 scheduled @ 471203000
+471203000: Event: Event_89: Timing CPU dcache tick 89 executed @ 471203000
+471202000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+32    :   str   x1, [x2]           : MemWrite :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsStore)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now we approach the crux of this example: cpu2 dcache decides to forward its read request:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471203000: Event: system.cpu2.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 140 executed @ 471203000
+471203000: Cache: system.cpu2.dcache: sendMSHRQueuePacket: MSHR ReadReq [2068:206f] D=c879334bb1550000 num=266073
+471203000: Cache: system.cpu2.dcache: createMissPacket: created ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076 from ReadReq [2068:206f] D=c879334bb1550000 num=266073</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here, CPU2 dcache finally forwards to the XBar its request via the <a href="gem5-mshr.html">gem5 <code>MSHR</code></a> mechanism as in <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></p>
+</div>
+<div class="paragraph">
+<p><code>createMissPacket</code> creates a new packet for the cache request with a different type: <code>ReadSharedReq</code> instead of the original <code>ReadReq</code>, and then it sends that packet into <a href="gem5-crossbar-interconnect.html"><code>CoherentXBar</code></a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471203000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: SnoopFilter: system.membus.snoop_filter: lookupRequest: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471203000: SnoopFilter: system.membus.snoop_filter: lookupRequest:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471203000: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[10] packet ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076 SF size: 1 lat: 1
+471203000: CoherentXBar: system.membus: forwardTiming for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The XBar receives the request, and notices that CPU1 cares about it, because obviously it has that line from previous writes, so the XBar forwards the exact same request to the CPU1 dcache:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471203000: CacheVerbose: system.cpu1.dcache: recvTimingSnoopReq: for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: CacheVerbose: system.cpu1.dcache: handleSnoop: for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: Cache: system.cpu1.dcache: handleSnoop: snoop hit for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076, old state is state: f (M) valid: 1 writable: 1 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471203000: Cache: system.cpu1.dcache: new state is state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471203000: Cache: system.cpu1.dcache: doTimingSupplyResponse: for ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076
+471203000: CacheVerbose: system.cpu1.dcache: doTimingSupplyResponse: created response: ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078 tick: 471212000
+471203000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 scheduled @ 471212000
+471203000: CoherentXBar: system.membus: recvTimingReq: Not forwarding ReadSharedReq [2040:207f] D=40cfe14bb15500005b323036383a323036665d20443d63383739333334626231353530303030206e756d3d32363630373300000000016d6973730a0000000000 num=266076</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and from this we see that this read request from CPU2 made a cache from CPU1 go <a href="moesi.html">from M to O</a>! <a href="cache-coherence.html">Cache coherence</a> is being maintained!</p>
+</div>
+<div class="paragraph">
+<p>Furthermore, it also suggests that now CPU1 is going to supply the response to CPU2 directly from its cache, and the memory request will be suppressed! As mentioned in lecture notes from <a href="cache-coherence.html">Cache coherence</a>, we know that this is one of the ways that cache coherence may be maintained in MOESI-like protocols.</p>
+</div>
+<div class="paragraph">
+<p>After this point, CPU1 continues to go around the loop. After a few instructions we don&#8217;t care about, we once again reach the LDR:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471207000: SimpleCPU: system.cpu1: Complete ICache Fetch for addr 0xa88
+471207000: Cache: system.cpu1.dcache: access for ReadReq [2068:206f] D=c879334bb1550000 num=266082 hit state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471207000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 scheduled @ 471208000
+471208000: Event: system.cpu1.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 91 executed @ 471208000
+471208000: SimpleCPU: system.cpu1.dcache_port: Received load/store response 0x2068
+471208000: Event: Event_89: Timing CPU dcache tick 89 scheduled @ 471208000
+471208000: Event: Event_89: Timing CPU dcache tick 89 executed @ 471208000
+471207000: ExecEnable: system.cpu1: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>but it is immediately satisfied since the line is already in <code>O</code>, and nothing needs to be sent out to the bus since it&#8217;s a read.</p>
+</div>
+<div class="paragraph">
+<p>Then the add 1 runs entirely from cache of course, and then CPU1 starts its STR:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471210000: Event: Event_87: Timing CPU icache tick 87 executed @ 471210000
+471210000: SimpleCPU: system.cpu1: Complete ICache Fetch for addr 0xa90
+471210000: Cache: system.cpu1.dcache: access for WriteReq [2068:206f] D=3000000000000000 num=266085 hit state: d (O) valid: 1 writable: 0 readable: 1 dirty: 1 | tag: 0 set: 0x81 way: 0
+471210000: CachePort: system.cpu1.dcache.mem_side: Scheduling send event at 471211000
+471210000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 93 scheduled @ 471211000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In parallel, the CPU1 snoop response to the CPU2 LDR that had been previously sent reaches the XBar:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471212000: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 94 executed @ 471212000
+471212000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+471212000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse: rsp system.membus.slave[6] req system.membus.slave[10] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+471212000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   old SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000
+471212000: SnoopFilter: system.membus.snoop_filter: updateSnoopResponse:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471212000: CoherentXBar: system.membus: recvTimingSnoopResp: src system.membus.slave[6] packet ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078 FWD RESP
+471212000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 scheduled @ 471214000
+471212000: Event: system.membus.respLayer10.wrapped_function_event: EventFunctionWrapped 187 scheduled @ 471217000
+471212000: BaseXBar: system.membus.respLayer10: The crossbar layer is now busy from tick 471212000 to 471217000</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We know that it is the same one based on the packet <code>num=</code> match.</p>
+</div>
+<div class="paragraph">
+<p>And just after that, by coincidence, the CPU1 STR write request also starts going to the XBar:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471212001: Event: system.cpu1.dcache.mem_side-MemSidePort.wrapped_function_event: EventFunctionWrapped 93 executed @ 471212001
+471212001: Cache: system.cpu1.dcache: sendMSHRQueuePacket: MSHR WriteReq [2068:206f] D=3000000000000000 num=266085
+471212001: Cache: system.cpu1.dcache: createMissPacket: created UpgradeReq [2040:207f] D= num=266086 from WriteReq [2068:206f] D=3000000000000000 num=266085
+471212001: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[6] packet UpgradeReq [2040:207f] D= num=266086
+471212001: SnoopFilter: system.membus.snoop_filter: lookupRequest: src system.membus.slave[6] packet UpgradeReq [2040:207f] D= num=266086
+471212001: SnoopFilter: system.membus.snoop_filter: lookupRequest:   SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471212001: SnoopFilter: system.membus.snoop_filter: lookupRequest:   new SF value 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101000
+471212001: CoherentXBar: system.membus: recvTimingReq: src system.membus.slave[6] packet UpgradeReq [2040:207f] D= num=266086 SF size: 1 lat: 1
+471212001: CoherentXBar: system.membus: forwardTiming for UpgradeReq [2040:207f] D= num=266086
+471212001: CacheVerbose: system.cpu2.dcache: recvTimingSnoopReq: for UpgradeReq [2040:207f] D= num=266086
+471212001: Cache: global: handleSnoop for UpgradeReq [2040:207f] D= num=266086
+471212001: CacheVerbose: system.cpu2.dcache: handleSnoop: for UpgradeReq [2040:207f] D= num=266086
+471212001: CacheVerbose: system.cpu2.dcache: handleSnoop: snoop miss for UpgradeReq [2040:207f] D= num=266086</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This time, we can see that the <code>WriteReq</code> gets turned into an <code>UpgradeReq</code> by the cache.</p>
+</div>
+<div class="paragraph">
+<p>It does not however change the CPU2 cacheline state, because the CPU2 cache is not yet valid line because LDR reply still hasn&#8217;t come back! We see on the source code:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
+                   bool is_deferred, bool pending_inval)
+{
+    } else if (!blk_valid) {
+        DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
+                pkt-&gt;print());</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>At last, the CPU1 snoop reply reaches the CPU2 dcache with the (now old <code>2f</code>) data:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471214000: Event: system.membus.reqLayer0.wrapped_function_event: EventFunctionWrapped 164 executed @ 471214000
+471214000: Event: system.membus.slave[10]-RespPacketQueue.wrapped_function_event: EventFunctionWrapped 186 executed @ 471214000
+471214000: Cache: system.cpu2.dcache: recvTimingResp: Handling response ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078
+471214000: Cache: system.cpu2.dcache: Block for addr 0x2040 being updated in Cache
+471214000: CacheRepl: system.cpu2.dcache: Replacement victim: state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+471214000: Cache: system.cpu2.dcache: Block addr 0x2040 (ns) moving from state 0 to state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>On the above, we see that this initially moves the cache to S state.</p>
+</div>
+<div class="paragraph">
+<p>However, remember that after CPU2 started its LDR, CPU1 did an STR, and that STR was already snooped by CPU2 above? Well, the MSHR or the cache had noted that down, and now it proceeds to invalidate the line:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471214000: Cache: system.cpu2.dcache: serviceMSHRTargets: updated cmd to ReadRespWithInvalidate [2068:206f] D=2f00000000000000 num=266073
+471214000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 scheduled @ 471215000
+471214000: Cache: system.cpu2.dcache: processing deferred snoop...
+471214000: CacheVerbose: system.cpu2.dcache: handleSnoop: for UpgradeReq [2040:207f] D= num=266087
+471214000: Cache: system.cpu2.dcache: handleSnoop: snoop hit for UpgradeReq [2040:207f] D= num=266087, old state is state: 5 (S) valid: 1 writable: 0 readable: 1 dirty: 0 | tag: 0 set: 0x81 way: 0
+471214000: Cache: system.cpu2.dcache: new state is state: 0 (I) valid: 0 writable: 0 readable: 0 dirty: 0 | tag: 0xffffffffffffffff set: 0x81 way: 0
+471214000: CacheVerbose: system.cpu2.dcache: recvTimingResp: Leaving with ReadResp [2040:207f] D=700640000000000070064000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000 num=266078</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It is a bit funny, but we see that at the same time, both the response arrived with the data, and the cache gets invalidated with a delay. The MSHR kept track of that for us. On the above logs, actually <code>Cache: global: handleSnoop</code> is the line in question.</p>
+</div>
+<div class="paragraph">
+<p>And at long long last, the CPU2 LDR finishes:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>471215000: Event: system.cpu2.dcache.cpu_side-CpuSidePort.wrapped_function_event: EventFunctionWrapped 138 executed @ 471215000
+471215000: SimpleCPU: system.cpu2.dcache_port: Received load/store response 0x2068
+471215000: Event: Event_136: Timing CPU dcache tick 136 scheduled @ 471215000
+471215000: Event: Event_136: Timing CPU dcache tick 136 executed @ 471215000
+471202000: ExecEnable: system.cpu2: A0 T0 : @my_thread_main+24    :   ldr   x1, [x2]           : MemRead :  D=0x000000000000002f A=0x412068  flags=(IsInteger|IsMemRef|IsLoad)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We note therefore that no DRAM access was involved, one cache services the other directly!</p>
+</div>
+<div class="paragraph">
+<p>Tested on LKMC 4f82f79be7b0717c12924f4c9b7c4f46f8f18e2f + 1, gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772 with a hack to add packet IDs and data to <code>Packet::print</code>.</p>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus.html">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a> | ↑ Up: <a href="gem5-event-queue.html">gem5 event queue</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus-and-ruby.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby</a> →</p>
 </div>
 </div>
 <script>

@@ -451,246 +451,256 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect5">
+<h6 id="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless"><a class="anchor" href="#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless"></a><a class="link" href="#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazardless">24.22.4.8.1. gem5 event queue DerivO3CPU syscall emulation freestanding example analysis: hazardless</a></h6>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>Let&#8217;s  have a look at the arguably simplest example <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/linux/hazardless.S">userland/arch/aarch64/freestanding/linux/hazardless.S</a>.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>First let&#8217;s start with a <a href="gem5-util-o3-pipeview-py-o3-pipeline-viewer.html">gem5 util/o3-pipeview.py O3 pipeline viewer</a> visualization:</p>
 </div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
-</div>
-<div class="imageblock">
+<div id="hazardless-o3-pipeline" class="listingblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>// f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
+
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
+[.ic.r........................................................................fdn]-(          40000) 0x00400078.0 movz x0, #0, #0           [         1]
+[.ic.r........................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [         4]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
+[....................fdn.ic.r....................................................]-(         120000) 0x0040008c.0 movz x5, #5, #0           [         6]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400090.0 movz x6, #6, #0           [         7]
+[....................fdn.ic.r....................................................]-(         120000) 0x00400094.0 movz x7, #7, #0           [         8]
+[....................fdn.pic.r...................................................]-(         120000) 0x00400098.0 movz x8, #8, #0           [         9]
+[....................fdn.pic.r...................................................]-(         120000) 0x0040009c.0 movz x9, #9, #0           [        10]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a0.0 movz x10, #10, #0         [        11]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a4.0 movz x11, #11, #0         [        12]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000a8.0 movz x12, #12, #0         [        13]
+[.....................fdn.ic.r...................................................]-(         120000) 0x004000ac.0 movz x13, #13, #0         [        14]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b0.0 movz x14, #14, #0         [        15]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b4.0 movz x15, #15, #0         [        16]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000b8.0 movz x16, #16, #0         [        17]
+[.....................fdn.pic.r..................................................]-(         120000) 0x004000bc.0 movz x17, #17, #0         [        18]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c0.0 movz x18, #18, #0         [        19]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c4.0 movz x19, #19, #0         [        20]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c8.0 movz x20, #20, #0         [        21]
+[............................................fdn.ic.r............................]-(         160000) 0x004000cc.0 movz x21, #21, #0         [        22]
+[............................................fdn.ic.r............................]-(         160000) 0x004000d0.0 movz x22, #22, #0         [        23]
+[............................................fdn.ic.r............................]-(         160000) 0x004000d4.0 movz x23, #23, #0         [        24]
+[............................................fdn.pic.r...........................]-(         160000) 0x004000d8.0 movz x24, #24, #0         [        25]
+[............................................fdn.pic.r...........................]-(         160000) 0x004000dc.0 movz x25, #25, #0         [        26]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e0.0 movz x26, #26, #0         [        27]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e4.0 movz x27, #27, #0         [        28]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000e8.0 movz x28, #28, #0         [        29]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000ec.0 movz x29, #29, #0         [        30]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000f0.0 movz x0, #0, #0           [        31]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000f4.0 movz x1, #1, #0           [        32]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000f8.0 movz x2, #2, #0           [        33]
+[.............................................fdn.pic.r..........................]-(         160000) 0x004000fc.0 movz x3, #3, #0           [        34]</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>The first of instructions has only two instructions because the first instruction is at address 0x400078, so only two instructions fit on that cache line, as the next cache line starts at 0x400080!</p>
 </div>
+<div class="paragraph">
+<p>The initial <code>fdn</code> on top middle is likely bugged out, did it wrap around? But the rest makes sense.</p>
 </div>
+<div class="paragraph">
+<p>From this, we clearly see that up to 8 instructions can be issued concurrently, which matches the default width values we had seen at <a href="gem5-derivo3cpu.html">gem5 <code>DerivO3CPU</code></a>.</p>
+</div>
+<div class="paragraph">
+<p>For example, we can clearly see how:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><code>movz x2</code> through to <code>movz x9</code> start running at the exact same time. TODO why does <code>mov x7</code> do <code>fdn.ic.r</code> while <code>mov x8</code> do <code>fdn.ic.r</code>? How are they different?</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p><code>movz x10</code> through <code>movz x17</code> then starts running one step later. This second chunk is fully pipelined with the first instruction pack</p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>then comes a pause while the next fetch comes back. This group of 16 instructions took up the entire 64-byte cacheline that had been read</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>First we can have a look at <code>ExecEnable</code> to get an initial ideal of how many instructions are run at one time:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  78500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  FetchSeq=1  CPSeq=1  flags=(IsInteger)
+  78500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+4    :   movz   x1, #1, #0        : IntAlu :  D=0x0000000000000001  FetchSeq=2  CPSeq=2  flags=(IsInteger)
+
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   movz   x2, #2, #0        : IntAlu :  D=0x0000000000000002  FetchSeq=3  CPSeq=3  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x3, #3, #0        : IntAlu :  D=0x0000000000000003  FetchSeq=4  CPSeq=4  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   movz   x4, #4, #0        : IntAlu :  D=0x0000000000000004  FetchSeq=5  CPSeq=5  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x5, #5, #0        : IntAlu :  D=0x0000000000000005  FetchSeq=6  CPSeq=6  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x6, #6, #0        : IntAlu :  D=0x0000000000000006  FetchSeq=7  CPSeq=7  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   movz   x7, #7, #0        : IntAlu :  D=0x0000000000000007  FetchSeq=8  CPSeq=8  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+32    :   movz   x8, #8, #0        : IntAlu :  D=0x0000000000000008  FetchSeq=9  CPSeq=9  flags=(IsInteger)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   movz   x9, #9, #0        : IntAlu :  D=0x0000000000000009  FetchSeq=10  CPSeq=10  flags=(IsInteger)
+
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+40    :   movz   x10, #10, #0      : IntAlu :  D=0x000000000000000a  FetchSeq=11  CPSeq=11  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+44    :   movz   x11, #11, #0      : IntAlu :  D=0x000000000000000b  FetchSeq=12  CPSeq=12  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+48    :   movz   x12, #12, #0      : IntAlu :  D=0x000000000000000c  FetchSeq=13  CPSeq=13  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+52    :   movz   x13, #13, #0      : IntAlu :  D=0x000000000000000d  FetchSeq=14  CPSeq=14  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+56    :   movz   x14, #14, #0      : IntAlu :  D=0x000000000000000e  FetchSeq=15  CPSeq=15  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+60    :   movz   x15, #15, #0      : IntAlu :  D=0x000000000000000f  FetchSeq=16  CPSeq=16  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+64    :   movz   x16, #16, #0      : IntAlu :  D=0x0000000000000010  FetchSeq=17  CPSeq=17  flags=(IsInteger)
+ 130500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+68    :   movz   x17, #17, #0      : IntAlu :  D=0x0000000000000011  FetchSeq=18  CPSeq=18  flags=(IsInteger)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This suggests 8, but remember that <code>ExecEnable</code> shows issue time labels, which do not coincide necessarily with commit times. As we saw in the pipeline viewer above, instructions 9 and 10 have one extra stage.</p>
+</div>
+<div class="paragraph">
+<p>After the initial two execs from the first cache line, the full commit log chunk around the first group of six `ExecEnable`s looks like:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre> 133500: Commit: system.cpu.commit: Getting instructions from Rename stage.
+ 133500: Commit: system.cpu.commit: Trying to commit instructions in the ROB.
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:3]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:3] Committing instruction with PC (0x400080=&gt;0x400084).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+8    :   movz   x2, #2, #0        : IntAlu :  D=0x0000000000000002  FetchSeq=3  CPSeq=3  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400080=&gt;0x400084).(0=&gt;1), [sn:3]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400080=&gt;0x400084).(0=&gt;1) [sn:3]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:4]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:4] Committing instruction with PC (0x400084=&gt;0x400088).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+12    :   movz   x3, #3, #0        : IntAlu :  D=0x0000000000000003  FetchSeq=4  CPSeq=4  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400084=&gt;0x400088).(0=&gt;1), [sn:4]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400084=&gt;0x400088).(0=&gt;1) [sn:4]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:5]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:5] Committing instruction with PC (0x400088=&gt;0x40008c).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+16    :   movz   x4, #4, #0        : IntAlu :  D=0x0000000000000004  FetchSeq=5  CPSeq=5  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400088=&gt;0x40008c).(0=&gt;1), [sn:5]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400088=&gt;0x40008c).(0=&gt;1) [sn:5]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:6]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:6] Committing instruction with PC (0x40008c=&gt;0x400090).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+20    :   movz   x5, #5, #0        : IntAlu :  D=0x0000000000000005  FetchSeq=6  CPSeq=6  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x40008c=&gt;0x400090).(0=&gt;1), [sn:6]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x40008c=&gt;0x400090).(0=&gt;1) [sn:6]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:7]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:7] Committing instruction with PC (0x400090=&gt;0x400094).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+24    :   movz   x6, #6, #0        : IntAlu :  D=0x0000000000000006  FetchSeq=7  CPSeq=7  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400090=&gt;0x400094).(0=&gt;1), [sn:7]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400090=&gt;0x400094).(0=&gt;1) [sn:7]
+
+ 133500: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:8]
+ 133500: Commit: system.cpu.commit: [tid:0] [sn:8] Committing instruction with PC (0x400094=&gt;0x400098).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+28    :   movz   x7, #7, #0        : IntAlu :  D=0x0000000000000007  FetchSeq=8  CPSeq=8  flags=(IsInteger)
+ 133500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x400094=&gt;0x400098).(0=&gt;1), [sn:8]
+ 133500: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x400094=&gt;0x400098).(0=&gt;1) [sn:8]
+
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x400098=&gt;0x40009c).(0=&gt;1), [sn:9] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x40009c=&gt;0x4000a0).(0=&gt;1), [sn:10] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000a0=&gt;0x4000a4).(0=&gt;1), [sn:11] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000a4=&gt;0x4000a8).(0=&gt;1), [sn:12] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000a8=&gt;0x4000ac).(0=&gt;1), [sn:13] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Marking PC (0x4000ac=&gt;0x4000b0).(0=&gt;1), [sn:14] ready within ROB.
+ 133500: Commit: system.cpu.commit: [tid:0] Instruction [sn:9] PC (0x400098=&gt;0x40009c).(0=&gt;1) is head of ROB and ready to commit
+ 133500: Commit: system.cpu.commit: [tid:0] ROB has 10 insts &amp; 182 free entries.</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ROB</code> stands for <a href="re-order-buffer.html">Re-order buffer</a>.</p>
+</div>
+<div class="paragraph">
+<p><code>0x400080&#8658;0x400084</code> is an old/new PC address of the first committed instruction.</p>
+</div>
+<div class="paragraph">
+<p>Another thing we can do, it to try to follow one of the instructions back as it goes through the pipeline. Searching for example for the address <code>0x400080</code>, we find:</p>
+</div>
+<div class="paragraph">
+<p>The first mention of the address happens when is the fetch of the two initial instructions completes. TODO not sure why it doesn&#8217;t just also fetch the next cache line at the same time:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>FullO3CPU: Ticking main, FullO3CPU.
+  78500: Fetch: system.cpu.fetch: Running stage.
+  78500: Fetch: system.cpu.fetch: Attempting to fetch from [tid:0]
+  78500: Fetch: system.cpu.fetch: [tid:0] Icache miss is complete.
+  78500: Fetch: system.cpu.fetch: [tid:0] Adding instructions to queue to decode.
+  78500: DynInst: global: DynInst: [sn:1] Instruction created. Instcount for system.cpu = 1
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x400078 (0) created [sn:1].
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x0, #0, #0
+  78500: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (1/32).
+  78500: DynInst: global: DynInst: [sn:2] Instruction created. Instcount for system.cpu = 2
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x40007c (0) created [sn:2].
+  78500: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x1, #1, #0
+  78500: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (2/32).
+  78500: Fetch: system.cpu.fetch: [tid:0] Issuing a pipelined I-cache access, starting at PC (0x400080=&gt;0x400084).(0=&gt;1).
+  78500: Fetch: system.cpu.fetch: [tid:0] Fetching cache line 0x400080 for addr 0x400080</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we observe that the first two instructions arrived, and the CPU noticed that 0x400080 hasn&#8217;t been fetched yet.</p>
+</div>
+<div class="paragraph">
+<p>Then for several cycles that follow, the fetch stage just says that it is blocked on data returning:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>FullO3CPU: Ticking main, FullO3CPU.
+  79000: Fetch: system.cpu.fetch: Running stage.
+  79000: Fetch: system.cpu.fetch: There are no more threads available to fetch from.
+  79000: Fetch: system.cpu.fetch: [tid:0] Fetch is waiting cache response!</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>At the same time, the execution of the initial 2 instructions progresses through the pipeline.</p>
+</div>
+<div class="paragraph">
+<p>These progress up until:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  88000: O3CPU: system.cpu: Idle!</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>at which point there are no more events scheduled besides waiting for the second cache line to come back.</p>
+</div>
+<div class="paragraph">
+<p>After this, some time passes without events, and the next tick happens when the fetch data returns:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>FullO3CPU: Ticking main, FullO3CPU.
+ 130000: Fetch: system.cpu.fetch: Running stage.
+ 130000: Fetch: system.cpu.fetch: Attempting to fetch from [tid:0]
+ 130000: Fetch: system.cpu.fetch: [tid:0] Icache miss is complete.
+ 130000: Fetch: system.cpu.fetch: [tid:0] Adding instructions to queue to decode.
+ 130000: DynInst: global: DynInst: [sn:3] Instruction created. Instcount for system.cpu = 1
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x400080 (0) created [sn:3].
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x2, #2, #0
+ 130000: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (1/32).
+ 130000: DynInst: global: DynInst: [sn:4] Instruction created. Instcount for system.cpu = 2
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction PC 0x400084 (0) created [sn:4].
+ 130000: Fetch: system.cpu.fetch: [tid:0] Instruction is:   movz   x3, #3, #0
+ 130000: Fetch: system.cpu.fetch: [tid:0] Fetch queue entry created (2/32).
+ 130000: DynInst: global: DynInst: [sn:5] Instruction created. Instcount for system.cpu = 3</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue DerivO3CPU syscall emulation freestanding example analysis</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-hazard.html">gem5 event queue DerivO3CPU syscall emulation freestanding example analysis: hazard</a> →</p>
 </div>
 </div>
 <script>

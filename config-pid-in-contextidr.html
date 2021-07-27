@@ -451,246 +451,213 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="config-pid-in-contextidr" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="config-pid-in-contextidr"><a class="anchor" href="#config-pid-in-contextidr"></a><a class="link" href="#config-pid-in-contextidr">3.10.1.1. CONFIG_PID_IN_CONTEXTIDR</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p><a href="https://stackoverflow.com/questions/54133479/accessing-logical-software-thread-id-in-gem5" class="bare">https://stackoverflow.com/questions/54133479/accessing-logical-software-thread-id-in-gem5</a> on ARM the kernel can store an indication of PID in the CONTEXTIDR_EL1 register, making that much easier to observe from simulators.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>In particular, gem5 prints that number out by default on <code>ExecAll</code> messages!</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>Let&#8217;s test it out with <a href="linux-kernel-build-variants.html">Linux kernel build variants</a> + <a href="gem5-restore-new-script.html">gem5 checkpoint restore and run a different script</a>:</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
-</div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./build-linux --arch aarch64 --linux-build-id CONFIG_PID_IN_CONTEXTIDR --config 'CONFIG_PID_IN_CONTEXTIDR=y'
+# Checkpoint run.
+./run --arch aarch64 --emulator gem5 --linux-build-id CONFIG_PID_IN_CONTEXTIDR --eval './gem5.sh'
+# Trace run.
+./run \
+  --arch aarch64 \
+  --emulator gem5 \
+  --gem5-readfile 'posix/getpid.out; posix/getpid.out' \
+  --gem5-restore 1 \
+  --linux-build-id CONFIG_PID_IN_CONTEXTIDR \
+  --trace FmtFlag,ExecAll,-ExecSymbol \
+;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>The terminal runs both programs which output their PID to stdout:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>pid=44
+pid=45</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>By quickly inspecting the <code>trace.txt</code> file, we immediately notice that the <code>system.cpu: A&lt;n&gt;</code> part of the logs, which used to always be <code>system.cpu: A0</code>, now has a few different values! Nice!</p>
+</div>
+<div class="paragraph">
+<p>We can briefly summarize those values by removing repetitions:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cut -d' ' -f4 "$(./getvar --arch aarch64 --emulator gem5 trace_txt_file)" | uniq -c</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>gives:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  97227 A39
+ 147476 A38
+ 222052 A40
+      1 terminal
+1117724 A40
+  27529 A31
+  43868 A40
+  27487 A31
+ 138349 A40
+  13781 A38
+ 231246 A40
+  25536 A38
+  28337 A40
+ 214799 A38
+ 963561 A41
+  92603 A38
+  27511 A31
+ 224384 A38
+ 564949 A42
+ 182360 A38
+ 729009 A43
+   8398 A23
+  20200 A10
+ 636848 A43
+ 187995 A44
+  27529 A31
+  70071 A44
+  16981 A0
+ 623806 A44
+  16981 A0
+ 139319 A44
+  24487 A0
+ 174986 A44
+  25420 A0
+  89611 A44
+  16981 A0
+ 183184 A44
+  24728 A0
+  89608 A44
+  17226 A0
+ 899075 A44
+  24974 A0
+ 250608 A44
+ 137700 A43
+1497997 A45
+ 227485 A43
+ 138147 A38
+ 482646 A46</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>I&#8217;m not smart enough to be able to deduce all of those IDs, but we can at least see that:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>A44 and A45 are there as expected from stdout!</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p>A39 must be the end of the execution of <code>m5 checkpoint</code></p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
+<p>so we guess that A38 is the shell as it comes next</p>
 </li>
 <li>
-<p><a href="kgdb.html">KGDB</a></p>
+<p>the weird "terminal" line is <code>336969745500: system.terminal: attach terminal 0</code></p>
 </li>
 <li>
-<p><a href="gdbserver.html">gdbserver</a></p>
+<p>which is the shell PID? I should have printed that as well :-)</p>
 </li>
 <li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
+<p>why are there so many other PIDs? This was supposed to be a silent system without daemons!</p>
 </li>
 <li>
-<p><a href="init.html">init</a></p>
+<p>A0 is presumably the kernel. However we see process switches without going into A0, so I&#8217;m not sure how, it appears to count kernel instructions as part of processes</p>
 </li>
 <li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>A46 has to be the <code>m5 exit</code> call</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>Or if you want to have some real fun, try: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/baremetal/arch/aarch64/contextidr_el1.c">baremetal/arch/aarch64/contextidr_el1.c</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --emulator gem5 --baremetal baremetal/arch/aarch64/contextidr_el1.c --trace-insts-stdout</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>in which we directly set the register ourselves! Output excerpt:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  31500: system.cpu: A0 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000001 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  32000: system.cpu: A1 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000001  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+  32500: system.cpu: A1 T0 : @main+20    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000001 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  33000: system.cpu: A1 T0 : @main+24    :   add   w0, w0, #1         : IntAlu :  D=0x0000000000000002  flags=(IsInteger)
+  33500: system.cpu: A1 T0 : @main+28    :   str   x0, [sp, #12]      : MemWrite :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsStore)
+  34000: system.cpu: A1 T0 : @main+32    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  34500: system.cpu: A1 T0 : @main+36    :   subs   w0, #9            : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+  35000: system.cpu: A1 T0 : @main+40    :   b.le   &lt;main+12&gt;         : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+  35500: system.cpu: A1 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  36000: system.cpu: A2 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000002  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)
+  36500: system.cpu: A2 T0 : @main+20    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000002 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  37000: system.cpu: A2 T0 : @main+24    :   add   w0, w0, #1         : IntAlu :  D=0x0000000000000003  flags=(IsInteger)
+  37500: system.cpu: A2 T0 : @main+28    :   str   x0, [sp, #12]      : MemWrite :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsStore)
+  38000: system.cpu: A2 T0 : @main+32    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  38500: system.cpu: A2 T0 : @main+36    :   subs   w0, #9            : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+  39000: system.cpu: A2 T0 : @main+40    :   b.le   &lt;main+12&gt;         : IntAlu :   flags=(IsControl|IsDirectControl|IsCondControl)
+  39500: system.cpu: A2 T0 : @main+12    :   ldr   x0, [sp, #12]      : MemRead :  D=0x0000000000000003 A=0x82fffffc  flags=(IsInteger|IsMemRef|IsLoad)
+  40000: system.cpu: A3 T0 : @main+16    :   msr   contextidr_el1, x0 : IntAlu :  D=0x0000000000000003  flags=(IsInteger|IsSerializeAfter|IsNonSpeculative)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><a href="armarm8-fa.html">ARMv8 architecture reference manual db</a> D13.2.27 "CONTEXTIDR_EL1, Context ID Register (EL1)" documents <code>CONTEXTIDR_EL1</code> as:</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>Identifies the current Process Identifier.</p>
+</div>
+<div class="paragraph">
+<p>The value of the whole of this register is called the Context ID and is used by:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The debug logic, for Linked and Unlinked Context ID matching.</p>
+</li>
+<li>
+<p>The trace logic, to identify the current process.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The significance of this register is for debug and trace use only.</p>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p>Tested on 145769fc387dc5ee63ec82e55e6b131d9c968538 + 1.</p>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="lx-ps.html">lx-ps</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="debug-the-gdb-remote-protocol.html">Debug the GDB remote protocol</a> →</p>
 </div>
 </div>
 <script>

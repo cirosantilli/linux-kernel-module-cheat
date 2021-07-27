@@ -451,246 +451,289 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-execcontext-readintregoperand-register-resolution" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect5">
+<h6 id="gem5-execcontext-readintregoperand-register-resolution"><a class="anchor" href="#gem5-execcontext-readintregoperand-register-resolution"></a><a class="link" href="#gem5-execcontext-readintregoperand-register-resolution">24.22.6.3.1. gem5 <code>ExecContext::readIntRegOperand</code> register resolution</a></h6>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>Let&#8217;s have a look at how <code>ExecContext::readIntRegOperand</code> actually matches registers to decoded registers IDs, since it is not obvious.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>Let&#8217;s study a simple aarch64 register register addition:</p>
 </div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
-</div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>add x0, x1, x2</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>which corresponds to the <code>AddXSReg</code> instruction (formatted and simplified):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Fault AddXSReg::execute(ExecContext *xc, Trace::InstRecord *traceData) const {
+    uint64_t Op264 = 0;
+    uint64_t Dest64 = 0;
+    uint64_t Op164 = 0;
+    Op264 = ((xc-&gt;readIntRegOperand(this, 0)) &amp; mask(intWidth));
+    Op164 = ((xc-&gt;readIntRegOperand(this, 1)) &amp; mask(intWidth));
+    uint64_t secOp = shiftReg64(Op264, shiftAmt, shiftType, intWidth);
+    Dest64 = Op164 + secOp;
+    uint64_t final_val = Dest64;
+    xc-&gt;setIntRegOperand(this, 0, (Dest64) &amp; mask(intWidth));
+    if (traceData) { traceData-&gt;setData(final_val); }
+    return NoFault;
+}</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>So what are those magic <code>0</code> and <code>1</code> constants on <code>xc&#8594;readIntRegOperand(this, 0)</code> and <code>xc&#8594;readIntRegOperand(this, 1)</code>?</p>
+</div>
+<div class="paragraph">
+<p>First, we guess that they  must be related to the reading of <code>x1</code> and <code>x2</code>, which are the inputs of the addition.</p>
+</div>
+<div class="paragraph">
+<p>Next, we also guess that the <code>0</code> read must correspond to <code>x2</code>, since it later gets potentially shifted as mentioned at <a href="arm-shift-suffixes.html">Section 30.4.4.1, &#8220;ARM shift suffixes&#8221;</a>.</p>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s also have a look at the decoder code that builds the instruction instance in <code>build/ARM/arch/arm/generated/decoder-ns.cc.inc</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>ArmShiftType type =
+    (ArmShiftType)(uint8_t)bits(machInst, 23, 22);
+if (type == ROR)
+    return new Unknown64(machInst);
+uint8_t imm6 = bits(machInst, 15, 10);
+if (!bits(machInst, 31) &amp;&amp; bits(imm6, 5))
+    return new Unknown64(machInst);
+IntRegIndex rd = (IntRegIndex)(uint8_t)bits(machInst, 4, 0);
+IntRegIndex rdzr = makeZero(rd);
+IntRegIndex rn = (IntRegIndex)(uint8_t)bits(machInst, 9, 5);
+IntRegIndex rm = (IntRegIndex)(uint8_t)bits(machInst, 20, 16);
+
+return new AddXSReg(machInst, rdzr, rn, rm, imm6, type);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and the ARM instruction pseudocode from the <a href="armarm8.html">ARMv8 architecture reference manual</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>ADD &lt;Xd&gt;, &lt;Xn&gt;, &lt;Xm&gt;{, &lt;shift&gt; #&lt;amount&gt;}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and the constructor:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>AddXSReg::AddXSReg(ExtMachInst machInst,
+    IntRegIndex _dest,
+    IntRegIndex _op1,
+    IntRegIndex _op2,
+    int32_t _shiftAmt,
+    ArmShiftType _shiftType
+) : DataXSRegOp("add", machInst, IntAluOp,
+                _dest, _op1, _op2, _shiftAmt, _shiftType) {
+    _numSrcRegs = 0;
+    _numDestRegs = 0;
+    _numFPDestRegs = 0;
+    _numVecDestRegs = 0;
+    _numVecElemDestRegs = 0;
+    _numVecPredDestRegs = 0;
+    _numIntDestRegs = 0;
+    _numCCDestRegs = 0;
+    _srcRegIdx[_numSrcRegs++] = RegId(IntRegClass, op2);
+    _destRegIdx[_numDestRegs++] = RegId(IntRegClass, dest);
+    _numIntDestRegs++;
+    _srcRegIdx[_numSrcRegs++] = RegId(IntRegClass, op1);
+    flags[IsInteger] = true;;
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>RegId</code> is just a container class, and so the lines that we care about for now are:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>_srcRegIdx[_numSrcRegs++] = RegId(IntRegClass, op2);
+_srcRegIdx[_numSrcRegs++] = RegId(IntRegClass, op1);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which matches the guess we made earlier: <code>op2</code> is <code>0</code> and <code>op1</code> is <code>1</code> (<code>op1</code> and <code>op2</code> are the same as <code>_op1</code> and <code>_op2</code> which are set in the base constructor <code>DataXSRegOp</code>).</p>
+</div>
+<div class="paragraph">
+<p>We also note that the register decodings (which the ARM spec says are <code>1</code> for <code>x1</code> and <code>2</code> for <code>x2</code>) are actually passed as enum <code>IntRegIndex</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    IntRegIndex _op1,
+    IntRegIndex _op2,</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which are defined at <code>src/arch/arm/interegs.hh</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>enum IntRegIndex
+{
+    /* All the unique register indices. */
+    INTREG_R0,
+    INTREG_R1,
+    INTREG_R2,</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then <code>SimpleExecContext::readIntRegOperand</code> does:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    /** Reads an integer register. */
+    RegVal
+    readIntRegOperand(const StaticInst *si, int idx) override
+    {
+        numIntRegReads++;
+        const RegId&amp; reg = si-&gt;srcRegIdx(idx);
+        assert(reg.isIntReg());
+        return thread-&gt;readIntReg(reg.index());
+    }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>const RegId&amp; srcRegIdx(int i)  const { return _srcRegIdx[i]; }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which is what is populated in the constructor.</p>
+</div>
+<div class="paragraph">
+<p>Then, <code>RegIndex::index() { return regIdx; }</code> just returns the decoded register bytes, and now <code>SimpleThread::readIntReg</code>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>RegVal readIntReg(RegIndex reg_idx) const override {
+    int flatIndex = isa-&gt;flattenIntIndex(reg_idx);
+    return readIntRegFlat(flatIndex);
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>readIntRegFlag</code> is what finally reads from the int register array:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>RegVal SimpleThreadContext::readIntRegFlat(RegIndex idx) const override { return intRegs[idx]; }
+
+std::array&lt;RegVal, TheISA::NumIntRegs&gt; SimpleThreadContext::intRegs;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then there is the flattening magic at:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>int
+flattenIntIndex(int reg) const
+{
+    assert(reg &gt;= 0);
+    if (reg &lt; NUM_ARCH_INTREGS) {
+        return intRegMap[reg];
+    } else if (reg &lt; NUM_INTREGS) {
+        return reg;
+    } else if (reg == INTREG_SPX) {
+        CPSR cpsr = miscRegs[MISCREG_CPSR];
+        ExceptionLevel el = opModeToEL(
+            (OperatingMode) (uint8_t) cpsr.mode);
+        if (!cpsr.sp &amp;&amp; el != EL0)
+            return INTREG_SP0;
+        switch (el) {
+            case EL3:
+            return INTREG_SP3;
+            case EL2:
+            return INTREG_SP2;
+            case EL1:
+            return INTREG_SP1;
+            case EL0:
+            return INTREG_SP0;
+            default:
+            panic("Invalid exception level");
+            return 0;  // Never happens.
+        }
+    } else {
+        return flattenIntRegModeIndex(reg);
+    }
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    NUM_ARCH_INTREGS = 32,</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we undertand that this covers x0 to x31. <code>NUM_INTREGS</code> is also 32, so I&#8217;m a bit confused, that case is never reached.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    INTREG_SPX = NUM_INTREGS,</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>SP is 32, but it is a bit more magic, since in ARM there is one SP per <a href="arm-exception-levels.html">exception level</a> as mentioned at <a href="arm-sp0-vs-spx.html">ARM SP0 vs SPx</a>.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>   INTREG_SPX = NUM_INTREGS</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We can also have a quick look at the <code>AddXImm</code> instruction which corresponds to a simple addition of an immediate as shown in <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/add.S">userland/arch/aarch64/add.S</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>add x0, x1, 2</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Its <a href="gem5-execute-vs-initiateacc-vs-completeacc.html"><code>execute</code> method</a> contains in <code>build/ARM/arch/arm/generated/exec-ns.cc.inc</code> (hand formatted and slightly simplified):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>Fault AddXImm::execute(ExecContext *xc, Trace::InstRecord *traceData) const {
+    uint64_t Dest64 = 0;
+    uint64_t Op164 = 0;
+    Op164 = ((xc-&gt;readIntRegOperand(this, 0)) &amp; mask(intWidth));
+    Dest64 = Op164 + imm;
+    uint64_t final_val = Dest64;
+    xc-&gt;setIntRegOperand(this, 0, (Dest64) &amp; mask(intWidth));
+    if (traceData) { traceData-&gt;setData(final_val); }
+    return NoFault;
+}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and <code>imm</code> is set directly on the constructor.</p>
 </div>
 <div class="ulist">
 <ul>
-<li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
-</li>
-<li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
-</li>
 </ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="gem5-execcontext.html">gem5 <code>ExecContext</code></a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-process.html">gem5 <code>Process</code></a> →</p>
 </div>
 </div>
 <script>

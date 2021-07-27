@@ -451,246 +451,79 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-graphic-mode-internals" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="gem5-graphic-mode-internals"><a class="anchor" href="#gem5-graphic-mode-internals"></a><a class="link" href="#gem5-graphic-mode-internals">14.3.3. gem5 graphic mode internals</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>We cannot use mainline Linux because the <a href="gem5-arm-linux-kernel-patches.html">gem5 arm Linux kernel patches</a> are required at least to provide the <code>CONFIG_DRM_VIRT_ENCODER</code> option.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>gem5 emulates the <a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0541c/CHDBAIDI.html">HDLCD</a> ARM Holdings hardware for <code>arm</code> and <code>aarch64</code>.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>The kernel uses HDLCD to implement the <a href="drm.html">DRM</a> interface, the required kernel config options are present at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/linux_config/display">linux_config/display</a>.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>TODO: minimize out the <code>--custom-config-file</code>. If we just remove it on <code>arm</code>: it does not work with a failing dmesg:</p>
 </div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>[    0.066208] [drm] found ARM HDLCD version r0p0
+[    0.066241] hdlcd 2b000000.hdlcd: bound virt-encoder (ops drm_vencoder_ops)
+[    0.066247] [drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[    0.066252] [drm] No driver support for vblank timestamp query.
+[    0.066276] hdlcd 2b000000.hdlcd: Cannot do DMA to address 0x0000000000000000
+[    0.066281] swiotlb: coherent allocation failed for device 2b000000.hdlcd size=8294400
+[    0.066288] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.15.0 #1
+[    0.066293] Hardware name: V2P-AARCH64 (DT)
+[    0.066296] Call trace:
+[    0.066301]  dump_backtrace+0x0/0x1b0
+[    0.066306]  show_stack+0x24/0x30
+[    0.066311]  dump_stack+0xb8/0xf0
+[    0.066316]  swiotlb_alloc_coherent+0x17c/0x190
+[    0.066321]  __dma_alloc+0x68/0x160
+[    0.066325]  drm_gem_cma_create+0x98/0x120
+[    0.066330]  drm_fbdev_cma_create+0x74/0x2e0
+[    0.066335]  __drm_fb_helper_initial_config_and_unlock+0x1d8/0x3a0
+[    0.066341]  drm_fb_helper_initial_config+0x4c/0x58
+[    0.066347]  drm_fbdev_cma_init_with_funcs+0x98/0x148
+[    0.066352]  drm_fbdev_cma_init+0x40/0x50
+[    0.066357]  hdlcd_drm_bind+0x220/0x428
+[    0.066362]  try_to_bring_up_master+0x21c/0x2b8
+[    0.066367]  component_master_add_with_match+0xa8/0xf0
+[    0.066372]  hdlcd_probe+0x60/0x78
+[    0.066377]  platform_drv_probe+0x60/0xc8
+[    0.066382]  driver_probe_device+0x30c/0x478
+[    0.066388]  __driver_attach+0x10c/0x128
+[    0.066393]  bus_for_each_dev+0x70/0xb0
+[    0.066398]  driver_attach+0x30/0x40
+[    0.066402]  bus_add_driver+0x1d0/0x298
+[    0.066408]  driver_register+0x68/0x100
+[    0.066413]  __platform_driver_register+0x54/0x60
+[    0.066418]  hdlcd_platform_driver_init+0x20/0x28
+[    0.066424]  do_one_initcall+0x44/0x130
+[    0.066428]  kernel_init_freeable+0x13c/0x1d8
+[    0.066433]  kernel_init+0x18/0x108
+[    0.066438]  ret_from_fork+0x10/0x1c
+[    0.066444] hdlcd 2b000000.hdlcd: Failed to set initial hw configuration.
+[    0.066470] hdlcd 2b000000.hdlcd: master bind failed: -12
+[    0.066477] hdlcd: probe of 2b000000.hdlcd failed with error -12</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
-</div>
-</div>
+<div class="paragraph">
+<p>So what other options are missing from <code>gem5_defconfig</code>? It would be cool to minimize it out to better understand the options.</p>
 </div>
 <div class="ulist">
 <ul>
-<li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
-</li>
-<li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
-</li>
 </ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-graphic-mode-dp650.html">gem5 graphic mode DP650</a> | ↑ Up: <a href="gem5-graphic-mode.html">gem5 graphic mode</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="x11.html">X11 Buildroot</a> →</p>
 </div>
 </div>
 <script>

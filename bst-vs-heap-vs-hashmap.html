@@ -451,246 +451,135 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="bst-vs-heap-vs-hashmap" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="bst-vs-heap-vs-hashmap"><a class="anchor" href="#bst-vs-heap-vs-hashmap"></a><a class="link" href="#bst-vs-heap-vs-hashmap">27.8.1. BST vs heap vs hashmap</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p>TODO: move benchmark graph from <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/bst_vs_heap_vs_hashmap.cpp">userland/cpp/bst_vs_heap_vs_hashmap.cpp</a> to <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/algorithm/set">userland/algorithm/set</a>.</p>
 </div>
 <div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
-</div>
-<div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
-</div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>The following benchmark setup works both:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
+<p>on host through timers + <a href="https://stackoverflow.com/questions/51952471/why-do-i-get-a-constant-instead-of-logarithmic-curve-for-an-insert-time-benchmar/51953081#51953081">granule</a></p>
 </li>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
+<p>gem5 with <a href="m5ops-instructions.html">dumpstats</a>, which can get more precise results with <code>granule == 1</code></p>
 </li>
 </ul>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>It has been used to answer:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>BST vs heap: <a href="https://stackoverflow.com/questions/6147243/heap-vs-binary-search-tree-bst/29548834#29548834" class="bare">https://stackoverflow.com/questions/6147243/heap-vs-binary-search-tree-bst/29548834#29548834</a></p>
+</li>
+<li>
+<p><code>std::set</code>: <a href="https://stackoverflow.com/questions/2558153/what-is-the-underlying-data-structure-of-a-stl-set-in-c/51944661#51944661" class="bare">https://stackoverflow.com/questions/2558153/what-is-the-underlying-data-structure-of-a-stl-set-in-c/51944661#51944661</a></p>
+</li>
+<li>
+<p><code>std::map</code>: <a href="https://stackoverflow.com/questions/18414579/what-data-structure-is-inside-stdmap-in-c/51945119#51945119" class="bare">https://stackoverflow.com/questions/18414579/what-data-structure-is-inside-stdmap-in-c/51945119#51945119</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To benchmark on the host, we do:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./build-userland-in-tree \
+  --force-rebuild \
+  --optimization-level 3 \
+  ./userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+;
+./userland/cpp/bst_vs_heap_vs_hashmap.out 10000000 10000 0 | tee bst_vs_heap_vs_hashmap.dat
+gnuplot \
+  -e 'input_noext="bst_vs_heap_vs_hashmap"' \
+  -e 'heap_zoom_max=50' \
+  -e 'hashmap_zoom_max=400' \
+  ./bst-vs-heap-vs-hashmap.gnuplot \
+;
+xdg-open bst_vs_heap_vs_hashmap.tmp.png</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>The parameters <code>heap_zoom_max</code> and <code>hashmap_zoom_max</code> are chosen manually interactively to best showcase the regions of interest in those plots.</p>
+</div>
+<div class="paragraph">
+<p>To benchmark on gem5, we first build the benchmark with <a href="m5ops-instructions.html">m5ops instructions</a> enabled, and then we run it and extract the stats:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./build-userland \
+  --arch x86_64 \
+  --ccflags='-DLKMC_M5OPS_ENABLE=1' \
+  --force-rebuild userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+  --optimization-level 3 \
+;
+./run \
+  --arch x86_64 \
+  --emulator gem5 \
+  --userland userland/cpp/bst_vs_heap_vs_hashmap.cpp \
+  --cli-args='100000 1 0' \
+  -- \
+  --cpu-type=DerivO3CPU \
+  --caches \
+  --l2cache \
+  --l1d_size=32kB \
+  --l1i_size=32kB \
+  --l2_size=256kB \
+  --l3_size=20MB \
+;
+./bst-vs-heap-vs-hashmap-gem5-stats --arch x86_64 | tee bst_vs_heap_vs_hashmap_gem5.dat
+gnuplot \
+  -e 'input_noext="bst_vs_heap_vs_hashmap_gem5"' \
+  -e 'heap_zoom_max=500' \
+  -e 'hashmap_zoom_max=400' \
+  ./bst-vs-heap-vs-hashmap.gnuplot \
+;
+xdg-open bst_vs_heap_vs_hashmap_gem5.tmp.png</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>TODO: the gem5 simulation blows up on a tcmalloc allocation somewhere near 25k elements as of 3fdd83c2c58327d9714fa2347c724b78d7c05e2b + 1, likely linked to the extreme inefficiency of the stats collection?</p>
+</div>
+<div class="paragraph">
+<p>The cache sizes were chosen to match the host <a href="p51.html">2017 Lenovo ThinkPad P51</a> to improve the comparison. Ideally we should also use the same standard library.</p>
+</div>
+<div class="paragraph">
+<p>Note that this will take a long time, and will produce a humongous ~40Gb stats file as explained at: <a href="gem5-only-dump-selected-stats.html">Section 24.10.3.2, &#8220;gem5 only dump selected stats&#8221;</a></p>
+</div>
+<div class="paragraph">
+<p>Sources:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/cpp/bst_vs_heap_vs_hashmap.cpp">userland/cpp/bst_vs_heap_vs_hashmap.cpp</a></p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/bst-vs-heap-vs-hashmap-gem5-stats">bst-vs-heap-vs-hashmap-gem5-stats</a></p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/bst-vs-heap-vs-hashmap.gnuplot">bst-vs-heap-vs-hashmap.gnuplot</a></p>
 </li>
 </ul>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="algorithms.html">Algorithms</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="blas.html">BLAS</a> →</p>
 </div>
 </div>
 <script>

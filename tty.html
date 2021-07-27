@@ -451,246 +451,263 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="tty" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="tty"><a class="anchor" href="#tty"></a><a class="link" href="#tty">17.17.3. TTY</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p>In order to play with TTYs, do this:</p>
 </div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
-</div>
-<div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
-</div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
-</div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>printf '
+tty2::respawn:/sbin/getty -n -L -l /lkmc/loginroot.sh tty2 0 vt100
+tty3::respawn:-/bin/sh
+tty4::respawn:/sbin/getty 0 tty4
+tty63::respawn:-/bin/sh
+::respawn:/sbin/getty -L ttyS0 0 vt100
+::respawn:/sbin/getty -L ttyS1 0 vt100
+::respawn:/sbin/getty -L ttyS2 0 vt100
+# Leave one serial empty.
+#::respawn:/sbin/getty -L ttyS3 0 vt100
+' &gt;&gt; rootfs_overlay/etc/inittab
+./build-buildroot
+./run --graphic -- \
+  -serial telnet::1235,server,nowait \
+  -serial vc:800x600 \
+  -serial telnet::1236,server,nowait \
+;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>and on a second shell:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>telnet localhost 1235</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>We don&#8217;t add more TTYs by default because it would spawn more processes, even if we use <code>askfirst</code> instead of <code>respawn</code>.</p>
+</div>
+<div class="paragraph">
+<p>On the GUI, switch TTYs with:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><code>Alt-Left</code> or <code>Alt-Right:</code> go to previous / next populated <code>/dev/ttyN</code> TTY. Skips over empty TTYs.</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p><code>Alt-Fn</code>: go to the nth TTY. If it is  not populated, don&#8217;t go there.</p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><code>chvt &lt;n&gt;</code>: go to the n-th virtual TTY, even if it is empty: <a href="https://superuser.com/questions/33065/console-commands-to-change-virtual-ttys-in-linux-and-openbsd" class="bare">https://superuser.com/questions/33065/console-commands-to-change-virtual-ttys-in-linux-and-openbsd</a></p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>You can also test this on most hosts such as Ubuntu 18.04, except that when in the GUI, you must use <code>Ctrl-Alt-Fx</code> to switch to another terminal.</p>
+</div>
+<div class="paragraph">
+<p>Next, we also have the following shells running on the serial ports, hit enter to activate them:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>/dev/ttyS0</code>: first shell that was used to run QEMU, corresponds to QEMU&#8217;s <code>-serial mon:stdio</code>.</p>
+<div class="paragraph">
+<p>It would also work if we used <code>-serial stdio</code>, but:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p><code>Ctrl-C</code> would kill QEMU instead of going to the guest</p>
+</li>
+<li>
+<p><code>Ctrl-A C</code> wouldn&#8217;t open the QEMU console there</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>see also: <a href="https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to" class="bare">https://stackoverflow.com/questions/49716931/how-to-run-qemu-with-nographic-and-monitor-but-still-be-able-to-send-ctrlc-to</a></p>
+</div>
+</li>
+<li>
+<p><code>/dev/ttyS1</code>: second shell running <code>telnet</code></p>
+</li>
+<li>
+<p><code>/dev/ttyS2</code>: go on the GUI and enter <code>Ctrl-Alt-2</code>, corresponds to QEMU&#8217;s <code>-serial vc</code>. Go back to the main console with <code>Ctrl-Alt-1</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>although we cannot change between terminals from there.</p>
+</div>
+<div class="paragraph">
+<p>Each populated TTY contains a "shell":</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-/bin/sh</code>: goes directly into an <code>sh</code> without a login prompt.</p>
+<div class="paragraph">
+<p>The trailing dash <code>-</code> can be used on any command. It makes the command that follows take over the TTY, which is what we typically want for interactive shells: <a href="https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using" class="bare">https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using</a></p>
+</div>
+<div class="paragraph">
+<p>The <code>getty</code> executable however also does this operation and therefore dispenses the <code>-</code>.</p>
+</div>
+</li>
+<li>
+<p><code>/sbin/getty</code> asks for password, and then gives you an <code>sh</code></p>
+<div class="paragraph">
+<p>We can overcome the password prompt with the <code>-l /lkmc/loginroot.sh</code> technique explained at: <a href="https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using" class="bare">https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using</a> but I don&#8217;t see any advantage over <code>-/bin/sh</code> currently.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Identify the current TTY with the command:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tty</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Bibliography:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://unix.stackexchange.com/questions/270272/how-to-get-the-tty-in-which-bash-is-running/270372" class="bare">https://unix.stackexchange.com/questions/270272/how-to-get-the-tty-in-which-bash-is-running/270372</a></p>
+</li>
+<li>
+<p><a href="https://unix.stackexchange.com/questions/187319/how-to-get-the-real-name-of-the-controlling-terminal" class="bare">https://unix.stackexchange.com/questions/187319/how-to-get-the-real-name-of-the-controlling-terminal</a></p>
+</li>
+<li>
+<p><a href="https://unix.stackexchange.com/questions/77796/how-to-get-the-current-terminal-name" class="bare">https://unix.stackexchange.com/questions/77796/how-to-get-the-current-terminal-name</a></p>
+</li>
+<li>
+<p><a href="https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using" class="bare">https://askubuntu.com/questions/902998/how-to-check-which-tty-am-i-using</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>This outputs:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>/dev/console</code> for the initial GUI terminal. But I think it is the same as <code>/dev/tty1</code>, because if I try to do</p>
+<div class="literalblock">
+<div class="content">
+<pre>tty1::respawn:-/bin/sh</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>it makes the terminal go crazy, as if multiple processes are randomly eating up the characters.</p>
+</div>
+</li>
+<li>
+<p><code>/dev/ttyN</code> for the other graphic TTYs. Note that there are only 63 available ones, from <code>/dev/tty1</code> to <code>/dev/tty63</code> (<code>/dev/tty0</code> is the current one): <a href="https://superuser.com/questions/449781/why-is-there-so-many-linux-dev-tty" class="bare">https://superuser.com/questions/449781/why-is-there-so-many-linux-dev-tty</a>. I think this is determined by:</p>
+<div class="literalblock">
+<div class="content">
+<pre>#define MAX_NR_CONSOLES 63</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>in <code>linux/include/uapi/linux/vt.h</code>.</p>
+</div>
+</li>
+<li>
+<p><code>/dev/ttySN</code> for the text shells.</p>
+<div class="paragraph">
+<p>These are Serial ports, see this to understand what those represent physically: <a href="https://unix.stackexchange.com/questions/307390/what-is-the-difference-between-ttys0-ttyusb0-and-ttyama0-in-linux/367882#367882" class="bare">https://unix.stackexchange.com/questions/307390/what-is-the-difference-between-ttys0-ttyusb0-and-ttyama0-in-linux/367882#367882</a></p>
+</div>
+<div class="paragraph">
+<p>There are only 4 serial ports, I think this is determined by QEMU. TODO check.</p>
+</div>
+<div class="paragraph">
+<p>See also: <a href="https://stackoverflow.com/questions/16706423/two-instances-of-busybox-on-separate-serial-lines-ttysn" class="bare">https://stackoverflow.com/questions/16706423/two-instances-of-busybox-on-separate-serial-lines-ttysn</a></p>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Get the TTY in bulk for all processes:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./psa.sh</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/rootfs_overlay/lkmc/psa.sh">rootfs_overlay/lkmc/psa.sh</a>.</p>
+</div>
+<div class="paragraph">
+<p>The TTY appears under the <code>TT</code> section, which is enabled by <code>-o tty</code>. This shows the TTY device number, e.g.:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>4,1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and we can then confirm it with:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>ls -l /dev/tty1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Next try:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>insmod kthread.ko</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and switch between virtual terminals, to understand that the dmesg goes to whatever current virtual terminal you are on, but not the others, and not to the serial terminals.</p>
+</div>
+<div class="paragraph">
+<p>Bibliography:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://serverfault.com/questions/119736/how-to-enable-multiple-virtual-consoles-on-linux" class="bare">https://serverfault.com/questions/119736/how-to-enable-multiple-virtual-consoles-on-linux</a></p>
+</li>
+<li>
+<p><a href="https://github.com/mirror/busybox/blob/1_28_3/examples/inittab#L60" class="bare">https://github.com/mirror/busybox/blob/1_28_3/examples/inittab#L60</a></p>
+</li>
+<li>
+<p><a href="http://web.archive.org/web/20180117124612/http://nairobi-embedded.org/qemu_serial_port_system_console.html" class="bare">http://web.archive.org/web/20180117124612/http://nairobi-embedded.org/qemu_serial_port_system_console.html</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="start-a-getty-from-outside-of-init.html">Start a getty from outside of init</a></p>
+</li>
+<li>
+<p><a href="console-kernel-boot-parameter.html">console kernel boot parameter</a></p>
+</li>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="sysrq.html">SysRq</a> | ↑ Up: <a href="linux-kernel-interactive-stuff.html">Linux kernel interactive stuff</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="start-a-getty-from-outside-of-init.html">Start a getty from outside of init</a> →</p>
 </div>
 </div>
 <script>

@@ -451,246 +451,91 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-m5out-system-dmesg-file" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="gem5-m5out-system-dmesg-file"><a class="anchor" href="#gem5-m5out-system-dmesg-file"></a><a class="link" href="#gem5-m5out-system-dmesg-file">24.10.2. gem5 <code>m5out/system.workload.dmesg</code> file</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>This file used to be called just <code>m5out/system.dmesg</code>, but the name was changed after the workload refactorings of March 2020.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>This file is capable of showing terminal messages that are <code>printk</code> before the serial is enabled as described at: <a href="linux-kernel-early-boot-messages.html">Linux kernel early boot messages</a>.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>The file is dumped only on kernel panics which gem5 can detect by the PC address: <a href="exit-gem5-on-panic.html">Exit gem5 on panic</a>.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>This mechanism can be very useful to debug the Linux kernel boot if problems happen before the serial is enabled.</p>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>This magic mechanism works by activating an event when the PC reaches the <code>printk</code> address, much like gem5 <a href="exit-gem5-on-panic.html">can detect <code>panic</code> by PC</a> and then parsing printk function arguments and buffers!</p>
+</div>
+<div class="paragraph">
+<p>The relevant source is at <a href="https://github.com/gem5/gem5/blob/cd69bb50414450c3bb5ef41dce676b75fd42c0ee/src/kern/linux/printk.cc"><code>src/kern/linux/printk.c</code></a>.</p>
+</div>
+<div class="paragraph">
+<p>We can test this mechanism in a controlled way by hacking a <code>panic()</code> into the kernel next to a <code>printk</code> that shows up before the serial is enabled, e.g. on Linux v5.4.3 we could do:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
+index f296d89be757..3e79916322c2 100644
+--- a/kernel/trace/ftrace.c
++++ b/kernel/trace/ftrace.c
+@@ -6207,6 +6207,7 @@ void __init ftrace_init(void)
+
+    pr_info("ftrace: allocating %ld entries in %ld pages\n",
+        count, count / ENTRIES_PER_PAGE + 1);
++   panic("foobar");
+
+    last_ftrace_enabled = ftrace_enabled = 1;</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>With this, after the panic, <code>system.workload.dmesg</code> contains on LKMC d09a0d97b81582cc88381c4112db631da61a048d aarch64:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd070]
+[0.000000] Linux version 5.4.3-dirty (lkmc@f7688b48ac46e9a669e279f1bc167722d5141eda) (gcc version 8.3.0 (Buildroot 2019.11-00002-g157ac499cf)) #1 SMP Thu Jan 1 00:00:00 UTC 1970
+[0.000000] Machine model: V2P-CA15
+[0.000000] Memory limited to 256MB
+[0.000000] efi: Getting EFI parameters from FDT:
+[0.000000] efi: UEFI not found.
+[0.000000] On node 0 totalpages: 65536
+[0.000000]   DMA32 zone: 1024 pages used for memmap
+[0.000000]   DMA32 zone: 0 pages reserved
+[0.000000]   DMA32 zone: 65536 pages, LIFO batch:15
+[0.000000] percpu: Embedded 29 pages/cpu s79960 r8192 d30632 u118784
+[0.000000] pcpu-alloc: s79960 r8192 d30632 u118784 alloc=29*4096
+[0.000000] pcpu-alloc: [0] 0
+[0.000000] Detected PIPT I-cache on CPU0
+[0.000000] CPU features: detected: ARM erratum 832075
+[0.000000] CPU features: detected: EL2 vector hardening
+[0.000000] ARM_SMCCC_ARCH_WORKAROUND_1 missing from firmware
+[0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 64512
+[0.000000] Kernel command line: earlyprintk=pl011,0x1c090000 lpj=19988480 rw loglevel=8 mem=256MB root=/dev/sda console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y rw console=ttyAMA0 - lkmc_home=/lkmc
+[0.000000] Dentry cache hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[0.000000] Inode-cache hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[0.000000] Memory: 233432K/262144K available (6652K kernel code, 792K rwdata, 2176K rodata, 896K init, 659K bss, 28712K reserved, 0K cma-reserved)
+[0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[0.000000] ftrace: allocating 22067 entries in 87 pages</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>So we see that messages up to the <code>ftrace</code> do show up!</p>
 </div>
 <div class="ulist">
 <ul>
-<li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
-</li>
-<li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
-</li>
 </ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-m5out-system-terminal-file.html">gem5 m5out/system.terminal file</a> | ↑ Up: <a href="m5out-directory.html">m5out directory</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-m5out-stats-txt-file.html">gem5 m5out/stats.txt file</a> →</p>
 </div>
 </div>
 <script>

@@ -451,246 +451,204 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-speculative" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect5">
+<h6 id="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-speculative"><a class="anchor" href="#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-speculative"></a><a class="link" href="#gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-speculative">24.22.4.8.7. gem5 event queue DerivO3CPU syscall emulation freestanding example analysis: speculative</a></h6>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>Now let&#8217;s try to see some <a href="speculative-execution.html">Speculative execution</a> in action with <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/linux/speculative.S">userland/arch/aarch64/freestanding/linux/speculative.S</a>.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>That program is setup such that the branch is not taken if an extra CLI argument is passed with <code>--cli-args</code>.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>We purposefully set things up so that speculation will be running from the icache so we can see what is going on more clearly without ifetch stalls.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>Without an extra CLI argument (the branch is taken):</p>
 </div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>// f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
+
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
+[.............................................................................fdn]-(          40000) 0x00400078.0 ldr x0, [sp]              [         1]
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
+[.............................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
+[....................fdn.ic......r...............................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
+[....................fdn.ic......r...............................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [         4]
+[....................fdn.ic......r...............................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
+[....................fdn.ic......r...............................................]-(         120000) 0x0040008c.0 movz x5, #5, #0           [         6]
+[....................fdn.ic......r...............................................]-(         120000) 0x00400090.0 movz x6, #6, #0           [         7]
+[....................fdn.p.....ic..r.............................................]-(         120000) 0x00400094.0 subs x0, #2               [         8]
+[....................fdn.ic........r.............................................]-(         120000) 0x00400098.0 movz x0, #3, #0           [         9]
+[....................fdn.p......ic.r.............................................]-(         120000) 0x0040009c.0 b.lt 0x400080             [        10]
+[=====================fdn=ic=====================================================]-(         120000) 0x004000a0.0 -----movz x10, #10, #0    [        11]
+[=====================fdn=ic=====================================================]-(         120000) 0x004000a4.0 -----movz x11, #11, #0    [        12]
+[=====================fdn=ic=====================================================]-(         120000) 0x004000a8.0 -----movz x12, #12, #0    [        13]
+[=====================fdn=ic=====================================================]-(         120000) 0x004000ac.0 -----movz x13, #13, #0    [        14]
+[=====================fdn=ic=====================================================]-(         120000) 0x004000b0.0 -----movz x14, #14, #0    [        15]
+[=====================fdn=ic=====================================================]-(         120000) 0x004000b4.0 -----movz x15, #15, #0    [        16]
+[=====================fdn=pic====================================================]-(         120000) 0x004000b8.0 -----movz x16, #16, #0    [        17]
+[=====================fdn=pic====================================================]-(         120000) 0x004000bc.0 -----movz x17, #17, #0    [        18]
+[.....................................fdn.ic.r...................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [        19]
+[.....................................fdn.ic.r...................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [        20]
+[.....................................fdn.ic.r...................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [        21]
+[.....................................fdn.ic.r...................................]-(         120000) 0x0040008c.0 movz x5, #5, #0           [        22]
+[.....................................fdn.ic.r...................................]-(         120000) 0x00400090.0 movz x6, #6, #0           [        23]
+[.....................................fdn.pic.r..................................]-(         120000) 0x00400098.0 movz x0, #3, #0           [        25]
+[.....................................fdn.pic.r..................................]-(         120000) 0x0040009c.0 b.lt 0x400080             [        26]
+[......................................fdn.ic.r..................................]-(         120000) 0x004000a0.0 movz x10, #10, #0         [        27]
+[......................................fdn.ic.r..................................]-(         120000) 0x004000a4.0 movz x11, #11, #0         [        28]
+[......................................fdn.ic.r..................................]-(         120000) 0x004000a8.0 movz x12, #12, #0         [        29]
+[......................................fdn.ic.r..................................]-(         120000) 0x004000ac.0 movz x13, #13, #0         [        30]
+[......................................fdn.pic.r.................................]-(         120000) 0x004000b0.0 movz x14, #14, #0         [        31]
+[......................................fdn.pic.r.................................]-(         120000) 0x004000b4.0 movz x15, #15, #0         [        32]
+[......................................fdn.pic.r.................................]-(         120000) 0x004000b8.0 movz x16, #16, #0         [        33]
+[......................................fdn.pic.r.................................]-(         120000) 0x004000bc.0 movz x17, #17, #0         [        34]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000c0.0 movz x0, #0, #0           [        35]
+[.............................................fdn.ic.r...........................]-(         160000) 0x004000c4.0 movz x8, #93, #0          [        36]</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>So here we see that the CPU mispredicted! After the <a href="arm-branch-instructions.html">BLT instruction</a>, the CPU continued to run <code>movz x10</code>, assuming that the branch would not be taken.</p>
+</div>
+<div class="paragraph">
+<p>Then, at time 120000, the LDR data came back, after the wrong prediction had already been fully executed.</p>
+</div>
+<div class="paragraph">
+<p>The CPU then noticed that it mispredicted, and so it started again from the correct branch target <code>movz x2</code>, and the instructions that were thrown away are marked as <code>=====</code> in the timeline.</p>
+</div>
+<div class="paragraph">
+<p>We can also see some <a href="branch-predictor.html">Branch predictor</a> log lines in the <code>O3CPUAll</code> log:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre> 130000: Fetch: system.cpu.fetch: [tid:0] [sn:10] Branch at PC 0x40009c predicted to be not taken
+ 130000: Fetch: system.cpu.fetch: [tid:0] [sn:10] Branch at PC 0x40009c predicted to go to (0x4000a0=&gt;0x4000a4).(0=&gt;1)
+
+ 131500: Commit: system.cpu.commit: [tid:10] [sn:0] Inserting PC (0x40009c=&gt;0x4000a0).(0=&gt;1) into ROB.
+ 131500: ROB: system.cpu.rob: Adding inst PC (0x40009c=&gt;0x4000a0).(0=&gt;1) to the ROB.
+ 131500: ROB: system.cpu.rob: [tid:0] Now has 10 instructions.
+
+ 132000: IEW: system.cpu.iew: [tid:0] Issue: Adding PC (0x40009c=&gt;0x4000a0).(0=&gt;1) [sn:10] [tid:0] to IQ.
+ 132000: IQ: system.cpu.iq: Adding instruction [sn:10] PC (0x40009c=&gt;0x4000a0).(0=&gt;1) to the IQ.
+ 132000: IQ: system.cpu.iq: Instruction PC (0x40009c=&gt;0x4000a0).(0=&gt;1) has src reg 6 (CCRegClass) that is being added to the dependency chain.
+ 132000: IQ: system.cpu.iq: Instruction PC (0x40009c=&gt;0x4000a0).(0=&gt;1) has src reg 8 (CCRegClass) that is being added to the dependency chain.
+ 132000: IQ: system.cpu.iq: Instruction PC (0x40009c=&gt;0x4000a0).(0=&gt;1) has src reg 7 (CCRegClass) that is being added to the dependency chain.
+
+ 135500: IQ: system.cpu.iq: Waking up a dependent instruction, [sn:10] PC (0x40009c=&gt;0x4000a0).(0=&gt;1).
+ 135500: IQ: global: [sn:10] has 1 ready out of 3 sources. RTI 0)
+ 135500: IQ: system.cpu.iq: Waking any dependents on register 7 (CCRegClass).
+ 135500: IQ: system.cpu.iq: Waking up a dependent instruction, [sn:10] PC (0x40009c=&gt;0x4000a0).(0=&gt;1).
+ 135500: IQ: global: [sn:10] has 2 ready out of 3 sources. RTI 0)
+ 135500: IQ: system.cpu.iq: Waking any dependents on register 8 (CCRegClass).
+ 135500: IQ: system.cpu.iq: Waking up a dependent instruction, [sn:10] PC (0x40009c=&gt;0x4000a0).(0=&gt;1).
+ 135500: IQ: global: [sn:10] has 3 ready out of 3 sources. RTI 0)
+ 135500: IQ: system.cpu.iq: Instruction is ready to issue, putting it onto the ready list, PC (0x40009c=&gt;0x4000a0).(0=&gt;1) opclass:1 [sn:10].
+ 135500: IEW: system.cpu.iew: Setting Destination Register 6 (CCRegClass)
+ 135500: Scoreboard: system.cpu.scoreboard: Setting reg 6 (CCRegClass) as ready
+ 135500: IEW: system.cpu.iew: Setting Destination Register 7 (CCRegClass)
+ 135500: Scoreboard: system.cpu.scoreboard: Setting reg 7 (CCRegClass) as ready
+ 135500: IEW: system.cpu.iew: Setting Destination Register 8 (CCRegClass)
+ 135500: Scoreboard: system.cpu.scoreboard: Setting reg 8 (CCRegClass) as ready
+ 135500: IQ: system.cpu.iq: Attempting to schedule ready instructions from the IQ.
+ 135500: IQ: system.cpu.iq: Thread 0: Issuing instruction PC (0x40009c=&gt;0x4000a0).(0=&gt;1) [sn:10]
+
+ 136000: IEW: system.cpu.iew: Execute: Processing PC (0x40009c=&gt;0x4000a0).(0=&gt;1), [tid:0] [sn:10].
+ 136000: IEW: global: RegFile: Access to cc register 6, has data 0x2
+ 136000: IEW: global: RegFile: Access to cc register 8, has data 0
+ 136000: IEW: global: RegFile: Access to cc register 7, has data 0
+ 136000: IEW: system.cpu.iew: Current wb cycle: 0, width: 8, numInst: 0
+wbActual:0
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Execute: Branch mispredict detected.
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Predicted target was PC: (0x4000a0=&gt;0x4000a4).(0=&gt;1)
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Execute: Redirecting fetch to PC: (0x40009c=&gt;0x400080).(0=&gt;1)
+ 136000: IEW: system.cpu.iew: [tid:0] [sn:10] Squashing from a specific instruction, PC: (0x40009c=&gt;0x400080).(0=&gt;1)
+
+ 136500: Commit: system.cpu.commit: [tid:0] Squashing due to branch mispred PC:0x40009c [sn:10]
+ 136500: Commit: system.cpu.commit: [tid:0] Redirecting to PC 0x400084
+ 136500: ROB: system.cpu.rob: Starting to squash within the ROB.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instructions until [sn:10].
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000bc=&gt;0x4000c0).(0=&gt;1), seq num 18.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000b8=&gt;0x4000bc).(0=&gt;1), seq num 17.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000b4=&gt;0x4000b8).(0=&gt;1), seq num 16.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000b0=&gt;0x4000b4).(0=&gt;1), seq num 15.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000ac=&gt;0x4000b0).(0=&gt;1), seq num 14.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000a8=&gt;0x4000ac).(0=&gt;1), seq num 13.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000a4=&gt;0x4000a8).(0=&gt;1), seq num 12.
+ 136500: ROB: system.cpu.rob: [tid:0] Squashing instruction PC (0x4000a0=&gt;0x4000a4).(0=&gt;1), seq num 11.
+ 136500: ROB: system.cpu.rob: [tid:0] Done squashing instructions.
+ 136500: Commit: system.cpu.commit: [tid:0] Marking PC (0x40009c=&gt;0x400080).(0=&gt;1), [sn:10] ready within ROB.
+
+ 137000: Commit: system.cpu.commit: [tid:0] [sn:10] Committing instruction with PC (0x40009c=&gt;0x400080).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   b.lt   0x400080          : IntAlu :   FetchSeq=10  CPSeq=10  flags=(IsControl|IsDirectControl|IsCondControl)
+ 137000: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x40009c=&gt;0x400080).(0=&gt;1), [sn:10]
+ 137000: O3CPU: system.cpu: Removing committed instruction [tid:0] PC (0x40009c=&gt;0x400080).(0=&gt;1) [sn:10]
+ 137000: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:11]
+ 137000: Commit: system.cpu.commit: Retiring squashed instruction from ROB.
+
+ 137000: Commit: system.cpu.commit: Trying to commit head instruction, [tid:0] [sn:10]
+ 137000: Commit: system.cpu.commit: [tid:0] [sn:10] Committing instruction with PC (0x40009c=&gt;0x400080).(0=&gt;1)
+ 130000: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   b.lt   0x400080          : IntAlu :   FetchSeq=10  CPSeq=10  flags=(IsControl|IsDirectControl|IsCondControl)
+
+ 138500: Fetch: system.cpu.fetch: [tid:0] [sn:26] Branch at PC 0x40009c predicted to be not taken
+ 138500: Fetch: system.cpu.fetch: [tid:0] [sn:26] Branch at PC 0x40009c predicted to go to (0x4000a0=&gt;0x4000a4).(0=&gt;1)
+
+ 142500: Commit: system.cpu.commit: [tid:0] [sn:26] Committing instruction with PC (0x40009c=&gt;0x4000a0).(0=&gt;1)
+ 138500: ExecEnable: system.cpu: A0 T0 : @asm_main_after_prologue+36    :   b.lt   0x400080          : IntAlu :   FetchSeq=26  CPSeq=18  flags=(IsControl|IsDirectControl|IsCondControl)
+ 142500: ROB: system.cpu.rob: [tid:0] Retiring head instruction, instruction PC (0x40009c=&gt;0x4000a0).(0=&gt;1), [sn:26]</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>With an extra CLI (the branch is not taken):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>// f = fetch, d = decode, n = rename, p = dispatch, i = issue, c = complete, r = retire
+
+                                     timeline                                             tick          pc.upc     disasm                      seq_num
+[.............................................................................fdn]-(          40000) 0x00400078.0 ldr x0, [sp]              [         1]
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
+[.............................................................................fdn]-(          40000) 0x0040007c.0 movz x1, #1, #0           [         2]
+[.ic.............................................................................]-(          80000)     ...
+[................................r...............................................]-(         120000)     ...
+[....................fdn.ic......r...............................................]-(         120000) 0x00400080.0 movz x2, #2, #0           [         3]
+[....................fdn.ic......r...............................................]-(         120000) 0x00400084.0 movz x3, #3, #0           [         4]
+[....................fdn.ic......r...............................................]-(         120000) 0x00400088.0 movz x4, #4, #0           [         5]
+[....................fdn.ic......r...............................................]-(         120000) 0x0040008c.0 movz x5, #5, #0           [         6]
+[....................fdn.ic......r...............................................]-(         120000) 0x00400090.0 movz x6, #6, #0           [         7]
+[....................fdn.ic.......r..............................................]-(         120000) 0x00400098.0 movz x0, #3, #0           [         9]
+[....................fdn.p......ic.r.............................................]-(         120000) 0x0040009c.0 b.lt 0x400080             [        10]
+[.....................fdn.ic.......r.............................................]-(         120000) 0x004000a0.0 movz x10, #10, #0         [        11]
+[.....................fdn.ic.......r.............................................]-(         120000) 0x004000a4.0 movz x11, #11, #0         [        12]
+[.....................fdn.ic.......r.............................................]-(         120000) 0x004000a8.0 movz x12, #12, #0         [        13]
+[.....................fdn.ic.......r.............................................]-(         120000) 0x004000ac.0 movz x13, #13, #0         [        14]
+[.....................fdn.ic.......r.............................................]-(         120000) 0x004000b0.0 movz x14, #14, #0         [        15]
+[.....................fdn.ic.......r.............................................]-(         120000) 0x004000b4.0 movz x15, #15, #0         [        16]
+[.....................fdn.pic......r.............................................]-(         120000) 0x004000b8.0 movz x16, #16, #0         [        17]
+[.....................fdn.pic.......r............................................]-(         120000) 0x004000bc.0 movz x17, #17, #0         [        18]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c0.0 movz x0, #0, #0           [        19]
+[............................................fdn.ic.r............................]-(         160000) 0x004000c4.0 movz x8, #93, #0          [        20]</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>So this time the prediction was correct. Retire is delayed until the memory comes back, but we otherwise just kept running forward until hitting the next ifetch cache line.</p>
 </div>
 <div class="ulist">
 <ul>
-<li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
-</li>
-<li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
-</li>
 </ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis-stall-hazard4.html">gem5 event queue DerivO3CPU syscall emulation freestanding example analysis: stall_hazard4</a> | ↑ Up: <a href="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue DerivO3CPU syscall emulation freestanding example analysis</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-instruction-definitions.html">gem5 instruction definitions</a> →</p>
 </div>
 </div>
 <script>

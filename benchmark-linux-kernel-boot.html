@@ -451,246 +451,154 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="benchmark-linux-kernel-boot" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="benchmark-linux-kernel-boot"><a class="anchor" href="#benchmark-linux-kernel-boot"></a><a class="link" href="#benchmark-linux-kernel-boot">35.2.1. Benchmark Linux kernel boot</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p>Run all kernel boot benchmarks for one arch:</p>
 </div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
-</div>
-<div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
-</div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
-</div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./build-test-boot --size 3 &amp;&amp; ./test-boot --all-archs --all-emulators --size 3
+cat "$(./getvar test_boot_benchmark_file)"</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
+<div class="paragraph">
+<p>Sample results at LKMC 8fb9db39316d43a6dbd571e04dd46ae73915027f:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cmd ./run --arch x86_64 --eval './linux/poweroff.out'
+time 8.25
+exit_status 0
+
+cmd ./run --arch x86_64 --eval './linux/poweroff.out' --kvm
+time 1.22
+exit_status 0
+
+cmd ./run --arch x86_64 --eval './linux/poweroff.out' --trace exec_tb
+time 8.83
+exit_status 0
+instructions 2244297
+
+cmd ./run --arch x86_64 --eval 'm5 exit' --emulator gem5
+time 213.39
+exit_status 0
+instructions 318486337
+
+cmd ./run --arch arm --eval './linux/poweroff.out'
+time 6.62
+exit_status 0
+
+cmd ./run --arch arm --eval './linux/poweroff.out' --trace exec_tb
+time 6.90
+exit_status 0
+instructions 776374
+
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5
+time 118.46
+exit_status 0
+instructions 153023392
+
+cmd ./run --arch arm --eval 'm5 exit' --emulator gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+time 2250.40
+exit_status 0
+instructions 151981914
+
+cmd ./run --arch aarch64 --eval './linux/poweroff.out'
+time 4.94
+exit_status 0
+
+cmd ./run --arch aarch64 --eval './linux/poweroff.out' --trace exec_tb
+time 5.04
+exit_status 0
+instructions 233162
+
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5
+time 70.89
+exit_status 0
+instructions 124346081
+
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 -- --cpu-type=HPI --caches --l2cache --l1d_size=1024kB --l1i_size=1024kB --l2_size=1024kB --l3_size=1024kB
+time 381.86
+exit_status 0
+instructions 124564620
+
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --gem5-build-type fast
+time 58.00
+exit_status 0
+instructions 124346081
+
+cmd ./run --arch aarch64 --eval 'm5 exit' --emulator gem5 --gem5-build-type debug
+time 1022.03
+exit_status 0
+instructions 124346081</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>TODO: aarch64 gem5 and QEMU use the same kernel, so why is the gem5 instruction count so much much higher?</p>
+</div>
+<div class="paragraph">
+<p><a href="p51.html">2017 Lenovo ThinkPad P51</a> Ubuntu 19.10 LKMC b11e3cd9fb5df0e3fe61de28e8264bbc95ea9005 gem5 e779c19dbb51ad2f7699bd58a5c7827708e12b55 aarch64: 143s. Why huge increases from 70s on above table? Kernel size is also huge BTW: 147MB.</p>
+</div>
+<div class="paragraph">
+<p>Note that <a href="https://gem5.atlassian.net/browse/GEM5-337" class="bare">https://gem5.atlassian.net/browse/GEM5-337</a> "ARM PAuth patch slows down Linux boot 2x from 2 minutes to 4 minutes" was already semi fixed at that point.</p>
+</div>
+<div class="paragraph">
+<p>Same but with <a href="buildroot-vanilla-kernel.html">Buildroot vanilla kernel</a> (kernel v4.19): 44s to blow up at "Please append a correct "root=" boot option; here are the available partitions" because missing some filesystem mount option. But likely wouldn&#8217;t be much more until after boot since we are almost already done by then! Therefore this vanilla kernel is much much faster! TODO find which config or kernel commit added so much time! Also that kernel is tiny at 8.5MB.</p>
+</div>
+<div class="paragraph">
+<p>Same but hacking <code>BR2_LINUX_KERNEL_LATEST_VERSION=y</code> and <code>BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_5_3=y</code> which reaches kernel 5.3.14 which closer to the LKMC one 5.4.3: 40s, which is very similar for the older kernel. Therefore it does not loook like it is a problem of kernel code changes, but rather of configs.</p>
+</div>
+<div class="paragraph">
+<p>Same but with: <a href="gem5-arm-linux-kernel-patches.html">gem5 arm Linux kernel patches</a> at v4.15: 73s, kernel size: 132M.</p>
+</div>
+<div class="paragraph">
+<p>On Ubuntu 20.04, LKMC d3f8d3e99f2e554aae6c3b325b350bcf7f3f087f (Linux kernel 5.4.3), gem5 6bc2111c9674d0c8db22f6a6adcc00e49625aabd (sept 2020):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --emulator gem5 --quit-after-boot</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>took 193s. With some minimal newer kernel boot patches:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>kernel v5.7: 238s</p>
 </li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
+<li>
+<p>kernel v5.8: 239s</p>
 </li>
 </ul>
 </div>
+<div class="paragraph">
+<p>On Ubuntu 20.04 gem5 3ca404da175a66e0b958165ad75eb5f54cb5e772 this took 22 minutes 53 seconds:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run -aa -eg --cpus 2 --tmux --quit-after-boot -- --cpu-type DerivO3CPU --caches</pre>
 </div>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><a href="gem5-arm-hpi-boot-takes-much-longer-than-aarch64.html">gem5 arm HPI boot takes much longer than aarch64</a></p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><a href="gem5-x86-64-derivo3cpu-boot-panics.html">gem5 x86_64 DerivO3CPU boot panics</a></p>
 </li>
 </ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="benchmark-this-repo-benchmarks.html">Benchmark this repo benchmarks</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-arm-hpi-boot-takes-much-longer-than-aarch64.html">gem5 arm HPI boot takes much longer than aarch64</a> →</p>
 </div>
 </div>
 <script>

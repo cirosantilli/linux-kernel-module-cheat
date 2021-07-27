@@ -451,246 +451,231 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-functional-vs-atomic-vs-timing-memory-requests" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect4">
+<h5 id="gem5-functional-vs-atomic-vs-timing-memory-requests"><a class="anchor" href="#gem5-functional-vs-atomic-vs-timing-memory-requests"></a><a class="link" href="#gem5-functional-vs-atomic-vs-timing-memory-requests">24.21.1.1. gem5 functional vs atomic vs timing memory requests</a></h5>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
-</div>
-<div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
-</div>
-<div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>gem5 memory requests can be classified in the following broad categories:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
+<p>functional: get the value magically, do not update caches, see also: <a href="gem5-functional-requests.html">gem5 functional requests</a></p>
 </li>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
+<p>atomic: get the value now without making a <a href="gem5-event-queue.html">separate event</a>, but do not update caches. Cannot work in <a href="gem5-ruby-build.html">Ruby</a> due to fundamental limitations, mentioned in passing at: <a href="https://gem5.atlassian.net/browse/GEM5-676" class="bare">https://gem5.atlassian.net/browse/GEM5-676</a></p>
 </li>
 <li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
+<p>timing: get the value simulating delays and updating caches</p>
 </li>
 </ul>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>This trichotomy can be notably seen in the definition of the <a href="https://github.com/gem5/gem5/blob/9fc9c67b4242c03f165951775be5cd0812f2a705/src/mem/port.hh#L75">MasterPort class</a>:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>class MasterPort : public Port, public AtomicRequestProtocol,
+    public TimingRequestProtocol, public FunctionalRequestProtocol</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>and the base classes are defined under <code>src/mem/protocol/</code>.</p>
+</div>
+<div class="paragraph">
+<p>Then, by reading the rest of the class, we see that the send methods are all boring, and just forward to some polymorphic receiver that does the actual interesting activity:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    Tick
+    sendAtomicSnoop(PacketPtr pkt)
+    {
+        return AtomicResponseProtocol::sendSnoop(_masterPort, pkt);
+    }
+
+    Tick
+    AtomicResponseProtocol::sendSnoop(AtomicRequestProtocol *peer, PacketPtr pkt)
+    {
+        assert(pkt-&gt;isRequest());
+        return peer-&gt;recvAtomicSnoop(pkt);
+    }</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The receive methods are therefore the interesting ones, and must be overridden on derived classes if they ever expect to receive such requests:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>    Tick
+    recvAtomicSnoop(PacketPtr pkt) override
+    {
+        panic("%s was not expecting an atomic snoop request\n", name());
+        return 0;
+    }
+
+    void
+    recvFunctionalSnoop(PacketPtr pkt) override
+    {
+        panic("%s was not expecting a functional snoop request\n", name());
+    }
+
+    void
+    recvTimingSnoopReq(PacketPtr pkt) override
+    {
+        panic("%s was not expecting a timing snoop request.\n", name());
+    }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>One question that comes up now is: but why do CPUs need to care about <a href="cache-coherence.html">snoop requests</a>?</p>
+</div>
+<div class="paragraph">
+<p>And one big answer is: to be able to implement LLSC atomicity as mentioned at: <a href="arm-ldxr-and-stxr-instructions.html">ARM LDXR and STXR instructions</a>, since when other cores update memory, they could invalidate the lock of the current core.</p>
+</div>
+<div class="paragraph">
+<p>Then, as you might expect, we can see that for example <code>AtomicSimpleCPU</code> does not override <code>recvTimingSnoopReq</code>.</p>
+</div>
+<div class="paragraph">
+<p>Now let see which requests are generated by ordinary <a href="arm-ldr-instruction.html">ARM LDR instruction</a>. We run:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run \
+  --arch aarch64 \
+  --debug-vm \
+  --emulator gem5 \
+  --gem5-build-type debug \
+  --useland userland/arch/aarch64/freestanding/linux/hello.S \</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then break at the methods of the LDR class <code>LDRXL64_LIT</code>: <a href="gem5-execute-vs-initiateacc-vs-completeacc.html">gem5 <code>execute</code> vs <code>initiateAcc</code> vs <code>completeAcc</code></a>.</p>
+</div>
+<div class="paragraph">
+<p>Before starting, we of course guess that:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><code>AtomicSimpleCPU</code> will be making atomic accesses from <code>execute</code></p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><code>TimingSimpleCPU</code> will be making timing accesses from <code>initiateAcc</code>, which must generate the event which leads to <code>completeAcc</code></p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>so let&#8217;s confirm it.</p>
+</div>
+<div class="paragraph">
+<p>We break on <code>ArmISAInst::LDRXL64_LIT::execute</code> which is what <code>AtomicSimpleCPU</code> uses, and that leads as expected to:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MasterPort::sendAtomic
+AtomicSimpleCPU::sendPacket
+AtomicSimpleCPU::readMem
+SimpleExecContext::readMem
+readMemAtomic&lt;(ByteOrder)1, ExecContext, unsigned long&gt;
+readMemAtomicLE&lt;ExecContext, unsigned long&gt;
+ArmISAInst::LDRXL64_LIT::execute
+AtomicSimpleCPU::tick</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Notably, <code>AtomicSimpleCPU::readMem</code> immediately translates the address, creates a packet, sends the atomic request, and gets the response back without any events.</p>
+</div>
+<div class="paragraph">
+<p>And now if we do the same with <code>--cpu-type TimingSimpleCPU</code> and break at <code>ArmISAInst::LDRXL64_LIT::initiateAcc</code>, and then add another break for the next event schedule <code>b EventManager::schedule</code> (which we imagine is the memory read) we reach:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>EventManager::schedule
+DRAMCtrl::addToReadQueue
+DRAMCtrl::recvTimingReq
+DRAMCtrl::MemoryPort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+CoherentXBar::recvTimingReq
+CoherentXBar::CoherentXBarSlavePort::recvTimingReq
+TimingRequestProtocol::sendReq
+MasterPort::sendTimingReq
+TimingSimpleCPU::handleReadPacket
+TimingSimpleCPU::sendData
+TimingSimpleCPU::finishTranslation
+DataTranslation&lt;TimingSimpleCPU*&gt;::finish
+ArmISA::TLB::translateComplete
+ArmISA::TLB::translateTiming
+ArmISA::TLB::translateTiming
+TimingSimpleCPU::initiateMemRead
+SimpleExecContext::initiateMemRead
+initiateMemRead&lt;ExecContext, unsigned long&gt;
+ArmISAInst::LDRXL64_LIT::initiateAcc
+TimingSimpleCPU::completeIfetch
+TimingSimpleCPU::IcachePort::ITickEvent::process
+EventQueue::serviceOne</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so as expected we have <code>TimingRequestProtocol::sendReq</code>.</p>
+</div>
+<div class="paragraph">
+<p>Remember however that timing requests are a bit more complicated due to <a href="arm-paging.html">paging</a>, since the page table walk can itself lead to further memory requests.</p>
+</div>
+<div class="paragraph">
+<p>In this particular instance, the address being read with <code>ldr x2, =len</code> <a href="arm-ldr-pseudo-instruction.html">ARM LDR pseudo-instruction</a> is likely placed just after the text section, and therefore the pagewalk is already in the TLB due to previous instruction fetches, and this is because the translation just finished immediately going through <code>TimingSimpleCPU::finishTranslation</code>, some key snippets are:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>TLB::translateComplete(const RequestPtr &amp;req, ThreadContext *tc,
+        Translation *translation, Mode mode, TLB::ArmTranslationType tranType,
+        bool callFromS2)
+{
+    bool delay = false;
+    Fault fault;
+    if (FullSystem)
+        fault = translateFs(req, tc, mode, translation, delay, true, tranType);
+    else
+        fault = translateSe(req, tc, mode, translation, delay, true);
+    if (!delay)
+        translation-&gt;finish(fault, req, tc, mode);
+    else
+        translation-&gt;markDelayed();</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and then <code>translateSe</code> does not use <code>delay</code> at all, so we learn that in syscall emulation, <code>delay</code> is always <code>false</code> and things progress immediately there. And then further down <code>TimingSimpleCPU::finishTranslation</code> does some more fault checking:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>void
+TimingSimpleCPU::finishTranslation(WholeTranslationState *state)
+{
+    if (state-&gt;getFault() != NoFault) {
+        translationFault(state-&gt;getFault());
+    } else {
+        if (!state-&gt;isSplit) {
+            sendData(state-&gt;mainReq, state-&gt;data, state-&gt;res,
+                     state-&gt;mode == BaseTLB::Read);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Tested in gem5 b1623cb2087873f64197e503ab8894b5e4d4c7b4.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="gem5-functional-requests.html">gem5 functional requests</a></p>
+</li>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>↑ Up: <a href="gem5-port-system.html">gem5 port system</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-functional-requests.html">gem5 functional requests</a> →</p>
 </div>
 </div>
 <script>

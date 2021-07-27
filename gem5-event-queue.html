@@ -451,246 +451,148 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="gem5-event-queue" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect3">
+<h4 id="gem5-event-queue"><a class="anchor" href="#gem5-event-queue"></a><a class="link" href="#gem5-event-queue">24.22.4. gem5 event queue</a></h4>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p>gem5 is an event based simulator, and as such the event queue is of of the crucial elements in the system.</p>
 </div>
 <div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>Every single action that takes time (e.g. notably <a href="timingsimplecpu-analysis-ldr-stall.html">reading from memory</a>) models that time delay by scheduling an event in the future.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>The gem5 event queue stores one callback event for each future point in time.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>The event queue is implemented in the class <code>EventQueue</code> in the file <code>src/sim/eventq.hh</code>.</p>
+</div>
+<div class="paragraph">
+<p>Not all times need to have an associated event: if a given time has no events, gem5 just skips it and jumps to the next event: the queue is basically a linked list of events.</p>
+</div>
+<div class="paragraph">
+<p>Important examples of events include:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
+<p>CPU ticks</p>
 </li>
 <li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
+<p>peripherals and memory</p>
 </li>
 </ul>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>At <a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a> we see for example that at the beginning of an <a href="gem5-atomicsimplecpu.html">AtomicCPU</a> simulation, gem5 sets up exactly two events:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the first CPU cycle</p>
+</li>
+<li>
+<p>one exit event at the end of time which triggers <a href="gem5-simulate-limit-reached.html">gem5 simulate() limit reached</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Then, at the end of the callback of one tick event, another tick is scheduled.</p>
+</div>
+<div class="paragraph">
+<p>And so the simulation progresses tick by tick, until an exit event happens.</p>
+</div>
+<div class="paragraph">
+<p>The <code>EventQueue</code> class has one awesome <code>dump()</code> function that prints a human friendly representation of the queue, and can be easily called from GDB. TODO example.</p>
+</div>
+<div class="paragraph">
+<p>We can also observe what is going on in the event queue with the <code>Event</code> <a href="gem5-tracing.html">debug flag</a>.</p>
+</div>
+<div class="paragraph">
+<p>Event execution is done at <code>EventQueue::serviceOne()</code>:</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>Event *exit_event = eventq-&gt;serviceOne();</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>This calls the <code>Event::process</code> method of the event.</p>
+</div>
+<div class="paragraph">
+<p>Another important technique is to use <a href="debug-the-emulator.html">GDB</a> and break at interesting points such as:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>b Trace::OstreamLogger::logMessage
+b EventManager::schedule
+b EventFunctionWrapper::process</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>although stepping into <code>EventFunctionWrapper::process</code> which does <code>std::function</code> is a bit of a pain: <a href="https://stackoverflow.com/questions/59429401/how-to-step-into-stdfunction-user-code-from-c-functional-with-gdb" class="bare">https://stackoverflow.com/questions/59429401/how-to-step-into-stdfunction-user-code-from-c-functional-with-gdb</a></p>
+</div>
+<div class="paragraph">
+<p>Another potentially useful technique is to use:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>--trace Event,ExecAll,FmtFlag,FmtStackTrace --trace-stdout</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which automates the logging of <code>Trace::OstreamLogger::logMessage()</code> backtraces.</p>
+</div>
+<div class="paragraph">
+<p>But alas, it misses which function callback is being scheduled, which is the awesome thing we actually want:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><a href="https://stackoverflow.com/questions/37545327/get-the-name-of-a-stdfunction" class="bare">https://stackoverflow.com/questions/37545327/get-the-name-of-a-stdfunction</a></p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
-</li>
-<li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><a href="https://stackoverflow.com/questions/40706805/how-to-convert-a-function-pointer-to-function-name/40706869" class="bare">https://stackoverflow.com/questions/40706805/how-to-convert-a-function-pointer-to-function-name/40706869</a></p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>Then, once we had that, the most perfect thing ever would be to make the full event graph containing which events schedule which events!</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus.html">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-timingsimplecpu-syscall-emulation-freestanding-example-analysis-with-caches-and-multiple-cpus-and-ruby.html">gem5 event queue TimingSimpleCPU syscall emulation freestanding example analysis with caches and multiple CPUs and Ruby</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-minorcpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue MinorCPU syscall emulation freestanding example analysis</a></p>
+</li>
+<li>
+<p><a href="gem5-event-queue-derivo3cpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue DerivO3CPU syscall emulation freestanding example analysis</a></p>
+</li>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="gem5-m5-objects-module.html">gem5 <code>m5.objects</code> module</a> | ↑ Up: <a href="gem5-internals.html">gem5 internals</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="gem5-event-queue-atomicsimplecpu-syscall-emulation-freestanding-example-analysis.html">gem5 event queue AtomicSimpleCPU syscall emulation freestanding example analysis</a> →</p>
 </div>
 </div>
 <script>

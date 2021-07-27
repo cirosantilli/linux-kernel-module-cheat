@@ -451,246 +451,124 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="wfe-from-userland" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
+<div class="sect5">
+<h6 id="wfe-from-userland"><a class="anchor" href="#wfe-from-userland"></a><a class="link" href="#wfe-from-userland">33.10.3.1.2. WFE from userland</a></h6>
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
-</div>
-<div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>WFE and SEV are usable from userland, and are part of an efficient spinlock implementation (which userland should arguably stay away from and rather use the <a href="futex-system-call.html">futex system call</a> which allow for non busy sleep instead), which maybe is not something that userland should ever tho and just stick to mutexes?</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>There is a control bit <code>SCTLR_EL1.nTWE</code> that determines if WFE is trapped or not, i.e.: is that bit is set, then it is trapped and EL0 execution raises an exception in EL1.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>Linux v5.2.1 does not set <code>SCTLR_EL1.nTWE</code> however, tested with <a href="gem5-tracing.html">gem5 tracing</a> with <code>--trace ExecAll,Failts</code> and the <a href="dump-regs.html">dump_regs kernel module</a> in a full system simulation.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>The kernel seems to setup nTWE at:</p>
 </div>
-<div class="imageblock">
+<div class="paragraph">
+<p>include/asm/sysreg.h</p>
+</div>
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>#define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
+             ...
+			 SCTLR_EL1_NTWE | SCTLR_ELx_IESB | SCTLR_EL1_SPAN |\</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>and:</p>
+</div>
+<div class="paragraph">
+<p>mm/proc.S</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>	/*
+	 * Prepare SCTLR
+	 */
+	mov_q	x0, SCTLR_EL1_SET</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>To reduce the number of instructions from our trace, first we boot, and then we restore a checkpoint after boot with <a href="gem5-restore-new-script.html">gem5 checkpoint restore and run a different script</a> with a restore command that runs <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/freestanding/linux/wfe_wfe.S">userland/arch/aarch64/freestanding/linux/wfe_wfe.S</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --arch aarch64 --emulator gem5 --gem5-worktree master --gem5-restore 1 --gem5-readfile 'arch/aarch64/freestanding/linux/wfe_wfe.out' --trace ExecAll,Faults,FmtFlag,Thread</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>On the traces, we search for <code>wfe</code>, and there are just two hits, so they must be our instructions!</p>
+</div>
+<div class="paragraph">
+<p>The traces then look like this at LKMC 777b7cbbd1d553baf2be9bc2075102be740054dd:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>112285501668497000: Thread: system.cpu: suspend contextId 0
+112285501668497000: ExecEnable: system.cpu: A0 T0 : 0x400078    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+112285501668497501: Thread: system.cpu: activate contextId 0
+112285501668498000: Thread: system.cpu: suspend contextId 0
+112285501668498000: ExecEnable: system.cpu: A0 T0 : 0x40007c    :   wfe                      : IntAlu :  D=0x0000000000000000  flags=(IsSerializeAfter|IsNonSpeculative|IsQuiesce|IsUnverifiable)
+112285501909320284: Thread: system.cpu: activate contextId 0
+112285501909320500: Faults: IRQ: Invoking Fault (AArch64 target EL):IRQ cpsr:0x4003c5 PC:0x400080 elr:0x400080 newVec: 0xffffff8010082480
+112285501909320500: ExecEnable: system.cpu: A0 T0 : @vectors+1152    :   nop                      : IntAlu :   flags=(IsNop)
+112285501909321000: ExecEnable: system.cpu: A0 T0 : @vectors+1156    :   nop                      : IntAlu :   flags=(IsNop)
+
+[more exception handler, no ERET here]
+
+112285501923080500: ExecEnable: system.cpu: A0 T0 : @finish_ret_to_user+188    :   ldr   x30, [sp, #240]    : MemRead :  D=0x0000000000000000 A=0xffffff8010cb3fb0  flags=(IsInteger|IsMemRef|IsLoad)
+112285501923081000: ExecEnable: system.cpu: A0 T0 : @finish_ret_to_user+192    :   add   sp, sp, #320       : IntAlu :  D=0xffffff8010cb4000  flags=(IsInteger)
+112285501923081500: ExecEnable: system.cpu: A0 T0 : 0xffffff8010084144    :   eret                     : IntAlu :  D=0x0000000000000001  flags=(IsControl|IsSerializeAfter|IsNonSpeculative|IsSquashAfter)
+112285501923082000: ExecEnable: system.cpu: A0 T0 : 0x400080    :   movz   x0, #0, #0        : IntAlu :  D=0x0000000000000000  flags=(IsInteger)
+112285501923082500: ExecEnable: system.cpu: A0 T0 : 0x400084    :   movz   x8, #93, #0       : IntAlu :  D=0x000000000000005d  flags=(IsInteger)
+112285501923083000: ExecEnable: system.cpu: A0 T0 : 0x400088    :   svc   #0x0               : IntAlu :   flags=(IsSerializeAfter|IsNonSpeculative|IsSyscall)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>so we conclude that:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p>the second WFE made the CPU stop running instructions at time 112285501668498000 and PC 0x40007c</p>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p>the next thing that happened a long time later (112285501909320500, while a following instruction would happen at 112285501668498000 + 1000) was an interrupt, presumably the <a href="arm-timer.html">ARM timer</a></p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
+<p>after a few interrupt handler instructions, the first <a href="arm-svc-instruction.html">ERET</a> instruction exits the handler and comes back directly to the instruction after the WFE at PC 0x400080 == 0x40007c + 4</p>
 </li>
 <li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p>the execution of the interrupt handler woke up the core that was in WFE, and it now continues normal execution past the WFE</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>Therefore, a WFE in userland is treated much like a busy loop by the Linux kernel: the kernel does not seem to try and explicitly make up room for other processes as would happen on a futex.</p>
+</div>
+<div class="paragraph">
+<p>The following test checks that SEV events don&#8217;t wake up a futexes, running forever in case of success. In <a href="gem5-syscall-emulation-multithreading.html">gem5 syscall emulation multithreading</a>, this is crucial to prevent deadlocks:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/arch/aarch64/inline_asm/futex_sev.cpp">userland/arch/aarch64/inline_asm/futex_sev.cpp</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+</ul>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="arm-wfe-global-monitor-events.html">ARM WFE global monitor events</a> | ↑ Up: <a href="arm-wfe-and-sev-instructions.html">ARM WFE and SEV instructions</a> | ⌂ Home: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="armv8-spinlock-pattern.html">ARMv8 spinlock pattern</a> →</p>
 </div>
 </div>
 <script>

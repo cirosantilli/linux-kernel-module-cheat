@@ -451,246 +451,130 @@ pre{ white-space:pre }
              .nav-footer{text-align: center; margin-top: auto;}
              .nav-footer > p > a {white-space: nowrap;}</style>
 </head>
-<body id="README" class="article">
+<body id="initrd" class="article">
 <div id="header">
 <h1>Linux Kernel Module Cheat</h1>
 </div>
 <div id="content">
-<div id="preamble">
+<div class="sect1">
+<h2 id="initrd"><a class="anchor" href="#initrd"></a><a class="link" href="#initrd">8. initrd</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p><a href="https://zenodo.org/badge/latestdoi/64534859"><span class="image"><img src="https://zenodo.org/badge/64534859.svg" alt="64534859"></span></a></p>
+<p>The kernel can boot from an CPIO file, which is a directory serialization format much like tar: <a href="https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference" class="bare">https://superuser.com/questions/343915/tar-vs-cpio-what-is-the-difference</a></p>
 </div>
 <div class="paragraph">
-<p>The perfect emulation setup to study and develop the <a href="linux-kernel.html">Linux kernel</a> v5.9.2, kernel modules, <a href="qemu-buildroot-setup.html">QEMU</a>, <a href="gem5-buildroot-setup.html">gem5</a> and x86_64, ARMv7 and ARMv8 <a href="userland-assembly.html">userland</a> and <a href="baremetal-setup.html">baremetal</a> assembly, <a href="c.html">ANSI C</a>, <a href="cpp.html">C++</a> and <a href="posix.html">POSIX</a>. <a href="gdb.html">GDB step debug</a> and <a href="kgdb.html">KGDB</a> just work. Powered by <a href="about-the-qemu-buildroot-setup.html">Buildroot</a> and <a href="about-the-baremetal-setup.html">crosstool-NG</a>. Highly automated. Thoroughly documented. Automated <a href="test-this-repo.html">tests</a>. "Tested" in an Ubuntu 20.04 host.</p>
+<p>The bootloader, which for us is provided by QEMU itself, is then configured to put that CPIO into memory, and tell the kernel that it is there.</p>
 </div>
 <div class="paragraph">
-<p>TL;DR: <a href="qemu-buildroot-setup-getting-started.html">Section 2.2.1, &#8220;QEMU Buildroot setup getting started&#8221;</a></p>
+<p>This is very similar to the kernel image itself, which already gets put into memory by the QEMU <code>-kernel</code> option.</p>
 </div>
 <div class="paragraph">
-<p>The source code for this page is located at: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat</a>. Due to <a href="https://github.com/isaacs/github/issues/1610">a GitHub limitation</a>, this README is too long and not fully rendered on github.com, so either use:</p>
+<p>With this setup, you don&#8217;t even need to give a root filesystem to the kernel: it just does everything in memory in a ramfs.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat" class="bare">https://cirosantilli.com/linux-kernel-module-cheat</a></p>
-</li>
-<li>
-<p><a href="https://cirosantilli.com/linux-kernel-module-cheat/index-split" class="bare">https://cirosantilli.com/linux-kernel-module-cheat/index-split</a>: split header version</p>
-</li>
-<li>
-<p><a href="build-the-documentation.html">build the docs yourself</a></p>
-</li>
-</ul>
+<div class="paragraph">
+<p>To enable initrd instead of the default ext2 disk image, do:</p>
 </div>
-<div class="imageblock">
+<div class="literalblock">
 <div class="content">
-<img src="https://raw.githubusercontent.com/cirosantilli/china-dictatorship-media/master/Xinjiang_prisoners_sitting_identified.jpeg" alt="Xinjiang prisoners sitting identified" width="800">
+<pre>./build-buildroot --initrd
+./run --initrd</pre>
 </div>
 </div>
-<div id="toc" class="toc">
-<div id="toctitle" class="title"></div>
-<p><span class="toc-root toc-current"><a href="README.html">Linux Kernel Module Cheat</a></span></p><ul class="sectlevel1">
-<li><a href="china.html">1. <code>--china</code></a>
-</li>
-<li><a href="getting-started.html">2. Getting started</a>
-</li>
-<li><a href="gdb.html">3. GDB step debug</a>
-</li>
-<li><a href="kgdb.html">4. KGDB</a>
-</li>
-<li><a href="gdbserver.html">5. gdbserver</a>
-</li>
-<li><a href="cpu-architecture.html">6. CPU architecture</a>
-</li>
-<li><a href="init.html">7. init</a>
-</li>
-<li><a href="initrd.html">8. initrd</a>
-</li>
-<li><a href="device-tree.html">9. Device tree</a>
-</li>
-<li><a href="kvm.html">10. KVM</a>
-</li>
-<li><a href="user-mode-simulation.html">11. User mode simulation</a>
-</li>
-<li><a href="kernel-module-utilities.html">12. Kernel module utilities</a>
-</li>
-<li><a href="filesystems.html">13. Filesystems</a>
-</li>
-<li><a href="graphics.html">14. Graphics</a>
-</li>
-<li><a href="networking.html">15. Networking</a>
-</li>
-<li><a href="operating-systems.html">16. Operating systems</a>
-</li>
-<li><a href="linux-kernel.html">17. Linux kernel</a>
-</li>
-<li><a href="freebsd.html">18. FreeBSD</a>
-</li>
-<li><a href="rtos.html">19. RTOS</a>
-</li>
-<li><a href="xen.html">20. Xen</a>
-</li>
-<li><a href="u-boot.html">21. U-Boot</a>
-</li>
-<li><a href="emulators.html">22. Emulators</a>
-</li>
-<li><a href="qemu.html">23. QEMU</a>
-</li>
-<li><a href="gem5.html">24. gem5</a>
-</li>
-<li><a href="gensim.html">25. Gensim</a>
-</li>
-<li><a href="buildroot.html">26. Buildroot</a>
-</li>
-<li><a href="userland-content.html">27. Userland content</a>
-</li>
-<li><a href="userland-assembly.html">28. Userland assembly</a>
-</li>
-<li><a href="x86-userland-assembly.html">29. x86 userland assembly</a>
-</li>
-<li><a href="arm-userland-assembly.html">30. ARM userland assembly</a>
-</li>
-<li><a href="elf.html">31. ELF</a>
-</li>
-<li><a href="ieee-754.html">32. IEEE 754</a>
-</li>
-<li><a href="baremetal.html">33. Baremetal</a>
-</li>
-<li><a href="android.html">34. Android</a>
-</li>
-<li><a href="benchmark-this-repo.html">35. Benchmark this repo</a>
-</li>
-<li><a href="compilers.html">36. Compilers</a>
-</li>
-<li><a href="computer-architecture.html">37. Computer architecture</a>
-</li>
-<li><a href="about-this-repo.html">38. About this repo</a>
-</li>
-</ul>
+<div class="paragraph">
+<p>By looking at the QEMU run command generated, you can see that we didn&#8217;t give the <code>-drive</code> option at all:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>cat "$(./getvar run_dir)/run.sh"</pre>
 </div>
 </div>
+<div class="paragraph">
+<p>Instead, we used the QEMU <code>-initrd</code> option to point to the <code>.cpio</code> filesystem that Buildroot generated for us.</p>
+</div>
+<div class="paragraph">
+<p>Try removing that <code>-initrd</code> option to watch the kernel panic without rootfs at the end of boot.</p>
+</div>
+<div class="paragraph">
+<p>When using <code>.cpio</code>, there can be no <a href="disk-persistency.html">filesystem persistency</a> across boots, since all file operations happen in memory in a tmpfs:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>date &gt;f
+poweroff
+cat f
+# can't open 'f': No such file or directory</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>which can be good for automated tests, as it ensures that you are using a pristine unmodified system image every time.</p>
+</div>
+<div class="paragraph">
+<p>Not however that we already disable disk persistency by default on ext2 filesystems even without <code>--initrd</code>: <a href="disk-persistency.html">Section 23.3, &#8220;Disk persistency&#8221;</a>.</p>
+</div>
+<div class="paragraph">
+<p>One downside of this method is that it has to put the entire filesystem into memory, and could lead to a panic:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>end Kernel panic - not syncing: Out of memory and no killable processes...</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This can be solved by increasing the memory as explained at <a href="memory-size.html">Memory size</a>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>./run --initrd --memory 256M</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The main ingredients to get initrd working are:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="china.html">&lt;code&gt;--china&lt;/code</a>&gt;</p>
+<p><code>BR2_TARGET_ROOTFS_CPIO=y</code>: make Buildroot generate <code>images/rootfs.cpio</code> in addition to the other images.</p>
+<div class="paragraph">
+<p>It is also possible to compress that image with other options.</p>
+</div>
 </li>
 <li>
-<p><a href="getting-started.html">Getting started</a></p>
+<p><code>qemu -initrd</code>: make QEMU put the image into memory and tell the kernel about it.</p>
 </li>
 <li>
-<p><a href="gdb.html">GDB step debug</a></p>
-</li>
-<li>
-<p><a href="kgdb.html">KGDB</a></p>
-</li>
-<li>
-<p><a href="gdbserver.html">gdbserver</a></p>
-</li>
-<li>
-<p><a href="cpu-architecture.html">CPU architecture</a></p>
-</li>
-<li>
-<p><a href="init.html">init</a></p>
-</li>
-<li>
-<p><a href="initrd.html">initrd</a></p>
-</li>
-<li>
-<p><a href="device-tree.html">Device tree</a></p>
-</li>
-<li>
-<p><a href="kvm.html">KVM</a></p>
-</li>
-<li>
-<p><a href="user-mode-simulation.html">User mode simulation</a></p>
-</li>
-<li>
-<p><a href="kernel-module-utilities.html">Kernel module utilities</a></p>
-</li>
-<li>
-<p><a href="filesystems.html">Filesystems</a></p>
-</li>
-<li>
-<p><a href="graphics.html">Graphics</a></p>
-</li>
-<li>
-<p><a href="networking.html">Networking</a></p>
-</li>
-<li>
-<p><a href="operating-systems.html">Operating systems</a></p>
-</li>
-<li>
-<p><a href="linux-kernel.html">Linux kernel</a></p>
-</li>
-<li>
-<p><a href="freebsd.html">FreeBSD</a></p>
-</li>
-<li>
-<p><a href="rtos.html">RTOS</a></p>
-</li>
-<li>
-<p><a href="xen.html">Xen</a></p>
-</li>
-<li>
-<p><a href="u-boot.html">U-Boot</a></p>
-</li>
-<li>
-<p><a href="emulators.html">Emulators</a></p>
-</li>
-<li>
-<p><a href="qemu.html">QEMU</a></p>
-</li>
-<li>
-<p><a href="gem5.html">gem5</a></p>
-</li>
-<li>
-<p><a href="gensim.html">Gensim</a></p>
-</li>
-<li>
-<p><a href="buildroot.html">Buildroot</a></p>
-</li>
-<li>
-<p><a href="userland-content.html">Userland content</a></p>
-</li>
-<li>
-<p><a href="userland-assembly.html">Userland assembly</a></p>
-</li>
-<li>
-<p><a href="x86-userland-assembly.html">x86 userland assembly</a></p>
-</li>
-<li>
-<p><a href="arm-userland-assembly.html">ARM userland assembly</a></p>
-</li>
-<li>
-<p><a href="elf.html">ELF</a></p>
-</li>
-<li>
-<p><a href="ieee-754.html">IEEE 754</a></p>
-</li>
-<li>
-<p><a href="baremetal.html">Baremetal</a></p>
-</li>
-<li>
-<p><a href="android.html">Android</a></p>
-</li>
-<li>
-<p><a href="benchmark-this-repo.html">Benchmark this repo</a></p>
-</li>
-<li>
-<p><a href="compilers.html">Compilers</a></p>
-</li>
-<li>
-<p><a href="computer-architecture.html">Computer architecture</a></p>
-</li>
-<li>
-<p><a href="about-this-repo.html">About this repo</a></p>
+<p><code>CONFIG_BLK_DEV_INITRD=y</code>: Compile the kernel with initrd support, see also: <a href="https://unix.stackexchange.com/questions/67462/linux-kernel-is-not-finding-the-initrd-correctly/424496#424496" class="bare">https://unix.stackexchange.com/questions/67462/linux-kernel-is-not-finding-the-initrd-correctly/424496#424496</a></p>
+<div class="paragraph">
+<p>Buildroot forces that option when <code>BR2_TARGET_ROOTFS_CPIO=y</code> is given</p>
+</div>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>TODO: how does the bootloader inform the kernel where to find initrd? <a href="https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image" class="bare">https://unix.stackexchange.com/questions/89923/how-does-linux-load-the-initrd-image</a></p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="initrd-in-desktop-distros.html">initrd in desktop distros</a></p>
+</li>
+<li>
+<p><a href="initramfs.html">initramfs</a></p>
+</li>
+<li>
+<p><a href="rootfs.html">rootfs</a></p>
+</li>
+<li>
+<p><a href="gem5-initrd.html">gem5 initrd</a></p>
+</li>
+<li>
+<p><a href="gem5-initramfs.html">gem5 initramfs</a></p>
+</li>
+</ul>
+</div>
+</div>
 </div>
 <div class="paragraph nav-footer">
-<p>Next: <a href="china.html"><code>--china</code></a> →</p>
+<p>← Previous: <a href="busybox-shell-initrc-files.html">BusyBox shell initrc files</a> | ↑ Up: <a href="README.html">Linux Kernel Module Cheat</a> | Next: <a href="initrd-in-desktop-distros.html">initrd in desktop distros</a> →</p>
 </div>
 </div>
 <script>
