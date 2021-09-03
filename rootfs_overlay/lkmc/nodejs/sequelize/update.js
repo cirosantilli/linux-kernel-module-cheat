@@ -37,6 +37,9 @@ await Inverses.create({value: 5, inverse: -5, name: 'five'});
 assert.strictEqual((await Inverses.findOne({ where: { value: 2 } })).inverse, -2);
 assert.strictEqual((await Inverses.findOne({ where: { value: 3 } })).inverse, -3);
 assert.strictEqual((await Inverses.findOne({ where: { value: 5 } })).inverse, -5);
+assert.strictEqual((await Inverses.findOne({ where: { value: 2 } })).name, 'two');
+assert.strictEqual((await Inverses.findOne({ where: { value: 3 } })).name, 'three');
+assert.strictEqual((await Inverses.findOne({ where: { value: 5 } })).name, 'five');
 assert.strictEqual(await Inverses.count(), 3);
 
 // Update to fixed value.

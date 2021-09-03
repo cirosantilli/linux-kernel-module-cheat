@@ -13,7 +13,7 @@ const sequelize = new Sequelize({
 });
 
 (async () => {
-const IntegerNames = sequelize.define('IntegerNames',
+const Integer = sequelize.define('Integer',
   {
     value: {
       type: DataTypes.INTEGER,
@@ -23,24 +23,30 @@ const IntegerNames = sequelize.define('IntegerNames',
     name: {
       type: DataTypes.STRING,
     },
+    inverse: {
+      type: DataTypes.INTEGER,
+    },
   },
   {
     timestamps: false,
   }
 );
-await IntegerNames.sync({force: true})
-await IntegerNames.create({value: 2, name: 'two'});
-await IntegerNames.create({value: 3, name: 'three'});
-await IntegerNames.create({value: 5, name: 'five'});
+await Integer.sync({force: true})
+await Integer.create({value: 2, inverse: -2, name: 'two'});
+await Integer.create({value: 3, inverse: -3, name: 'three'});
+await Integer.create({value: 5, inverse: -5, name: 'five'});
 
 // Initial state.
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 2 } })).name, 'two');
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 3 } })).name, 'three');
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 5 } })).name, 'five');
-assert.strictEqual(await IntegerNames.count(), 3);
+assert.strictEqual((await Integer.findOne({ where: { value: 2 } })).name, 'two');
+assert.strictEqual((await Integer.findOne({ where: { value: 3 } })).name, 'three');
+assert.strictEqual((await Integer.findOne({ where: { value: 5 } })).name, 'five');
+assert.strictEqual((await Integer.findOne({ where: { value: 2 } })).inverse, -2);
+assert.strictEqual((await Integer.findOne({ where: { value: 3 } })).inverse, -3);
+assert.strictEqual((await Integer.findOne({ where: { value: 5 } })).inverse, -5);
+assert.strictEqual(await Integer.count(), 3);
 
 // Update.
-await IntegerNames.bulkCreate(
+await Integer.bulkCreate(
   [
     {value: 2, name: 'TWO'},
     {value: 3, name: 'THREE'},
@@ -50,11 +56,14 @@ await IntegerNames.bulkCreate(
 );
 
 // Final state.
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 2 } })).name, 'TWO');
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 3 } })).name, 'THREE');
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 5 } })).name, 'five');
-assert.strictEqual((await IntegerNames.findOne({ where: { value: 7 } })).name, 'SEVEN');
-assert.strictEqual(await IntegerNames.count(), 4);
+assert.strictEqual((await Integer.findOne({ where: { value: 2 } })).name, 'TWO');
+assert.strictEqual((await Integer.findOne({ where: { value: 3 } })).name, 'THREE');
+assert.strictEqual((await Integer.findOne({ where: { value: 5 } })).name, 'five');
+assert.strictEqual((await Integer.findOne({ where: { value: 7 } })).name, 'SEVEN');
+assert.strictEqual((await Integer.findOne({ where: { value: 2 } })).inverse, -2);
+assert.strictEqual((await Integer.findOne({ where: { value: 3 } })).inverse, -3);
+assert.strictEqual((await Integer.findOne({ where: { value: 5 } })).inverse, -5);
+assert.strictEqual(await Integer.count(), 4);
 
 await sequelize.close();
 })();
