@@ -101,12 +101,12 @@ const integerNames = await IntegerNames.findAll({
     value: 2
   }
 });
-assert(integerNames[0].name === 'two');
+assert.strictEqual(integerNames[0].name, 'two');
 
 // Truncate all tables.
 // https://stackoverflow.com/questions/47816162/wipe-all-tables-in-a-schema-sequelize-nodejs/66985334#66985334
 await sequelize.truncate();
-assert((await IntegerNames.findAll()).length === 0);
+assert.strictEqual((await IntegerNames.findAll()).length, 0);
 
 // Datetime. Automatically converts to/from date objects.
 const Dates = sequelize.define('Dates', {
@@ -123,8 +123,8 @@ let date = await Dates.findOne({
     ['date', 'ASC'],
   ],
 });
-assert(date.date.getTime() === new Date(2000, 0, 1, 2, 3, 4, 5).getTime());
-assert(date.date.getTime() === dateCreate.date.getTime());
+assert.strictEqual(date.date.getTime(), new Date(2000, 0, 1, 2, 3, 4, 5).getTime());
+assert.strictEqual(date.date.getTime(), dateCreate.date.getTime());
 
 // Otherwise it hangs for 10 seconds, it seems that it keeps the connection alive.
 // https://stackoverflow.com/questions/28253831/recreating-database-sequelizejs-is-slow
