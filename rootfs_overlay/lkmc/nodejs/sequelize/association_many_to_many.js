@@ -62,6 +62,7 @@ const user0Likes = await user0.getPosts({order: [['body', 'ASC']]})
 assert(user0Likes[0].body === 'post0');
 assert(user0Likes[1].body === 'post1');
 assert(user0Likes.length === 2);
+assert.strictEqual(await user0.countPosts(), 2)
 
 const user1Likes = await user1.getPosts({order: [['body', 'ASC']]})
 assert(user1Likes.length === 0);

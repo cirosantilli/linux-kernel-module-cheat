@@ -13,7 +13,7 @@
 const assert = require('assert');
 const path = require('path');
 
-const { Sequelize, DataTypes } = require('sequelize');
+const { Sequelize, DataTypes, Op } = require('sequelize');
 
 // To use the URI syntax, we need an explcit username and password.
 // But the second constructor works with peer authentication.
@@ -96,17 +96,30 @@ await IntegerNames.create({value: 5, name: 'five'});
 //   3 |     5 | five  | 2021-03-19 19:12:08.437+00 | 2021-03-19 19:12:08.437+00
 // (3 rows)
 
-const integerNames = await IntegerNames.findAll({
+let integerNames = await IntegerNames.findAll({
   where: {
     value: 2
   }
 });
 assert.strictEqual(integerNames[0].name, 'two');
+assert.strictEqual(integerNames.length, 1);
+
+// SELECT and destroy: https://stackoverflow.com/questions/8402597/sequelize-js-delete-query
+await IntegerNames.destroy({
+  where: {
+    value: { [Op.gt]: 2 },
+  },
+  limit: 1,
+});
+integerNames = await IntegerNames.findAll({order: [['value', 'ASC']]})
+assert.strictEqual(integerNames[0].name, 'two');
+assert.strictEqual(integerNames[1].name, 'five');
+assert.strictEqual(integerNames.length, 2);
 
 // Truncate all tables.
 // https://stackoverflow.com/questions/47816162/wipe-all-tables-in-a-schema-sequelize-nodejs/66985334#66985334
 await sequelize.truncate();
-assert.strictEqual((await IntegerNames.findAll()).length, 0);
+assert.strictEqual(await IntegerNames.count(), 0);
 
 // Datetime. Automatically converts to/from date objects.
 const Dates = sequelize.define('Dates', {
