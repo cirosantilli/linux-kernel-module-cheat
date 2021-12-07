@@ -25,7 +25,7 @@ function generatePrimes(start, range) {
 if (isMainThread) {
   const max = 1e2;
   const threadCount = +process.argv[2] || 10;
-  const threads = new Set();;
+  const threads = new Set();
   const range = Math.ceil((max - min) / threadCount);
   let start = min;
   for (let i = 0; i < threadCount - 1; i++) {
