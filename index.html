@@ -7018,14 +7018,6 @@ cr3 = 0xFFFFF0DCDC000</pre>
 <p>This just counts every second forever and does not give you a shell.</p>
 </div>
 <div class="paragraph">
-<p>And to pass command line arguments to the program, you can use <code>--kernel-cli-after-dash</code>:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>./run --kernel-cli 'init=/bin/sh' --kernel-cli-after-dash '-c "echo asdf; pwd; ls"'</pre>
-</div>
-</div>
-<div class="paragraph">
 <p>This method is not very flexible however, as it is hard to reliably pass multiple commands and command line arguments to the init with it, as explained at: <a href="#init-environment">Section 7.4, &#8220;Init environment&#8221;</a>.</p>
 </div>
 <div class="paragraph">
@@ -7283,31 +7275,29 @@ vim rootfs_overlay/etc/init.d/S99.gitignore
 <div class="sect2">
 <h3 id="init-environment"><a class="anchor" href="#init-environment"></a><a class="link" href="#init-environment">7.4. Init environment</a></h3>
 <div class="paragraph">
-<p>Documented at <a href="https://www.kernel.org/doc/html/v5.9/admin-guide/kernel-parameters.html" class="bare">https://www.kernel.org/doc/html/v5.9/admin-guide/kernel-parameters.html</a>:</p>
+<p>Documented at <a href="https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html" class="bare">https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html</a>:</p>
 </div>
 <div class="quoteblock">
 <blockquote>
 <div class="paragraph">
-<p>The kernel parses parameters from the kernel command line up to "--"; if it doesn&#8217;t recognize a parameter and it doesn&#8217;t contain a '.', the parameter gets passed to init: parameters with '=' go into init&#8217;s environment, others are passed as command line arguments to init. Everything after "--" is passed as an argument to init.</p>
+<p>The kernel parses parameters from the kernel command line up to "-"; if it doesn&#8217;t recognize a parameter and it doesn&#8217;t contain a '.', the parameter gets passed to init: parameters with '=' go into init&#8217;s environment, others are passed as command line arguments to init. Everything after "-" is passed as an argument to init.</p>
 </div>
 </blockquote>
 </div>
 <div class="paragraph">
-<p>And you can try it out with our <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/init_env_poweroff.c">userland/linux/init_env_poweroff.c</a> program:</p>
+<p>And you can try it out with:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>./run --kernel-cli 'init=/lkmc/linux/init_env_poweroff.out loglevel=8 go_in_env=val1 with_dot.before=val2' \
-      --kernel-cli-after-dash 'go_in_arg=val3 with_dot.after=val4 zxcv'</pre>
+<pre>./run --kernel-cli 'init=/lkmc/linux/init_env_poweroff.out' --kernel-cli-after-dash 'asdf=qwer zxcv'</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>From the <a href="#dry-run">generated QEMU command</a>, we see that the kernel CLI at LKMC 69f5745d3df11d5c741551009df86ea6c61a09cf now contains (or at least would if it weren&#8217;t for <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/issues/110" class="bare">https://github.com/cirosantilli/linux-kernel-module-cheat/issues/110</a> oh God), manually indented for readability:</p>
+<p>From the <a href="#dry-run">generated QEMU command</a>, we see that the kernel CLI at LKMC 69f5745d3df11d5c741551009df86ea6c61a09cf now contains:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>&lt;6&gt;[    0.000000] Command line: root=/dev/vda nopat console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y rw
-  init=/lkmc/linux/init_env_poweroff.out loglevel=8 go_in_env=val1 with_dot.before=val2 -- go_in_arg=val3 with_dot.after=val4 zxcv</pre>
+<pre>init=/lkmc/linux/init_env_poweroff.out console=ttyS0 - lkmc_home=/lkmc asdf=qwer zxcv</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -7315,54 +7305,37 @@ vim rootfs_overlay/etc/init.d/S99.gitignore
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>&lt;6&gt;[    2.728992] Run /lkmc/linux/init_env_poweroff.out as init process
-&lt;7&gt;[    2.729587]   with arguments:
-&lt;7&gt;[    2.729820]     /lkmc/linux/init_env_poweroff.out
-&lt;7&gt;[    2.730085]     lkmc_home=/lkmc
-&lt;7&gt;[    2.730259]     go_in_arg=val3
-&lt;7&gt;[    2.730432]     with_dot.after=val4
-&lt;7&gt;[    2.730623]     zxcv
-&lt;7&gt;[    2.730767]   with environment:
-&lt;7&gt;[    2.730960]     HOME=/
-&lt;7&gt;[    2.731115]     TERM=linux
-&lt;7&gt;[    2.731267]     go_in_env=val</pre>
+<pre>args:
+/lkmc/linux/init_env_poweroff.out
+-
+zxcv
+
+env:
+HOME=/
+TERM=linux
+lkmc_home=/lkmc
+asdf=qwer</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Tested as of the Linux kernel v5.7 and possibly earlier, boot also shows the init arguments and environment very clearly when using <a href="#printk">printk</a> at <code>loglevel=8</code>, which is a great addition:</p>
+<p>Source: <a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/userland/linux/init_env_poweroff.c">userland/linux/init_env_poweroff.c</a>.</p>
+</div>
+<div class="paragraph">
+<p>As of the Linux kernel v5.7 (possibly earlier, I&#8217;ve skipped a few releases), boot also shows the init arguments and environment very clearly, which is a great addition:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>&lt;6&gt;[    2.777265] Run /lkmc/linux/init_env_poweroff.out as init process
-&lt;7&gt;[    2.777729]   with arguments:
-&lt;7&gt;[    2.777953]     /lkmc/linux/init_env_poweroff.out
-&lt;7&gt;[    2.778212]     lkmc_home=/lkmc
-&lt;7&gt;[    2.778391]     go_in_arg=val2
-&lt;7&gt;[    2.778554]     zxcv
-&lt;7&gt;[    2.778705]   with environment:
-&lt;7&gt;[    2.778901]     HOME=/
-&lt;7&gt;[    2.779065]     TERM=linux
-&lt;7&gt;[    2.779223]     go_in_env=val1</pre>
+<pre>&lt;6&gt;[    0.309984] Run /sbin/init as init process
+&lt;7&gt;[    0.309991]   with arguments:
+&lt;7&gt;[    0.309997]     /sbin/init
+&lt;7&gt;[    0.310004]     nokaslr
+&lt;7&gt;[    0.310010]     -
+&lt;7&gt;[    0.310016]   with environment:
+&lt;7&gt;[    0.310022]     HOME=/
+&lt;7&gt;[    0.310028]     TERM=linux
+&lt;7&gt;[    0.310035]     earlyprintk=pl011,0x1c090000
+&lt;7&gt;[    0.310041]     lkmc_home=/lkmc</pre>
 </div>
-</div>
-<div class="paragraph">
-<p>As we can see, the passing of environment variables to init is a bit wonky:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>init</code> and <code>loglevel</code> didn&#8217;t go because they were recognized</p>
-</li>
-<li>
-<p><code>go_in_env</code> went because it wasn&#8217;t</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>so things can always break in future kernel releases&#8230;&#8203; The only way to guard from this a bit is to use some unique prefix and hope the kernel never decides to use it. We of course use <code>lkmc_*</code> for our variables.</p>
-</div>
-<div class="paragraph">
-<p>And it is also impossible to pass environment variables that contain dots in them: our <code>with_dot.before</code> is simply gone. Not a common use case, but still, quite insane.</p>
 </div>
 <div class="sect3">
 <h4 id="init-arguments"><a class="anchor" href="#init-arguments"></a><a class="link" href="#init-arguments">7.4.1. init arguments</a></h4>
@@ -11269,7 +11242,7 @@ git log | grep -E '    Linux [0-9]+\.' | head</pre>
 </ul>
 </div>
 <div class="paragraph">
-<p>The arguments are documented in the kernel documentation: <a href="https://www.kernel.org/doc/html/v5.9/admin-guide/kernel-parameters.html" class="bare">https://www.kernel.org/doc/html/v5.9/admin-guide/kernel-parameters.html</a></p>
+<p>The arguments are documented in the kernel documentation: <a href="https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html" class="bare">https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html</a></p>
 </div>
 <div class="paragraph">
 <p>When dealing with real boards, extra command line options are provided on some magic bootloader configuration file, e.g.:</p>
@@ -13577,27 +13550,6 @@ echo $?</pre>
 </div>
 <div class="sect3">
 <h4 id="seq-file"><a class="anchor" href="#seq-file"></a><a class="link" href="#seq-file">17.8.2. seq_file</a></h4>
-<div class="paragraph">
-<p>TODO these examples broke in kernel 5.0 and we didn&#8217;t notice because they just added a flimsy warning and nothing else:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-kernel-modules/45100058" class="bare">https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-kernel-modules/45100058</a></p>
-</li>
-<li>
-<p><a href="https://stackoverflow.com/questions/60570242/seq-file-not-working-properly-after-next-returns-null" class="bare">https://stackoverflow.com/questions/60570242/seq-file-not-working-properly-after-next-returns-null</a></p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Fix with ifdef for kernel 4/5. The error message is:</p>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre>seq_file: buggy .next function next [module-name] did not update position index</pre>
-</div>
-</div>
 <div class="paragraph">
 <p>Writing trivial read <a href="#file-operations">File operations</a> is repetitive and error prone. The <code>seq_file</code> API makes the process much easier for those trivial cases:</p>
 </div>
