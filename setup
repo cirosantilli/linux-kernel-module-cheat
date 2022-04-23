@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Minimum requirements to run ./build --download-dependencies
+set -ex
 if [ $# -eq 1 ]; then
   y=-y
 else
@@ -7,12 +8,21 @@ else
 fi
 if [ -f /.dockerenv ]; then
   sudo=
+  export DEBIAN_FRONTEND=noninteractive
 else
   sudo=sudo
 fi
 $sudo apt-get update
+if [ -f /.dockerenv ]; then
+  apt install -y software-properties-common
+  add-apt-repository -y ppa:git-core/ppa
+  $sudo apt update
+  git=git=1:2.36.0-0ppa1~ubuntu20.04.1
+else
+  git=git
+fi
 $sudo apt-get install $y \
-  git \
+  $git \
   python3 \
   python3-pip \
   python3-distutils \

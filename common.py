@@ -49,6 +49,19 @@ consts['data_dir'] = os.path.join(consts['root_dir'], 'data')
 consts['p9_dir'] = os.path.join(consts['data_dir'], '9p')
 consts['gem5_non_default_source_root_dir'] = os.path.join(consts['data_dir'], 'gem5')
 if consts['in_docker']:
+    # fatal: unsafe repository ('/root/lkmc' is owned by someone else)
+    # Fuck these error checks, let me shoot my feet in peace.
+    # The best solution would be to actually get Docker to mount
+    # the current diretory as root. But I've never been able to do that:
+    # * https://stackoverflow.com/questions/51973179/docker-mount-volumes-as-root
+    # * https://unix.stackexchange.com/questions/523492/how-to-mount-files-as-specific-user-when-using-docker-namespace-remapping
+    # * https://stackoverflow.com/questions/35291520/docker-and-userns-remap-how-to-manage-volume-permissions-to-share-data-betwee
+    # So for now we see as owner e.g. 1000:1000 on the volume, and root:root on /.
+    # '*' to ignore all was added on Git 2.36... Without that we would need to add every single submodule to the list.
+    # * https://stackoverflow.com/questions/71901632/fatal-unsafe-repository-home-repon-is-owned-by-someone-else
+    # * https://stackoverflow.com/questions/71849415/i-cannot-add-the-parent-directory-to-safe-directory-in-git/71904131#71904131
+    # * https://www.reddit.com/r/docker/comments/o8bnft/is_it_possible_to_mount_files_with_readwrite/
+    subprocess.check_output(['git', 'config', '--global', '--add', 'safe.directory', '*'])
     consts['out_dir'] = os.path.join(consts['root_dir'], 'out.docker')
 else:
     consts['out_dir'] = os.path.join(consts['root_dir'], 'out')
