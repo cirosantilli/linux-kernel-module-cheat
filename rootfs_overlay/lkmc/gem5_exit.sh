@@ -1,4 +1,5 @@
 #!/bin/sh
-# To be able to do init=/gem5_exit.sh, since kernel CLI argument passing is too messy:
-# https://cirosantilli.com/linux-kernel-module-cheat#init-arguments
+# This should not be needed anymore after we learned that it should be -- instead of -.
+# You should be instead able to just use something init=/bin/sh -- -c 'm5 exit'
+# https://github.com/cirosantilli/linux-kernel-module-cheat/pull/226
 m5 exit

@@ -3256,6 +3256,12 @@ The most direct way to replace `init` with our own is to just use the `init=` <<
 
 This just counts every second forever and does not give you a shell.
 
+And to pass command line arguments to the program, you can use `--kernel-cli-after-dash`:
+
+....
+./run --kernel-cli 'init=/bin/sh' --kernel-cli-after-dash '-c "echo asdf; pwd; ls"'
+....
+
 This method is not very flexible however, as it is hard to reliably pass multiple commands and command line arguments to the init with it, as explained at: xref:init-environment[xrefstyle=full].
 
 For this reason, we have created a more robust helper method with the `--eval` option:
@@ -3435,54 +3441,65 @@ at the very end of the boot logs.
 
 === Init environment
 
-Documented at https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html[]:
+Documented at https://www.kernel.org/doc/html/v5.9/admin-guide/kernel-parameters.html[]:
 
 ____
 The kernel parses parameters from the kernel command line up to "--"; if it doesn't recognize a parameter and it doesn't contain a '.', the parameter gets passed to init: parameters with '=' go into init's environment, others are passed as command line arguments to init. Everything after "--" is passed as an argument to init.
 ____
 
-And you can try it out with:
+And you can try it out with our link:userland/linux/init_env_poweroff.c[] program:
 
 ....
-./run --kernel-cli 'init=/lkmc/linux/init_env_poweroff.out' --kernel-cli-after-dash 'asdf=qwer zxcv'
+./run --kernel-cli 'init=/lkmc/linux/init_env_poweroff.out loglevel=8 go_in_env=val1 with_dot.before=val2' \
+      --kernel-cli-after-dash 'go_in_arg=val3 with_dot.after=val4 zxcv'
 ....
 
-From the <<dry-run,generated QEMU command>>, we see that the kernel CLI at LKMC 69f5745d3df11d5c741551009df86ea6c61a09cf now contains:
+From the <<dry-run,generated QEMU command>>, we see that the kernel CLI at LKMC 69f5745d3df11d5c741551009df86ea6c61a09cf now contains (or at least would if it weren't for https://github.com/cirosantilli/linux-kernel-module-cheat/issues/110 oh God), manually indented for readability:
 
 ....
-init=/lkmc/linux/init_env_poweroff.out console=ttyS0 -- lkmc_home=/lkmc asdf=qwer zxcv
+<6>[    0.000000] Command line: root=/dev/vda nopat console_msg_format=syslog nokaslr norandmaps panic=-1 printk.devkmsg=on printk.time=y rw
+  init=/lkmc/linux/init_env_poweroff.out loglevel=8 go_in_env=val1 with_dot.before=val2 -- go_in_arg=val3 with_dot.after=val4 zxcv
 ....
 
 and the init program outputs:
 
 ....
-args:
-/lkmc/linux/init_env_poweroff.out
-lkmc_home=/lkmc
-asdf=qwer
-zxcv
-
-env:
-HOME=/
-TERM=linux
+<6>[    2.728992] Run /lkmc/linux/init_env_poweroff.out as init process
+<7>[    2.729587]   with arguments:
+<7>[    2.729820]     /lkmc/linux/init_env_poweroff.out
+<7>[    2.730085]     lkmc_home=/lkmc
+<7>[    2.730259]     go_in_arg=val3
+<7>[    2.730432]     with_dot.after=val4
+<7>[    2.730623]     zxcv
+<7>[    2.730767]   with environment:
+<7>[    2.730960]     HOME=/
+<7>[    2.731115]     TERM=linux
+<7>[    2.731267]     go_in_env=val
 ....
 
-Source: link:userland/linux/init_env_poweroff.c[].
-
-As of the Linux kernel v5.7 (possibly earlier, I've skipped a few releases), boot also shows the init arguments and environment very clearly, which is a great addition:
+Tested as of the Linux kernel v5.7 and possibly earlier, boot also shows the init arguments and environment very clearly when using <<printk>> at `loglevel=8`, which is a great addition:
 
 ....
-<6>[    0.309984] Run /sbin/init as init process
-<7>[    0.309991]   with arguments:
-<7>[    0.309997]     /sbin/init
-<7>[    0.310004]     nokaslr
-<7>[    0.310010]     -
-<7>[    0.310016]   with environment:
-<7>[    0.310022]     HOME=/
-<7>[    0.310028]     TERM=linux
-<7>[    0.310035]     earlyprintk=pl011,0x1c090000
-<7>[    0.310041]     lkmc_home=/lkmc
+<6>[    2.777265] Run /lkmc/linux/init_env_poweroff.out as init process
+<7>[    2.777729]   with arguments:
+<7>[    2.777953]     /lkmc/linux/init_env_poweroff.out
+<7>[    2.778212]     lkmc_home=/lkmc
+<7>[    2.778391]     go_in_arg=val2
+<7>[    2.778554]     zxcv
+<7>[    2.778705]   with environment:
+<7>[    2.778901]     HOME=/
+<7>[    2.779065]     TERM=linux
+<7>[    2.779223]     go_in_env=val1
 ....
+
+As we can see, the passing of environment variables to init is a bit wonky:
+
+* `init` and `loglevel` didn't go because they were recognized
+* `go_in_env` went because it wasn't
+
+so things can always break in future kernel releases... The only way to guard from this a bit is to use some unique prefix and hope the kernel never decides to use it. We of course use `lkmc_*` for our variables.
+
+And it is also impossible to pass environment variables that contain dots in them: our `with_dot.before` is simply gone. Not a common use case, but still, quite insane.
 
 ==== init arguments
 
@@ -6088,7 +6105,7 @@ See also:
 * https://unix.stackexchange.com/questions/48601/how-to-display-the-linux-kernel-command-line-parameters-given-for-the-current-bo
 * https://askubuntu.com/questions/32654/how-do-i-find-the-boot-parameters-used-by-the-running-kernel
 
-The arguments are documented in the kernel documentation: https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html
+The arguments are documented in the kernel documentation: https://www.kernel.org/doc/html/v5.9/admin-guide/kernel-parameters.html
 
 When dealing with real boards, extra command line options are provided on some magic bootloader configuration file, e.g.:
 
@@ -7666,6 +7683,17 @@ No, there no official documentation: https://stackoverflow.com/questions/1521393
 
 [[seq-file]]
 ==== seq_file
+
+TODO these examples broke in kernel 5.0 and we didn't notice because they just added a flimsy warning and nothing else:
+
+* https://stackoverflow.com/questions/25399112/how-to-use-a-seq-file-in-linux-kernel-modules/45100058
+* https://stackoverflow.com/questions/60570242/seq-file-not-working-properly-after-next-returns-null
+
+Fix with ifdef for kernel 4/5. The error message is:
+
+....
+seq_file: buggy .next function next [module-name] did not update position index
+....
 
 Writing trivial read <<file-operations>> is repetitive and error prone. The `seq_file` API makes the process much easier for those trivial cases:
 
