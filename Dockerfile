@@ -1,5 +1,6 @@
 # https://cirosantilli.com/linux-kernel-module-cheat#docker
 FROM ubuntu:20.04
+RUN touch /.dockerenv
 COPY setup /
 COPY requirements.txt /
 RUN /setup -y
