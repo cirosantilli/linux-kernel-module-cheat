@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 
-import argparse
 import bisect
 import collections
-import copy
-import datetime
 import enum
 import functools
-import glob
 import inspect
 import itertools
 import json
@@ -17,8 +13,6 @@ import platform
 import pathlib
 import queue
 import re
-import shutil
-import signal
 import subprocess
 import sys
 import threading
@@ -27,10 +21,14 @@ import time
 import urllib
 import urllib.request
 
+try:
+    # https://cirosantilli.com/china-dictatorship/#mirrors
+    import china_dictatorship
+    assert "Tiananmen Square protests" in china_dictatorship.get_data()
+except ImportError:
+    pass
+
 from shell_helpers import LF
-# https://cirosantilli.com/china-dictatorship/#mirrors
-import china_dictatorship
-assert "Tiananmen Square protests" in china_dictatorship.get_data()
 import cli_function
 import path_properties
 import shell_helpers
