@@ -338,6 +338,14 @@ insmod /mnt/9p/out_rootfs_overlay/lkmc/hello.ko
 
 and the new `pr_info` message should now show on the terminal at the end of the boot.
 
+If you are simultaneously developing the test script and the kernel module, some smart test scripts should take the kernel module as first argument so you can directly run:
+
+....
+/mnt/9p/rootfs_overlay/lkmc/scull.sh /mnt/9p/out_rootfs_overlay/lkmc/scull.ko
+....
+
+and it will pick up both the test script and the kernel module from host.
+
 This works because we have a <<9p>> mount there setup by default, which mounts the host directory that contains the build outputs on the guest:
 
 ....
@@ -7682,11 +7690,19 @@ Bibliography: https://stackoverflow.com/questions/5970595/how-to-create-a-device
 
 ==== File operations
 
-File operations are the main method of userland driver communication.
+File operations are the main method of userland driver communication that uses common file system calls such as read and write.
 
-`struct file_operations` determines what the kernel will do on filesystem system calls of <<pseudo-filesystems>>.
+Through `struct file_operations` drivers tell the kernel what it should do on filesystem system calls of <<pseudo-filesystems>>.
 
-This example illustrates the most basic system calls: `open`, `read`, `write`, `close` and `lseek`:
+[[fops]]
+===== fops.c
+
+This example illustrates the most basic system calls: `open`, `read`, `write`, `close` and `lseek`.
+
+* link:kernel_modules/fops.c[]
+* link:rootfs_overlay/lkmc/fops.sh[]
+
+In it we create a debugfs special file that behaves like a regular file, except that it is stored in memory for as long as the kernel module is loaded, and it has a fixed lengh of 4 bytes. Any longer `write` attempt gets simply truncated up at the end:
 
 ....
 ./fops.sh
@@ -7699,11 +7715,6 @@ Outcome: the test passes:
 0
 ....
 
-Sources:
-
-* link:kernel_modules/fops.c[]
-* link:rootfs_overlay/lkmc/fops.sh[]
-
 Then give this a try:
 
 ....
@@ -7713,6 +7724,14 @@ sh -x ./fops.sh
 We have put printks on each fop, so this allows you to see which system calls are being made for each command.
 
 No, there no official documentation: https://stackoverflow.com/questions/15213932/what-are-the-struct-file-operations-arguments
+
+[[memfile]]
+====== memfile.c
+
+This example behaves the same as <<fops>>, except that the in-memory virtual file has unlimited size. In the kernel module we have therefore to so a bit of memory management and somehow increase the size of the buffer as needed.
+
+* link:kernel_modules/memfile.c[]
+* link:rootfs_overlay/lkmc/memfile.sh[]
 
 [[seq-file]]
 ==== seq_file
@@ -9993,6 +10012,89 @@ See also:
 
 * https://stackoverflow.com/questions/5429137/how-to-print-register-values-in-gdb/31340294#31340294
 * https://stackoverflow.com/questions/24169614/how-to-show-all-x86-control-registers-when-debugging-the-linux-kernel-in-gdb-thr/59311764#59311764
+
+[[scull]]
+==== scull
+
+This kernel module is a port of scull example from LDD3. It was tested on LKMC e1834763088b8a7532b5fae800039de880471f2d + 1 with Linux kernel 6.8.12.
+
+"Scull" is an acronym for "Simple Character Utility for Loading Localities". This expansion is mostly meaningless however, but there you are.
+
+Source code:
+
+* link:kernel_modules/scull.c[]
+* link:rootfs_overlay/lkmc/scull.sh[]
+
+Create the devices and test them:
+
+....
+scull.sh
+....
+
+scull creates several character devices.
+
+The most "basic" one is `/dev/scull0`, which acts  a bit as an in-memory file, except that it has weird quantizations applied to it so that you can't append as normal and it doesn't really look like a regular file. What it actually is more like is an object pool.
+
+The original scull interface is very weird and would erase all data on write-only `O_WRONLY`, but not on read/write `O_RDWR`, which doesn't make much sense:
+
+....
+int scull_open(struct inode *inode, struct file *filp) {
+    if ( (filp->f_flags & O_ACCMODE) == O_WRONLY)
+        scull_trim(dev); /* ignore errors */
+....
+
+We have modified that to the much more reasonable:
+
+....
+	if ((filp->f_flags & O_TRUNC)) {
+....
+
+The old weird truncation condition makes the code hard to test as there is no way to write to two different blocks like it and keep them both in memory, unless you are able to find a CLI tool that supports `O_RDWR` or you write a C program to test things.
+
+With our new inferface, we can differentiate clear all vs don't clear all in the usual manner, e.g. this clears:
+
+....
+echo asdf > /dev/scull0
+....
+
+but this doesn't:
+
+....
+echo asdf >> /dev/scull0
+....
+
+The examples from our test should make its weird behavior clearer e.g.:
+
+....
+# Append starts writing from the start of the 4k block, not like the usual semantic.
+printf asdf > "$f"
+printf qw >> "$f"
+[ "$(cat "$f")" = qwdf ]
+
+# Overwrite first clears everything, then writes to start of 4k block.
+printf asdf > /dev/${module}0
+printf qw > /dev/${module}0
+[ "$(cat "$f")" = qw ]
+
+# Read from the middle
+printf asdf > /dev/${module}0
+[ "$(dd if="$f" bs=1 count=2 skip=2 status=none)" = df ]
+
+# Write to the middle
+printf asdf > /dev/${module}0
+printf we | dd of="$f" bs=1 seek=1 conv=notrunc status=none
+[ "$(cat "$f")" = aqwf ]
+...
+
+It is also worth noting that the implementation of scull is meant to be "readable" but not optimal:
+
+____
+kmalloc is not the most efficient way to allocate large areas of memory (see Chapter 8), so the implementation chosen for scull is not a particularly smart one. The source code for a smart implementation would be more difficult to read, and the aim of this section is to show read and write, not memory management. That’s why the code just uses kmalloc and kfree without resorting to allocation of whole pages, although that approach would be more efficient.
+____
+
+Another shortcoming of the example is that it uses mutexes, where rwsem would be the clearly superior choice.
+
+This module was derived from https://github.com/martinezjavier/ldd3/tree/30f801cd0157e8dfb41193f471dc00d8ca10239f/scull which had already ported it to much more recent kernel versions for us. Ideally we should just use that repo as a submodule, but we were lazy to setup the buildroot properly for now, and decided to dump it all into a single file to start with.
 
 == FreeBSD
 
@@ -28111,6 +28213,14 @@ The `--linux-build-id` option should be passed to all scripts that support it, m
 .....
 
 To run both kernels simultaneously, one on each QEMU instance, see: xref:simultaneous-runs[xrefstyle=full].
+
+You can also build <<kernel-modules>> against a specific prebuilt kernel with:
+
+....
+./build-modules --linux-build-id v4.16
+....
+
+This will then allow you to insmod the kernel modules on your newly built kernel.
 
 ==== QEMU build variants
 

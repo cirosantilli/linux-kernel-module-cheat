@@ -3,7 +3,9 @@ set -e
 
 # Setup
 f=/sys/kernel/debug/lkmc_fops
-insmod fops.ko
+mod="${1:-fops.ko}"
+shift
+insmod "$mod" "$@"
 
 # read
 [ "$(cat "$f")" = abcd ]
@@ -18,7 +20,7 @@ set +e
 printf 12345 > "$f"
 exit_status="$?"
 set -e
-[ "$exit_status" -eq 8 ]
+[ "$exit_status" -eq 1 ]
 [ "$(cat "$f")" = abcd ]
 
 # seek
@@ -26,5 +28,12 @@ printf 1234 > "$f"
 printf z | dd bs=1 of="$f" seek=2
 [ "$(cat "$f")" = 12z4 ]
 
+# seek past the end
+printf 1234 > "$f"
+printf xy | dd bs=1 of="$f" seek=6
+[ "$(cat "$f")" = 1234 ]
+
 # Teardown
 rmmod fops
+
+echo passed

@@ -17,7 +17,7 @@ static struct dentry *debugfs_file;
 
 /* Called at the beginning of every read.
  *
- * The return value is passsed to the first show.
+ * The return value is passed to the first show.
  * It normally represents the current position of the iterator.
  * It could be any struct, but we use just a single integer here.
  *
@@ -28,7 +28,7 @@ static void *start(struct seq_file *s, loff_t *pos)
 {
 	loff_t *spos;
 
-	pr_info("start pos = %llx\n", (unsigned long long)*pos);
+	pr_info("start pos=%llx\n", (unsigned long long)*pos);
  	spos = kmalloc(sizeof(loff_t), GFP_KERNEL);
 	if (!spos || *pos >= max)
 		return NULL;
@@ -46,7 +46,7 @@ static void *next(struct seq_file *s, void *v, loff_t *pos)
 	loff_t *spos;
 
 	spos = v;
-	pr_info("next pos = %llx\n", (unsigned long long)*pos);
+	pr_info("next pos=%llx\n", (unsigned long long)*pos);
 	if (*pos >= max)
 		return NULL;
 	*pos = ++*spos;
@@ -66,7 +66,7 @@ static int show(struct seq_file *s, void *v)
 	loff_t *spos;
 
 	spos = v;
-	pr_info("show pos = %llx\n", (unsigned long long)*spos);
+	pr_info("show pos=%llx\n", (unsigned long long)*spos);
 	seq_printf(s, "%llx\n", (long long unsigned)*spos);
 	return 0;
 }

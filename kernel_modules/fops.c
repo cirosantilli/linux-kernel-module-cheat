@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#file-operations */
+/* https://cirosantilli.com/linux-kernel-module-cheat#fops */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */
@@ -10,7 +10,15 @@
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
 static struct dentry *debugfs_file;
+// The buffer can be stored in two ways: static module data or kmalloc.
+#define STATIC 1
+#if STATIC
 static char data[] = {'a', 'b', 'c', 'd'};
+#define BUFLEN sizeof(data)
+#else
+static char *data;
+#define BUFLEN 4
+#endif
 
 static int open(struct inode *inode, struct file *filp)
 {
@@ -19,7 +27,7 @@ static int open(struct inode *inode, struct file *filp)
 }
 
 /* @param[in,out] off: gives the initial position into the buffer.
- *      We must increment this by the ammount of bytes read.
+ *      We must increment this by the amount of bytes read.
  *      Then when userland reads the same file descriptor again,
  *      we start from that point instead.
  */
@@ -27,21 +35,18 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 {
 	ssize_t ret;
 
-	pr_info("read\n");
-	pr_info("len = %zu\n", len);
-	pr_info("off = %lld\n", (long long)*off);
-	if (sizeof(data) <= *off) {
+	pr_info("read len=%zu off=%lld\n", len, (long long)*off);
+	if (BUFLEN <= *off) {
 		ret = 0;
 	} else {
-		ret = min(len, sizeof(data) - (size_t)*off);
+		ret = min(len, BUFLEN - (size_t)*off);
 		if (copy_to_user(buf, data + *off, ret)) {
 			ret = -EFAULT;
 		} else {
 			*off += ret;
 		}
 	}
-	pr_info("buf = %.*s\n", (int)len, buf);
-	pr_info("ret = %lld\n", (long long)ret);
+	pr_info("ret=%lld\n", (long long)ret);
 	return ret;
 }
 
@@ -54,13 +59,11 @@ static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff
 {
 	ssize_t ret;
 
-	pr_info("write\n");
-	pr_info("len = %zu\n", len);
-	pr_info("off = %lld\n", (long long)*off);
-	if (sizeof(data) <= *off) {
+	pr_info("write len=%zu off=%lld\n", len, (long long)*off);
+	if (BUFLEN <= *off) {
 		ret = 0;
 	} else {
-		if (sizeof(data) - (size_t)*off < len) {
+		if (BUFLEN - (size_t)*off < len) {
 			ret = -ENOSPC;
 		} else {
 			if (copy_from_user(data + *off, buf, len)) {
@@ -89,9 +92,7 @@ static loff_t llseek(struct file *filp, loff_t off, int whence)
 {
 	loff_t newpos;
 
-	pr_info("llseek\n");
-	pr_info("off = %lld\n", (long long)off);
-	pr_info("whence = %lld\n", (long long)whence);
+	pr_info("llseek off=%lld whence=%lld\n", (long long)off, (long long)whence);
 	switch(whence) {
 		case SEEK_SET:
 			newpos = off;
@@ -100,7 +101,7 @@ static loff_t llseek(struct file *filp, loff_t off, int whence)
 			newpos = filp->f_pos + off;
 			break;
 		case SEEK_END:
-			newpos = sizeof(data) + off;
+			newpos = BUFLEN + off;
 			break;
 		default:
 			return -EINVAL;
@@ -124,12 +125,24 @@ static const struct file_operations fops = {
 
 static int myinit(void)
 {
+#if STATIC == 0
+	data = kmalloc(BUFLEN, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+	data[0] = 'a';
+	data[1] = 'b';
+	data[2] = 'c';
+	data[3] = 'd';
+#endif
 	debugfs_file = debugfs_create_file("lkmc_fops", S_IRUSR | S_IWUSR, NULL, NULL, &fops);
 	return 0;
 }
 
 static void myexit(void)
 {
+#if STATIC == 0
+	kfree(data);
+#endif
 	debugfs_remove_recursive(debugfs_file);
 }
 
