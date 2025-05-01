@@ -46,11 +46,14 @@ consts['root_dir'] = os.path.dirname(os.path.abspath(__file__))
 consts['data_dir'] = os.path.join(consts['root_dir'], 'data')
 consts['p9_dir'] = os.path.join(consts['data_dir'], '9p')
 consts['gem5_non_default_source_root_dir'] = os.path.join(consts['data_dir'], 'gem5')
+consts['worktree_basename'] = 'wt'
+consts['worktree_dir'] = os.path.join(consts['data_dir'], consts['worktree_basename'])
+consts['linux_worktree_root_dir'] = os.path.join(consts['worktree_dir'], 'linux')
 if consts['in_docker']:
     # fatal: unsafe repository ('/root/lkmc' is owned by someone else)
     # Fuck these error checks, let me shoot my feet in peace.
     # The best solution would be to actually get Docker to mount
-    # the current diretory as root. But I've never been able to do that:
+    # the current directory as root. But I've never been able to do that:
     # * https://stackoverflow.com/questions/51973179/docker-mount-volumes-as-root
     # * https://unix.stackexchange.com/questions/523492/how-to-mount-files-as-specific-user-when-using-docker-namespace-remapping
     # * https://stackoverflow.com/questions/35291520/docker-and-userns-remap-how-to-manage-volume-permissions-to-share-data-betwee
@@ -93,12 +96,11 @@ consts['submodules_dir'] = os.path.join(consts['root_dir'], 'submodules')
 consts['buildroot_source_dir'] = os.path.join(consts['submodules_dir'], 'buildroot')
 consts['crosstool_ng_source_dir'] = os.path.join(consts['submodules_dir'], 'crosstool-ng')
 consts['crosstool_ng_supported_archs'] = set(['arm', 'aarch64'])
-consts['linux_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
 consts['linux_config_dir'] = os.path.join(consts['root_dir'], 'linux_config')
+consts['linux_default_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
 consts['gem5_default_source_dir'] = os.path.join(consts['submodules_dir'], 'gem5')
 consts['googletest_source_dir'] = os.path.join(consts['submodules_dir'], 'googletest')
 consts['rootfs_overlay_dir'] = os.path.join(consts['root_dir'], 'rootfs_overlay')
-consts['extract_vmlinux'] = os.path.join(consts['linux_source_dir'], 'scripts', 'extract-vmlinux')
 consts['qemu_source_dir'] = os.path.join(consts['submodules_dir'], 'qemu')
 consts['parsec_benchmark_source_dir'] = os.path.join(consts['submodules_dir'], 'parsec-benchmark')
 consts['ccache_dir'] = os.path.join('/usr', 'lib', 'ccache')
@@ -116,7 +118,7 @@ for key in consts['arch_short_to_long_dict']:
     consts['arch_choices'].add(key)
     consts['arch_choices'].add(consts['arch_short_to_long_dict'][key])
 consts['default_arch'] = 'x86_64'
-consts['gem5_cpt_prefix'] = '^cpt\.'
+consts['gem5_cpt_prefix'] = r'^cpt\.'
 def git_sha(repo_path):
     return subprocess.check_output(['git', '-C', repo_path, 'log', '-1', '--format=%H']).decode().rstrip()
 consts['sha'] = common.git_sha(consts['root_dir'])
@@ -144,7 +146,7 @@ consts['userland_out_exts'] = [
     consts['obj_ext'],
 ]
 consts['default_config_file'] = os.path.join(consts['data_dir'], 'config.py')
-consts['serial_magic_exit_status_regexp_string'] = b'lkmc_exit_status_(\d+)'
+consts['serial_magic_exit_status_regexp_string'] = br'lkmc_exit_status_(\d+)'
 consts['baremetal_lib_basename'] = 'lib'
 consts['emulator_userland_only_short_to_long_dict'] = collections.OrderedDict([
     ('n', 'native'),
@@ -429,6 +431,12 @@ https://cirosantilli.com/linux-kernel-module-cheat#vmlinux-vs-bzimage-vs-zimage-
             '--linux-source-dir',
             help='''\
 Use the given directory as the Linux source tree.
+'''
+        )
+        self.add_argument(
+            '--linux-worktree',
+            help='''\
+Use custom linux source from given worktree.
 '''
         )
         self.add_argument(
@@ -868,9 +876,6 @@ Incompatible archs are skipped.
         env['staging_dir'] = join(env['out_dir'], 'staging', env['arch'])
         env['buildroot_staging_dir'] = join(env['buildroot_build_dir'], 'staging')
         env['buildroot_target_dir'] = join(env['buildroot_build_dir'], 'target')
-        if not env['_args_given']['linux_source_dir']:
-            env['linux_source_dir'] = os.path.join(consts['submodules_dir'], 'linux')
-        common.extract_vmlinux = os.path.join(env['linux_source_dir'], 'scripts', 'extract-vmlinux')
         env['linux_buildroot_build_dir'] = join(env['buildroot_build_build_dir'], 'linux-custom')
 
         # QEMU
@@ -1018,8 +1023,16 @@ Incompatible archs are skipped.
         env['run_cmd_file'] = join(env['run_dir'], env['run_cmd_file_basename'])
 
         # Linux kernel.
+        if env['_args_given']['gem5_source_dir']:
+            assert os.path.exists(env['gem5_source_dir'])
+        else:
+            if env['_args_given']['linux_worktree']:
+                env['linux_source_dir'] = join(env['linux_worktree_root_dir'], env['linux_worktree'])
+            else:
+                env['linux_source_dir'] = env['linux_default_source_dir']
         if not env['_args_given']['linux_build_dir']:
             env['linux_build_dir'] = join(env['out_dir'], 'linux', env['linux_build_id'], env['arch'])
+        env['extract_vmlinux'] = os.path.join(env['linux_source_dir'], 'scripts', 'extract-vmlinux')
         env['lkmc_vmlinux'] = join(env['linux_build_dir'], 'vmlinux')
         if env['arch'] == 'arm':
             env['android_arch'] = 'arm'
