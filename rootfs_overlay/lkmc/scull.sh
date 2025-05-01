@@ -4,7 +4,7 @@ set -eux
 name=scull
 
 mod="${1:-$name.ko}"
-shift
+[ $# -gt 1] && shift
 insmod "$mod" "$@"
 major="$(awk "\$2==\"$name\" {print \$1}" /proc/devices)"
 

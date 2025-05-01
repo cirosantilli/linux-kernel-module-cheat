@@ -9,7 +9,7 @@ odraw() (
 # Setup
 f=/sys/kernel/debug/lkmc_memfile
 mod="${1:-memfile.ko}"
-shift
+[ $# -gt 1] && shift
 insmod "$mod" "$@"
 
 # Starts off empty

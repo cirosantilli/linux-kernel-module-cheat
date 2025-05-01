@@ -2,7 +2,7 @@
 set -e
 f=/sys/kernel/debug/lkmc_seq_file
 mod="${1:-seq_file.ko}"
-shift
+[ $# -gt 1] && shift
 insmod "$mod" "$@"
 [ "$(cat "$f")" = "$(printf '0\n1\n2\n')" ]
 [ "$(cat "$f")" = "$(printf '0\n1\n2\n')" ]
