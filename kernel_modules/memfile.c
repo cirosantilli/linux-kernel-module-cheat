@@ -6,7 +6,8 @@
 #include <linux/kernel.h> /* min */
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
-#include <linux/string.h> /* strcpy */
+#include <linux/slab.h> /* kvzalloc, kvrealloc, kvfree */
+#include <linux/string.h> /* memset */
 #include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/rwsem.h>
 #include <uapi/linux/stat.h> /* S_IRUSR */
@@ -43,7 +44,7 @@ int dyn_arr_reserve(dyn_arr_t *a, size_t off, size_t len);
 int dyn_arr_reserve(dyn_arr_t *a, size_t off, size_t len)
 {
 	size_t new_used, new_size;
-	
+
 	new_used = off + len;
 	if (new_used > a->_size) {
 		new_size = new_used * 2;
@@ -99,10 +100,12 @@ static ssize_t read(struct file *filp, char __user *buf, size_t len, loff_t *off
 		ret = min(len, data.used - (size_t)*off);
 		if (copy_to_user(buf, data.buf + *off, ret)) {
 			ret = -EFAULT;
+			goto out;
 		} else {
 			*off += ret;
 		}
 	}
+out:
 	up_read(&rwsem);
 	if (log) pr_info("read ret:=%lld\n", (long long)ret);
 	return ret;
@@ -114,15 +117,21 @@ static ssize_t write(struct file *filp, const char __user *buf, size_t len, loff
 
 	if (log) pr_info("write len=%zu off=%lld\n", len, (long long)*off);
 	down_write(&rwsem);
-	dyn_arr_reserve(&data, *off, len);
+	ret = dyn_arr_reserve(&data, *off, len);
+	if (ret) {
+		ret = -ENOSPC;
+		goto out;
+	}
 	if (copy_from_user(data.buf + *off, buf, len)) {
 		ret = -EFAULT;
+		goto out;
 	} else {
 		ret = len;
 		*off += ret;
 	}
-	up_write(&rwsem);
+out:
 	if (log) pr_info("write ret:=%lld\n", (long long)ret);
+	up_write(&rwsem);
 	return ret;
 }
 
@@ -168,7 +177,7 @@ static const struct file_operations fops = {
 static int myinit(void)
 {
 	int ret;
-	
+
 	ret = dyn_arr_init(&data, 1);
 	if (ret)
 		return ret;
