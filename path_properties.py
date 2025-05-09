@@ -5,6 +5,8 @@ import signal
 
 from shell_helpers import LF
 
+linux_kernel_version_tuple = (5,9,2)
+
 class PathProperties:
     default_c_std = 'c11'
     default_cxx_std = 'c++17'
@@ -59,6 +61,7 @@ class PathProperties:
         'qemu_x86_64_int_syscall': False,
         'interactive': False,
         'minimum_gcc_version': (0, 0, 0),
+        'minimum_linux_version': (0, 0, 0),
         # The script takes a perceptible amount of time to run. Possibly an infinite loop.
         'more_than_1s': False,
         # The path should not be built. E.g.:
@@ -238,6 +241,8 @@ class PathProperties:
                 )
             ) and not (
                 self['minimum_gcc_version'] > self.current_gcc_version
+            ) and not (
+                self['minimum_linux_version'] > linux_kernel_version_tuple
             )
         )
 
