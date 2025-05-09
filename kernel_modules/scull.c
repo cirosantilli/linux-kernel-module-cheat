@@ -20,15 +20,11 @@
  */
 
 #define INCLUDE_VERMAGIC
-#include <asm/atomic.h>
-#include <asm/uaccess.h>
 #include <linux/build-salt.h>
 #include <linux/cdev.h>
 #include <linux/compiler.h>
 #include <linux/cred.h> /* current_uid(), current_euid() */
-#include <linux/elfnote-lto.h>
 #include <linux/errno.h> /* error codes */
-#include <linux/export-internal.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -48,6 +44,15 @@
 #include <linux/uaccess.h> /* copy_*_user */
 #include <linux/vermagic.h>
 #include <linux/version.h>
+/* As a Linux kernel bug tested on Linux v5.9.2 these includes must come after some other includes
+ * otherwise the build fails with: error: unknown type name ‘mm_segment_t’;
+ * Their origin from LDD3 give a clue as to what may need to come before:
+ * https://github.com/martinezjavier/ldd3/blob/d0c90d4d872b8591563d5a4ba7b3f522c5072551/scull/pipe.c#L29
+ * https://github.com/martinezjavier/ldd3/blob/d0c90d4d872b8591563d5a4ba7b3f522c5072551/scull/access.c#L29
+ * This bug had been fixed somewhere by linux v6.8.12.
+ */
+#include <asm/uaccess.h>
+#include <linux/atomic.h>
 
 /* Liner kernel version dependant stuff. */
 
@@ -265,7 +270,7 @@ static int scull_s_open(struct inode *inode, struct file *filp)
 {
 	struct scull_dev *dev = &scull_s_device; /* device information */
 
-	if (! atomic_dec_and_test (&scull_s_available)) {
+	if (!atomic_dec_and_test(&scull_s_available)) {
 		atomic_inc(&scull_s_available);
 		return -EBUSY; /* already open */
 	}
@@ -1610,8 +1615,8 @@ void scull_p_cleanup(void)
 }
 
 BUILD_SALT;
-BUILD_LTO_INFO;
 MODULE_INFO(vermagic, VERMAGIC_STRING);
+
 MODULE_INFO(name, KBUILD_MODNAME);
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");

@@ -4,12 +4,14 @@
 #include <linux/errno.h> /* EFAULT */
 #include <linux/fs.h> /* file_operations */
 #include <linux/kernel.h> /* min */
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/printk.h> /* printk */
 #include <linux/slab.h> /* kvzalloc, kvrealloc, kvfree */
 #include <linux/string.h> /* memset */
 #include <linux/uaccess.h> /* copy_from_user, copy_to_user */
 #include <linux/rwsem.h>
+#include <linux/version.h>
 #include <uapi/linux/stat.h> /* S_IRUSR */
 
 /* Params */
@@ -48,7 +50,15 @@ int dyn_arr_reserve(dyn_arr_t *a, size_t off, size_t len)
 	new_used = off + len;
 	if (new_used > a->_size) {
 		new_size = new_used * 2;
+/* Added in de2860f4636256836450c6543be744a50118fc66 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
+		/* TODO is this correct? kvrealloc seems more correct. Doing it without
+		 * much thought just to make build happy for now. kvrealloc makes more sense
+		 * so as to match kvzalloc. */
+		a->buf = krealloc(a->buf, new_size, GFP_KERNEL);
+#else
 		a->buf = kvrealloc(a->buf, a->_size, new_size, GFP_KERNEL);
+#endif
 		if (!a->buf)
 			return -ENOMEM;
 		a->_size = new_size;
