@@ -4,7 +4,7 @@ set -e
 # Setup
 f=/sys/kernel/debug/lkmc_fops
 mod="${1:-fops.ko}"
-[ $# -gt 1] && shift
+[ $# -gt 1 ] && shift
 insmod "$mod" "$@"
 
 # read

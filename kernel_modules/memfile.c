@@ -1,4 +1,4 @@
-/* https://cirosantilli.com/linux-kernel-module-cheat#fops */
+/* https://cirosantilli.com/linux-kernel-module-cheat#memfile */
 
 #include <linux/debugfs.h>
 #include <linux/errno.h> /* EFAULT */

@@ -364,14 +364,14 @@ The safe way is to fist <<rebuild-buildroot-while-running,quit QEMU>>, rebuild t
 ./run --eval-after 'insmod hello.ko'
 ....
 
-or for a slightly faster turnaround just leave it on 9p and use it from there:
+where `./build-buildroot` is required after `./build-modules` because it re-generates the root filesystem with the modules that we compiled at `./build-modules`.
+
+Alternatively, for a slightly faster turnaround just leave it on 9p and use it from there:
 
 ....
 ./build-modules
 ./run --eval-after 'insmod /mnt/9p/out_rootfs_overlay/lkmc/hello.ko'
 ....
-
-`./build-buildroot` is required after `./build-modules` because it re-generates the root filesystem with the modules that we compiled at `./build-modules`.
 
 You can see that `./build` does that as well, by running:
 
@@ -7732,6 +7732,14 @@ This example behaves the same as <<fops>>, except that the in-memory virtual fil
 
 * link:kernel_modules/memfile.c[]
 * link:rootfs_overlay/lkmc/memfile.sh[]
+
+TODO: this example builds but oopses with out of memory on our currently default kernel v5.9.2 when doing the big allocation at:
+
+....
+dd if=/dev/zero of="$f" bs=1k count=1M
+....
+
+It works however on kernel 6.8.12, we're not sure why. We do have a potential krealloc vs kvrealloc on version check which is a very likely reason for the issue, but it has not been investigated.
 
 [[seq-file]]
 ==== seq_file

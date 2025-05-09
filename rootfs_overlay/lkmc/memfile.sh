@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eux
 
 # Helpers
 odraw() (
@@ -9,7 +9,7 @@ odraw() (
 # Setup
 f=/sys/kernel/debug/lkmc_memfile
 mod="${1:-memfile.ko}"
-[ $# -gt 1] && shift
+[ $# -gt 1 ] && shift
 insmod "$mod" "$@"
 
 # Starts off empty
